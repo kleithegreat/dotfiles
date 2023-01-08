@@ -1,0 +1,113 @@
+{
+    "layer": "top",
+    "position": "top", // (top|bottom|left|right)
+    "height": 42,
+    "margin-top": 6,
+    "margin-left": 6,
+    "margin-right": 6,
+
+    "spacing": 6,
+
+    "gtk-layer-shell": true,
+
+    // LEFT MODULES
+    "modules-left": ["custom/launcher", "wlr/workspaces", "cpu", "temperature", "memory", "hyprland/window"],
+
+    "custom/launcher": {
+        // "format": "", paper plane icon
+        "format": "  ",
+        "on-click": "exec rofi -show drun",
+        "tooltip": false
+    },
+
+    "wlr/workspaces": {
+        "format": "{icon}",
+        "on-click": "activate",
+        "format-icons": {
+            "default": "",
+            "active": ""
+        },
+        "sort-by-number": true
+    },
+
+    "cpu": {
+        "interval": 10,
+        "format": "  {avg_frequency} GHz ",
+        "max-length": 14
+    },
+
+    "temperature": {
+        "format": " {temperatureC}"
+    },
+
+    "memory": {
+        "interval": 30,
+        "format": " {percentage}%",
+        "max-length": 10
+    },
+    /*
+    "hyprland/window": {
+        "format": "  {} ",
+        "width": []
+    },
+    */
+
+    // CENTER MODULES
+    "modules-center": [],
+
+    "clock": {
+        "timezone": "America/Chicago",
+        "format": " {:%I:%M %p} ",
+        "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>",
+        "format-alt": "{:%m-%d-%Y}"
+    },
+
+    // RiGHT MODULES
+    "modules-right": ["pulseaudio", "backlight", "network", "battery", "clock", "custom/power"],
+
+    "pulseaudio": {
+        "format": "{icon} {volume}%",
+        "format-muted": "  ",
+        "format-icons": {
+            //"headphones": "",
+            "default": ["", "", ""] //low high
+        },
+        "on-click": "pavucontrol",
+        "ignored-sinks": ["Easy Effects Sink"]
+    },
+
+    "backlight": {
+        "device": "intel_backlight",
+        "format": "{icon} {percent}%",
+        "format-icons": ""
+    },
+
+    "network": {
+        "format-wifi": " ",
+        "format-ethernet": "  ",
+        "tooltip-format": "{essid} Strength: {signalStrength}%",
+        "format-linked": "{ifname} (No IP) ",
+        "format-disconnected": "Disconnected ⚠"
+        //"format-alt": ""
+    },
+
+    "battery": {
+        "states": {
+            // "good": 95,
+            "warning": 30,
+            "critical": 15
+        },
+        "format": " {icon}  {capacity}% ",
+        "format-charging": " {capacity}%",
+        "format-plugged": " {capacity}%",
+        // "format-good": "", // An empty format will hide the module
+        // "format-full": "",
+        "format-icons": ["", "", "", "", ""]
+    },
+
+    "custom/power": {
+        "format": " ",
+        "on-click": "exec rofi -show power-menu -modi power-menu:rofi-power-menu",
+        "tooltip": false
+    }
+}

@@ -1,0 +1,143 @@
+@import "macchiato.css";
+
+* {
+    font-family: JetBrainsMono Nerd Font;
+    font-size: 14px;
+    color: #24273a;
+    border-radius: 12px;
+}
+
+
+window#waybar {
+    background-color: #24273a;
+    transition-property: background-color;
+    transition-duration: .5s;
+}
+
+button {
+    /* Use box-shadow instead of border so the text isn't offset */
+    box-shadow: inset 0 -3px transparent;
+    /* Avoid rounded borders under each button name */
+    border: none;
+    border-radius: 3px;
+}
+
+/* https://github.com/Alexays/Waybar/wiki/FAQ#the-workspace-buttons-have-a-strange-hover-effect */
+button:hover {
+    background: inherit;
+    box-shadow: inset 0 -1px #000000;
+}
+
+#custom-launcher {
+    padding-right: 5px;
+    background-color: @rosewater;
+
+    margin-top: 5px;
+    margin-bottom: 5px;
+    margin-left: 5px;
+}
+
+#workspaces{
+    margin-top: 5px;
+    margin-bottom: 5px;
+    background-color: @mauve;
+}
+
+#workspaces button:hover{
+    background-color: @pink;
+    border-radius: 12px;
+}
+
+#workspaces button.focused,
+#workspaces button.active {
+    background: @teal;
+    transition-property: background-color;
+    transition-duration: 0.5s;
+    border-radius: 12px;
+}
+
+#cpu {
+    margin-top: 5px;
+    margin-bottom: 5px;
+    background-color: @teal;
+    padding: 6px;
+}
+
+#temperature {
+    margin-top: 5px;
+    margin-bottom: 5px;
+    background-color: @teal;
+    padding-left: 6px;
+    padding-right: 6px;
+}
+
+#memory {
+    margin-top: 5px;
+    margin-bottom: 5px;
+    background-color: @teal;
+    padding: 6px;
+}
+/*
+#window {
+    margin-top: 5px;
+    margin-bottom: 5px;
+    background-color: @subtext0;
+    padding: 6px;
+    animation-name: ;
+}*/
+
+#clock {
+    margin-top: 5px;
+    margin-bottom: 5px;
+    background-color: @peach;
+    padding: 6px;
+}
+
+#pulseaudio {
+    margin-top: 5px;
+    margin-bottom: 5px;
+    background-color: @text;
+    padding: 6px;
+}
+
+#backlight {
+    margin-top: 5px;
+    margin-bottom: 5px;
+    background-color: @text;
+    padding: 6px;
+}
+
+#network {
+    margin-top: 5px;
+    margin-bottom: 5px;
+    background-color: @pink;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    padding-left: 9px;
+    padding-right: 8px;
+}
+
+#battery {
+    margin-top: 5px;
+    margin-bottom: 5px;
+    background-color: @yellow;
+    padding: 6px;
+}
+
+#custom-power {
+    margin-top: 5px;
+    margin-bottom: 5px;
+    margin-right: 5px;
+    background-color: @maroon;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    padding-left: 9px;
+    padding-right: 4px;
+}
+
+@keyframes blink {
+    to {
+        background-color: #ffffff;
+        color: #000000;
+    }
+}
