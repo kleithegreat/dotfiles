@@ -1,0 +1,9 @@
+[Unit]
+Description=LXQt PolicyKit Agent
+
+[Service]
+Type=simple
+ExecStart=/run/current-system/sw/bin/lxqt-policykit-agent
+
+[Install]
+WantedBy=default.target

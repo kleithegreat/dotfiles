@@ -1,0 +1,11 @@
+[Unit]
+Description=Preload Firefox into memory
+
+[Service]
+Type=oneshot
+ExecStart=/run/current-system/sw/bin/firefox
+ExecStop=/run/current-system/sw/bin/pkill -f firefox
+RemainAfterExit=yes
+
+[Install]
+WantedBy=default.target

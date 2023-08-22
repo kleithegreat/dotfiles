@@ -1,0 +1,12 @@
+[Unit]
+Description=GNOME Keyring Daemon
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/run/current-system/sw/bin/gnome-keyring-daemon --start --components=pkcs11,secrets,ssh
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+

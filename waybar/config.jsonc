@@ -1,0 +1,157 @@
+{
+    "layer": "top",
+    "position": "top", // (top|bottom|left|right)
+    "height": 34,
+    "margin-top": 5,
+    "margin-left": 5,
+    "margin-right": 5,
+
+    "gtk-layer-shell": true,
+
+    // LEFT MODULES
+    "modules-left": [/*"custom/launcher"*/ "cpu", "memory", "wlr/workspaces" /*, "tray"*/],
+    /*
+    "custom/launcher": {
+        // "format": "", paper plane icon
+        "format": "",
+        "on-click": "exec rofi -show drun",
+        "tooltip": false
+    },
+    */
+
+    "wlr/workspaces": {
+        "format": "{icon}",
+        "on-click": "activate",
+        "format-icons": {
+            "1": "1",
+            "2": "2",
+            "3": "3",
+            "4": "4",
+            "5": "5",
+            "6": "6",
+            "7": "7",
+            "8": "8",
+            "9": "9",
+            "default": " "
+          },
+        "sort-by-number": true,
+        
+        "persistant_workspaces": {
+            "1": ["eDP-1"], // Always show a workspace with name '3', on all outputs if it does not exists
+            "2": ["eDP-1"], //["eDP-1"], // Always show a workspace with name '4', on output 'eDP-1' if it does not exists
+            "3": ["eDP-1"], //["eDP-1", "DP-2"] // Always show a workspace with name '5', on outputs 'eDP-1' and 'DP-2' if it does not exists
+            "4": ["eDP-1"]
+        }
+        
+    },
+
+    /*
+    "tray": {
+        "icon-size": 18,
+        "spacing": 10,
+
+        "show-passive-items": true
+    },
+    */
+
+    "cpu": {
+        "interval": 10,
+        "format": " {avg_frequency} GHz",
+        "max-length": 14
+    },
+
+    "memory": {
+        "interval": 30,
+        "format": " {percentage}%",
+        "max-length": 10
+    },
+
+    /*
+    "hyprland/window": {
+        "format": "  {} ",
+        "width": []
+    },
+    */
+
+    // CENTER MODULES
+    "modules-center": ["mpris"],
+
+    "mpris": {
+        "format": "[{player_icon}] {artist} - {title}",
+        "format-paused": "[{status_icon}] <i>{artist} - {title}</i>",
+        "player-icons": {
+            "default": "▶",
+            "mpv": "🎵"
+        },
+        "status-icons": {
+            "paused": "⏸ "
+        },
+        "ignored-players": ["firefox", "librewolf", "chromium", "discord"]
+    },
+    
+
+    // RIGHT MODULES
+    "modules-right": ["pulseaudio", "backlight", "network", "battery", "clock", "custom/power"],
+
+    "pulseaudio": {
+        "format": "{icon} {volume}%",
+        "format-muted": " Muted",
+        "format-icons": {
+            //"headphones": "",
+            "default": ["", "", ""] //low high
+        },
+        "on-click": "pavucontrol",
+        "ignored-sinks": ["Easy Effects Sink"]
+    },
+
+    "backlight": {
+        "device": "intel_backlight",
+        "format": "{icon} {percent}%",
+        "format-icons": ""
+    },
+
+    "network": {
+        "format-wifi": " ",
+        "format-ethernet": "",
+        "tooltip-format": "{essid} Strength: {signalStrength}%",
+        "format-linked": "{ifname} (No IP) ",
+        "format-disconnected": "Disconnected "
+        //"format-alt": ""
+    },
+
+    "battery": {
+        "states": {
+            // "good": 95,
+            "warning": 30,
+            "critical": 15
+        },
+        "format": "{icon}  {capacity}%",
+        "format-charging": " {capacity}%",
+        "format-plugged": " {capacity}%",
+        // "format-good": "", // An empty format will hide the module
+        // "format-full": "",
+        "format-icons": ["", "", "", "", ""]
+    },
+
+    "clock": {
+        "timezone": "America/Chicago",
+        "format": "{:%I:%M %p}",
+        "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>",
+        "format-alt": "{:%m-%d-%Y}",
+
+        "today-format": "<span color='#8bd5ca'><b><u>{}</u></b></span>",
+        "format-calendar": "<span color='#f4dbd6'><b>{}</b></span>",
+        "format-calendar-weekdays": "<span color='#a5adcb'><b>{}</b></span>",
+        "on-scroll": {
+            "calendar": 1
+        }
+    }
+
+    /*
+    "custom/power": {
+        "format": "",
+        "on-click": "exec rofi -show power-menu -modi power-menu:rofi-power-menu",
+        "tooltip": false
+    }
+    */
+}
