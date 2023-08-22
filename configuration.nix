@@ -75,49 +75,49 @@
     unstable = import <nixos-unstable> {};
   in with pkgs; [
     pkgs.alacritty
-    pkgs.git
-    pkgs.wget
-    pkgs.vim
-    pkgs.firefox
-    pkgs.ungoogled-chromium
-    pkgs.neovim
-    pkgs.neofetch
-    pkgs.kitty
-    pkgs.hyprpaper
-    pkgs.eww-wayland
-    unstable.waybar-hyprland
-    pkgs.htop
-    pkgs.btop
-    pkgs.swaylock-effects
-    pkgs.swayidle
-    pkgs.rofi-wayland
-    pkgs.fish
-    pkgs.vscode
     pkgs.brightnessctl
-    pkgs.exa
-    pkgs.nerdfonts
-    pkgs.nerdfix
-    pkgs.starship
-    pkgs.pulseaudio
-    pkgs.playerctl
+    pkgs.btop
     pkgs.discord
-    pkgs.rustup
-    pkgs.pcmanfm
-    pkgs.gnumake
-    pkgs.spotify
-    pkgs.unrar
-    pkgs.zip
-    pkgs.unzip
-    pkgs.gcc
-    pkgs.gnome.gnome-keyring
-    pkgs.gparted
-    pkgs.psmisc
-    pkgs.gucharmap
-    pkgs.pandoc
-    pkgs.zathura
-    pkgs.vlc
+    pkgs.eww-wayland
+    pkgs.exa
     pkgs.file
+    pkgs.firefox
+    pkgs.fish
+    pkgs.git
+    pkgs.gnome.gnome-keyring
+    pkgs.gnumake
+    pkgs.gparted
+    pkgs.gucharmap
+    pkgs.htop
+    pkgs.hyprpaper
+    pkgs.kitty
     pkgs.lxqt.lxqt-policykit
+    pkgs.neofetch
+    pkgs.neovim
+    pkgs.nerdfix
+    pkgs.nerdfonts
+    pkgs.obsidian
+    pkgs.pandoc
+    pkgs.pcmanfm
+    pkgs.playerctl
+    pkgs.psmisc
+    pkgs.pulseaudio
+    pkgs.rofi-wayland
+    pkgs.rustup
+    pkgs.spotify
+    pkgs.starship
+    pkgs.swayidle
+    pkgs.swaylock-effects
+    pkgs.unrar
+    pkgs.ungoogled-chromium
+    pkgs.unzip
+    pkgs.vim
+    pkgs.vlc
+    pkgs.vscode
+    pkgs.wget
+    pkgs.zip
+    pkgs.zathura
+    unstable.waybar-hyprland
   ];
 
   # Miscellaneous Settings
