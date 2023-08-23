@@ -1,9 +1,0 @@
-[Unit]
-Description=Start Alacritty
-
-[Service]
-Type=simple
-ExecStart=/run/current-system/sw/bin/alacritty
-
-[Install]
-WantedBy=default.target

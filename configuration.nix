@@ -4,7 +4,7 @@
   # Imports and Basic System Settings
   imports = [ ./hardware-configuration.nix ];
   networking.hostName = "nixos";
-  time.timeZone = "America/New_York";
+  time.timeZone = "America/Chicago";
   i18n.defaultLocale = "en_US.UTF-8";
   system.stateVersion = "23.05";
 
@@ -70,19 +70,27 @@
     ];
   };
 
+  fileSystems."/mnt/windows" = {
+    device = "/dev/nvme1n1p3";
+    fsType = "ntfs-3g"; # Use the ntfs-3g driver
+    options = [ "rw" "umask=0007" "uid=1000" "gid=100" ];
+  };
+
   # Installed System Packages
   environment.systemPackages = let
-    unstable = import <nixos-unstable> {};
+  unstable = import <nixos-unstable> {};
   in with pkgs; [
     pkgs.alacritty
     pkgs.brightnessctl
     pkgs.btop
     pkgs.discord
+    pkgs.dunst
     pkgs.eww-wayland
     pkgs.exa
     pkgs.file
     pkgs.firefox
     pkgs.fish
+    pkgs.gcc
     pkgs.git
     pkgs.gnome.gnome-keyring
     pkgs.gnumake
@@ -96,12 +104,27 @@
     pkgs.neovim
     pkgs.nerdfix
     pkgs.nerdfonts
+    pkgs.ntfs3g
     pkgs.obsidian
     pkgs.pandoc
+    pkgs.pciutils
     pkgs.pcmanfm
+    pkgs.pipewire
     pkgs.playerctl
     pkgs.psmisc
     pkgs.pulseaudio
+    (python310.withPackages (ps: [
+    	ps.pip
+	    ps.jupyter
+    	ps.numpy
+    	ps.pandas
+    	ps.matplotlib
+    	ps.requests
+    	ps.beautifulsoup4
+    ]))
+    pkgs.qt6.qtwayland
+    pkgs.R
+    pkgs.rstudio
     pkgs.rofi-wayland
     pkgs.rustup
     pkgs.spotify
@@ -114,6 +137,7 @@
     pkgs.vim
     pkgs.vlc
     pkgs.vscode
+    pkgs.wireplumber
     pkgs.wget
     pkgs.zip
     pkgs.zathura

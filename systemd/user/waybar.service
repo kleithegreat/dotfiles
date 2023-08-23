@@ -1,9 +1,0 @@
-[Unit]
-Description=Start Waybar
-
-[Service]
-Type=simple
-ExecStart=/run/current-system/sw/bin/waybar
-
-[Install]
-WantedBy=default.target

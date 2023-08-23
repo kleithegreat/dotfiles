@@ -1,9 +1,0 @@
-[Unit]
-Description=Start VSCode
-
-[Service]
-Type=simple
-ExecStart=/run/current-system/sw/bin/code
-
-[Install]
-WantedBy=default.target
