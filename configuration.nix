@@ -83,6 +83,7 @@
     pkgs.alacritty
     pkgs.brightnessctl
     pkgs.btop
+    pkgs.clang
     pkgs.discord
     pkgs.dunst
     pkgs.eww-wayland
@@ -126,6 +127,7 @@
     pkgs.R
     pkgs.rstudio
     pkgs.rofi-wayland
+    pkgs.rustdesk
     pkgs.rustup
     pkgs.spotify
     pkgs.starship
@@ -136,12 +138,12 @@
     pkgs.unzip
     pkgs.vim
     pkgs.vlc
-    pkgs.vscode
+    pkgs.vscode-fhs
     pkgs.wireplumber
     pkgs.wget
     pkgs.zip
     pkgs.zathura
-    unstable.waybar-hyprland
+    unstable.waybar
   ];
 
   # Miscellaneous Settings
