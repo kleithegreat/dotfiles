@@ -83,7 +83,9 @@
     pkgs.alacritty
     pkgs.brightnessctl
     pkgs.btop
+    pkgs.catppuccin-gtk
     pkgs.clang
+    pkgs.dconf
     pkgs.discord
     pkgs.dunst
     pkgs.eww-wayland
@@ -93,18 +95,27 @@
     pkgs.fish
     pkgs.gcc
     pkgs.git
+    pkgs.glib
     pkgs.gnome.gnome-keyring
+    pkgs.gnome.gnome-settings-daemon43
+    pkgs.gnome.gnome-tweaks
     pkgs.gnumake
     pkgs.gparted
+    pkgs.gtk2
+    pkgs.gtk3
+    pkgs.gtk4
     pkgs.gucharmap
     pkgs.htop
     pkgs.hyprpaper
     pkgs.kitty
+    pkgs.libreoffice
+    pkgs.lxappearance
     pkgs.lxqt.lxqt-policykit
     pkgs.neofetch
     pkgs.neovim
     pkgs.nerdfix
     pkgs.nerdfonts
+    pkgs.nodejs
     pkgs.ntfs3g
     pkgs.obsidian
     pkgs.pandoc
@@ -116,7 +127,7 @@
     pkgs.pulseaudio
     (python310.withPackages (ps: [
     	ps.pip
-	    ps.jupyter
+	ps.jupyter
     	ps.numpy
     	ps.pandas
     	ps.matplotlib
