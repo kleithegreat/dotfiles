@@ -55,21 +55,15 @@
     isNormalUser = true;
     description = "kevin";
     extraGroups = [ "networkmanager" "wheel" ];
-    packages = with pkgs; [];
-  };
-
-  # Packages and Overlays
-  nixpkgs = {
-    config.allowUnfree = true;
-    overlays = [
-      (self: super: {
-        waybar = super.waybar.overrideAttrs (oldAttrs: {
-          mesonFlags = oldAttrs.mesonFlags ++ [ "-Dexperimental=true" ];
-        });
-      })
+    packages = with pkgs; [
+      vim # move vim from system packages to user packages
     ];
   };
 
+  # Allow Unfree Packages
+  nixpkgs.config.allowUnfree = true;
+
+  # File System Settings
   fileSystems."/mnt/windows" = {
     device = "/dev/nvme1n1p3";
     fsType = "ntfs-3g"; # Use the ntfs-3g driver
@@ -78,82 +72,84 @@
 
   # Installed System Packages
   environment.systemPackages = let
-  unstable = import <nixos-unstable> {};
+    unstable = import <nixos-unstable> {};
   in with pkgs; [
-    pkgs.alacritty
-    pkgs.brightnessctl
-    pkgs.btop
-    pkgs.catppuccin-gtk
-    pkgs.clang
-    pkgs.dconf
-    pkgs.discord
-    pkgs.dunst
-    pkgs.eww-wayland
-    pkgs.exa
-    pkgs.file
-    pkgs.firefox
-    pkgs.fish
-    pkgs.gcc
-    pkgs.git
-    pkgs.glib
-    pkgs.gnome.gnome-keyring
-    pkgs.gnome.gnome-settings-daemon43
-    pkgs.gnome.gnome-tweaks
-    pkgs.gnumake
-    pkgs.gparted
-    pkgs.gtk2
-    pkgs.gtk3
-    pkgs.gtk4
-    pkgs.gucharmap
-    pkgs.htop
-    pkgs.hyprpaper
-    pkgs.kitty
-    pkgs.libreoffice
-    pkgs.lxappearance
-    pkgs.lxqt.lxqt-policykit
-    pkgs.neofetch
-    pkgs.neovim
-    pkgs.nerdfix
-    pkgs.nerdfonts
-    pkgs.nodejs
-    pkgs.ntfs3g
-    pkgs.obsidian
-    pkgs.pandoc
-    pkgs.pciutils
-    pkgs.pcmanfm
-    pkgs.pipewire
-    pkgs.playerctl
-    pkgs.psmisc
-    pkgs.pulseaudio
+    alacritty
+    brightnessctl
+    btop
+    catppuccin-gtk
+    clang
+    dconf
+    discord
+    dunst
+    eww-wayland
+    exa
+    file
+    firefox
+    fish
+    gcc
+    git
+    glib
+    gnome.gnome-keyring
+    gnome.gnome-settings-daemon43
+    gnome.gnome-tweaks
+    gnumake
+    gparted
+    gtk2
+    gtk3
+    gtk4
+    gucharmap
+    htop
+    hyprpaper
+    kitty
+    libsecret
+    libreoffice
+    lxappearance
+    lxqt.lxqt-policykit
+    neofetch
+    neovim
+    nerdfix
+    nerdfonts
+    nodejs
+    ntfs3g
+    nvtop
+    obsidian
+    pandoc
+    pciutils
+    pcmanfm
+    pipewire
+    playerctl
+    psmisc
     (python310.withPackages (ps: [
-    	ps.pip
-	ps.jupyter
-    	ps.numpy
-    	ps.pandas
-    	ps.matplotlib
-    	ps.requests
-    	ps.beautifulsoup4
+      ps.pip
+      ps.jupyter
+      ps.numpy
+      ps.pandas
+      ps.matplotlib
+      ps.requests
+      ps.beautifulsoup4
     ]))
-    pkgs.qt6.qtwayland
-    pkgs.R
-    pkgs.rstudio
-    pkgs.rofi-wayland
-    pkgs.rustdesk
-    pkgs.rustup
-    pkgs.spotify
-    pkgs.starship
-    pkgs.swayidle
-    pkgs.swaylock-effects
-    pkgs.unrar
-    pkgs.ungoogled-chromium
-    pkgs.unzip
-    pkgs.vim
-    pkgs.vlc
-    pkgs.vscode-fhs
-    pkgs.wireplumber
-    pkgs.wget
-    pkgs.zip
-    pkgs.zathura
+    qt6.qtwayland
+    R
+    rstudio
+    rofi-wayland
+    rustdesk
+    rustup
+    spotify
+    starship
+    swayidle
+    swaylock-effects
+    texlive.combined.scheme-full
+    unrar
+    ungoogled-chromium
+    unzip
+    vim
+    vlc
+    vscode-fhs
+    wireplumber
+    wget
+    zip
+    zathura
     unstable.waybar
   ];
 
@@ -181,5 +177,18 @@
 
   security.pam.services.swaylock = {};
 
+  services.dbus.enable = true;
   services.dbus.packages = [ pkgs.gnome3.gnome-keyring ];
+
+  nix.extraOptions = "experimental-features = nix-command flakes";
+
+  # Waybar Overlay
+  nixpkgs.overlays = [
+    (self: super: {
+      waybar = super.waybar.overrideAttrs (oldAttrs: {
+        mesonFlags = oldAttrs.mesonFlags ++ [ "-Dexperimental=true" ];
+      });
+    })
+  ];
 }
+
