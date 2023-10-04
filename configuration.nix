@@ -16,6 +16,8 @@
     device = "nodev";
   };
 
+  boot.supportedFilesystems = [ "fuse" ];
+
   # Networking Settings
   networking = {
     networkmanager.enable = true;
@@ -79,6 +81,7 @@
     btop
     catppuccin-gtk
     clang
+    cmake
     dconf
     discord
     dunst
@@ -87,12 +90,15 @@
     file
     firefox
     fish
+    fuse
     gcc
+    gdb
     git
     glib
     gnome.gnome-keyring
     gnome.gnome-settings-daemon43
     gnome.gnome-tweaks
+    gnome.nautilus
     gnumake
     gparted
     gtk2
@@ -101,6 +107,8 @@
     gucharmap
     htop
     hyprpaper
+    jetbrains.pycharm-professional
+    jetbrains.clion
     kitty
     libsecret
     libreoffice
@@ -116,7 +124,6 @@
     obsidian
     pandoc
     pciutils
-    pcmanfm
     pipewire
     playerctl
     psmisc
@@ -128,6 +135,7 @@
       ps.matplotlib
       ps.requests
       ps.beautifulsoup4
+      ps.uncertainties
     ]))
     qt6.qtwayland
     R
@@ -145,12 +153,13 @@
     unzip
     vim
     vlc
-    vscode-fhs
+    vscode
+    waybar
     wireplumber
     wget
     zip
     zathura
-    unstable.waybar
+    zsh
   ];
 
   # Miscellaneous Settings

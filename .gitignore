@@ -1,13 +1,16 @@
 /autostart
 /btop
+/cef_user_data
 /chromium
 /Code
 /dconf
 /discord
+/JetBrains
 /htop
 /libfm
 /libreoffice
 /lxqt
+/obsidian
 /procps
 /pulse
 /rstudio
