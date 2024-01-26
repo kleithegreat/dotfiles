@@ -1,0 +1,8 @@
+import = ["/home/kevin/.config/alacritty/catppuccin/catppuccin-macchiato.toml"]
+
+[font.normal]
+family = "JetBrainsMono Nerd Font"
+
+[window.padding]
+x = 0
+y = 0
