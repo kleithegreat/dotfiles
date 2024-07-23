@@ -1,0 +1,38 @@
+configuration{
+    modi: "drun";
+    icon-theme: "Skeuowaita";
+    show-icons: true;
+    terminal: "alacritty";
+    drun-display-format: "{icon} {name}";
+    location: 0;
+    disable-history: false;
+    hide-scrollbar: true;
+    display-ssh:    "";
+    display-run:    "";
+    display-drun:   "";
+    display-window: "";
+    display-combi:  "";
+    display-Network: " 󰤨  Network";
+    sidebar-mode: true;
+}
+
+@theme "gruvbox-material.rasi"
+
+* {
+    font:   "JetBrainsMono Nerd Font 9";
+}
+
+window {
+    location:       center;
+    width:          400;
+    height:         300;
+    border-radius:  24px;
+}
+
+mainbox {
+    padding:    8px;
+}
+
+entry {
+    placeholder:        "Search";
+}
