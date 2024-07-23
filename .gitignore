@@ -29,7 +29,8 @@ vlc/
 winegui/
 xsettingsd/
 yay/
-zed/
+zed/themes/
+zed/.tmp*
 pavucontrol.ini
 QtProject.conf
 user-dirs.dirs
