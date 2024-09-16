@@ -2,6 +2,7 @@
 chromium/
 Code/
 dconf/
+depot_tools/
 discord/
 Electron/
 flutter/
@@ -18,6 +19,7 @@ nautilus/
 nextjs-nodejs/
 nwg-look/
 nwjs/
+obs-studio/
 obsidian/
 procps/
 pulse/
@@ -25,13 +27,17 @@ rustdesk/
 spotify/
 systemd/
 thefuck/
+Unknown\ Organization/
 vlc/
 winegui/
 xsettingsd/
 yay/
 zed/themes/
 zed/.tmp*
+mimeapps.list
 pavucontrol.ini
 QtProject.conf
 user-dirs.dirs
 user-dirs.locale
+zoom.conf
+zoomus.conf
