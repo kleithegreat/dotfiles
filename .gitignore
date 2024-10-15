@@ -6,11 +6,15 @@ depot_tools/
 discord/
 Electron/
 flutter/
+gedit/
 ghc/
 github-copilot/
+go/
 gtk-3.0/
 gtk-4.0/
+gwe/
 htop/
+JetBrains/
 libreoffice/
 matplotlib/
 menus/
@@ -27,6 +31,7 @@ rustdesk/
 spotify/
 systemd/
 thefuck/
+Ultralytics/
 Unknown\ Organization/
 vlc/
 winegui/

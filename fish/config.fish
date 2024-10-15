@@ -8,6 +8,7 @@ thefuck --alias | source
 alias ls="eza --color=always --long --git --no-filesize --icons=always --no-time --no-user --no-permissions"
 alias cat="bat"
 alias cd="z"
+alias skibidi="psql -h csce-315-db.engr.tamu.edu -U team_2b -d team_2b_db \ paras"
 
 # Created by `pipx` on 2024-05-28 18:58:49
 set PATH $PATH /home/kevin/.local/bin
