@@ -2,7 +2,8 @@
 # VERSION: 3.0
 SETUVAR __fish_initialized:3400
 SETUVAR _fisher_jomik_2F_fish_2D_gruvbox_files:\x7e/\x2econfig/fish/functions/theme_gruvbox\x2efish
-SETUVAR _fisher_plugins:jomik/fish\x2dgruvbox
+SETUVAR _fisher_oh_2D_my_2D_fish_2F_plugin_2D_foreign_2D_env_files:\x7e/\x2econfig/fish/functions/fenv\x2efish\x1e\x7e/\x2econfig/fish/functions/fenv\x2emain\x2efish
+SETUVAR _fisher_plugins:jomik/fish\x2dgruvbox\x1eoh\x2dmy\x2dfish/plugin\x2dforeign\x2denv
 SETUVAR _fisher_upgraded_to_4_4:\x1d
 SETUVAR fish_color_autosuggestion:brblack
 SETUVAR fish_color_cancel:\x2dr
@@ -32,3 +33,4 @@ SETUVAR fish_pager_color_description:yellow\x1e\x2di
 SETUVAR fish_pager_color_prefix:normal\x1e\x2d\x2dbold\x1e\x2d\x2dunderline
 SETUVAR fish_pager_color_progress:brwhite\x1e\x2d\x2dbackground\x3dcyan
 SETUVAR fish_pager_color_selected_background:\x2dr
+SETUVAR fish_user_paths:/home/kevin/\x2elocal/share/gem/ruby/3\x2e3\x2e0/bin

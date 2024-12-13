@@ -1,9 +1,12 @@
 .avalonia-build-tasks/
+/btop/btop.log
 chromium/
 Code/
 dconf/
+deemix/
 depot_tools/
 discord/
+easyeffects/
 Electron/
 flutter/
 gedit/
@@ -27,7 +30,9 @@ obs-studio/
 obsidian/
 procps/
 pulse/
+qBittorrent/
 rustdesk/
+Slack/
 spotify/
 systemd/
 thefuck/
