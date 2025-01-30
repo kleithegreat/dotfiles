@@ -5,8 +5,11 @@ dconf/
 discord/
 Electron/
 flutter/
+fontforge/
+gedit/
 ghc/
 github-copilot/
+go/
 gtk-3.0/
 gtk-4.0/
 htop/
@@ -18,13 +21,16 @@ nautilus/
 nextjs-nodejs/
 nwg-look/
 nwjs/
+obs-studio/
 obsidian/
 procps/
 pulse/
+Slack/
 rustdesk/
 spotify/
 systemd/
-thefuck/
+torbrowser/
+uv/
 vlc/
 winegui/
 xsettingsd/
@@ -35,3 +41,4 @@ pavucontrol.ini
 QtProject.conf
 user-dirs.dirs
 user-dirs.locale
+mimeapps.list

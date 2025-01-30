@@ -39,13 +39,13 @@
 
     "cpu": {
         "interval": 10,
-        "format": " {avg_frequency} GHz",
+        "format": "  {avg_frequency} GHz",
         "max-length": 10
     },
 
     "memory": {
         "interval": 10,
-        "format": " {percentage}%",
+        "format": "  {percentage}%",
         "max-length": 10
     },
 
@@ -67,16 +67,39 @@
     
 
     // RIGHT MODULES
-    "modules-right": ["pulseaudio", "clock"],
+    "modules-right": ["network", "pulseaudio", "battery", "clock"],
+
+    "network": {
+        "format-wifi": " ",
+        "format-ethernet": "",
+        "tooltip-format": "{essid} Strength: {signalStrength}%",
+        "format-linked": "{ifname} (No IP) ",
+        "format-disconnected": "Disconnected "
+        //"format-alt": ""
+    },
 
     "pulseaudio": {
-        "format": "{icon}  {volume}%",
+        "format": "{icon} {volume}%",
         "format-muted": " Muted",
         "format-icons": {
             "default": ["", "", ""] //low high
         },
         "on-click": "pavucontrol",
         "ignored-sinks": ["Easy Effects Sink"]
+    },
+
+    "battery": {
+        "states": {
+            // "good": 95,
+            "warning": 30,
+            "critical": 15
+        },
+        "format": "{icon}   {capacity}%",
+        "format-charging": " {capacity}%",
+        "format-plugged": " {capacity}%",
+        // "format-good": "", // An empty format will hide the module
+        // "format-full": "",
+        "format-icons": ["", "", "", "", ""]
     },
 
     "clock": {

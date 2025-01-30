@@ -10,6 +10,7 @@ primary = { background = "#282828", foreground = "#ebdbb2" }
 
 [scrolling]
 history = 100000
+multiplier = 8 # default multiplier is 3
 
 [colors.normal]
 black = "#282828"

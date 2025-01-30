@@ -1,0 +1,297 @@
+-- File: lua/plugins.lua
+-- Complete plugin configuration using lazy.nvim package manager
+-- Each plugin is defined in a table with its configuration
+
+return {
+    -- Theme/Colorscheme
+    {
+        "ellisonleao/gruvbox.nvim",
+        lazy = false,          -- Load during startup (not lazy-loaded)
+        priority = 1000,       -- High priority ensures theme loads before other plugins
+        config = function()
+            require("gruvbox").setup({
+                transparent_mode = false,  -- Set to true if you want a transparent background
+            })
+            vim.cmd([[colorscheme gruvbox]])  -- Actually set the colorscheme
+        end,
+    },
+
+    -- Markdown Preview Plugin
+    {
+        "iamcco/markdown-preview.nvim",
+        event = "VeryLazy",
+        build = ":call mkdp#util#install()",
+        config = function()
+            -- Default settings for markdown preview
+            vim.g.mkdp_auto_start = 0          -- Don't auto-start preview
+            vim.g.mkdp_auto_close = 1          -- Auto-close preview when changing buffers
+            vim.g.mkdp_refresh_slow = 0        -- Fast refresh on content changes
+            vim.g.mkdp_command_for_global = 0  -- Only enable for markdown files
+            vim.g.mkdp_open_to_the_world = 0   -- Only preview locally
+            vim.g.mkdp_browser = ''            -- Use default browser
+            vim.g.mkdp_echo_preview_url = 1    -- Show preview URL in command line
+            
+            -- Set custom keymaps for markdown preview
+            vim.keymap.set('n', '<leader>mp', ':MarkdownPreview<CR>', 
+                { desc = 'Start markdown preview' })
+            vim.keymap.set('n', '<leader>ms', ':MarkdownPreviewStop<CR>', 
+                { desc = 'Stop markdown preview' })
+        end,
+    },
+
+    -- File Explorer (like VS Code's sidebar)
+    {
+        "nvim-tree/nvim-tree.lua",
+        dependencies = { "nvim-tree/nvim-web-devicons" },  -- Icons for the file tree
+        config = function()
+            require("nvim-tree").setup()
+            -- Toggle file explorer with Space + e
+            vim.keymap.set('n', '<leader>e', ':NvimTreeToggle<CR>')
+        end
+    },
+
+    -- Fuzzy Finder (for searching files, text, etc.)
+    {
+        'nvim-telescope/telescope.nvim',
+        dependencies = { 'nvim-lua/plenary.nvim' },  -- Required dependency for Telescope
+        config = function()
+            local builtin = require('telescope.builtin')
+            -- Keymaps for different telescope functions:
+            vim.keymap.set('n', '<leader>ff', builtin.find_files)    -- Space + ff to find files
+            vim.keymap.set('n', '<leader>fg', builtin.live_grep)     -- Space + fg to search text
+            vim.keymap.set('n', '<leader>fb', builtin.buffers)       -- Space + fb to find buffers
+        end
+    },
+
+    -- Enhanced syntax highlighting
+    {
+        "nvim-treesitter/nvim-treesitter",
+        build = ":TSUpdate",  -- Updates the parsers when the plugin updates
+        config = function()
+            require("nvim-treesitter.configs").setup({
+                -- Languages to install syntax highlighting for
+                ensure_installed = { 
+                    "lua",
+                    "vim",
+                    "javascript",
+                    "python",
+                    "markdown",
+                },
+                auto_install = true,  -- Automatically install missing parsers
+                highlight = { enable = true },  -- Enable syntax highlighting
+                indent = { enable = true },     -- Enable indentation
+            })
+        end
+    },
+
+    -- LSP (Language Server Protocol) Configuration
+    {
+        'VonHeikemen/lsp-zero.nvim',
+        branch = 'v3.x',
+        dependencies = {
+            -- LSP Support
+            'neovim/nvim-lspconfig',           -- Required LSP configuration
+            'williamboman/mason.nvim',         -- Package manager for LSP servers
+            'williamboman/mason-lspconfig.nvim', -- Bridge between Mason and LSP config
+            -- Autocompletion plugins
+            'hrsh7th/nvim-cmp',               -- The completion engine
+            'hrsh7th/cmp-buffer',             -- Complete words from current buffer
+            'hrsh7th/cmp-path',               -- Complete file paths
+            'hrsh7th/cmp-nvim-lsp',           -- Complete using LSP
+            'hrsh7th/cmp-nvim-lua',           -- Complete Neovim's Lua API
+            -- Snippet engine
+            'L3MON4D3/LuaSnip',               -- Snippet engine
+        },
+        config = function()
+            local lsp_zero = require('lsp-zero')
+            
+            -- Setup default LSP keybindings
+            lsp_zero.on_attach(function(client, bufnr)
+                lsp_zero.default_keymaps({buffer = bufnr})
+            end)
+            
+            -- Configure Mason and install basic language servers
+            require('mason').setup({})
+            require('mason-lspconfig').setup({
+                ensure_installed = {'lua_ls', 'pyright', 'texlab'},  -- Added texlab for LaTeX
+                handlers = {
+                    lsp_zero.default_setup,
+                }
+            })
+        end
+    },
+
+    -- LaTeX Support with Enhanced Auto-compilation
+    {
+        'lervag/vimtex',
+        lazy = false,  -- Load at startup
+        config = function()
+            -- Completely disable quickfix functionality
+            vim.g.vimtex_quickfix_enabled = 0
+            vim.g.vimtex_quickfix_mode = 0
+            vim.g.vimtex_quickfix_open_on_warning = 0
+            
+            -- Silence compiler messages
+            vim.g.vimtex_compiler_silent = 1
+            
+            -- PDF viewer settings
+            vim.g.vimtex_view_method = 'zathura'
+            
+            -- Enhanced compiler settings with continuous mode
+            vim.g.vimtex_compiler_method = 'latexmk'
+            vim.g.vimtex_compiler_latexmk = {
+                build_dir = 'build',
+                callback = 1,
+                continuous = 1,
+                executable = 'latexmk',
+                hooks = {},
+                options = {
+                    '-verbose',
+                    '-file-line-error',
+                    '-synctex=1',
+                    '-interaction=nonstopmode',
+                    '-shell-escape',
+                },
+            }
+            
+            -- Compiler engine settings
+            vim.g.vimtex_compiler_latexmk_engines = {
+                ['_'] = '-pdf',
+                ['pdflatex'] = '-pdf',
+                ['xelatex'] = '-xelatex',
+                ['lualatex'] = '-lualatex',
+            }
+            
+            -- Enable completion
+            vim.g.vimtex_complete_enabled = 1
+            
+            -- Disable insert mode mappings
+            vim.g.vimtex_imaps_enabled = 0
+            
+            -- Set up autocompilation with TextChanged event
+            vim.api.nvim_create_autocmd({"TextChanged", "TextChangedI"}, {
+                pattern = {"*.tex"},
+                callback = function()
+                    vim.cmd('VimtexCompile')
+                end,
+                group = vim.api.nvim_create_augroup("vimtex_auto_compile", { clear = true })
+            })
+            
+            -- Set up LaTeX-specific settings
+            vim.api.nvim_create_autocmd("FileType", {
+                pattern = {"tex"},
+                callback = function()
+                    -- Local settings for LaTeX files
+                    vim.opt_local.conceallevel = 2
+                    vim.opt_local.spell = true
+                    vim.opt_local.spelllang = "en_us"
+                end,
+                group = vim.api.nvim_create_augroup("vimtex_settings", { clear = true })
+            })
+        end,
+    },
+
+    -- Automatic saving
+    {
+        'pocco81/auto-save.nvim',
+        config = function()
+            require('auto-save').setup({
+                enabled = true,  -- Enable auto-save
+                -- Show a message when auto-save occurs
+                execution_message = {
+                    message = function()
+                        return ("AutoSave: saved at " .. vim.fn.strftime("%H:%M:%S"))
+                    end,
+                    dim = 0.18,  -- Message opacity
+                    cleaning_interval = 1250,
+                },
+                -- Events that trigger auto-save
+                trigger_events = {"InsertLeave", "TextChanged"},  -- Save when leaving insert mode or when text changes
+                
+                -- Only save if there are actual changes
+                condition = function(buf)
+                    local fn = vim.fn
+                    local utils = require("auto-save.utils.data")
+                    if fn.getbufvar(buf, "&modifiable") == 1 and
+                        utils.not_in(fn.getbufvar(buf, "&filetype"), {}) then
+                        return true
+                    end
+                    return false
+                end,
+                write_all_buffers = false,  -- Only save current buffer
+                debounce_delay = 135  -- Delay before saving (milliseconds)
+            })
+        end
+    },
+
+    -- Debugging support
+    {
+        "mfussenegger/nvim-dap",
+        dependencies = {
+            "rcarriga/nvim-dap-ui",         -- UI for the debugger
+            "mfussenegger/nvim-dap-python", -- Python debugging support
+        }
+    },
+
+    -- Additional syntax objects
+    {
+        "nvim-treesitter/nvim-treesitter-textobjects",  -- Adds more text objects for selection and manipulation
+    },
+
+    -- Code formatting
+    {
+        "mhartington/formatter.nvim",  -- Provides code formatting capabilities
+    },
+    
+    -- Git signs in the gutter
+    {
+        'lewis6991/gitsigns.nvim',
+        config = function()
+            require('gitsigns').setup({
+                signs = {
+                    add          = { text = '│' },
+                    change       = { text = '│' },
+                    delete       = { text = '_' },
+                    topdelete    = { text = '‾' },
+                    changedelete = { text = '~' },
+                    untracked    = { text = '┆' },
+                },
+                current_line_blame = true,  -- Toggle with :Gitsigns toggle_current_line_blame
+                current_line_blame_opts = {
+                    delay = 300,
+                },
+                -- Keymaps for navigating hunks
+                on_attach = function(bufnr)
+                    local gs = package.loaded.gitsigns
+
+                    vim.keymap.set('n', ']c', function()
+                        if vim.wo.diff then return ']c' end
+                        vim.schedule(function() gs.next_hunk() end)
+                        return '<Ignore>'
+                    end, {expr=true, buffer = bufnr})
+
+                    vim.keymap.set('n', '[c', function()
+                        if vim.wo.diff then return '[c' end
+                        vim.schedule(function() gs.prev_hunk() end)
+                        return '<Ignore>'
+                    end, {expr=true, buffer = bufnr})
+                end
+            })
+        end
+    },
+
+    -- Buffer line (tabs at the top of the editor)
+    {
+        'akinsho/bufferline.nvim',
+        version = "*",
+        dependencies = 'nvim-tree/nvim-web-devicons',  -- Icons in the buffer line
+        config = function()
+            require("bufferline").setup({
+                options = {
+                    diagnostics = "nvim_lsp",  -- Show LSP diagnostics in tabs
+                    separator_style = "slant"  -- Slanted separators between tabs
+                }
+            })
+        end
+    }
+}
