@@ -118,7 +118,48 @@ return {
                     lsp_zero.default_setup,
                 }
             })
+
+            local cmp = require('cmp')
+            local cmp_select = {behavior = cmp.SelectBehavior.Select}
+
+            cmp.setup({
+                sources = {
+                    {name = 'copilot'},
+                    {name = 'nvim_lsp'},
+                    {name = 'buffer'},
+                    {name = 'path'},
+                    {name = 'luasnip'},
+                },
+                mapping = {
+                    ['<C-p>'] = cmp.mapping.select_prev_item(cmp_select),
+                    ['<C-n>'] = cmp.mapping.select_next_item(cmp_select),
+                    ['<C-y>'] = cmp.mapping.confirm({ select = true }),
+                    ['<CR>'] = cmp.mapping.confirm({ select = true }),
+                }
+            })
         end
+    },
+
+    -- Github Copilot
+    {
+        "zbirenbaum/copilot.lua",
+        cmd = "Copilot",
+        event = "InsertEnter",
+        config = function()
+            require("copilot").setup({
+                suggestion = {
+                    enabled = true,
+                    auto_trigger = true,
+                    keymap = {
+                        accept = "<Tab>",
+                        next = "<M-]>",
+                        prev = "<M-[>",
+                        dismiss = "<C-]>",
+                    },
+                },
+                panel = { enabled = false },
+            })
+        end,
     },
 
     -- LaTeX Support with Enhanced Auto-compilation
@@ -341,8 +382,7 @@ return {
         config = function()
             require("leetcode").setup({
                 -- Configuration options
-                lang = "python3", -- Default code editor language
-                directory = vim.fn.stdpath("data") .. "/leetcode/", -- Directory to save files
+                lang = "cpp", -- Default code editor language
                 logging = true, -- Enable logging for debug
                 console = {
                     open_on_runcode = true, -- Open console when running code
