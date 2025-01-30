@@ -324,5 +324,39 @@ return {
                 },
             })
         end
+    },
+
+    {
+        "kawre/leetcode.nvim",
+        build = ":TSUpdate html",    -- Updates TreeSitter HTML parser
+        lazy = true,                 -- Load only when explicitly called
+        cmd = "Leet",               -- Load when the Leet command is used
+        dependencies = {
+            "nvim-telescope/telescope.nvim",
+            "nvim-lua/plenary.nvim", 
+            "MunifTanjim/nui.nvim",
+            "nvim-treesitter/nvim-treesitter",
+            "nvim-tree/nvim-web-devicons", -- Optional, for file icons
+        },
+        config = function()
+            require("leetcode").setup({
+                -- Configuration options
+                lang = "python3", -- Default code editor language
+                directory = vim.fn.stdpath("data") .. "/leetcode/", -- Directory to save files
+                logging = true, -- Enable logging for debug
+                console = {
+                    open_on_runcode = true, -- Open console when running code
+                    size = {
+                        width = "90%",
+                        height = "75%",
+                    },
+                },
+                description = {
+                    position = "left", -- Show problem description on the left
+                    width = "40%", -- Width of description window
+                    show_stats = true, -- Show problem stats
+                },
+            })
+        end,
     }
 }
