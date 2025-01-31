@@ -70,7 +70,7 @@
     "modules-right": ["pulseaudio", "clock"],
 
     "pulseaudio": {
-        "format": "{icon}  {volume}%",
+        "format": "{icon}   {volume}%",
         "format-muted": " Muted",
         "format-icons": {
             "default": ["", "", ""] //low high

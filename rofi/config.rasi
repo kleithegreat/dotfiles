@@ -19,7 +19,7 @@ configuration{
 @theme "gruvbox-material.rasi"
 
 * {
-    font:   "JetBrainsMono Nerd Font 9";
+    font:   "Overpass Nerd Font 9";
 }
 
 window {
