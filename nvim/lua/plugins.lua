@@ -55,7 +55,38 @@ return {
         'nvim-telescope/telescope.nvim',
         dependencies = { 'nvim-lua/plenary.nvim' },  -- Required dependency for Telescope
         config = function()
+            local telescope = require('telescope')
             local builtin = require('telescope.builtin')
+            local actions = require('telescope.actions')
+            local action_state = require('telescope.actions.state')
+    
+            telescope.setup({
+                defaults = {
+                    mappings = {
+                        i = {
+                            ["<CR>"] = function(prompt_bufnr)
+                                local selection = action_state.get_selected_entry()
+                                if selection == nil then
+                                    return
+                                end
+                                
+                                local filename = selection.value
+                                -- Check if file is a PDF
+                                if string.match(filename, "%.pdf$") then
+                                    -- Close Telescope window
+                                    actions.close(prompt_bufnr)
+                                    -- Open PDF in Zathura
+                                    vim.fn.jobstart({"zathura", filename}, {detach = true})
+                                else
+                                    -- Use default file opening behavior for non-PDFs
+                                    actions.file_edit(prompt_bufnr)
+                                end
+                            end,
+                        }
+                    }
+                }
+            })
+    
             -- Keymaps for different telescope functions:
             vim.keymap.set('n', '<leader>ff', builtin.find_files)    -- Space + ff to find files
             vim.keymap.set('n', '<leader>fg', builtin.live_grep)     -- Space + fg to search text

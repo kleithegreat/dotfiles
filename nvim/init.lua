@@ -3,7 +3,7 @@
 -- This file bootstraps lazy.nvim and loads other configuration files
 
 vim.cmd('cd /home/kevin/second-brain')
-vim.o.guifont = "JetBrainsMono Nerd Font:h12"
+vim.o.guifont = "Comic Code:h12"
 
 -- Set leader key to space (do this before lazy setup)
 vim.g.mapleader = " "
@@ -28,23 +28,19 @@ require("options")  -- Load basic vim options and keymaps
 -- Initialize lazy.nvim with plugins
 require("lazy").setup("plugins")
 
--- In init.lua or autocmd.lua
 vim.api.nvim_create_autocmd({"FileType"}, {
   pattern = {"tex", "latex"},
   callback = function()
-      -- Disable Treesitter for TeX files
-      vim.cmd('TSDisable highlight')
+      vim.cmd('TSDisable highlight')  -- Disable Treesitter for TeX files
+      vim.cmd('syntax enable')  -- Enable VimTeX syntax
       
-      -- Enable VimTeX syntax
-      vim.cmd('syntax enable')
-      
-      -- Configure concealment (optional)
-      vim.opt_local.conceallevel = 2
+      vim.opt_local.conceallevel = 2  -- Configure concealment (optional)
       vim.opt_local.concealcursor = 'c'
-      
-      -- Other LaTeX-specific settings
       vim.opt_local.spell = true
       vim.opt_local.spelllang = "en_us"
+      vim.opt_local.wrap = true
+      vim.opt_local.linebreak = true
+      vim.opt_local.textwidth = 80
   end,
 })
 

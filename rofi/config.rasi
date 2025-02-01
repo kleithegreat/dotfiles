@@ -1,5 +1,5 @@
 configuration{
-    modi: "drun";
+    modi: "drun,calc,filebrowser";
     icon-theme: "Skeuowaita";
     show-icons: true;
     terminal: "alacritty";
@@ -14,6 +14,10 @@ configuration{
     display-combi:  "";
     display-Network: " 󰤨  Network";
     sidebar-mode: true;
+    matching: "prefix";
+    sorting-method: "levenshtein";
+    display-calc: "🖩 Calculate";
+    calc-command: "echo -n '{result}' | xclip -selection clipboard";
 }
 
 @theme "gruvbox-material.rasi"
@@ -30,7 +34,8 @@ window {
 }
 
 mainbox {
-    padding:    8px;
+    padding: 8px;
+    children: [inputbar, message, listview];
 }
 
 entry {

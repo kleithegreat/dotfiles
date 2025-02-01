@@ -11,10 +11,12 @@ opt.termguicolors = true -- True color support
 opt.wrap = false         -- Disable line wrap
 
 -- Indentation
-opt.shiftwidth = 2       -- Size of an indent
-opt.tabstop = 2          -- Number of spaces tabs count for
-opt.expandtab = true     -- Use spaces instead of tabs
+opt.shiftwidth = 4       -- Size of an indent
+opt.tabstop = 4          -- Number of spaces tabs count for
+opt.expandtab = false    -- Pressing tab inserts spaces instead of a tab
 opt.smartindent = true   -- Insert indents automatically
+opt.autoindent = true    -- Copy indent from current line when starting a new line
+opt.cindent = true       -- Stricter indentation rules for C programs
 
 -- Search
 opt.ignorecase = true    -- Ignore case

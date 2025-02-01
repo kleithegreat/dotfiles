@@ -18,6 +18,7 @@ gtk-4.0/
 gwe/
 htop/
 JetBrains/
+lazygit/
 libreoffice/
 matplotlib/
 menus/
@@ -30,6 +31,7 @@ obs-studio/
 obsidian/
 procps/
 pulse/
+qalculate/
 qBittorrent/
 rustdesk/
 Slack/
