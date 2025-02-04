@@ -1,0 +1,84 @@
+* {
+    font-family: Overpass Nerd Font;
+    font-size: 12px;
+    color: #282828;
+    padding: 0;
+}
+
+#cpu,
+#memory,
+#workspaces,
+#mpris,
+#pulseaudio,
+#clock {
+    border-radius: 8px;
+
+    padding-left: 6px;
+    padding-right: 6px;
+
+    margin-left: 2px;
+    margin-top: 2px;
+    margin-bottom: 2px;
+}
+
+window#waybar {
+    background-color: #282828;
+    border-radius: 10px;
+}
+
+tooltip {
+    background: #282828;
+}
+
+tooltip label {
+    color: #ebdbb2;
+}
+
+button {
+    border: none;
+    border-radius: 8px;
+
+    margin: 2px;
+
+    padding-left: 4px;
+    padding-right: 4px;
+}
+button:hover {
+    background: inherit;
+    box-shadow: inset 1 1px #282828;
+}
+
+#workspaces{
+    background-color: #d79921;
+    padding: 0px;
+}
+#workspaces button:hover{
+    background-color: #ebdbb2;
+}
+#workspaces button.active {
+    background: #ebdbb2;
+    transition-property: background-color;
+    transition-duration: 0.25s;
+    box-shadow: inset 1 1px #282828;    
+}
+
+#cpu,
+#memory {
+    background-color: #a89984;
+}
+
+#mpris {
+    background-color: #d79921;
+}
+
+#pulseaudio {
+    background-color: #ebdbb2;
+}
+
+#clock {
+    background-color: #ebdbb2;
+    padding-right: 8px;
+    padding-left: 8px;
+
+    margin-right: 2px;
+}
