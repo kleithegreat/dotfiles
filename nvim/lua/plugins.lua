@@ -103,17 +103,33 @@ return {
                 ensure_installed = { 
                     "lua",
                     "vim",
+                    "c",
+                    "cpp",
+                    "java",
+                    "html",
+                    "css",
+                    "hyprlang",
+                    "bash",
+                    "fish",
+                    "haskell",
+                    "json",
+                    "make",
+                    "regex",
+                    "sql",
+                    "toml",
                     "javascript",
+                    "typescript",
                     "python",
                     "markdown",
                     "markdown_inline"
                 },
-                auto_install = true,  -- Automatically install missing parsers
+                auto_install = false,
                 highlight = {
                     enable = true,
                     -- additional_vim_regex_highlighting = { "markdown" },
+                    additional_vim_regex_highlighting = false,
                 },
-                indent = { enable = true },     -- Enable indentation
+                indent = { enable = true },
             })
         end
     },
@@ -481,5 +497,89 @@ return {
                 },
             })
         end,
-    }
+    },
+
+    -- Breadcrumbs
+    {
+        "utilyre/barbecue.nvim",
+        dependencies = {
+            "SmiteshP/nvim-navic",
+            "nvim-tree/nvim-web-devicons",
+        },
+        config = function()
+            require("barbecue").setup({
+                theme = "gruvbox",
+                show_modified = true,
+                show_dirname = true,
+                show_basename = true,
+                show_context = true,
+            })
+        end,
+    },
+
+    -- Indent guides
+    {
+        "lukas-reineke/indent-blankline.nvim",
+        main = "ibl",
+        config = function()
+            require("ibl").setup({
+                indent = {
+                    char = "│",
+                    tab_char = "│",
+                },
+                scope = { enabled = true },
+                exclude = {
+                    filetypes = {
+                        "help",
+                        "alpha",
+                        "dashboard",
+                        "neo-tree",
+                        "Trouble",
+                        "trouble",
+                        "lazy",
+                        "mason",
+                        "notify",
+                        "toggleterm",
+                        "lazyterm",
+                    },
+                },
+            })
+        end,
+    },
+
+    -- Auto pairs
+    {
+        "windwp/nvim-autopairs",
+        event = "InsertEnter",
+        config = function()
+            local npairs = require("nvim-autopairs")
+            npairs.setup({
+                check_ts = true, -- Enable treesitter
+                ts_config = {
+                    lua = {'string'},-- Don't add pairs in lua string treesitter nodes
+                    javascript = {'template_string'}, -- Don't add pairs in javascript template_string
+                },
+                disable_filetype = { "TelescopePrompt", "spectre_panel" },
+                fast_wrap = {
+                    map = "<M-e>", -- Alt+e to fast wrap
+                    chars = { "{", "[", "(", '"', "'" },
+                    pattern = string.gsub([[ [%'%"%)%>%]%)%}%,] ]], "%s+", ""),
+                    offset = 0,
+                    end_key = "$",
+                    keys = "qwertyuiopzxcvbnmasdfghjkl",
+                    check_comma = true,
+                    highlight = "PmenuSel",
+                    highlight_grey = "LineNr",
+                },
+            })
+
+            -- Make autopairs work with cmp
+            local cmp_autopairs = require('nvim-autopairs.completion.cmp')
+            local cmp = require('cmp')
+            cmp.event:on(
+                'confirm_done',
+                cmp_autopairs.on_confirm_done()
+            )
+        end,
+    },
 }

@@ -58,3 +58,7 @@ vim.api.nvim_create_autocmd("FileType", {
   end,
   group = vim.api.nvim_create_augroup("markdown_settings", { clear = true })
 })
+
+vim.filetype.add({
+  pattern = { [".*/hypr/.*%.conf"] = "hyprlang" },
+})
