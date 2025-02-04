@@ -111,7 +111,7 @@ return {
                 auto_install = true,  -- Automatically install missing parsers
                 highlight = {
                     enable = true,
-                    additional_vim_regex_highlighting = { "markdown" },
+                    -- additional_vim_regex_highlighting = { "markdown" },
                 },
                 indent = { enable = true },     -- Enable indentation
             })
@@ -146,10 +146,28 @@ return {
             
             -- Configure Mason and install basic language servers
             require('mason').setup({})
+            -- In your lsp-zero config section
             require('mason-lspconfig').setup({
-                ensure_installed = {'lua_ls', 'pyright', 'texlab'},  -- Added texlab for LaTeX
+                ensure_installed = {'lua_ls', 'pyright', 'texlab', 'ltex'},
                 handlers = {
                     lsp_zero.default_setup,
+                    -- Add custom setup for ltex
+                    ['ltex'] = function()
+                        require('lspconfig').ltex.setup({
+                            settings = {
+                                ltex = {
+                                    -- Disable grammar checking
+                                    checkFrequency = "save", -- only check on save
+                                    enabled = {"spelling"},  -- only enable spell checking
+                                    disabledRules = {
+                                        ["en-US"] = {"GRAMMAR", "STYLE", "TYPOGRAPHY"}, -- disable grammar/style rules
+                                    },
+                                }
+                            },
+                            -- Only enable for specific file types
+                            filetypes = { "markdown", "tex", "latex" }
+                        })
+                    end
                 }
             })
 

@@ -53,6 +53,8 @@ vim.api.nvim_create_autocmd("FileType", {
       vim.opt_local.wrap = true           -- Enable line wrapping
       vim.opt_local.linebreak = true      -- Break lines at word boundaries
       vim.opt_local.textwidth = 0        -- Set text width to 80 characters
+      vim.opt_local.spell = true
+      vim.opt_local.spelllang = "en_us"
   end,
   group = vim.api.nvim_create_augroup("markdown_settings", { clear = true })
 })

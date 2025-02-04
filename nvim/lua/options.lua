@@ -24,6 +24,8 @@ opt.smartcase = true     -- Don't ignore case with capitals
 
 -- System
 opt.clipboard = "unnamedplus" -- Use system clipboard
+opt.spell = false
+opt.spellfile = vim.fn.expand('~/.config/nvim/spell/en.utf-8.add')
 
 -- Keymaps
 local keymap = vim.keymap.set
