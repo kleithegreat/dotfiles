@@ -4,6 +4,7 @@
 
 vim.cmd('cd /home/kevin/second-brain')
 vim.o.guifont = "Comic Code:h12"
+vim.o.background = "dark"
 
 -- Set leader key to space (do this before lazy setup)
 vim.g.mapleader = " "

@@ -215,6 +215,10 @@ return {
         event = "InsertEnter",
         config = function()
             require("copilot").setup({
+                filetypes = {
+                    markdown = true,
+                    ["."] = true,
+                },
                 suggestion = {
                     enabled = true,
                     auto_trigger = true,
@@ -229,6 +233,14 @@ return {
                 panel = { enabled = false },
             })
         end,
+    },
+
+    {
+        "zbirenbaum/copilot-cmp",
+        dependencies = { "zbirenbaum/copilot.lua" },
+        config = function()
+            require("copilot_cmp").setup()
+        end
     },
 
     -- LaTeX Support with Enhanced Auto-compilation
@@ -582,4 +594,41 @@ return {
             )
         end,
     },
+
+    {
+        'nvimdev/dashboard-nvim',
+        event = 'VimEnter',
+        config = function()
+            require('dashboard').setup {
+                theme = 'hyper',
+                disable_move = false,
+                shortcut_type = 'letter',
+                shuffle_letter = false,
+                -- letter_list
+                change_to_vcs_root = false,
+                config = {
+                    header = {
+                        'L',
+                        'M',
+                        'A',
+                        'O',
+                    },
+                    week_header = {
+                        enable = true,
+                    },
+                    shortcut = {},
+                    packages = { enable = true },
+                    footer = {},
+                },
+                hide = {
+                    statusline = true,
+                    -- tabline = true,
+                    -- winbar = true,
+                },
+            }
+        end,
+        dependencies = { {'nvim-tree/nvim-web-devicons'}}
+    },
+
+    -- add multicursor.nvim
 }
