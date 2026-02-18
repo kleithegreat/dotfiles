@@ -2,6 +2,9 @@
 normal = { family = "JetBrains Mono Nerd Font" }
 size = 11
 
+[terminal]
+shell = "/usr/bin/zsh"
+
 [window]
 padding = { x = 10, y = 10 }
 
