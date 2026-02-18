@@ -51,6 +51,15 @@ bindkey '^[[F'  end-of-line
 bindkey '^[[3~' delete-char
 bindkey '^H'    backward-kill-word
 
+# Fish-style path-segment accept (Ctrl+Right)
+# Accepts autosuggestion one path segment at a time (/ as word boundary)
+_forward_word_path() {
+    local WORDCHARS="${WORDCHARS:s#/#}"
+    zle forward-word
+}
+zle -N _forward_word_path
+bindkey '^[[1;5C' _forward_word_path
+
 # ── Aliases ──────────────────────────────────────────────────
 alias ls="eza --color=always --long --git --no-filesize --icons=always --no-time --no-user --no-permissions"
 alias la="eza --color=always --long --git --icons=always -a"
