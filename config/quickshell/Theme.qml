@@ -2,6 +2,7 @@ pragma Singleton
 import QtQuick
 
 QtObject {
+    // Gruvbox Dark
     readonly property color bg:        "#282828"
     readonly property color bg0_h:     "#1d2021"
     readonly property color bg1:       "#3c3836"
@@ -26,6 +27,7 @@ QtObject {
     readonly property color aquaBright:   "#8ec07c"
     readonly property color orangeBright: "#fe8019"
 
+    // Bar
     readonly property int barHeight: 32
     readonly property int barMargin: 4
     readonly property int barRadius: 8
@@ -34,6 +36,7 @@ QtObject {
     readonly property real barOpacity: 0.92
     readonly property int gapOut: 6
 
+    // Fonts
     readonly property string fontFamily: "JetBrains Mono Nerd Font"
     readonly property int fontSize: 12
     readonly property int fontSizeSmall: 10
@@ -55,12 +58,28 @@ QtObject {
     readonly property int osdBarHeight: 4
     readonly property int osdBarRadius: 2
 
-    // Drawer
+    // Drawer / Power menu
     readonly property int drawerWidth: 380
-
-    // Power menu
     readonly property int powerBtnSize: 72
     readonly property int powerBtnRadius: 16
     readonly property int powerBtnSpacing: 24
     readonly property int powerIconSize: 28
+
+    // Popups (shared)
+    readonly property int popupWidth: 320
+    readonly property int popupRadius: 10
+    readonly property int popupPadding: 14
+    readonly property int popupTopMargin: barHeight + barMargin + gapOut
+
+    // Audio popup
+    readonly property int audioPopupWidth: 340
+    readonly property int sliderHeight: 6
+
+    // Calendar
+    readonly property int calCellSize: 32
+    readonly property int calWidth: calCellSize * 7 + popupPadding * 2 + 12
+
+    // MPRIS popup
+    readonly property int mprisArtSize: 80
+    readonly property int mprisPopupWidth: 340
 }

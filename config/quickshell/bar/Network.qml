@@ -4,46 +4,28 @@ import QtQuick.Layouts
 import Quickshell.Io
 
 RowLayout {
-    spacing: 4
-
+    id: netRoot; spacing: 4; signal clicked()
     property string networkName: ""
     property bool connected: networkName !== ""
 
     Text {
         text: connected ? "󰖩" : "󰖪"
-        color: connected ? Theme.fg : Theme.fg4
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.iconSize
+        color: netArea.containsMouse ? Theme.yellowBright : (connected ? Theme.fg : Theme.fg4)
+        font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
     }
-
     Text {
-        text: networkName
-        color: Theme.fg
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontSizeSmall
-        visible: connected
+        text: networkName; visible: connected
+        color: netArea.containsMouse ? Theme.yellowBright : Theme.fg
+        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
     }
-
+    MouseArea {
+        id: netArea; anchors.fill: parent
+        cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+        onClicked: netRoot.clicked()
+    }
     Process {
-        id: netProc
-        command: ["nmcli", "-t", "-f", "ACTIVE,SSID", "dev", "wifi"]
-        running: true
-        stdout: SplitParser {
-            onRead: (line) => {
-                if (line.startsWith("yes:")) {
-                    networkName = line.substring(4);
-                }
-            }
-        }
+        id: netProc; command: ["nmcli", "-t", "-f", "ACTIVE,SSID", "dev", "wifi"]; running: true
+        stdout: SplitParser { onRead: (line) => { if (line.startsWith("yes:")) networkName = line.substring(4); } }
     }
-
-    Timer {
-        interval: 10000
-        running: true
-        repeat: true
-        onTriggered: {
-            networkName = "";
-            netProc.running = true;
-        }
-    }
+    Timer { interval: 10000; running: true; repeat: true; onTriggered: { networkName = ""; netProc.running = true; } }
 }
