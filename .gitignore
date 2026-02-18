@@ -1,0 +1,19 @@
+# OS
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Nix
+result
+.direnv
+
+# Secrets (never commit)
+*.key
+*.pem
+id_*
+
+# Large files
+wallpapers/*.jpg
+wallpapers/*.png
+!wallpapers/.gitkeep
