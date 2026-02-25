@@ -12,8 +12,3 @@ result
 *.key
 *.pem
 id_*
-
-# Large files
-wallpapers/*.jpg
-wallpapers/*.png
-!wallpapers/.gitkeep
