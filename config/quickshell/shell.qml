@@ -151,4 +151,6 @@ Scope {
     Popups.AudioPopup { active: root.activePopup === "audio"; onClose: root.activePopup = "" }
     Popups.WifiPopup { active: root.activePopup === "wifi"; onClose: root.activePopup = "" }
     Popups.PowerProfilePopup { active: root.activePopup === "powerprofile"; onClose: root.activePopup = "" }
+    Popups.SettingsPopup { active: root.activePopup === "settings"; onClose: root.activePopup = "" }
+    IpcHandler { target: "settings"; function toggle() { root.openPopup("settings"); } }
 }
