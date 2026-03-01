@@ -39,6 +39,19 @@
     # Terminals
     alacritty
     ghostty
+
+    # GUI apps
+    discord
+    obsidian
+    chromium
+    slack
+    thunderbird
+    obs-studio
+    libreoffice-fresh
+    mpv
+    spotify
+    zathura
+    kdePackages.dolphin
   ];
 
   # Zoxide
