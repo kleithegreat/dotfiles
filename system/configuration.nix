@@ -47,11 +47,14 @@
   time.timeZone = "America/Chicago";
   i18n.defaultLocale = "en_US.UTF-8";
 
+  programs.zsh.enable = true;
+
   # User
   users.users.kevin = {
     isNormalUser = true;
     extraGroups = [ "wheel" "networkmanager" ];
     initialPassword = "changeme";
+    shell = pkgs.zsh;
   };
 
   # SSH — so we can paste from host
