@@ -20,6 +20,9 @@
           home-manager.useGlobalPkgs = true;
           home-manager.useUserPackages = true;
           home-manager.users.kevin = import ./home;
+          home-manager.extraSpecialArgs = {
+            dotfilesPath = self;
+          };
         }
       ];
     };
