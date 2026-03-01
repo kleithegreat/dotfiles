@@ -18,6 +18,46 @@
     enableZshIntegration = true;
   };
 
+  # CLI tools
+  home.packages = with pkgs; [
+    bat
+    eza
+    fd
+    ripgrep
+    fzf
+    jq
+    tree
+    ncdu
+    htop
+    strace
+    bc
+    less
+    fastfetch
+    wget
+    curl
+
+    # Terminals
+    alacritty
+    ghostty
+  ];
+
+  # Zoxide
+  programs.zoxide = {
+    enable = true;
+    enableZshIntegration = true;
+  };
+
+  # fzf shell integration
+  programs.fzf = {
+    enable = true;
+    enableZshIntegration = true;
+  };
+
+  # bat
+  programs.bat = {
+    enable = true;
+  };
+
   programs.home-manager.enable = true;
   home.stateVersion = "25.05";
 }
