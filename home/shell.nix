@@ -5,7 +5,7 @@
   programs.zsh = {
     enable = true;
     dotDir = "${config.xdg.configHome}/zsh";
-D
+
     history = {
       path = "${config.xdg.stateHome}/zsh/history";
       size = 100000;
