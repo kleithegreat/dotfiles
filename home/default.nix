@@ -3,6 +3,7 @@
 {
   imports = [
     ./shell.nix
+    ./gtk.nix
   ];
 
   home.username = "kevin";
