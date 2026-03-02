@@ -12,3 +12,5 @@ result
 *.key
 *.pem
 id_*
+
+*.qcow2
