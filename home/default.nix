@@ -1,8 +1,27 @@
 { config, pkgs, dotfilesPath, ... }:
 
 {
+  imports = [
+    ./shell.nix
+  ];
+
   home.username = "kevin";
   home.homeDirectory = "/home/kevin";
+
+  # ── XDG ──────────────────────────────────────────────────────
+  xdg = {
+    enable = true;
+    userDirs = {
+      enable = true;
+      createDirectories = true;
+      desktop = "${config.home.homeDirectory}/Desktop";
+      documents = "${config.home.homeDirectory}/Documents";
+      download = "${config.home.homeDirectory}/Downloads";
+      music = "${config.home.homeDirectory}/Music";
+      pictures = "${config.home.homeDirectory}/Pictures";
+      videos = "${config.home.homeDirectory}/Videos";
+    };
+  };
 
   # ── Packages ─────────────────────────────────────────────────
   home.packages = with pkgs; [
@@ -40,31 +59,6 @@
     zathura
     kdePackages.dolphin
   ];
-
-  # ── Shell ────────────────────────────────────────────────────
-  programs.zsh = {
-    enable = true;
-    enableCompletion = true;
-    autosuggestion.enable = true;
-    syntaxHighlighting.enable = true;
-  };
-
-  programs.starship = {
-    enable = true;
-    enableZshIntegration = true;
-  };
-
-  programs.zoxide = {
-    enable = true;
-    enableZshIntegration = true;
-  };
-
-  programs.fzf = {
-    enable = true;
-    enableZshIntegration = true;
-  };
-
-  programs.bat.enable = true;
 
   # ── Hyprland configs ─────────────────────────────────────────
   # Shared configs from config/hypr/
