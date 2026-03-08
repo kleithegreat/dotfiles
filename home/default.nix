@@ -1,4 +1,4 @@
-{ config, pkgs, dotfilesPath, ... }:
+{ config, pkgs, dotfilesPath, hostName, ... }:
 
 {
   imports = [
@@ -73,13 +73,13 @@
   xdg.configFile."hypr/hypridle.conf".source = "${dotfilesPath}/config/hypr/hypridle.conf";
   xdg.configFile."hypr/hyprlock.conf".source = "${dotfilesPath}/config/hypr/hyprlock.conf";
 
-  # Host-specific — VM defaults (overridden per-host later)
-  xdg.configFile."hypr/monitors.conf".text = ''
-    monitor = ,preferred,auto,1
-  '';
-  xdg.configFile."hypr/env.conf".text = ''
-    env = XCURSOR_SIZE,24
-  '';
+  # Host-specific — monitors and GPU env vars
+  xdg.configFile."hypr/monitors.conf" = if hostName == "laptop"
+    then { source = "${dotfilesPath}/hosts/laptop/monitors.conf"; }
+    else { text = "monitor = ,preferred,auto,1\n"; };
+  xdg.configFile."hypr/env.conf" = if hostName == "laptop"
+    then { source = "${dotfilesPath}/config/hypr/env.conf"; }
+    else { text = "env = XCURSOR_SIZE,24\n"; };
 
   # ── Other app configs ────────────────────────────────────────
   xdg.configFile."quickshell" = {

@@ -22,6 +22,25 @@
           home-manager.users.kevin = import ./home;
           home-manager.extraSpecialArgs = {
             dotfilesPath = self;
+            hostName = "vm";
+          };
+        }
+      ];
+    };
+
+    nixosConfigurations.laptop = nixpkgs.lib.nixosSystem {
+      system = "x86_64-linux";
+      modules = [
+        ./system/configuration.nix
+        ./hosts/laptop/system.nix
+        home-manager.nixosModules.home-manager
+        {
+          home-manager.useGlobalPkgs = true;
+          home-manager.useUserPackages = true;
+          home-manager.users.kevin = import ./home;
+          home-manager.extraSpecialArgs = {
+            dotfilesPath = self;
+            hostName = "laptop";
           };
         }
       ];
