@@ -48,7 +48,7 @@
       nvidiaBusId = "PCI:1:0:0";
     };
   };
-  services.xserver.videoDrivers = [ "nvidia" ];
+  services.xserver.videoDrivers = [ "modesetting" "nvidia" ];
 
   services.power-profiles-daemon.enable = true;
   networking.useDHCP = lib.mkDefault true;
