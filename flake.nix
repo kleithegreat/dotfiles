@@ -19,6 +19,7 @@
         {
           home-manager.useGlobalPkgs = true;
           home-manager.useUserPackages = true;
+          home-manager.backupFileExtension = "bak";
           home-manager.users.kevin = import ./home;
           home-manager.extraSpecialArgs = {
             dotfilesPath = self;
@@ -37,6 +38,7 @@
         {
           home-manager.useGlobalPkgs = true;
           home-manager.useUserPackages = true;
+          home-manager.backupFileExtension = "bak";
           home-manager.users.kevin = import ./home;
           home-manager.extraSpecialArgs = {
             dotfilesPath = self;

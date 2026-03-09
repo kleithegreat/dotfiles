@@ -59,6 +59,25 @@
     spotify
     zathura
     kdePackages.dolphin
+
+    # Hyprland ecosystem
+    hyprlock
+    hypridle
+    hyprpolkitagent
+
+    # Desktop utilities
+    swww
+    brightnessctl
+    grim
+    slurp
+    wl-clipboard
+    playerctl
+    neovide
+    easyeffects
+    networkmanager  # provides nmcli for Quickshell
+
+    # TODO: quickshell — not in nixpkgs; install from upstream flake or package manually
+    # TODO: vicinae — not in nixpkgs; install from upstream flake or package manually
   ];
 
   # ── Hyprland configs ─────────────────────────────────────────
