@@ -72,7 +72,7 @@
   # User
   users.users.kevin = {
     isNormalUser = true;
-    extraGroups = [ "wheel" "networkmanager" ];
+    extraGroups = [ "wheel" "networkmanager" "video" "render" ];
     initialPassword = "changeme";
     shell = pkgs.zsh;
   };
