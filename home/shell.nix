@@ -46,8 +46,13 @@
       }
       {
         name = "zsh-per-directory-history";
-        src = pkgs.zsh-per-directory-history;
-        file = "share/zsh-per-directory-history/per-directory-history.zsh";
+        src = pkgs.fetchFromGitHub {
+          owner = "jimhester";
+          repo = "per-directory-history";
+          rev = "95f06973e9f2ff0ff75f3cebd0a2ee5485e27834";
+          sha256 = "sha256-EV9QPBndwAWzdOcghDXrIIgP0oagVMOTyXzoyt8tXRo=";
+        };
+        file = "per-directory-history.zsh";
       }
     ];
 

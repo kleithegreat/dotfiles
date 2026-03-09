@@ -14,6 +14,18 @@
     xwayland.enable = true;
   };
 
+  # hyprlock — also auto-creates security.pam.services.hyprlock
+  programs.hyprlock.enable = true;
+
+  # Fonts
+  fonts.packages = with pkgs; [
+    nerd-fonts.jetbrains-mono
+    overpass
+  ];
+
+  # Electron apps: use Wayland backend
+  environment.sessionVariables.NIXOS_OZONE_WL = "1";
+
   # Portals
   xdg.portal = {
     enable = true;
@@ -42,6 +54,18 @@
   # Locale
   time.timeZone = "America/Chicago";
   i18n.defaultLocale = "en_US.UTF-8";
+  i18n.extraLocaleSettings = {
+    LC_ADDRESS        = "en_US.UTF-8";
+    LC_IDENTIFICATION = "en_US.UTF-8";
+    LC_MEASUREMENT    = "en_US.UTF-8";
+    LC_MONETARY       = "en_US.UTF-8";
+    LC_NAME           = "en_US.UTF-8";
+    LC_NUMERIC        = "en_US.UTF-8";
+    LC_PAPER          = "en_US.UTF-8";
+    LC_TELEPHONE      = "en_US.UTF-8";
+    LC_TIME           = "en_US.UTF-8";
+  };
+  console.keyMap = "us";
 
   programs.zsh.enable = true;
 
