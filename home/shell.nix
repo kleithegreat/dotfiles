@@ -44,6 +44,11 @@
         src = pkgs.zsh-history-substring-search;
         file = "share/zsh-history-substring-search/zsh-history-substring-search.zsh";
       }
+      {
+        name = "zsh-per-directory-history";
+        src = pkgs.zsh-per-directory-history;
+        file = "share/zsh-per-directory-history/per-directory-history.zsh";
+      }
     ];
 
     initContent = ''
@@ -54,6 +59,11 @@
       setopt HIST_REDUCE_BLANKS
       setopt APPEND_HISTORY
       setopt INC_APPEND_HISTORY
+
+      # ── Per-directory history ──────────────────────────────────
+      # Ctrl+G toggles between directory-local and global history
+      PER_DIRECTORY_HISTORY_TOGGLE='^G'
+      HISTORY_START_WITH_GLOBAL=false
 
       # ── Emacs keybindings ────────────────────────────────────
       bindkey -e
