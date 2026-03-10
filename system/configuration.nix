@@ -11,7 +11,9 @@
   networking.firewall = {
     enable = true;
     allowedTCPPorts = [ 445 139 ];
+    allowedTCPPortRanges = [{ from = 1714; to = 1764; }];  # KDE Connect
     allowedUDPPorts = [ 137 138 5353 ];
+    allowedUDPPortRanges = [{ from = 1714; to = 1764; }];  # KDE Connect
   };
 
   # ── Hyprland ─────────────────────────────────────────────────
@@ -23,10 +25,22 @@
   # hyprlock — also auto-creates security.pam.services.hyprlock
   programs.hyprlock.enable = true;
 
+  # ── Captive Portal Browser ──────────────────────────────────
+  # Dedicated Chromium instance for logging into captive portals
+  # (hotel/airport WiFi) without messing with your DNS settings.
+  # Uses NetworkManager to auto-detect DNS — just run `captive-browser`.
+  programs.captive-browser = {
+    enable = true;
+    interface = "wlp0s20f3";  # TODO: verify with `ip link show` on your machine
+  };
+
   # ── Fonts ────────────────────────────────────────────────────
   fonts.packages = with pkgs; [
     nerd-fonts.jetbrains-mono
     overpass
+    noto-fonts
+    noto-fonts-cjk-sans
+    noto-fonts-color-emoji
   ];
 
   # ── Session variables ────────────────────────────────────────
@@ -114,6 +128,9 @@
   # ── Tailscale ────────────────────────────────────────────────
   services.tailscale.enable = true;
 
+  # ── Mullvad VPN ──────────────────────────────────────────────
+  services.mullvad-vpn.enable = true;
+
   # ── Keyring (gnome-keyring — most reliable with SDDM + Hyprland) ──
   services.gnome.gnome-keyring.enable = true;
   security.pam.services.sddm.enableGnomeKeyring = true;
@@ -126,6 +143,10 @@
   # ── Qt theming ───────────────────────────────────────────────
   # qt6ct is set via env var in Hyprland env.conf (QT_QPA_PLATFORMTHEME=qt6ct)
   # The qt6ct package itself is in home-manager packages
+  
+  # ── Man pages ────────────────────────────────────────────────
+  documentation.man.enable = true;
+  documentation.dev.enable = true;  # development man pages
 
   # ── Locale ───────────────────────────────────────────────────
   time.timeZone = "America/Chicago";

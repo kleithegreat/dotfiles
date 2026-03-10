@@ -46,20 +46,33 @@
     unzip
     zip
     p7zip
-    psmisc
+    unrar
+
+    # Network diagnostic tools
+    nmap
+    dnsutils       # provides dig, nslookup
+    traceroute
+    inetutils      # provides telnet, ftp, hostname, etc.
 
     # Editors
-    neovim         # ← was missing!
+    neovim
     neovide
+
+    # Neovim LSP servers (managed by Nix, not Mason)
+    lua-language-server
+    pyright
+    texlab
+    ltex-ls
 
     # Terminals
     alacritty
     ghostty
-    tmux           # ← was missing!
+    tmux
 
     # GUI apps
     discord
     obsidian
+    chromium
     slack
     thunderbird
     obs-studio
@@ -67,13 +80,33 @@
     mpv
     spotify
     zathura
-    vscode           # VS Code (Microsoft proprietary build)
-    imv            # ← Wayland image viewer (replaces feh)
+    vscode
+    imv            # Wayland image viewer
     kdePackages.dolphin
-    kdePackages.kwalletmanager   # GUI for managing keyring entries if needed
+    kdePackages.kwalletmanager
+    kdePackages.ark
+    kdePackages.plasma-systemmonitor
+    kdePackages.kate
+    kdePackages.gwenview
+    kdePackages.filelight
+    kdePackages.kdeconnect-kde
+    kdePackages.partitionmanager
+    kdePackages.kcharselect
+    kdePackages.isoimagewriter
+    kdePackages.kompare
+    tor-browser
+    f3d            # 3D file viewer
+    pavucontrol    # PulseAudio/PipeWire volume control GUI
+    gnome-disk-utility
 
     # 3D printing
-    orca-slicer    # ← was in plan but not added
+    orca-slicer
+
+    # Document tools
+    pandoc
+
+    # LaTeX (scheme-medium covers most packages including latexmk)
+    texlive.combined.scheme-medium
 
     # Hyprland ecosystem
     hyprlock
@@ -88,7 +121,8 @@
     wl-clipboard
     playerctl
     easyeffects
-    networkmanager  # provides nmcli for Quickshell
+    lsp-plugins    # audio plugins for EasyEffects
+    networkmanager # provides nmcli for Quickshell
 
     quickshell
     fuzzel
@@ -100,6 +134,10 @@
 
     # Theming / desktop integration
     libsecret      # Secret Service client (git credential helpers, etc.)
+
+    # Man pages
+    man-pages          # Linux man pages (sections 2-7)
+    man-pages-posix    # POSIX man pages
 
     claude-code
   ];
@@ -115,6 +153,20 @@
   xdg.configFile."hypr/rules.conf".source = "${dotfilesPath}/config/hypr/rules.conf";
   xdg.configFile."hypr/hypridle.conf".source = "${dotfilesPath}/config/hypr/hypridle.conf";
   xdg.configFile."hypr/hyprlock.conf".source = "${dotfilesPath}/config/hypr/hyprlock.conf";
+  xdg.configFile."hypr/plugins.conf".text = ''
+    plugin = ${pkgs.hyprlandPlugins.hyprbars}/lib/libhyprbars.so
+
+    plugin:hyprbars {
+        bar_height = 24
+        bar_color = rgb(3c3836)
+        bar_text_color = rgb(ebdbb2)
+        bar_font_family = Overpass
+        bar_font_size = 10
+
+        hyprbars-button = rgb(cc241d), 16, , hyprctl dispatch killactive
+        hyprbars-button = rgb(d79921), 16, , hyprctl dispatch fullscreen 1
+    }
+  '';
 
   # Host-specific — monitors and GPU env vars
   xdg.configFile."hypr/monitors.conf" = if hostName == "laptop"
@@ -157,16 +209,6 @@
   # ── Git credential helper (uses gnome-keyring via libsecret) ──
   programs.git.settings.credential.helper =
     "${pkgs.gitFull}/bin/git-credential-libsecret";
-
-  # ── Chromium ────────────────────────────────────────────────
-  programs.chromium = {
-    enable = true;
-    extensions = [
-      { id = "cjpalhdlnbpafiamejdnhcphjbkeiagm"; } # uBlock Origin
-      { id = "nkbihfbeogaeaoehlefnkodbefgpgknn"; }  # MetaMask
-      { id = "nngceckbapebfimnlniiiahkandclblb"; }  # Bitwarden
-    ];
-  };
 
   programs.home-manager.enable = true;
   home.stateVersion = "25.05";
