@@ -155,6 +155,7 @@
   xdg.configFile."hypr/hyprlock.conf".source = "${dotfilesPath}/config/hypr/hyprlock.conf";
   xdg.configFile."hypr/plugins.conf".text = ''
     plugin = ${pkgs.hyprlandPlugins.hyprbars}/lib/libhyprbars.so
+    exec-once = hyprctl plugin load ${pkgs.hyprlandPlugins.hyprspace}/lib/libHyprspace.so
 
     plugin:hyprbars {
         bar_height = 24
@@ -165,6 +166,20 @@
 
         hyprbars-button = rgb(cc241d), 16, , hyprctl dispatch killactive
         hyprbars-button = rgb(d79921), 16, , hyprctl dispatch fullscreen 1
+    }
+
+    plugin {
+        overview {
+            centerAligned = true
+            hideTopLayers = true
+            hideOverlayLayers = true
+            showNewWorkspace = true
+            showEmptyWorkspace = true
+            exitOnClick = true
+            exitOnSwitch = true
+            switchOnDrop = true
+            dragAlpha = 0.8
+        }
     }
   '';
 
