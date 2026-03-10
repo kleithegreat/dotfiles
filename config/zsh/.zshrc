@@ -72,6 +72,7 @@ alias cp="cp -i"
 alias cat="bat --paging=never --style=plain"
 alias catn="/usr/bin/cat"
 alias grep="grep --color=auto"
+alias nrs='hyprctl keyword misc:disable_autoreload true && sudo nixos-rebuild switch --flake ~/repos/dotfiles#laptop; hyprctl keyword misc:disable_autoreload false'
 
 # ── Functions ────────────────────────────────────────────────
 dps() {
