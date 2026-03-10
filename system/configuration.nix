@@ -54,6 +54,9 @@
     wayland.enable = true;
   };
 
+  # ── UPower (battery info for Quickshell) ────────────────────
+  services.upower.enable = true;
+
   # ── Audio (PipeWire) ─────────────────────────────────────────
   services.pipewire = {
     enable = true;

@@ -155,7 +155,7 @@
   };
 
   # ── Git credential helper (uses gnome-keyring via libsecret) ──
-  programs.git.extraConfig.credential.helper =
+  programs.git.settings.credential.helper =
     "${pkgs.gitFull}/bin/git-credential-libsecret";
 
   programs.home-manager.enable = true;
