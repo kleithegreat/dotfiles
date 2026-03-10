@@ -78,6 +78,8 @@
 
     quickshell
     fuzzel
+
+    claude-code
   ];
 
   # ── Hyprland configs ─────────────────────────────────────────
