@@ -36,6 +36,7 @@
       cat = "bat --paging=never --style=plain";
       catn = "/run/current-system/sw/bin/cat";
       grep = "grep --color=auto";
+      nrs = "hyprctl keyword misc:disable_autoreload true && sudo nixos-rebuild switch --flake ~/repos/dotfiles#laptop; hyprctl keyword misc:disable_autoreload false";
     };
 
     plugins = [
