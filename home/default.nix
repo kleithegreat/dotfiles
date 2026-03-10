@@ -67,6 +67,7 @@
     mpv
     spotify
     zathura
+    vscode           # VS Code (Microsoft proprietary build)
     imv            # ← Wayland image viewer (replaces feh)
     kdePackages.dolphin
     kdePackages.kwalletmanager   # GUI for managing keyring entries if needed

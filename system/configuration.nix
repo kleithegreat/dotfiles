@@ -92,11 +92,6 @@
       };
     };
   };
-  # SMB client support (mount network shares)
-  environment.systemPackages = with pkgs; [
-    cifs-utils
-  ];
-
   # ── Docker ───────────────────────────────────────────────────
   virtualisation.docker = {
     enable = true;
@@ -109,7 +104,6 @@
     qemu = {
       package = pkgs.qemu_kvm;
       swtpm.enable = true;  # TPM emulation for Windows VMs
-      ovmf.enable = true;   # UEFI firmware
     };
   };
   programs.virt-manager.enable = true;
