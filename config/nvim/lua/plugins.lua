@@ -126,7 +126,6 @@ return {
                 auto_install = false,
                 highlight = {
                     enable = true,
-                    -- additional_vim_regex_highlighting = { "markdown" },
                     additional_vim_regex_highlighting = false,
                 },
                 indent = { enable = true },
@@ -135,14 +134,10 @@ return {
     },
 
     -- LSP (Language Server Protocol) Configuration
+    -- LSP servers are installed via Nix (see home/default.nix), not Mason
     {
-        'VonHeikemen/lsp-zero.nvim',
-        branch = 'v3.x',
+        'neovim/nvim-lspconfig',
         dependencies = {
-            -- LSP Support
-            'neovim/nvim-lspconfig',           -- Required LSP configuration
-            'williamboman/mason.nvim',         -- Package manager for LSP servers
-            'williamboman/mason-lspconfig.nvim', -- Bridge between Mason and LSP config
             -- Autocompletion plugins
             'hrsh7th/nvim-cmp',               -- The completion engine
             'hrsh7th/cmp-buffer',             -- Complete words from current buffer
@@ -153,59 +148,87 @@ return {
             'L3MON4D3/LuaSnip',               -- Snippet engine
         },
         config = function()
-            local lsp_zero = require('lsp-zero')
-            
-            -- Setup default LSP keybindings
-            lsp_zero.on_attach(function(client, bufnr)
-                lsp_zero.default_keymaps({buffer = bufnr})
-            end)
-            
-            -- Configure Mason and install basic language servers
-            require('mason').setup({})
-            -- In your lsp-zero config section
-            require('mason-lspconfig').setup({
-                ensure_installed = {'lua_ls', 'pyright', 'texlab', 'ltex'},
-                handlers = {
-                    lsp_zero.default_setup,
-                    -- Add custom setup for ltex
-                    ['ltex'] = function()
-                        require('lspconfig').ltex.setup({
-                            settings = {
-                                ltex = {
-                                    -- Disable grammar checking
-                                    checkFrequency = "save", -- only check on save
-                                    enabled = {"spelling"},  -- only enable spell checking
-                                    disabledRules = {
-                                        ["en-US"] = {"GRAMMAR", "STYLE", "TYPOGRAPHY"}, -- disable grammar/style rules
-                                    },
-                                }
-                            },
-                            -- Only enable for specific file types
-                            filetypes = { "markdown", "tex", "latex" }
-                        })
-                    end
-                }
+            local lspconfig = require('lspconfig')
+            local cmp_lsp = require('cmp_nvim_lsp')
+            local capabilities = cmp_lsp.default_capabilities()
+
+            -- Shared on_attach: set keymaps when an LSP attaches to a buffer
+            local on_attach = function(client, bufnr)
+                local opts = { buffer = bufnr, silent = true }
+                vim.keymap.set('n', 'gd', vim.lsp.buf.definition, opts)
+                vim.keymap.set('n', 'gD', vim.lsp.buf.declaration, opts)
+                vim.keymap.set('n', 'K', vim.lsp.buf.hover, opts)
+                vim.keymap.set('n', 'gi', vim.lsp.buf.implementation, opts)
+                vim.keymap.set('n', '<C-k>', vim.lsp.buf.signature_help, opts)
+                vim.keymap.set('n', '<leader>D', vim.lsp.buf.type_definition, opts)
+                vim.keymap.set('n', '<leader>rn', vim.lsp.buf.rename, opts)
+                vim.keymap.set('n', '<leader>ca', vim.lsp.buf.code_action, opts)
+                vim.keymap.set('n', 'gr', vim.lsp.buf.references, opts)
+                vim.keymap.set('n', 'gl', vim.diagnostic.open_float, opts)
+                vim.keymap.set('n', '[d', vim.diagnostic.goto_prev, opts)
+                vim.keymap.set('n', ']d', vim.diagnostic.goto_next, opts)
+            end
+
+            -- Lua (installed via Nix: lua-language-server)
+            lspconfig.lua_ls.setup({
+                capabilities = capabilities,
+                on_attach = on_attach,
+                settings = {
+                    Lua = {
+                        diagnostics = { globals = { 'vim' } },
+                        workspace = { checkThirdParty = false },
+                    },
+                },
             })
 
+            -- Python (installed via Nix: pyright)
+            lspconfig.pyright.setup({
+                capabilities = capabilities,
+                on_attach = on_attach,
+            })
+
+            -- LaTeX (installed via Nix: texlab)
+            lspconfig.texlab.setup({
+                capabilities = capabilities,
+                on_attach = on_attach,
+            })
+
+            -- Spelling/Grammar for prose (installed via Nix: ltex-ls)
+            lspconfig.ltex.setup({
+                capabilities = capabilities,
+                on_attach = on_attach,
+                settings = {
+                    ltex = {
+                        checkFrequency = "save",
+                        enabled = { "spelling" },
+                        disabledRules = {
+                            ["en-US"] = { "GRAMMAR", "STYLE", "TYPOGRAPHY" },
+                        },
+                    },
+                },
+                filetypes = { "markdown", "tex", "latex" },
+            })
+
+            -- Autocompletion setup
             local cmp = require('cmp')
-            local cmp_select = {behavior = cmp.SelectBehavior.Select}
+            local cmp_select = { behavior = cmp.SelectBehavior.Select }
 
             cmp.setup({
                 sources = {
-                    {name = 'copilot'},
-                    {name = 'nvim_lsp'},
-                    {name = 'buffer'},
-                    {name = 'path'},
-                    {name = 'luasnip'},
+                    { name = 'copilot' },
+                    { name = 'nvim_lsp' },
+                    { name = 'buffer' },
+                    { name = 'path' },
+                    { name = 'luasnip' },
                 },
                 mapping = {
                     ['<C-p>'] = cmp.mapping.select_prev_item(cmp_select),
                     ['<C-n>'] = cmp.mapping.select_next_item(cmp_select),
                     ['<C-y>'] = cmp.mapping.confirm({ select = true }),
                     ['<CR>'] = cmp.mapping.confirm({ select = true }),
-                }
+                },
             })
-        end
+        end,
     },
 
     -- Github Copilot
