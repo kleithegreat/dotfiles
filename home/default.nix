@@ -42,10 +42,19 @@
     fastfetch
     wget
     curl
+    file           # file type identification
+    unzip
+    zip
+    p7zip
+
+    # Editors
+    neovim         # ← was missing!
+    neovide
 
     # Terminals
     alacritty
     ghostty
+    tmux           # ← was missing!
 
     # GUI apps
     discord
@@ -58,7 +67,12 @@
     mpv
     spotify
     zathura
+    imv            # ← Wayland image viewer (replaces feh)
     kdePackages.dolphin
+    kdePackages.kwalletmanager   # GUI for managing keyring entries if needed
+
+    # 3D printing
+    orca-slicer    # ← was in plan but not added
 
     # Hyprland ecosystem
     hyprlock
@@ -72,12 +86,19 @@
     slurp
     wl-clipboard
     playerctl
-    neovide
     easyeffects
     networkmanager  # provides nmcli for Quickshell
 
     quickshell
     fuzzel
+
+    # Dev tools (lightweight baseline — heavy stuff goes in devshells)
+    python3
+    nodejs
+    uv             # Python package/project manager
+
+    # Theming / desktop integration
+    libsecret      # Secret Service client (git credential helpers, etc.)
 
     claude-code
   ];
@@ -102,6 +123,14 @@
     then { source = "${dotfilesPath}/config/hypr/env.conf"; }
     else { text = "env = XCURSOR_SIZE,24\n"; };
 
+  # ── XDG Desktop Portal config ───────────────────────────────
+  # Route file picker to KDE, everything else through Hyprland → GTK fallback
+  xdg.configFile."xdg-desktop-portal/portals.conf".text = ''
+    [preferred]
+    default = hyprland;gtk
+    org.freedesktop.impl.portal.FileChooser = kde
+  '';
+
   # ── Other app configs ────────────────────────────────────────
   xdg.configFile."quickshell" = {
     source = "${dotfilesPath}/config/quickshell";
@@ -123,6 +152,10 @@
     source = "${dotfilesPath}/config/vicinae";
     recursive = true;
   };
+
+  # ── Git credential helper (uses gnome-keyring via libsecret) ──
+  programs.git.extraConfig.credential.helper =
+    "${pkgs.gitFull}/bin/git-credential-libsecret";
 
   programs.home-manager.enable = true;
   home.stateVersion = "25.05";
