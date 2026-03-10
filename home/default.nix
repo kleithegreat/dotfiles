@@ -46,6 +46,7 @@
     unzip
     zip
     p7zip
+    psmisc
 
     # Editors
     neovim         # ← was missing!
@@ -59,7 +60,6 @@
     # GUI apps
     discord
     obsidian
-    chromium
     slack
     thunderbird
     obs-studio
@@ -157,6 +157,16 @@
   # ── Git credential helper (uses gnome-keyring via libsecret) ──
   programs.git.settings.credential.helper =
     "${pkgs.gitFull}/bin/git-credential-libsecret";
+
+  # ── Chromium ────────────────────────────────────────────────
+  programs.chromium = {
+    enable = true;
+    extensions = [
+      { id = "cjpalhdlnbpafiamejdnhcphjbkeiagm"; } # uBlock Origin
+      { id = "nkbihfbeogaeaoehlefnkodbefgpgknn"; }  # MetaMask
+      { id = "nngceckbapebfimnlniiiahkandclblb"; }  # Bitwarden
+    ];
+  };
 
   programs.home-manager.enable = true;
   home.stateVersion = "25.05";
