@@ -25,6 +25,7 @@
 
   # Electron apps: use Wayland backend
   environment.sessionVariables.NIXOS_OZONE_WL = "1";
+  environment.sessionVariables.__EGL_VENDOR_LIBRARY_FILENAMES = "/run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json";
 
   # Portals
   xdg.portal = {

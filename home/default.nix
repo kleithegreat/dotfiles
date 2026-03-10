@@ -76,8 +76,8 @@
     easyeffects
     networkmanager  # provides nmcli for Quickshell
 
-    # TODO: quickshell — not in nixpkgs; install from upstream flake or package manually
-    # TODO: vicinae — not in nixpkgs; install from upstream flake or package manually
+    quickshell
+    fuzzel
   ];
 
   # ── Hyprland configs ─────────────────────────────────────────
