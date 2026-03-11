@@ -144,6 +144,8 @@
     PSQL_HISTORY = "${config.xdg.stateHome}/psql/history";
     MYSQL_HISTFILE = "${config.xdg.stateHome}/mariadb/history";
     LESSHISTFILE = "${config.xdg.stateHome}/less/history";
+
+    BAT_THEME = "gruvbox-dark";
   };
 
   home.sessionPath = [
