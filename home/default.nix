@@ -83,7 +83,6 @@
     vscode
     imv            # Wayland image viewer
     kdePackages.dolphin
-    kdePackages.kwalletmanager
     kdePackages.ark
     kdePackages.plasma-systemmonitor
     kdePackages.kate
@@ -97,7 +96,7 @@
     tor-browser
     f3d            # 3D file viewer
     pavucontrol    # PulseAudio/PipeWire volume control GUI
-    gnome-disk-utility
+    pkgs.gnome-secrets
 
     # 3D printing
     orca-slicer
