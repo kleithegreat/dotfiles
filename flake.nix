@@ -7,11 +7,17 @@
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    hyprland.url = "github:hyprwm/Hyprland";
+    hyprland-plugins = {
+      url = "github:hyprwm/hyprland-plugins";
+      inputs.hyprland.follows = "hyprland";
+    };
   };
 
-  outputs = { self, nixpkgs, home-manager, ... }: {
+  outputs = { self, nixpkgs, home-manager, hyprland, hyprland-plugins, ... }: {
     nixosConfigurations.vm = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
+      specialArgs = { inherit hyprland; };
       modules = [
         ./system/configuration.nix
         ./hosts/vm/system.nix
@@ -24,6 +30,7 @@
           home-manager.extraSpecialArgs = {
             dotfilesPath = self;
             hostName = "vm";
+            inherit hyprland hyprland-plugins;
           };
         }
       ];
@@ -31,6 +38,7 @@
 
     nixosConfigurations.laptop = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
+      specialArgs = { inherit hyprland; };
       modules = [
         ./system/configuration.nix
         ./hosts/laptop/system.nix
@@ -43,6 +51,7 @@
           home-manager.extraSpecialArgs = {
             dotfilesPath = self;
             hostName = "laptop";
+            inherit hyprland hyprland-plugins;
           };
         }
       ];

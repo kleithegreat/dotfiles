@@ -1,7 +1,11 @@
-{ config, pkgs, ... }:
+{ config, pkgs, hyprland, ... }:
 
 {
-  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  nix.settings = {
+    experimental-features = [ "nix-command" "flakes" ];
+    substituters = [ "https://hyprland.cachix.org" ];
+    trusted-public-keys = [ "hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc=" ];
+  };
   nixpkgs.config.allowUnfree = true;
 
   # ── Networking ───────────────────────────────────────────────
@@ -20,6 +24,8 @@
   programs.hyprland = {
     enable = true;
     xwayland.enable = true;
+    package = hyprland.packages.${pkgs.stdenv.hostPlatform.system}.hyprland;
+    portalPackage = hyprland.packages.${pkgs.stdenv.hostPlatform.system}.xdg-desktop-portal-hyprland;
   };
 
   # hyprlock — also auto-creates security.pam.services.hyprlock
@@ -55,10 +61,10 @@
   # which is managed by home-manager (see home/default.nix)
   xdg.portal = {
     enable = true;
-    extraPortals = with pkgs; [
-      xdg-desktop-portal-hyprland
-      xdg-desktop-portal-gtk
-      kdePackages.xdg-desktop-portal-kde
+    extraPortals = [
+      hyprland.packages.${pkgs.stdenv.hostPlatform.system}.xdg-desktop-portal-hyprland
+      pkgs.xdg-desktop-portal-gtk
+      pkgs.kdePackages.xdg-desktop-portal-kde
     ];
   };
 
