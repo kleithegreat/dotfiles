@@ -202,6 +202,16 @@
   programs.git.settings.credential.helper =
     "${pkgs.gitFull}/bin/git-credential-libsecret";
 
+  # ── Scripts ──────────────────────────────────────────────────
+  home.file.".local/bin/dim-screen.sh" = {
+    source = "${dotfilesPath}/scripts/dim-screen.sh";
+    executable = true;
+  };
+  home.file.".local/bin/brightness-step.sh" = {
+    source = "${dotfilesPath}/scripts/brightness-step.sh";
+    executable = true;
+  };
+
   programs.home-manager.enable = true;
   home.stateVersion = "25.05";
 }

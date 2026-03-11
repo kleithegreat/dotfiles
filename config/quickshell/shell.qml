@@ -103,7 +103,8 @@ Scope {
     Process { id: brightnessProc; command: ["tail", "-F", "/tmp/quickshell-brightness"]; running: true
         stdout: SplitParser { onRead: data => {
             let p = data.trim().split(","); if (p.length < 4) return;
-            let pct = parseInt(p[3]); if (isNaN(pct)) return;
+            let rawPct = parseInt(p[3]); if (isNaN(rawPct)) return;
+            let pct = Math.round(Math.pow(rawPct / 100, 1.0 / 2.2) * 100);
             if (!root.brightnessInit) { root.lastBrightness = pct; root.brightnessInit = true; return; }
             if (pct !== root.lastBrightness) { root.lastBrightness = pct; root.showBrightnessOsd(pct); }
         } }
