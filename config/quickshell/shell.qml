@@ -23,10 +23,7 @@ Scope {
     function toggleDnd() { doNotDisturb = !doNotDisturb; }
 
     // ── Bar ──
-    Variants {
-        model: Quickshell.screens
-        Bar.Bar { required property var modelData; screen: modelData; shellRoot: root }
-    }
+    Bar.Bar { shellRoot: root }
 
     // ── Notification Server ──
     NotificationServer {
