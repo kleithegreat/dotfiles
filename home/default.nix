@@ -153,29 +153,12 @@
   xdg.configFile."hypr/hypridle.conf".source = "${dotfilesPath}/config/hypr/hypridle.conf";
   xdg.configFile."hypr/hyprlock.conf".source = "${dotfilesPath}/config/hypr/hyprlock.conf";
   xdg.configFile."hypr/plugins.conf".text = ''
-    plugin = ${pkgs.hyprlandPlugins.hyprbars}/lib/libhyprbars.so
-    plugin = ${pkgs.hyprlandPlugins.hyprexpo}/lib/libhyprexpo.so
-
-    plugin:hyprbars {
-        bar_height = 24
-        bar_color = rgb(3c3836)
-        bar_text_color = rgb(ebdbb2)
-        bar_font_family = Overpass
-        bar_font_size = 10
-
-        hyprbars-button = rgb(cc241d), 16, , hyprctl dispatch killactive
-        hyprbars-button = rgb(d79921), 16, , hyprctl dispatch fullscreen 1
-    }
-
-    plugin {
-        hyprexpo {
-            columns = 3
-            gap_size = 5
-            bg_col = rgb(282828)
-            workspace_method = first 1
-        }
-    }
+      plugin = ${pkgs.hyprlandPlugins.hyprbars}/lib/libhyprbars.so
+      plugin = ${pkgs.hyprlandPlugins.hyprexpo}/lib/libhyprexpo.so
+      source = ~/.config/hypr/pluginsettings.conf
   '';
+
+  xdg.configFile."hypr/pluginsettings.conf".source = "${dotfilesPath}/config/hypr/plugins.conf";
 
   # Host-specific — monitors and GPU env vars
   xdg.configFile."hypr/monitors.conf" = if hostName == "laptop"
