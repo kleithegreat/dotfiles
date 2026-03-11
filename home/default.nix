@@ -1,4 +1,4 @@
-{ config, pkgs, dotfilesPath, hostName, ... }:
+{ config, pkgs, dotfilesPath, hostName, hyprland, hyprland-plugins, ... }:
 
 {
   imports = [
@@ -152,9 +152,11 @@
   xdg.configFile."hypr/rules.conf".source = "${dotfilesPath}/config/hypr/rules.conf";
   xdg.configFile."hypr/hypridle.conf".source = "${dotfilesPath}/config/hypr/hypridle.conf";
   xdg.configFile."hypr/hyprlock.conf".source = "${dotfilesPath}/config/hypr/hyprlock.conf";
-  xdg.configFile."hypr/plugins.conf".text = ''
-      plugin = ${pkgs.hyprlandPlugins.hyprbars}/lib/libhyprbars.so
-      plugin = ${pkgs.hyprlandPlugins.hyprexpo}/lib/libhyprexpo.so
+  xdg.configFile."hypr/plugins.conf".text = let
+    sys = pkgs.stdenv.hostPlatform.system;
+  in ''
+      plugin = ${hyprland-plugins.packages.${sys}.hyprbars}/lib/libhyprbars.so
+      plugin = ${hyprland-plugins.packages.${sys}.hyprexpo}/lib/libhyprexpo.so
       source = ~/.config/hypr/pluginsettings.conf
   '';
 
