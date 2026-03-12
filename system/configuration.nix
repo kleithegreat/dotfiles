@@ -144,6 +144,9 @@
   };
   programs.virt-manager.enable = true;
 
+  # ── Geolocation ─────────────────────────────────────────────
+  services.geoclue2.enable = true;
+
   # ── Tailscale ────────────────────────────────────────────────
   services.tailscale.enable = true;
 
