@@ -52,7 +52,6 @@
     nerd-fonts.recursive-mono
     overpass
     noto-fonts
-    noto-fonts-extra
     noto-fonts-cjk-sans
     noto-fonts-color-emoji
     roboto
