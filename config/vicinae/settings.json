@@ -18,7 +18,9 @@
       "preferences": {
         "paths": [
           "/home/kevin/.local/share/applications",
-          "/usr/share/applications"
+          "/home/kevin/.nix-profile/share/applications",
+          "/run/current-system/sw/share/applications",
+          "/etc/profiles/per-user/kevin/share/applications"
         ]
       }
     }
