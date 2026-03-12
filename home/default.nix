@@ -120,6 +120,7 @@
     hypridle
     hyprpolkitagent
     hyprsunset
+    geoclue2-with-demo-agent
 
     # Desktop utilities
     swww
@@ -226,6 +227,10 @@
   };
   home.file.".local/bin/brightness-step.sh" = {
     source = "${dotfilesPath}/scripts/brightness-step.sh";
+    executable = true;
+  };
+  home.file.".local/bin/hyprsunset-geo.sh" = {
+    source = "${dotfilesPath}/scripts/hyprsunset-geo.sh";
     executable = true;
   };
 
