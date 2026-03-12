@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ config, pkgs, hostName, ... }:
 
 {
   # ── Zsh ──────────────────────────────────────────────────────
@@ -36,7 +36,7 @@
       cat = "bat --paging=never --style=plain";
       catn = "/run/current-system/sw/bin/cat";
       grep = "grep --color=auto";
-      nrs = "hyprctl keyword misc:disable_autoreload true && sudo nixos-rebuild switch --flake ~/repos/dotfiles#laptop; hyprctl keyword misc:disable_autoreload false";
+      nrs = "hyprctl keyword misc:disable_autoreload true && sudo nixos-rebuild switch --flake ~/repos/dotfiles#${hostName}; hyprctl keyword misc:disable_autoreload false";
     };
 
     plugins = [
@@ -174,6 +174,14 @@
     fileWidgetCommand = "fd --type f --hidden --follow --exclude .git";
     changeDirWidgetCommand = "fd --type d --hidden --follow --exclude .git";
     defaultOptions = [ "--height=40%" "--layout=reverse" "--border" ];
+  };
+
+  # ── eza ─────────────────────────────────────────────────────
+  programs.eza = {
+    enable = true;
+    enableZshIntegration = false;
+    icons = "auto";
+    git = true;
   };
 
   # ── bat ──────────────────────────────────────────────────────

@@ -47,12 +47,17 @@
     zip
     p7zip
     unrar
+    psmisc
+    rsync
+    usbutils
+    lm_sensors
 
     # Network diagnostic tools
     nmap
     dnsutils       # provides dig, nslookup
     traceroute
     inetutils      # provides telnet, ftp, hostname, etc.
+    iw
 
     # Editors
     neovim
@@ -93,6 +98,8 @@
     kdePackages.kcharselect
     kdePackages.isoimagewriter
     kdePackages.kompare
+    vlc
+    zoom-us
     tor-browser
     f3d            # 3D file viewer
     pavucontrol    # PulseAudio/PipeWire volume control GUI
@@ -122,6 +129,7 @@
     easyeffects
     lsp-plugins    # audio plugins for EasyEffects
     networkmanager # provides nmcli for Quickshell
+    nwg-look       # GTK theme manager for Wayland
 
     quickshell
     fuzzel
@@ -130,6 +138,7 @@
     python3
     nodejs
     uv             # Python package/project manager
+    gh             # GitHub CLI
 
     # Theming / desktop integration
     libsecret      # Secret Service client (git credential helpers, etc.)
@@ -200,6 +209,15 @@
     recursive = true;
   };
 
+  # ── WirePlumber Bluetooth codecs ─────────────────────────────
+  xdg.configFile."wireplumber/wireplumber.conf.d/50-bluetooth.conf".text = ''
+    monitor.bluez.properties = {
+      bluez5.enable-sbc-xq = true
+      bluez5.enable-msbc = true
+      bluez5.enable-hw-volume = true
+    }
+  '';
+
   # ── Git credential helper (uses gnome-keyring via libsecret) ──
   programs.git.settings.credential.helper =
     "${pkgs.gitFull}/bin/git-credential-libsecret";
@@ -212,6 +230,31 @@
   home.file.".local/bin/brightness-step.sh" = {
     source = "${dotfilesPath}/scripts/brightness-step.sh";
     executable = true;
+  };
+
+  # ── Default applications ────────────────────────────────────
+  xdg.mimeApps = {
+    enable = true;
+    defaultApplications = {
+      "text/html" = "chromium.desktop";
+      "x-scheme-handler/http" = "chromium.desktop";
+      "x-scheme-handler/https" = "chromium.desktop";
+      "application/pdf" = "org.pwmt.zathura.desktop";
+      "inode/directory" = "org.kde.dolphin.desktop";
+      "image/png" = "imv.desktop";
+      "image/jpeg" = "imv.desktop";
+      "image/jpg" = "imv.desktop";
+      "image/gif" = "imv.desktop";
+      "image/webp" = "imv.desktop";
+      "image/svg+xml" = "imv.desktop";
+      "video/mp4" = "vlc.desktop";
+      "video/x-matroska" = "vlc.desktop";
+      "video/x-msvideo" = "vlc.desktop";
+      "video/webm" = "vlc.desktop";
+      "text/plain" = "neovide.desktop";
+      "x-scheme-handler/mailto" = "thunderbird.desktop";
+      "x-scheme-handler/terminal" = "Alacritty.desktop";
+    };
   };
 
   programs.home-manager.enable = true;
