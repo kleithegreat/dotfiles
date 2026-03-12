@@ -1,9 +1,10 @@
-{ config, pkgs, dotfilesPath, hostName, hyprland, hyprland-plugins, ... }:
+{ config, pkgs, dotfilesPath, hostName, hyprland, hyprland-plugins, vicinae, ... }:
 
 {
   imports = [
     ./shell.nix
     ./gtk.nix
+    vicinae.homeManagerModules.default
   ];
 
   home.username = "kevin";
@@ -132,7 +133,6 @@
     nwg-look       # GTK theme manager for Wayland
 
     quickshell
-    fuzzel
 
     # Dev tools (lightweight baseline — heavy stuff goes in devshells)
     python3
@@ -256,6 +256,9 @@
       "x-scheme-handler/terminal" = "Alacritty.desktop";
     };
   };
+
+  # ── Vicinae (app launcher) ──────────────────────────────────
+  services.vicinae.enable = true;
 
   programs.home-manager.enable = true;
   home.stateVersion = "25.05";
