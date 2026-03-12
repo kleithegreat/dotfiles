@@ -14,13 +14,14 @@
     };
   };
 
-  outputs = { self, nixpkgs, home-manager, hyprland, hyprland-plugins, ... }: {
-    nixosConfigurations.vm = nixpkgs.lib.nixosSystem {
+  outputs = { self, nixpkgs, home-manager, hyprland, hyprland-plugins, ... }:
+  let
+    mkHost = hostName: hostModule: nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
       specialArgs = { inherit hyprland; };
       modules = [
         ./system/configuration.nix
-        ./hosts/vm/system.nix
+        hostModule
         home-manager.nixosModules.home-manager
         {
           home-manager.useGlobalPkgs = true;
@@ -29,32 +30,13 @@
           home-manager.users.kevin = import ./home;
           home-manager.extraSpecialArgs = {
             dotfilesPath = self;
-            hostName = "vm";
-            inherit hyprland hyprland-plugins;
+            inherit hostName hyprland hyprland-plugins;
           };
         }
       ];
     };
-
-    nixosConfigurations.laptop = nixpkgs.lib.nixosSystem {
-      system = "x86_64-linux";
-      specialArgs = { inherit hyprland; };
-      modules = [
-        ./system/configuration.nix
-        ./hosts/laptop/system.nix
-        home-manager.nixosModules.home-manager
-        {
-          home-manager.useGlobalPkgs = true;
-          home-manager.useUserPackages = true;
-          home-manager.backupFileExtension = "bak";
-          home-manager.users.kevin = import ./home;
-          home-manager.extraSpecialArgs = {
-            dotfilesPath = self;
-            hostName = "laptop";
-            inherit hyprland hyprland-plugins;
-          };
-        }
-      ];
-    };
+  in {
+    nixosConfigurations.vm = mkHost "vm" ./hosts/vm/system.nix;
+    nixosConfigurations.laptop = mkHost "laptop" ./hosts/laptop/system.nix;
   };
 }

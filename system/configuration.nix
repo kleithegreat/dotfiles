@@ -5,6 +5,12 @@
     experimental-features = [ "nix-command" "flakes" ];
     substituters = [ "https://hyprland.cachix.org" ];
     trusted-public-keys = [ "hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc=" ];
+    auto-optimise-store = true;
+  };
+  nix.gc = {
+    automatic = true;
+    dates = "weekly";
+    options = "--delete-older-than 30d";
   };
   nixpkgs.config.allowUnfree = true;
 
@@ -43,10 +49,15 @@
   # ── Fonts ────────────────────────────────────────────────────
   fonts.packages = with pkgs; [
     nerd-fonts.jetbrains-mono
+    nerd-fonts.recursive-mono
     overpass
     noto-fonts
+    noto-fonts-extra
     noto-fonts-cjk-sans
     noto-fonts-color-emoji
+    roboto
+    dejavu_fonts
+    symbola
   ];
 
   # ── Session variables ────────────────────────────────────────
@@ -76,6 +87,9 @@
 
   # ── UPower (battery info for Quickshell) ────────────────────
   services.upower.enable = true;
+
+  # ── SSD ────────────────────────────────────────────────────
+  services.fstrim.enable = true;
 
   # ── Audio (PipeWire) ─────────────────────────────────────────
   services.pipewire = {
@@ -143,6 +157,9 @@
   # For login to auto-unlock the keyring
   security.pam.services.login.enableGnomeKeyring = true;
 
+  # ── GVFS (GUI file manager network browsing) ────────────────
+  services.gvfs.enable = true;
+
   # ── dconf (required for GTK settings to persist) ─────────────
   programs.dconf.enable = true;
 
@@ -192,7 +209,10 @@
   # ── SSH ──────────────────────────────────────────────────────
   services.openssh = {
     enable = true;
-    settings.PasswordAuthentication = true;
+    settings = {
+      PasswordAuthentication = false;
+      KbdInteractiveAuthentication = false;
+    };
   };
 
   # ── System packages (bare minimum — user tools go in home-manager) ──

@@ -50,6 +50,7 @@
     modesetting.enable = true;
     open = true;
     powerManagement.enable = true;
+    powerManagement.finegrained = true;
     prime = {
       offload = {
         enable = true;
