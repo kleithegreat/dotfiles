@@ -8,17 +8,13 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     hyprland.url = "github:hyprwm/Hyprland";
-    hyprland-plugins = {
-      url = "github:hyprwm/hyprland-plugins";
-      inputs.hyprland.follows = "hyprland";
-    };
     vicinae = {
       url = "github:vicinaehq/vicinae";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
-  outputs = { self, nixpkgs, home-manager, hyprland, hyprland-plugins, vicinae, ... }:
+  outputs = { self, nixpkgs, home-manager, hyprland, vicinae, ... }:
   let
     mkHost = hostName: hostModule: nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
@@ -34,7 +30,7 @@
           home-manager.users.kevin = import ./home;
           home-manager.extraSpecialArgs = {
             dotfilesPath = self;
-            inherit hostName hyprland hyprland-plugins vicinae;
+            inherit hostName hyprland vicinae;
           };
         }
       ];
