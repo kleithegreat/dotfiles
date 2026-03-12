@@ -119,6 +119,7 @@
     hyprlock
     hypridle
     hyprpolkitagent
+    hyprsunset
 
     # Desktop utilities
     swww
