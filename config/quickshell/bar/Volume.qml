@@ -8,6 +8,7 @@ Item {
     implicitWidth: volumeRow.implicitWidth
     implicitHeight: volumeRow.implicitHeight
     signal clicked()
+    property var shellRoot: null
 
     property var sink: Pipewire.defaultAudioSink
     property real volume: sink?.audio?.volume ?? 0
@@ -31,13 +32,19 @@ Item {
         id: hoverA; anchors.fill: parent
         acceptedButtons: Qt.LeftButton | Qt.MiddleButton; hoverEnabled: true
         onClicked: (mouse) => {
-            if (mouse.button === Qt.MiddleButton) { if (sink?.audio) sink.audio.muted = !sink.audio.muted; }
+            if (mouse.button === Qt.MiddleButton) {
+                if (volumeRoot.shellRoot) volumeRoot.shellRoot.suppressOsd = true;
+                if (sink?.audio) sink.audio.muted = !sink.audio.muted;
+                Qt.callLater(() => { if (volumeRoot.shellRoot) volumeRoot.shellRoot.suppressOsd = false; });
+            }
             else volumeRoot.clicked();
         }
         onWheel: (wheel) => {
             if (!sink?.audio) return;
+            if (volumeRoot.shellRoot) volumeRoot.shellRoot.suppressOsd = true;
             if (wheel.angleDelta.y > 0) sink.audio.volume = Math.min(1.0, volume + 0.05);
             else sink.audio.volume = Math.max(0.0, volume - 0.05);
+            Qt.callLater(() => { if (volumeRoot.shellRoot) volumeRoot.shellRoot.suppressOsd = false; });
         }
     }
 }
