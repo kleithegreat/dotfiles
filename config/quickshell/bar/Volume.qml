@@ -18,9 +18,18 @@ Item {
     RowLayout {
         id: volumeRow; anchors.fill: parent; spacing: 4
         Text {
+            id: volIcon
             text: { if (muted || volume === 0) return "󰝟"; if (volume < 0.33) return "󰕿"; if (volume < 0.66) return "󰖀"; return "󰕾"; }
             color: hoverA.containsMouse ? Theme.yellowBright : (muted ? Theme.fg4 : Theme.fg)
             font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
+            Behavior on text {
+                SequentialAnimation {
+                    NumberAnimation { target: volIcon; property: "opacity"; to: 0; duration: Theme.animFast; easing.type: Easing.InQuad }
+                    PropertyAction { target: volIcon; property: "text" }
+                    NumberAnimation { target: volIcon; property: "opacity"; to: 1; duration: Theme.animNormal; easing.type: Easing.OutBack }
+                }
+            }
+            Behavior on color { ColorAnimation { duration: 150 } }
         }
         Text {
             text: muted ? "Muted" : Math.round(volume * 100) + "%"

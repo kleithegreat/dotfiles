@@ -43,6 +43,11 @@ PanelWindow {
         anchors.topMargin: Theme.popupTopMargin; anchors.leftMargin: Theme.gapOut + Theme.barPadding
         width: Theme.mprisPopupWidth; height: mprisCol.implicitHeight + Theme.popupPadding * 2
         radius: Theme.popupRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
+        opacity: mprisPop.active ? 1 : 0
+        scale: mprisPop.active ? 1.0 : 0.96
+        transformOrigin: Item.Top
+        Behavior on opacity { NumberAnimation { duration: Theme.animPopupIn; easing.type: Easing.OutCubic } }
+        Behavior on scale { NumberAnimation { duration: Theme.animPopupIn; easing.type: Easing.OutBack; easing.overshoot: 0.5 } }
         MouseArea { anchors.fill: parent }
 
         ColumnLayout {

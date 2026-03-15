@@ -123,6 +123,11 @@ PanelWindow {
         width: 420; height: parent.height - Theme.popupTopMargin * 2
         anchors { right: parent.right; top: parent.top; margins: Theme.gapOut; topMargin: Theme.popupTopMargin }
         radius: Theme.popupRadius; color: Theme.bg; border.width: 1; border.color: Theme.bg3
+        opacity: settingsPop.active ? 1 : 0
+        scale: settingsPop.active ? 1.0 : 0.96
+        transformOrigin: Item.Top
+        Behavior on opacity { NumberAnimation { duration: Theme.animPopupIn; easing.type: Easing.OutCubic } }
+        Behavior on scale { NumberAnimation { duration: Theme.animPopupIn; easing.type: Easing.OutBack; easing.overshoot: 0.5 } }
 
         Flickable {
             anchors { fill: parent; margins: Theme.popupPadding }
