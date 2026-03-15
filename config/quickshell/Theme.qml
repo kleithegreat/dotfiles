@@ -77,7 +77,7 @@ QtObject {
 
     // ── Animation constants (inspired by caelestia anim.durations.scale) ──
     // Multiply all durations by animScale to uniformly speed up / slow down
-    readonly property real animScale: 2.5
+    readonly property real animScale: 1.5
 
     // Micro-interactions (icon swaps, color changes, hover)
     readonly property int animFast:    Math.round(120 * animScale)
@@ -93,7 +93,7 @@ QtObject {
     readonly property int animNotifOut: Math.round(250 * animScale)
 
     // Stagger delay per item in lists/grids
-    readonly property int animStagger: Math.round(80 * animScale)
+    readonly property int animStagger: Math.round(60 * animScale)
 
     // OSD pop
     readonly property int animOsdIn:  Math.round(200 * animScale)

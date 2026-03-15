@@ -63,7 +63,7 @@ Scope {
                 Rectangle {
                     id: card; required property string appName; required property string summary; required property string body; required property int nid; required property int index
                     width: Theme.notifWidth; height: cardC.implicitHeight + Theme.notifPadding * 2; radius: Theme.notifRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
-                    opacity: 0; x: Theme.notifWidth * 0.8; scale: 0.8
+                    opacity: 0; x: Theme.notifWidth; scale: 0.6
                     Component.onCompleted: { notifEnterAnim.start(); }
 
                     SequentialAnimation {
@@ -71,8 +71,8 @@ Scope {
                         PauseAnimation { duration: card.index * Theme.animStagger }
                         ParallelAnimation {
                             NumberAnimation { target: card; property: "opacity"; from: 0; to: 1; duration: Theme.animNotifIn; easing.type: Easing.OutCubic }
-                            NumberAnimation { target: card; property: "x"; from: Theme.notifWidth * 0.8; to: 0; duration: Theme.animNotifIn; easing.type: Easing.OutBack; easing.overshoot: 1.5 }
-                            NumberAnimation { target: card; property: "scale"; from: 0.8; to: 1.0; duration: Theme.animNotifIn; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
+                            NumberAnimation { target: card; property: "x"; from: Theme.notifWidth; to: 0; duration: Theme.animNotifIn; easing.type: Easing.OutBack; easing.overshoot: 2.0 }
+                            NumberAnimation { target: card; property: "scale"; from: 0.6; to: 1.0; duration: Theme.animNotifIn; easing.type: Easing.OutBack; easing.overshoot: 2.0 }
                         }
                     }
                     ColumnLayout {
@@ -131,9 +131,9 @@ Scope {
             implicitWidth: Theme.osdWidth; implicitHeight: Theme.osdHeight; color: "transparent"; mask: Region {}
             WlrLayershell.namespace: "quickshell:osd"; WlrLayershell.layer: WlrLayer.Overlay; exclusionMode: ExclusionMode.Ignore
             Rectangle { anchors.fill: parent; radius: Theme.osdRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
-                scale: root.showOsd ? 1.0 : 0.5
+                scale: root.showOsd ? 1.0 : 0.3
                 opacity: root.showOsd ? 1.0 : 0.0
-                Behavior on scale { NumberAnimation { duration: Theme.animOsdIn; easing.type: Easing.OutBack; easing.overshoot: 2.5 } }
+                Behavior on scale { NumberAnimation { duration: Theme.animOsdIn; easing.type: Easing.OutBack; easing.overshoot: 4.0 } }
                 Behavior on opacity { NumberAnimation { duration: root.showOsd ? Theme.animOsdIn : Theme.animOsdOut } }
                 Row { anchors.centerIn: parent; spacing: 10
                     Text { text: root.osdIcon; font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize; color: Theme.fg; anchors.verticalCenter: parent.verticalCenter }
