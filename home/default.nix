@@ -1,5 +1,8 @@
-{ config, pkgs, dotfilesPath, hostName, hyprland, vicinae, ... }:
+{ config, pkgs, dotfilesPath, hostName, hyprland, vicinae, snappy-switcher, ... }:
 
+let
+  snappy-switcher-pkg = snappy-switcher.packages.${pkgs.system}.default;
+in
 {
   imports = [
     ./shell.nix
@@ -135,6 +138,8 @@
     nwg-look       # GTK theme manager for Wayland
 
     quickshell
+    snappy-switcher-pkg
+    papirus-icon-theme
 
     # Dev tools (lightweight baseline — heavy stuff goes in devshells)
     python3
@@ -206,6 +211,10 @@
     source = "${dotfilesPath}/config/vicinae";
     recursive = true;
   };
+
+  # ── Snappy-switcher (alt-tab window switcher) ──────────────
+  xdg.configFile."snappy-switcher/config.ini".source = "${dotfilesPath}/config/snappy-switcher/config.ini";
+  xdg.configFile."snappy-switcher/themes".source = "${snappy-switcher-pkg}/share/snappy-switcher/themes";
 
   # ── WirePlumber Bluetooth codecs ─────────────────────────────
   xdg.configFile."wireplumber/wireplumber.conf.d/50-bluetooth.conf".text = ''

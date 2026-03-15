@@ -12,9 +12,10 @@
       url = "github:vicinaehq/vicinae";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    snappy-switcher.url = "github:OpalAayan/snappy-switcher";
   };
 
-  outputs = { self, nixpkgs, home-manager, hyprland, vicinae, ... }:
+  outputs = { self, nixpkgs, home-manager, hyprland, vicinae, snappy-switcher, ... }:
   let
     mkHost = hostName: hostModule: nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
@@ -30,7 +31,7 @@
           home-manager.users.kevin = import ./home;
           home-manager.extraSpecialArgs = {
             dotfilesPath = self;
-            inherit hostName hyprland vicinae;
+            inherit hostName hyprland vicinae snappy-switcher;
           };
         }
       ];
