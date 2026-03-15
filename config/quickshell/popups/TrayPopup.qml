@@ -34,11 +34,11 @@ PanelWindow {
 
         // ── Popup entrance: slide down + fade from bar ──
         opacity: trayPop.active ? 1 : 0
-        scale: trayPop.active ? 1.0 : 0.75
+        scale: trayPop.active ? 1.0 : 0.92
         transformOrigin: Item.Top
         y: trayPop.active ? anchors.topMargin : anchors.topMargin - 12
         Behavior on opacity { NumberAnimation { duration: Theme.animPopupIn; easing.type: Easing.OutCubic } }
-        Behavior on scale { NumberAnimation { duration: Theme.animPopupIn; easing.type: Easing.OutBack; easing.overshoot: 2.5 } }
+        Behavior on scale { NumberAnimation { duration: Theme.animPopupIn; easing.type: Easing.OutCubic } }
 
         Grid {
             id: trayGrid; anchors.centerIn: parent; columns: 4; spacing: 10

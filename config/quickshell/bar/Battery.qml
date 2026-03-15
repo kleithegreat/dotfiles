@@ -60,8 +60,8 @@ RowLayout {
                 }
                 PropertyAction { target: batIcon; property: "text" }
                 ParallelAnimation {
-                    NumberAnimation { target: batIcon; property: "opacity"; to: 1; duration: 250; easing.type: Easing.OutBack }
-                    NumberAnimation { target: batIcon; property: "scale"; to: 1.0; duration: 300; easing.type: Easing.OutBack; }
+                    NumberAnimation { target: batIcon; property: "opacity"; to: 1; duration: 250; easing.type: Easing.OutCubic }
+                    NumberAnimation { target: batIcon; property: "scale"; to: 1.0; duration: 300; easing.type: Easing.OutCubic }
                 }
             }
         }

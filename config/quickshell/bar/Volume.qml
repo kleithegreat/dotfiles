@@ -26,7 +26,7 @@ Item {
                 SequentialAnimation {
                     NumberAnimation { target: volIcon; property: "opacity"; to: 0; duration: Theme.animFast; easing.type: Easing.InQuad }
                     PropertyAction { target: volIcon; property: "text" }
-                    NumberAnimation { target: volIcon; property: "opacity"; to: 1; duration: Theme.animNormal; easing.type: Easing.OutBack }
+                    NumberAnimation { target: volIcon; property: "opacity"; to: 1; duration: Theme.animNormal; easing.type: Easing.OutCubic }
                 }
             }
             Behavior on color { ColorAnimation { duration: 150 } }
