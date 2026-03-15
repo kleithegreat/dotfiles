@@ -15,6 +15,7 @@ Scope {
 
     // ── Popup state ──
     property string activePopup: ""
+    property bool suppressOsd: false
     function openPopup(name) { activePopup = (activePopup === name) ? "" : name; }
 
     // ── Notification state ──
@@ -87,8 +88,8 @@ Scope {
 
     Connections {
         target: Pipewire.defaultAudioSink?.audio ?? null
-        function onVolumeChanged() { if (!root.osdVolInit) { root.osdVolInit = true; return; } root.showVolumeOsd(); }
-        function onMutedChanged() { if (!root.osdVolInit) return; root.showVolumeOsd(); }
+        function onVolumeChanged() { if (!root.osdVolInit) { root.osdVolInit = true; return; } if (root.suppressOsd) return; root.showVolumeOsd(); }
+        function onMutedChanged() { if (!root.osdVolInit) return; if (root.suppressOsd) return; root.showVolumeOsd(); }
     }
 
     function showVolumeOsd() {
@@ -146,7 +147,7 @@ Scope {
     Popups.CalendarPopup { active: root.activePopup === "calendar"; onClose: root.activePopup = "" }
     Popups.TrayPopup { active: root.activePopup === "tray"; onClose: root.activePopup = "" }
     Popups.MprisPopup { active: root.activePopup === "mpris"; onClose: root.activePopup = "" }
-    Popups.AudioPopup { active: root.activePopup === "audio"; onClose: root.activePopup = "" }
+    Popups.AudioPopup { active: root.activePopup === "audio"; onClose: root.activePopup = ""; shellRoot: root }
     Popups.WifiPopup { active: root.activePopup === "wifi"; onClose: root.activePopup = "" }
     Popups.PowerProfilePopup { active: root.activePopup === "powerprofile"; onClose: root.activePopup = "" }
     Popups.SettingsPopup { active: root.activePopup === "settings"; onClose: root.activePopup = "" }
