@@ -17,6 +17,11 @@
   # ── Networking ───────────────────────────────────────────────
   networking.hostName = "nixos";
   networking.networkmanager.enable = true;
+
+  # ── PKI / TLS trust ────────────────────────────────────────
+  security.pki.certificateFiles = [
+    ../certs/caddy-root-ca.crt
+  ];
   # firewall: allow Samba and mDNS; add more as needed
   networking.firewall = {
     enable = true;
