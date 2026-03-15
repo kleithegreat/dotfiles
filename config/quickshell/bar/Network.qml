@@ -7,6 +7,7 @@ RowLayout {
     id: netRoot; spacing: 4; signal clicked()
     property string networkName: ""
     property bool connected: networkName !== ""
+    property int maxLabelWidth: 100
 
     // ── Debounced state: hold previous value until new data arrives ──
     // Instead of clearing networkName before each poll (which caused the flash),
@@ -31,17 +32,57 @@ RowLayout {
         Behavior on color { ColorAnimation { duration: 150 } }
     }
 
-    Text {
-        id: netLabel
-        text: networkName
+    Item {
+        id: marqueeContainer
         visible: connected
-        color: netArea.containsMouse ? Theme.yellowBright : Theme.fg
-        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+        Layout.maximumWidth: netRoot.maxLabelWidth
+        implicitWidth: Math.min(netLabel.implicitWidth, netRoot.maxLabelWidth)
+        implicitHeight: netLabel.implicitHeight
+        clip: true
 
-        // Slide in from right when SSID appears
         opacity: connected ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
-        Behavior on color { ColorAnimation { duration: 150 } }
+
+        property bool overflowing: netLabel.implicitWidth > netRoot.maxLabelWidth
+
+        Text {
+            id: netLabel
+            text: networkName
+            y: 0
+            color: netArea.containsMouse ? Theme.yellowBright : Theme.fg
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+
+            Behavior on color { ColorAnimation { duration: 150 } }
+        }
+
+        SequentialAnimation {
+            id: marqueeAnim
+            running: marqueeContainer.overflowing && marqueeContainer.visible
+            loops: Animation.Infinite
+
+            PauseAnimation { duration: 2000 }
+            NumberAnimation {
+                target: netLabel; property: "x"
+                from: 0; to: -(netLabel.implicitWidth - netRoot.maxLabelWidth)
+                duration: Math.max(1500, (netLabel.implicitWidth - netRoot.maxLabelWidth) * 30)
+                easing.type: Easing.Linear
+            }
+            PauseAnimation { duration: 1500 }
+            PropertyAction { target: netLabel; property: "x"; value: 0 }
+        }
+
+        onOverflowingChanged: {
+            marqueeAnim.stop();
+            netLabel.x = 0;
+        }
+
+        Connections {
+            target: netRoot
+            function onNetworkNameChanged() {
+                marqueeAnim.stop();
+                netLabel.x = 0;
+            }
+        }
     }
 
     MouseArea {
