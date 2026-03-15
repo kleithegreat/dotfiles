@@ -42,7 +42,7 @@ PanelWindow {
             Repeater {
                 model: SystemTray.items
                 Item {
-                    id: trayItem; required property var modelData
+                    id: trayItem; required property var modelData; required property int index
                     width: 32; height: 32
 
                     // ── Multi-strategy icon resolution ──
