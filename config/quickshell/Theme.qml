@@ -74,4 +74,28 @@ QtObject {
 
     readonly property int mprisArtSize: 80
     readonly property int mprisPopupWidth: 340
+
+    // ── Animation constants (inspired by caelestia anim.durations.scale) ──
+    // Multiply all durations by animScale to uniformly speed up / slow down
+    readonly property real animScale: 1.0
+
+    // Micro-interactions (icon swaps, color changes, hover)
+    readonly property int animFast:    Math.round(120 * animScale)
+    readonly property int animNormal:  Math.round(200 * animScale)
+    readonly property int animMedium:  Math.round(300 * animScale)
+
+    // Popup / drawer entrances
+    readonly property int animPopupIn:  Math.round(250 * animScale)
+    readonly property int animPopupOut: Math.round(180 * animScale)
+
+    // Notification slide-in
+    readonly property int animNotifIn:  Math.round(350 * animScale)
+    readonly property int animNotifOut: Math.round(250 * animScale)
+
+    // Stagger delay per item in lists/grids
+    readonly property int animStagger: Math.round(30 * animScale)
+
+    // OSD pop
+    readonly property int animOsdIn:  Math.round(200 * animScale)
+    readonly property int animOsdOut: Math.round(300 * animScale)
 }
