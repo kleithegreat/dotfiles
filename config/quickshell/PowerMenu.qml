@@ -16,7 +16,8 @@ PanelWindow {
     WlrLayershell.keyboardFocus: active ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     exclusionMode: ExclusionMode.Ignore
 
-    Rectangle { anchors.fill: parent; color: Theme.bg0_h; opacity: 0.72; focus: true
+    Rectangle { anchors.fill: parent; color: Theme.bg0_h; opacity: powerMenu.active ? 0.72 : 0; focus: true
+        Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
         Keys.onEscapePressed: powerMenu.close()
         MouseArea { anchors.fill: parent; onClicked: powerMenu.close() }
     }
@@ -36,6 +37,17 @@ PanelWindow {
                 color: pwrA.containsMouse ? Theme.bg2 : Theme.bg1
                 border.width: 1; border.color: pwrA.containsMouse ? Theme.fg4 : Theme.bg3
                 Behavior on color { ColorAnimation { duration: 120 } }
+
+                opacity: 0; scale: 0.7
+                Component.onCompleted: { pwrEnterAnim.start(); }
+                SequentialAnimation {
+                    id: pwrEnterAnim
+                    PauseAnimation { duration: pwrBtn.index * 60 }
+                    ParallelAnimation {
+                        NumberAnimation { target: pwrBtn; property: "opacity"; to: 1; duration: 300; easing.type: Easing.OutCubic }
+                        NumberAnimation { target: pwrBtn; property: "scale"; to: 1.0; duration: 350; easing.type: Easing.OutBack; easing.overshoot: 1.0 }
+                    }
+                }
 
                 ColumnLayout { anchors.centerIn: parent; spacing: 8
                     Text { text: pwrBtn.modelData.icon

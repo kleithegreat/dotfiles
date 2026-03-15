@@ -34,8 +34,11 @@ PanelWindow {
 
         // ── Popup entrance: slide down + fade from bar ──
         opacity: trayPop.active ? 1 : 0
+        scale: trayPop.active ? 1.0 : 0.96
+        transformOrigin: Item.Top
         y: trayPop.active ? anchors.topMargin : anchors.topMargin - 12
-        Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+        Behavior on opacity { NumberAnimation { duration: Theme.animPopupIn; easing.type: Easing.OutCubic } }
+        Behavior on scale { NumberAnimation { duration: Theme.animPopupIn; easing.type: Easing.OutBack; easing.overshoot: 0.5 } }
 
         Grid {
             id: trayGrid; anchors.centerIn: parent; columns: 4; spacing: 10
@@ -45,59 +48,9 @@ PanelWindow {
                     id: trayItem; required property var modelData; required property int index
                     width: 32; height: 32
 
-                    // ── Multi-strategy icon resolution ──
-                    // Strategy 1: Use the item's icon property directly.
-                    //   - Some apps provide a full path (e.g., "/usr/share/icons/app.png")
-                    //   - Some apps provide a theme icon name (e.g., "firefox")
-                    //   - Some apps provide nothing useful
-                    //
-                    // Strategy 2: Theme lookup via Quickshell.iconPath()
-                    //   - Resolves theme icon names against installed icon themes
-                    //
-                    // Strategy 3: Try common icon paths by app id
-                    //   - Uses the item's id to search standard icon locations
-
                     Image {
                         id: trayImg; anchors.fill: parent; anchors.margins: 2
-                        source: {
-                            let iconProp = trayItem.modelData.icon ?? "";
-
-                            // If it looks like an absolute path, use directly
-                            if (iconProp.startsWith("/") || iconProp.startsWith("file://")) {
-                                return iconProp;
-                            }
-
-                            // Try theme lookup
-                            if (iconProp !== "") {
-                                let themePath = Quickshell.iconPath(iconProp, true);
-                                if (themePath && themePath !== "") return themePath;
-
-                                // Some apps use their icon name as a direct path without prefix
-                                // Try common pixmap/icon directories
-                                let tryPaths = [
-                                    "/usr/share/pixmaps/" + iconProp + ".png",
-                                    "/usr/share/pixmaps/" + iconProp + ".svg",
-                                    "/usr/share/icons/hicolor/scalable/apps/" + iconProp + ".svg",
-                                    "/usr/share/icons/hicolor/48x48/apps/" + iconProp + ".png",
-                                    "/usr/share/icons/hicolor/256x256/apps/" + iconProp + ".png",
-                                    "/usr/share/icons/hicolor/128x128/apps/" + iconProp + ".png",
-                                    "/usr/share/icons/hicolor/64x64/apps/" + iconProp + ".png",
-                                    "/usr/share/icons/hicolor/32x32/apps/" + iconProp + ".png",
-                                ];
-                                // Return first path and let Image handle 404 gracefully
-                                // (Image.status will be Error, triggering fallback)
-                                return Quickshell.iconPath(iconProp) ?? "";
-                            }
-
-                            // Nothing provided — try by item id
-                            let itemId = (trayItem.modelData.id ?? "").toLowerCase();
-                            if (itemId !== "") {
-                                let idPath = Quickshell.iconPath(itemId, true);
-                                if (idPath && idPath !== "") return idPath;
-                            }
-
-                            return "";
-                        }
+                        source: trayItem.modelData.icon ?? ""
                         sourceSize.width: 28; sourceSize.height: 28; smooth: true
                         visible: status === Image.Ready
                     }
