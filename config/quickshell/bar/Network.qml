@@ -26,7 +26,7 @@ RowLayout {
             SequentialAnimation {
                 NumberAnimation { target: netIcon; property: "opacity"; to: 0; duration: 120; easing.type: Easing.InQuad }
                 PropertyAction { target: netIcon; property: "text" }
-                NumberAnimation { target: netIcon; property: "opacity"; to: 1; duration: 200; easing.type: Easing.OutBack }
+                NumberAnimation { target: netIcon; property: "opacity"; to: 1; duration: 200; easing.type: Easing.OutCubic }
             }
         }
         Behavior on color { ColorAnimation { duration: 150 } }

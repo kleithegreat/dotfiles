@@ -17,7 +17,7 @@ PanelWindow {
     exclusionMode: ExclusionMode.Ignore
 
     Rectangle { anchors.fill: parent; color: Theme.bg0_h; opacity: powerMenu.active ? 0.72 : 0; focus: true
-        Behavior on opacity { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
+        Behavior on opacity { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
         Keys.onEscapePressed: powerMenu.close()
         MouseArea { anchors.fill: parent; onClicked: powerMenu.close() }
     }
@@ -38,14 +38,14 @@ PanelWindow {
                 border.width: 1; border.color: pwrA.containsMouse ? Theme.fg4 : Theme.bg3
                 Behavior on color { ColorAnimation { duration: 120 } }
 
-                opacity: 0; scale: 0.1
+                opacity: 0; scale: 0.5
                 Component.onCompleted: { pwrEnterAnim.start(); }
                 SequentialAnimation {
                     id: pwrEnterAnim
-                    PauseAnimation { duration: pwrBtn.index * 80 }
+                    PauseAnimation { duration: pwrBtn.index * 50 }
                     ParallelAnimation {
                         NumberAnimation { target: pwrBtn; property: "opacity"; to: 1; duration: 300; easing.type: Easing.OutCubic }
-                        NumberAnimation { target: pwrBtn; property: "scale"; to: 1.0; duration: 250; easing.type: Easing.OutBack; easing.overshoot: 3.0 }
+                        NumberAnimation { target: pwrBtn; property: "scale"; to: 1.0; duration: 400; easing.type: Easing.OutCubic }
                     }
                 }
 
