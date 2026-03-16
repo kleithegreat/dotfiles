@@ -51,17 +51,19 @@ PanelWindow {
                     Image {
                         id: trayImg; anchors.centerIn: parent
                         width: Theme.iconSize; height: Theme.iconSize
-                        source: trayItem.modelData.icon ?? ""
+                        source: Quickshell.iconPath(trayItem.modelData.id ?? "", true) || (trayItem.modelData.icon ?? "")
                         smooth: true; fillMode: Image.PreserveAspectFit
                         cache: false
                         visible: status === Image.Ready
                     }
 
-                    // Fallback: show first letter of app id
+                    // Fallback: nerd font icon for known apps, then first letter
                     Text {
                         anchors.centerIn: parent; visible: !trayImg.visible
                         text: {
-                            let id = trayItem.modelData.id ?? trayItem.modelData.title ?? "";
+                            let id = (trayItem.modelData.id ?? trayItem.modelData.title ?? "").toLowerCase();
+                            // Known apps with broken pixmaps — add more here
+                            if (id.includes("spotify")) return "󰓇";
                             return id.length > 0 ? id.charAt(0).toUpperCase() : "?";
                         }
                         color: Theme.fg3
@@ -80,6 +82,7 @@ PanelWindow {
                     // ── Staggered entrance animation ──
                     opacity: 0; scale: 0.8
                     Component.onCompleted: {
+                        console.log("TRAY DEBUG:", modelData.id, "icon:", modelData.icon); // TODO: remove
                         staggerAnim.delay = index * 30;
                         staggerAnim.start();
                     }
