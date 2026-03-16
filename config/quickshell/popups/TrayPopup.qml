@@ -27,8 +27,8 @@ PanelWindow {
         id: trayPanel
         anchors.right: parent.right; anchors.top: parent.top
         anchors.topMargin: Theme.popupTopMargin; anchors.rightMargin: Theme.gapOut + 36
-        width: trayGrid.implicitWidth + Theme.popupPadding * 2
-        height: trayGrid.implicitHeight + Theme.popupPadding * 2
+        width: trayGrid.implicitWidth + Theme.barPadding * 2
+        height: trayGrid.implicitHeight + Theme.barPadding * 2
         radius: Theme.popupRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
         MouseArea { anchors.fill: parent }
 
@@ -41,43 +41,40 @@ PanelWindow {
         Behavior on scale { NumberAnimation { duration: Theme.animPopupIn; easing.type: Easing.OutCubic } }
 
         Grid {
-            id: trayGrid; anchors.centerIn: parent; columns: 4; spacing: 10
+            id: trayGrid; anchors.centerIn: parent; columns: Math.min(4, SystemTray.items.values.length); spacing: Theme.barSpacing
             Repeater {
                 model: SystemTray.items
                 Item {
                     id: trayItem; required property var modelData; required property int index
-                    width: 32; height: 32
+                    width: Theme.iconSize + 4; height: Theme.iconSize + 4
 
                     Image {
-                        id: trayImg; anchors.fill: parent; anchors.margins: 2
+                        id: trayImg; anchors.centerIn: parent
+                        width: Theme.iconSize; height: Theme.iconSize
                         source: trayItem.modelData.icon ?? ""
-                        sourceSize.width: 28; sourceSize.height: 28; smooth: true
+                        smooth: true; fillMode: Image.PreserveAspectFit
+                        cache: false
                         visible: status === Image.Ready
                     }
 
-                    // Fallback: show first letter of app id in a styled circle
-                    Rectangle {
-                        anchors.centerIn: parent; visible: trayImg.status !== Image.Ready
-                        width: 24; height: 24; radius: 12
-                        color: Theme.bg2; border.width: 1; border.color: Theme.bg3
-                        Text {
-                            anchors.centerIn: parent
-                            text: {
-                                let id = trayItem.modelData.id ?? trayItem.modelData.title ?? "";
-                                return id.length > 0 ? id.charAt(0).toUpperCase() : "?";
-                            }
-                            color: Theme.fg3
-                            font.family: Theme.fontFamily; font.pixelSize: 11; font.bold: true
+                    // Fallback: show first letter of app id
+                    Text {
+                        anchors.centerIn: parent; visible: !trayImg.visible
+                        text: {
+                            let id = trayItem.modelData.id ?? trayItem.modelData.title ?? "";
+                            return id.length > 0 ? id.charAt(0).toUpperCase() : "?";
                         }
+                        color: Theme.fg3
+                        font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize; font.bold: true
                     }
 
-                    // ── Hover effect: subtle lift + glow ──
+                    // ── Hover effect ──
                     Rectangle {
-                        anchors.fill: parent; radius: 6
-                        color: trayMouseArea.containsMouse ? Theme.bg2 : "transparent"
-                        border.width: trayMouseArea.containsMouse ? 1 : 0
-                        border.color: Theme.bg3
-                        Behavior on color { ColorAnimation { duration: 120 } }
+                        anchors.fill: parent; radius: 4; z: -1
+                        color: Theme.bg2
+                        opacity: trayMouseArea.containsMouse ? 1 : 0
+                        border.width: 1; border.color: Theme.bg3
+                        Behavior on opacity { NumberAnimation { duration: 120 } }
                     }
 
                     // ── Staggered entrance animation ──

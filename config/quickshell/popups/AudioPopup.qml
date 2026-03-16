@@ -29,7 +29,7 @@ PanelWindow {
 
     Rectangle {
         anchors.right: parent.right; anchors.top: parent.top
-        anchors.topMargin: Theme.popupTopMargin; anchors.rightMargin: Theme.gapOut + 80
+        anchors.topMargin: Theme.popupTopMargin; anchors.rightMargin: Theme.gapOut
         width: Theme.audioPopupWidth; height: audioCol.implicitHeight + Theme.popupPadding * 2
         radius: Theme.popupRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
         opacity: audioPop.active ? 1 : 0

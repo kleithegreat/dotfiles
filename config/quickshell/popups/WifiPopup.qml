@@ -20,9 +20,6 @@ PanelWindow {
     ListModel { id: netModel }
     ListModel { id: knownModel }
 
-    // ── Connection-flow state ─────────────────────────────────
-    // "list" → browsing | "password" → WPA-PSK prompt
-    // "enterprise" → 802.1X prompt | "connecting" → in progress
     property string popupState: "list"
     property string targetSsid: ""
     property string targetSecurity: ""
@@ -33,10 +30,7 @@ PanelWindow {
     }
 
     function resetState() {
-        popupState = "list";
-        targetSsid = "";
-        targetSecurity = "";
-        connectError = "";
+        popupState = "list"; targetSsid = ""; targetSecurity = ""; connectError = "";
     }
 
     function scan() { netModel.clear(); connectedSsid = ""; scanProc.running = true; }
@@ -47,7 +41,6 @@ PanelWindow {
         return false;
     }
 
-    // ── nmcli -t field parser (handles \: and \\ escapes) ─────
     function parseNmcli(line) {
         let fields = [], cur = "";
         for (let i = 0; i < line.length; i++) {
@@ -61,29 +54,18 @@ PanelWindow {
 
     function isEnterprise(sec) { return sec.indexOf("802.1X") >= 0; }
 
-    // ── Connection routing ────────────────────────────────────
     function connectTo(ssid, security) {
         connectError = "";
-        if (isKnown(ssid)) {
-            // Known network — reconnect directly
-            popupState = "connecting";
-            targetSsid = ssid;
+        if (isEnterprise(security)) {
+            targetSsid = ssid; targetSecurity = security; popupState = "enterprise";
+        } else if (isKnown(ssid)) {
+            popupState = "connecting"; targetSsid = ssid;
             connectProc.command = ["nmcli", "dev", "wifi", "connect", ssid];
             connectProc.running = true;
-        } else if (isEnterprise(security)) {
-            // Unknown 802.1X — show identity + password form
-            targetSsid = ssid;
-            targetSecurity = security;
-            popupState = "enterprise";
         } else if (security !== "") {
-            // Unknown WPA/WPA2-PSK — show password form
-            targetSsid = ssid;
-            targetSecurity = security;
-            popupState = "password";
+            targetSsid = ssid; targetSecurity = security; popupState = "password";
         } else {
-            // Open network — connect directly
-            popupState = "connecting";
-            targetSsid = ssid;
+            popupState = "connecting"; targetSsid = ssid;
             connectProc.command = ["nmcli", "dev", "wifi", "connect", ssid];
             connectProc.running = true;
         }
@@ -99,26 +81,42 @@ PanelWindow {
     function submitEnterprise(identity, password) {
         if (!identity || !password) return;
         popupState = "connecting";
-        connectProc.command = [
-            "nmcli", "dev", "wifi", "connect", targetSsid,
-            "802-1x.eap", "peap",
-            "802-1x.phase2-auth", "mschapv2",
-            "802-1x.identity", identity,
-            "802-1x.password", password
+        enterpriseProc.command = [
+            "bash", "-c",
+            "iface=$(nmcli -t -f DEVICE,TYPE dev | grep ':wifi$' | head -1 | cut -d: -f1); " +
+            "nmcli connection delete id " + JSON.stringify(targetSsid) + " 2>/dev/null; " +
+            "nmcli connection add type wifi ifname \"$iface\" con-name " + JSON.stringify(targetSsid) +
+            " ssid " + JSON.stringify(targetSsid) +
+            " wifi-sec.key-mgmt wpa-eap 802-1x.eap peap 802-1x.phase2-auth mschapv2" +
+            " 802-1x.identity " + JSON.stringify(identity) +
+            " 802-1x.password " + JSON.stringify(password) +
+            " && nmcli connection up id " + JSON.stringify(targetSsid)
         ];
-        connectProc.running = true;
+        enterpriseProc.running = true;
     }
+
+    function disconnect() { disconnectProc.running = true; }
 
     // ── Processes ─────────────────────────────────────────────
     Process {
         id: scanProc
-        command: ["nmcli", "-t", "-f", "SSID,SIGNAL,SECURITY,IN-USE", "dev", "wifi", "list", "--rescan", "yes"]
+        command: [
+            "bash", "-c",
+            "iface=$(nmcli -t -f DEVICE,TYPE dev | grep ':wifi$' | head -1 | cut -d: -f1); " +
+            "nmcli -t -f SSID,SIGNAL,SECURITY,IN-USE dev wifi list ifname \"$iface\" --rescan yes"
+        ]
         running: false
         stdout: SplitParser { onRead: (line) => {
             let p = wifiPop.parseNmcli(line);
             if (p.length < 4 || !p[0]) return;
             if (p[3] === "*") wifiPop.connectedSsid = p[0];
-            for (let i = 0; i < netModel.count; i++) if (netModel.get(i).ssid === p[0]) return;
+            for (let i = 0; i < netModel.count; i++) {
+                if (netModel.get(i).ssid === p[0]) {
+                    if ((parseInt(p[1]) || 0) > netModel.get(i).signal)
+                        netModel.set(i, { ssid: p[0], signal: parseInt(p[1]) || 0, security: p[2] || "", active: p[3] === "*" });
+                    return;
+                }
+            }
             netModel.append({ ssid: p[0], signal: parseInt(p[1]) || 0, security: p[2] || "", active: p[3] === "*" });
         } }
     }
@@ -131,17 +129,30 @@ PanelWindow {
     Process {
         id: connectProc; running: false
         onExited: (code, status) => {
-            if (code === 0) {
-                wifiPop.resetState();
-                wifiPop.scan();
-            } else {
-                wifiPop.connectError = "Connection failed (exit " + code + ")";
-                wifiPop.popupState = "list";
-            }
+            if (code === 0) { wifiPop.resetState(); wifiPop.scan(); }
+            else { wifiPop.connectError = "Connection failed (exit " + code + ")"; wifiPop.popupState = "list"; }
         }
     }
 
-    Process { id: nmtuiProc; command: ["alacritty", "-e", "nmtui"]; running: false }
+    Process {
+        id: enterpriseProc; running: false
+        onExited: (code, status) => {
+            if (code === 0) { wifiPop.resetState(); wifiPop.scan(); }
+            else { wifiPop.connectError = "Enterprise auth failed (exit " + code + ")"; wifiPop.popupState = "list"; }
+        }
+    }
+
+    Process {
+        id: disconnectProc; running: false
+        command: [
+            "bash", "-c",
+            "iface=$(nmcli -t -f DEVICE,TYPE dev | grep ':wifi$' | head -1 | cut -d: -f1); " +
+            "nmcli dev disconnect \"$iface\""
+        ]
+        onExited: { wifiPop.scan(); }
+    }
+
+
 
     // ── Backdrop ──────────────────────────────────────────────
     Rectangle {
@@ -169,7 +180,6 @@ PanelWindow {
         ColumnLayout {
             id: wifiCol; anchors.fill: parent; anchors.margins: Theme.popupPadding; spacing: 8
 
-            // ── Header ────────────────────────────────────────
             RowLayout { Layout.fillWidth: true
                 Text {
                     text: {
@@ -180,8 +190,6 @@ PanelWindow {
                     }
                     color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; font.bold: true; Layout.fillWidth: true
                 }
-
-                // Back button (in form states)
                 Text {
                     visible: wifiPop.popupState === "password" || wifiPop.popupState === "enterprise"
                     text: "← Back"; color: backA.containsMouse ? Theme.blueBright : Theme.fg4
@@ -189,8 +197,6 @@ PanelWindow {
                     MouseArea { id: backA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
                         onClicked: wifiPop.resetState() }
                 }
-
-                // Rescan button (in list state)
                 Text {
                     visible: wifiPop.popupState === "list"
                     text: "Rescan"; color: rescanA.containsMouse ? Theme.blueBright : Theme.fg4
@@ -200,12 +206,19 @@ PanelWindow {
                 }
             }
 
-            // ── Connected badge ───────────────────────────────
-            Text { visible: wifiPop.popupState === "list" && wifiPop.connectedSsid !== ""
-                text: "Connected: " + wifiPop.connectedSsid; color: Theme.greenBright
-                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+            // ── Connected + disconnect ────────────────────────
+            RowLayout {
+                visible: wifiPop.popupState === "list" && wifiPop.connectedSsid !== ""
+                Layout.fillWidth: true; spacing: 8
+                Text { text: "Connected: " + wifiPop.connectedSsid; color: Theme.greenBright
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.fillWidth: true; elide: Text.ElideRight }
+                Text { text: "Disconnect"; color: dcA.containsMouse ? Theme.redBright : Theme.fg4
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                    MouseArea { id: dcA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                        onClicked: wifiPop.disconnect() }
+                }
+            }
 
-            // ── Error banner ──────────────────────────────────
             Text { visible: wifiPop.connectError !== ""
                 text: wifiPop.connectError; color: Theme.redBright
                 font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
@@ -213,12 +226,10 @@ PanelWindow {
 
             Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
 
-            // ══════════════════════════════════════════════════
-            // ── LIST STATE ────────────────────────────────────
-            // ══════════════════════════════════════════════════
+            // ── LIST ──────────────────────────────────────────
             Flickable {
                 visible: wifiPop.popupState === "list"
-                Layout.fillWidth: true; Layout.maximumHeight: 280; Layout.minimumHeight: 30
+                Layout.fillWidth: true; Layout.preferredHeight: 170; Layout.maximumHeight: 170
                 contentHeight: netCol.implicitHeight; clip: true; boundsBehavior: Flickable.StopAtBounds
 
                 Column {
@@ -234,12 +245,7 @@ PanelWindow {
                             RowLayout {
                                 anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 8; spacing: 6
                                 Text {
-                                    text: {
-                                        if (signal > 75) return "󰖩";
-                                        if (signal > 50) return "󰖩";
-                                        if (signal > 25) return "󰖩";
-                                        return "󰖩";
-                                    }
+                                    text: "󰖩"
                                     color: {
                                         if (netItem.active) return Theme.greenBright;
                                         if (signal > 60) return Theme.fg;
@@ -258,7 +264,6 @@ PanelWindow {
                                 Text { text: netItem.signal + "%"; color: Theme.fg4
                                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
                             }
-
                             MouseArea { id: niArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
                                 onClicked: { if (!netItem.active) wifiPop.connectTo(netItem.ssid, netItem.security); } }
                         }
@@ -269,28 +274,14 @@ PanelWindow {
             Text { visible: wifiPop.popupState === "list" && netModel.count === 0
                 text: "Scanning…"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
 
-            // ── Open nmtui fallback ───────────────────────────
-            Rectangle {
-                visible: wifiPop.popupState === "list"
-                Layout.fillWidth: true; height: 28; radius: 6; color: nmtuiArea.containsMouse ? Theme.bg2 : "transparent"
-                Text { anchors.centerIn: parent; text: "Open nmtui (advanced)…"; color: Theme.fg4
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
-                MouseArea { id: nmtuiArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                    onClicked: { nmtuiProc.running = true; wifiPop.close(); } }
-            }
-
-            // ══════════════════════════════════════════════════
-            // ── PASSWORD STATE (WPA-PSK) ──────────────────────
-            // ══════════════════════════════════════════════════
+            // ── PASSWORD ──────────────────────────────────────
             ColumnLayout {
                 visible: wifiPop.popupState === "password"
                 Layout.fillWidth: true; spacing: 8
 
                 Text { text: "Network: " + wifiPop.targetSsid; color: Theme.fg
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; elide: Text.ElideRight
-                    Layout.fillWidth: true }
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; elide: Text.ElideRight; Layout.fillWidth: true }
 
-                // Password field
                 Rectangle {
                     Layout.fillWidth: true; height: 32; radius: 6; color: Theme.bg2; border.width: 1; border.color: Theme.bg3
                     TextInput {
@@ -314,7 +305,6 @@ PanelWindow {
                 }
             }
 
-            // Focus password field when entering this state
             Connections {
                 target: wifiPop
                 function onPopupStateChanged() {
@@ -323,20 +313,16 @@ PanelWindow {
                 }
             }
 
-            // ══════════════════════════════════════════════════
-            // ── ENTERPRISE STATE (802.1X PEAP/MSCHAPv2) ──────
-            // ══════════════════════════════════════════════════
+            // ── ENTERPRISE ────────────────────────────────────
             ColumnLayout {
                 visible: wifiPop.popupState === "enterprise"
                 Layout.fillWidth: true; spacing: 8
 
                 Text { text: "Network: " + wifiPop.targetSsid; color: Theme.fg
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; elide: Text.ElideRight
-                    Layout.fillWidth: true }
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; elide: Text.ElideRight; Layout.fillWidth: true }
                 Text { text: "802.1X · PEAP / MSCHAPv2"; color: Theme.fg4
                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
 
-                // Identity field
                 Rectangle {
                     Layout.fillWidth: true; height: 32; radius: 6; color: Theme.bg2; border.width: 1; border.color: Theme.bg3
                     TextInput {
@@ -350,7 +336,6 @@ PanelWindow {
                         font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
                 }
 
-                // Password field
                 Rectangle {
                     Layout.fillWidth: true; height: 32; radius: 6; color: Theme.bg2; border.width: 1; border.color: Theme.bg3
                     TextInput {
@@ -373,26 +358,22 @@ PanelWindow {
                         onClicked: wifiPop.submitEnterprise(eapIdentity.text, eapPassword.text) }
                 }
 
-                // nmtui fallback for other EAP methods
-                Text { text: "Need EAP-TLS or other method? Use nmtui below."; color: Theme.fg4; wrapMode: Text.WordWrap
+                Text { text: "Only PEAP/MSCHAPv2 is supported."; color: Theme.fg4; wrapMode: Text.WordWrap
                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 2; Layout.fillWidth: true }
             }
 
-            // ══════════════════════════════════════════════════
-            // ── CONNECTING STATE ──────────────────────────────
-            // ══════════════════════════════════════════════════
+            // ── CONNECTING ────────────────────────────────────
             ColumnLayout {
                 visible: wifiPop.popupState === "connecting"
                 Layout.fillWidth: true; spacing: 8; Layout.alignment: Qt.AlignHCenter
 
                 Text { text: "Connecting to " + wifiPop.targetSsid + "…"; color: Theme.fg
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                    Layout.alignment: Qt.AlignHCenter }
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.alignment: Qt.AlignHCenter }
 
                 Rectangle {
                     Layout.alignment: Qt.AlignHCenter; width: 120; height: 4; radius: 2; color: Theme.bg3
                     Rectangle {
-                        id: progBar; height: parent.height; radius: parent.radius; color: Theme.blueBright
+                        height: parent.height; radius: parent.radius; color: Theme.blueBright
                         SequentialAnimation on width {
                             loops: Animation.Infinite
                             NumberAnimation { from: 0; to: 120; duration: 1200; easing.type: Easing.InOutQuad }

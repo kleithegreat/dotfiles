@@ -33,6 +33,7 @@ PanelWindow {
         anchors.rightMargin: Theme.barPadding; spacing: Theme.barSpacing
 
         Network { onClicked: { if (bar.shellRoot) bar.shellRoot.openPopup("wifi"); } }
+        Bluetooth { onClicked: { if (bar.shellRoot) bar.shellRoot.openPopup("bluetooth"); } }
         Volume { shellRoot: bar.shellRoot; onClicked: { if (bar.shellRoot) bar.shellRoot.openPopup("audio"); } }
         Battery { onClicked: { if (bar.shellRoot) bar.shellRoot.openPopup("powerprofile"); } }
 

@@ -40,7 +40,7 @@ PanelWindow {
 
     Rectangle {
         anchors.left: parent.left; anchors.top: parent.top
-        anchors.topMargin: Theme.popupTopMargin; anchors.leftMargin: Theme.gapOut + Theme.barPadding
+        anchors.topMargin: Theme.popupTopMargin; anchors.leftMargin: Theme.gapOut
         width: Theme.mprisPopupWidth; height: mprisCol.implicitHeight + Theme.popupPadding * 2
         radius: Theme.popupRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
         opacity: mprisPop.active ? 1 : 0
@@ -56,7 +56,7 @@ PanelWindow {
             // Art + Info
             RowLayout { spacing: 12
                 Rectangle {
-                    width: Theme.mprisArtSize; height: Theme.mprisArtSize; radius: 8; color: Theme.bg2; clip: true
+                    width: Theme.mprisArtSize * 2; height: Theme.mprisArtSize * 2; radius: 8; color: Theme.bg2; clip: true
                     Image {
                         id: artImg; anchors.fill: parent
                         source: mprisPop.player?.trackArtUrl ?? ""

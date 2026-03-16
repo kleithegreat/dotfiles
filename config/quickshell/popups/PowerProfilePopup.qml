@@ -68,7 +68,7 @@ PanelWindow {
 
     Rectangle {
         anchors.right: parent.right; anchors.top: parent.top
-        anchors.topMargin: Theme.popupTopMargin; anchors.rightMargin: Theme.gapOut + 50
+        anchors.topMargin: Theme.popupTopMargin; anchors.rightMargin: Theme.gapOut
         width: 260; height: ppCol.implicitHeight + Theme.popupPadding * 2
         radius: Theme.popupRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
         opacity: ppPop.active ? 1 : 0
