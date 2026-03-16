@@ -52,6 +52,7 @@ PanelWindow {
                         id: trayImg; anchors.centerIn: parent
                         width: Theme.iconSize; height: Theme.iconSize
                         source: Quickshell.iconPath(trayItem.modelData.id ?? "", true) || (trayItem.modelData.icon ?? "")
+                        sourceSize.width: Theme.iconSize * 2; sourceSize.height: Theme.iconSize * 2
                         smooth: true; fillMode: Image.PreserveAspectFit
                         cache: false
                         visible: status === Image.Ready
