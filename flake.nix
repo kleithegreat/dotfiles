@@ -18,9 +18,9 @@
   outputs = { self, nixpkgs, home-manager, hyprland, vicinae, snappy-switcher, ... }:
   let
     mkHost = hostName: hostModule: nixpkgs.lib.nixosSystem {
-      system = "x86_64-linux";
       specialArgs = { inherit hyprland; };
       modules = [
+        { nixpkgs.hostPlatform = "x86_64-linux"; }
         ./system/configuration.nix
         hostModule
         home-manager.nixosModules.home-manager
