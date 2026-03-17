@@ -9,7 +9,8 @@ import Quickshell.Services.UPower
 PanelWindow {
     id: ppPop
     property bool active: false; signal close()
-    visible: active
+    property bool closing: false
+    visible: active || closing
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
     WlrLayershell.namespace: "quickshell:powerprofile"
@@ -20,7 +21,10 @@ PanelWindow {
     property string currentProfile: "unknown"
     property string backend: "none"
 
-    onActiveChanged: { if (active) detect(); }
+    onActiveChanged: {
+        if (active) { detect(); ppOpenAnim.start(); }
+        else { closing = true; ppCloseAnim.start(); }
+    }
 
     function detect() { ppctlProc.running = true; }
 
@@ -66,22 +70,36 @@ PanelWindow {
         MouseArea { anchors.fill: parent; onClicked: ppPop.close() }
     }
 
+    SequentialAnimation {
+        id: ppOpenAnim
+        ParallelAnimation {
+            NumberAnimation { target: ppPanel; property: "opacity"; to: 1; duration: Theme.animPopupIn; easing.type: Easing.OutCubic }
+            NumberAnimation { target: ppPanel; property: "scale"; to: 1.0; duration: Theme.animPopupIn; easing.type: Easing.OutCubic }
+        }
+    }
+    SequentialAnimation {
+        id: ppCloseAnim
+        ParallelAnimation {
+            NumberAnimation { target: ppPanel; property: "opacity"; to: 0; duration: Theme.animPopupOut; easing.type: Easing.InCubic }
+            NumberAnimation { target: ppPanel; property: "scale"; to: 0.92; duration: Theme.animPopupOut; easing.type: Easing.InCubic }
+        }
+        ScriptAction { script: { ppPop.closing = false; } }
+    }
+
     Rectangle {
+        id: ppPanel
         anchors.right: parent.right; anchors.top: parent.top
         anchors.topMargin: Theme.popupTopMargin; anchors.rightMargin: Theme.gapOut
         width: 260; height: ppCol.implicitHeight + Theme.popupPadding * 2
         radius: Theme.popupRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
-        opacity: ppPop.active ? 1 : 0
-        scale: ppPop.active ? 1.0 : 0.92
-        transformOrigin: Item.Top
-        Behavior on opacity { NumberAnimation { duration: Theme.animPopupIn; easing.type: Easing.OutCubic } }
-        Behavior on scale { NumberAnimation { duration: Theme.animPopupIn; easing.type: Easing.OutCubic } }
+        opacity: 0; scale: 0.92
+        transformOrigin: Item.TopRight
         MouseArea { anchors.fill: parent }
 
         ColumnLayout {
             id: ppCol; anchors.fill: parent; anchors.margins: Theme.popupPadding; spacing: 8
 
-            Text { text: "Power Profile"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; font.bold: true }
+            Text { text: "⚡ Power Profile"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true }
             Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
 
             Repeater {
@@ -92,13 +110,31 @@ PanelWindow {
                 ]
                 Rectangle {
                     id: ppBtn; required property var modelData; required property int index
-                    Layout.fillWidth: true; height: 38; radius: 8
+                    Layout.fillWidth: true; height: 38; radius: Theme.hoverRadius
                     property bool isCur: ppPop.currentProfile === modelData.name
-                    color: isCur ? Theme.bg2 : (ppBtnA.containsMouse ? Theme.bg2 : "transparent")
-                    border.width: isCur ? 1 : 0; border.color: Theme.blueBright
+                    color: "transparent"
 
-                    RowLayout { anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 10; spacing: 8
-                        Text { text: ppBtn.modelData.icon; color: ppBtn.isCur ? Theme.blueBright : Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize }
+                    // Selection highlight with animated transition
+                    Rectangle {
+                        anchors.fill: parent; radius: parent.radius
+                        color: ppBtn.isCur ? Theme.bg2 : Theme.bg2
+                        opacity: ppBtn.isCur ? 0.8 : (ppBtnA.pressed ? 0.9 : (ppBtnA.containsMouse ? 0.6 : 0))
+                        Behavior on opacity { NumberAnimation { duration: Theme.animSpring; easing.type: Easing.OutCubic } }
+                    }
+
+                    // Animated selection border
+                    border.width: ppBtn.isCur ? 1 : 0; border.color: Theme.blueBright
+                    Behavior on border.width { NumberAnimation { duration: Theme.animSpring; easing.type: Easing.OutCubic } }
+
+                    scale: ppBtnA.pressed ? 0.98 : 1.0
+                    Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                    transformOrigin: Item.Center
+
+                    RowLayout { anchors.fill: parent; anchors.leftMargin: Theme.listItemPadding; anchors.rightMargin: Theme.listItemPadding; spacing: 8
+                        Text { text: ppBtn.modelData.icon
+                            color: ppBtn.isCur ? Theme.blueBright : Theme.fg
+                            Behavior on color { ColorAnimation { duration: Theme.animSpring } }
+                            font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize }
                         ColumnLayout { spacing: 0; Layout.fillWidth: true
                             Text { text: ppBtn.modelData.label; color: ppBtn.isCur ? Theme.fg : Theme.fg2; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: ppBtn.isCur }
                             Text { text: ppBtn.modelData.desc; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
