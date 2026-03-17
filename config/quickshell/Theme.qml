@@ -75,26 +75,55 @@ QtObject {
     readonly property int mprisArtSize: 80
     readonly property int mprisPopupWidth: 340
 
-    // ── Animation constants (synced to Hyprland: 400ms, bezier 0.05,0.9,0.1,1.05) ──
+    // ── Animation constants ──
+    // Shell chrome should feel instant/reactive, not floaty.
+    // Opens are slightly slower (ease-in to land), close/nav are fast (get out of the way).
     readonly property real animScale: 1.6
 
-    // Micro-interactions (icon swaps, color changes, hover)
-    readonly property int animFast:    100
-    readonly property int animNormal:  250
-    readonly property int animMedium:  400
+    // Micro-interactions (press scale, icon color, hover bg)
+    readonly property int animMicro:       60
+    readonly property int animFast:        80
+    readonly property int animHover:       120
 
-    // Popup / drawer entrances
-    readonly property int animPopupIn:  400
-    readonly property int animPopupOut: 250
+    // Content transitions (state swaps, cross-fades, text changes)
+    readonly property int animContentSwap: 150
+    readonly property int animNormal:      180
+    readonly property int animSpring:      220
 
-    // Notification slide-in
-    readonly property int animNotifIn:  400
-    readonly property int animNotifOut: 250
+    // Popup open — keep a bit of weight so it feels intentional
+    readonly property int animPopupIn:     280
+    // Popup close / navigation — snappy, get out of the way
+    readonly property int animPopupOut:    150
+    readonly property int animMedium:      250
+
+    // Popup height resize
+    readonly property int animHeightResize: 200
+
+    // Notification slide
+    readonly property int animNotifIn:     280
+    readonly property int animNotifOut:    180
 
     // Stagger delay per item in lists/grids
-    readonly property int animStagger: 40
+    readonly property int animStagger:     30
 
     // OSD pop
-    readonly property int animOsdIn:  300
-    readonly property int animOsdOut: 200
+    readonly property int animOsdIn:       200
+    readonly property int animOsdOut:      140
+
+    // ── Shared interactive element geometry ──
+    readonly property int hoverRadius: 8        // unified hover highlight corner radius
+    readonly property int listItemHeight: 40    // standard interactive row height
+    readonly property int listItemPadding: 10   // standard row left/right inset
+    readonly property int sectionSpacing: 12    // space between logical sections in a popup
+    readonly property int headerFontSize: fontSize // popup header text size
+
+    // Toggle switch dimensions
+    readonly property int toggleWidth: 40
+    readonly property int toggleHeight: 22
+    readonly property int toggleKnobSize: 18
+
+    // Small action button geometry
+    readonly property int btnRadius: 6
+    readonly property int btnHeight: 26
+    readonly property int btnPaddingH: 12
 }

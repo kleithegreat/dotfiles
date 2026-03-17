@@ -8,7 +8,13 @@ import Quickshell.Services.SystemTray
 PanelWindow {
     id: trayPop
     property bool active: false; signal close()
-    visible: active && SystemTray.items.values.length > 0
+    property bool closing: false
+    visible: (active || closing) && SystemTray.items.values.length > 0
+
+    onActiveChanged: {
+        if (active) { trayOpenAnim.start(); }
+        else { closing = true; trayCloseAnim.start(); }
+    }
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
     WlrLayershell.namespace: "quickshell:tray"
@@ -23,6 +29,22 @@ PanelWindow {
         MouseArea { anchors.fill: parent; onClicked: trayPop.close() }
     }
 
+    SequentialAnimation {
+        id: trayOpenAnim
+        ParallelAnimation {
+            NumberAnimation { target: trayPanel; property: "opacity"; to: 1; duration: Theme.animPopupIn; easing.type: Easing.OutCubic }
+            NumberAnimation { target: trayPanel; property: "scale"; to: 1.0; duration: Theme.animPopupIn; easing.type: Easing.OutCubic }
+        }
+    }
+    SequentialAnimation {
+        id: trayCloseAnim
+        ParallelAnimation {
+            NumberAnimation { target: trayPanel; property: "opacity"; to: 0; duration: Theme.animPopupOut; easing.type: Easing.InCubic }
+            NumberAnimation { target: trayPanel; property: "scale"; to: 0.92; duration: Theme.animPopupOut; easing.type: Easing.InCubic }
+        }
+        ScriptAction { script: { trayPop.closing = false; } }
+    }
+
     Rectangle {
         id: trayPanel
         anchors.right: parent.right; anchors.top: parent.top
@@ -32,13 +54,10 @@ PanelWindow {
         radius: Theme.popupRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
         MouseArea { anchors.fill: parent }
 
-        // ── Popup entrance: slide down + fade from bar ──
-        opacity: trayPop.active ? 1 : 0
-        scale: trayPop.active ? 1.0 : 0.92
-        transformOrigin: Item.Top
+        opacity: 0; scale: 0.92
+        transformOrigin: Item.TopRight
         y: trayPop.active ? anchors.topMargin : anchors.topMargin - 12
-        Behavior on opacity { NumberAnimation { duration: Theme.animPopupIn; easing.type: Easing.OutCubic } }
-        Behavior on scale { NumberAnimation { duration: Theme.animPopupIn; easing.type: Easing.OutCubic } }
+        Behavior on y { NumberAnimation { duration: Theme.animPopupIn; easing.type: Easing.OutCubic } }
 
         Grid {
             id: trayGrid; anchors.centerIn: parent; columns: Math.min(4, SystemTray.items.values.length); spacing: Theme.barSpacing
@@ -71,19 +90,23 @@ PanelWindow {
                         font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize; font.bold: true
                     }
 
-                    // ── Hover effect ──
+                    // ── Hover effect with animated opacity + press scale ──
                     Rectangle {
                         anchors.fill: parent; radius: 4; z: -1
                         color: Theme.bg2
-                        opacity: trayMouseArea.containsMouse ? 1 : 0
+                        opacity: trayMouseArea.pressed ? 0.9 : (trayMouseArea.containsMouse ? 0.7 : 0)
                         border.width: 1; border.color: Theme.bg3
-                        Behavior on opacity { NumberAnimation { duration: 120 } }
+                        Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
                     }
 
+                    // Press scale feedback
+                    scale: trayMouseArea.pressed ? 0.9 : 1.0
+                    Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                    transformOrigin: Item.Center
+
                     // ── Staggered entrance animation ──
-                    opacity: 0; scale: 0.8
+                    opacity: 0
                     Component.onCompleted: {
-                        console.log("TRAY DEBUG:", modelData.id, "icon:", modelData.icon); // TODO: remove
                         staggerAnim.delay = index * 30;
                         staggerAnim.start();
                     }

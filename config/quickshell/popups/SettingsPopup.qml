@@ -9,7 +9,8 @@ PanelWindow {
     id: settingsPop
     property bool active: false
     signal close()
-    visible: active
+    property bool closing: false
+    visible: active || closing
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
     WlrLayershell.namespace: "quickshell:settings"
@@ -26,7 +27,10 @@ PanelWindow {
     property string currentVariant: ""
     property string scriptsDir: ""
 
-    onActiveChanged: { if (active) loadState(); }
+    onActiveChanged: {
+        if (active) { loadState(); settingsOpenAnim.start(); }
+        else { closing = true; settingsCloseAnim.start(); }
+    }
 
     // ── Data loading ──
     function loadState() {
@@ -117,17 +121,30 @@ PanelWindow {
         onClicked: settingsPop.close()
     }
 
+    SequentialAnimation {
+        id: settingsOpenAnim
+        ParallelAnimation {
+            NumberAnimation { target: panel; property: "opacity"; to: 1; duration: Theme.animPopupIn; easing.type: Easing.OutCubic }
+            NumberAnimation { target: panel; property: "scale"; to: 1.0; duration: Theme.animPopupIn; easing.type: Easing.OutCubic }
+        }
+    }
+    SequentialAnimation {
+        id: settingsCloseAnim
+        ParallelAnimation {
+            NumberAnimation { target: panel; property: "opacity"; to: 0; duration: Theme.animPopupOut; easing.type: Easing.InCubic }
+            NumberAnimation { target: panel; property: "scale"; to: 0.92; duration: Theme.animPopupOut; easing.type: Easing.InCubic }
+        }
+        ScriptAction { script: { settingsPop.closing = false; } }
+    }
+
     // ── Panel ──
     Rectangle {
         id: panel
         width: 420; height: parent.height - Theme.popupTopMargin * 2
         anchors { right: parent.right; top: parent.top; margins: Theme.gapOut; topMargin: Theme.popupTopMargin }
         radius: Theme.popupRadius; color: Theme.bg; border.width: 1; border.color: Theme.bg3
-        opacity: settingsPop.active ? 1 : 0
-        scale: settingsPop.active ? 1.0 : 0.92
-        transformOrigin: Item.Top
-        Behavior on opacity { NumberAnimation { duration: Theme.animPopupIn; easing.type: Easing.OutCubic } }
-        Behavior on scale { NumberAnimation { duration: Theme.animPopupIn; easing.type: Easing.OutCubic } }
+        opacity: 0; scale: 0.92
+        transformOrigin: Item.TopRight
 
         Flickable {
             anchors { fill: parent; margins: Theme.popupPadding }
@@ -140,8 +157,22 @@ PanelWindow {
                 RowLayout {
                     Layout.fillWidth: true
                     Text { text: "󰃠  Settings"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeLarge; font.bold: true; Layout.fillWidth: true }
-                    Text { text: "󰅖"; color: closeArea.containsMouse ? Theme.redBright : Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
-                        MouseArea { id: closeArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: settingsPop.close() } }
+                    Rectangle {
+                        width: 24; height: 24; radius: Theme.hoverRadius; color: "transparent"
+                        Rectangle {
+                            anchors.fill: parent; radius: parent.radius; color: Theme.bg2
+                            opacity: closeArea.pressed ? 0.9 : (closeArea.containsMouse ? 0.6 : 0)
+                            Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                        }
+                        scale: closeArea.pressed ? 0.9 : 1.0
+                        Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                        transformOrigin: Item.Center
+                        Text { anchors.centerIn: parent; text: "󰅖"
+                            color: closeArea.containsMouse ? Theme.redBright : Theme.fg4
+                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                            font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize }
+                        MouseArea { id: closeArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: settingsPop.close() }
+                    }
                 }
 
                 // ── Presets ──
@@ -150,8 +181,12 @@ PanelWindow {
                     Repeater { model: settingsPop.presets
                         Rectangle {
                             required property string modelData; required property int index
-                            width: presetLabel.implicitWidth + 20; height: 28; radius: 6
+                            width: presetLabel.implicitWidth + 20; height: 28; radius: Theme.btnRadius
                             color: presetArea.containsMouse ? Theme.bg2 : Theme.bg1; border.width: 1; border.color: Theme.bg3
+                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                            scale: presetArea.pressed ? 0.95 : 1.0
+                            Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                            transformOrigin: Item.Center
                             Text { id: presetLabel; anchors.centerIn: parent; text: modelData; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
                             MouseArea { id: presetArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: settingsPop.runPreset(modelData) }
                         }
@@ -167,10 +202,16 @@ PanelWindow {
                         Rectangle {
                             required property string modelData; required property int index
                             property bool isCurrent: settingsPop.themeState.color_scheme === modelData
-                            width: csLabel.implicitWidth + 16; height: 26; radius: 6
+                            width: csLabel.implicitWidth + 16; height: Theme.btnHeight; radius: Theme.btnRadius
                             color: isCurrent ? Theme.accent : (csArea.containsMouse ? Theme.bg2 : Theme.bg1)
+                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
                             border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
-                            Text { id: csLabel; anchors.centerIn: parent; text: modelData; color: isCurrent ? Theme.bg : Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+                            Behavior on border.color { ColorAnimation { duration: Theme.animSpring } }
+                            scale: csArea.pressed ? 0.95 : 1.0
+                            Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                            transformOrigin: Item.Center
+                            Text { id: csLabel; anchors.centerIn: parent; text: modelData; color: isCurrent ? Theme.bg : Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                                Behavior on color { ColorAnimation { duration: Theme.animHover } } }
                             MouseArea { id: csArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: settingsPop.runSet("color_scheme", modelData) }
                         }
                     }
@@ -183,10 +224,16 @@ PanelWindow {
                         Rectangle {
                             required property string modelData
                             property bool isCurrent: settingsPop.currentVariant === modelData
-                            width: varLabel.implicitWidth + 16; height: 26; radius: 6
+                            width: varLabel.implicitWidth + 16; height: Theme.btnHeight; radius: Theme.btnRadius
                             color: isCurrent ? Theme.accent : (varArea.containsMouse ? Theme.bg2 : Theme.bg1)
+                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
                             border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
-                            Text { id: varLabel; anchors.centerIn: parent; text: modelData; color: isCurrent ? Theme.bg : Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+                            Behavior on border.color { ColorAnimation { duration: Theme.animSpring } }
+                            scale: varArea.pressed ? 0.95 : 1.0
+                            Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                            transformOrigin: Item.Center
+                            Text { id: varLabel; anchors.centerIn: parent; text: modelData; color: isCurrent ? Theme.bg : Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                                Behavior on color { ColorAnimation { duration: Theme.animHover } } }
                             MouseArea { id: varArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: settingsPop.runVariant(modelData) }
                         }
                     }
@@ -203,10 +250,16 @@ PanelWindow {
                         Rectangle {
                             required property string modelData
                             property bool isCurrent: settingsPop.themeState.coding_font === modelData
-                            width: cfLabel.implicitWidth + 14; height: 24; radius: 5
+                            width: cfLabel.implicitWidth + 14; height: 24; radius: Theme.btnRadius
                             color: isCurrent ? Theme.accent : (cfArea.containsMouse ? Theme.bg2 : Theme.bg1)
+                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
                             border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
-                            Text { id: cfLabel; anchors.centerIn: parent; text: modelData.replace(" Nerd Font", ""); color: isCurrent ? Theme.bg : Theme.fg; font.family: Theme.fontFamily; font.pixelSize: 10 }
+                            Behavior on border.color { ColorAnimation { duration: Theme.animSpring } }
+                            scale: cfArea.pressed ? 0.95 : 1.0
+                            Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                            transformOrigin: Item.Center
+                            Text { id: cfLabel; anchors.centerIn: parent; text: modelData.replace(" Nerd Font", ""); color: isCurrent ? Theme.bg : Theme.fg; font.family: Theme.fontFamily; font.pixelSize: 10
+                                Behavior on color { ColorAnimation { duration: Theme.animHover } } }
                             MouseArea { id: cfArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: settingsPop.runSet("coding_font", modelData) }
                         }
                     }
@@ -218,10 +271,16 @@ PanelWindow {
                         Rectangle {
                             required property string modelData
                             property bool isCurrent: settingsPop.themeState.system_font === modelData
-                            width: sfLabel.implicitWidth + 14; height: 24; radius: 5
+                            width: sfLabel.implicitWidth + 14; height: 24; radius: Theme.btnRadius
                             color: isCurrent ? Theme.accent : (sfArea.containsMouse ? Theme.bg2 : Theme.bg1)
+                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
                             border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
-                            Text { id: sfLabel; anchors.centerIn: parent; text: modelData; color: isCurrent ? Theme.bg : Theme.fg; font.family: Theme.fontFamily; font.pixelSize: 10 }
+                            Behavior on border.color { ColorAnimation { duration: Theme.animSpring } }
+                            scale: sfArea.pressed ? 0.95 : 1.0
+                            Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                            transformOrigin: Item.Center
+                            Text { id: sfLabel; anchors.centerIn: parent; text: modelData; color: isCurrent ? Theme.bg : Theme.fg; font.family: Theme.fontFamily; font.pixelSize: 10
+                                Behavior on color { ColorAnimation { duration: Theme.animHover } } }
                             MouseArea { id: sfArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: settingsPop.runSet("system_font", modelData) }
                         }
                     }
@@ -237,10 +296,16 @@ PanelWindow {
                             required property string modelData
                             property string fullPath: "~/wallpapers/" + modelData
                             property bool isCurrent: settingsPop.themeState.wallpaper === fullPath
-                            width: wpLabel.implicitWidth + 14; height: 24; radius: 5
+                            width: wpLabel.implicitWidth + 14; height: 24; radius: Theme.btnRadius
                             color: isCurrent ? Theme.accent : (wpArea.containsMouse ? Theme.bg2 : Theme.bg1)
+                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
                             border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
-                            Text { id: wpLabel; anchors.centerIn: parent; text: modelData.replace(/\.\w+$/, ""); color: isCurrent ? Theme.bg : Theme.fg; font.family: Theme.fontFamily; font.pixelSize: 10; elide: Text.ElideMiddle; width: Math.min(implicitWidth, 120) }
+                            Behavior on border.color { ColorAnimation { duration: Theme.animSpring } }
+                            scale: wpArea.pressed ? 0.95 : 1.0
+                            Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                            transformOrigin: Item.Center
+                            Text { id: wpLabel; anchors.centerIn: parent; text: modelData.replace(/\.\w+$/, ""); color: isCurrent ? Theme.bg : Theme.fg; font.family: Theme.fontFamily; font.pixelSize: 10; elide: Text.ElideMiddle; width: Math.min(implicitWidth, 120)
+                                Behavior on color { ColorAnimation { duration: Theme.animHover } } }
                             MouseArea { id: wpArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: settingsPop.runSet("wallpaper", fullPath) }
                         }
                     }
@@ -255,10 +320,16 @@ PanelWindow {
                         Rectangle {
                             required property string modelData
                             property bool isCurrent: settingsPop.themeState.icon_theme === modelData
-                            width: itLabel.implicitWidth + 14; height: 24; radius: 5
+                            width: itLabel.implicitWidth + 14; height: 24; radius: Theme.btnRadius
                             color: isCurrent ? Theme.accent : (itArea.containsMouse ? Theme.bg2 : Theme.bg1)
+                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
                             border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
-                            Text { id: itLabel; anchors.centerIn: parent; text: modelData; color: isCurrent ? Theme.bg : Theme.fg; font.family: Theme.fontFamily; font.pixelSize: 10 }
+                            Behavior on border.color { ColorAnimation { duration: Theme.animSpring } }
+                            scale: itArea.pressed ? 0.95 : 1.0
+                            Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                            transformOrigin: Item.Center
+                            Text { id: itLabel; anchors.centerIn: parent; text: modelData; color: isCurrent ? Theme.bg : Theme.fg; font.family: Theme.fontFamily; font.pixelSize: 10
+                                Behavior on color { ColorAnimation { duration: Theme.animHover } } }
                             MouseArea { id: itArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: settingsPop.runSet("icon_theme", modelData) }
                         }
                     }
@@ -270,10 +341,16 @@ PanelWindow {
                         Rectangle {
                             required property string modelData
                             property bool isCurrent: settingsPop.themeState.cursor_theme === modelData
-                            width: ctLabel.implicitWidth + 14; height: 24; radius: 5
+                            width: ctLabel.implicitWidth + 14; height: 24; radius: Theme.btnRadius
                             color: isCurrent ? Theme.accent : (ctArea.containsMouse ? Theme.bg2 : Theme.bg1)
+                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
                             border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
-                            Text { id: ctLabel; anchors.centerIn: parent; text: modelData; color: isCurrent ? Theme.bg : Theme.fg; font.family: Theme.fontFamily; font.pixelSize: 10 }
+                            Behavior on border.color { ColorAnimation { duration: Theme.animSpring } }
+                            scale: ctArea.pressed ? 0.95 : 1.0
+                            Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                            transformOrigin: Item.Center
+                            Text { id: ctLabel; anchors.centerIn: parent; text: modelData; color: isCurrent ? Theme.bg : Theme.fg; font.family: Theme.fontFamily; font.pixelSize: 10
+                                Behavior on color { ColorAnimation { duration: Theme.animHover } } }
                             MouseArea { id: ctArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: settingsPop.runSet("cursor_theme", modelData) }
                         }
                     }

@@ -8,7 +8,15 @@ import Quickshell.Io
 PanelWindow {
     id: powerMenu
     property bool active: false; signal close()
-    visible: active
+    property bool closing: false
+    visible: active || closing
+
+    onActiveChanged: {
+        if (!active && !closing) {
+            closing = true; pwrCloseTimer.start();
+        }
+    }
+    Timer { id: pwrCloseTimer; interval: Theme.animPopupOut; onTriggered: powerMenu.closing = false }
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
     WlrLayershell.namespace: "quickshell:powermenu"
@@ -34,11 +42,27 @@ PanelWindow {
             Rectangle {
                 id: pwrBtn; required property var modelData; required property int index
                 width: Theme.powerBtnSize; height: Theme.powerBtnSize + 24; radius: Theme.powerBtnRadius
-                color: pwrA.containsMouse ? Theme.bg2 : Theme.bg1
-                border.width: 1; border.color: pwrA.containsMouse ? Theme.fg4 : Theme.bg3
-                Behavior on color { ColorAnimation { duration: 120 } }
+                color: "transparent"
 
-                opacity: 0; scale: 0.5
+                // Hover highlight
+                Rectangle {
+                    anchors.fill: parent; radius: parent.radius; color: Theme.bg2
+                    opacity: pwrA.pressed ? 0.9 : (pwrA.containsMouse ? 0.6 : 0)
+                    Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                }
+                // Background base
+                Rectangle {
+                    anchors.fill: parent; radius: parent.radius; color: Theme.bg1; z: -1
+                    border.width: 1; border.color: pwrA.containsMouse ? Theme.fg4 : Theme.bg3
+                    Behavior on border.color { ColorAnimation { duration: Theme.animHover } }
+                }
+
+                // More dramatic press scale for destructive actions
+                scale: pwrA.pressed ? (pwrBtn.index >= 2 ? 0.92 : 0.95) : 1.0
+                Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                transformOrigin: Item.Center
+
+                opacity: 0
                 Component.onCompleted: { pwrEnterAnim.start(); }
                 SequentialAnimation {
                     id: pwrEnterAnim
@@ -51,7 +75,13 @@ PanelWindow {
 
                 ColumnLayout { anchors.centerIn: parent; spacing: 8
                     Text { text: pwrBtn.modelData.icon
-                        color: { if (!pwrA.containsMouse) return Theme.fg; if (pwrBtn.index === 3) return Theme.redBright; if (pwrBtn.index === 2) return Theme.orangeBright; return Theme.yellowBright; }
+                        color: {
+                            if (!pwrA.containsMouse) return Theme.fg;
+                            if (pwrBtn.index === 3) return Theme.redBright;
+                            if (pwrBtn.index === 2) return Theme.orangeBright;
+                            return Theme.yellowBright;
+                        }
+                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
                         font.family: Theme.fontFamily; font.pixelSize: Theme.powerIconSize; Layout.alignment: Qt.AlignHCenter }
                     Text { text: pwrBtn.modelData.label; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.alignment: Qt.AlignHCenter }
                 }

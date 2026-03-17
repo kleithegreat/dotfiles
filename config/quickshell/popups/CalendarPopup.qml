@@ -7,7 +7,8 @@ import QtQuick.Layouts
 PanelWindow {
     id: cal
     property bool active: false; signal close()
-    visible: active
+    property bool closing: false
+    visible: active || closing
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
     WlrLayershell.namespace: "quickshell:calendar"
@@ -15,13 +16,44 @@ PanelWindow {
     WlrLayershell.keyboardFocus: active ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     exclusionMode: ExclusionMode.Ignore
 
+    onActiveChanged: {
+        if (active) {
+            calPanel.opacity = 0; calPanel.scale = 0.92;
+            calOpenAnim.start();
+        } else if (!closing) {
+            closing = true; calCloseAnim.start();
+        }
+    }
+
+    SequentialAnimation {
+        id: calOpenAnim
+        ParallelAnimation {
+            NumberAnimation { target: calPanel; property: "opacity"; to: 1; duration: Theme.animPopupIn; easing.type: Easing.OutCubic }
+            NumberAnimation { target: calPanel; property: "scale"; to: 1.0; duration: Theme.animPopupIn; easing.type: Easing.OutCubic }
+        }
+    }
+    SequentialAnimation {
+        id: calCloseAnim
+        ParallelAnimation {
+            NumberAnimation { target: calPanel; property: "opacity"; to: 0; duration: Theme.animPopupOut; easing.type: Easing.InCubic }
+            NumberAnimation { target: calPanel; property: "scale"; to: 0.92; duration: Theme.animPopupOut; easing.type: Easing.InCubic }
+        }
+        ScriptAction { script: { cal.closing = false; } }
+    }
+
     property int viewYear: new Date().getFullYear()
     property int viewMonth: new Date().getMonth()
+    property bool gridVisible: true
 
     function daysInMonth(y, m) { return new Date(y, m + 1, 0).getDate(); }
     function firstDow(y, m) { let d = new Date(y, m, 1).getDay(); return d === 0 ? 6 : d - 1; }
-    function prevMonth() { if (viewMonth === 0) { viewMonth = 11; viewYear--; } else viewMonth--; }
-    function nextMonth() { if (viewMonth === 11) { viewMonth = 0; viewYear++; } else viewMonth++; }
+    function prevMonth() { gridVisible = false; swapTimer.action = function() { if (cal.viewMonth === 0) { cal.viewMonth = 11; cal.viewYear--; } else cal.viewMonth--; }; swapTimer.start(); }
+    function nextMonth() { gridVisible = false; swapTimer.action = function() { if (cal.viewMonth === 11) { cal.viewMonth = 0; cal.viewYear++; } else cal.viewMonth++; }; swapTimer.start(); }
+
+    Timer {
+        id: swapTimer; interval: Theme.animContentSwap; property var action
+        onTriggered: { if (action) action(); cal.gridVisible = true; }
+    }
 
     // Backdrop
     Rectangle {
@@ -32,15 +64,13 @@ PanelWindow {
 
     // Panel
     Rectangle {
+        id: calPanel
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top; anchors.topMargin: Theme.popupTopMargin
         width: Theme.calWidth; height: calCol.implicitHeight + Theme.popupPadding * 2
         radius: Theme.popupRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
-        opacity: cal.active ? 1 : 0
-        scale: cal.active ? 1.0 : 0.92
+        opacity: 0; scale: 0.92
         transformOrigin: Item.Top
-        Behavior on opacity { NumberAnimation { duration: Theme.animPopupIn; easing.type: Easing.OutCubic } }
-        Behavior on scale { NumberAnimation { duration: Theme.animPopupIn; easing.type: Easing.OutCubic } }
         MouseArea { anchors.fill: parent }
 
         ColumnLayout {
@@ -48,22 +78,50 @@ PanelWindow {
 
             RowLayout {
                 Layout.fillWidth: true
-                Text {
-                    text: "󰅁"; color: navL.containsMouse ? Theme.fg : Theme.fg4
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
+                Rectangle {
+                    width: 24; height: 24; radius: Theme.hoverRadius; color: "transparent"
+                    Rectangle {
+                        anchors.fill: parent; radius: parent.radius; color: Theme.bg2
+                        opacity: navL.pressed ? 0.9 : (navL.containsMouse ? 0.6 : 0)
+                        Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                    }
+                    scale: navL.pressed ? 0.98 : 1.0
+                    Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                    transformOrigin: Item.Center
+                    Text {
+                        anchors.centerIn: parent; text: "󰅁"
+                        color: navL.containsMouse ? Theme.fg : Theme.fg4
+                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                        font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
+                    }
                     MouseArea { id: navL; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: cal.prevMonth() }
                 }
                 Text {
                     text: ["January","February","March","April","May","June","July","August","September","October","November","December"][cal.viewMonth] + " " + cal.viewYear
-                    color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; font.bold: true
+                    color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true
                     Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter
                 }
-                Text {
-                    text: "󰅂"; color: navR.containsMouse ? Theme.fg : Theme.fg4
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
+                Rectangle {
+                    width: 24; height: 24; radius: Theme.hoverRadius; color: "transparent"
+                    Rectangle {
+                        anchors.fill: parent; radius: parent.radius; color: Theme.bg2
+                        opacity: navR.pressed ? 0.9 : (navR.containsMouse ? 0.6 : 0)
+                        Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                    }
+                    scale: navR.pressed ? 0.98 : 1.0
+                    Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                    transformOrigin: Item.Center
+                    Text {
+                        anchors.centerIn: parent; text: "󰅂"
+                        color: navR.containsMouse ? Theme.fg : Theme.fg4
+                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                        font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
+                    }
                     MouseArea { id: navR; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: cal.nextMonth() }
                 }
             }
+
+            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
 
             RowLayout { spacing: 0; Layout.fillWidth: true
                 Repeater { model: ["Mo","Tu","We","Th","Fr","Sa","Su"]
@@ -75,6 +133,9 @@ PanelWindow {
 
             Grid {
                 columns: 7; Layout.fillWidth: true; spacing: 0
+                opacity: cal.gridVisible ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
+
                 Repeater {
                     model: 42
                     Item {
@@ -87,14 +148,30 @@ PanelWindow {
                         }
                         width: Theme.calCellSize; height: Theme.calCellSize
 
+                        // Hover highlight for all valid days
                         Rectangle {
                             anchors.centerIn: parent; width: 26; height: 26; radius: 13
+                            color: Theme.bg2
+                            opacity: isCur && !isToday && dayCellMouse.containsMouse ? 0.5 : 0
+                            Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                        }
+
+                        Rectangle {
+                            id: todayCircle
+                            anchors.centerIn: parent; width: 26; height: 26; radius: 13
                             color: isToday ? Theme.blueBright : "transparent"
+                            // Gentle scale pulse on popup open for today
+                            scale: isToday && cal.active ? 1.0 : 0.8
+                            Behavior on scale { NumberAnimation { duration: Theme.animSpring; easing.type: Easing.OutBack } }
                         }
                         Text {
                             anchors.centerIn: parent; text: isCur ? dayNum : ""
                             color: isToday ? Theme.bg : ((index % 7 >= 5) ? Theme.fg4 : Theme.fg)
                             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: isToday
+                        }
+                        MouseArea {
+                            id: dayCellMouse; anchors.fill: parent; hoverEnabled: isCur
+                            cursorShape: isCur ? Qt.PointingHandCursor : Qt.ArrowCursor
                         }
                     }
                 }
