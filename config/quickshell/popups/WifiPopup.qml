@@ -192,11 +192,12 @@ PanelWindow {
         id: wifiPanel
         anchors.right: parent.right; anchors.top: parent.top
         anchors.topMargin: Theme.popupTopMargin; anchors.rightMargin: Theme.gapOut
-        width: Theme.popupWidth; height: wifiCol.implicitHeight + Theme.popupPadding * 2
+        width: wifiPop.popupState === "details" ? 400 : Theme.popupWidth; height: wifiCol.implicitHeight + Theme.popupPadding * 2
         radius: Theme.popupRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
         opacity: 0; scale: 0.92
         transformOrigin: Item.TopRight
         Behavior on height { NumberAnimation { duration: Theme.animHeightResize; easing.type: Easing.OutCubic } }
+        Behavior on width { NumberAnimation { duration: Theme.animHeightResize; easing.type: Easing.OutCubic } }
         MouseArea { anchors.fill: parent }
 
         ColumnLayout {
@@ -205,6 +206,7 @@ PanelWindow {
             RowLayout { Layout.fillWidth: true
                 Text {
                     text: {
+                        if (wifiPop.popupState === "details") return "󰖩  WhyFi";
                         if (wifiPop.popupState === "password") return "󰌾  Password";
                         if (wifiPop.popupState === "enterprise") return "󱄤  Sign In";
                         if (wifiPop.popupState === "connecting") return "󰖩  Connecting…";
@@ -214,7 +216,7 @@ PanelWindow {
                 }
                 // Back button
                 Rectangle {
-                    visible: wifiPop.popupState === "password" || wifiPop.popupState === "enterprise"
+                    visible: wifiPop.popupState === "password" || wifiPop.popupState === "enterprise" || wifiPop.popupState === "details"
                     width: backLabel.implicitWidth + Theme.btnPaddingH * 2; height: Theme.btnHeight; radius: Theme.btnRadius
                     color: "transparent"
                     Rectangle {
@@ -263,6 +265,23 @@ PanelWindow {
                 }
                 Text { text: "Connected: " + wifiPop.connectedSsid; color: Theme.greenBright
                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.fillWidth: true; elide: Text.ElideRight }
+                Rectangle {
+                    width: detLabel.implicitWidth + Theme.btnPaddingH * 2; height: Theme.btnHeight; radius: Theme.btnRadius
+                    color: "transparent"
+                    Rectangle {
+                        anchors.fill: parent; radius: parent.radius; color: Theme.bg2
+                        opacity: detA.pressed ? 0.9 : (detA.containsMouse ? 0.6 : 0)
+                        Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                    }
+                    scale: detA.pressed ? 0.98 : 1.0
+                    Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                    transformOrigin: Item.Center
+                    Text { id: detLabel; anchors.centerIn: parent; text: "Details"; color: detA.containsMouse ? Theme.blueBright : Theme.fg4
+                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+                    MouseArea { id: detA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                        onClicked: { wifiPop.popupState = "details"; } }
+                }
                 Rectangle {
                     width: dcLabel.implicitWidth + Theme.btnPaddingH * 2; height: Theme.btnHeight; radius: Theme.btnRadius
                     color: "transparent"
@@ -486,6 +505,21 @@ PanelWindow {
 
                 Text { text: "Only PEAP/MSCHAPv2 is supported."; color: Theme.fg4; wrapMode: Text.WordWrap
                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 2; Layout.fillWidth: true }
+            }
+
+            // ── DETAILS (WhyFi) ──────────────────────────────
+            Flickable {
+                visible: wifiPop.popupState === "details"
+                Layout.fillWidth: true
+                Layout.preferredHeight: Math.min(detailsPanel.implicitHeight, 480)
+                Layout.maximumHeight: 480
+                contentHeight: detailsPanel.implicitHeight
+                clip: true; boundsBehavior: Flickable.StopAtBounds
+
+                WifiDetails {
+                    id: detailsPanel; width: parent.width
+                    active: wifiPop.popupState === "details"
+                }
             }
 
             // ── CONNECTING ────────────────────────────────────
