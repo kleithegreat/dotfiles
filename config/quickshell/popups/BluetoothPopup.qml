@@ -256,36 +256,57 @@ PanelWindow {
                 Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
                 transformOrigin: Item.Center
 
-                RowLayout {
-                    anchors.fill: parent; anchors.leftMargin: Theme.listItemPadding; anchors.rightMargin: Theme.listItemPadding; spacing: 8
-                    Text { text: "󰥰"; color: Theme.greenBright; font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize; Layout.alignment: Qt.AlignVCenter }
-                    ColumnLayout { spacing: 0; Layout.fillWidth: true; Layout.alignment: Qt.AlignVCenter
-                        Text { text: btPop.connectedName; color: Theme.greenBright; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; elide: Text.ElideRight; Layout.fillWidth: true; clip: true }
-                        Text {
-                            visible: btPop.connectedBattery !== ""
-                            text: "Battery: " + btPop.connectedBattery; color: Theme.fg4
-                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
-                        }
-                    }
-                    Rectangle {
-                        Layout.preferredWidth: discLabel.implicitWidth + Theme.btnPaddingH * 2
-                        Layout.minimumWidth: discLabel.implicitWidth + Theme.btnPaddingH * 2
-                        implicitWidth: discLabel.implicitWidth + Theme.btnPaddingH * 2
-                        height: Theme.btnHeight; radius: Theme.btnRadius
-                        color: discBtnA.containsMouse ? Theme.redBright : Theme.bg3
-                        Layout.alignment: Qt.AlignVCenter
+                Text {
+                    id: connIcon
+                    anchors.left: parent.left
+                    anchors.leftMargin: Theme.listItemPadding
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "󰥰"; color: Theme.greenBright
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
+                }
+
+                Rectangle {
+                    id: discBtn
+                    anchors.right: parent.right
+                    anchors.rightMargin: Theme.listItemPadding
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: discLabel.implicitWidth + Theme.btnPaddingH * 2
+                    height: Theme.btnHeight; radius: Theme.btnRadius
+                    color: discBtnA.containsMouse ? Theme.redBright : Theme.bg3
+                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                    scale: discBtnA.pressed ? 0.95 : 1.0
+                    Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                    transformOrigin: Item.Center
+                    Text { id: discLabel; anchors.centerIn: parent; text: "Disconnect"
+                        color: discBtnA.containsMouse ? Theme.bg : Theme.fg
                         Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                        scale: discBtnA.pressed ? 0.95 : 1.0
-                        Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                        transformOrigin: Item.Center
-                        Text { id: discLabel; anchors.centerIn: parent; text: "Disconnect"
-                            color: discBtnA.containsMouse ? Theme.bg : Theme.fg
-                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-                        MouseArea { id: discBtnA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                            onClicked: disconnectProc.running = true }
+                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+                    MouseArea { id: discBtnA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                        onClicked: disconnectProc.running = true }
+                }
+
+                Column {
+                    anchors.left: connIcon.right
+                    anchors.leftMargin: 8
+                    anchors.right: discBtn.left
+                    anchors.rightMargin: 8
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 0
+
+                    Text {
+                        width: parent.width
+                        text: btPop.connectedName; color: Theme.greenBright
+                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                        elide: Text.ElideRight
+                    }
+                    Text {
+                        visible: btPop.connectedBattery !== ""
+                        width: parent.width
+                        text: "Battery: " + btPop.connectedBattery; color: Theme.fg4
+                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
                     }
                 }
+
                 MouseArea { id: connDevArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; z: -1 }
             }
 
@@ -295,147 +316,176 @@ PanelWindow {
             }
 
             // ── Device lists ──
-            Item {
+            Flickable {
                 visible: btPop.popupState === "list" && btPop.powered
-                opacity: btPop.popupState === "list" ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
-                Layout.fillWidth: true; Layout.preferredHeight: Math.min(devCol.implicitHeight, 240)
+                Layout.fillWidth: true
+                Layout.preferredHeight: Math.min(devCol.implicitHeight, 240)
+                contentHeight: devCol.implicitHeight
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
 
-                Flickable {
-                    anchors.fill: parent
-                    contentHeight: devCol.implicitHeight; clip: true; boundsBehavior: Flickable.StopAtBounds
+                Column {
+                    id: devCol; width: parent.width; spacing: 4
 
-                    Column {
-                        id: devCol; width: parent.width; spacing: 4
+                    Text {
+                        visible: pairedModel.count > 0
+                        text: "PAIRED"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                        font.bold: true; font.capitalization: Font.AllUppercase
+                        topPadding: 8; bottomPadding: 4; leftPadding: Theme.listItemPadding
+                    }
 
-                        Text {
-                            visible: pairedModel.count > 0
-                            text: "PAIRED"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                            font.bold: true; font.capitalization: Font.AllUppercase
-                            topPadding: 8; bottomPadding: 4; leftPadding: 4
-                        }
+                    Repeater {
+                        model: pairedModel
+                        Rectangle {
+                            id: pItem; required property string mac; required property string name; required property int index
+                            width: devCol.width; height: Theme.listItemHeight; radius: Theme.hoverRadius
+                            color: "transparent"
 
-                        Repeater {
-                            model: pairedModel
                             Rectangle {
-                                id: pItem; required property string mac; required property string name; required property int index
-                                width: devCol.width; height: Theme.listItemHeight; radius: Theme.hoverRadius
-                                color: "transparent"
+                                anchors.fill: parent; radius: parent.radius; color: Theme.bg2
+                                opacity: piArea.pressed ? 0.9 : (piArea.containsMouse ? 0.6 : 0)
+                                Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                            }
+                            scale: piArea.pressed ? 0.98 : 1.0
+                            Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                            transformOrigin: Item.Center
 
-                                Rectangle {
-                                    anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                                    opacity: piArea.pressed ? 0.9 : (piArea.containsMouse ? 0.6 : 0)
-                                    Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                            opacity: 0; y: 8
+                            Component.onCompleted: { pItemAnim.delay = index * Theme.animStagger; pItemAnim.start(); }
+                            SequentialAnimation {
+                                id: pItemAnim; property int delay: 0
+                                PauseAnimation { duration: pItemAnim.delay }
+                                ParallelAnimation {
+                                    NumberAnimation { target: pItem; property: "opacity"; to: 1; duration: Theme.animContentSwap; easing.type: Easing.OutCubic }
+                                    NumberAnimation { target: pItem; property: "y"; to: 0; duration: Theme.animContentSwap; easing.type: Easing.OutCubic }
                                 }
-                                scale: piArea.pressed ? 0.98 : 1.0
+                            }
+
+                            Text {
+                                id: pIcon
+                                anchors.left: parent.left
+                                anchors.leftMargin: Theme.listItemPadding
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "󰂯"; color: Theme.fg4
+                                font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
+                            }
+
+                            Rectangle {
+                                id: pConnBtn
+                                anchors.right: parent.right
+                                anchors.rightMargin: Theme.listItemPadding
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: pConnLabel.implicitWidth + Theme.btnPaddingH * 2
+                                height: Theme.btnHeight; radius: Theme.btnRadius
+                                color: pConnA.containsMouse ? Theme.blueBright : Theme.bg3
+                                Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                                scale: pConnA.pressed ? 0.95 : 1.0
                                 Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
                                 transformOrigin: Item.Center
-
-                                opacity: 0; y: 8
-                                Component.onCompleted: { pItemAnim.delay = index * Theme.animStagger; pItemAnim.start(); }
-                                SequentialAnimation {
-                                    id: pItemAnim; property int delay: 0
-                                    PauseAnimation { duration: pItemAnim.delay }
-                                    ParallelAnimation {
-                                        NumberAnimation { target: pItem; property: "opacity"; to: 1; duration: Theme.animContentSwap; easing.type: Easing.OutCubic }
-                                        NumberAnimation { target: pItem; property: "y"; to: 0; duration: Theme.animContentSwap; easing.type: Easing.OutCubic }
-                                    }
-                                }
-
-                                RowLayout {
-                                    anchors.fill: parent; anchors.leftMargin: Theme.listItemPadding; anchors.rightMargin: Theme.listItemPadding; spacing: 8
-                                    Text { text: "󰂯"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize; Layout.alignment: Qt.AlignVCenter }
-                                    Text { text: pItem.name; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                                        Layout.fillWidth: true; elide: Text.ElideRight; clip: true; Layout.alignment: Qt.AlignVCenter }
-                                    Rectangle {
-                                        Layout.preferredWidth: pConnLabel.implicitWidth + Theme.btnPaddingH * 2
-                                        Layout.minimumWidth: pConnLabel.implicitWidth + Theme.btnPaddingH * 2
-                                        implicitWidth: pConnLabel.implicitWidth + Theme.btnPaddingH * 2
-                                        height: Theme.btnHeight; radius: Theme.btnRadius
-                                        color: pConnA.containsMouse ? Theme.blueBright : Theme.bg3
-                                        Layout.alignment: Qt.AlignVCenter
-                                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                                        scale: pConnA.pressed ? 0.95 : 1.0
-                                        Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                                        transformOrigin: Item.Center
-                                        Text { id: pConnLabel; anchors.centerIn: parent; text: "Connect"
-                                            color: pConnA.containsMouse ? Theme.bg : Theme.fg
-                                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-                                        MouseArea { id: pConnA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                                            onClicked: {
-                                                btPop.popupState = "connecting"; btPop.targetDevice = pItem.name;
-                                                connectProc.command = ["bluetoothctl", "connect", pItem.mac]; connectProc.running = true;
-                                            } }
-                                    }
-                                }
-                                MouseArea { id: piArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; z: -1 }
+                                Text { id: pConnLabel; anchors.centerIn: parent; text: "Connect"
+                                    color: pConnA.containsMouse ? Theme.bg : Theme.fg
+                                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+                                MouseArea { id: pConnA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                                    onClicked: {
+                                        btPop.popupState = "connecting"; btPop.targetDevice = pItem.name;
+                                        connectProc.command = ["bluetoothctl", "connect", pItem.mac]; connectProc.running = true;
+                                    } }
                             }
-                        }
 
-                        Text {
-                            visible: discoveredModel.count > 0
-                            text: "DISCOVERED"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                            font.bold: true; font.capitalization: Font.AllUppercase
-                            topPadding: 8; bottomPadding: 4; leftPadding: 4
-                        }
+                            Text {
+                                anchors.left: pIcon.right
+                                anchors.leftMargin: 8
+                                anchors.right: pConnBtn.left
+                                anchors.rightMargin: 8
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: pItem.name; color: Theme.fg
+                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                                elide: Text.ElideRight
+                            }
 
-                        Repeater {
-                            model: discoveredModel
+                            MouseArea { id: piArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; z: -1 }
+                        }
+                    }
+
+                    Text {
+                        visible: discoveredModel.count > 0
+                        text: "DISCOVERED"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                        font.bold: true; font.capitalization: Font.AllUppercase
+                        topPadding: 8; bottomPadding: 4; leftPadding: Theme.listItemPadding
+                    }
+
+                    Repeater {
+                        model: discoveredModel
+                        Rectangle {
+                            id: dItem; required property string mac; required property string name; required property int index
+                            width: devCol.width; height: Theme.listItemHeight; radius: Theme.hoverRadius
+                            color: "transparent"
+
                             Rectangle {
-                                id: dItem; required property string mac; required property string name; required property int index
-                                width: devCol.width; height: Theme.listItemHeight; radius: Theme.hoverRadius
-                                color: "transparent"
+                                anchors.fill: parent; radius: parent.radius; color: Theme.bg2
+                                opacity: diArea.pressed ? 0.9 : (diArea.containsMouse ? 0.6 : 0)
+                                Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                            }
+                            scale: diArea.pressed ? 0.98 : 1.0
+                            Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                            transformOrigin: Item.Center
 
-                                Rectangle {
-                                    anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                                    opacity: diArea.pressed ? 0.9 : (diArea.containsMouse ? 0.6 : 0)
-                                    Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                            opacity: 0; y: 8
+                            Component.onCompleted: { dItemAnim.delay = index * Theme.animStagger; dItemAnim.start(); }
+                            SequentialAnimation {
+                                id: dItemAnim; property int delay: 0
+                                PauseAnimation { duration: dItemAnim.delay }
+                                ParallelAnimation {
+                                    NumberAnimation { target: dItem; property: "opacity"; to: 1; duration: Theme.animContentSwap; easing.type: Easing.OutCubic }
+                                    NumberAnimation { target: dItem; property: "y"; to: 0; duration: Theme.animContentSwap; easing.type: Easing.OutCubic }
                                 }
-                                scale: diArea.pressed ? 0.98 : 1.0
+                            }
+
+                            Text {
+                                id: dIcon
+                                anchors.left: parent.left
+                                anchors.leftMargin: Theme.listItemPadding
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "󰂯"; color: Theme.fg4
+                                font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
+                            }
+
+                            Rectangle {
+                                id: dConnBtn
+                                anchors.right: parent.right
+                                anchors.rightMargin: Theme.listItemPadding
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: dConnLabel.implicitWidth + Theme.btnPaddingH * 2
+                                height: Theme.btnHeight; radius: Theme.btnRadius
+                                color: dConnA.containsMouse ? Theme.blueBright : Theme.bg3
+                                Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                                scale: dConnA.pressed ? 0.95 : 1.0
                                 Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
                                 transformOrigin: Item.Center
-
-                                opacity: 0; y: 8
-                                Component.onCompleted: { dItemAnim.delay = index * Theme.animStagger; dItemAnim.start(); }
-                                SequentialAnimation {
-                                    id: dItemAnim; property int delay: 0
-                                    PauseAnimation { duration: dItemAnim.delay }
-                                    ParallelAnimation {
-                                        NumberAnimation { target: dItem; property: "opacity"; to: 1; duration: Theme.animContentSwap; easing.type: Easing.OutCubic }
-                                        NumberAnimation { target: dItem; property: "y"; to: 0; duration: Theme.animContentSwap; easing.type: Easing.OutCubic }
-                                    }
-                                }
-
-                                RowLayout {
-                                    anchors.fill: parent; anchors.leftMargin: Theme.listItemPadding; anchors.rightMargin: Theme.listItemPadding; spacing: 8
-                                    Text { text: "󰂯"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize; Layout.alignment: Qt.AlignVCenter }
-                                    Text { text: dItem.name; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                                        Layout.fillWidth: true; elide: Text.ElideRight; clip: true; Layout.alignment: Qt.AlignVCenter }
-                                    Rectangle {
-                                        Layout.preferredWidth: dConnLabel.implicitWidth + Theme.btnPaddingH * 2
-                                        Layout.minimumWidth: dConnLabel.implicitWidth + Theme.btnPaddingH * 2
-                                        implicitWidth: dConnLabel.implicitWidth + Theme.btnPaddingH * 2
-                                        height: Theme.btnHeight; radius: Theme.btnRadius
-                                        color: dConnA.containsMouse ? Theme.blueBright : Theme.bg3
-                                        Layout.alignment: Qt.AlignVCenter
-                                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                                        scale: dConnA.pressed ? 0.95 : 1.0
-                                        Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                                        transformOrigin: Item.Center
-                                        Text { id: dConnLabel; anchors.centerIn: parent; text: "Connect"
-                                            color: dConnA.containsMouse ? Theme.bg : Theme.fg
-                                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-                                        MouseArea { id: dConnA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                                            onClicked: {
-                                                btPop.popupState = "connecting"; btPop.targetDevice = dItem.name;
-                                                connectProc.command = ["bluetoothctl", "connect", dItem.mac]; connectProc.running = true;
-                                            } }
-                                    }
-                                }
-                                MouseArea { id: diArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; z: -1 }
+                                Text { id: dConnLabel; anchors.centerIn: parent; text: "Connect"
+                                    color: dConnA.containsMouse ? Theme.bg : Theme.fg
+                                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+                                MouseArea { id: dConnA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                                    onClicked: {
+                                        btPop.popupState = "connecting"; btPop.targetDevice = dItem.name;
+                                        connectProc.command = ["bluetoothctl", "connect", dItem.mac]; connectProc.running = true;
+                                    } }
                             }
+
+                            Text {
+                                anchors.left: dIcon.right
+                                anchors.leftMargin: 8
+                                anchors.right: dConnBtn.left
+                                anchors.rightMargin: 8
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: dItem.name; color: Theme.fg3
+                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                                elide: Text.ElideRight
+                            }
+
+                            MouseArea { id: diArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; z: -1 }
                         }
                     }
                 }
