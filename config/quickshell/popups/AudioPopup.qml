@@ -234,7 +234,15 @@ PanelWindow {
                         }
                     }
 
-                    Text { visible: appRepeater.count === 0; text: "No applications playing"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+                    property int visibleAppCount: {
+                        let count = 0;
+                        for (let i = 0; i < appRepeater.count; i++) {
+                            let item = appRepeater.itemAt(i);
+                            if (item && item.visible) count++;
+                        }
+                        return count;
+                    }
+                    Text { visible: appCol.visibleAppCount === 0; text: "No applications playing"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
                 }
             }
         }
