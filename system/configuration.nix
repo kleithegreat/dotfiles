@@ -1,5 +1,26 @@
 { config, pkgs, hyprland, hostName, inputs, ... }:
 
+let
+  sddm-theme = pkgs.where-is-my-sddm-theme.override {
+    themeConfig.General = {
+      backgroundMode = "fill";
+      basicTextColor = "#ebdbb2";
+      passwordCharacter = "*";
+      passwordFontSize = 96;
+      passwordInputBackground = "#3c3836";
+      passwordInputRadius = 8;
+      passwordInputWidth = 0.4;
+      passwordCursorColor = "#ebdbb2";
+      passwordMask = true;
+      passwordInputCursorVisible = true;
+      showSessionsByDefault = false;
+      showUsersByDefault = true;
+      showUserRealNameByDefault = true;
+      usersFontSize = 48;
+      sessionsFontSize = 24;
+    };
+  };
+in
 {
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" ];
@@ -99,6 +120,8 @@
   services.displayManager.sddm = {
     enable = true;
     wayland.enable = true;
+    theme = "where_is_my_sddm_theme";
+    extraPackages = [ sddm-theme ];
   };
 
   # ── UPower (battery info for Quickshell) ────────────────────
@@ -242,6 +265,7 @@
     curl
     cifs-utils       # SMB/CIFS mount support
     qt6Packages.qt6ct  # Qt6 configuration tool (system-wide so env var works)
+    sddm-theme
   ];
 
   system.stateVersion = "25.05";
