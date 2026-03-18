@@ -1,4 +1,4 @@
-{ config, pkgs, hyprland, hostName, ... }:
+{ config, pkgs, hyprland, hostName, inputs, ... }:
 
 {
   nix.settings = {
@@ -19,6 +19,11 @@
     automatic = true;
     dates = "weekly";
     options = "--delete-older-than 30d";
+  };
+  nix.registry = {
+    nixpkgs.flake = inputs.nixpkgs;
+    hyprland.flake = inputs.hyprland;
+    vicinae.flake = inputs.vicinae;
   };
   nixpkgs.config.allowUnfree = true;
 
