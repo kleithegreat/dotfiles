@@ -34,7 +34,7 @@ Canvas {
         }
 
         ctx.strokeStyle = root.lineColor;
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 2.0;
         ctx.lineJoin = "round";
         ctx.lineCap = "round";
         ctx.stroke();
