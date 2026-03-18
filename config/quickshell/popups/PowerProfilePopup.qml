@@ -22,8 +22,8 @@ PanelWindow {
     property string backend: "none"
 
     onActiveChanged: {
-        if (active) { detect(); ppOpenAnim.start(); }
-        else { closing = true; ppCloseAnim.start(); }
+        if (active) { ppPanel.opacity = 0; ppPanel.scale = 0.92; detect(); ppOpenAnim.start(); }
+        else if (!closing) { closing = true; ppCloseAnim.start(); }
     }
 
     function detect() { ppctlProc.running = true; }

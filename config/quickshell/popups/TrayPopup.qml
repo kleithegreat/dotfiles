@@ -12,8 +12,8 @@ PanelWindow {
     visible: (active || closing) && SystemTray.items.values.length > 0
 
     onActiveChanged: {
-        if (active) { trayOpenAnim.start(); }
-        else { closing = true; trayCloseAnim.start(); }
+        if (active) { trayPanel.opacity = 0; trayPanel.scale = 0.92; trayOpenAnim.start(); }
+        else if (!closing) { closing = true; trayCloseAnim.start(); }
     }
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"

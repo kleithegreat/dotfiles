@@ -28,8 +28,8 @@ PanelWindow {
     property string scriptsDir: ""
 
     onActiveChanged: {
-        if (active) { loadState(); settingsOpenAnim.start(); }
-        else { closing = true; settingsCloseAnim.start(); }
+        if (active) { panel.opacity = 0; panel.scale = 0.92; loadState(); settingsOpenAnim.start(); }
+        else if (!closing) { closing = true; settingsCloseAnim.start(); }
     }
 
     // ── Data loading ──

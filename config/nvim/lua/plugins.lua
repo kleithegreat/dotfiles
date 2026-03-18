@@ -146,6 +146,7 @@ return {
             'hrsh7th/cmp-nvim-lua',           -- Complete Neovim's Lua API
             -- Snippet engine
             'L3MON4D3/LuaSnip',               -- Snippet engine
+            'saadparwaiz1/cmp_luasnip',       -- Bridge between cmp and LuaSnip
         },
         config = function()
             local lspconfig = require('lspconfig')
@@ -314,15 +315,6 @@ return {
             
             -- Disable insert mode mappings
             vim.g.vimtex_imaps_enabled = 0
-            
-            -- Set up autocompilation with TextChanged event
-            vim.api.nvim_create_autocmd({"TextChanged", "TextChangedI"}, {
-                pattern = {"*.tex"},
-                callback = function()
-                    vim.cmd('VimtexCompile')
-                end,
-                group = vim.api.nvim_create_augroup("vimtex_auto_compile", { clear = true })
-            })
             
             -- Set up LaTeX-specific settings
             vim.api.nvim_create_autocmd("FileType", {
