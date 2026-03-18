@@ -62,7 +62,16 @@
   };
   services.xserver.videoDrivers = [ "modesetting" "nvidia" ];
 
+  # Laptop overrides — disable services enabled in shared configuration.nix
+  hardware.bluetooth.powerOnBoot = lib.mkForce false;
+  services.samba.enable = lib.mkForce false;
+  services.openssh.enable = lib.mkForce false;
+
   services.power-profiles-daemon.enable = true;
+
+  # Runs `powertop --auto-tune` at boot to enable runtime PM on devices that
+  # don't default to it (NVMe, audio codec, sensor hub, etc.)
+  powerManagement.powertop.enable = true;
   networking.useDHCP = lib.mkDefault true;
 
   environment.systemPackages = with pkgs; [ ];
