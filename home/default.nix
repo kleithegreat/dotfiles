@@ -232,6 +232,10 @@ in
     source = "${dotfilesPath}/scripts/dim-screen.sh";
     executable = true;
   };
+  home.file.".local/bin/wifi-connect.sh" = {
+    source = "${dotfilesPath}/scripts/wifi-connect.sh";
+    executable = true;
+  };
   home.file.".local/bin/brightness-step.sh" = {
     source = "${dotfilesPath}/scripts/brightness-step.sh";
     executable = true;

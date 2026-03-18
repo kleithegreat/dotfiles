@@ -1,4 +1,4 @@
-{ config, pkgs, hyprland, ... }:
+{ config, pkgs, hyprland, hostName, ... }:
 
 {
   nix.settings = {
@@ -23,7 +23,7 @@
   nixpkgs.config.allowUnfree = true;
 
   # ── Networking ───────────────────────────────────────────────
-  networking.hostName = "nixos";
+  networking.hostName = hostName;
   networking.networkmanager.enable = true;
 
   # ── PKI / TLS trust ────────────────────────────────────────
@@ -232,7 +232,7 @@
   # ── System packages (bare minimum — user tools go in home-manager) ──
   environment.systemPackages = with pkgs; [
     vim
-    git
+    gitFull
     wget
     curl
     cifs-utils       # SMB/CIFS mount support
