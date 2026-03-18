@@ -226,9 +226,10 @@ PanelWindow {
         id: diagProc; running: false
         command: ["bash", "-c", "exec \"$HOME/.local/bin/wifi-diagnostics.sh\""]
         stdout: SplitParser { onRead: (line) => {
-            let parts = line.split(":");
-            if (parts.length < 2) return;
-            let key = parts[0], val = parts.slice(1).join(":");
+            let idx = line.indexOf("=");
+            if (idx < 0) return;
+            let key = line.substring(0, idx);
+            let val = line.substring(idx + 1).trim();
             if (key === "BAND") wifiPop.diagBand = val;
             else if (key === "SIGNAL") wifiPop.diagSignal = val;
             else if (key === "NOISE") wifiPop.diagNoise = val;
@@ -242,21 +243,30 @@ PanelWindow {
             else if (key === "NET_LOSS") wifiPop.diagNetLoss = val;
             else if (key === "DNS_SERVER") wifiPop.diagDnsServer = val;
             else if (key === "DNS_TIME") wifiPop.diagDnsTime = val;
-            else if (key === "FREQ") {} // consumed by BAND
         } }
-        onExited: { wifiPop.diagLoading = false; }
+        stderr: SplitParser { onRead: (line) => { console.log("[wifi-diag stderr]", line); } }
+        onExited: (code, status) => {
+            wifiPop.diagLoading = false;
+            if (code !== 0) console.log("[wifi-diag] exited with code", code);
+        }
     }
 
     Process {
         id: speedTestProc; running: false
         command: ["bash", "-c", "exec \"$HOME/.local/bin/wifi-speedtest.sh\""]
         stdout: SplitParser { onRead: (line) => {
-            let parts = line.split(":");
-            if (parts.length < 2) return;
-            if (parts[0] === "DOWN") wifiPop.diagDownload = parts[1];
-            else if (parts[0] === "UP") wifiPop.diagUpload = parts[1];
+            let idx = line.indexOf("=");
+            if (idx < 0) return;
+            let key = line.substring(0, idx);
+            let val = line.substring(idx + 1).trim();
+            if (key === "DOWN") wifiPop.diagDownload = val;
+            else if (key === "UP") wifiPop.diagUpload = val;
         } }
-        onExited: { wifiPop.speedTestRunning = false; }
+        stderr: SplitParser { onRead: (line) => { console.log("[wifi-speed stderr]", line); } }
+        onExited: (code, status) => {
+            wifiPop.speedTestRunning = false;
+            if (code !== 0) console.log("[wifi-speed] exited with code", code);
+        }
     }
 
     // ── Backdrop ──────────────────────────────────────────────
@@ -363,6 +373,13 @@ PanelWindow {
                     MouseArea { id: dcA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
                         onClicked: wifiPop.disconnect() }
                 }
+            }
+
+            // ── Diagnostics button (separate row) ───────────
+            RowLayout {
+                visible: wifiPop.popupState === "list" && wifiPop.connectedSsid !== ""
+                Layout.fillWidth: true; spacing: 8
+                Item { Layout.fillWidth: true }
                 Rectangle {
                     width: diagBtnLabel.implicitWidth + Theme.btnPaddingH * 2; height: Theme.btnHeight; radius: Theme.btnRadius
                     color: "transparent"
@@ -374,7 +391,7 @@ PanelWindow {
                     scale: diagBtnA.pressed ? 0.98 : 1.0
                     Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
                     transformOrigin: Item.Center
-                    Text { id: diagBtnLabel; anchors.centerIn: parent; text: "Diagnostics"; color: diagBtnA.containsMouse ? Theme.blueBright : Theme.fg4
+                    Text { id: diagBtnLabel; anchors.centerIn: parent; text: "󰖩  Diagnostics"; color: diagBtnA.containsMouse ? Theme.blueBright : Theme.fg4
                         Behavior on color { ColorAnimation { duration: Theme.animHover } }
                         font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
                     MouseArea { id: diagBtnA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
@@ -692,22 +709,26 @@ PanelWindow {
                         RowLayout { Layout.fillWidth: true; spacing: 6
                             Text { text: wifiPop.connectedSsid; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true; Layout.fillWidth: true; elide: Text.ElideRight }
                             Rectangle {
-                                visible: wifiPop.diagBand !== ""
+                                visible: wifiPop.diagBand !== "" && wifiPop.diagBand !== "unknown"
                                 width: bandLabel.implicitWidth + 10; height: 18; radius: 4; color: Theme.bg3
                                 Text { id: bandLabel; anchors.centerIn: parent; text: wifiPop.diagBand; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 2 }
                             }
                         }
 
                         // ── Link Rate ───────────────────────
-                        RowLayout { Layout.fillWidth: true; visible: wifiPop.diagLinkRate !== ""
+                        RowLayout { Layout.fillWidth: true
                             Text { text: "Link Rate"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.fillWidth: true }
-                            Text { text: wifiPop.diagLinkRate + " Mbps"; color: Theme.greenBright; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+                            Text { text: (wifiPop.diagLinkRate && wifiPop.diagLinkRate !== "--") ? wifiPop.diagLinkRate + " Mbps" : "--"
+                                color: (wifiPop.diagLinkRate && wifiPop.diagLinkRate !== "--") ? Theme.greenBright : Theme.fg4
+                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
                         }
 
                         // ── Signal ──────────────────────────
-                        RowLayout { Layout.fillWidth: true; visible: wifiPop.diagSignal !== ""
+                        RowLayout { Layout.fillWidth: true
                             Text { text: "Signal"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.fillWidth: true }
-                            Text { text: wifiPop.diagSignal + " dBm"; color: wifiPop.signalColor(wifiPop.diagSignal); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+                            Text { text: (wifiPop.diagSignal && wifiPop.diagSignal !== "--") ? wifiPop.diagSignal + " dBm" : "--"
+                                color: (wifiPop.diagSignal && wifiPop.diagSignal !== "--") ? wifiPop.signalColor(wifiPop.diagSignal) : Theme.fg4
+                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
                         }
                         Text {
                             visible: { let v = parseInt(wifiPop.diagSignal); return !isNaN(v) && v < -50 && v >= -75; }
@@ -723,52 +744,68 @@ PanelWindow {
                         }
 
                         // ── Noise ───────────────────────────
-                        RowLayout { Layout.fillWidth: true; visible: wifiPop.diagNoise !== ""
+                        RowLayout { Layout.fillWidth: true
                             Text { text: "Noise"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.fillWidth: true }
-                            Text { text: wifiPop.diagNoise + " dBm"; color: Theme.greenBright; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+                            Text { text: (wifiPop.diagNoise && wifiPop.diagNoise !== "--") ? wifiPop.diagNoise + " dBm" : "--"
+                                color: (wifiPop.diagNoise && wifiPop.diagNoise !== "--") ? Theme.greenBright : Theme.fg4
+                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
                         }
 
                         // ── Router section ──────────────────
                         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3; Layout.topMargin: 4 }
-                        Text { text: "󰑩  Router" + (wifiPop.diagGateway !== "" ? " · " + wifiPop.diagGateway : ""); color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+                        Text { text: "󰑩  Router" + (wifiPop.diagGateway && wifiPop.diagGateway !== "--" ? " · " + wifiPop.diagGateway : ""); color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
 
-                        RowLayout { Layout.fillWidth: true; visible: wifiPop.diagGwPing !== ""
+                        RowLayout { Layout.fillWidth: true
                             Text { text: "Ping"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.fillWidth: true }
-                            Text { text: wifiPop.diagGwPing + " ms"; color: wifiPop.pingColor(wifiPop.diagGwPing); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+                            Text { text: (wifiPop.diagGwPing && wifiPop.diagGwPing !== "--") ? wifiPop.diagGwPing + " ms" : "--"
+                                color: (wifiPop.diagGwPing && wifiPop.diagGwPing !== "--") ? wifiPop.pingColor(wifiPop.diagGwPing) : Theme.fg4
+                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
                         }
-                        RowLayout { Layout.fillWidth: true; visible: wifiPop.diagGwJitter !== ""
+                        RowLayout { Layout.fillWidth: true
                             Text { text: "Jitter"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.fillWidth: true }
-                            Text { text: wifiPop.diagGwJitter + " ms"; color: wifiPop.pingColor(wifiPop.diagGwJitter); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+                            Text { text: (wifiPop.diagGwJitter && wifiPop.diagGwJitter !== "--") ? wifiPop.diagGwJitter + " ms" : "--"
+                                color: (wifiPop.diagGwJitter && wifiPop.diagGwJitter !== "--") ? wifiPop.pingColor(wifiPop.diagGwJitter) : Theme.fg4
+                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
                         }
-                        RowLayout { Layout.fillWidth: true; visible: wifiPop.diagGwLoss !== ""
+                        RowLayout { Layout.fillWidth: true
                             Text { text: "Loss"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.fillWidth: true }
-                            Text { text: wifiPop.diagGwLoss + "%"; color: wifiPop.lossColor(wifiPop.diagGwLoss); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+                            Text { text: (wifiPop.diagGwLoss && wifiPop.diagGwLoss !== "--") ? wifiPop.diagGwLoss + "%" : "--"
+                                color: (wifiPop.diagGwLoss && wifiPop.diagGwLoss !== "--") ? wifiPop.lossColor(wifiPop.diagGwLoss) : Theme.fg4
+                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
                         }
 
                         // ── Internet section ────────────────
                         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3; Layout.topMargin: 4 }
                         Text { text: "󰖩  Internet · 1.1.1.1"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
 
-                        RowLayout { Layout.fillWidth: true; visible: wifiPop.diagNetPing !== ""
+                        RowLayout { Layout.fillWidth: true
                             Text { text: "Ping"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.fillWidth: true }
-                            Text { text: wifiPop.diagNetPing + " ms"; color: wifiPop.pingColor(wifiPop.diagNetPing); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+                            Text { text: (wifiPop.diagNetPing && wifiPop.diagNetPing !== "--") ? wifiPop.diagNetPing + " ms" : "--"
+                                color: (wifiPop.diagNetPing && wifiPop.diagNetPing !== "--") ? wifiPop.pingColor(wifiPop.diagNetPing) : Theme.fg4
+                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
                         }
-                        RowLayout { Layout.fillWidth: true; visible: wifiPop.diagNetJitter !== ""
+                        RowLayout { Layout.fillWidth: true
                             Text { text: "Jitter"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.fillWidth: true }
-                            Text { text: wifiPop.diagNetJitter + " ms"; color: wifiPop.pingColor(wifiPop.diagNetJitter); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+                            Text { text: (wifiPop.diagNetJitter && wifiPop.diagNetJitter !== "--") ? wifiPop.diagNetJitter + " ms" : "--"
+                                color: (wifiPop.diagNetJitter && wifiPop.diagNetJitter !== "--") ? wifiPop.pingColor(wifiPop.diagNetJitter) : Theme.fg4
+                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
                         }
-                        RowLayout { Layout.fillWidth: true; visible: wifiPop.diagNetLoss !== ""
+                        RowLayout { Layout.fillWidth: true
                             Text { text: "Loss"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.fillWidth: true }
-                            Text { text: wifiPop.diagNetLoss + "%"; color: wifiPop.lossColor(wifiPop.diagNetLoss); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+                            Text { text: (wifiPop.diagNetLoss && wifiPop.diagNetLoss !== "--") ? wifiPop.diagNetLoss + "%" : "--"
+                                color: (wifiPop.diagNetLoss && wifiPop.diagNetLoss !== "--") ? wifiPop.lossColor(wifiPop.diagNetLoss) : Theme.fg4
+                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
                         }
 
                         // ── DNS section ─────────────────────
                         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3; Layout.topMargin: 4 }
-                        Text { text: "󰇖  DNS" + (wifiPop.diagDnsServer !== "" ? " · " + wifiPop.diagDnsServer : ""); color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+                        Text { text: "󰇖  DNS" + (wifiPop.diagDnsServer && wifiPop.diagDnsServer !== "--" ? " · " + wifiPop.diagDnsServer : ""); color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
 
-                        RowLayout { Layout.fillWidth: true; visible: wifiPop.diagDnsTime !== ""
+                        RowLayout { Layout.fillWidth: true
                             Text { text: "Lookup"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.fillWidth: true }
-                            Text { text: wifiPop.diagDnsTime + " ms"; color: wifiPop.pingColor(wifiPop.diagDnsTime); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+                            Text { text: (wifiPop.diagDnsTime && wifiPop.diagDnsTime !== "--") ? wifiPop.diagDnsTime + " ms" : "--"
+                                color: (wifiPop.diagDnsTime && wifiPop.diagDnsTime !== "--") ? wifiPop.pingColor(wifiPop.diagDnsTime) : Theme.fg4
+                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
                         }
 
                         // ── Speed Test section ──────────────
