@@ -738,7 +738,7 @@ PanelWindow {
             // ── LIST STATE ────────────────────────────────────
             // ══════════════════════════════════════════════════
             Item {
-                Layout.fillWidth: true; Layout.preferredHeight: Math.min(220, netCol.implicitHeight > 0 ? netCol.implicitHeight : 220); Layout.maximumHeight: 220
+                Layout.fillWidth: true; Layout.preferredHeight: netModel.count === 0 ? 144 : 170; Layout.maximumHeight: 220
                 visible: wifiPop.popupState === "list"
                 opacity: wifiPop.popupState === "list" ? 1 : 0
                 Behavior on opacity { NumberAnimation { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
