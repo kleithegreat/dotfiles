@@ -33,6 +33,6 @@ Item {
     MouseArea {
         id: knobMouse
         anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-        onClicked: { toggle.checked = !toggle.checked; toggle.toggled(); }
+        onClicked: toggle.toggled()
     }
 }

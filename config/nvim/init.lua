@@ -29,22 +29,6 @@ require("options")  -- Load basic vim options and keymaps
 -- Initialize lazy.nvim with plugins
 require("lazy").setup("plugins")
 
-vim.api.nvim_create_autocmd({"FileType"}, {
-  pattern = {"tex", "latex"},
-  callback = function()
-      vim.cmd('TSDisable highlight')  -- Disable Treesitter for TeX files
-      vim.cmd('syntax enable')  -- Enable VimTeX syntax
-      
-      vim.opt_local.conceallevel = 2  -- Configure concealment (optional)
-      vim.opt_local.concealcursor = 'c'
-      vim.opt_local.spell = true
-      vim.opt_local.spelllang = "en_us"
-      vim.opt_local.wrap = true
-      vim.opt_local.linebreak = true
-      vim.opt_local.textwidth = 0
-  end,
-})
-
 vim.g.neovide_scale_factor = 0.9
 
 -- Add word wrap specifically for Markdown files

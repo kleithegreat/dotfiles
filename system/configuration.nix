@@ -30,12 +30,11 @@
   security.pki.certificateFiles = [
     ../certs/caddy-root-ca.crt
   ];
-  # firewall: allow Samba and mDNS; add more as needed
+  # firewall: mDNS + KDE Connect (Samba ports handled by services.samba.openFirewall)
   networking.firewall = {
     enable = true;
-    allowedTCPPorts = [ 445 139 ];
     allowedTCPPortRanges = [{ from = 1714; to = 1764; }];  # KDE Connect
-    allowedUDPPorts = [ 137 138 5353 ];
+    allowedUDPPorts = [ 5353 ];
     allowedUDPPortRanges = [{ from = 1714; to = 1764; }];  # KDE Connect
   };
 
@@ -237,7 +236,6 @@
     wget
     curl
     cifs-utils       # SMB/CIFS mount support
-    libsecret        # Secret Service client lib (for apps to talk to keyring)
     qt6Packages.qt6ct  # Qt6 configuration tool (system-wide so env var works)
   ];
 

@@ -48,8 +48,4 @@ in
     x11.enable = true;
   };
 
-  home.packages = with pkgs; [
-    overpass
-    adw-gtk3
-  ];
 }

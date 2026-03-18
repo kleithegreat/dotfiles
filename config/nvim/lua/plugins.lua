@@ -318,12 +318,17 @@ return {
             
             -- Set up LaTeX-specific settings
             vim.api.nvim_create_autocmd("FileType", {
-                pattern = {"tex"},
+                pattern = {"tex", "latex"},
                 callback = function()
-                    -- Local settings for LaTeX files
+                    vim.cmd('TSDisable highlight')
+                    vim.cmd('syntax enable')
                     vim.opt_local.conceallevel = 2
+                    vim.opt_local.concealcursor = 'c'
                     vim.opt_local.spell = true
                     vim.opt_local.spelllang = "en_us"
+                    vim.opt_local.wrap = true
+                    vim.opt_local.linebreak = true
+                    vim.opt_local.textwidth = 0
                 end,
                 group = vim.api.nvim_create_augroup("vimtex_settings", { clear = true })
             })
