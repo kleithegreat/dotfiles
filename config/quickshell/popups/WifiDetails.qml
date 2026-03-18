@@ -24,6 +24,8 @@ ColumnLayout {
     property var routerPingHist: []
     property var internetPingHist: []
     property var dnsLookupHist: []
+    property var noiseHist: []
+    property var linkRateHist: []
 
     // ── Jitter / loss tracking ─────────────────────────────────
     property var routerPingAll: []
@@ -113,6 +115,7 @@ ColumnLayout {
         dLinkRate = ""; dGateway = ""; dDns = "";
         dRouterPing = -1; dInternetPing = -1; dDnsLookup = -1;
         signalHist = []; routerPingHist = []; internetPingHist = []; dnsLookupHist = [];
+        noiseHist = []; linkRateHist = [];
         routerPingAll = []; internetPingAll = [];
         routerLossArr = []; internetLossArr = [];
         routerJitter = 0; internetJitter = 0;
@@ -162,8 +165,8 @@ ColumnLayout {
                 root.dSignal = parseInt(val) || 0;
                 root.signalHist = root.pushHist(root.signalHist, root.dSignal);
                 break;
-            case "NOISE": root.dNoise = parseInt(val) || -95; break;
-            case "LINKRATE": root.dLinkRate = val; break;
+            case "NOISE": root.dNoise = parseInt(val) || -95; root.noiseHist = root.pushHist(root.noiseHist, root.dNoise); break;
+            case "LINKRATE": root.dLinkRate = val; root.linkRateHist = root.pushHist(root.linkRateHist, parseFloat(val) || 0); break;
             case "GATEWAY": root.dGateway = val; break;
             case "DNS": root.dDns = val; break;
             case "ROUTERPING":
@@ -209,7 +212,7 @@ ColumnLayout {
     }
 
     // ── Tagline ────────────────────────────────────────────────
-    Text { text: "Real-time connection diagnostics"; color: Theme.fg4
+    Text { text: "Figure out why your Wi-Fi is bad and fix it."; color: Theme.fg4
         font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
 
     Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
@@ -219,7 +222,7 @@ ColumnLayout {
         Rectangle { width: 8; height: 8; radius: 4
             color: root.dSsid !== "" ? Theme.greenBright : Theme.fg4 }
         Text { text: root.dSsid || "Not connected"; color: Theme.fg; font.bold: true
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+            font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize
             Layout.fillWidth: true; elide: Text.ElideRight }
         Rectangle {
             visible: root.dFreq !== ""
@@ -233,25 +236,25 @@ ColumnLayout {
 
     // ── Link Rate ──────────────────────────────────────────────
     RowLayout { Layout.fillWidth: true; spacing: 8
-        Text { text: "Link Rate"; color: Theme.fg3; Layout.preferredWidth: 60
+        Text { text: "Link Rate"; color: Theme.fg3; Layout.preferredWidth: 70
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-        Text { text: root.dLinkRate || "—"; color: Theme.orangeBright
+        Text { text: root.dLinkRate ? parseFloat(root.dLinkRate).toFixed(0) + " Mbps" : "—"; color: Theme.orangeBright
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
-            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 80; elide: Text.ElideRight }
+            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 70; elide: Text.ElideRight }
         Item { Layout.preferredWidth: 8 }
         Sparkline { Layout.fillWidth: true; Layout.preferredHeight: 18
-            values: []; lineColor: Theme.orangeBright }
+            values: root.linkRateHist; lineColor: Theme.orangeBright }
     }
 
     // ── Signal ─────────────────────────────────────────────────
     RowLayout { Layout.fillWidth: true; spacing: 8
-        Text { text: "Signal"; color: Theme.fg3; Layout.preferredWidth: 60
+        Text { text: "Signal"; color: Theme.fg3; Layout.preferredWidth: 70
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
         Text { text: root.dSignal !== 0 ? root.dSignal + " dBm" : "—"
             color: root.dSignal === 0 ? Theme.fg4 : (root.dSignal >= -60 ? Theme.greenBright : (root.dSignal >= -75 ? Theme.orangeBright : Theme.redBright))
             Behavior on color { ColorAnimation { duration: Theme.animHover } }
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
-            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 80 }
+            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 70 }
         Item { Layout.preferredWidth: 8 }
         Sparkline { Layout.fillWidth: true; Layout.preferredHeight: 18
             values: root.signalHist
@@ -260,14 +263,14 @@ ColumnLayout {
 
     // ── Noise ──────────────────────────────────────────────────
     RowLayout { Layout.fillWidth: true; spacing: 8
-        Text { text: "Noise"; color: Theme.fg3; Layout.preferredWidth: 60
+        Text { text: "Noise"; color: Theme.fg3; Layout.preferredWidth: 70
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
         Text { text: root.dNoise + " dBm"; color: Theme.greenBright
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
-            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 80 }
+            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 70 }
         Item { Layout.preferredWidth: 8 }
         Sparkline { Layout.fillWidth: true; Layout.preferredHeight: 18
-            values: []; lineColor: Theme.greenBright }
+            values: root.noiseHist; lineColor: Theme.greenBright }
     }
 
     // ── Signal advisory ────────────────────────────────────────
@@ -339,90 +342,90 @@ ColumnLayout {
 
     // ── Router ─────────────────────────────────────────────────
     Text { text: "Router"; color: Theme.fg4; font.bold: true
-        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+        font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize }
 
     RowLayout { Layout.fillWidth: true; spacing: 8
-        Text { text: "Ping"; color: Theme.fg3; Layout.preferredWidth: 60
+        Text { text: "Ping"; color: Theme.fg3; Layout.preferredWidth: 70
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
         Text { text: root.dRouterPing >= 0 ? root.dRouterPing.toFixed(1) + " ms" : "—"
             color: root.pingColor(root.dRouterPing)
             Behavior on color { ColorAnimation { duration: Theme.animHover } }
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
-            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 80 }
+            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 70 }
         Item { Layout.preferredWidth: 8 }
         Sparkline { Layout.fillWidth: true; Layout.preferredHeight: 18
             values: root.routerPingHist; lineColor: root.pingColor(root.dRouterPing) }
     }
 
     RowLayout { Layout.fillWidth: true; spacing: 8
-        Text { text: "Jitter"; color: Theme.fg3; Layout.preferredWidth: 60
+        Text { text: "Jitter"; color: Theme.fg3; Layout.preferredWidth: 70
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
         Text { text: root.routerJitter > 0 ? root.routerJitter.toFixed(1) + " ms" : "—"
             color: root.jitterColor(root.routerJitter)
             Behavior on color { ColorAnimation { duration: Theme.animHover } }
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
-            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 80 }
+            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 70 }
         Item { Layout.preferredWidth: 8 }
         Sparkline { Layout.fillWidth: true; Layout.preferredHeight: 18
-            values: []; lineColor: root.jitterColor(root.routerJitter) }
+            values: root.routerPingHist; lineColor: root.jitterColor(root.routerJitter) }
     }
 
     RowLayout { Layout.fillWidth: true; spacing: 8
-        Text { text: "Loss"; color: Theme.fg3; Layout.preferredWidth: 60
+        Text { text: "Loss"; color: Theme.fg3; Layout.preferredWidth: 70
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
         Text { text: root.routerLoss > 0 ? root.routerLoss.toFixed(1) + "%" : "0%"
             color: root.lossColor(root.routerLoss)
             Behavior on color { ColorAnimation { duration: Theme.animHover } }
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
-            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 80 }
+            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 70 }
         Item { Layout.preferredWidth: 8 }
         Sparkline { Layout.fillWidth: true; Layout.preferredHeight: 18
-            values: []; lineColor: root.lossColor(root.routerLoss) }
+            values: root.routerLossArr; lineColor: root.lossColor(root.routerLoss) }
     }
 
     Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
 
     // ── Internet ───────────────────────────────────────────────
     Text { text: "Internet · Connected to 1.1.1.1"; color: Theme.fg4; font.bold: true
-        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+        font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize }
 
     RowLayout { Layout.fillWidth: true; spacing: 8
-        Text { text: "Ping"; color: Theme.fg3; Layout.preferredWidth: 60
+        Text { text: "Ping"; color: Theme.fg3; Layout.preferredWidth: 70
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
         Text { text: root.dInternetPing >= 0 ? root.dInternetPing.toFixed(1) + " ms" : "—"
             color: root.pingColor(root.dInternetPing)
             Behavior on color { ColorAnimation { duration: Theme.animHover } }
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
-            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 80 }
+            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 70 }
         Item { Layout.preferredWidth: 8 }
         Sparkline { Layout.fillWidth: true; Layout.preferredHeight: 18
             values: root.internetPingHist; lineColor: root.pingColor(root.dInternetPing) }
     }
 
     RowLayout { Layout.fillWidth: true; spacing: 8
-        Text { text: "Jitter"; color: Theme.fg3; Layout.preferredWidth: 60
+        Text { text: "Jitter"; color: Theme.fg3; Layout.preferredWidth: 70
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
         Text { text: root.internetJitter > 0 ? root.internetJitter.toFixed(1) + " ms" : "—"
             color: root.jitterColor(root.internetJitter)
             Behavior on color { ColorAnimation { duration: Theme.animHover } }
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
-            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 80 }
+            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 70 }
         Item { Layout.preferredWidth: 8 }
         Sparkline { Layout.fillWidth: true; Layout.preferredHeight: 18
-            values: []; lineColor: root.jitterColor(root.internetJitter) }
+            values: root.internetPingHist; lineColor: root.jitterColor(root.internetJitter) }
     }
 
     RowLayout { Layout.fillWidth: true; spacing: 8
-        Text { text: "Loss"; color: Theme.fg3; Layout.preferredWidth: 60
+        Text { text: "Loss"; color: Theme.fg3; Layout.preferredWidth: 70
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
         Text { text: root.internetLoss > 0 ? root.internetLoss.toFixed(1) + "%" : "0%"
             color: root.lossColor(root.internetLoss)
             Behavior on color { ColorAnimation { duration: Theme.animHover } }
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
-            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 80 }
+            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 70 }
         Item { Layout.preferredWidth: 8 }
         Sparkline { Layout.fillWidth: true; Layout.preferredHeight: 18
-            values: []; lineColor: root.lossColor(root.internetLoss) }
+            values: root.internetLossArr; lineColor: root.lossColor(root.internetLoss) }
     }
 
     Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
@@ -450,17 +453,17 @@ ColumnLayout {
     Text {
         text: root.dDns === "" ? "DNS" : ("DNS · " + (root.dDns === root.dGateway ? "Router assigned" : "Custom") + " (" + root.dDns + ")")
         color: Theme.fg4; font.bold: true
-        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+        font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize
     }
 
     RowLayout { Layout.fillWidth: true; spacing: 8
-        Text { text: "Lookup"; color: Theme.fg3; Layout.preferredWidth: 60
+        Text { text: "Lookup"; color: Theme.fg3; Layout.preferredWidth: 70
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
         Text { text: root.dDnsLookup >= 0 ? root.dDnsLookup.toFixed(0) + " ms" : "—"
             color: root.pingColor(root.dDnsLookup)
             Behavior on color { ColorAnimation { duration: Theme.animHover } }
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
-            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 80 }
+            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 70 }
         Item { Layout.preferredWidth: 8 }
         Sparkline { Layout.fillWidth: true; Layout.preferredHeight: 18
             values: root.dnsLookupHist; lineColor: root.pingColor(root.dDnsLookup) }
@@ -486,7 +489,7 @@ ColumnLayout {
                 transformOrigin: Item.Center
                 Text { id: dnsPillLbl; anchors.centerIn: parent; text: modelData.label
                     color: isCurrent ? Theme.bg : Theme.fg
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                    font.family: Theme.fontFamily; font.pixelSize: 10
                     Behavior on color { ColorAnimation { duration: Theme.animHover } } }
                 MouseArea { id: dnsPillA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
                     onClicked: root.setDns(modelData.dns) }
@@ -559,7 +562,7 @@ ColumnLayout {
     }
 
     Text { text: "Speed Test"; color: Theme.fg4; font.bold: true
-        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+        font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize }
 
     // Idle
     Rectangle {
