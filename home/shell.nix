@@ -18,6 +18,11 @@
 
     autocd = true;
     enableCompletion = true;
+    completionInit = ''
+      autoload -Uz compinit
+      mkdir -p "$XDG_CACHE_HOME/zsh"
+      compinit -C -d "$XDG_CACHE_HOME/zsh/zcompdump"
+    '';
     autosuggestion = {
       enable = true;
       strategy = [ "history" "completion" ];
