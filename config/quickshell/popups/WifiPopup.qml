@@ -54,6 +54,11 @@ PanelWindow {
     property string diagDnsTime: ""
     property string diagDownload: ""
     property string diagUpload: ""
+    property string diagBufferbloat: ""
+    property bool diagBufferbloatOk: true
+    property string _bloatBase: ""
+    property string _bloatLoad: ""
+    property string diagWifiStandard: ""
 
     // Sparkline history arrays (last 30 samples)
     property var histSignal: []
@@ -213,6 +218,8 @@ PanelWindow {
         diagNetPing = ""; diagNetJitter = ""; diagNetLoss = "";
         diagDnsServer = ""; diagDnsTime = "";
         diagDownload = ""; diagUpload = "";
+        diagBufferbloat = ""; diagBufferbloatOk = true; _bloatBase = ""; _bloatLoad = "";
+        diagWifiStandard = "";
         histSignal = []; histNoise = [];
         histGwPing = []; histGwJitter = []; histGwLoss = [];
         histNetPing = []; histNetJitter = []; histNetLoss = [];
@@ -367,10 +374,23 @@ PanelWindow {
             "  elif [ \"$freq\" -lt 6000 ] 2>/dev/null; then band='5 GHz'; " +
             "  else band='6 GHz'; fi; " +
             "fi; " +
+            "wifi_std=''; " +
+            "if echo \"$link\" | grep -q 'EHT'; then wifi_std='Wi-Fi 7 (802.11be)'; " +
+            "elif echo \"$link\" | grep -q 'HE'; then wifi_std='Wi-Fi 6 (802.11ax)'; " +
+            "elif echo \"$link\" | grep -q 'VHT'; then wifi_std='Wi-Fi 5 (802.11ac)'; " +
+            "elif echo \"$link\" | grep -q 'HT'; then wifi_std='Wi-Fi 4 (802.11n)'; " +
+            "elif [ -n \"$freq\" ] && [ \"$freq\" -ge 5000 ] 2>/dev/null; then wifi_std='Wi-Fi 5 (802.11ac)'; " +
+            "elif [ -n \"$freq\" ] && [ \"$freq\" -lt 5000 ] 2>/dev/null; then " +
+            "  rate_num=$(echo \"$rate\" | grep -oP '[\\d.]+' | head -1); " +
+            "  if [ -n \"$rate_num\" ] && [ \"$(echo \"$rate_num > 54\" | bc 2>/dev/null)\" = '1' ]; then " +
+            "    wifi_std='Wi-Fi 4 (802.11n)'; " +
+            "  else wifi_std='802.11g'; fi; " +
+            "fi; " +
             "echo \"SIGNAL=${signal:---}\"; " +
             "echo \"NOISE=${noise:---}\"; " +
             "echo \"RATE=${rate:---}\"; " +
-            "echo \"BAND=${band:-}\""
+            "echo \"BAND=${band:-}\"; " +
+            "echo \"WIFI_STD=${wifi_std:-unknown}\""
         ]
         stdout: SplitParser { onRead: (line) => {
             let idx = line.indexOf("=");
@@ -386,6 +406,7 @@ PanelWindow {
             }
             else if (key === "RATE") wifiPop.diagLinkRate = val;
             else if (key === "BAND") wifiPop.diagBand = val;
+            else if (key === "WIFI_STD") wifiPop.diagWifiStandard = val;
         }}
         stderr: SplitParser { onRead: (line) => { console.log("[wifi-info stderr]", line); } }
         onExited: (code, status) => {
@@ -490,12 +511,45 @@ PanelWindow {
     Process {
         id: speedTestProc; running: false
         command: ["bash", "-c",
-            "down_bps=$(curl -o /dev/null -w '%{speed_download}' -s --max-time 15 'https://speed.cloudflare.com/__down?bytes=10000000'); " +
+            "gw=$(ip route | awk '/default/{print $3; exit}'); " +
+            // Baseline: ping the router before load
+            "base_out=$(ping -c 5 -i 0.2 -W 1 \"$gw\" 2>/dev/null); " +
+            "base_avg=$(echo \"$base_out\" | grep -E 'rtt|round-trip' | grep -oP '[\\d.]+' | sed -n '2p'); " +
+            "[ -z \"$base_avg\" ] && base_avg=0; " +
+            // Download test with concurrent router ping
+            "ping -c 30 -i 0.5 -W 1 \"$gw\" > /tmp/whyfi_load_ping 2>/dev/null & " +
+            "ping_pid=$!; " +
+            "down_bps=$(curl -o /dev/null -w '%{speed_download}' -s --max-time 15 " +
+            "'https://speed.cloudflare.com/__down?bytes=10000000'); " +
             "down_mbps=$(echo \"scale=1; $down_bps * 8 / 1000000\" | bc 2>/dev/null); " +
             "echo \"DOWN=${down_mbps:---}\"; " +
-            "up_bps=$(dd if=/dev/zero bs=1M count=5 2>/dev/null | curl -X POST -w '%{speed_upload}' -s --max-time 15 -d @- 'https://speed.cloudflare.com/__up'); " +
+            // Upload test (continues while ping runs)
+            "tmpf=$(mktemp); " +
+            "dd if=/dev/zero of=\"$tmpf\" bs=1M count=5 2>/dev/null; " +
+            "up_bps=$(curl -X POST -w '%{speed_upload}' -s --max-time 15 " +
+            "--data-binary @\"$tmpf\" " +
+            "-H 'Content-Type: application/octet-stream' " +
+            "'https://speed.cloudflare.com/__up'); " +
+            "rm -f \"$tmpf\"; " +
             "up_mbps=$(echo \"scale=1; $up_bps * 8 / 1000000\" | bc 2>/dev/null); " +
-            "echo \"UP=${up_mbps:---}\""
+            "echo \"UP=${up_mbps:---}\"; " +
+            // Stop the background ping, analyze results
+            "kill $ping_pid 2>/dev/null; wait $ping_pid 2>/dev/null; " +
+            "load_out=$(cat /tmp/whyfi_load_ping 2>/dev/null); " +
+            "rm -f /tmp/whyfi_load_ping; " +
+            "load_avg=$(echo \"$load_out\" | grep -E 'rtt|round-trip' | grep -oP '[\\d.]+' | sed -n '2p'); " +
+            "[ -z \"$load_avg\" ] && load_avg=0; " +
+            // Calculate bloat ratio
+            "if [ \"$base_avg\" != '0' ] && [ \"$load_avg\" != '0' ]; then " +
+            "  ratio=$(echo \"scale=1; $load_avg / $base_avg\" | bc 2>/dev/null); " +
+            "  echo \"BLOAT_BASE=$base_avg\"; " +
+            "  echo \"BLOAT_LOAD=$load_avg\"; " +
+            "  echo \"BLOAT_RATIO=$ratio\"; " +
+            "else " +
+            "  echo \"BLOAT_BASE=--\"; " +
+            "  echo \"BLOAT_LOAD=--\"; " +
+            "  echo \"BLOAT_RATIO=--\"; " +
+            "fi"
         ]
         stdout: SplitParser { onRead: (line) => {
             let idx = line.indexOf("=");
@@ -503,6 +557,24 @@ PanelWindow {
             let key = line.substring(0, idx), val = line.substring(idx + 1).trim();
             if (key === "DOWN") wifiPop.diagDownload = val;
             else if (key === "UP") wifiPop.diagUpload = val;
+            else if (key === "BLOAT_BASE") wifiPop._bloatBase = val;
+            else if (key === "BLOAT_LOAD") wifiPop._bloatLoad = val;
+            else if (key === "BLOAT_RATIO") {
+                let ratio = parseFloat(val);
+                let base = wifiPop._bloatBase;
+                let load = wifiPop._bloatLoad;
+                if (!isNaN(ratio) && base !== "--" && load !== "--") {
+                    if (ratio < 3.0) {
+                        wifiPop.diagBufferbloat = "Router stayed responsive (" + base + "ms \u2192 " + load + "ms) \u2014 no bufferbloat.";
+                        wifiPop.diagBufferbloatOk = true;
+                    } else {
+                        wifiPop.diagBufferbloat = "Lag under load: router ping spiked from " + base + "ms to " + load + "ms (" + val + "x). This causes lag for everyone on the network during heavy usage.";
+                        wifiPop.diagBufferbloatOk = false;
+                    }
+                } else {
+                    wifiPop.diagBufferbloat = "";
+                }
+            }
         }}
         stderr: SplitParser { onRead: (line) => { console.log("[speedtest stderr]", line); } }
         onExited: { wifiPop.speedTestRunning = false; }
@@ -1075,7 +1147,7 @@ PanelWindow {
             // ── DIAGNOSTICS STATE ─────────────────────────────
             // ══════════════════════════════════════════════════
             Item {
-                Layout.fillWidth: true; Layout.preferredHeight: 420; Layout.maximumHeight: 420
+                Layout.fillWidth: true; Layout.preferredHeight: 500; Layout.maximumHeight: 500
                 visible: wifiPop.popupState === "diagnostics"
                 opacity: wifiPop.popupState === "diagnostics" ? 1 : 0
                 Behavior on opacity { NumberAnimation { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
@@ -1136,6 +1208,27 @@ PanelWindow {
                                 visible: wifiPop.diagBand !== "" && wifiPop.diagBand !== "unknown"
                                 width: bandLabel.implicitWidth + 10; height: 18; radius: 4; color: Theme.bg3
                                 Text { id: bandLabel; anchors.centerIn: parent; text: wifiPop.diagBand; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 2 }
+                            }
+                        }
+                        // Wi-Fi standard
+                        Text {
+                            visible: wifiPop.diagWifiStandard !== "" && wifiPop.diagWifiStandard !== "unknown"
+                            text: wifiPop.diagWifiStandard
+                            color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
+                        }
+                        // Upgrade warning for old standards
+                        Rectangle {
+                            visible: wifiPop.diagWifiStandard.indexOf("Wi-Fi 4") >= 0 || wifiPop.diagWifiStandard.indexOf("802.11g") >= 0
+                            Layout.fillWidth: true; height: stdWarnText.implicitHeight + 8; radius: Theme.btnRadius
+                            color: Theme.bg2; border.width: 1; border.color: Theme.yellowBright
+                            Text {
+                                id: stdWarnText
+                                anchors.centerIn: parent; width: parent.width - 12
+                                text: wifiPop.diagBand === "2.4 GHz"
+                                    ? "Using an older Wi-Fi standard \u2014 try connecting to a 5 GHz network for better speeds."
+                                    : "Using an older Wi-Fi standard. Your router may need a firmware update."
+                                color: Theme.yellowBright; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
+                                wrapMode: Text.WordWrap
                             }
                         }
 
@@ -1317,7 +1410,21 @@ PanelWindow {
                                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                                     Behavior on color { ColorAnimation { duration: Theme.animHover } } }
                                 MouseArea { id: retestA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                                    onClicked: { wifiPop.diagDownload = ""; wifiPop.diagUpload = ""; wifiPop.speedTestRunning = true; speedTestProc.running = true; } }
+                                    onClicked: { wifiPop.diagDownload = ""; wifiPop.diagUpload = ""; wifiPop.diagBufferbloat = ""; wifiPop.speedTestRunning = true; speedTestProc.running = true; } }
+                            }
+                        }
+                        // Bufferbloat result
+                        RowLayout {
+                            visible: wifiPop.diagBufferbloat !== "" && !wifiPop.speedTestRunning
+                            Layout.fillWidth: true; spacing: 6
+                            Rectangle {
+                                width: 8; height: 8; radius: 4
+                                color: wifiPop.diagBufferbloatOk ? Theme.greenBright : Theme.redBright
+                            }
+                            Text {
+                                text: wifiPop.diagBufferbloat
+                                color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
+                                wrapMode: Text.WordWrap; Layout.fillWidth: true
                             }
                         }
 
