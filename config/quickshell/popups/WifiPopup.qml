@@ -372,23 +372,44 @@ PanelWindow {
                         }
                     }
                 }
-            }
 
-            // Scanning indicator with pulsing animation
-            Item {
-                visible: wifiPop.popupState === "list" && netModel.count === 0
-                Layout.fillWidth: true; Layout.alignment: Qt.AlignHCenter
-                implicitHeight: scanningRow.implicitHeight
-                RowLayout {
-                    id: scanningRow; anchors.centerIn: parent; spacing: 6
-                    Text { id: scanIcon; text: "󰖩"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
-                        SequentialAnimation on opacity {
-                            loops: Animation.Infinite
-                            NumberAnimation { from: 1; to: 0.3; duration: 800; easing.type: Easing.InOutQuad }
-                            NumberAnimation { from: 0.3; to: 1; duration: 800; easing.type: Easing.InOutQuad }
+                // ── Skeleton loading rows ─────────────────────
+                Column {
+                    visible: netModel.count === 0
+                    anchors.fill: parent; anchors.topMargin: 4
+                    spacing: 0
+
+                    Repeater {
+                        model: ListModel {
+                            ListElement { skelWidth: 120 }
+                            ListElement { skelWidth: 90 }
+                            ListElement { skelWidth: 150 }
+                            ListElement { skelWidth: 105 }
+                        }
+                        delegate: Item {
+                            required property int skelWidth
+                            required property int index
+                            width: parent.width; height: 36
+                            RowLayout {
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.left: parent.left; anchors.right: parent.right
+                                anchors.leftMargin: 6; anchors.rightMargin: 6
+                                spacing: 8
+
+                                Rectangle { width: skelWidth; height: 10; radius: 5; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
+                                Item { Layout.fillWidth: true }
+                                Rectangle { width: 10; height: 10; radius: 5; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
+                                Rectangle { width: 28; height: 10; radius: 5; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
+                            }
+
+                            SequentialAnimation on opacity {
+                                loops: Animation.Infinite
+                                PauseAnimation { duration: index * 120 }
+                                NumberAnimation { from: 0.4; to: 0.8; duration: 800; easing.type: Easing.InOutQuad }
+                                NumberAnimation { from: 0.8; to: 0.4; duration: 800; easing.type: Easing.InOutQuad }
+                            }
                         }
                     }
-                    Text { text: "Scanning…"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
                 }
             }
 
