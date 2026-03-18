@@ -244,6 +244,14 @@ in
     source = "${dotfilesPath}/scripts/hyprsunset-geo.sh";
     executable = true;
   };
+  home.file.".local/bin/wifi-diagnostics.sh" = {
+    source = "${dotfilesPath}/scripts/wifi-diagnostics.sh";
+    executable = true;
+  };
+  home.file.".local/bin/wifi-speedtest.sh" = {
+    source = "${dotfilesPath}/scripts/wifi-speedtest.sh";
+    executable = true;
+  };
 
   # ── Default applications ────────────────────────────────────
   xdg.mimeApps = {
