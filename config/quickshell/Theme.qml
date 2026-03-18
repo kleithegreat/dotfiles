@@ -73,7 +73,7 @@ QtObject {
     readonly property int calWidth: calCellSize * 7 + popupPadding * 2 + 12
 
     readonly property int mprisArtSize: 80
-    readonly property int mprisPopupWidth: 340
+    readonly property int mprisPopupWidth: 510
 
     // ── Animation constants ──
     // Shell chrome should feel instant/reactive, not floaty.
