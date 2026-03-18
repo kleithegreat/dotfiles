@@ -2,6 +2,10 @@
 # Gradually dim the screen for hypridle. Operates in perceptual brightness space (gamma 2.2).
 # Resume with: brightnessctl -r
 
+PIDFILE="/tmp/dim-screen.pid"
+echo $$ > "$PIDFILE"
+trap 'rm -f "$PIDFILE"' EXIT
+
 DEVICE="intel_backlight"
 STEPS=20
 DELAY=0.05

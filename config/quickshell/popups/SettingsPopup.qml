@@ -95,20 +95,20 @@ PanelWindow {
     Process { id: applyProc; running: false }
 
     function runSet(key, value) {
-        applyProc.command = ["bash", "-c", scriptsDir + "/set-theme.sh " + key + " '" + value + "'"];
+        applyProc.command = [scriptsDir + "/set-theme.sh", key, value];
         applyProc.running = true;
         // Reload state after a short delay (configs regenerate)
         reloadTimer.restart();
     }
 
     function runPreset(name) {
-        applyProc.command = ["bash", "-c", scriptsDir + "/set-theme.sh preset " + name];
+        applyProc.command = [scriptsDir + "/set-theme.sh", "preset", name];
         applyProc.running = true;
         reloadTimer.restart();
     }
 
     function runVariant(v) {
-        applyProc.command = ["bash", "-c", scriptsDir + "/set-theme.sh variant " + v];
+        applyProc.command = [scriptsDir + "/set-theme.sh", "variant", v];
         applyProc.running = true;
         reloadTimer.restart();
     }

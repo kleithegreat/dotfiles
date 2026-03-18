@@ -106,14 +106,9 @@ PanelWindow {
         popupState = "connecting";
         enterpriseProc.command = [
             "bash", "-c",
-            "iface=$(nmcli -t -f DEVICE,TYPE dev | grep ':wifi$' | head -1 | cut -d: -f1); " +
-            "nmcli connection delete id " + JSON.stringify(targetSsid) + " 2>/dev/null; " +
-            "nmcli connection add type wifi ifname \"$iface\" con-name " + JSON.stringify(targetSsid) +
-            " ssid " + JSON.stringify(targetSsid) +
-            " wifi-sec.key-mgmt wpa-eap 802-1x.eap peap 802-1x.phase2-auth mschapv2" +
-            " 802-1x.identity " + JSON.stringify(identity) +
-            " 802-1x.password " + JSON.stringify(password) +
-            " && nmcli connection up id " + JSON.stringify(targetSsid)
+            "exec \"$HOME/.local/bin/wifi-connect.sh\" \"$@\"",
+            "--",
+            targetSsid, identity, password
         ];
         enterpriseProc.running = true;
     }
