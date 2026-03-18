@@ -221,7 +221,7 @@ PanelWindow {
                 }
                 Rectangle {
                     visible: btPop.popupState === "list" && btPop.powered
-                    width: scanLabel.implicitWidth + Theme.btnPaddingH * 2; height: Theme.btnHeight; radius: Theme.btnRadius
+                    Layout.preferredWidth: scanLabel.implicitWidth + Theme.btnPaddingH * 2; height: Theme.btnHeight; radius: Theme.btnRadius
                     color: "transparent"
                     Rectangle {
                         anchors.fill: parent; radius: parent.radius; color: Theme.bg2
