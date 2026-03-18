@@ -223,33 +223,36 @@ ColumnLayout {
             Layout.fillWidth: true; elide: Text.ElideRight }
         Rectangle {
             visible: root.dFreq !== ""
-            width: freqPillText.implicitWidth + 12; height: 18; radius: 9
+            width: freqPillText.implicitWidth + 14; height: 20; radius: Theme.btnRadius
             color: Theme.bg2; border.width: 1; border.color: Theme.bg3
             Text { id: freqPillText; anchors.centerIn: parent
-                text: root.freqBand(root.dFreq); color: Theme.fg4
-                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 2 }
+                text: root.freqBand(root.dFreq); color: Theme.fg3
+                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1; font.bold: true }
         }
     }
 
     // ── Link Rate ──────────────────────────────────────────────
     RowLayout { Layout.fillWidth: true; spacing: 8
-        Text { text: "Link Rate"; color: Theme.fg4; Layout.preferredWidth: 60
+        Text { text: "Link Rate"; color: Theme.fg3; Layout.preferredWidth: 60
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
         Text { text: root.dLinkRate || "—"; color: Theme.orangeBright
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
             horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 80; elide: Text.ElideRight }
+        Item { Layout.preferredWidth: 8 }
         Sparkline { Layout.fillWidth: true; Layout.preferredHeight: 18
             values: []; lineColor: Theme.orangeBright }
     }
 
     // ── Signal ─────────────────────────────────────────────────
     RowLayout { Layout.fillWidth: true; spacing: 8
-        Text { text: "Signal"; color: Theme.fg4; Layout.preferredWidth: 60
+        Text { text: "Signal"; color: Theme.fg3; Layout.preferredWidth: 60
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
         Text { text: root.dSignal !== 0 ? root.dSignal + " dBm" : "—"
             color: root.dSignal === 0 ? Theme.fg4 : (root.dSignal >= -60 ? Theme.greenBright : (root.dSignal >= -75 ? Theme.orangeBright : Theme.redBright))
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+            Behavior on color { ColorAnimation { duration: Theme.animHover } }
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
             horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 80 }
+        Item { Layout.preferredWidth: 8 }
         Sparkline { Layout.fillWidth: true; Layout.preferredHeight: 18
             values: root.signalHist
             lineColor: root.dSignal === 0 ? Theme.fg4 : (root.dSignal >= -60 ? Theme.greenBright : (root.dSignal >= -75 ? Theme.orangeBright : Theme.redBright)) }
@@ -257,11 +260,12 @@ ColumnLayout {
 
     // ── Noise ──────────────────────────────────────────────────
     RowLayout { Layout.fillWidth: true; spacing: 8
-        Text { text: "Noise"; color: Theme.fg4; Layout.preferredWidth: 60
+        Text { text: "Noise"; color: Theme.fg3; Layout.preferredWidth: 60
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
         Text { text: root.dNoise + " dBm"; color: Theme.greenBright
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
             horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 80 }
+        Item { Layout.preferredWidth: 8 }
         Sparkline { Layout.fillWidth: true; Layout.preferredHeight: 18
             values: []; lineColor: Theme.greenBright }
     }
@@ -278,11 +282,21 @@ ColumnLayout {
             anchors.verticalCenter: parent.verticalCenter; anchors.margins: 8; spacing: 8
             Text { text: root.signalMsg(root.dSignal); color: Theme.fg4; Layout.fillWidth: true
                 font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1; wrapMode: Text.WordWrap }
-            Text { text: "×"; color: sigDismissA.containsMouse ? Theme.fg : Theme.fg4
-                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize
-                Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                MouseArea { id: sigDismissA; anchors.fill: parent; anchors.margins: -4
-                    cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+            Rectangle {
+                width: 24; height: 24; radius: Theme.hoverRadius; color: "transparent"
+                Rectangle {
+                    anchors.fill: parent; radius: parent.radius; color: Theme.bg2
+                    opacity: sigDismissA.pressed ? 0.9 : (sigDismissA.containsMouse ? 0.6 : 0)
+                    Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                }
+                scale: sigDismissA.pressed ? 0.98 : 1.0
+                Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                transformOrigin: Item.Center
+                Text { anchors.centerIn: parent; text: "×"
+                    color: sigDismissA.containsMouse ? Theme.fg : Theme.fg4
+                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
+                MouseArea { id: sigDismissA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
                     onClicked: root.signalMsgDismissed = true }
             }
         }
@@ -304,7 +318,7 @@ ColumnLayout {
                 width: openLoginLabel.implicitWidth + Theme.btnPaddingH * 2; height: Theme.btnHeight; radius: Theme.btnRadius
                 color: "transparent"
                 Rectangle {
-                    anchors.fill: parent; radius: parent.radius; color: Theme.bg3
+                    anchors.fill: parent; radius: parent.radius; color: Theme.bg2
                     opacity: openLoginA.pressed ? 0.9 : (openLoginA.containsMouse ? 0.6 : 0)
                     Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
                 }
@@ -324,38 +338,44 @@ ColumnLayout {
     Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
 
     // ── Router ─────────────────────────────────────────────────
-    Text { text: "Router"; color: Theme.fg; font.bold: true
+    Text { text: "Router"; color: Theme.fg4; font.bold: true
         font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
 
     RowLayout { Layout.fillWidth: true; spacing: 8
-        Text { text: "Ping"; color: Theme.fg4; Layout.preferredWidth: 60
+        Text { text: "Ping"; color: Theme.fg3; Layout.preferredWidth: 60
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
         Text { text: root.dRouterPing >= 0 ? root.dRouterPing.toFixed(1) + " ms" : "—"
             color: root.pingColor(root.dRouterPing)
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+            Behavior on color { ColorAnimation { duration: Theme.animHover } }
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
             horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 80 }
+        Item { Layout.preferredWidth: 8 }
         Sparkline { Layout.fillWidth: true; Layout.preferredHeight: 18
             values: root.routerPingHist; lineColor: root.pingColor(root.dRouterPing) }
     }
 
     RowLayout { Layout.fillWidth: true; spacing: 8
-        Text { text: "Jitter"; color: Theme.fg4; Layout.preferredWidth: 60
+        Text { text: "Jitter"; color: Theme.fg3; Layout.preferredWidth: 60
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
         Text { text: root.routerJitter > 0 ? root.routerJitter.toFixed(1) + " ms" : "—"
             color: root.jitterColor(root.routerJitter)
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+            Behavior on color { ColorAnimation { duration: Theme.animHover } }
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
             horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 80 }
+        Item { Layout.preferredWidth: 8 }
         Sparkline { Layout.fillWidth: true; Layout.preferredHeight: 18
             values: []; lineColor: root.jitterColor(root.routerJitter) }
     }
 
     RowLayout { Layout.fillWidth: true; spacing: 8
-        Text { text: "Loss"; color: Theme.fg4; Layout.preferredWidth: 60
+        Text { text: "Loss"; color: Theme.fg3; Layout.preferredWidth: 60
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
         Text { text: root.routerLoss > 0 ? root.routerLoss.toFixed(1) + "%" : "0%"
             color: root.lossColor(root.routerLoss)
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+            Behavior on color { ColorAnimation { duration: Theme.animHover } }
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
             horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 80 }
+        Item { Layout.preferredWidth: 8 }
         Sparkline { Layout.fillWidth: true; Layout.preferredHeight: 18
             values: []; lineColor: root.lossColor(root.routerLoss) }
     }
@@ -363,38 +383,44 @@ ColumnLayout {
     Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
 
     // ── Internet ───────────────────────────────────────────────
-    Text { text: "Internet · Connected to 1.1.1.1"; color: Theme.fg; font.bold: true
+    Text { text: "Internet · Connected to 1.1.1.1"; color: Theme.fg4; font.bold: true
         font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
 
     RowLayout { Layout.fillWidth: true; spacing: 8
-        Text { text: "Ping"; color: Theme.fg4; Layout.preferredWidth: 60
+        Text { text: "Ping"; color: Theme.fg3; Layout.preferredWidth: 60
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
         Text { text: root.dInternetPing >= 0 ? root.dInternetPing.toFixed(1) + " ms" : "—"
             color: root.pingColor(root.dInternetPing)
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+            Behavior on color { ColorAnimation { duration: Theme.animHover } }
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
             horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 80 }
+        Item { Layout.preferredWidth: 8 }
         Sparkline { Layout.fillWidth: true; Layout.preferredHeight: 18
             values: root.internetPingHist; lineColor: root.pingColor(root.dInternetPing) }
     }
 
     RowLayout { Layout.fillWidth: true; spacing: 8
-        Text { text: "Jitter"; color: Theme.fg4; Layout.preferredWidth: 60
+        Text { text: "Jitter"; color: Theme.fg3; Layout.preferredWidth: 60
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
         Text { text: root.internetJitter > 0 ? root.internetJitter.toFixed(1) + " ms" : "—"
             color: root.jitterColor(root.internetJitter)
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+            Behavior on color { ColorAnimation { duration: Theme.animHover } }
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
             horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 80 }
+        Item { Layout.preferredWidth: 8 }
         Sparkline { Layout.fillWidth: true; Layout.preferredHeight: 18
             values: []; lineColor: root.jitterColor(root.internetJitter) }
     }
 
     RowLayout { Layout.fillWidth: true; spacing: 8
-        Text { text: "Loss"; color: Theme.fg4; Layout.preferredWidth: 60
+        Text { text: "Loss"; color: Theme.fg3; Layout.preferredWidth: 60
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
         Text { text: root.internetLoss > 0 ? root.internetLoss.toFixed(1) + "%" : "0%"
             color: root.lossColor(root.internetLoss)
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+            Behavior on color { ColorAnimation { duration: Theme.animHover } }
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
             horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 80 }
+        Item { Layout.preferredWidth: 8 }
         Sparkline { Layout.fillWidth: true; Layout.preferredHeight: 18
             values: []; lineColor: root.lossColor(root.internetLoss) }
     }
@@ -423,17 +449,19 @@ ColumnLayout {
 
     Text {
         text: root.dDns === "" ? "DNS" : ("DNS · " + (root.dDns === root.dGateway ? "Router assigned" : "Custom") + " (" + root.dDns + ")")
-        color: Theme.fg; font.bold: true
+        color: Theme.fg4; font.bold: true
         font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
     }
 
     RowLayout { Layout.fillWidth: true; spacing: 8
-        Text { text: "Lookup"; color: Theme.fg4; Layout.preferredWidth: 60
+        Text { text: "Lookup"; color: Theme.fg3; Layout.preferredWidth: 60
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
         Text { text: root.dDnsLookup >= 0 ? root.dDnsLookup.toFixed(0) + " ms" : "—"
             color: root.pingColor(root.dDnsLookup)
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+            Behavior on color { ColorAnimation { duration: Theme.animHover } }
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
             horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 80 }
+        Item { Layout.preferredWidth: 8 }
         Sparkline { Layout.fillWidth: true; Layout.preferredHeight: 18
             values: root.dnsLookupHist; lineColor: root.pingColor(root.dDnsLookup) }
     }
@@ -448,7 +476,7 @@ ColumnLayout {
                 required property var modelData
                 required property int index
                 property bool isCurrent: modelData.dns === "" ? (root.dDns !== "" && root.dDns === root.dGateway) : (root.dDns === modelData.dns)
-                width: dnsPillLbl.implicitWidth + 16; height: Theme.btnHeight; radius: Theme.btnRadius
+                width: dnsPillLbl.implicitWidth + 14; height: 24; radius: Theme.btnRadius
                 color: isCurrent ? Theme.accent : (dnsPillA.containsMouse ? Theme.bg2 : Theme.bg1)
                 Behavior on color { ColorAnimation { duration: Theme.animHover } }
                 border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
@@ -530,20 +558,24 @@ ColumnLayout {
         onExited: { root.speedTestState = "done"; }
     }
 
-    Text { text: "Speed Test"; color: Theme.fg; font.bold: true
+    Text { text: "Speed Test"; color: Theme.fg4; font.bold: true
         font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
 
     // Idle
     Rectangle {
         visible: root.speedTestState === ""
-        Layout.fillWidth: true; height: 30; radius: Theme.btnRadius
-        color: stRunA.containsMouse ? Theme.blueBright : Theme.bg3
-        Behavior on color { ColorAnimation { duration: Theme.animHover } }
+        Layout.fillWidth: true; height: 32; radius: Theme.btnRadius
+        color: "transparent"
+        Rectangle {
+            anchors.fill: parent; radius: parent.radius; color: Theme.bg2
+            opacity: stRunA.pressed ? 0.9 : (stRunA.containsMouse ? 0.6 : 0.3)
+            Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+        }
         scale: stRunA.pressed ? 0.98 : 1.0
         Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
         transformOrigin: Item.Center
         Text { anchors.centerIn: parent; text: "Run Speed Test"
-            color: stRunA.containsMouse ? Theme.bg : Theme.fg
+            color: stRunA.containsMouse ? Theme.blueBright : Theme.fg
             Behavior on color { ColorAnimation { duration: Theme.animHover } }
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
         MouseArea { id: stRunA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
@@ -587,7 +619,7 @@ ColumnLayout {
                 Text { text: root.stDownload.toFixed(1); color: Theme.greenBright
                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeLarge; font.bold: true }
                 Text { text: "Mbps"; color: Theme.fg4
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
             }
             RowLayout { Layout.fillWidth: true; spacing: 4
                 Text { text: "↑"; color: Theme.greenBright
@@ -595,15 +627,15 @@ ColumnLayout {
                 Text { text: root.stUpload.toFixed(1); color: Theme.greenBright
                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeLarge; font.bold: true }
                 Text { text: "Mbps"; color: Theme.fg4
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
             }
         }
 
         RowLayout { Layout.fillWidth: true; spacing: 6
-            Rectangle { width: 6; height: 6; radius: 3; color: root.bloatColor(root.stDlPing, root.stBaseline) }
+            Rectangle { width: 8; height: 8; radius: 4; color: root.bloatColor(root.stDlPing, root.stBaseline) }
             Text { text: "↓ " + root.bloatLabel(root.stDlPing, root.stBaseline); color: Theme.fg4
                 font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.fillWidth: true }
-            Rectangle { width: 6; height: 6; radius: 3; color: root.bloatColor(root.stUlPing, root.stBaseline) }
+            Rectangle { width: 8; height: 8; radius: 4; color: root.bloatColor(root.stUlPing, root.stBaseline) }
             Text { text: "↑ " + root.bloatLabel(root.stUlPing, root.stBaseline); color: Theme.fg4
                 font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
         }
@@ -667,15 +699,19 @@ ColumnLayout {
     Timer { id: copyTimer; interval: 2000; onTriggered: root.copied = false }
 
     Rectangle {
-        Layout.fillWidth: true; height: 30; radius: Theme.btnRadius
-        color: root.copied ? Theme.bg2 : (copyA.containsMouse ? Theme.blueBright : Theme.bg3)
-        Behavior on color { ColorAnimation { duration: Theme.animHover } }
+        Layout.fillWidth: true; height: 32; radius: Theme.btnRadius
+        color: "transparent"
+        Rectangle {
+            anchors.fill: parent; radius: parent.radius; color: Theme.bg2
+            opacity: root.copied ? 0.5 : (copyA.pressed ? 0.9 : (copyA.containsMouse ? 0.6 : 0.3))
+            Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+        }
         scale: copyA.pressed ? 0.98 : 1.0
         Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
         transformOrigin: Item.Center
         Text { anchors.centerIn: parent
             text: root.copied ? "Copied!" : "Copy Diagnostic Report"
-            color: root.copied ? Theme.greenBright : (copyA.containsMouse ? Theme.bg : Theme.fg)
+            color: root.copied ? Theme.greenBright : (copyA.containsMouse ? Theme.blueBright : Theme.fg)
             Behavior on color { ColorAnimation { duration: Theme.animHover } }
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
         MouseArea { id: copyA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
