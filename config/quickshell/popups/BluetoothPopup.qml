@@ -438,6 +438,44 @@ PanelWindow {
                                     onClicked: btPop.connectDevice(dItem.mac, dItem.name) }
                             }
                         }
+
+                        // ── Skeleton loading rows ──
+                        Column {
+                            visible: btPop.scanning && btPop.powered && btPop.popupState === "list"
+                            width: parent.width; spacing: 0
+
+                            Repeater {
+                                model: ListModel {
+                                    ListElement { skelWidth: 110 }
+                                    ListElement { skelWidth: 140 }
+                                    ListElement { skelWidth: 95 }
+                                    ListElement { skelWidth: 125 }
+                                }
+                                delegate: Item {
+                                    required property int skelWidth
+                                    required property int index
+                                    width: parent.width; height: 30
+                                    RowLayout {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        anchors.left: parent.left; anchors.right: parent.right
+                                        anchors.leftMargin: Theme.listItemPadding; anchors.rightMargin: Theme.listItemPadding
+                                        spacing: 8
+
+                                        Rectangle { width: 14; height: 14; radius: 7; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
+                                        Rectangle { width: skelWidth; height: 10; radius: 5; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
+                                        Item { Layout.fillWidth: true }
+                                        Rectangle { width: 44; height: 10; radius: 5; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
+                                    }
+
+                                    SequentialAnimation on opacity {
+                                        loops: Animation.Infinite
+                                        PauseAnimation { duration: index * 120 }
+                                        NumberAnimation { from: 0.4; to: 0.8; duration: 800; easing.type: Easing.InOutQuad }
+                                        NumberAnimation { from: 0.8; to: 0.4; duration: 800; easing.type: Easing.InOutQuad }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
