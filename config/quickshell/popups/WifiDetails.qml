@@ -3,546 +3,614 @@ import QtQuick.Layouts
 import Quickshell.Io
 
 ColumnLayout {
-    id: details
-    Layout.fillWidth: true; spacing: 8
-
+    id: root
+    spacing: 6
     property bool active: false
 
-    // ── Live metrics ──────────────────────────────────────────
+    // ── Metric properties ──────────────────────────────────────
     property string dSsid: ""
-    property int    dFreq: 0
-    property real   dSignal: 0
-    property real   dNoise: -95
-    property real   dLinkRate: 0
+    property string dFreq: ""
+    property int dSignal: 0
+    property int dNoise: -95
+    property string dLinkRate: ""
     property string dGateway: ""
     property string dDns: ""
-    property real   dRouterPing: 0
-    property real   dInternetPing: 0
-    property real   dDnsLookup: 0
+    property real dRouterPing: -1
+    property real dInternetPing: -1
+    property real dDnsLookup: -1
 
-    // ── Sparkline histories (last 30 samples) ─────────────────
-    property var histLinkRate: []
-    property var histSignal: []
-    property var histNoise: []
-    property var histRouterPing: []
-    property var histInternetPing: []
-    property var histDnsLookup: []
+    // ── Rolling histories (30 samples) ─────────────────────────
+    property var signalHist: []
+    property var routerPingHist: []
+    property var internetPingHist: []
+    property var dnsLookupHist: []
 
-    // ── Loss / jitter tracking ────────────────────────────────
-    property var routerPingLog: []
-    property var internetPingLog: []
-    property real dRouterJitter: 0
-    property real dInternetJitter: 0
-    property int  dRouterLoss: 0
-    property int  dInternetLoss: 0
+    // ── Jitter / loss tracking ─────────────────────────────────
+    property var routerPingAll: []
+    property var internetPingAll: []
+    property var routerLossArr: []
+    property var internetLossArr: []
+    property real routerJitter: 0
+    property real internetJitter: 0
+    property real routerLoss: 0
+    property real internetLoss: 0
 
-    // ── Speed test state ──────────────────────────────────────
-    property string speedState: "idle"   // idle | running | done
-    property real speedDown: 0
-    property real speedUp: 0
-    property string speedMsg: ""
+    // ── Misc state ─────────────────────────────────────────────
+    property string speedTestState: ""
+    property bool captiveDetected: false
+    property bool signalMsgDismissed: false
+    property bool copied: false
 
-    // ── Signal message dismiss ────────────────────────────────
-    property bool sigMsgDismissed: false
-
-    // ── Helpers ───────────────────────────────────────────────
-    readonly property int maxHist: 30
-    readonly property int labelWidth: 70
-    readonly property int valueWidth: 80
-
+    // ── Helpers ────────────────────────────────────────────────
     function pushHist(arr, val) {
-        var a = arr.slice();
+        let a = arr.slice();
         a.push(val);
-        if (a.length > maxHist) a.shift();
+        if (a.length > 30) a.shift();
         return a;
     }
 
-    function calcJitter(hist) {
-        if (hist.length < 2) return 0;
-        var sum = 0;
-        for (var i = 1; i < hist.length; i++)
-            sum += Math.abs(hist[i] - hist[i - 1]);
-        return sum / (hist.length - 1);
+    function calcJitter(arr) {
+        if (arr.length < 2) return 0;
+        let sum = 0;
+        for (let i = 1; i < arr.length; i++)
+            sum += Math.abs(arr[i] - arr[i - 1]);
+        return sum / (arr.length - 1);
     }
 
-    function calcLoss(log) {
-        if (log.length === 0) return 0;
-        var f = 0;
-        for (var i = 0; i < log.length; i++) if (!log[i]) f++;
-        return Math.round(f / log.length * 100);
+    function calcLoss(arr) {
+        if (arr.length === 0) return 0;
+        let lost = 0;
+        for (let i = 0; i < arr.length; i++)
+            if (arr[i] === 0) lost++;
+        return (lost / arr.length) * 100;
     }
 
-    function freqBand(f) {
+    function freqBand(freq) {
+        let f = parseInt(freq);
         if (f >= 5925) return "6 GHz";
-        if (f >= 4900) return "5 GHz";
-        if (f > 0)     return "2.4 GHz";
-        return "";
+        if (f >= 5000) return "5 GHz";
+        return "2.4 GHz";
     }
 
-    function signalColor(s) {
-        if (s >= -60) return Theme.greenBright;
-        if (s >= -75) return Theme.orangeBright;
+    function signalColor(signal) {
+        if (signal >= -50) return Theme.greenBright;
+        if (signal >= -67) return Theme.yellowBright;
+        if (signal >= -75) return Theme.orangeBright;
         return Theme.redBright;
     }
 
-    function signalMsg(s) {
-        if (s >= -60) return "";
-        if (s >= -75) return "Between -60 and -75 dBm — functional but not ideal. Drywall costs ~3–6 dB per wall, concrete/brick ~10–15 dB. Moving closer or adjusting AP antenna orientation can help.";
-        return "Weak signal below -75 dBm — connection may be unreliable. Try moving significantly closer to the access point.";
-    }
-
-    function pingColor(ms) {
-        if (ms <= 0) return Theme.fg4;
-        if (ms < 20) return Theme.greenBright;
-        if (ms < 50) return Theme.orangeBright;
+    function pingColor(ping) {
+        if (ping < 0) return Theme.fg4;
+        if (ping < 20) return Theme.greenBright;
+        if (ping < 50) return Theme.yellowBright;
+        if (ping < 100) return Theme.orangeBright;
         return Theme.redBright;
     }
 
-    function jitterColor(ms) {
-        if (ms < 5)  return Theme.greenBright;
-        if (ms < 20) return Theme.orangeBright;
+    function jitterColor(jitter) {
+        if (jitter < 5) return Theme.greenBright;
+        if (jitter < 15) return Theme.yellowBright;
+        if (jitter < 30) return Theme.orangeBright;
         return Theme.redBright;
     }
 
-    function lossColor(pct) {
-        if (pct === 0) return Theme.greenBright;
-        if (pct <= 3)  return Theme.yellowBright;
+    function lossColor(loss) {
+        if (loss < 1) return Theme.greenBright;
+        if (loss < 5) return Theme.yellowBright;
+        if (loss < 15) return Theme.orangeBright;
         return Theme.redBright;
+    }
+
+    function signalMsg(signal) {
+        if (signal >= -50) return "";
+        if (signal >= -67) return "Signal is fair — consider moving closer to the router";
+        if (signal >= -75) return "Signal is weak — connection may be unreliable";
+        return "Signal is very weak — expect drops and slow speeds";
     }
 
     function resetAll() {
-        dSsid = ""; dFreq = 0; dSignal = 0; dNoise = -95; dLinkRate = 0;
-        dGateway = ""; dDns = ""; dRouterPing = 0; dInternetPing = 0; dDnsLookup = 0;
-        histLinkRate = []; histSignal = []; histNoise = [];
-        histRouterPing = []; histInternetPing = []; histDnsLookup = [];
-        routerPingLog = []; internetPingLog = [];
-        dRouterJitter = 0; dInternetJitter = 0; dRouterLoss = 0; dInternetLoss = 0;
-        speedState = "idle"; speedDown = 0; speedUp = 0; speedMsg = "";
-        sigMsgDismissed = false;
+        dSsid = ""; dFreq = ""; dSignal = 0; dNoise = -95;
+        dLinkRate = ""; dGateway = ""; dDns = "";
+        dRouterPing = -1; dInternetPing = -1; dDnsLookup = -1;
+        signalHist = []; routerPingHist = []; internetPingHist = []; dnsLookupHist = [];
+        routerPingAll = []; internetPingAll = [];
+        routerLossArr = []; internetLossArr = [];
+        routerJitter = 0; internetJitter = 0;
+        routerLoss = 0; internetLoss = 0;
+        speedTestState = ""; captiveDetected = false;
+        signalMsgDismissed = false; copied = false;
+        stBaseline = 0; stDownload = 0; stUpload = 0;
+        stDlPing = 0; stUlPing = 0;
     }
 
-    onActiveChanged: {
-        if (active) { resetAll(); pollTimer.running = true; pollProc.running = true; }
-        else { pollTimer.running = false; }
-    }
-
-    // ── Poll timer ────────────────────────────────────────────
+    // ── Poll timer ─────────────────────────────────────────────
     Timer {
-        id: pollTimer; interval: 3000; repeat: true; running: false
+        id: pollTimer
+        interval: 3000; running: root.active; repeat: true
+        triggeredOnStart: true
         onTriggered: { if (!pollProc.running) pollProc.running = true; }
     }
 
-    // ── Poll process ──────────────────────────────────────────
+    // ── Poll process ───────────────────────────────────────────
     Process {
         id: pollProc; running: false
         command: ["bash", "-c",
-            "iface=$(nmcli -t -f DEVICE,TYPE dev | grep ':wifi$' | head -1 | cut -d: -f1); " +
-            "[ -z \"$iface\" ] && echo END && exit 0; " +
-
+            "iface=$(iw dev 2>/dev/null | awk '/Interface/{print $2; exit}'); " +
             "link=$(iw dev \"$iface\" link 2>/dev/null); " +
-            "echo \"$link\" | awk '" +
-                "/SSID:/ { sub(/.*SSID: /, \"\"); print \"ssid=\" $0 } " +
-                "/freq:/ { print \"freq=\" $2 } " +
-                "/signal:/ { print \"signal=\" $2 } " +
-                "/tx bitrate:/ { print \"linkrate=\" $3 } " +
-            "'; " +
-
-            "noise=$(iw dev \"$iface\" survey dump 2>/dev/null | awk '/noise:/ { print $2; exit }'); " +
-            "echo \"noise=${noise:--95}\"; " +
-
-            "gw=$(ip route | awk '/default/ {print $3; exit}'); " +
-            "echo \"gateway=$gw\"; " +
-            "dns=$(grep -m1 nameserver /etc/resolv.conf | awk '{print $2}'); " +
-            "echo \"dns=$dns\"; " +
-
-            "if [ -n \"$gw\" ]; then " +
-                "rp=$(ping -c 1 -W 1 \"$gw\" 2>/dev/null | awk -F'[= ]' '/time=/{for(i=1;i<=NF;i++) if($i==\"time\") print $(i+1)}'); " +
-                "echo \"rping=${rp:-timeout}\"; " +
-            "else echo rping=timeout; fi; " +
-
-            "ip_res=$(ping -c 1 -W 1 1.1.1.1 2>/dev/null | awk -F'[= ]' '/time=/{for(i=1;i<=NF;i++) if($i==\"time\") print $(i+1)}'); " +
-            "echo \"iping=${ip_res:-timeout}\"; " +
-
-            "if [ -n \"$dns\" ]; then " +
-                "dl=$(timeout 2 dig @\"$dns\" google.com +stats 2>/dev/null | awk '/Query time:/ { print $4 }'); " +
-                "echo \"dlookup=${dl:-timeout}\"; " +
-            "else echo dlookup=timeout; fi; " +
-
-            "echo END"
+            "ssid=$(echo \"$link\" | sed -n 's/.*SSID: //p'); echo \"SSID=$ssid\"; " +
+            "freq=$(echo \"$link\" | awk '/freq:/{print $2}'); echo \"FREQ=$freq\"; " +
+            "sig=$(echo \"$link\" | awk '/signal:/{print $2}'); echo \"SIGNAL=$sig\"; " +
+            "rate=$(echo \"$link\" | sed -n 's/.*tx bitrate: //p'); echo \"LINKRATE=$rate\"; " +
+            "gw=$(ip route show default 2>/dev/null | awk '{print $3; exit}'); echo \"GATEWAY=$gw\"; " +
+            "dns=$(awk '/^nameserver/{print $2; exit}' /etc/resolv.conf 2>/dev/null); echo \"DNS=$dns\"; " +
+            "noise=$(iw dev \"$iface\" survey dump 2>/dev/null | awk '/in use/{f=1} f&&/noise:/{print $2; exit}'); echo \"NOISE=${noise:--95}\"; " +
+            "rp=$(ping -c1 -W1 \"$gw\" 2>/dev/null | sed -n 's/.*time=\\([0-9.]*\\).*/\\1/p'); echo \"ROUTERPING=${rp:--1}\"; " +
+            "ep=$(ping -c1 -W1 1.1.1.1 2>/dev/null | sed -n 's/.*time=\\([0-9.]*\\).*/\\1/p'); echo \"INTERNETPING=${ep:--1}\"; " +
+            "dl=$(dig +noall +stats google.com 2>/dev/null | awk '/Query time:/{print $4}'); echo \"DNSLOOKUP=${dl:--1}\"; " +
+            "cp=$(curl -s -m2 http://detectportal.firefox.com/success.txt 2>/dev/null); " +
+            "[ \"$cp\" = success ] && echo CAPTIVE=0 || echo CAPTIVE=1"
         ]
-        stdout: SplitParser {
-            onRead: (line) => {
-                if (line === "END") return;
-                var eq = line.indexOf("=");
-                if (eq < 0) return;
-                var key = line.substring(0, eq);
-                var val = line.substring(eq + 1);
-
-                if (key === "ssid")     details.dSsid = val;
-                else if (key === "freq")     details.dFreq = parseInt(val) || 0;
-                else if (key === "signal") {
-                    var s = parseFloat(val) || 0;
-                    details.dSignal = s;
-                    details.histSignal = details.pushHist(details.histSignal, s);
+        stdout: SplitParser { onRead: (line) => {
+            let eq = line.indexOf("=");
+            if (eq < 0) return;
+            let key = line.substring(0, eq);
+            let val = line.substring(eq + 1);
+            switch (key) {
+            case "SSID": root.dSsid = val; break;
+            case "FREQ": root.dFreq = val; break;
+            case "SIGNAL":
+                root.dSignal = parseInt(val) || 0;
+                root.signalHist = root.pushHist(root.signalHist, root.dSignal);
+                break;
+            case "NOISE": root.dNoise = parseInt(val) || -95; break;
+            case "LINKRATE": root.dLinkRate = val; break;
+            case "GATEWAY": root.dGateway = val; break;
+            case "DNS": root.dDns = val; break;
+            case "ROUTERPING":
+                root.dRouterPing = parseFloat(val);
+                if (root.dRouterPing >= 0) {
+                    root.routerPingHist = root.pushHist(root.routerPingHist, root.dRouterPing);
+                    root.routerPingAll = root.pushHist(root.routerPingAll, root.dRouterPing);
+                    root.routerLossArr = root.pushHist(root.routerLossArr, 1);
+                } else {
+                    root.routerLossArr = root.pushHist(root.routerLossArr, 0);
                 }
-                else if (key === "noise") {
-                    var n = parseFloat(val) || -95;
-                    details.dNoise = n;
-                    details.histNoise = details.pushHist(details.histNoise, n);
+                root.routerJitter = root.calcJitter(root.routerPingAll);
+                root.routerLoss = root.calcLoss(root.routerLossArr);
+                break;
+            case "INTERNETPING":
+                root.dInternetPing = parseFloat(val);
+                if (root.dInternetPing >= 0) {
+                    root.internetPingHist = root.pushHist(root.internetPingHist, root.dInternetPing);
+                    root.internetPingAll = root.pushHist(root.internetPingAll, root.dInternetPing);
+                    root.internetLossArr = root.pushHist(root.internetLossArr, 1);
+                } else {
+                    root.internetLossArr = root.pushHist(root.internetLossArr, 0);
                 }
-                else if (key === "linkrate") {
-                    var lr = parseFloat(val) || 0;
-                    details.dLinkRate = lr;
-                    details.histLinkRate = details.pushHist(details.histLinkRate, lr);
-                }
-                else if (key === "gateway")  details.dGateway = val;
-                else if (key === "dns")      details.dDns = val;
-                else if (key === "rping") {
-                    if (val === "timeout") {
-                        details.routerPingLog = details.pushHist(details.routerPingLog, false);
-                    } else {
-                        var rp = parseFloat(val) || 0;
-                        details.dRouterPing = rp;
-                        details.histRouterPing = details.pushHist(details.histRouterPing, rp);
-                        details.routerPingLog = details.pushHist(details.routerPingLog, true);
-                    }
-                    details.dRouterJitter = details.calcJitter(details.histRouterPing);
-                    details.dRouterLoss = details.calcLoss(details.routerPingLog);
-                }
-                else if (key === "iping") {
-                    if (val === "timeout") {
-                        details.internetPingLog = details.pushHist(details.internetPingLog, false);
-                    } else {
-                        var ipv = parseFloat(val) || 0;
-                        details.dInternetPing = ipv;
-                        details.histInternetPing = details.pushHist(details.histInternetPing, ipv);
-                        details.internetPingLog = details.pushHist(details.internetPingLog, true);
-                    }
-                    details.dInternetJitter = details.calcJitter(details.histInternetPing);
-                    details.dInternetLoss = details.calcLoss(details.internetPingLog);
-                }
-                else if (key === "dlookup") {
-                    if (val !== "timeout") {
-                        var dl = parseFloat(val) || 0;
-                        details.dDnsLookup = dl;
-                        details.histDnsLookup = details.pushHist(details.histDnsLookup, dl);
-                    }
-                }
+                root.internetJitter = root.calcJitter(root.internetPingAll);
+                root.internetLoss = root.calcLoss(root.internetLossArr);
+                break;
+            case "DNSLOOKUP":
+                root.dDnsLookup = parseFloat(val);
+                if (root.dDnsLookup >= 0)
+                    root.dnsLookupHist = root.pushHist(root.dnsLookupHist, root.dDnsLookup);
+                break;
+            case "CAPTIVE":
+                root.captiveDetected = (val === "1");
+                break;
             }
-        }
+        } }
     }
 
-    // ── Speed test process ────────────────────────────────────
+    // ── Captive portal opener ──────────────────────────────────
     Process {
-        id: speedProc; running: false
-        command: ["bash", "-c",
-            "dl=$(curl -o /dev/null -s -w '%{speed_download}' --max-time 10 " +
-                "'https://speed.cloudflare.com/__down?bytes=10000000' 2>/dev/null); " +
-            "dl_mbps=$(awk \"BEGIN {printf \\\"%.1f\\\", $dl * 8 / 1000000}\"); " +
-            "echo \"down=$dl_mbps\"; " +
+        id: captiveOpenProc; running: false
+        command: ["xdg-open", "http://detectportal.firefox.com/canonical.html"]
+    }
 
-            "ul=$(dd if=/dev/urandom bs=1M count=5 2>/dev/null | " +
-                "curl -X POST -o /dev/null -s -w '%{speed_upload}' --max-time 10 " +
-                "--data-binary @- 'https://speed.cloudflare.com/__up' 2>/dev/null); " +
-            "ul_mbps=$(awk \"BEGIN {printf \\\"%.1f\\\", $ul * 8 / 1000000}\"); " +
-            "echo \"up=$ul_mbps\"; " +
+    // ── Tagline ────────────────────────────────────────────────
+    Text { text: "Real-time connection diagnostics"; color: Theme.fg4
+        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
 
-            "gw=$(ip route | awk '/default/ {print $3; exit}'); " +
-            "if [ -n \"$gw\" ]; then " +
-                "loaded=$(ping -c 3 -W 1 \"$gw\" 2>/dev/null | tail -1 | awk -F'/' '{print $5}'); " +
-                "echo \"loadping=${loaded:-0}\"; " +
-            "fi; " +
+    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
 
-            "echo END"
+    // ── Connection header ──────────────────────────────────────
+    RowLayout { Layout.fillWidth: true; spacing: 8
+        Rectangle { width: 8; height: 8; radius: 4
+            color: root.dSsid !== "" ? Theme.greenBright : Theme.fg4 }
+        Text { text: root.dSsid || "Not connected"; color: Theme.fg; font.bold: true
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+            Layout.fillWidth: true; elide: Text.ElideRight }
+        Rectangle {
+            visible: root.dFreq !== ""
+            width: freqPillText.implicitWidth + 12; height: 18; radius: 9
+            color: Theme.bg2; border.width: 1; border.color: Theme.bg3
+            Text { id: freqPillText; anchors.centerIn: parent
+                text: root.freqBand(root.dFreq); color: Theme.fg4
+                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 2 }
+        }
+    }
+
+    // ── Link Rate ──────────────────────────────────────────────
+    RowLayout { Layout.fillWidth: true; spacing: 8
+        Text { text: "Link Rate"; color: Theme.fg4; Layout.preferredWidth: 60
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+        Text { text: root.dLinkRate || "—"; color: Theme.orangeBright
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 80; elide: Text.ElideRight }
+        Sparkline { Layout.fillWidth: true; Layout.preferredHeight: 18
+            values: []; lineColor: Theme.orangeBright }
+    }
+
+    // ── Signal ─────────────────────────────────────────────────
+    RowLayout { Layout.fillWidth: true; spacing: 8
+        Text { text: "Signal"; color: Theme.fg4; Layout.preferredWidth: 60
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+        Text { text: root.dSignal !== 0 ? root.dSignal + " dBm" : "—"
+            color: root.dSignal === 0 ? Theme.fg4 : (root.dSignal >= -60 ? Theme.greenBright : (root.dSignal >= -75 ? Theme.orangeBright : Theme.redBright))
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 80 }
+        Sparkline { Layout.fillWidth: true; Layout.preferredHeight: 18
+            values: root.signalHist
+            lineColor: root.dSignal === 0 ? Theme.fg4 : (root.dSignal >= -60 ? Theme.greenBright : (root.dSignal >= -75 ? Theme.orangeBright : Theme.redBright)) }
+    }
+
+    // ── Noise ──────────────────────────────────────────────────
+    RowLayout { Layout.fillWidth: true; spacing: 8
+        Text { text: "Noise"; color: Theme.fg4; Layout.preferredWidth: 60
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+        Text { text: root.dNoise + " dBm"; color: Theme.greenBright
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 80 }
+        Sparkline { Layout.fillWidth: true; Layout.preferredHeight: 18
+            values: []; lineColor: Theme.greenBright }
+    }
+
+    // ── Signal advisory ────────────────────────────────────────
+    Rectangle {
+        visible: root.signalMsg(root.dSignal) !== "" && !root.signalMsgDismissed
+        Layout.fillWidth: true
+        implicitHeight: sigAdvRow.implicitHeight + 16
+        radius: Theme.btnRadius; color: Theme.bg2; border.width: 1; border.color: Theme.bg3
+
+        RowLayout {
+            id: sigAdvRow; anchors.left: parent.left; anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter; anchors.margins: 8; spacing: 8
+            Text { text: root.signalMsg(root.dSignal); color: Theme.fg4; Layout.fillWidth: true
+                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1; wrapMode: Text.WordWrap }
+            Text { text: "×"; color: sigDismissA.containsMouse ? Theme.fg : Theme.fg4
+                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize
+                Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                MouseArea { id: sigDismissA; anchors.fill: parent; anchors.margins: -4
+                    cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                    onClicked: root.signalMsgDismissed = true }
+            }
+        }
+    }
+
+    // ── Captive portal warning ─────────────────────────────────
+    Rectangle {
+        visible: root.captiveDetected
+        Layout.fillWidth: true
+        implicitHeight: captiveRow.implicitHeight + 16
+        radius: Theme.btnRadius; color: Theme.bg2; border.width: 1; border.color: Theme.yellowBright
+
+        RowLayout {
+            id: captiveRow; anchors.left: parent.left; anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter; anchors.margins: 8; spacing: 8
+            Text { text: "⚠ Captive portal detected"; color: Theme.yellowBright; Layout.fillWidth: true
+                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+            Rectangle {
+                width: openLoginLabel.implicitWidth + Theme.btnPaddingH * 2; height: Theme.btnHeight; radius: Theme.btnRadius
+                color: "transparent"
+                Rectangle {
+                    anchors.fill: parent; radius: parent.radius; color: Theme.bg3
+                    opacity: openLoginA.pressed ? 0.9 : (openLoginA.containsMouse ? 0.6 : 0)
+                    Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                }
+                scale: openLoginA.pressed ? 0.98 : 1.0
+                Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                transformOrigin: Item.Center
+                Text { id: openLoginLabel; anchors.centerIn: parent; text: "Open Login Page"
+                    color: openLoginA.containsMouse ? Theme.yellowBright : Theme.fg4
+                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+                MouseArea { id: openLoginA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                    onClicked: captiveOpenProc.running = true }
+            }
+        }
+    }
+
+    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+
+    // ── Router ─────────────────────────────────────────────────
+    Text { text: "Router"; color: Theme.fg; font.bold: true
+        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+
+    RowLayout { Layout.fillWidth: true; spacing: 8
+        Text { text: "Ping"; color: Theme.fg4; Layout.preferredWidth: 60
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+        Text { text: root.dRouterPing >= 0 ? root.dRouterPing.toFixed(1) + " ms" : "—"
+            color: root.pingColor(root.dRouterPing)
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 80 }
+        Sparkline { Layout.fillWidth: true; Layout.preferredHeight: 18
+            values: root.routerPingHist; lineColor: root.pingColor(root.dRouterPing) }
+    }
+
+    RowLayout { Layout.fillWidth: true; spacing: 8
+        Text { text: "Jitter"; color: Theme.fg4; Layout.preferredWidth: 60
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+        Text { text: root.routerJitter > 0 ? root.routerJitter.toFixed(1) + " ms" : "—"
+            color: root.jitterColor(root.routerJitter)
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 80 }
+        Sparkline { Layout.fillWidth: true; Layout.preferredHeight: 18
+            values: []; lineColor: root.jitterColor(root.routerJitter) }
+    }
+
+    RowLayout { Layout.fillWidth: true; spacing: 8
+        Text { text: "Loss"; color: Theme.fg4; Layout.preferredWidth: 60
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+        Text { text: root.routerLoss > 0 ? root.routerLoss.toFixed(1) + "%" : "0%"
+            color: root.lossColor(root.routerLoss)
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 80 }
+        Sparkline { Layout.fillWidth: true; Layout.preferredHeight: 18
+            values: []; lineColor: root.lossColor(root.routerLoss) }
+    }
+
+    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+
+    // ── Internet ───────────────────────────────────────────────
+    Text { text: "Internet · Connected to 1.1.1.1"; color: Theme.fg; font.bold: true
+        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+
+    RowLayout { Layout.fillWidth: true; spacing: 8
+        Text { text: "Ping"; color: Theme.fg4; Layout.preferredWidth: 60
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+        Text { text: root.dInternetPing >= 0 ? root.dInternetPing.toFixed(1) + " ms" : "—"
+            color: root.pingColor(root.dInternetPing)
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 80 }
+        Sparkline { Layout.fillWidth: true; Layout.preferredHeight: 18
+            values: root.internetPingHist; lineColor: root.pingColor(root.dInternetPing) }
+    }
+
+    RowLayout { Layout.fillWidth: true; spacing: 8
+        Text { text: "Jitter"; color: Theme.fg4; Layout.preferredWidth: 60
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+        Text { text: root.internetJitter > 0 ? root.internetJitter.toFixed(1) + " ms" : "—"
+            color: root.jitterColor(root.internetJitter)
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 80 }
+        Sparkline { Layout.fillWidth: true; Layout.preferredHeight: 18
+            values: []; lineColor: root.jitterColor(root.internetJitter) }
+    }
+
+    RowLayout { Layout.fillWidth: true; spacing: 8
+        Text { text: "Loss"; color: Theme.fg4; Layout.preferredWidth: 60
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+        Text { text: root.internetLoss > 0 ? root.internetLoss.toFixed(1) + "%" : "0%"
+            color: root.lossColor(root.internetLoss)
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 80 }
+        Sparkline { Layout.fillWidth: true; Layout.preferredHeight: 18
+            values: []; lineColor: root.lossColor(root.internetLoss) }
+    }
+
+    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+
+    // ── DNS ────────────────────────────────────────────────────
+    function setDns(dns) {
+        if (dns === "") {
+            dnsSetProc.command = ["bash", "-c",
+                "iface=$(iw dev 2>/dev/null | awk '/Interface/{print $2; exit}'); " +
+                "con=$(nmcli -g GENERAL.CONNECTION dev show \"$iface\" 2>/dev/null); " +
+                "nmcli con mod \"$con\" ipv4.ignore-auto-dns no ipv4.dns \"\" && " +
+                "nmcli con up \"$con\""];
+        } else {
+            dnsSetProc.command = ["bash", "-c",
+                "iface=$(iw dev 2>/dev/null | awk '/Interface/{print $2; exit}'); " +
+                "con=$(nmcli -g GENERAL.CONNECTION dev show \"$iface\" 2>/dev/null); " +
+                "nmcli con mod \"$con\" ipv4.dns \"" + dns + "\" ipv4.ignore-auto-dns yes && " +
+                "nmcli con up \"$con\""];
+        }
+        dnsSetProc.running = true;
+    }
+
+    Process { id: dnsSetProc; running: false }
+
+    Text {
+        text: root.dDns === "" ? "DNS" : ("DNS · " + (root.dDns === root.dGateway ? "Router assigned" : "Custom") + " (" + root.dDns + ")")
+        color: Theme.fg; font.bold: true
+        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+    }
+
+    RowLayout { Layout.fillWidth: true; spacing: 8
+        Text { text: "Lookup"; color: Theme.fg4; Layout.preferredWidth: 60
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+        Text { text: root.dDnsLookup >= 0 ? root.dDnsLookup.toFixed(0) + " ms" : "—"
+            color: root.pingColor(root.dDnsLookup)
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 80 }
+        Sparkline { Layout.fillWidth: true; Layout.preferredHeight: 18
+            values: root.dnsLookupHist; lineColor: root.pingColor(root.dDnsLookup) }
+    }
+
+    RowLayout { Layout.fillWidth: true; spacing: 6
+        Repeater { model: [
+            { label: "Router", dns: "" },
+            { label: "Cloudflare", dns: "1.1.1.1" },
+            { label: "Google", dns: "8.8.8.8" }
         ]
-        stdout: SplitParser {
-            onRead: (line) => {
-                if (line === "END") { details.speedState = "done"; return; }
-                var eq = line.indexOf("=");
-                if (eq < 0) return;
-                var key = line.substring(0, eq);
-                var val = line.substring(eq + 1);
-                if (key === "down") details.speedDown = parseFloat(val) || 0;
-                else if (key === "up") details.speedUp = parseFloat(val) || 0;
-                else if (key === "loadping") {
-                    var lp = parseFloat(val) || 0;
-                    var base = details.dRouterPing > 0 ? details.dRouterPing : 1;
-                    if (lp > base * 3 && lp > 10) {
-                        var ratio = (lp / base).toFixed(1);
-                        details.speedMsg = "Lag under load: router ping spiked from " +
-                            base.toFixed(0) + "ms to " + lp.toFixed(0) + "ms (" + ratio + "x) " +
-                            "while maxing out your connection.";
-                    }
+            Rectangle {
+                required property var modelData
+                required property int index
+                property bool isCurrent: modelData.dns === "" ? (root.dDns !== "" && root.dDns === root.dGateway) : (root.dDns === modelData.dns)
+                width: dnsPillLbl.implicitWidth + 16; height: Theme.btnHeight; radius: Theme.btnRadius
+                color: isCurrent ? Theme.accent : (dnsPillA.containsMouse ? Theme.bg2 : Theme.bg1)
+                Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
+                Behavior on border.color { ColorAnimation { duration: Theme.animSpring } }
+                scale: dnsPillA.pressed ? 0.95 : 1.0
+                Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                transformOrigin: Item.Center
+                Text { id: dnsPillLbl; anchors.centerIn: parent; text: modelData.label
+                    color: isCurrent ? Theme.bg : Theme.fg
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                    Behavior on color { ColorAnimation { duration: Theme.animHover } } }
+                MouseArea { id: dnsPillA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                    onClicked: root.setDns(modelData.dns) }
+            }
+        }
+    }
+
+    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+
+    // ── Speed Test ─────────────────────────────────────────────
+    property real stBaseline: 0
+    property real stDownload: 0
+    property real stUpload: 0
+    property real stDlPing: 0
+    property real stUlPing: 0
+
+    function bloatColor(testPing, baseline) {
+        if (baseline <= 0) return Theme.fg4;
+        let ratio = testPing / baseline;
+        if (ratio < 3 && testPing < 50) return Theme.greenBright;
+        if (ratio < 10) return Theme.yellowBright;
+        return Theme.redBright;
+    }
+
+    function bloatLabel(testPing, baseline) {
+        if (baseline <= 0) return "—";
+        let ratio = testPing / baseline;
+        if (ratio < 3 && testPing < 50) return "Good";
+        if (ratio < 10) return "Moderate";
+        return "Severe";
+    }
+
+    Process {
+        id: speedTestProc; running: false
+        command: ["bash", "-c",
+            "gw=$(ip route show default | awk '{print $3; exit}'); " +
+            "bl=$(ping -c3 -W1 \"$gw\" 2>/dev/null | awk -F/ '/rtt/{print $5}'); " +
+            "[ -z \"$bl\" ] && bl=0; echo \"STBASELINE=$bl\"; " +
+            "ping -c15 -i0.4 -W1 \"$gw\" > /tmp/.whyfi_dlp 2>/dev/null & ppd=$!; " +
+            "ds=$(curl -s -o /dev/null -w '%{speed_download}' 'https://speed.cloudflare.com/__down?bytes=25000000' 2>/dev/null); " +
+            "kill $ppd 2>/dev/null; wait $ppd 2>/dev/null; " +
+            "dp=$(awk -F/ '/rtt/{print $5}' /tmp/.whyfi_dlp 2>/dev/null); " +
+            "echo \"DLSPEED=$(echo \"$ds\" | awk '{printf \"%.1f\",$1*8/1000000}')\"; " +
+            "echo \"DLPING=${dp:-0}\"; " +
+            "ping -c15 -i0.4 -W1 \"$gw\" > /tmp/.whyfi_ulp 2>/dev/null & ppu=$!; " +
+            "us=$(dd if=/dev/zero bs=1M count=10 2>/dev/null | " +
+            "curl -s -o /dev/null -w '%{speed_upload}' -X POST " +
+            "-H 'Content-Type: application/octet-stream' --data-binary @- " +
+            "'https://speed.cloudflare.com/__up' 2>/dev/null); " +
+            "kill $ppu 2>/dev/null; wait $ppu 2>/dev/null; " +
+            "up=$(awk -F/ '/rtt/{print $5}' /tmp/.whyfi_ulp 2>/dev/null); " +
+            "echo \"ULSPEED=$(echo \"$us\" | awk '{printf \"%.1f\",$1*8/1000000}')\"; " +
+            "echo \"ULPING=${up:-0}\"; " +
+            "rm -f /tmp/.whyfi_dlp /tmp/.whyfi_ulp"
+        ]
+        stdout: SplitParser { onRead: (line) => {
+            let eq = line.indexOf("=");
+            if (eq < 0) return;
+            let key = line.substring(0, eq);
+            let val = line.substring(eq + 1);
+            switch (key) {
+            case "STBASELINE": root.stBaseline = parseFloat(val) || 0; break;
+            case "DLSPEED": root.stDownload = parseFloat(val) || 0; break;
+            case "DLPING": root.stDlPing = parseFloat(val) || 0; break;
+            case "ULSPEED": root.stUpload = parseFloat(val) || 0; break;
+            case "ULPING": root.stUlPing = parseFloat(val) || 0; break;
+            }
+        } }
+        onExited: { root.speedTestState = "done"; }
+    }
+
+    Text { text: "Speed Test"; color: Theme.fg; font.bold: true
+        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+
+    // Idle
+    Rectangle {
+        visible: root.speedTestState === ""
+        Layout.fillWidth: true; height: 30; radius: Theme.btnRadius
+        color: stRunA.containsMouse ? Theme.blueBright : Theme.bg3
+        Behavior on color { ColorAnimation { duration: Theme.animHover } }
+        scale: stRunA.pressed ? 0.98 : 1.0
+        Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+        transformOrigin: Item.Center
+        Text { anchors.centerIn: parent; text: "Run Speed Test"
+            color: stRunA.containsMouse ? Theme.bg : Theme.fg
+            Behavior on color { ColorAnimation { duration: Theme.animHover } }
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+        MouseArea { id: stRunA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+            onClicked: {
+                root.stBaseline = 0; root.stDownload = 0; root.stUpload = 0;
+                root.stDlPing = 0; root.stUlPing = 0;
+                root.speedTestState = "running"; speedTestProc.running = true;
+            } }
+    }
+
+    // Running
+    ColumnLayout {
+        visible: root.speedTestState === "running"
+        Layout.fillWidth: true; spacing: 8; Layout.alignment: Qt.AlignHCenter
+
+        Text { text: "Testing…"; color: Theme.fg
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.alignment: Qt.AlignHCenter }
+
+        Rectangle {
+            Layout.alignment: Qt.AlignHCenter; width: 120; height: 4; radius: 2; color: Theme.bg3
+            Rectangle {
+                height: parent.height; radius: parent.radius; color: Theme.blueBright
+                SequentialAnimation on width {
+                    loops: Animation.Infinite
+                    NumberAnimation { from: 0; to: 120; duration: 1200; easing.type: Easing.InOutQuad }
+                    NumberAnimation { from: 120; to: 0; duration: 1200; easing.type: Easing.InOutQuad }
                 }
             }
         }
-        onExited: { if (details.speedState !== "done") details.speedState = "done"; }
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // ── UI ────────────────────────────────────────────────────
-    // ═══════════════════════════════════════════════════════════
+    // Done
+    ColumnLayout {
+        visible: root.speedTestState === "done"
+        Layout.fillWidth: true; spacing: 6
 
-    Text {
-        text: "Figure out why your Wi-Fi is bad and fix it."
-        color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
-    }
-
-    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
-
-    // ── SSID + band badge ─────────────────────────────────────
-    RowLayout {
-        Layout.fillWidth: true; spacing: 8
-        Rectangle {
-            width: 8; height: 8; radius: 4
-            color: details.dSsid !== "" ? Theme.greenBright : Theme.fg4
-        }
-        Text {
-            text: details.dSsid || "Not connected"
-            color: Theme.fg; font.family: Theme.fontFamily
-            font.pixelSize: Theme.headerFontSize; font.bold: true
-            Layout.fillWidth: true; elide: Text.ElideRight
-        }
-        Rectangle {
-            visible: details.dFreq > 0
-            width: bandText.implicitWidth + 14; height: 20; radius: Theme.btnRadius
-            color: Theme.bg2; border.width: 1; border.color: Theme.bg3
-            Text {
-                id: bandText; anchors.centerIn: parent
-                text: details.freqBand(details.dFreq)
-                color: Theme.fg3; font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontSizeSmall - 1; font.bold: true
+        RowLayout { Layout.fillWidth: true; spacing: 12
+            RowLayout { Layout.fillWidth: true; spacing: 4
+                Text { text: "↓"; color: Theme.greenBright
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeLarge; font.bold: true }
+                Text { text: root.stDownload.toFixed(1); color: Theme.greenBright
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeLarge; font.bold: true }
+                Text { text: "Mbps"; color: Theme.fg4
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+            }
+            RowLayout { Layout.fillWidth: true; spacing: 4
+                Text { text: "↑"; color: Theme.greenBright
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeLarge; font.bold: true }
+                Text { text: root.stUpload.toFixed(1); color: Theme.greenBright
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeLarge; font.bold: true }
+                Text { text: "Mbps"; color: Theme.fg4
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
             }
         }
-    }
 
-    // ── Link Rate ─────────────────────────────────────────────
-    RowLayout {
-        Layout.fillWidth: true; spacing: 8
-        Text { text: "Link Rate"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: details.labelWidth }
-        Text {
-            text: details.dLinkRate > 0 ? Math.round(details.dLinkRate) + "  Mbps" : "—"
-            color: Theme.orangeBright; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
-            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: details.valueWidth
-        }
-        Sparkline { values: details.histLinkRate; lineColor: Theme.orangeBright; Layout.fillWidth: true; implicitHeight: 20 }
-    }
-
-    // ── Signal ────────────────────────────────────────────────
-    RowLayout {
-        Layout.fillWidth: true; spacing: 8
-        Text { text: "Signal"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: details.labelWidth }
-        Text {
-            text: details.dSignal !== 0 ? details.dSignal.toFixed(0) + "  dBm" : "—"
-            color: details.signalColor(details.dSignal); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
-            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: details.valueWidth
-        }
-        Sparkline { values: details.histSignal; lineColor: details.signalColor(details.dSignal); Layout.fillWidth: true; implicitHeight: 20 }
-    }
-
-    // ── Signal quality warning ────────────────────────────────
-    Rectangle {
-        visible: !details.sigMsgDismissed && details.signalMsg(details.dSignal) !== ""
-        Layout.fillWidth: true
-        Layout.preferredHeight: sigMsgText.implicitHeight + 20
-        radius: Theme.btnRadius
-        color: Theme.bg2; border.width: 1; border.color: Theme.bg3
-        opacity: visible ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
-
-        Text {
-            id: sigMsgText
-            anchors {
-                left: parent.left; leftMargin: 10
-                right: dismissBtn.left; rightMargin: 6
-                top: parent.top; topMargin: 10
-            }
-            text: details.signalMsg(details.dSignal)
-            color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
-            wrapMode: Text.WordWrap; lineHeight: 1.2
+        RowLayout { Layout.fillWidth: true; spacing: 6
+            Rectangle { width: 6; height: 6; radius: 3; color: root.bloatColor(root.stDlPing, root.stBaseline) }
+            Text { text: "↓ " + root.bloatLabel(root.stDlPing, root.stBaseline); color: Theme.fg4
+                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.fillWidth: true }
+            Rectangle { width: 6; height: 6; radius: 3; color: root.bloatColor(root.stUlPing, root.stBaseline) }
+            Text { text: "↑ " + root.bloatLabel(root.stUlPing, root.stBaseline); color: Theme.fg4
+                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
         }
 
-        Rectangle {
-            id: dismissBtn
-            anchors { right: parent.right; rightMargin: 6; top: parent.top; topMargin: 6 }
-            width: 22; height: 22; radius: Theme.hoverRadius; color: "transparent"
-            Rectangle {
-                anchors.fill: parent; radius: parent.radius; color: Theme.bg3
-                opacity: dismissA.pressed ? 0.9 : (dismissA.containsMouse ? 0.6 : 0)
-                Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
-            }
-            scale: dismissA.pressed ? 0.98 : 1.0
-            Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-            transformOrigin: Item.Center
-            Text {
-                anchors.centerIn: parent; text: "×"
-                color: dismissA.containsMouse ? Theme.fg : Theme.fg4
-                Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-            }
-            MouseArea { id: dismissA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                onClicked: details.sigMsgDismissed = true }
-        }
-    }
-
-    // ── Noise ─────────────────────────────────────────────────
-    RowLayout {
-        Layout.fillWidth: true; spacing: 8
-        Text { text: "Noise"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: details.labelWidth }
-        Text {
-            text: details.dNoise.toFixed(0) + "  dBm"
-            color: Theme.greenBright; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
-            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: details.valueWidth
-        }
-        Sparkline { values: details.histNoise; lineColor: Theme.greenBright; Layout.fillWidth: true; implicitHeight: 20 }
-    }
-
-    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
-
-    // ═══════════════════════════════════════════════════════════
-    // ── Router ────────────────────────────────────────────────
-    // ═══════════════════════════════════════════════════════════
-    Text { text: "Router"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true; Layout.fillWidth: true }
-
-    RowLayout {
-        Layout.fillWidth: true; spacing: 8
-        Text { text: "Ping"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: details.labelWidth }
-        Text {
-            text: details.dRouterPing > 0 ? details.dRouterPing.toFixed(0) + "  ms" : "—"
-            color: details.pingColor(details.dRouterPing); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
-            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: details.valueWidth
-        }
-        Sparkline { values: details.histRouterPing; lineColor: details.pingColor(details.dRouterPing); Layout.fillWidth: true; implicitHeight: 20 }
-    }
-
-    RowLayout {
-        Layout.fillWidth: true; spacing: 8
-        Text { text: "Jitter"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: details.labelWidth }
-        Text {
-            text: details.dRouterJitter > 0 ? details.dRouterJitter.toFixed(1) + "  ms" : "—"
-            color: details.jitterColor(details.dRouterJitter); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
-            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: details.valueWidth
-        }
-        Sparkline { values: details.histRouterPing; lineColor: details.jitterColor(details.dRouterJitter); Layout.fillWidth: true; implicitHeight: 20 }
-    }
-
-    RowLayout {
-        Layout.fillWidth: true; spacing: 8
-        Text { text: "Loss"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: details.labelWidth }
-        Text {
-            text: details.dRouterLoss + "%"
-            color: details.lossColor(details.dRouterLoss); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
-            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: details.valueWidth
-        }
-        Sparkline {
-            values: {
-                var a = [];
-                for (var i = 0; i < details.routerPingLog.length; i++)
-                    a.push(details.routerPingLog[i] ? 0 : 1);
-                return a;
-            }
-            lineColor: details.lossColor(details.dRouterLoss); Layout.fillWidth: true; implicitHeight: 20
-        }
-    }
-
-    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
-
-    // ═══════════════════════════════════════════════════════════
-    // ── Internet ──────────────────────────────────────────────
-    // ═══════════════════════════════════════════════════════════
-    Text { text: "Internet"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true; Layout.fillWidth: true }
-    Text { text: "Connected to 1.1.1.1"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.fillWidth: true }
-
-    RowLayout {
-        Layout.fillWidth: true; spacing: 8
-        Text { text: "Ping"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: details.labelWidth }
-        Text {
-            text: details.dInternetPing > 0 ? details.dInternetPing.toFixed(0) + "  ms" : "—"
-            color: details.pingColor(details.dInternetPing); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
-            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: details.valueWidth
-        }
-        Sparkline { values: details.histInternetPing; lineColor: details.pingColor(details.dInternetPing); Layout.fillWidth: true; implicitHeight: 20 }
-    }
-
-    RowLayout {
-        Layout.fillWidth: true; spacing: 8
-        Text { text: "Jitter"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: details.labelWidth }
-        Text {
-            text: details.dInternetJitter > 0 ? details.dInternetJitter.toFixed(1) + "  ms" : "—"
-            color: details.jitterColor(details.dInternetJitter); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
-            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: details.valueWidth
-        }
-        Sparkline { values: details.histInternetPing; lineColor: details.jitterColor(details.dInternetJitter); Layout.fillWidth: true; implicitHeight: 20 }
-    }
-
-    RowLayout {
-        Layout.fillWidth: true; spacing: 8
-        Text { text: "Loss"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: details.labelWidth }
-        Text {
-            text: details.dInternetLoss + "%"
-            color: details.lossColor(details.dInternetLoss); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
-            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: details.valueWidth
-        }
-        Sparkline {
-            values: {
-                var a = [];
-                for (var i = 0; i < details.internetPingLog.length; i++)
-                    a.push(details.internetPingLog[i] ? 0 : 1);
-                return a;
-            }
-            lineColor: details.lossColor(details.dInternetLoss); Layout.fillWidth: true; implicitHeight: 20
-        }
-    }
-
-    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
-
-    // ═══════════════════════════════════════════════════════════
-    // ── DNS ───────────────────────────────────────────────────
-    // ═══════════════════════════════════════════════════════════
-    Text { text: "DNS"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true; Layout.fillWidth: true }
-    Text {
-        text: (details.dGateway === details.dDns ? "Router assigned" : "Custom") +
-              (details.dDns ? " · " + details.dDns : "")
-        color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-        elide: Text.ElideRight; Layout.fillWidth: true
-    }
-
-    RowLayout {
-        Layout.fillWidth: true; spacing: 8
-        Text { text: "Lookup"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: details.labelWidth }
-        Text {
-            text: details.dDnsLookup > 0 ? details.dDnsLookup.toFixed(0) + "  ms" : "—"
-            color: details.pingColor(details.dDnsLookup); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
-            horizontalAlignment: Text.AlignRight; Layout.preferredWidth: details.valueWidth
-        }
-        Sparkline { values: details.histDnsLookup; lineColor: details.pingColor(details.dDnsLookup); Layout.fillWidth: true; implicitHeight: 20 }
-    }
-
-    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
-
-    // ═══════════════════════════════════════════════════════════
-    // ── Speed Test ────────────────────────────────────────────
-    // ═══════════════════════════════════════════════════════════
-    Text { text: "Speed Test"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true; Layout.fillWidth: true }
-
-    // ── Results ───────────────────────────────────────────────
-    RowLayout {
-        visible: details.speedState === "done"
-        Layout.fillWidth: true; spacing: 16
-        ColumnLayout {
-            spacing: 2
-            Text { text: details.speedDown.toFixed(1); color: Theme.greenBright; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeLarge; font.bold: true }
-            Text { text: "↓ Mbps"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
-        }
-        ColumnLayout {
-            spacing: 2
-            Text { text: details.speedUp.toFixed(1); color: Theme.greenBright; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeLarge; font.bold: true }
-            Text { text: "↑ Mbps"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
-        }
-        Item { Layout.fillWidth: true }
         Rectangle {
             width: retestLabel.implicitWidth + Theme.btnPaddingH * 2; height: Theme.btnHeight; radius: Theme.btnRadius
-            color: "transparent"
+            color: "transparent"; Layout.alignment: Qt.AlignRight
             Rectangle {
                 anchors.fill: parent; radius: parent.radius; color: Theme.bg2
                 opacity: retestA.pressed ? 0.9 : (retestA.containsMouse ? 0.6 : 0)
@@ -556,57 +624,67 @@ ColumnLayout {
                 Behavior on color { ColorAnimation { duration: Theme.animHover } }
                 font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
             MouseArea { id: retestA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                onClicked: { details.speedState = "running"; details.speedMsg = ""; speedProc.running = true; } }
+                onClicked: {
+                    root.stBaseline = 0; root.stDownload = 0; root.stUpload = 0;
+                    root.stDlPing = 0; root.stUlPing = 0;
+                    root.speedTestState = "running"; speedTestProc.running = true;
+                } }
         }
     }
 
-    // ── Bufferbloat message ───────────────────────────────────
-    Text {
-        visible: details.speedMsg !== ""
-        text: details.speedMsg
-        color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
-        wrapMode: Text.WordWrap; Layout.fillWidth: true; lineHeight: 1.2
+    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+
+    // ── Export ──────────────────────────────────────────────────
+    function buildReport() {
+        let r = "WhyFi Diagnostic Report\n";
+        r += "=======================\n";
+        r += "SSID: " + dSsid + "\n";
+        r += "Frequency: " + dFreq + " MHz (" + freqBand(dFreq) + ")\n";
+        r += "Signal: " + dSignal + " dBm\n";
+        r += "Noise: " + dNoise + " dBm\n";
+        r += "Link Rate: " + dLinkRate + "\n";
+        r += "Gateway: " + dGateway + "\n";
+        r += "DNS: " + dDns + "\n\n";
+        r += "Router Ping: " + (dRouterPing >= 0 ? dRouterPing.toFixed(1) + " ms" : "n/a") + "\n";
+        r += "Router Jitter: " + routerJitter.toFixed(1) + " ms\n";
+        r += "Router Loss: " + routerLoss.toFixed(1) + "%\n\n";
+        r += "Internet Ping: " + (dInternetPing >= 0 ? dInternetPing.toFixed(1) + " ms" : "n/a") + "\n";
+        r += "Internet Jitter: " + internetJitter.toFixed(1) + " ms\n";
+        r += "Internet Loss: " + internetLoss.toFixed(1) + "%\n\n";
+        r += "DNS Lookup: " + (dDnsLookup >= 0 ? dDnsLookup.toFixed(0) + " ms" : "n/a") + "\n";
+        if (speedTestState === "done") {
+            r += "\nSpeed Test:\n";
+            r += "  Download: " + stDownload.toFixed(1) + " Mbps\n";
+            r += "  Upload: " + stUpload.toFixed(1) + " Mbps\n";
+            r += "  Bufferbloat DL: " + stDlPing.toFixed(1) + " ms (" + bloatLabel(stDlPing, stBaseline) + ")\n";
+            r += "  Bufferbloat UL: " + stUlPing.toFixed(1) + " ms (" + bloatLabel(stUlPing, stBaseline) + ")\n";
+        }
+        if (captiveDetected) r += "\nCaptive portal detected\n";
+        return r;
     }
 
-    // ── Run button (idle) ─────────────────────────────────────
+    Process { id: copyProc; running: false }
+    Timer { id: copyTimer; interval: 2000; onTriggered: root.copied = false }
+
     Rectangle {
-        visible: details.speedState === "idle"
-        Layout.fillWidth: true; height: 32; radius: Theme.btnRadius
-        color: "transparent"
-        Rectangle {
-            anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-            opacity: speedBtnA.pressed ? 0.9 : (speedBtnA.containsMouse ? 0.6 : 0.3)
-            Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
-        }
-        scale: speedBtnA.pressed ? 0.98 : 1.0
+        Layout.fillWidth: true; height: 30; radius: Theme.btnRadius
+        color: root.copied ? Theme.bg2 : (copyA.containsMouse ? Theme.blueBright : Theme.bg3)
+        Behavior on color { ColorAnimation { duration: Theme.animHover } }
+        scale: copyA.pressed ? 0.98 : 1.0
         Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
         transformOrigin: Item.Center
-        RowLayout {
-            anchors.centerIn: parent; spacing: 6
-            Text { text: "󰓅"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize }
-            Text { text: "Run Speed Test"; color: speedBtnA.containsMouse ? Theme.fg : Theme.fg3
-                Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-        }
-        MouseArea { id: speedBtnA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-            onClicked: { details.speedState = "running"; speedProc.running = true; } }
-    }
-
-    // ── Progress (running) ────────────────────────────────────
-    ColumnLayout {
-        visible: details.speedState === "running"
-        Layout.fillWidth: true; spacing: 4; Layout.alignment: Qt.AlignHCenter
-        Text { text: "Testing…"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.alignment: Qt.AlignHCenter }
-        Rectangle {
-            Layout.fillWidth: true; height: 4; radius: 2; color: Theme.bg3
-            Rectangle {
-                height: parent.height; radius: parent.radius; color: Theme.blueBright
-                SequentialAnimation on width {
-                    loops: Animation.Infinite
-                    NumberAnimation { from: 0; to: 120; duration: 1200; easing.type: Easing.InOutQuad }
-                    NumberAnimation { from: 120; to: 0; duration: 1200; easing.type: Easing.InOutQuad }
-                }
-            }
-        }
+        Text { anchors.centerIn: parent
+            text: root.copied ? "Copied!" : "Copy Diagnostic Report"
+            color: root.copied ? Theme.greenBright : (copyA.containsMouse ? Theme.bg : Theme.fg)
+            Behavior on color { ColorAnimation { duration: Theme.animHover } }
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+        MouseArea { id: copyA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+            enabled: !root.copied
+            onClicked: {
+                copyProc.command = ["wl-copy", root.buildReport()];
+                copyProc.running = true;
+                root.copied = true;
+                copyTimer.restart();
+            } }
     }
 }
