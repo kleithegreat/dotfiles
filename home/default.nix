@@ -44,8 +44,6 @@ in
     bc
     less
     fastfetch
-    wget
-    curl
     file           # file type identification
     unzip
     zip
