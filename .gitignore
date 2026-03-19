@@ -22,3 +22,4 @@ config/alacritty/theme.toml
 config/nvim/lua/theme-state.json
 config/tmux/colors.conf
 config/zathura/colors
+config/bat/config

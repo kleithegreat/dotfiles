@@ -153,7 +153,7 @@
     MYSQL_HISTFILE = "${config.xdg.stateHome}/mariadb/history";
     LESSHISTFILE = "${config.xdg.stateHome}/less/history";
 
-    BAT_THEME = "gruvbox-dark";
+    BAT_THEME = "gruvbox-dark"; # TODO: remove once apply-theme Phase 3 is complete (now managed by bat target)
   };
 
   home.sessionPath = [
