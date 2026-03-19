@@ -1,0 +1,15 @@
+{
+  "$schema": "https://vicinae.com/schemas/config.json",
+  "providers": {
+    "applications": {
+      "preferences": {
+        "paths": [
+          "/home/kevin/.local/share/applications",
+          "/home/kevin/.nix-profile/share/applications",
+          "/run/current-system/sw/share/applications",
+          "/etc/profiles/per-user/kevin/share/applications"
+        ]
+      }
+    }
+  }
+}
