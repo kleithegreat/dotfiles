@@ -2,32 +2,50 @@ pragma Singleton
 import QtQuick
 
 QtObject {
-    // Colors: Gruvbox Dark
-    readonly property color bg:        "#282828"
-    readonly property color bg0_h:     "#1d2021"
-    readonly property color bg1:       "#3c3836"
-    readonly property color bg2:       "#504945"
-    readonly property color bg3:       "#665c54"
-    readonly property color fg:        "#ebdbb2"
-    readonly property color fg2:       "#d5c4a1"
-    readonly property color fg3:       "#bdae93"
-    readonly property color fg4:       "#a89984"
-    readonly property color red:       "#cc241d"
-    readonly property color green:     "#98971a"
-    readonly property color yellow:    "#d79921"
-    readonly property color blue:      "#458588"
-    readonly property color purple:    "#b16286"
-    readonly property color aqua:      "#689d6a"
-    readonly property color orange:    "#d65d0e"
-    readonly property color redBright:    "#fb4934"
-    readonly property color greenBright:  "#b8bb26"
-    readonly property color yellowBright: "#fabd2f"
-    readonly property color blueBright:   "#83a598"
-    readonly property color purpleBright: "#d3869b"
-    readonly property color aquaBright:   "#8ec07c"
-    readonly property color orangeBright: "#fe8019"
-    readonly property color accent:       "#458588"
+    id: root
 
+    // ── Load from generated JSON ──
+    property var _data: {
+        try {
+            let xhr = new XMLHttpRequest();
+            xhr.open("GET", "file:///home/kevin/.config/quickshell/GeneratedTheme.json", false);
+            xhr.send();
+            return JSON.parse(xhr.responseText);
+        } catch(e) {
+            return null;
+        }
+    }
+
+    property var _colors: _data ? _data.colors : {}
+    property var _fonts: _data ? _data.fonts : {}
+
+    // ── Colors (with hardcoded Gruvbox fallbacks) ──
+    readonly property color bg:            _colors.bg            || "#282828"
+    readonly property color bg0_h:         _colors.bg0_h         || "#1d2021"
+    readonly property color bg1:           _colors.bg1           || "#3c3836"
+    readonly property color bg2:           _colors.bg2           || "#504945"
+    readonly property color bg3:           _colors.bg3           || "#665c54"
+    readonly property color fg:            _colors.fg            || "#ebdbb2"
+    readonly property color fg2:           _colors.fg2           || "#d5c4a1"
+    readonly property color fg3:           _colors.fg3           || "#bdae93"
+    readonly property color fg4:           _colors.fg4           || "#a89984"
+    readonly property color red:           _colors.red           || "#cc241d"
+    readonly property color green:         _colors.green         || "#98971a"
+    readonly property color yellow:        _colors.yellow        || "#d79921"
+    readonly property color blue:          _colors.blue          || "#458588"
+    readonly property color purple:        _colors.purple        || "#b16286"
+    readonly property color aqua:          _colors.aqua          || "#689d6a"
+    readonly property color orange:        _colors.orange        || "#d65d0e"
+    readonly property color redBright:     _colors.redBright     || "#fb4934"
+    readonly property color greenBright:   _colors.greenBright   || "#b8bb26"
+    readonly property color yellowBright:  _colors.yellowBright  || "#fabd2f"
+    readonly property color blueBright:    _colors.blueBright    || "#83a598"
+    readonly property color purpleBright:  _colors.purpleBright  || "#d3869b"
+    readonly property color aquaBright:    _colors.aquaBright    || "#8ec07c"
+    readonly property color orangeBright:  _colors.orangeBright  || "#fe8019"
+    readonly property color accent:        _colors.accent        || "#458588"
+
+    // ── Layout constants (NOT themed) ──
     readonly property int barHeight: 32
     readonly property int barMargin: 4
     readonly property int barRadius: 8
@@ -36,10 +54,12 @@ QtObject {
     readonly property real barOpacity: 0.92
     readonly property int gapOut: 6
 
-    readonly property string fontFamily: "JetBrains Mono Nerd Font"
-    readonly property int fontSize: 12
-    readonly property int fontSizeSmall: 10
-    readonly property int fontSizeLarge: 14
+    // ── Fonts ──
+    readonly property string fontFamily:    _fonts.family       || "JetBrains Mono Nerd Font"
+    readonly property string systemFamily:  _fonts.systemFamily || "Overpass"
+    readonly property int fontSize:         _fonts.size         || 12
+    readonly property int fontSizeSmall:    _fonts.sizeSmall    || 10
+    readonly property int fontSizeLarge:    _fonts.sizeLarge    || 14
     readonly property int iconSize: 14
 
     readonly property int notifWidth: 380
