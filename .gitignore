@@ -19,7 +19,10 @@ id_*
 
 # Theming generated files
 config/alacritty/theme.toml
-config/nvim/lua/theme-state.json
-config/tmux/colors.conf
-config/zathura/colors
 config/bat/config
+config/hypr/colors.conf
+config/nvim/lua/theme-state.json
+config/quickshell/GeneratedTheme.json
+config/tmux/colors.conf
+config/vicinae/settings.json
+config/zathura/colors
