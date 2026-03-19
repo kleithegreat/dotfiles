@@ -21,10 +21,23 @@ PanelWindow {
     // ── State ──
     property var themeState: ({})
     property var colorSchemes: []
+    property var colorFamilies: []
     property var presets: []
     property var wallpapers: []
     property string currentFamily: ""
     property string currentVariant: ""
+    property int selectedCategory: 0
+    property string selectedColorFamily: ""
+    property var categoryNames: ["Presets", "Colors", "Fonts", "Wallpaper", "Icons & Cursors"]
+    property var categoryIcons: ["󰒓", "󰏘", "󰛖", "󰋩", "󰍽"]
+
+    property var selectedFamilyVariants: {
+        let fams = colorFamilies;
+        let sel = selectedColorFamily;
+        for (let i = 0; i < fams.length; i++)
+            if (fams[i].name === sel) return fams[i].variants;
+        return [];
+    }
 
     onActiveChanged: {
         if (active) { panel.opacity = 0; panel.scale = 0.92; loadState(); settingsOpenAnim.start(); }
@@ -55,7 +68,13 @@ PanelWindow {
     Process {
         id: familyProc; running: false
         command: ["bash", "-c", "jq -r '.family + \"/\" + .variant' /home/kevin/repos/dotfiles/themes/colors/" + (themeState.color_scheme || "gruvbox-dark") + ".json"]
-        stdout: SplitParser { onRead: (line) => { let p = line.trim().split("/"); settingsPop.currentFamily = p[0] || ""; settingsPop.currentVariant = p[1] || ""; } }
+        stdout: SplitParser { onRead: (line) => {
+            let p = line.trim().split("/");
+            settingsPop.currentFamily = p[0] || "";
+            settingsPop.currentVariant = p[1] || "";
+            if (settingsPop.selectedColorFamily === "")
+                settingsPop.selectedColorFamily = settingsPop.currentFamily;
+        } }
     }
 
     Process {
@@ -63,7 +82,10 @@ PanelWindow {
         command: ["bash", "-c", "for f in /home/kevin/repos/dotfiles/themes/colors/*.json; do basename \"$f\" .json; done"]
         property var items: []
         stdout: SplitParser { onRead: (line) => { listColorsProc.items.push(line.trim()); } }
-        onExited: { settingsPop.colorSchemes = items; items = []; }
+        onExited: {
+            settingsPop.colorSchemes = items; items = [];
+            settingsPop.colorFamilies = settingsPop.buildColorFamilies();
+        }
     }
 
     Process {
@@ -82,6 +104,38 @@ PanelWindow {
         onExited: { settingsPop.wallpapers = items; items = []; }
     }
 
+    // ── Helper functions ──
+    function buildColorFamilies() {
+        let families = {};
+        let order = [];
+        for (let i = 0; i < colorSchemes.length; i++) {
+            let name = colorSchemes[i];
+            try {
+                let xhr = new XMLHttpRequest();
+                xhr.open("GET", "file:///home/kevin/repos/dotfiles/themes/colors/" + name + ".json", false);
+                xhr.send();
+                let data = JSON.parse(xhr.responseText);
+                let fam = data.family || name;
+                if (!families[fam]) { families[fam] = { name: fam, variants: [] }; order.push(fam); }
+                families[fam].variants.push({
+                    schemeName: name, variant: data.variant || "dark",
+                    bg: data.colors.bg || "#282828", fg: data.colors.fg || "#ebdbb2",
+                    accent: data.colors.accent || "#458588", red: data.colors.red || "#cc241d",
+                    green: data.colors.green || "#98971a", blue: data.colors.blue || "#458588",
+                    yellow: data.colors.yellow || "#d79921", purple: data.colors.purple || "#b16286"
+                });
+            } catch(e) {}
+        }
+        let result = [];
+        for (let j = 0; j < order.length; j++) result.push(families[order[j]]);
+        return result;
+    }
+
+    function familyDisplayName(name) {
+        if (name === "tokyonight") return "Tokyo Night";
+        return name.charAt(0).toUpperCase() + name.slice(1);
+    }
+
     // ── Apply commands ──
     Process { id: applyProc; running: false }
 
@@ -97,20 +151,16 @@ PanelWindow {
         reloadTimer.restart();
     }
 
-    function runVariant(v) {
-        applyProc.command = ["/home/kevin/repos/dotfiles/themes/apply-theme", "set", "color_scheme", currentFamily + "-" + v];
-        applyProc.running = true;
-        reloadTimer.restart();
-    }
-
     Timer { id: reloadTimer; interval: 1500; onTriggered: loadState() }
 
     // ── Backdrop ──
     MouseArea {
-        anchors.fill: parent
-        onClicked: settingsPop.close()
+        anchors.fill: parent; onClicked: settingsPop.close()
+        focus: settingsPop.active
+        Keys.onEscapePressed: settingsPop.close()
     }
 
+    // ── Animations ──
     SequentialAnimation {
         id: settingsOpenAnim
         ParallelAnimation {
@@ -130,138 +180,382 @@ PanelWindow {
     // ── Panel ──
     Rectangle {
         id: panel
-        width: 420; height: parent.height - Theme.popupTopMargin * 2
-        anchors { right: parent.right; top: parent.top; margins: Theme.gapOut; topMargin: Theme.popupTopMargin }
+        width: 700; height: 500
+        anchors.centerIn: parent
         radius: Theme.popupRadius; color: Theme.bg; border.width: 1; border.color: Theme.bg3
         opacity: 0; scale: 0.92
-        transformOrigin: Item.TopRight
+        transformOrigin: Item.Center
+        clip: true
+        layer.enabled: true
 
-        Flickable {
-            anchors { fill: parent; margins: Theme.popupPadding }
-            contentHeight: col.implicitHeight; clip: true; boundsBehavior: Flickable.StopAtBounds
+        Row {
+            anchors.fill: parent
 
-            ColumnLayout {
-                id: col; width: parent.width; spacing: 16
+            // ── Sidebar ──
+            Rectangle {
+                id: sidebar
+                width: 190; height: parent.height
+                color: Theme.bg0_h
 
-                // ── Header ──
-                RowLayout {
-                    Layout.fillWidth: true
-                    Text { text: "󰃠  Settings"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeLarge; font.bold: true; Layout.fillWidth: true }
-                    Rectangle {
-                        width: 24; height: 24; radius: Theme.hoverRadius; color: "transparent"
-                        Rectangle {
-                            anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                            opacity: closeArea.pressed ? 0.9 : (closeArea.containsMouse ? 0.6 : 0)
-                            Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 8
+                    spacing: 2
+
+                    // Header
+                    Item {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 36
+
+                        Text {
+                            text: "Settings"
+                            anchors { left: parent.left; leftMargin: 8; verticalCenter: parent.verticalCenter }
+                            color: Theme.fg
+                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeLarge; font.bold: true
                         }
-                        scale: closeArea.pressed ? 0.9 : 1.0
-                        Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                        transformOrigin: Item.Center
-                        Text { anchors.centerIn: parent; text: "󰅖"
-                            color: closeArea.containsMouse ? Theme.redBright : Theme.fg4
+                    }
+
+                    Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Theme.bg3 }
+                    Item { Layout.preferredHeight: 4 }
+
+                    // Category items
+                    Repeater {
+                        model: 5
+                        delegate: Rectangle {
+                            id: catItem
+                            required property int index
+                            property bool isSelected: settingsPop.selectedCategory === index
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 32
+                            radius: Theme.hoverRadius
+                            color: isSelected ? Theme.bg2 : (catArea.containsMouse ? Theme.bg1 : "transparent")
                             Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                            font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize }
-                        MouseArea { id: closeArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: settingsPop.close() }
+
+                            Rectangle {
+                                visible: catItem.isSelected
+                                width: 3; height: 16; radius: 1.5
+                                anchors { left: parent.left; leftMargin: 2; verticalCenter: parent.verticalCenter }
+                                color: Theme.accent
+                            }
+
+                            RowLayout {
+                                anchors { fill: parent; leftMargin: 12; rightMargin: 8 }
+                                spacing: 10
+                                Text {
+                                    text: settingsPop.categoryIcons[catItem.index]
+                                    color: catItem.isSelected ? Theme.accent : Theme.fg4
+                                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                                    font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
+                                    Layout.alignment: Qt.AlignVCenter
+                                }
+                                Text {
+                                    text: settingsPop.categoryNames[catItem.index]
+                                    color: catItem.isSelected ? Theme.fg : Theme.fg3
+                                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize
+                                    Layout.alignment: Qt.AlignVCenter
+                                    Layout.fillWidth: true
+                                }
+                            }
+
+                            MouseArea {
+                                id: catArea; anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                                onClicked: settingsPop.selectedCategory = catItem.index
+                            }
+                        }
+                    }
+
+                    Item { Layout.fillWidth: true; Layout.fillHeight: true }
+                }
+            }
+
+            // ── Separator ──
+            Rectangle { width: 1; height: parent.height; color: Theme.bg3 }
+
+            // ── Detail pane ──
+            Item {
+                width: parent.width - 191; height: parent.height
+
+                Loader {
+                    id: detailLoader
+                    anchors { fill: parent; margins: Theme.popupPadding }
+                    sourceComponent: {
+                        switch (settingsPop.selectedCategory) {
+                            case 0: return presetsPane;
+                            case 1: return colorsPane;
+                            case 2: return fontsPane;
+                            case 3: return wallpaperPane;
+                            case 4: return iconsPane;
+                            default: return null;
+                        }
                     }
                 }
+            }
+        }
 
-                // ── Presets ──
-                Text { text: "PRESETS"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
-                Flow { Layout.fillWidth: true; spacing: 8
-                    Repeater { model: settingsPop.presets
-                        Rectangle {
+        // ── Close button (top-right corner) ──
+        Rectangle {
+            width: 24; height: 24; radius: Theme.hoverRadius; color: "transparent"
+            anchors { right: parent.right; top: parent.top; rightMargin: 10; topMargin: 10 }
+            z: 1
+            Rectangle {
+                anchors.fill: parent; radius: parent.radius; color: Theme.bg2
+                opacity: closeArea.pressed ? 0.9 : (closeArea.containsMouse ? 0.6 : 0)
+                Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+            }
+            scale: closeArea.pressed ? 0.9 : 1.0
+            Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+            transformOrigin: Item.Center
+            Text {
+                anchors.centerIn: parent; text: "󰅖"
+                color: closeArea.containsMouse ? Theme.redBright : Theme.fg4
+                Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
+            }
+            MouseArea { id: closeArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: settingsPop.close() }
+        }
+    }
+
+    // ── Detail: Presets ──
+    Component {
+        id: presetsPane
+        Flickable {
+            anchors.fill: parent
+            contentHeight: presetsCol.implicitHeight
+            clip: true; boundsBehavior: Flickable.StopAtBounds
+
+            ColumnLayout {
+                id: presetsCol; width: parent.width; spacing: 12
+
+                Text { text: "Apply a preset to change multiple settings at once."; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+
+                Flow {
+                    Layout.fillWidth: true; spacing: 8
+                    Repeater {
+                        model: settingsPop.presets
+                        delegate: Rectangle {
+                            id: presetBtn
                             required property string modelData; required property int index
-                            width: presetLabel.implicitWidth + 20; height: 28; radius: Theme.btnRadius
-                            color: presetArea.containsMouse ? Theme.bg2 : Theme.bg1; border.width: 1; border.color: Theme.bg3
+                            width: presetLabel.implicitWidth + 20; height: 32; radius: Theme.btnRadius
+                            color: presetArea.containsMouse ? Theme.bg2 : Theme.bg1
                             Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                            border.width: 1; border.color: Theme.bg3
                             scale: presetArea.pressed ? 0.95 : 1.0
                             Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
                             transformOrigin: Item.Center
-                            Text { id: presetLabel; anchors.centerIn: parent; text: modelData; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-                            MouseArea { id: presetArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: settingsPop.runPreset(modelData) }
+                            Text { id: presetLabel; anchors.centerIn: parent; text: presetBtn.modelData; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
+                            MouseArea { id: presetArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: settingsPop.runPreset(presetBtn.modelData) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ── Detail: Colors ──
+    Component {
+        id: colorsPane
+        Flickable {
+            anchors.fill: parent
+            contentHeight: colorsCol.implicitHeight
+            clip: true; boundsBehavior: Flickable.StopAtBounds
+
+            ColumnLayout {
+                id: colorsCol; width: parent.width; spacing: 16
+
+                Grid {
+                    id: colorGrid
+                    Layout.fillWidth: true
+                    columns: 3; spacing: 8
+
+                    Repeater {
+                        model: settingsPop.colorFamilies.length
+                        delegate: Rectangle {
+                            id: famCard
+                            required property int index
+                            property var family: settingsPop.colorFamilies[index]
+                            property var preview: family ? family.variants[0] : null
+                            property bool isActive: settingsPop.currentFamily === (family ? family.name : "")
+                            property bool isSelected: settingsPop.selectedColorFamily === (family ? family.name : "")
+
+                            width: (colorGrid.width - 16) / 3; height: 80
+                            radius: Theme.btnRadius + 2
+                            color: preview ? preview.bg : Theme.bg1
+                            border.width: isSelected ? 2 : 1
+                            border.color: isSelected ? Theme.accent : Theme.bg3
+                            Behavior on border.color { ColorAnimation { duration: Theme.animSpring } }
+                            scale: famArea.pressed ? 0.97 : 1.0
+                            Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                            transformOrigin: Item.Center
+
+                            ColumnLayout {
+                                anchors { fill: parent; margins: 10 }
+                                spacing: 8
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    Text {
+                                        text: settingsPop.familyDisplayName(famCard.family ? famCard.family.name : "")
+                                        color: famCard.preview ? famCard.preview.fg : Theme.fg
+                                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; font.bold: true
+                                        Layout.fillWidth: true
+                                    }
+                                    Text {
+                                        text: "✓"; visible: famCard.isActive
+                                        color: famCard.preview ? famCard.preview.accent : Theme.accent
+                                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; font.bold: true
+                                    }
+                                }
+
+                                Row {
+                                    spacing: 4
+                                    Rectangle { width: 14; height: 14; radius: 7; color: famCard.preview ? famCard.preview.accent : Theme.accent; border.width: 1; border.color: Qt.rgba(0, 0, 0, 0.15) }
+                                    Rectangle { width: 14; height: 14; radius: 7; color: famCard.preview ? famCard.preview.red : Theme.red; border.width: 1; border.color: Qt.rgba(0, 0, 0, 0.15) }
+                                    Rectangle { width: 14; height: 14; radius: 7; color: famCard.preview ? famCard.preview.green : Theme.green; border.width: 1; border.color: Qt.rgba(0, 0, 0, 0.15) }
+                                    Rectangle { width: 14; height: 14; radius: 7; color: famCard.preview ? famCard.preview.blue : Theme.blue; border.width: 1; border.color: Qt.rgba(0, 0, 0, 0.15) }
+                                    Rectangle { width: 14; height: 14; radius: 7; color: famCard.preview ? famCard.preview.yellow : Theme.yellow; border.width: 1; border.color: Qt.rgba(0, 0, 0, 0.15) }
+                                    Rectangle { width: 14; height: 14; radius: 7; color: famCard.preview ? famCard.preview.purple : Theme.purple; border.width: 1; border.color: Qt.rgba(0, 0, 0, 0.15) }
+                                }
+                            }
+
+                            MouseArea {
+                                id: famArea; anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                                onClicked: settingsPop.selectedColorFamily = famCard.family.name
+                            }
                         }
                     }
                 }
 
-                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+                // Variant selector
+                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3; visible: settingsPop.selectedColorFamily !== "" }
 
-                // ── Color Scheme ──
-                Text { text: "COLOR SCHEME"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
-                Flow { Layout.fillWidth: true; spacing: 6
-                    Repeater { model: settingsPop.colorSchemes
-                        Rectangle {
+                ColumnLayout {
+                    Layout.fillWidth: true; spacing: 8
+                    visible: settingsPop.selectedColorFamily !== ""
+
+                    Text {
+                        text: "Variant — " + settingsPop.familyDisplayName(settingsPop.selectedColorFamily)
+                        color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
+                    }
+
+                    Flow {
+                        Layout.fillWidth: true; spacing: 6
+                        Repeater {
+                            model: settingsPop.selectedFamilyVariants
+                            delegate: Rectangle {
+                                id: varBtn
+                                required property var modelData; required property int index
+                                property string schemeName: modelData.schemeName || ""
+                                property string variantName: modelData.variant || ""
+                                property bool isCurrent: settingsPop.themeState.color_scheme === schemeName
+
+                                width: varLabel.implicitWidth + 16; height: Theme.btnHeight; radius: Theme.btnRadius
+                                color: isCurrent ? Theme.accent : (varArea.containsMouse ? Theme.bg2 : Theme.bg1)
+                                Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                                border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
+                                Behavior on border.color { ColorAnimation { duration: Theme.animSpring } }
+                                scale: varArea.pressed ? 0.95 : 1.0
+                                Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                                transformOrigin: Item.Center
+
+                                Text {
+                                    id: varLabel; anchors.centerIn: parent
+                                    text: varBtn.variantName
+                                    color: varBtn.isCurrent ? Theme.bg : Theme.fg
+                                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                                }
+                                MouseArea {
+                                    id: varArea; anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                                    onClicked: settingsPop.runSet("color_scheme", varBtn.schemeName)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ── Detail: Fonts ──
+    Component {
+        id: fontsPane
+        Flickable {
+            anchors.fill: parent
+            contentHeight: fontsCol.implicitHeight
+            clip: true; boundsBehavior: Flickable.StopAtBounds
+
+            ColumnLayout {
+                id: fontsCol; width: parent.width; spacing: 16
+
+                // ── Coding Font ──
+                Text { text: "CODING FONT"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+
+                Flow {
+                    Layout.fillWidth: true; spacing: 6
+                    Repeater {
+                        model: ["JetBrains Mono Nerd Font", "Berkeley Mono", "Recursive Mono", "Fira Code Nerd Font", "Iosevka Nerd Font"]
+                        delegate: Rectangle {
+                            id: mfBtn
                             required property string modelData; required property int index
-                            property bool isCurrent: settingsPop.themeState.color_scheme === modelData
-                            width: csLabel.implicitWidth + 16; height: Theme.btnHeight; radius: Theme.btnRadius
-                            color: isCurrent ? Theme.accent : (csArea.containsMouse ? Theme.bg2 : Theme.bg1)
+                            property bool isCurrent: settingsPop.themeState.mono_font === modelData
+
+                            width: mfLabel.implicitWidth + 16; height: Theme.btnHeight; radius: Theme.btnRadius
+                            color: isCurrent ? Theme.accent : (mfArea.containsMouse ? Theme.bg2 : Theme.bg1)
                             Behavior on color { ColorAnimation { duration: Theme.animHover } }
                             border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
                             Behavior on border.color { ColorAnimation { duration: Theme.animSpring } }
-                            scale: csArea.pressed ? 0.95 : 1.0
+                            scale: mfArea.pressed ? 0.95 : 1.0
                             Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
                             transformOrigin: Item.Center
-                            Text { id: csLabel; anchors.centerIn: parent; text: modelData; color: isCurrent ? Theme.bg : Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+
+                            Text { id: mfLabel; anchors.centerIn: parent; text: mfBtn.modelData.replace(" Nerd Font", ""); color: mfBtn.isCurrent ? Theme.bg : Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                                 Behavior on color { ColorAnimation { duration: Theme.animHover } } }
-                            MouseArea { id: csArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: settingsPop.runSet("color_scheme", modelData) }
+                            MouseArea { id: mfArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: settingsPop.runSet("mono_font", mfBtn.modelData) }
                         }
                     }
                 }
 
-                // ── Dark / Light Toggle ──
-                RowLayout { spacing: 8; Layout.fillWidth: true
-                    Text { text: "Variant:"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
-                    Repeater { model: ["dark", "light"]
-                        Rectangle {
-                            required property string modelData
-                            property bool isCurrent: settingsPop.currentVariant === modelData
-                            width: varLabel.implicitWidth + 16; height: Theme.btnHeight; radius: Theme.btnRadius
-                            color: isCurrent ? Theme.accent : (varArea.containsMouse ? Theme.bg2 : Theme.bg1)
-                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                            border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
-                            Behavior on border.color { ColorAnimation { duration: Theme.animSpring } }
-                            scale: varArea.pressed ? 0.95 : 1.0
-                            Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                            transformOrigin: Item.Center
-                            Text { id: varLabel; anchors.centerIn: parent; text: modelData; color: isCurrent ? Theme.bg : Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                                Behavior on color { ColorAnimation { duration: Theme.animHover } } }
-                            MouseArea { id: varArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: settingsPop.runVariant(modelData) }
-                        }
+                Row {
+                    spacing: 8
+                    Text { text: "Size:"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; height: Theme.btnHeight; verticalAlignment: Text.AlignVCenter }
+                    Rectangle {
+                        width: 28; height: Theme.btnHeight; radius: Theme.btnRadius
+                        color: mfMinus.containsMouse ? Theme.bg2 : Theme.bg1; border.width: 1; border.color: Theme.bg3
+                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                        Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
+                        MouseArea { id: mfMinus; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                            onClicked: { let s = (settingsPop.themeState.mono_font_size || 11) - 1; if (s >= 6) settingsPop.runSet("mono_font_size", String(s)); } }
+                    }
+                    Text { text: String(settingsPop.themeState.mono_font_size || 11); color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; width: 24; horizontalAlignment: Text.AlignHCenter; height: Theme.btnHeight; verticalAlignment: Text.AlignVCenter }
+                    Rectangle {
+                        width: 28; height: Theme.btnHeight; radius: Theme.btnRadius
+                        color: mfPlus.containsMouse ? Theme.bg2 : Theme.bg1; border.width: 1; border.color: Theme.bg3
+                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                        Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
+                        MouseArea { id: mfPlus; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                            onClicked: { let s = (settingsPop.themeState.mono_font_size || 11) + 1; if (s <= 24) settingsPop.runSet("mono_font_size", String(s)); } }
                     }
                 }
 
                 Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
 
-                // ── Fonts ──
-                Text { text: "FONTS"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+                // ── System Font ──
+                Text { text: "SYSTEM FONT"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
 
-                Text { text: "Coding Font"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-                Flow { Layout.fillWidth: true; spacing: 6
-                    Repeater { model: ["JetBrains Mono Nerd Font", "Berkeley Mono", "Recursive Mono", "Fira Code Nerd Font", "Iosevka Nerd Font"]
-                        Rectangle {
-                            required property string modelData
-                            property bool isCurrent: settingsPop.themeState.mono_font === modelData
-                            width: cfLabel.implicitWidth + 14; height: 24; radius: Theme.btnRadius
-                            color: isCurrent ? Theme.accent : (cfArea.containsMouse ? Theme.bg2 : Theme.bg1)
-                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                            border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
-                            Behavior on border.color { ColorAnimation { duration: Theme.animSpring } }
-                            scale: cfArea.pressed ? 0.95 : 1.0
-                            Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                            transformOrigin: Item.Center
-                            Text { id: cfLabel; anchors.centerIn: parent; text: modelData.replace(" Nerd Font", ""); color: isCurrent ? Theme.bg : Theme.fg; font.family: Theme.fontFamily; font.pixelSize: 10
-                                Behavior on color { ColorAnimation { duration: Theme.animHover } } }
-                            MouseArea { id: cfArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: settingsPop.runSet("mono_font", modelData) }
-                        }
-                    }
-                }
-
-                Text { text: "System Font"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-                Flow { Layout.fillWidth: true; spacing: 6
-                    Repeater { model: ["Overpass", "Inter", "Noto Sans", "Cantarell", "Source Sans 3"]
-                        Rectangle {
-                            required property string modelData
+                Flow {
+                    Layout.fillWidth: true; spacing: 6
+                    Repeater {
+                        model: ["Overpass", "Inter", "Noto Sans", "Cantarell", "Source Sans 3"]
+                        delegate: Rectangle {
+                            id: sfBtn
+                            required property string modelData; required property int index
                             property bool isCurrent: settingsPop.themeState.system_font === modelData
-                            width: sfLabel.implicitWidth + 14; height: 24; radius: Theme.btnRadius
+
+                            width: sfLabel.implicitWidth + 16; height: Theme.btnHeight; radius: Theme.btnRadius
                             color: isCurrent ? Theme.accent : (sfArea.containsMouse ? Theme.bg2 : Theme.bg1)
                             Behavior on color { ColorAnimation { duration: Theme.animHover } }
                             border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
@@ -269,48 +563,126 @@ PanelWindow {
                             scale: sfArea.pressed ? 0.95 : 1.0
                             Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
                             transformOrigin: Item.Center
-                            Text { id: sfLabel; anchors.centerIn: parent; text: modelData; color: isCurrent ? Theme.bg : Theme.fg; font.family: Theme.fontFamily; font.pixelSize: 10
+
+                            Text { id: sfLabel; anchors.centerIn: parent; text: sfBtn.modelData; color: sfBtn.isCurrent ? Theme.bg : Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                                 Behavior on color { ColorAnimation { duration: Theme.animHover } } }
-                            MouseArea { id: sfArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: settingsPop.runSet("system_font", modelData) }
+                            MouseArea { id: sfArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: settingsPop.runSet("system_font", sfBtn.modelData) }
                         }
                     }
                 }
 
-                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+                Row {
+                    spacing: 8
+                    Text { text: "Size:"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; height: Theme.btnHeight; verticalAlignment: Text.AlignVCenter }
+                    Rectangle {
+                        width: 28; height: Theme.btnHeight; radius: Theme.btnRadius
+                        color: sfMinus.containsMouse ? Theme.bg2 : Theme.bg1; border.width: 1; border.color: Theme.bg3
+                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                        Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
+                        MouseArea { id: sfMinus; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                            onClicked: { let s = (settingsPop.themeState.font_size || 11) - 1; if (s >= 6) settingsPop.runSet("font_size", String(s)); } }
+                    }
+                    Text { text: String(settingsPop.themeState.font_size || 11); color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; width: 24; horizontalAlignment: Text.AlignHCenter; height: Theme.btnHeight; verticalAlignment: Text.AlignVCenter }
+                    Rectangle {
+                        width: 28; height: Theme.btnHeight; radius: Theme.btnRadius
+                        color: sfPlus.containsMouse ? Theme.bg2 : Theme.bg1; border.width: 1; border.color: Theme.bg3
+                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                        Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
+                        MouseArea { id: sfPlus; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                            onClicked: { let s = (settingsPop.themeState.font_size || 11) + 1; if (s <= 24) settingsPop.runSet("font_size", String(s)); } }
+                    }
+                }
+            }
+        }
+    }
 
-                // ── Wallpaper ──
-                Text { text: "WALLPAPER"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
-                Flow { Layout.fillWidth: true; spacing: 6
-                    Repeater { model: settingsPop.wallpapers
-                        Rectangle {
-                            required property string modelData
-                            property string fullPath: "~/wallpapers/" + modelData
-                            property bool isCurrent: settingsPop.themeState.wallpaper === fullPath
-                            width: wpLabel.implicitWidth + 14; height: 24; radius: Theme.btnRadius
-                            color: isCurrent ? Theme.accent : (wpArea.containsMouse ? Theme.bg2 : Theme.bg1)
-                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                            border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
+    // ── Detail: Wallpaper ──
+    Component {
+        id: wallpaperPane
+        Flickable {
+            anchors.fill: parent
+            contentHeight: wpCol.implicitHeight
+            clip: true; boundsBehavior: Flickable.StopAtBounds
+
+            ColumnLayout {
+                id: wpCol; width: parent.width; spacing: 8
+
+                Grid {
+                    id: wpGrid
+                    Layout.fillWidth: true
+                    columns: 3; spacing: 8
+
+                    Repeater {
+                        model: settingsPop.wallpapers
+                        delegate: Rectangle {
+                            id: wpCard
+                            required property string modelData; required property int index
+                            property bool isCurrent: settingsPop.themeState.wallpaper === "/home/kevin/wallpapers/" + modelData
+
+                            width: (wpGrid.width - 16) / 3
+                            height: width * 0.65 + 22
+                            radius: Theme.btnRadius
+                            color: Theme.bg1
+                            border.width: isCurrent ? 2 : 1
+                            border.color: isCurrent ? Theme.accent : Theme.bg3
                             Behavior on border.color { ColorAnimation { duration: Theme.animSpring } }
-                            scale: wpArea.pressed ? 0.95 : 1.0
+                            clip: true
+                            scale: wpArea.pressed ? 0.97 : 1.0
                             Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
                             transformOrigin: Item.Center
-                            Text { id: wpLabel; anchors.centerIn: parent; text: modelData.replace(/\.\w+$/, ""); color: isCurrent ? Theme.bg : Theme.fg; font.family: Theme.fontFamily; font.pixelSize: 10; elide: Text.ElideMiddle; width: Math.min(implicitWidth, 120)
-                                Behavior on color { ColorAnimation { duration: Theme.animHover } } }
-                            MouseArea { id: wpArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: settingsPop.runSet("wallpaper", fullPath) }
+
+                            Column {
+                                anchors.fill: parent
+                                Image {
+                                    width: parent.width; height: parent.height - 22
+                                    source: "file:///home/kevin/wallpapers/" + wpCard.modelData
+                                    fillMode: Image.PreserveAspectCrop
+                                    asynchronous: true
+                                }
+                                Text {
+                                    width: parent.width; height: 22
+                                    text: wpCard.modelData.replace(/\.\w+$/, "")
+                                    color: wpCard.isCurrent ? Theme.accent : Theme.fg3
+                                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                                    horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+                                    elide: Text.ElideMiddle; leftPadding: 4; rightPadding: 4
+                                }
+                            }
+
+                            MouseArea { id: wpArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                                onClicked: settingsPop.runSet("wallpaper", "/home/kevin/wallpapers/" + wpCard.modelData) }
                         }
                     }
                 }
+            }
+        }
+    }
 
-                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+    // ── Detail: Icons & Cursors ──
+    Component {
+        id: iconsPane
+        Flickable {
+            anchors.fill: parent
+            contentHeight: iconsCol.implicitHeight
+            clip: true; boundsBehavior: Flickable.StopAtBounds
 
-                // ── Icon & Cursor Theme ──
+            ColumnLayout {
+                id: iconsCol; width: parent.width; spacing: 16
+
+                // ── Icon Theme ──
                 Text { text: "ICON THEME"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
-                Flow { Layout.fillWidth: true; spacing: 6
-                    Repeater { model: ["Papirus-Dark", "Papirus", "Papirus-Light", "Adwaita", "hicolor"]
-                        Rectangle {
-                            required property string modelData
+
+                Flow {
+                    Layout.fillWidth: true; spacing: 6
+                    Repeater {
+                        model: ["Papirus-Dark", "Papirus", "Papirus-Light", "Adwaita", "hicolor"]
+                        delegate: Rectangle {
+                            id: itBtn
+                            required property string modelData; required property int index
                             property bool isCurrent: settingsPop.themeState.icon_theme === modelData
-                            width: itLabel.implicitWidth + 14; height: 24; radius: Theme.btnRadius
+
+                            width: itLabel.implicitWidth + 16; height: Theme.btnHeight; radius: Theme.btnRadius
                             color: isCurrent ? Theme.accent : (itArea.containsMouse ? Theme.bg2 : Theme.bg1)
                             Behavior on color { ColorAnimation { duration: Theme.animHover } }
                             border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
@@ -318,20 +690,29 @@ PanelWindow {
                             scale: itArea.pressed ? 0.95 : 1.0
                             Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
                             transformOrigin: Item.Center
-                            Text { id: itLabel; anchors.centerIn: parent; text: modelData; color: isCurrent ? Theme.bg : Theme.fg; font.family: Theme.fontFamily; font.pixelSize: 10
+
+                            Text { id: itLabel; anchors.centerIn: parent; text: itBtn.modelData; color: itBtn.isCurrent ? Theme.bg : Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                                 Behavior on color { ColorAnimation { duration: Theme.animHover } } }
-                            MouseArea { id: itArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: settingsPop.runSet("icon_theme", modelData) }
+                            MouseArea { id: itArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: settingsPop.runSet("icon_theme", itBtn.modelData) }
                         }
                     }
                 }
 
+                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+
+                // ── Cursor Theme ──
                 Text { text: "CURSOR THEME"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
-                Flow { Layout.fillWidth: true; spacing: 6
-                    Repeater { model: ["Adwaita", "Bibata-Modern-Classic", "Bibata-Modern-Ice"]
-                        Rectangle {
-                            required property string modelData
+
+                Flow {
+                    Layout.fillWidth: true; spacing: 6
+                    Repeater {
+                        model: ["Adwaita", "Bibata-Modern-Classic", "Bibata-Modern-Ice"]
+                        delegate: Rectangle {
+                            id: ctBtn
+                            required property string modelData; required property int index
                             property bool isCurrent: settingsPop.themeState.cursor_theme === modelData
-                            width: ctLabel.implicitWidth + 14; height: 24; radius: Theme.btnRadius
+
+                            width: ctLabel.implicitWidth + 16; height: Theme.btnHeight; radius: Theme.btnRadius
                             color: isCurrent ? Theme.accent : (ctArea.containsMouse ? Theme.bg2 : Theme.bg1)
                             Behavior on color { ColorAnimation { duration: Theme.animHover } }
                             border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
@@ -339,15 +720,38 @@ PanelWindow {
                             scale: ctArea.pressed ? 0.95 : 1.0
                             Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
                             transformOrigin: Item.Center
-                            Text { id: ctLabel; anchors.centerIn: parent; text: modelData; color: isCurrent ? Theme.bg : Theme.fg; font.family: Theme.fontFamily; font.pixelSize: 10
+
+                            Text { id: ctLabel; anchors.centerIn: parent; text: ctBtn.modelData; color: ctBtn.isCurrent ? Theme.bg : Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                                 Behavior on color { ColorAnimation { duration: Theme.animHover } } }
-                            MouseArea { id: ctArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: settingsPop.runSet("cursor_theme", modelData) }
+                            MouseArea { id: ctArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: settingsPop.runSet("cursor_theme", ctBtn.modelData) }
                         }
                     }
                 }
 
-                // Bottom spacer
-                Item { Layout.fillWidth: true; height: 20 }
+                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+
+                // ── Cursor Size ──
+                Row {
+                    spacing: 8
+                    Text { text: "Cursor Size:"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; height: Theme.btnHeight; verticalAlignment: Text.AlignVCenter }
+                    Rectangle {
+                        width: 28; height: Theme.btnHeight; radius: Theme.btnRadius
+                        color: csMinus.containsMouse ? Theme.bg2 : Theme.bg1; border.width: 1; border.color: Theme.bg3
+                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                        Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
+                        MouseArea { id: csMinus; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                            onClicked: { let s = (settingsPop.themeState.cursor_size || 24) - 4; if (s >= 16) settingsPop.runSet("cursor_size", String(s)); } }
+                    }
+                    Text { text: String(settingsPop.themeState.cursor_size || 24); color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; width: 28; horizontalAlignment: Text.AlignHCenter; height: Theme.btnHeight; verticalAlignment: Text.AlignVCenter }
+                    Rectangle {
+                        width: 28; height: Theme.btnHeight; radius: Theme.btnRadius
+                        color: csPlus.containsMouse ? Theme.bg2 : Theme.bg1; border.width: 1; border.color: Theme.bg3
+                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                        Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
+                        MouseArea { id: csPlus; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                            onClicked: { let s = (settingsPop.themeState.cursor_size || 24) + 4; if (s <= 48) settingsPop.runSet("cursor_size", String(s)); } }
+                    }
+                }
             }
         }
     }
