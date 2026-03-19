@@ -19,7 +19,9 @@ PanelWindow {
     exclusionMode: ExclusionMode.Ignore
 
     property string currentProfile: "unknown"
+    property string pendingProfile: ""
     property string backend: "none"
+    onCurrentProfileChanged: pendingProfile = ""
 
     onActiveChanged: {
         if (active) { ppPanel.opacity = 0; ppPanel.scale = 0.92; detect(); ppOpenAnim.start(); }
@@ -29,6 +31,7 @@ PanelWindow {
     function detect() { ppctlProc.running = true; }
 
     function setProfile(profile) {
+        pendingProfile = profile;
         if (backend === "ppctl") {
             setProc.command = ["powerprofilesctl", "set", profile];
         } else {
@@ -38,9 +41,11 @@ PanelWindow {
         }
         setProc.running = true;
         refreshTimer.restart();
+        pendingTimeout.restart();
     }
 
     Timer { id: refreshTimer; interval: 1500; onTriggered: detect() }
+    Timer { id: pendingTimeout; interval: 3000; onTriggered: ppPop.pendingProfile = "" }
 
     Process {
         id: ppctlProc; command: ["powerprofilesctl", "get"]; running: false
@@ -112,14 +117,28 @@ PanelWindow {
                     id: ppBtn; required property var modelData; required property int index
                     Layout.fillWidth: true; height: 38; radius: Theme.hoverRadius
                     property bool isCur: ppPop.currentProfile === modelData.name
+                    property bool isPending: ppPop.pendingProfile === modelData.name && !isCur
                     color: "transparent"
 
                     // Selection highlight with animated transition
                     Rectangle {
                         anchors.fill: parent; radius: parent.radius
                         color: ppBtn.isCur ? Theme.bg2 : Theme.bg2
-                        opacity: ppBtn.isCur ? 0.8 : (ppBtnA.pressed ? 0.9 : (ppBtnA.containsMouse ? 0.6 : 0))
+                        opacity: ppBtn.isCur ? 0.8 : (ppBtn.isPending ? 0.5 : (ppBtnA.pressed ? 0.9 : (ppBtnA.containsMouse ? 0.6 : 0)))
                         Behavior on opacity { NumberAnimation { duration: Theme.animSpring; easing.type: Easing.OutCubic } }
+                    }
+
+                    // Pulsing border while profile switch is in progress
+                    Rectangle {
+                        id: pendingIndicator
+                        anchors.fill: parent; radius: parent.radius
+                        color: "transparent"; border.width: 1; border.color: Theme.blueBright
+                        visible: ppBtn.isPending; opacity: 0
+                        SequentialAnimation {
+                            running: ppBtn.isPending; loops: Animation.Infinite
+                            NumberAnimation { target: pendingIndicator; property: "opacity"; to: 1.0; duration: 600; easing.type: Easing.InOutCubic }
+                            NumberAnimation { target: pendingIndicator; property: "opacity"; to: 0.3; duration: 600; easing.type: Easing.InOutCubic }
+                        }
                     }
 
                     // Animated selection border
@@ -132,11 +151,11 @@ PanelWindow {
 
                     RowLayout { anchors.fill: parent; anchors.leftMargin: Theme.listItemPadding; anchors.rightMargin: Theme.listItemPadding; spacing: 8
                         Text { text: ppBtn.modelData.icon
-                            color: ppBtn.isCur ? Theme.blueBright : Theme.fg
+                            color: (ppBtn.isCur || ppBtn.isPending) ? Theme.blueBright : Theme.fg
                             Behavior on color { ColorAnimation { duration: Theme.animSpring } }
                             font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize }
                         ColumnLayout { spacing: 0; Layout.fillWidth: true
-                            Text { text: ppBtn.modelData.label; color: ppBtn.isCur ? Theme.fg : Theme.fg2; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: ppBtn.isCur }
+                            Text { text: ppBtn.modelData.label; color: (ppBtn.isCur || ppBtn.isPending) ? Theme.fg : Theme.fg2; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: ppBtn.isCur }
                             Text { text: ppBtn.modelData.desc; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
                         }
                     }
