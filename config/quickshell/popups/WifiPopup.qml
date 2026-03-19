@@ -212,6 +212,7 @@ PanelWindow {
                 'echo "GW|$(nmcli -t -f IP4.GATEWAY con show id "$1" 2>/dev/null | head -1 | cut -d: -f2)"; ' +
                 'echo "DNS|$(nmcli -t -f IP4.DNS con show id "$1" 2>/dev/null | head -1 | cut -d: -f2)"; ' +
                 'freq=$(nmcli -t -f IN-USE,FREQ dev wifi list 2>/dev/null | grep "^\\*" | head -1 | cut -d: -f2); ' +
+                'freq=$(echo "$freq" | tr -dc "0-9"); ' +
                 'if [ -n "$freq" ]; then ' +
                 '  if [ "$freq" -lt 3000 ] 2>/dev/null; then freq="$freq MHz (2.4 GHz)"; ' +
                 '  elif [ "$freq" -lt 6000 ] 2>/dev/null; then freq="$freq MHz (5 GHz)"; ' +
@@ -500,6 +501,7 @@ PanelWindow {
             "fi; " +
             "if [ -z \"$freq\" ]; then " +
             "  freq=$(nmcli -t -f IN-USE,FREQ dev wifi list ifname \"$iface\" 2>/dev/null | grep '^\\*' | head -1 | cut -d: -f2); " +
+            "  [ -n \"$freq\" ] && freq=$(echo \"$freq\" | tr -dc \"0-9\"); " +
             "fi; " +
             "if [ -z \"$rate\" ]; then " +
             "  rate=$(nmcli -f WIFI.BITRATE dev show \"$iface\" 2>/dev/null | awk '{gsub(/[^0-9.]/, \"\"); print}' | head -1); " +
@@ -1204,7 +1206,7 @@ PanelWindow {
 
                 // Action buttons
                 ColumnLayout {
-                    Layout.fillWidth: true; spacing: 6
+                    Layout.fillWidth: true; spacing: 6; Layout.topMargin: -2
 
                     // Connect button (not connected)
                     Rectangle {
@@ -1691,36 +1693,36 @@ PanelWindow {
 
                             Rectangle {
                                 property bool isCurrent: wifiPop.diagDnsServer === wifiPop.diagGateway || wifiPop.diagDnsServer === "--"
-                                width: dnsAutoLabel.implicitWidth + 10; height: 20; radius: 3
-                                color: isCurrent ? Theme.accent : (dnsAutoA.containsMouse ? Theme.bg2 : "transparent")
+                                width: dnsAutoLabel.implicitWidth + 16; height: 24; radius: Theme.btnRadius
+                                color: isCurrent ? Theme.accent : (dnsAutoA.containsMouse ? Theme.bg2 : Theme.bg1)
                                 Behavior on color { ColorAnimation { duration: Theme.animHover } }
                                 border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
                                 Text { id: dnsAutoLabel; anchors.centerIn: parent; text: "Router"
-                                    color: isCurrent ? Theme.bg : Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 2 }
+                                    color: isCurrent ? Theme.bg : Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
                                 MouseArea { id: dnsAutoA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
                                     onClicked: wifiPop.switchDns("auto") }
                             }
 
                             Rectangle {
                                 property bool isCurrent: wifiPop.diagDnsServer === "8.8.8.8"
-                                width: dnsGoogleLabel.implicitWidth + 10; height: 20; radius: 3
-                                color: isCurrent ? Theme.accent : (dnsGoogleA.containsMouse ? Theme.bg2 : "transparent")
+                                width: dnsGoogleLabel.implicitWidth + 16; height: 24; radius: Theme.btnRadius
+                                color: isCurrent ? Theme.accent : (dnsGoogleA.containsMouse ? Theme.bg2 : Theme.bg1)
                                 Behavior on color { ColorAnimation { duration: Theme.animHover } }
                                 border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
                                 Text { id: dnsGoogleLabel; anchors.centerIn: parent; text: "Google"
-                                    color: isCurrent ? Theme.bg : Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 2 }
+                                    color: isCurrent ? Theme.bg : Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
                                 MouseArea { id: dnsGoogleA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
                                     onClicked: wifiPop.switchDns("8.8.8.8") }
                             }
 
                             Rectangle {
                                 property bool isCurrent: wifiPop.diagDnsServer === "1.1.1.1"
-                                width: dnsCfLabel.implicitWidth + 10; height: 20; radius: 3
-                                color: isCurrent ? Theme.accent : (dnsCfA.containsMouse ? Theme.bg2 : "transparent")
+                                width: dnsCfLabel.implicitWidth + 16; height: 24; radius: Theme.btnRadius
+                                color: isCurrent ? Theme.accent : (dnsCfA.containsMouse ? Theme.bg2 : Theme.bg1)
                                 Behavior on color { ColorAnimation { duration: Theme.animHover } }
                                 border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
                                 Text { id: dnsCfLabel; anchors.centerIn: parent; text: "Cloudflare"
-                                    color: isCurrent ? Theme.bg : Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 2 }
+                                    color: isCurrent ? Theme.bg : Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
                                 MouseArea { id: dnsCfA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
                                     onClicked: wifiPop.switchDns("1.1.1.1") }
                             }
@@ -1871,13 +1873,57 @@ PanelWindow {
 
                 Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
 
+                // ── Skeleton loading ──
+                Column {
+                    visible: channelScanProc.running
+                    Layout.fillWidth: true
+                    spacing: 0
+
+                    Repeater {
+                        model: ListModel {
+                            ListElement { skelWidth: 120 }
+                            ListElement { skelWidth: 150 }
+                            ListElement { skelWidth: 100 }
+                            ListElement { skelWidth: 140 }
+                            ListElement { skelWidth: 110 }
+                        }
+                        delegate: Item {
+                            required property int skelWidth
+                            required property int index
+                            width: parent.width; height: 52
+                            ColumnLayout {
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.left: parent.left; anchors.right: parent.right
+                                anchors.leftMargin: 8; anchors.rightMargin: 8
+                                spacing: 6
+
+                                RowLayout { spacing: 6
+                                    Rectangle { width: 36; height: 10; radius: 5; color: Theme.bg3 }
+                                    Rectangle { width: 40; height: 10; radius: 5; color: Theme.bg3 }
+                                    Item { Layout.fillWidth: true }
+                                    Rectangle { width: 65; height: 10; radius: 5; color: Theme.bg3 }
+                                }
+                                Rectangle { width: skelWidth; height: 8; radius: 4; color: Theme.bg3 }
+                            }
+
+                            SequentialAnimation on opacity {
+                                loops: Animation.Infinite
+                                PauseAnimation { duration: index * 120 }
+                                NumberAnimation { from: 0.4; to: 0.8; duration: 800; easing.type: Easing.InOutQuad }
+                                NumberAnimation { from: 0.8; to: 0.4; duration: 800; easing.type: Easing.InOutQuad }
+                            }
+                        }
+                    }
+                }
+
                 Flickable {
+                    visible: !channelScanProc.running
                     Layout.fillWidth: true; Layout.preferredHeight: Math.min(channelCol.implicitHeight, 300)
                     Layout.maximumHeight: 300
                     contentHeight: channelCol.implicitHeight; clip: true; boundsBehavior: Flickable.StopAtBounds
 
                     ColumnLayout {
-                        id: channelCol; width: parent.width; spacing: 4
+                        id: channelCol; width: parent.width; spacing: 8
 
                         Repeater {
                             model: channelModel
@@ -1888,13 +1934,13 @@ PanelWindow {
                                 required property int count
                                 required property bool isOurs
                                 Layout.fillWidth: true
-                                height: chanItemCol.implicitHeight + 12; radius: Theme.hoverRadius
+                                height: chanItemCol.implicitHeight + 16; radius: Theme.hoverRadius
                                 color: isOurs ? Qt.rgba(Theme.blueBright.r, Theme.blueBright.g, Theme.blueBright.b, 0.1) : "transparent"
                                 border.width: isOurs ? 1 : 0; border.color: Theme.blueBright
 
                                 ColumnLayout {
                                     id: chanItemCol
-                                    anchors.fill: parent; anchors.margins: 6; spacing: 2
+                                    anchors.fill: parent; anchors.margins: 8; spacing: 3
 
                                     RowLayout { spacing: 6
                                         Text {
@@ -1941,7 +1987,7 @@ PanelWindow {
                         return "";
                     }
                     color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
-                    wrapMode: Text.WordWrap; Layout.fillWidth: true
+                    wrapMode: Text.WordWrap; Layout.fillWidth: true; Layout.topMargin: 2
                 }
             }
         }
