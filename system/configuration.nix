@@ -5,19 +5,22 @@ let
     themeConfig.General = {
       backgroundMode = "fill";
       basicTextColor = "#ebdbb2";
+      # Password field
       passwordCharacter = "*";
-      passwordFontSize = 96;
+      passwordFontSize = 36;
       passwordInputBackground = "#3c3836";
       passwordInputRadius = 8;
-      passwordInputWidth = 0.4;
+      passwordInputWidth = 0.25;
       passwordCursorColor = "#ebdbb2";
       passwordMask = true;
       passwordInputCursorVisible = true;
-      showSessionsByDefault = false;
+      # User label
       showUsersByDefault = true;
       showUserRealNameByDefault = true;
-      usersFontSize = 48;
-      sessionsFontSize = 24;
+      usersFontSize = 24;
+      # Session label
+      showSessionsByDefault = false;
+      sessionsFontSize = 16;
     };
   };
 in
