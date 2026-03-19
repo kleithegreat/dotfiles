@@ -12,7 +12,18 @@ return {
             require("gruvbox").setup({
                 transparent_mode = false,  -- Set to true if you want a transparent background
             })
-            vim.cmd([[colorscheme gruvbox]])  -- Actually set the colorscheme
+            local ok, state = pcall(function()
+                local f = io.open(vim.fn.stdpath("config") .. "/lua/theme-state.json", "r")
+                if not f then return nil end
+                local data = f:read("*a"); f:close()
+                return vim.json.decode(data)
+            end)
+            if ok and state then
+                vim.o.background = state.background
+                vim.cmd.colorscheme(state.colorscheme)
+            else
+                vim.cmd.colorscheme("gruvbox")  -- fallback
+            end
         end,
     },
 
