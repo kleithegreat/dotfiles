@@ -25,7 +25,6 @@ PanelWindow {
     property var wallpapers: []
     property string currentFamily: ""
     property string currentVariant: ""
-    property string scriptsDir: ""
 
     onActiveChanged: {
         if (active) { panel.opacity = 0; panel.scale = 0.92; loadState(); settingsOpenAnim.start(); }
@@ -38,38 +37,30 @@ PanelWindow {
         listColorsProc.running = true;
         listPresetsProc.running = true;
         listWallpapersProc.running = true;
-        scriptsDirProc.running = true;
     }
 
     Process {
-        id: stateProc; command: ["bash", "-c", "cat ${DOTFILES:-$HOME/dotfiles}/themes/state.json"]; running: false
+        id: stateProc; command: ["cat", "/home/kevin/repos/dotfiles/themes/state.json"]; running: false
         property string buf: ""
         stdout: SplitParser { onRead: (line) => { stateProc.buf += line; } }
         onExited: {
             try {
                 settingsPop.themeState = JSON.parse(buf);
-                // Load family/variant from color scheme
                 familyProc.running = true;
             } catch(e) {}
             buf = "";
         }
     }
 
-    // Get scripts dir from DOTFILES env or default
-    Process {
-        id: scriptsDirProc; command: ["bash", "-c", "echo ${DOTFILES:-$HOME/dotfiles}/scripts"]; running: false
-        stdout: SplitParser { onRead: (line) => { settingsPop.scriptsDir = line.trim(); } }
-    }
-
     Process {
         id: familyProc; running: false
-        command: ["bash", "-c", "F=${DOTFILES:-$HOME/dotfiles}/themes/colors/" + (themeState.color_scheme || "gruvbox-dark") + ".json; jq -r '.family + \"/\" + .variant' \"$F\""]
+        command: ["bash", "-c", "jq -r '.family + \"/\" + .variant' /home/kevin/repos/dotfiles/themes/colors/" + (themeState.color_scheme || "gruvbox-dark") + ".json"]
         stdout: SplitParser { onRead: (line) => { let p = line.trim().split("/"); settingsPop.currentFamily = p[0] || ""; settingsPop.currentVariant = p[1] || ""; } }
     }
 
     Process {
         id: listColorsProc; running: false
-        command: ["bash", "-c", "for f in ${DOTFILES:-$HOME/dotfiles}/themes/colors/*.json; do echo $(basename $f .json); done"]
+        command: ["bash", "-c", "for f in /home/kevin/repos/dotfiles/themes/colors/*.json; do basename \"$f\" .json; done"]
         property var items: []
         stdout: SplitParser { onRead: (line) => { listColorsProc.items.push(line.trim()); } }
         onExited: { settingsPop.colorSchemes = items; items = []; }
@@ -77,7 +68,7 @@ PanelWindow {
 
     Process {
         id: listPresetsProc; running: false
-        command: ["bash", "-c", "for f in ${DOTFILES:-$HOME/dotfiles}/themes/presets/*.json; do echo $(basename $f .json); done"]
+        command: ["bash", "-c", "for f in /home/kevin/repos/dotfiles/themes/presets/*.json; do basename \"$f\" .json; done"]
         property var items: []
         stdout: SplitParser { onRead: (line) => { listPresetsProc.items.push(line.trim()); } }
         onExited: { settingsPop.presets = items; items = []; }
@@ -95,20 +86,19 @@ PanelWindow {
     Process { id: applyProc; running: false }
 
     function runSet(key, value) {
-        applyProc.command = [scriptsDir + "/set-theme.sh", key, value];
+        applyProc.command = ["/home/kevin/repos/dotfiles/themes/apply-theme", "set", key, value];
         applyProc.running = true;
-        // Reload state after a short delay (configs regenerate)
         reloadTimer.restart();
     }
 
     function runPreset(name) {
-        applyProc.command = [scriptsDir + "/set-theme.sh", "preset", name];
+        applyProc.command = ["/home/kevin/repos/dotfiles/themes/apply-theme", "preset", name];
         applyProc.running = true;
         reloadTimer.restart();
     }
 
     function runVariant(v) {
-        applyProc.command = [scriptsDir + "/set-theme.sh", "variant", v];
+        applyProc.command = ["/home/kevin/repos/dotfiles/themes/apply-theme", "set", "color_scheme", currentFamily + "-" + v];
         applyProc.running = true;
         reloadTimer.restart();
     }
@@ -249,7 +239,7 @@ PanelWindow {
                     Repeater { model: ["JetBrains Mono Nerd Font", "Berkeley Mono", "Recursive Mono", "Fira Code Nerd Font", "Iosevka Nerd Font"]
                         Rectangle {
                             required property string modelData
-                            property bool isCurrent: settingsPop.themeState.coding_font === modelData
+                            property bool isCurrent: settingsPop.themeState.mono_font === modelData
                             width: cfLabel.implicitWidth + 14; height: 24; radius: Theme.btnRadius
                             color: isCurrent ? Theme.accent : (cfArea.containsMouse ? Theme.bg2 : Theme.bg1)
                             Behavior on color { ColorAnimation { duration: Theme.animHover } }
@@ -260,7 +250,7 @@ PanelWindow {
                             transformOrigin: Item.Center
                             Text { id: cfLabel; anchors.centerIn: parent; text: modelData.replace(" Nerd Font", ""); color: isCurrent ? Theme.bg : Theme.fg; font.family: Theme.fontFamily; font.pixelSize: 10
                                 Behavior on color { ColorAnimation { duration: Theme.animHover } } }
-                            MouseArea { id: cfArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: settingsPop.runSet("coding_font", modelData) }
+                            MouseArea { id: cfArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: settingsPop.runSet("mono_font", modelData) }
                         }
                     }
                 }
