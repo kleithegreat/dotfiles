@@ -121,7 +121,10 @@ in
     enable = true;
     wayland.enable = true;
     theme = "where_is_my_sddm_theme";
-    extraPackages = [ sddm-theme ];
+    extraPackages = [
+      sddm-theme
+      pkgs.kdePackages.qt5compat
+    ];
   };
 
   # ── UPower (battery info for Quickshell) ────────────────────
