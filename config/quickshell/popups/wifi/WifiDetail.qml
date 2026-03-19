@@ -49,7 +49,7 @@ ColumnLayout {
     // Detail fields (connected only)
     Rectangle {
         visible: root.targetIsConnected
-            Layout.fillWidth: true; height: detailGrid.implicitHeight + 16; radius: Theme.btnRadius; color: Theme.bg2
+            Layout.fillWidth: true; implicitHeight: detailGrid.implicitHeight + 16; radius: Theme.btnRadius; color: Theme.bg2
 
         GridLayout {
             id: detailGrid; anchors.fill: parent; anchors.margins: 8
