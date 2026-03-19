@@ -1,4 +1,4 @@
-{ config, pkgs, dotfilesPath, hostName, hyprland, vicinae, snappy-switcher, ... }:
+{ config, pkgs, lib, dotfilesPath, hostName, hyprland, vicinae, snappy-switcher, ... }:
 
 let
   snappy-switcher-pkg = snappy-switcher.packages.${pkgs.system}.default;
@@ -160,7 +160,6 @@ in
   xdg.configFile."hypr/hyprland.conf".source = "${dotfilesPath}/config/hypr/hyprland.conf";
   xdg.configFile."hypr/appearance.conf".source = "${dotfilesPath}/config/hypr/appearance.conf";
   xdg.configFile."hypr/autostart.conf".source = "${dotfilesPath}/config/hypr/autostart.conf";
-  xdg.configFile."hypr/colors.conf".source = "${dotfilesPath}/config/hypr/colors.conf";
   xdg.configFile."hypr/input.conf".source = "${dotfilesPath}/config/hypr/input.conf";
   xdg.configFile."hypr/keybinds.conf".source = "${dotfilesPath}/config/hypr/keybinds.conf";
   xdg.configFile."hypr/rules.conf".source = "${dotfilesPath}/config/hypr/rules.conf";
@@ -200,16 +199,9 @@ in
   };
 
   xdg.configFile."alacritty/alacritty.toml".source = "${dotfilesPath}/config/alacritty/alacritty.toml";
-  xdg.configFile."ghostty/config".source = "${dotfilesPath}/config/ghostty/config";
-  xdg.configFile."starship.toml".source = "${dotfilesPath}/config/starship/starship.toml";
   xdg.configFile."tmux/tmux.conf".source = "${dotfilesPath}/config/tmux/tmux.conf";
   xdg.configFile."git/ignore".source = "${dotfilesPath}/config/git/ignore";
   xdg.configFile."zathura/zathurarc".source = "${dotfilesPath}/config/zathura/zathurarc";
-  xdg.configFile."vicinae" = {
-    source = "${dotfilesPath}/config/vicinae";
-    recursive = true;
-  };
-
   # ── Snappy-switcher (alt-tab window switcher) ──────────────
   xdg.configFile."snappy-switcher/config.ini".source = "${dotfilesPath}/config/snappy-switcher/config.ini";
   xdg.configFile."snappy-switcher/themes".source = "${snappy-switcher-pkg}/share/snappy-switcher/themes";
@@ -268,6 +260,12 @@ in
 
   # ── Vicinae (app launcher) ──────────────────────────────────
   services.vicinae.enable = true;
+
+  # ── Theme activation ────────────────────────────────────────
+  home.activation.applyTheme = lib.hm.dag.entryAfter ["writeBoundary"] ''
+    PATH="${lib.makeBinPath [pkgs.python3 pkgs.glib pkgs.swww pkgs.hyprland]}:$PATH"
+    ${dotfilesPath}/themes/apply-theme all 2>&1 | head -50 || true
+  '';
 
   programs.home-manager.enable = true;
   home.stateVersion = "25.05";
