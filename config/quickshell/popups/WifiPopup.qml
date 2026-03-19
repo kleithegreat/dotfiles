@@ -21,7 +21,7 @@ PanelWindow {
     ListModel { id: netModel }
     ListModel { id: knownModel }
 
-    property string popupState: "list"   // list | detail | password | enterprise | connecting | diagnostics
+    property string popupState: "list"   // list | detail | password | enterprise | connecting | diagnostics | channels
     property string targetSsid: ""
     property string targetSecurity: ""
     property int    targetSignal: 0
@@ -59,6 +59,18 @@ PanelWindow {
     property string _bloatBase: ""
     property string _bloatLoad: ""
     property string diagWifiStandard: ""
+
+    // ── Captive portal state ──
+    property string connectivityState: ""  // "full", "portal", "limited", "none", "unknown"
+    property bool isCaptivePortal: connectivityState === "portal" || connectivityState === "limited"
+
+    // ── Channel scanner state ──
+    property string currentChannel: ""
+    property string currentBand: ""
+    ListModel { id: channelModel }
+
+    // ── Export state ──
+    property bool exportCopied: false
 
     // Sparkline history arrays (last 30 samples)
     property var histSignal: []
@@ -104,7 +116,7 @@ PanelWindow {
         diagLoading = false; speedTestRunning = false;
     }
 
-    function scan() { netModel.clear(); connectedSsid = ""; scanProc.running = true; }
+    function scan() { netModel.clear(); connectedSsid = ""; scanProc.running = true; connectivityProc.running = true; }
     function loadKnown() { knownModel.clear(); knownProc.running = true; }
 
     function isKnown(ssid) {
@@ -251,6 +263,131 @@ PanelWindow {
         if (isNaN(v)) return Theme.fg4;
         if (v === 0) return Theme.greenBright;
         if (v <= 2) return Theme.yellowBright;
+        return Theme.redBright;
+    }
+
+    function startChannelScan() {
+        channelModel.clear();
+        currentChannel = ""; currentBand = "";
+        popupState = "channels";
+        channelScanProc.running = true;
+    }
+
+    function switchDns(server) {
+        if (connectedSsid === "") return;
+        if (server === "auto") {
+            dnsSwitchProc.command = ["nmcli", "con", "mod", connectedSsid, "ipv4.dns", "", "ipv4.ignore-auto-dns", "no"];
+        } else {
+            dnsSwitchProc.command = ["nmcli", "con", "mod", connectedSsid, "ipv4.dns", server, "ipv4.ignore-auto-dns", "yes"];
+        }
+        dnsSwitchProc.running = true;
+    }
+
+    function exportReport() {
+        let colorLabel = function(val, goodThresh, warnThresh, isLower) {
+            let v = parseFloat(val);
+            if (isNaN(v)) return "\u26AA";
+            if (isLower) return v <= goodThresh ? "\uD83D\uDFE2" : (v <= warnThresh ? "\uD83D\uDFE1" : "\uD83D\uDD34");
+            return v >= goodThresh ? "\uD83D\uDFE2" : (v >= warnThresh ? "\uD83D\uDFE1" : "\uD83D\uDD34");
+        };
+
+        let report = "WHYFI DIAGNOSTIC REPORT\n";
+        report += "Generated: " + Qt.formatDateTime(new Date(), "yyyy-MM-dd hh:mm:ss") + "\n\n";
+        report += "Legend: \uD83D\uDFE2 Good  \uD83D\uDFE1 Warning  \uD83D\uDD34 Poor\n\n";
+
+        report += "NETWORK\n";
+        report += "  SSID: " + connectedSsid + "\n";
+        report += "  Band: " + (diagBand || "--") + "\n";
+        report += "  Standard: " + (diagWifiStandard || "--") + "\n";
+        report += "  Channel: " + (currentChannel || "--") + "\n\n";
+
+        report += "SIGNAL\n";
+        report += "  " + colorLabel(diagSignal, -50, -70, false) + " Signal: " + (diagSignal !== "" && diagSignal !== "--" ? diagSignal + " dBm" : "--") + "\n";
+        report += "  Noise: " + (diagNoise !== "" && diagNoise !== "--" ? diagNoise + " dBm" : "--") + "\n";
+        report += "  Link Rate: " + (diagLinkRate !== "" && diagLinkRate !== "--" ? diagLinkRate + " Mbps" : "--") + "\n\n";
+
+        report += "ROUTER \u00B7 " + (diagGateway || "--") + "\n";
+        report += "  " + colorLabel(diagGwPing, 10, 50, true) + " Ping: " + (diagGwPing !== "" && diagGwPing !== "--" ? diagGwPing + " ms" : "--") + "\n";
+        report += "  " + colorLabel(diagGwJitter, 5, 20, true) + " Jitter: " + (diagGwJitter !== "" && diagGwJitter !== "--" ? diagGwJitter + " ms" : "--") + "\n";
+        report += "  " + colorLabel(diagGwLoss, 0, 2, true) + " Loss: " + (diagGwLoss !== "" && diagGwLoss !== "--" ? diagGwLoss + "%" : "--") + "\n\n";
+
+        report += "INTERNET \u00B7 1.1.1.1\n";
+        report += "  " + colorLabel(diagNetPing, 20, 50, true) + " Ping: " + (diagNetPing !== "" && diagNetPing !== "--" ? diagNetPing + " ms" : "--") + "\n";
+        report += "  " + colorLabel(diagNetJitter, 10, 30, true) + " Jitter: " + (diagNetJitter !== "" && diagNetJitter !== "--" ? diagNetJitter + " ms" : "--") + "\n";
+        report += "  " + colorLabel(diagNetLoss, 0, 2, true) + " Loss: " + (diagNetLoss !== "" && diagNetLoss !== "--" ? diagNetLoss + "%" : "--") + "\n\n";
+
+        report += "DNS \u00B7 " + (diagDnsServer || "--") + "\n";
+        report += "  " + colorLabel(diagDnsTime, 30, 100, true) + " Lookup: " + (diagDnsTime !== "" && diagDnsTime !== "--" ? diagDnsTime + " ms" : "--") + "\n\n";
+
+        if (diagDownload !== "") {
+            report += "SPEED TEST\n";
+            report += "  Download: " + diagDownload + " Mbps\n";
+            report += "  Upload: " + diagUpload + " Mbps\n";
+            if (diagBufferbloat !== "") {
+                report += "  " + (diagBufferbloatOk ? "\uD83D\uDFE2" : "\uD83D\uDD34") + " " + diagBufferbloat + "\n";
+            }
+            report += "\n";
+        }
+
+        report += "Paste this into ChatGPT or Claude for help diagnosing issues.";
+
+        exportProc.command = ["bash", "-c", "printf '%s' \"$1\" | wl-copy", "--", report];
+        exportProc.running = true;
+    }
+
+    function qualityScore() {
+        let score = 100;
+        let hasData = false;
+
+        let sig = parseInt(diagSignal);
+        if (!isNaN(sig)) {
+            hasData = true;
+            let sigScore = Math.max(0, Math.min(100, ((sig + 90) / 60) * 100));
+            score = Math.min(score, sigScore);
+        }
+
+        let gwP = parseFloat(diagGwPing);
+        if (!isNaN(gwP)) {
+            hasData = true;
+            let pingScore = Math.max(0, Math.min(100, 100 - gwP));
+            score = Math.min(score, pingScore);
+        }
+
+        let netP = parseFloat(diagNetPing);
+        if (!isNaN(netP)) {
+            hasData = true;
+            let netScore = Math.max(0, Math.min(100, 100 - (netP / 2)));
+            score = Math.min(score, netScore);
+        }
+
+        let gwL = parseFloat(diagGwLoss);
+        if (!isNaN(gwL) && gwL > 0) {
+            hasData = true;
+            score = Math.min(score, Math.max(0, 100 - gwL * 20));
+        }
+        let netL = parseFloat(diagNetLoss);
+        if (!isNaN(netL) && netL > 0) {
+            hasData = true;
+            score = Math.min(score, Math.max(0, 100 - netL * 15));
+        }
+
+        return hasData ? Math.round(score) : -1;
+    }
+
+    function qualityLabel(score) {
+        if (score < 0) return "";
+        if (score >= 80) return "Excellent";
+        if (score >= 60) return "Good";
+        if (score >= 40) return "Fair";
+        if (score >= 20) return "Poor";
+        return "Very Poor";
+    }
+
+    function qualityColor(score) {
+        if (score < 0) return Theme.fg4;
+        if (score >= 80) return Theme.greenBright;
+        if (score >= 60) return Theme.aquaBright;
+        if (score >= 40) return Theme.yellowBright;
         return Theme.redBright;
     }
 
@@ -580,6 +717,106 @@ PanelWindow {
         onExited: { wifiPop.speedTestRunning = false; }
     }
 
+    // ── Captive portal processes ────────────────────────────────
+    Process {
+        id: connectivityProc; running: false
+        command: ["nmcli", "networking", "connectivity", "check"]
+        stdout: SplitParser { onRead: (line) => {
+            wifiPop.connectivityState = line.trim();
+        }}
+    }
+
+    Process {
+        id: captiveOpenProc; running: false
+        command: ["bash", "-c",
+            "if command -v captive-browser &>/dev/null; then " +
+            "  captive-browser; " +
+            "else " +
+            "  xdg-open 'http://detectportal.firefox.com/canonical.html'; " +
+            "fi"
+        ]
+    }
+
+    // ── Channel scanner process ─────────────────────────────────
+    Process {
+        id: channelScanProc; running: false
+        property var _chanMap: ({})
+        command: ["bash", "-c",
+            "iface=$(nmcli -t -f DEVICE,TYPE dev | grep ':wifi' | head -1 | cut -d: -f1); " +
+            "nmcli -t -f SSID,CHAN,FREQ,SIGNAL,IN-USE dev wifi list ifname \"$iface\" --rescan yes"
+        ]
+        stdout: SplitParser { onRead: (line) => {
+            let p = wifiPop.parseNmcli(line);
+            if (p.length < 5) return;
+            let ssid = p[0] || "(hidden)";
+            let chan = p[1];
+            let freq = parseInt(p[2]) || 0;
+            let sig = p[3];
+            let inUse = p[4] === "*";
+            let band = freq < 3000 ? "2.4" : (freq < 6000 ? "5" : "6");
+
+            if (inUse) { wifiPop.currentChannel = chan; wifiPop.currentBand = band; }
+
+            let key = chan + "-" + band;
+            if (!channelScanProc._chanMap[key]) {
+                channelScanProc._chanMap[key] = { channel: parseInt(chan) || 0, band: band, networks: [], isOurs: false };
+            }
+            channelScanProc._chanMap[key].networks.push(ssid + " (" + sig + "%)");
+            if (inUse) channelScanProc._chanMap[key].isOurs = true;
+        }}
+        onExited: {
+            let map = _chanMap;
+            let keys = Object.keys(map).sort((a, b) => map[a].channel - map[b].channel);
+            for (let k of keys) {
+                let entry = map[k];
+                channelModel.append({
+                    channel: entry.channel,
+                    band: entry.band,
+                    networks: entry.networks.join(", "),
+                    count: entry.networks.length,
+                    isOurs: entry.isOurs
+                });
+            }
+            _chanMap = {};
+        }
+    }
+
+    // ── DNS switching processes ──────────────────────────────────
+    Process {
+        id: dnsSwitchProc; running: false
+        onExited: (code, status) => {
+            if (code === 0) {
+                dnsReconnectProc.command = ["nmcli", "con", "up", wifiPop.connectedSsid];
+                dnsReconnectProc.running = true;
+            } else {
+                console.log("[dns-switch] failed, exit", code);
+            }
+        }
+    }
+
+    Process {
+        id: dnsReconnectProc; running: false
+        onExited: {
+            dnsProc.running = true;
+        }
+    }
+
+    // ── Export process ──────────────────────────────────────────
+    Process {
+        id: exportProc; running: false
+        onExited: (code, status) => {
+            if (code === 0) {
+                wifiPop.exportCopied = true;
+                exportResetTimer.start();
+            }
+        }
+    }
+
+    Timer {
+        id: exportResetTimer; interval: 2000
+        onTriggered: wifiPop.exportCopied = false
+    }
+
     // ── Diagnostics polling timer ─────────────────────────────
     Timer {
         id: diagTimer; interval: 2000; repeat: true
@@ -672,6 +909,7 @@ PanelWindow {
                         if (wifiPop.popupState === "enterprise")  return "󱄤  Sign In";
                         if (wifiPop.popupState === "connecting")  return "󰖩  Connecting…";
                         if (wifiPop.popupState === "diagnostics") return "󰖩  Diagnostics";
+                        if (wifiPop.popupState === "channels")    return "󰐻  Channels";
                         return "󰖩  Wi-Fi";
                     }
                     color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true
@@ -679,7 +917,7 @@ PanelWindow {
                 }
                 // Back button
                 Rectangle {
-                    visible: wifiPop.popupState === "detail" || wifiPop.popupState === "password" || wifiPop.popupState === "enterprise" || wifiPop.popupState === "diagnostics"
+                    visible: wifiPop.popupState !== "list" && wifiPop.popupState !== "connecting"
                     width: backLabel.implicitWidth + Theme.btnPaddingH * 2; height: Theme.btnHeight; radius: Theme.btnRadius
                     color: "transparent"
                     Rectangle {
@@ -694,7 +932,10 @@ PanelWindow {
                         Behavior on color { ColorAnimation { duration: Theme.animHover } }
                         font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
                     MouseArea { id: backA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                        onClicked: wifiPop.resetState() }
+                        onClicked: {
+                            if (wifiPop.popupState === "channels") wifiPop.popupState = "diagnostics";
+                            else wifiPop.resetState();
+                        } }
                 }
                 // Rescan button (list only)
                 Rectangle {
@@ -749,6 +990,45 @@ PanelWindow {
 
                     Column {
                         id: netCol; width: parent.width; spacing: 2
+
+                        // ── Captive portal warning ────────────────────────
+                        Rectangle {
+                            visible: wifiPop.isCaptivePortal && wifiPop.popupState === "list"
+                            width: parent.width
+                            height: visible ? captiveCol.implicitHeight + 12 : 0
+                            radius: Theme.btnRadius
+                            color: Theme.bg2
+                            border.width: 1; border.color: Theme.yellowBright
+
+                            ColumnLayout {
+                                id: captiveCol
+                                anchors.fill: parent; anchors.margins: 8; spacing: 6
+
+                                RowLayout { spacing: 6
+                                    Text { text: "\u26A0"; font.pixelSize: Theme.iconSize; color: Theme.yellowBright }
+                                    Text { text: "Captive Portal Detected"; color: Theme.yellowBright
+                                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+                                }
+                                Text {
+                                    text: "This network requires login. Open a browser to authenticate."
+                                    color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
+                                    wrapMode: Text.WordWrap; Layout.fillWidth: true
+                                }
+                                Rectangle {
+                                    width: captiveLoginLabel.implicitWidth + Theme.btnPaddingH * 2
+                                    height: Theme.btnHeight; radius: Theme.btnRadius
+                                    color: Theme.yellowBright
+                                    scale: captiveLoginA.pressed ? 0.98 : 1.0
+                                    Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                                    transformOrigin: Item.Center
+                                    Text { id: captiveLoginLabel; anchors.centerIn: parent; text: "Open Login Page"
+                                        color: Theme.bg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+                                    MouseArea { id: captiveLoginA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                                        onClicked: captiveOpenProc.running = true }
+                                }
+                            }
+                        }
+
                         Repeater {
                             model: netModel
                             Rectangle {
@@ -1201,6 +1481,27 @@ PanelWindow {
                     ColumnLayout {
                         id: diagCol; width: parent.width; spacing: 6
 
+                        // ── Quality score ──────────────────
+                        RowLayout {
+                            visible: !wifiPop.diagLoading && wifiPop.qualityScore() >= 0
+                            Layout.fillWidth: true; spacing: 8; Layout.bottomMargin: 4
+
+                            Text {
+                                text: wifiPop.qualityScore().toString()
+                                color: wifiPop.qualityColor(wifiPop.qualityScore())
+                                font.family: Theme.fontFamily; font.pixelSize: 28; font.bold: true
+                            }
+                            ColumnLayout { spacing: 1; Layout.fillWidth: true
+                                Text {
+                                    text: wifiPop.qualityLabel(wifiPop.qualityScore())
+                                    color: wifiPop.qualityColor(wifiPop.qualityScore())
+                                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
+                                }
+                                Text { text: "Connection Quality"; color: Theme.fg4
+                                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
+                            }
+                        }
+
                         // ── Network header ──────────────────
                         RowLayout { Layout.fillWidth: true; spacing: 6
                             Text { text: wifiPop.connectedSsid; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true; Layout.fillWidth: true; elide: Text.ElideRight }
@@ -1382,6 +1683,66 @@ PanelWindow {
                                 font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 65; horizontalAlignment: Text.AlignRight }
                         }
 
+                        // DNS quick-switch buttons
+                        RowLayout {
+                            Layout.fillWidth: true; spacing: 6; Layout.topMargin: 4
+
+                            Text { text: "Switch:"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
+
+                            Rectangle {
+                                property bool isCurrent: wifiPop.diagDnsServer === wifiPop.diagGateway || wifiPop.diagDnsServer === "--"
+                                width: dnsAutoLabel.implicitWidth + 10; height: 20; radius: 3
+                                color: isCurrent ? Theme.accent : (dnsAutoA.containsMouse ? Theme.bg2 : "transparent")
+                                Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                                border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
+                                Text { id: dnsAutoLabel; anchors.centerIn: parent; text: "Router"
+                                    color: isCurrent ? Theme.bg : Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 2 }
+                                MouseArea { id: dnsAutoA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                                    onClicked: wifiPop.switchDns("auto") }
+                            }
+
+                            Rectangle {
+                                property bool isCurrent: wifiPop.diagDnsServer === "8.8.8.8"
+                                width: dnsGoogleLabel.implicitWidth + 10; height: 20; radius: 3
+                                color: isCurrent ? Theme.accent : (dnsGoogleA.containsMouse ? Theme.bg2 : "transparent")
+                                Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                                border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
+                                Text { id: dnsGoogleLabel; anchors.centerIn: parent; text: "Google"
+                                    color: isCurrent ? Theme.bg : Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 2 }
+                                MouseArea { id: dnsGoogleA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                                    onClicked: wifiPop.switchDns("8.8.8.8") }
+                            }
+
+                            Rectangle {
+                                property bool isCurrent: wifiPop.diagDnsServer === "1.1.1.1"
+                                width: dnsCfLabel.implicitWidth + 10; height: 20; radius: 3
+                                color: isCurrent ? Theme.accent : (dnsCfA.containsMouse ? Theme.bg2 : "transparent")
+                                Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                                border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
+                                Text { id: dnsCfLabel; anchors.centerIn: parent; text: "Cloudflare"
+                                    color: isCurrent ? Theme.bg : Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 2 }
+                                MouseArea { id: dnsCfA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                                    onClicked: wifiPop.switchDns("1.1.1.1") }
+                            }
+                        }
+
+                        // ── Scan Channels ─────────────────
+                        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3; Layout.topMargin: 4 }
+                        Rectangle {
+                            Layout.fillWidth: true; height: Theme.btnHeight; radius: Theme.btnRadius
+                            color: "transparent"
+                            Rectangle {
+                                anchors.fill: parent; radius: parent.radius; color: Theme.bg2
+                                opacity: chanScanA.pressed ? 0.9 : (chanScanA.containsMouse ? 0.6 : 0.3)
+                                Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                            }
+                            Text { anchors.centerIn: parent; text: "󰐻  Scan Channels"; color: chanScanA.containsMouse ? Theme.blueBright : Theme.fg4
+                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                                Behavior on color { ColorAnimation { duration: Theme.animHover } } }
+                            MouseArea { id: chanScanA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                                onClicked: wifiPop.startChannelScan() }
+                        }
+
                         // ── Speed Test section ──────────────
                         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3; Layout.topMargin: 4 }
                         Text { text: "󰓅  Speed Test"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
@@ -1453,23 +1814,134 @@ PanelWindow {
                                 onClicked: { wifiPop.speedTestRunning = true; speedTestProc.running = true; } }
                         }
 
-                        // ── Rerun diagnostics ───────────────
+                        // ── Bottom actions ──────────────────
                         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
-                        Rectangle {
-                            Layout.fillWidth: true; height: Theme.btnHeight; radius: Theme.btnRadius
-                            color: "transparent"
+                        RowLayout {
+                            Layout.fillWidth: true; spacing: 6
+
                             Rectangle {
-                                anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                                opacity: rerunA.pressed ? 0.9 : (rerunA.containsMouse ? 0.6 : 0)
-                                Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                                Layout.fillWidth: true; height: Theme.btnHeight; radius: Theme.btnRadius
+                                color: "transparent"
+                                Rectangle {
+                                    anchors.fill: parent; radius: parent.radius; color: Theme.bg2
+                                    opacity: exportA.pressed ? 0.9 : (exportA.containsMouse ? 0.6 : 0)
+                                    Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                                }
+                                Text { anchors.centerIn: parent; text: wifiPop.exportCopied ? "\u2713 Copied" : "󰋼  Export Report"
+                                    color: wifiPop.exportCopied ? Theme.greenBright : (exportA.containsMouse ? Theme.blueBright : Theme.fg4)
+                                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                                    Behavior on color { ColorAnimation { duration: Theme.animHover } } }
+                                MouseArea { id: exportA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                                    onClicked: wifiPop.exportReport() }
                             }
-                            Text { anchors.centerIn: parent; text: "↻ Rerun"; color: rerunA.containsMouse ? Theme.blueBright : Theme.fg4
-                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                                Behavior on color { ColorAnimation { duration: Theme.animHover } } }
-                            MouseArea { id: rerunA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                                onClicked: wifiPop.startDiagnostics() }
+
+                            Rectangle {
+                                Layout.fillWidth: true; height: Theme.btnHeight; radius: Theme.btnRadius
+                                color: "transparent"
+                                Rectangle {
+                                    anchors.fill: parent; radius: parent.radius; color: Theme.bg2
+                                    opacity: rerunA.pressed ? 0.9 : (rerunA.containsMouse ? 0.6 : 0)
+                                    Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                                }
+                                Text { anchors.centerIn: parent; text: "\u21BB Rerun"; color: rerunA.containsMouse ? Theme.blueBright : Theme.fg4
+                                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                                    Behavior on color { ColorAnimation { duration: Theme.animHover } } }
+                                MouseArea { id: rerunA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                                    onClicked: wifiPop.startDiagnostics() }
+                            }
                         }
                     }
+                }
+            }
+
+            // ══════════════════════════════════════════════════
+            // ── CHANNELS STATE ────────────────────────────────
+            // ══════════════════════════════════════════════════
+            ColumnLayout {
+                visible: wifiPop.popupState === "channels"
+                opacity: wifiPop.popupState === "channels" ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
+                Layout.fillWidth: true; spacing: 8
+
+                Text {
+                    visible: wifiPop.currentChannel !== ""
+                    text: "You're on channel " + wifiPop.currentChannel + " (" + wifiPop.currentBand + " GHz)"
+                    color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                }
+
+                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+
+                Flickable {
+                    Layout.fillWidth: true; Layout.preferredHeight: Math.min(channelCol.implicitHeight, 300)
+                    Layout.maximumHeight: 300
+                    contentHeight: channelCol.implicitHeight; clip: true; boundsBehavior: Flickable.StopAtBounds
+
+                    ColumnLayout {
+                        id: channelCol; width: parent.width; spacing: 4
+
+                        Repeater {
+                            model: channelModel
+                            Rectangle {
+                                required property int channel
+                                required property string band
+                                required property string networks
+                                required property int count
+                                required property bool isOurs
+                                Layout.fillWidth: true
+                                height: chanItemCol.implicitHeight + 12; radius: Theme.hoverRadius
+                                color: isOurs ? Qt.rgba(Theme.blueBright.r, Theme.blueBright.g, Theme.blueBright.b, 0.1) : "transparent"
+                                border.width: isOurs ? 1 : 0; border.color: Theme.blueBright
+
+                                ColumnLayout {
+                                    id: chanItemCol
+                                    anchors.fill: parent; anchors.margins: 6; spacing: 2
+
+                                    RowLayout { spacing: 6
+                                        Text {
+                                            text: "Ch " + channel
+                                            color: isOurs ? Theme.blueBright : Theme.fg
+                                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
+                                        }
+                                        Rectangle {
+                                            width: chanBandBadge.implicitWidth + 6; height: 14; radius: 3
+                                            color: Theme.bg2; border.width: 1; border.color: Theme.bg3
+                                            Text { id: chanBandBadge; anchors.centerIn: parent; text: band + " GHz"
+                                                color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 3 }
+                                        }
+                                        Item { Layout.fillWidth: true }
+                                        Text {
+                                            text: count === 1 ? "1 network" : count + " networks"
+                                            color: count <= 2 ? Theme.greenBright : (count <= 5 ? Theme.yellowBright : Theme.redBright)
+                                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
+                                        }
+                                    }
+                                    Text {
+                                        text: networks; color: Theme.fg4
+                                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 2
+                                        wrapMode: Text.WordWrap; Layout.fillWidth: true
+                                        maximumLineCount: 2; elide: Text.ElideRight
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Text {
+                    visible: wifiPop.currentChannel !== ""
+                    text: {
+                        for (let i = 0; i < channelModel.count; i++) {
+                            let item = channelModel.get(i);
+                            if (item.isOurs) {
+                                if (item.count <= 2) return "Your channel looks clear.";
+                                if (item.count <= 5) return "Your channel is moderately congested. Consider switching to a less crowded channel in your router settings.";
+                                return "Your channel is very congested (" + item.count + " networks). Switching channels in your router settings would likely improve performance.";
+                            }
+                        }
+                        return "";
+                    }
+                    color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
+                    wrapMode: Text.WordWrap; Layout.fillWidth: true
                 }
             }
         }
