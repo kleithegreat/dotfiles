@@ -1,0 +1,36 @@
+{
+  "family": "solarized",
+  "variant": "dark",
+  "colors": {
+    "bg":           "#002b36",
+    "bg_dim":       "#00212b",
+    "bg1":          "#073642",
+    "bg2":          "#1a4555",
+    "bg3":          "#586e75",
+    "fg":           "#839496",
+    "fg2":          "#93a1a1",
+    "fg3":          "#657b83",
+    "fg4":          "#586e75",
+    "red":          "#dc322f",
+    "green":        "#859900",
+    "yellow":       "#b58900",
+    "blue":         "#268bd2",
+    "purple":       "#6c71c4",
+    "cyan":         "#2aa198",
+    "orange":       "#cb4b16",
+    "accent":       "#268bd2",
+    "red_bright":   "#cb4b16",
+    "green_bright": "#859900",
+    "yellow_bright":"#b58900",
+    "blue_bright":  "#268bd2",
+    "purple_bright":"#6c71c4",
+    "cyan_bright":  "#2aa198",
+    "orange_bright":"#cb4b16"
+  },
+  "palette": [
+    "#073642", "#dc322f", "#859900", "#b58900",
+    "#268bd2", "#6c71c4", "#2aa198", "#eee8d5",
+    "#002b36", "#cb4b16", "#586e75", "#657b83",
+    "#839496", "#93a1a1", "#6c71c4", "#fdf6e3"
+  ]
+}
