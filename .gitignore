@@ -14,3 +14,5 @@ result
 id_*
 
 *.qcow2
+
+*.pyc
