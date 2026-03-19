@@ -1,0 +1,36 @@
+{
+  "family": "catppuccin",
+  "variant": "mocha",
+  "colors": {
+    "bg":           "#1e1e2e",
+    "bg_dim":       "#181825",
+    "bg1":          "#313244",
+    "bg2":          "#45475a",
+    "bg3":          "#585b70",
+    "fg":           "#cdd6f4",
+    "fg2":          "#bac2de",
+    "fg3":          "#a6adc8",
+    "fg4":          "#9399b2",
+    "red":          "#f38ba8",
+    "green":        "#a6e3a1",
+    "yellow":       "#f9e2af",
+    "blue":         "#89b4fa",
+    "purple":       "#cba6f7",
+    "cyan":         "#94e2d5",
+    "orange":       "#fab387",
+    "accent":       "#cba6f7",
+    "red_bright":   "#f38ba8",
+    "green_bright": "#a6e3a1",
+    "yellow_bright":"#f9e2af",
+    "blue_bright":  "#89b4fa",
+    "purple_bright":"#f5c2e7",
+    "cyan_bright":  "#94e2d5",
+    "orange_bright":"#fab387"
+  },
+  "palette": [
+    "#45475a", "#f38ba8", "#a6e3a1", "#f9e2af",
+    "#89b4fa", "#f5c2e7", "#94e2d5", "#bac2de",
+    "#585b70", "#f38ba8", "#a6e3a1", "#f9e2af",
+    "#89b4fa", "#f5c2e7", "#94e2d5", "#a6adc8"
+  ]
+}
