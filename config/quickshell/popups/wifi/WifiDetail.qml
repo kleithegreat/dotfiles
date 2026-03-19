@@ -75,7 +75,7 @@ ColumnLayout {
 
     // Action buttons
     ColumnLayout {
-        Layout.fillWidth: true; spacing: 6; Layout.topMargin: -2
+        Layout.fillWidth: true; spacing: 6; Layout.topMargin: -4
 
         // Connect button (not connected)
         Rectangle {
