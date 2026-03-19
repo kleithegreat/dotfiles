@@ -202,8 +202,9 @@ in
   # ── Keyring (gnome-keyring — most reliable with SDDM + Hyprland) ──
   services.gnome.gnome-keyring.enable = true;
   security.pam.services.sddm.enableGnomeKeyring = true;
-  # For login to auto-unlock the keyring
   security.pam.services.login.enableGnomeKeyring = true;
+  # Re-unlock keyring when resuming from hyprlock screen lock
+  security.pam.services.hyprlock.enableGnomeKeyring = true;
 
   # ── GVFS (GUI file manager network browsing) ────────────────
   services.gvfs.enable = true;

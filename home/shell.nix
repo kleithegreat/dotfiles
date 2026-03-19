@@ -128,11 +128,8 @@
       export MANPAGER="sh -c 'col -bx | bat -l man -p'"
       export MANROFFOPT="-c"
 
-      # ── GNOME Keyring (SSH agent) ───────────────────────────
-      if command -v gnome-keyring-daemon &>/dev/null; then
-          eval "$(gnome-keyring-daemon --start --components=pkcs11,secrets,ssh 2>/dev/null)"
-          export SSH_AUTH_SOCK
-      fi
+      # ── SSH agent (GCR socket, managed by gcr-ssh-agent.socket) ──
+      export SSH_AUTH_SOCK="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/gcr/ssh"
 
       # ── Secrets (never committed) ───────────────────────────
       [[ -f "$XDG_STATE_HOME/zsh/secrets.zsh" ]] && source "$XDG_STATE_HOME/zsh/secrets.zsh"
