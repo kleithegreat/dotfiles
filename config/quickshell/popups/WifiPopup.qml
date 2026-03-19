@@ -4,6 +4,7 @@ import Quickshell.Wayland
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Io
+import "wifi"
 
 PanelWindow {
     id: wifiPop
@@ -831,52 +832,6 @@ PanelWindow {
         }
     }
 
-    // ── Sparkline component ───────────────────────────────────
-    Component {
-        id: sparklineComponent
-        Canvas {
-            id: sparkCanvas
-            property var dataPoints: []
-            property color lineColor: Theme.greenBright
-            property real minVal: NaN
-            property real maxVal: NaN
-
-            width: 120; height: 20
-
-            onDataPointsChanged: requestPaint()
-            onLineColorChanged: requestPaint()
-
-            onPaint: {
-                let ctx = getContext("2d");
-                ctx.clearRect(0, 0, width, height);
-                let pts = dataPoints;
-                if (!pts || pts.length < 2) return;
-
-                let lo = isNaN(minVal) ? Math.min(...pts) : minVal;
-                let hi = isNaN(maxVal) ? Math.max(...pts) : maxVal;
-                if (hi === lo) { hi = lo + 1; }
-
-                let pad = 2;
-                let w = width - pad * 2;
-                let h = height - pad * 2;
-
-                ctx.beginPath();
-                ctx.strokeStyle = Qt.rgba(lineColor.r, lineColor.g, lineColor.b, 0.8);
-                ctx.lineWidth = 1.5;
-                ctx.lineJoin = "round";
-                ctx.lineCap = "round";
-
-                for (let i = 0; i < pts.length; i++) {
-                    let x = pad + (i / (pts.length - 1)) * w;
-                    let y = pad + h - ((pts[i] - lo) / (hi - lo)) * h;
-                    if (i === 0) ctx.moveTo(x, y);
-                    else ctx.lineTo(x, y);
-                }
-                ctx.stroke();
-            }
-        }
-    }
-
     // ── Backdrop ──────────────────────────────────────────────
     Rectangle {
         anchors.fill: parent; color: "transparent"; focus: true
@@ -977,1018 +932,123 @@ PanelWindow {
 
             Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
 
-            // ══════════════════════════════════════════════════
-            // ── LIST STATE ────────────────────────────────────
-            // ══════════════════════════════════════════════════
-            Item {
+            // ── State views ──────────────────────────────────
+            WifiList {
                 Layout.fillWidth: true; Layout.preferredHeight: netModel.count === 0 ? 144 : 170; Layout.maximumHeight: 220
                 visible: wifiPop.popupState === "list"
                 opacity: wifiPop.popupState === "list" ? 1 : 0
                 Behavior on opacity { NumberAnimation { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
-
-                Flickable {
-                    anchors.fill: parent
-                    contentHeight: netCol.implicitHeight; clip: true; boundsBehavior: Flickable.StopAtBounds
-
-                    Column {
-                        id: netCol; width: parent.width; spacing: 2
-
-                        // ── Captive portal warning ────────────────────────
-                        Rectangle {
-                            visible: wifiPop.isCaptivePortal && wifiPop.popupState === "list"
-                            width: parent.width
-                            height: visible ? captiveCol.implicitHeight + 12 : 0
-                            radius: Theme.btnRadius
-                            color: Theme.bg2
-                            border.width: 1; border.color: Theme.yellowBright
-
-                            ColumnLayout {
-                                id: captiveCol
-                                anchors.fill: parent; anchors.margins: 8; spacing: 6
-
-                                RowLayout { spacing: 6
-                                    Text { text: "\u26A0"; font.pixelSize: Theme.iconSize; color: Theme.yellowBright }
-                                    Text { text: "Captive Portal Detected"; color: Theme.yellowBright
-                                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
-                                }
-                                Text {
-                                    text: "This network requires login. Open a browser to authenticate."
-                                    color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
-                                    wrapMode: Text.WordWrap; Layout.fillWidth: true
-                                }
-                                Rectangle {
-                                    width: captiveLoginLabel.implicitWidth + Theme.btnPaddingH * 2
-                                    height: Theme.btnHeight; radius: Theme.btnRadius
-                                    color: Theme.yellowBright
-                                    scale: captiveLoginA.pressed ? 0.98 : 1.0
-                                    Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                                    transformOrigin: Item.Center
-                                    Text { id: captiveLoginLabel; anchors.centerIn: parent; text: "Open Login Page"
-                                        color: Theme.bg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
-                                    MouseArea { id: captiveLoginA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                                        onClicked: captiveOpenProc.running = true }
-                                }
-                            }
-                        }
-
-                        Repeater {
-                            model: netModel
-                            Rectangle {
-                                id: netItem; required property string ssid; required property int signal
-                                required property string security; required property bool active
-                                required property int index
-                                width: netCol.width; height: 34; radius: Theme.hoverRadius
-                                color: "transparent"
-
-                                Rectangle {
-                                    anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                                    opacity: niRowArea.pressed ? 0.9 : (niRowArea.containsMouse ? 0.6 : 0)
-                                    Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
-                                }
-                                scale: niRowArea.pressed ? 0.98 : 1.0
-                                Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                                transformOrigin: Item.Center
-
-                                RowLayout {
-                                    anchors.fill: parent; anchors.leftMargin: Theme.listItemPadding; anchors.rightMargin: 4; spacing: 6
-
-                                    // Checkmark for connected, signal-strength icon otherwise
-                                    Text {
-                                        text: netItem.active ? "󰄬" : wifiPop.signalIcon(netItem.signal)
-                                        color: {
-                                            if (netItem.active) return Theme.greenBright;
-                                            if (netItem.signal > 60) return Theme.fg;
-                                            if (netItem.signal > 30) return Theme.fg3;
-                                            return Theme.fg4;
-                                        }
-                                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                                        font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
-                                    }
-                                    // SSID
-                                    Text { text: netItem.ssid; color: netItem.active ? Theme.greenBright : Theme.fg
-                                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                                        Layout.fillWidth: true; elide: Text.ElideRight }
-                                    // Enterprise badge
-                                    Text { visible: wifiPop.isEnterprise(netItem.security); text: "󱄤"; color: Theme.yellowBright
-                                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
-                                    // Lock icon
-                                    Text { visible: netItem.security !== "" && !wifiPop.isEnterprise(netItem.security); text: "󰌾"; color: Theme.fg4
-                                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
-                                    // Signal %
-                                    Text { text: netItem.signal + "%"; color: Theme.fg4
-                                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
-                                    // ⓘ info button
-                                    Rectangle {
-                                        width: 24; height: 24; radius: 12
-                                        color: "transparent"
-                                        Rectangle {
-                                            anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                                            opacity: infoA.pressed ? 0.9 : (infoA.containsMouse ? 0.7 : 0)
-                                            Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
-                                        }
-                                        Text { anchors.centerIn: parent; text: "󰋼"; color: infoA.containsMouse ? Theme.blueBright : Theme.fg4
-                                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
-                                        MouseArea { id: infoA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                                            onClicked: wifiPop.openDetail(netItem.ssid, netItem.security, netItem.signal, netItem.active) }
-                                    }
-                                }
-
-                                // Row click: connected → detail, otherwise → connect
-                                MouseArea {
-                                    id: niRowArea; anchors.left: parent.left; anchors.top: parent.top
-                                    anchors.bottom: parent.bottom; anchors.right: parent.right; anchors.rightMargin: 30
-                                    cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                                    onClicked: {
-                                        if (netItem.active)
-                                            wifiPop.openDetail(netItem.ssid, netItem.security, netItem.signal, true);
-                                        else
-                                            wifiPop.connectTo(netItem.ssid, netItem.security);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // ── Skeleton loading rows ─────────────────────
-                Column {
-                    visible: netModel.count === 0
-                    anchors.fill: parent; anchors.topMargin: 4
-                    spacing: 0
-
-                    Repeater {
-                        model: ListModel {
-                            ListElement { skelWidth: 120 }
-                            ListElement { skelWidth: 90 }
-                            ListElement { skelWidth: 150 }
-                            ListElement { skelWidth: 105 }
-                        }
-                        delegate: Item {
-                            required property int skelWidth
-                            required property int index
-                            width: parent.width; height: 36
-                            RowLayout {
-                                anchors.verticalCenter: parent.verticalCenter
-                                anchors.left: parent.left; anchors.right: parent.right
-                                anchors.leftMargin: 6; anchors.rightMargin: 6
-                                spacing: 8
-
-                                Rectangle { width: skelWidth; height: 10; radius: 5; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
-                                Item { Layout.fillWidth: true }
-                                Rectangle { width: 10; height: 10; radius: 5; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
-                                Rectangle { width: 28; height: 10; radius: 5; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
-                            }
-
-                            SequentialAnimation on opacity {
-                                loops: Animation.Infinite
-                                PauseAnimation { duration: index * 120 }
-                                NumberAnimation { from: 0.4; to: 0.8; duration: 800; easing.type: Easing.InOutQuad }
-                                NumberAnimation { from: 0.8; to: 0.4; duration: 800; easing.type: Easing.InOutQuad }
-                            }
-                        }
-                    }
-                }
+                netModel: netModel
+                connectedSsid: wifiPop.connectedSsid
+                isCaptivePortal: wifiPop.isCaptivePortal
+                onConnectRequested: (ssid, security) => wifiPop.connectTo(ssid, security)
+                onDetailRequested: (ssid, security, signal, isActive) => wifiPop.openDetail(ssid, security, signal, isActive)
+                onCaptiveLoginRequested: captiveOpenProc.running = true
             }
 
-            // ══════════════════════════════════════════════════
-            // ── DETAIL STATE (iOS-style info page) ────────────
-            // ══════════════════════════════════════════════════
-            ColumnLayout {
+            WifiDetail {
                 visible: wifiPop.popupState === "detail"
                 opacity: wifiPop.popupState === "detail" ? 1 : 0
                 Behavior on opacity { NumberAnimation { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
-                Layout.fillWidth: true; spacing: 10
-
-                // Status row
-                RowLayout {
-                    Layout.fillWidth: true; spacing: 8
-                    Text { text: wifiPop.signalIcon(wifiPop.targetSignal); color: wifiPop.targetIsConnected ? Theme.greenBright : Theme.fg
-                        font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize + 4 }
-                    ColumnLayout {
-                        spacing: 2; Layout.fillWidth: true
-                        Text { text: wifiPop.targetIsConnected ? "Connected" : (wifiPop.targetIsKnown ? "Known Network" : "Not Connected")
-                            color: wifiPop.targetIsConnected ? Theme.greenBright : Theme.fg4
-                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
-                        Text { text: wifiPop.targetSecurity || "Open"; color: Theme.fg4
-                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
-                    }
-                    Text { text: wifiPop.targetSignal + "%"; color: Theme.fg4
-                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-                }
-
-                // Detail fields (connected only)
-                Rectangle {
-                    visible: wifiPop.targetIsConnected
-                        Layout.fillWidth: true; height: detailGrid.implicitHeight + 16; radius: Theme.btnRadius; color: Theme.bg2
-
-                    GridLayout {
-                        id: detailGrid; anchors.fill: parent; anchors.margins: 8
-                        columns: 2; columnSpacing: 12; rowSpacing: 6
-
-                        Text { text: "IP Address"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
-                        Text { text: wifiPop.detailIp || "…"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
-                            Layout.fillWidth: true; elide: Text.ElideRight; horizontalAlignment: Text.AlignRight }
-
-                        Text { text: "Gateway"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
-                        Text { text: wifiPop.detailGateway || "…"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
-                            Layout.fillWidth: true; elide: Text.ElideRight; horizontalAlignment: Text.AlignRight }
-
-                        Text { text: "DNS"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
-                        Text { text: wifiPop.detailDns || "…"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
-                            Layout.fillWidth: true; elide: Text.ElideRight; horizontalAlignment: Text.AlignRight }
-
-                        Text { visible: wifiPop.detailFreq !== ""; text: "Frequency"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
-                        Text { visible: wifiPop.detailFreq !== ""; text: wifiPop.detailFreq; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
-                            Layout.fillWidth: true; elide: Text.ElideRight; horizontalAlignment: Text.AlignRight }
-                    }
-                }
-
-                // Action buttons
-                ColumnLayout {
-                    Layout.fillWidth: true; spacing: 6; Layout.topMargin: -2
-
-                    // Connect button (not connected)
-                    Rectangle {
-                        visible: !wifiPop.targetIsConnected
-                        Layout.fillWidth: true; height: 32; radius: Theme.btnRadius
-                        color: detailConnA.containsMouse ? Theme.blueBright : Theme.bg3
-                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                        scale: detailConnA.pressed ? 0.98 : 1.0
-                        Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                        transformOrigin: Item.Center
-                        Text { anchors.centerIn: parent; text: "Connect"; color: detailConnA.containsMouse ? Theme.bg : Theme.fg
-                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
-                        MouseArea { id: detailConnA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                            onClicked: wifiPop.connectTo(wifiPop.targetSsid, wifiPop.targetSecurity) }
-                    }
-
-                    // Disconnect button (connected only)
-                    Rectangle {
-                        visible: wifiPop.targetIsConnected
-                        Layout.fillWidth: true; height: 32; radius: Theme.btnRadius
-                        color: "transparent"
-                        Rectangle {
-                            anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                            opacity: detailDcA.pressed ? 0.9 : (detailDcA.containsMouse ? 0.6 : 0)
-                            Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
-                        }
-                        scale: detailDcA.pressed ? 0.98 : 1.0
-                        Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                        transformOrigin: Item.Center
-                        Text { anchors.centerIn: parent; text: "Disconnect"; color: detailDcA.containsMouse ? Theme.fg : Theme.fg4
-                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-                        MouseArea { id: detailDcA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                            onClicked: wifiPop.disconnect() }
-                    }
-
-                    // Forget button (known networks only)
-                    Rectangle {
-                        visible: wifiPop.targetIsKnown
-                        Layout.fillWidth: true; height: 32; radius: Theme.btnRadius
-                        color: "transparent"
-                        Rectangle {
-                            anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                            opacity: forgetA.pressed ? 0.9 : (forgetA.containsMouse ? 0.6 : 0)
-                            Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
-                        }
-                        scale: forgetA.pressed ? 0.98 : 1.0
-                        Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                        transformOrigin: Item.Center
-                        Text { anchors.centerIn: parent; text: "Forget This Network"; color: forgetA.containsMouse ? Theme.redBright : Theme.fg4
-                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-                        MouseArea { id: forgetA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                            onClicked: wifiPop.forgetNetwork(wifiPop.targetSsid) }
-                    }
-
-                    // Diagnostics button (connected only)
-                    Rectangle {
-                        visible: wifiPop.targetIsConnected
-                        Layout.fillWidth: true; height: 32; radius: Theme.btnRadius
-                        color: "transparent"
-                        Rectangle {
-                            anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                            opacity: detailDiagA.pressed ? 0.9 : (detailDiagA.containsMouse ? 0.6 : 0.3)
-                            Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
-                        }
-                        scale: detailDiagA.pressed ? 0.98 : 1.0
-                        Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                        transformOrigin: Item.Center
-                        Text { anchors.centerIn: parent; text: "󱍸  Run Diagnostics"; color: detailDiagA.containsMouse ? Theme.blueBright : Theme.fg4
-                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-                        MouseArea { id: detailDiagA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                            onClicked: wifiPop.startDiagnostics() }
-                    }
-                }
+                Layout.fillWidth: true
+                targetSsid: wifiPop.targetSsid
+                targetSecurity: wifiPop.targetSecurity
+                targetSignal: wifiPop.targetSignal
+                targetIsConnected: wifiPop.targetIsConnected
+                targetIsKnown: wifiPop.targetIsKnown
+                detailIp: wifiPop.detailIp
+                detailGateway: wifiPop.detailGateway
+                detailDns: wifiPop.detailDns
+                detailFreq: wifiPop.detailFreq
+                connectError: wifiPop.connectError
+                onConnectRequested: (ssid, security) => wifiPop.connectTo(ssid, security)
+                onDisconnectRequested: wifiPop.disconnect()
+                onForgetRequested: (ssid) => wifiPop.forgetNetwork(ssid)
+                onDiagnosticsRequested: wifiPop.startDiagnostics()
             }
 
-            // ══════════════════════════════════════════════════
-            // ── PASSWORD STATE ────────────────────────────────
-            // ══════════════════════════════════════════════════
-            ColumnLayout {
+            WifiPassword {
                 visible: wifiPop.popupState === "password"
                 opacity: wifiPop.popupState === "password" ? 1 : 0
                 Behavior on opacity { NumberAnimation { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
-                Layout.fillWidth: true; spacing: 8
-
-                Text { text: "Network: " + wifiPop.targetSsid; color: Theme.fg
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; elide: Text.ElideRight; Layout.fillWidth: true }
-
-                Rectangle {
-                    Layout.fillWidth: true; height: 32; radius: Theme.btnRadius; color: Theme.bg2
-                    border.width: 1; border.color: pskInput.activeFocus ? Theme.blueBright : Theme.bg3
-                    Behavior on border.color { ColorAnimation { duration: Theme.animHover } }
-                    TextInput {
-                        id: pskInput; anchors.fill: parent; anchors.margins: 8
-                        color: Theme.fg; selectionColor: Theme.blueBright; selectedTextColor: Theme.bg
-                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                        echoMode: TextInput.Password; clip: true
-                        Keys.onReturnPressed: wifiPop.submitPassword(text)
-                        Keys.onEscapePressed: wifiPop.resetState()
-                    }
-                    Text { visible: !pskInput.text; text: "Password"; color: Theme.fg4; anchors.left: parent.left; anchors.leftMargin: 8; anchors.verticalCenter: parent.verticalCenter
-                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-                }
-
-                Rectangle {
-                    Layout.fillWidth: true; height: 30; radius: Theme.btnRadius
-                    color: connPskA.containsMouse ? Theme.blueBright : Theme.bg3
-                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                    scale: connPskA.pressed ? 0.98 : 1.0
-                    Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                    transformOrigin: Item.Center
-                    Text { anchors.centerIn: parent; text: "Connect"; color: connPskA.containsMouse ? Theme.bg : Theme.fg
-                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
-                    MouseArea { id: connPskA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                        onClicked: wifiPop.submitPassword(pskInput.text) }
-                }
+                Layout.fillWidth: true
+                targetSsid: wifiPop.targetSsid
+                connectError: wifiPop.connectError
+                onPasswordSubmitted: (pw) => wifiPop.submitPassword(pw)
+                onBackRequested: wifiPop.resetState()
             }
 
-            Connections {
-                target: wifiPop
-                function onPopupStateChanged() {
-                    if (wifiPop.popupState === "password") { pskInput.text = ""; pskInput.forceActiveFocus(); }
-                    if (wifiPop.popupState === "enterprise") { eapIdentity.text = ""; eapPassword.text = ""; eapIdentity.forceActiveFocus(); }
-                }
-            }
-
-            // ══════════════════════════════════════════════════
-            // ── ENTERPRISE STATE ──────────────────────────────
-            // ══════════════════════════════════════════════════
-            ColumnLayout {
+            WifiEnterprise {
                 visible: wifiPop.popupState === "enterprise"
                 opacity: wifiPop.popupState === "enterprise" ? 1 : 0
                 Behavior on opacity { NumberAnimation { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
-                Layout.fillWidth: true; spacing: 8
-
-                Text { text: "Network: " + wifiPop.targetSsid; color: Theme.fg
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; elide: Text.ElideRight; Layout.fillWidth: true }
-                Text { text: "802.1X · PEAP / MSCHAPv2"; color: Theme.fg4
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
-
-                Rectangle {
-                    Layout.fillWidth: true; height: 32; radius: Theme.btnRadius; color: Theme.bg2
-                    border.width: 1; border.color: eapIdentity.activeFocus ? Theme.blueBright : Theme.bg3
-                    Behavior on border.color { ColorAnimation { duration: Theme.animHover } }
-                    TextInput {
-                        id: eapIdentity; anchors.fill: parent; anchors.margins: 8
-                        color: Theme.fg; selectionColor: Theme.blueBright; selectedTextColor: Theme.bg
-                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; clip: true
-                        Keys.onReturnPressed: eapPassword.forceActiveFocus()
-                        Keys.onEscapePressed: wifiPop.resetState()
-                    }
-                    Text { visible: !eapIdentity.text; text: "Username / Identity"; color: Theme.fg4; anchors.left: parent.left; anchors.leftMargin: 8; anchors.verticalCenter: parent.verticalCenter
-                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-                }
-
-                Rectangle {
-                    Layout.fillWidth: true; height: 32; radius: Theme.btnRadius; color: Theme.bg2
-                    border.width: 1; border.color: eapPassword.activeFocus ? Theme.blueBright : Theme.bg3
-                    Behavior on border.color { ColorAnimation { duration: Theme.animHover } }
-                    TextInput {
-                        id: eapPassword; anchors.fill: parent; anchors.margins: 8
-                        color: Theme.fg; selectionColor: Theme.blueBright; selectedTextColor: Theme.bg
-                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                        echoMode: TextInput.Password; clip: true
-                        Keys.onReturnPressed: wifiPop.submitEnterprise(eapIdentity.text, text)
-                        Keys.onEscapePressed: wifiPop.resetState()
-                    }
-                    Text { visible: !eapPassword.text; text: "Password"; color: Theme.fg4; anchors.left: parent.left; anchors.leftMargin: 8; anchors.verticalCenter: parent.verticalCenter
-                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-                }
-
-                Rectangle {
-                    Layout.fillWidth: true; height: 30; radius: Theme.btnRadius
-                    color: connEapA.containsMouse ? Theme.blueBright : Theme.bg3
-                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                    scale: connEapA.pressed ? 0.98 : 1.0
-                    Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                    transformOrigin: Item.Center
-                    Text { anchors.centerIn: parent; text: "Sign In"; color: connEapA.containsMouse ? Theme.bg : Theme.fg
-                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
-                    MouseArea { id: connEapA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                        onClicked: wifiPop.submitEnterprise(eapIdentity.text, eapPassword.text) }
-                }
-
-                Text { text: "Only PEAP/MSCHAPv2 is supported."; color: Theme.fg4; wrapMode: Text.WordWrap
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 2; Layout.fillWidth: true }
+                Layout.fillWidth: true
+                targetSsid: wifiPop.targetSsid
+                connectError: wifiPop.connectError
+                onEnterpriseSubmitted: (identity, password) => wifiPop.submitEnterprise(identity, password)
+                onBackRequested: wifiPop.resetState()
             }
 
-            // ══════════════════════════════════════════════════
-            // ── CONNECTING STATE ──────────────────────────────
-            // ══════════════════════════════════════════════════
-            ColumnLayout {
+            WifiConnecting {
                 visible: wifiPop.popupState === "connecting"
                 opacity: wifiPop.popupState === "connecting" ? 1 : 0
                 Behavior on opacity { NumberAnimation { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
-                Layout.fillWidth: true; spacing: 8; Layout.alignment: Qt.AlignHCenter
-
-                Text { text: "Connecting to " + wifiPop.targetSsid + "…"; color: Theme.fg
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.alignment: Qt.AlignHCenter }
-
-                Rectangle {
-                    Layout.alignment: Qt.AlignHCenter; width: 120; height: 4; radius: 2; color: Theme.bg3
-                    Rectangle {
-                        height: parent.height; radius: parent.radius; color: Theme.blueBright
-                        SequentialAnimation on width {
-                            loops: Animation.Infinite
-                            NumberAnimation { from: 0; to: 120; duration: 1200; easing.type: Easing.InOutQuad }
-                            NumberAnimation { from: 120; to: 0; duration: 1200; easing.type: Easing.InOutQuad }
-                        }
-                    }
-                }
+                Layout.fillWidth: true; Layout.alignment: Qt.AlignHCenter
+                targetSsid: wifiPop.targetSsid
             }
 
-            // ══════════════════════════════════════════════════
-            // ── DIAGNOSTICS STATE ─────────────────────────────
-            // ══════════════════════════════════════════════════
-            Item {
+            WifiDiagnostics {
                 Layout.fillWidth: true; Layout.preferredHeight: 500; Layout.maximumHeight: 500
                 visible: wifiPop.popupState === "diagnostics"
                 opacity: wifiPop.popupState === "diagnostics" ? 1 : 0
                 Behavior on opacity { NumberAnimation { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
-
-                // ── Skeleton loading ────────────────────────
-                Column {
-                    visible: wifiPop.diagLoading
-                    anchors.fill: parent; anchors.topMargin: 4
-                    spacing: 0
-
-                    Repeater {
-                        model: ListModel {
-                            ListElement { skelWidth: 80 }
-                            ListElement { skelWidth: 140 }
-                            ListElement { skelWidth: 100 }
-                            ListElement { skelWidth: 120 }
-                            ListElement { skelWidth: 90 }
-                            ListElement { skelWidth: 130 }
-                        }
-                        delegate: Item {
-                            required property int skelWidth
-                            required property int index
-                            width: parent.width; height: 36
-                            RowLayout {
-                                anchors.verticalCenter: parent.verticalCenter
-                                anchors.left: parent.left; anchors.right: parent.right
-                                anchors.leftMargin: 6; anchors.rightMargin: 6
-                                spacing: 8
-
-                                Rectangle { width: skelWidth; height: 10; radius: 5; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
-                                Item { Layout.fillWidth: true }
-                                Rectangle { width: 50; height: 10; radius: 5; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
-                            }
-
-                            SequentialAnimation on opacity {
-                                loops: Animation.Infinite
-                                PauseAnimation { duration: index * 120 }
-                                NumberAnimation { from: 0.4; to: 0.8; duration: 800; easing.type: Easing.InOutQuad }
-                                NumberAnimation { from: 0.8; to: 0.4; duration: 800; easing.type: Easing.InOutQuad }
-                            }
-                        }
-                    }
-                }
-
-                // ── Diagnostics results ─────────────────────
-                Flickable {
-                    visible: !wifiPop.diagLoading
-                    anchors.fill: parent
-                    contentHeight: diagCol.implicitHeight; clip: true; boundsBehavior: Flickable.StopAtBounds
-
-                    ColumnLayout {
-                        id: diagCol; width: parent.width; spacing: 6
-
-                        // ── Quality score ──────────────────
-                        RowLayout {
-                            visible: !wifiPop.diagLoading && wifiPop.qualityScore() >= 0
-                            Layout.fillWidth: true; spacing: 8; Layout.bottomMargin: 4
-
-                            Text {
-                                text: wifiPop.qualityScore().toString()
-                                color: wifiPop.qualityColor(wifiPop.qualityScore())
-                                font.family: Theme.fontFamily; font.pixelSize: 28; font.bold: true
-                            }
-                            ColumnLayout { spacing: 1; Layout.fillWidth: true
-                                Text {
-                                    text: wifiPop.qualityLabel(wifiPop.qualityScore())
-                                    color: wifiPop.qualityColor(wifiPop.qualityScore())
-                                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
-                                }
-                                Text { text: "Connection Quality"; color: Theme.fg4
-                                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
-                            }
-                        }
-
-                        // ── Network header ──────────────────
-                        RowLayout { Layout.fillWidth: true; spacing: 6
-                            Text { text: wifiPop.connectedSsid; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true; Layout.fillWidth: true; elide: Text.ElideRight }
-                            Rectangle {
-                                visible: wifiPop.diagBand !== "" && wifiPop.diagBand !== "unknown"
-                                width: bandLabel.implicitWidth + 10; height: 18; radius: 4; color: Theme.bg3
-                                Text { id: bandLabel; anchors.centerIn: parent; text: wifiPop.diagBand; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 2 }
-                            }
-                        }
-                        // Wi-Fi standard
-                        Text {
-                            visible: wifiPop.diagWifiStandard !== "" && wifiPop.diagWifiStandard !== "unknown"
-                            text: wifiPop.diagWifiStandard
-                            color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
-                        }
-                        // Upgrade warning for old standards
-                        Rectangle {
-                            visible: wifiPop.diagWifiStandard.indexOf("Wi-Fi 4") >= 0 || wifiPop.diagWifiStandard.indexOf("802.11g") >= 0
-                            Layout.fillWidth: true; height: stdWarnText.implicitHeight + 8; radius: Theme.btnRadius
-                            color: Theme.bg2; border.width: 1; border.color: Theme.yellowBright
-                            Text {
-                                id: stdWarnText
-                                anchors.centerIn: parent; width: parent.width - 12
-                                text: wifiPop.diagBand === "2.4 GHz"
-                                    ? "Using an older Wi-Fi standard \u2014 try connecting to a 5 GHz network for better speeds."
-                                    : "Using an older Wi-Fi standard. Your router may need a firmware update."
-                                color: Theme.yellowBright; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
-                                wrapMode: Text.WordWrap
-                            }
-                        }
-
-                        // ── Link Rate ───────────────────────
-                        RowLayout { Layout.fillWidth: true
-                            Text { text: "Link Rate"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 50; Layout.fillWidth: true }
-                            Text { text: (wifiPop.diagLinkRate && wifiPop.diagLinkRate !== "--") ? wifiPop.diagLinkRate + " Mbps" : "--"
-                                color: (wifiPop.diagLinkRate && wifiPop.diagLinkRate !== "--") ? Theme.greenBright : Theme.fg4
-                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                                Layout.preferredWidth: 65; horizontalAlignment: Text.AlignRight }
-                        }
-
-                        // ── Signal ──────────────────────────
-                        RowLayout { Layout.fillWidth: true; spacing: 6
-                            Text { text: "Signal"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                                Layout.preferredWidth: 50 }
-                            Loader {
-                                Layout.fillWidth: true; Layout.preferredHeight: 20
-                                active: wifiPop.histSignal.length >= 2
-                                sourceComponent: sparklineComponent
-                                onLoaded: {
-                                    item.dataPoints = Qt.binding(function() { return wifiPop.histSignal; });
-                                    item.lineColor = Qt.binding(function() { return wifiPop.signalColor(wifiPop.diagSignal); });
-                                    item.minVal = -90;
-                                    item.maxVal = -30;
-                                }
-                            }
-                            Item { visible: wifiPop.histSignal.length < 2; Layout.fillWidth: true }
-                            Text {
-                                text: (wifiPop.diagSignal && wifiPop.diagSignal !== "--") ? wifiPop.diagSignal + " dBm" : "--"
-                                color: (wifiPop.diagSignal && wifiPop.diagSignal !== "--") ? wifiPop.signalColor(wifiPop.diagSignal) : Theme.fg4
-                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                                Layout.preferredWidth: 65; horizontalAlignment: Text.AlignRight
-                            }
-                        }
-                        Text {
-                            visible: {
-                                let v = parseInt(wifiPop.diagSignal);
-                                return !isNaN(v) && v < -50;
-                            }
-                            text: {
-                                let v = parseInt(wifiPop.diagSignal);
-                                if (v >= -60) return "Decent signal. Moving closer to your router could improve speeds.";
-                                if (v >= -70) return "Weak signal — functional but not ideal. Try moving closer or adjusting router placement.";
-                                return "Very weak signal. Walls and distance are significantly degrading your connection.";
-                            }
-                            color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
-                            wrapMode: Text.WordWrap; Layout.fillWidth: true
-                            opacity: 0.8
-                        }
-
-                        // ── Noise ───────────────────────────
-                        RowLayout { Layout.fillWidth: true; spacing: 6
-                            Text { text: "Noise"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                                Layout.preferredWidth: 50 }
-                            Loader {
-                                Layout.fillWidth: true; Layout.preferredHeight: 20
-                                active: wifiPop.histNoise.length >= 2
-                                sourceComponent: sparklineComponent
-                                onLoaded: {
-                                    item.dataPoints = Qt.binding(function() { return wifiPop.histNoise; });
-                                    item.lineColor = Theme.greenBright;
-                                    item.minVal = -100;
-                                    item.maxVal = -60;
-                                }
-                            }
-                            Item { visible: wifiPop.histNoise.length < 2; Layout.fillWidth: true }
-                            Text {
-                                text: (wifiPop.diagNoise && wifiPop.diagNoise !== "--") ? wifiPop.diagNoise + " dBm" : "--"
-                                color: (wifiPop.diagNoise && wifiPop.diagNoise !== "--") ? Theme.greenBright : Theme.fg4
-                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                                Layout.preferredWidth: 65; horizontalAlignment: Text.AlignRight
-                            }
-                        }
-
-                        // ── Router section ──────────────────
-                        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3; Layout.topMargin: 4 }
-                        Text { text: "󰑩  Router" + (wifiPop.diagGateway && wifiPop.diagGateway !== "--" ? " · " + wifiPop.diagGateway : ""); color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
-
-                        RowLayout { Layout.fillWidth: true; spacing: 6
-                            Text { text: "Ping"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 50 }
-                            Loader { Layout.fillWidth: true; Layout.preferredHeight: 20; active: wifiPop.histGwPing.length >= 2; sourceComponent: sparklineComponent
-                                onLoaded: { item.dataPoints = Qt.binding(function() { return wifiPop.histGwPing; }); item.lineColor = Qt.binding(function() { return wifiPop.pingColor(wifiPop.diagGwPing); }); } }
-                            Item { visible: wifiPop.histGwPing.length < 2; Layout.fillWidth: true }
-                            Text { text: (wifiPop.diagGwPing && wifiPop.diagGwPing !== "--") ? wifiPop.diagGwPing + " ms" : "--"
-                                color: (wifiPop.diagGwPing && wifiPop.diagGwPing !== "--") ? wifiPop.pingColor(wifiPop.diagGwPing) : Theme.fg4
-                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 65; horizontalAlignment: Text.AlignRight }
-                        }
-                        RowLayout { Layout.fillWidth: true; spacing: 6
-                            Text { text: "Jitter"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 50 }
-                            Loader { Layout.fillWidth: true; Layout.preferredHeight: 20; active: wifiPop.histGwJitter.length >= 2; sourceComponent: sparklineComponent
-                                onLoaded: { item.dataPoints = Qt.binding(function() { return wifiPop.histGwJitter; }); item.lineColor = Qt.binding(function() { return wifiPop.pingColor(wifiPop.diagGwJitter); }); } }
-                            Item { visible: wifiPop.histGwJitter.length < 2; Layout.fillWidth: true }
-                            Text { text: (wifiPop.diagGwJitter && wifiPop.diagGwJitter !== "--") ? wifiPop.diagGwJitter + " ms" : "--"
-                                color: (wifiPop.diagGwJitter && wifiPop.diagGwJitter !== "--") ? wifiPop.pingColor(wifiPop.diagGwJitter) : Theme.fg4
-                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 65; horizontalAlignment: Text.AlignRight }
-                        }
-                        RowLayout { Layout.fillWidth: true; spacing: 6
-                            Text { text: "Loss"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 50 }
-                            Loader { Layout.fillWidth: true; Layout.preferredHeight: 20; active: wifiPop.histGwLoss.length >= 2; sourceComponent: sparklineComponent
-                                onLoaded: { item.dataPoints = Qt.binding(function() { return wifiPop.histGwLoss; }); item.lineColor = Qt.binding(function() { return wifiPop.lossColor(wifiPop.diagGwLoss); }); } }
-                            Item { visible: wifiPop.histGwLoss.length < 2; Layout.fillWidth: true }
-                            Text { text: (wifiPop.diagGwLoss && wifiPop.diagGwLoss !== "--") ? wifiPop.diagGwLoss + "%" : "--"
-                                color: (wifiPop.diagGwLoss && wifiPop.diagGwLoss !== "--") ? wifiPop.lossColor(wifiPop.diagGwLoss) : Theme.fg4
-                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 65; horizontalAlignment: Text.AlignRight }
-                        }
-
-                        // ── Internet section ────────────────
-                        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3; Layout.topMargin: 4 }
-                        Text { text: "󰖩  Internet · 1.1.1.1"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
-
-                        RowLayout { Layout.fillWidth: true; spacing: 6
-                            Text { text: "Ping"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 50 }
-                            Loader { Layout.fillWidth: true; Layout.preferredHeight: 20; active: wifiPop.histNetPing.length >= 2; sourceComponent: sparklineComponent
-                                onLoaded: { item.dataPoints = Qt.binding(function() { return wifiPop.histNetPing; }); item.lineColor = Qt.binding(function() { return wifiPop.pingColor(wifiPop.diagNetPing); }); } }
-                            Item { visible: wifiPop.histNetPing.length < 2; Layout.fillWidth: true }
-                            Text { text: (wifiPop.diagNetPing && wifiPop.diagNetPing !== "--") ? wifiPop.diagNetPing + " ms" : "--"
-                                color: (wifiPop.diagNetPing && wifiPop.diagNetPing !== "--") ? wifiPop.pingColor(wifiPop.diagNetPing) : Theme.fg4
-                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 65; horizontalAlignment: Text.AlignRight }
-                        }
-                        RowLayout { Layout.fillWidth: true; spacing: 6
-                            Text { text: "Jitter"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 50 }
-                            Loader { Layout.fillWidth: true; Layout.preferredHeight: 20; active: wifiPop.histNetJitter.length >= 2; sourceComponent: sparklineComponent
-                                onLoaded: { item.dataPoints = Qt.binding(function() { return wifiPop.histNetJitter; }); item.lineColor = Qt.binding(function() { return wifiPop.pingColor(wifiPop.diagNetJitter); }); } }
-                            Item { visible: wifiPop.histNetJitter.length < 2; Layout.fillWidth: true }
-                            Text { text: (wifiPop.diagNetJitter && wifiPop.diagNetJitter !== "--") ? wifiPop.diagNetJitter + " ms" : "--"
-                                color: (wifiPop.diagNetJitter && wifiPop.diagNetJitter !== "--") ? wifiPop.pingColor(wifiPop.diagNetJitter) : Theme.fg4
-                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 65; horizontalAlignment: Text.AlignRight }
-                        }
-                        RowLayout { Layout.fillWidth: true; spacing: 6
-                            Text { text: "Loss"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 50 }
-                            Loader { Layout.fillWidth: true; Layout.preferredHeight: 20; active: wifiPop.histNetLoss.length >= 2; sourceComponent: sparklineComponent
-                                onLoaded: { item.dataPoints = Qt.binding(function() { return wifiPop.histNetLoss; }); item.lineColor = Qt.binding(function() { return wifiPop.lossColor(wifiPop.diagNetLoss); }); } }
-                            Item { visible: wifiPop.histNetLoss.length < 2; Layout.fillWidth: true }
-                            Text { text: (wifiPop.diagNetLoss && wifiPop.diagNetLoss !== "--") ? wifiPop.diagNetLoss + "%" : "--"
-                                color: (wifiPop.diagNetLoss && wifiPop.diagNetLoss !== "--") ? wifiPop.lossColor(wifiPop.diagNetLoss) : Theme.fg4
-                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 65; horizontalAlignment: Text.AlignRight }
-                        }
-
-                        // ── DNS section ─────────────────────
-                        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3; Layout.topMargin: 4 }
-                        Text { text: "󰇖  DNS" + (wifiPop.diagDnsServer && wifiPop.diagDnsServer !== "--" ? " · " + wifiPop.diagDnsServer : ""); color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
-
-                        RowLayout { Layout.fillWidth: true; spacing: 6
-                            Text { text: "Lookup"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 50 }
-                            Loader { Layout.fillWidth: true; Layout.preferredHeight: 20; active: wifiPop.histDnsTime.length >= 2; sourceComponent: sparklineComponent
-                                onLoaded: { item.dataPoints = Qt.binding(function() { return wifiPop.histDnsTime; }); item.lineColor = Qt.binding(function() { return wifiPop.pingColor(wifiPop.diagDnsTime); }); } }
-                            Item { visible: wifiPop.histDnsTime.length < 2; Layout.fillWidth: true }
-                            Text { text: (wifiPop.diagDnsTime && wifiPop.diagDnsTime !== "--") ? wifiPop.diagDnsTime + " ms" : "--"
-                                color: (wifiPop.diagDnsTime && wifiPop.diagDnsTime !== "--") ? wifiPop.pingColor(wifiPop.diagDnsTime) : Theme.fg4
-                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 65; horizontalAlignment: Text.AlignRight }
-                        }
-
-                        // DNS quick-switch buttons
-                        RowLayout {
-                            Layout.fillWidth: true; spacing: 6; Layout.topMargin: 4
-
-                            Text { text: "Switch:"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
-
-                            Rectangle {
-                                property bool isCurrent: wifiPop.diagDnsServer === wifiPop.diagGateway || wifiPop.diagDnsServer === "--"
-                                width: dnsAutoLabel.implicitWidth + 16; height: 24; radius: Theme.btnRadius
-                                color: isCurrent ? Theme.accent : (dnsAutoA.containsMouse ? Theme.bg2 : Theme.bg1)
-                                Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                                border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
-                                Text { id: dnsAutoLabel; anchors.centerIn: parent; text: "Router"
-                                    color: isCurrent ? Theme.bg : Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
-                                MouseArea { id: dnsAutoA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                                    onClicked: wifiPop.switchDns("auto") }
-                            }
-
-                            Rectangle {
-                                property bool isCurrent: wifiPop.diagDnsServer === "8.8.8.8"
-                                width: dnsGoogleLabel.implicitWidth + 16; height: 24; radius: Theme.btnRadius
-                                color: isCurrent ? Theme.accent : (dnsGoogleA.containsMouse ? Theme.bg2 : Theme.bg1)
-                                Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                                border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
-                                Text { id: dnsGoogleLabel; anchors.centerIn: parent; text: "Google"
-                                    color: isCurrent ? Theme.bg : Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
-                                MouseArea { id: dnsGoogleA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                                    onClicked: wifiPop.switchDns("8.8.8.8") }
-                            }
-
-                            Rectangle {
-                                property bool isCurrent: wifiPop.diagDnsServer === "1.1.1.1"
-                                width: dnsCfLabel.implicitWidth + 16; height: 24; radius: Theme.btnRadius
-                                color: isCurrent ? Theme.accent : (dnsCfA.containsMouse ? Theme.bg2 : Theme.bg1)
-                                Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                                border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
-                                Text { id: dnsCfLabel; anchors.centerIn: parent; text: "Cloudflare"
-                                    color: isCurrent ? Theme.bg : Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
-                                MouseArea { id: dnsCfA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                                    onClicked: wifiPop.switchDns("1.1.1.1") }
-                            }
-                        }
-
-                        // ── Scan Channels ─────────────────
-                        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3; Layout.topMargin: 4 }
-                        Rectangle {
-                            Layout.fillWidth: true; height: Theme.btnHeight; radius: Theme.btnRadius
-                            color: "transparent"
-                            Rectangle {
-                                anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                                opacity: chanScanA.pressed ? 0.9 : (chanScanA.containsMouse ? 0.6 : 0.3)
-                                Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
-                            }
-                            Text { anchors.centerIn: parent; text: "󰐻  Scan Channels"; color: chanScanA.containsMouse ? Theme.blueBright : Theme.fg4
-                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                                Behavior on color { ColorAnimation { duration: Theme.animHover } } }
-                            MouseArea { id: chanScanA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                                onClicked: wifiPop.startChannelScan() }
-                        }
-
-                        // ── Speed Test section ──────────────
-                        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3; Layout.topMargin: 4 }
-                        Text { text: "󰓅  Speed Test"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
-
-                        RowLayout {
-                            visible: wifiPop.diagDownload !== "" && !wifiPop.speedTestRunning
-                            Layout.fillWidth: true; spacing: 12
-                            ColumnLayout { spacing: 2
-                                Text { text: wifiPop.diagDownload || "--"; color: Theme.greenBright; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeLarge; font.bold: true }
-                                Text { text: "↓ Mbps"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
-                            }
-                            ColumnLayout { spacing: 2
-                                Text { text: wifiPop.diagUpload || "--"; color: Theme.greenBright; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeLarge; font.bold: true }
-                                Text { text: "↑ Mbps"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
-                            }
-                            Item { Layout.fillWidth: true }
-                            Rectangle {
-                                width: retestLabel.implicitWidth + Theme.btnPaddingH * 2; height: Theme.btnHeight; radius: Theme.btnRadius
-                                color: "transparent"
-                                Rectangle {
-                                    anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                                    opacity: retestA.pressed ? 0.9 : (retestA.containsMouse ? 0.6 : 0)
-                                    Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
-                                }
-                                Text { id: retestLabel; anchors.centerIn: parent; text: "Retest"; color: retestA.containsMouse ? Theme.blueBright : Theme.fg4
-                                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                                    Behavior on color { ColorAnimation { duration: Theme.animHover } } }
-                                MouseArea { id: retestA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                                    onClicked: { wifiPop.diagDownload = ""; wifiPop.diagUpload = ""; wifiPop.diagBufferbloat = ""; wifiPop.speedTestRunning = true; speedTestProc.running = true; } }
-                            }
-                        }
-                        // Bufferbloat result
-                        RowLayout {
-                            visible: wifiPop.diagBufferbloat !== "" && !wifiPop.speedTestRunning
-                            Layout.fillWidth: true; spacing: 6
-                            Rectangle {
-                                width: 8; height: 8; radius: 4
-                                color: wifiPop.diagBufferbloatOk ? Theme.greenBright : Theme.redBright
-                            }
-                            Text {
-                                text: wifiPop.diagBufferbloat
-                                color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
-                                wrapMode: Text.WordWrap; Layout.fillWidth: true
-                            }
-                        }
-
-                        Rectangle {
-                            visible: wifiPop.diagDownload === "" || wifiPop.speedTestRunning
-                            Layout.fillWidth: true; height: Theme.btnHeight; radius: Theme.btnRadius
-                            color: "transparent"
-                            Rectangle {
-                                anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                                opacity: speedBtnA.pressed ? 0.9 : (speedBtnA.containsMouse ? 0.6 : 0.3)
-                                Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
-                            }
-                            Text {
-                                id: speedBtnText; anchors.centerIn: parent
-                                text: wifiPop.speedTestRunning ? "Testing…" : "Run Speed Test"
-                                color: speedBtnA.containsMouse ? Theme.blueBright : Theme.fg4
-                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                                Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                                SequentialAnimation on opacity {
-                                    running: wifiPop.speedTestRunning; loops: Animation.Infinite
-                                    NumberAnimation { from: 1; to: 0.4; duration: 600 }
-                                    NumberAnimation { from: 0.4; to: 1; duration: 600 }
-                                }
-                            }
-                            MouseArea { id: speedBtnA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; enabled: !wifiPop.speedTestRunning
-                                onClicked: { wifiPop.speedTestRunning = true; speedTestProc.running = true; } }
-                        }
-
-                        // ── Bottom actions ──────────────────
-                        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
-                        RowLayout {
-                            Layout.fillWidth: true; spacing: 6
-
-                            Rectangle {
-                                Layout.fillWidth: true; height: Theme.btnHeight; radius: Theme.btnRadius
-                                color: "transparent"
-                                Rectangle {
-                                    anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                                    opacity: exportA.pressed ? 0.9 : (exportA.containsMouse ? 0.6 : 0)
-                                    Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
-                                }
-                                Text { anchors.centerIn: parent; text: wifiPop.exportCopied ? "\u2713 Copied" : "󰋼  Export Report"
-                                    color: wifiPop.exportCopied ? Theme.greenBright : (exportA.containsMouse ? Theme.blueBright : Theme.fg4)
-                                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                                    Behavior on color { ColorAnimation { duration: Theme.animHover } } }
-                                MouseArea { id: exportA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                                    onClicked: wifiPop.exportReport() }
-                            }
-
-                            Rectangle {
-                                Layout.fillWidth: true; height: Theme.btnHeight; radius: Theme.btnRadius
-                                color: "transparent"
-                                Rectangle {
-                                    anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                                    opacity: rerunA.pressed ? 0.9 : (rerunA.containsMouse ? 0.6 : 0)
-                                    Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
-                                }
-                                Text { anchors.centerIn: parent; text: "\u21BB Rerun"; color: rerunA.containsMouse ? Theme.blueBright : Theme.fg4
-                                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                                    Behavior on color { ColorAnimation { duration: Theme.animHover } } }
-                                MouseArea { id: rerunA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                                    onClicked: wifiPop.startDiagnostics() }
-                            }
-                        }
-                    }
-                }
+                diagLoading: wifiPop.diagLoading
+                speedTestRunning: wifiPop.speedTestRunning
+                connectedSsid: wifiPop.connectedSsid
+                exportCopied: wifiPop.exportCopied
+                diagBand: wifiPop.diagBand
+                diagSignal: wifiPop.diagSignal
+                diagNoise: wifiPop.diagNoise
+                diagLinkRate: wifiPop.diagLinkRate
+                diagGateway: wifiPop.diagGateway
+                diagGwPing: wifiPop.diagGwPing
+                diagGwJitter: wifiPop.diagGwJitter
+                diagGwLoss: wifiPop.diagGwLoss
+                diagNetPing: wifiPop.diagNetPing
+                diagNetJitter: wifiPop.diagNetJitter
+                diagNetLoss: wifiPop.diagNetLoss
+                diagDnsServer: wifiPop.diagDnsServer
+                diagDnsTime: wifiPop.diagDnsTime
+                diagDownload: wifiPop.diagDownload
+                diagUpload: wifiPop.diagUpload
+                diagBufferbloat: wifiPop.diagBufferbloat
+                diagBufferbloatOk: wifiPop.diagBufferbloatOk
+                diagWifiStandard: wifiPop.diagWifiStandard
+                histSignal: wifiPop.histSignal
+                histNoise: wifiPop.histNoise
+                histGwPing: wifiPop.histGwPing
+                histGwJitter: wifiPop.histGwJitter
+                histGwLoss: wifiPop.histGwLoss
+                histNetPing: wifiPop.histNetPing
+                histNetJitter: wifiPop.histNetJitter
+                histNetLoss: wifiPop.histNetLoss
+                histDnsTime: wifiPop.histDnsTime
+                onSpeedTestRequested: { wifiPop.diagDownload = ""; wifiPop.diagUpload = ""; wifiPop.diagBufferbloat = ""; wifiPop.speedTestRunning = true; speedTestProc.running = true; }
+                onChannelScanRequested: wifiPop.startChannelScan()
+                onDnsChanged: (server) => wifiPop.switchDns(server)
+                onExportRequested: wifiPop.exportReport()
+                onRerunRequested: wifiPop.startDiagnostics()
             }
 
-            // ══════════════════════════════════════════════════
-            // ── CHANNELS STATE ────────────────────────────────
-            // ══════════════════════════════════════════════════
-            ColumnLayout {
+            WifiChannels {
                 visible: wifiPop.popupState === "channels"
                 opacity: wifiPop.popupState === "channels" ? 1 : 0
                 Behavior on opacity { NumberAnimation { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
-                Layout.fillWidth: true; spacing: 8
-
-                Text {
-                    visible: wifiPop.currentChannel !== ""
-                    text: "You're on channel " + wifiPop.currentChannel + " (" + wifiPop.currentBand + " GHz)"
-                    color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                }
-
-                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
-
-                // ── Skeleton loading ──
-                Column {
-                    visible: channelScanProc.running
-                    Layout.fillWidth: true
-                    spacing: 0
-
-                    Repeater {
-                        model: ListModel {
-                            ListElement { skelWidth: 120 }
-                            ListElement { skelWidth: 150 }
-                            ListElement { skelWidth: 100 }
-                            ListElement { skelWidth: 140 }
-                            ListElement { skelWidth: 110 }
-                        }
-                        delegate: Item {
-                            required property int skelWidth
-                            required property int index
-                            width: parent.width; height: 52
-                            ColumnLayout {
-                                anchors.verticalCenter: parent.verticalCenter
-                                anchors.left: parent.left; anchors.right: parent.right
-                                anchors.leftMargin: 8; anchors.rightMargin: 8
-                                spacing: 6
-
-                                RowLayout { spacing: 6
-                                    Rectangle { width: 36; height: 10; radius: 5; color: Theme.bg3 }
-                                    Rectangle { width: 40; height: 10; radius: 5; color: Theme.bg3 }
-                                    Item { Layout.fillWidth: true }
-                                    Rectangle { width: 65; height: 10; radius: 5; color: Theme.bg3 }
-                                }
-                                Rectangle { width: skelWidth; height: 8; radius: 4; color: Theme.bg3 }
-                            }
-
-                            SequentialAnimation on opacity {
-                                loops: Animation.Infinite
-                                PauseAnimation { duration: index * 120 }
-                                NumberAnimation { from: 0.4; to: 0.8; duration: 800; easing.type: Easing.InOutQuad }
-                                NumberAnimation { from: 0.8; to: 0.4; duration: 800; easing.type: Easing.InOutQuad }
-                            }
-                        }
-                    }
-                }
-
-                Flickable {
-                    visible: !channelScanProc.running
-                    Layout.fillWidth: true; Layout.preferredHeight: Math.min(channelCol.implicitHeight, 300)
-                    Layout.maximumHeight: 300
-                    contentHeight: channelCol.implicitHeight; clip: true; boundsBehavior: Flickable.StopAtBounds
-
-                    ColumnLayout {
-                        id: channelCol; width: parent.width; spacing: 8
-
-                        Repeater {
-                            model: channelModel
-                            Rectangle {
-                                required property int channel
-                                required property string band
-                                required property string networks
-                                required property int count
-                                required property bool isOurs
-                                Layout.fillWidth: true
-                                height: chanItemCol.implicitHeight + 16; radius: Theme.hoverRadius
-                                color: isOurs ? Qt.rgba(Theme.blueBright.r, Theme.blueBright.g, Theme.blueBright.b, 0.1) : "transparent"
-                                border.width: isOurs ? 1 : 0; border.color: Theme.blueBright
-
-                                ColumnLayout {
-                                    id: chanItemCol
-                                    anchors.fill: parent; anchors.margins: 8; spacing: 3
-
-                                    RowLayout { spacing: 6
-                                        Text {
-                                            text: "Ch " + channel
-                                            color: isOurs ? Theme.blueBright : Theme.fg
-                                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
-                                        }
-                                        Rectangle {
-                                            width: chanBandBadge.implicitWidth + 6; height: 14; radius: 3
-                                            color: Theme.bg2; border.width: 1; border.color: Theme.bg3
-                                            Text { id: chanBandBadge; anchors.centerIn: parent; text: band + " GHz"
-                                                color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 3 }
-                                        }
-                                        Item { Layout.fillWidth: true }
-                                        Text {
-                                            text: count === 1 ? "1 network" : count + " networks"
-                                            color: count <= 2 ? Theme.greenBright : (count <= 5 ? Theme.yellowBright : Theme.redBright)
-                                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
-                                        }
-                                    }
-                                    Text {
-                                        text: networks; color: Theme.fg4
-                                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 2
-                                        wrapMode: Text.WordWrap; Layout.fillWidth: true
-                                        maximumLineCount: 2; elide: Text.ElideRight
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Text {
-                    visible: wifiPop.currentChannel !== ""
-                    text: {
-                        for (let i = 0; i < channelModel.count; i++) {
-                            let item = channelModel.get(i);
-                            if (item.isOurs) {
-                                if (item.count <= 2) return "Your channel looks clear.";
-                                if (item.count <= 5) return "Your channel is moderately congested. Consider switching to a less crowded channel in your router settings.";
-                                return "Your channel is very congested (" + item.count + " networks). Switching channels in your router settings would likely improve performance.";
-                            }
-                        }
-                        return "";
-                    }
-                    color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
-                    wrapMode: Text.WordWrap; Layout.fillWidth: true; Layout.topMargin: 2
-                }
+                Layout.fillWidth: true
+                channelModel: channelModel
+                currentChannel: wifiPop.currentChannel
+                currentBand: wifiPop.currentBand
+                scanning: channelScanProc.running
             }
         }
     }
