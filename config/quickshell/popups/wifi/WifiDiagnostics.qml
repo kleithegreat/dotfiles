@@ -430,7 +430,6 @@ Item {
                     property bool isCurrent: root.diagDnsServer === root.diagGateway || root.diagDnsServer === "--"
                     width: dnsAutoLabel.implicitWidth + 16; height: 24; radius: Theme.btnRadius
                     color: isCurrent ? Theme.accent : "transparent"
-                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
                     border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
                     Rectangle {
                         visible: !parent.isCurrent
@@ -439,7 +438,7 @@ Item {
                         Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
                     }
                     Text { id: dnsAutoLabel; anchors.centerIn: parent; text: "Router"
-                        color: isCurrent ? Theme.bg : (dnsAutoA.containsMouse ? Theme.fg : Theme.fg4); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
+                        color: parent.isCurrent ? Theme.bg : (dnsAutoA.containsMouse ? Theme.fg : Theme.fg4); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
                         Behavior on color { ColorAnimation { duration: Theme.animHover } } }
                     MouseArea { id: dnsAutoA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
                         onClicked: root.dnsChanged("auto") }
@@ -449,7 +448,6 @@ Item {
                     property bool isCurrent: root.diagDnsServer === "8.8.8.8"
                     width: dnsGoogleLabel.implicitWidth + 16; height: 24; radius: Theme.btnRadius
                     color: isCurrent ? Theme.accent : "transparent"
-                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
                     border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
                     Rectangle {
                         visible: !parent.isCurrent
@@ -458,7 +456,7 @@ Item {
                         Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
                     }
                     Text { id: dnsGoogleLabel; anchors.centerIn: parent; text: "Google"
-                        color: isCurrent ? Theme.bg : (dnsGoogleA.containsMouse ? Theme.fg : Theme.fg4); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
+                        color: parent.isCurrent ? Theme.bg : (dnsGoogleA.containsMouse ? Theme.fg : Theme.fg4); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
                         Behavior on color { ColorAnimation { duration: Theme.animHover } } }
                     MouseArea { id: dnsGoogleA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
                         onClicked: root.dnsChanged("8.8.8.8") }
@@ -468,7 +466,6 @@ Item {
                     property bool isCurrent: root.diagDnsServer === "1.1.1.1"
                     width: dnsCfLabel.implicitWidth + 16; height: 24; radius: Theme.btnRadius
                     color: isCurrent ? Theme.accent : "transparent"
-                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
                     border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
                     Rectangle {
                         visible: !parent.isCurrent
@@ -477,7 +474,7 @@ Item {
                         Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
                     }
                     Text { id: dnsCfLabel; anchors.centerIn: parent; text: "Cloudflare"
-                        color: isCurrent ? Theme.bg : (dnsCfA.containsMouse ? Theme.fg : Theme.fg4); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
+                        color: parent.isCurrent ? Theme.bg : (dnsCfA.containsMouse ? Theme.fg : Theme.fg4); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
                         Behavior on color { ColorAnimation { duration: Theme.animHover } } }
                     MouseArea { id: dnsCfA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
                         onClicked: root.dnsChanged("1.1.1.1") }
