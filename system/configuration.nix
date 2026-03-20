@@ -107,6 +107,9 @@ in
   environment.sessionVariables.NIXOS_OZONE_WL = "1";
   environment.sessionVariables.__EGL_VENDOR_LIBRARY_FILENAMES =
     "/run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json";
+  environment.sessionVariables.QT_PLUGIN_PATH = [
+    "${inputs.hyprqt6engine.packages.${pkgs.system}.default}/lib/qt-6"
+  ];
 
   # ── XDG Portals ──────────────────────────────────────────────
   # XDPH for screensharing, GTK as general fallback, KDE for file picker
