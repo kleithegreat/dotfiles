@@ -77,6 +77,7 @@ class ThemeState:
     cursor_size: int       # e.g. 24
     font_size: int         # System font size (e.g. 11)
     mono_font_size: int    # Terminal/editor font size (e.g. 11)
+    dark_hint: bool        # True = prefer-dark, False = prefer-light
 
     @classmethod
     def from_json(cls, path: Path) -> ThemeState:

@@ -471,6 +471,40 @@ PanelWindow {
                         }
                     }
                 }
+
+                // ── App Dark Mode toggle ──
+                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+
+                RowLayout {
+                    Layout.fillWidth: true; spacing: 12
+
+                    Text {
+                        text: "App Dark Mode"
+                        color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize
+                        Layout.fillWidth: true; Layout.alignment: Qt.AlignVCenter
+                    }
+
+                    Rectangle {
+                        id: darkToggle
+                        property bool isDark: settingsPop.themeState.dark_hint !== false
+                        width: 44; height: 24; radius: 12
+                        color: isDark ? Theme.accent : Theme.bg3
+                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
+
+                        Rectangle {
+                            width: 18; height: 18; radius: 9
+                            anchors.verticalCenter: parent.verticalCenter
+                            x: darkToggle.isDark ? parent.width - width - 3 : 3
+                            color: Theme.fg
+                            Behavior on x { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                            onClicked: settingsPop.runSet("dark_hint", darkToggle.isDark ? "light" : "dark")
+                        }
+                    }
+                }
             }
         }
     }

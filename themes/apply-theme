@@ -112,6 +112,19 @@ def cmd_set(args: argparse.Namespace) -> None:
             print(f"error: '{key}' must be an integer, got '{value}'", file=sys.stderr)
             sys.exit(1)
 
+    # Coerce bool fields
+    bool_fields = {name for name, tp in typing.get_type_hints(ThemeState).items() if tp is bool}
+    if key in bool_fields:
+        truthy = {"true", "on", "dark", "yes", "1"}
+        falsy = {"false", "off", "light", "no", "0"}
+        if value.lower() in truthy:
+            value = True
+        elif value.lower() in falsy:
+            value = False
+        else:
+            print(f"error: '{key}' must be a boolean (true/false, on/off, dark/light), got '{value}'", file=sys.stderr)
+            sys.exit(1)
+
     if state_dict[key] == value:
         print(f"{key} is already '{value}', nothing to do.")
         return
