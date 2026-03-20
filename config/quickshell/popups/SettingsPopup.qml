@@ -126,7 +126,7 @@ PanelWindow {
 
     Process {
         id: dirPickerProc; running: false
-        command: ["zenity", "--file-selection", "--directory", "--title=Select Wallpaper Directory"]
+        command: ["bash", "-c", "if command -v kdialog >/dev/null 2>&1; then kdialog --getexistingdirectory \"$1\"; else zenity --file-selection --directory --title='Select Wallpaper Directory'; fi", "_", settingsPop.wallpaperDir]
         property string result: ""
         stdout: SplitParser { onRead: (line) => { dirPickerProc.result = line.trim(); } }
         onExited: {
@@ -471,56 +471,20 @@ PanelWindow {
                     }
                 }
 
-                // ── Light Mode toggle ──
+                // ── Variant selector ──
                 Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3; visible: settingsPop.selectedColorFamily !== "" }
 
                 ColumnLayout {
-                    Layout.fillWidth: true; spacing: 10
+                    Layout.fillWidth: true; spacing: 8
                     visible: settingsPop.selectedColorFamily !== ""
 
-                    RowLayout {
-                        Layout.fillWidth: true; spacing: 12
-
-                        Text {
-                            text: "Light Mode — " + settingsPop.familyDisplayName(settingsPop.selectedColorFamily)
-                            color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize
-                            Layout.fillWidth: true; Layout.alignment: Qt.AlignVCenter
-                        }
-
-                        Item {
-                            width: Theme.toggleWidth; height: Theme.toggleHeight
-
-                            Rectangle {
-                                anchors.fill: parent; radius: height / 2
-                                color: settingsPop.isLightVariant(settingsPop.currentVariant) ? Theme.greenBright : Theme.bg3
-                                Behavior on color { ColorAnimation { duration: Theme.animSpring } }
-
-                                Rectangle {
-                                    width: Theme.toggleKnobSize; height: Theme.toggleKnobSize
-                                    radius: width / 2; y: (parent.height - height) / 2
-                                    x: settingsPop.isLightVariant(settingsPop.currentVariant) ? parent.width - width - (parent.height - height) / 2 : (parent.height - height) / 2
-                                    color: Theme.fg
-                                    scale: dlToggleMouse.pressed ? 1.1 : 1.0
-                                    Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                                    Behavior on x { NumberAnimation { duration: Theme.animSpring; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
-                                }
-                            }
-
-                            MouseArea {
-                                id: dlToggleMouse; anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    let wantLight = !settingsPop.isLightVariant(settingsPop.currentVariant);
-                                    let scheme = settingsPop.findVariant(settingsPop.selectedColorFamily, wantLight);
-                                    if (scheme) settingsPop.runSet("color_scheme", scheme);
-                                }
-                            }
-                        }
+                    Text {
+                        text: "VARIANT"
+                        color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
                     }
 
-                    // Variant buttons for families with more than 2 variants
                     Flow {
                         Layout.fillWidth: true; spacing: 6
-                        visible: settingsPop.selectedFamilyVariants.length > 2
 
                         Repeater {
                             model: settingsPop.selectedFamilyVariants
@@ -531,7 +495,7 @@ PanelWindow {
                                 property string variantName: modelData.variant || ""
                                 property bool isCurrent: settingsPop.themeState.color_scheme === schemeName
 
-                                width: varLabel.implicitWidth + 16; height: Theme.btnHeight; radius: Theme.btnRadius
+                                width: varLabel.implicitWidth + 20; height: Theme.btnHeight; radius: Theme.btnRadius
                                 color: isCurrent ? Theme.accent : (varArea.containsMouse ? Theme.bg2 : Theme.bg1)
                                 Behavior on color { ColorAnimation { duration: Theme.animHover } }
                                 border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
@@ -542,7 +506,7 @@ PanelWindow {
 
                                 Text {
                                     id: varLabel; anchors.centerIn: parent
-                                    text: varBtn.variantName
+                                    text: varBtn.variantName.charAt(0).toUpperCase() + varBtn.variantName.slice(1)
                                     color: varBtn.isCurrent ? Theme.bg : Theme.fg
                                     Behavior on color { ColorAnimation { duration: Theme.animHover } }
                                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
@@ -557,45 +521,67 @@ PanelWindow {
                     }
                 }
 
-                // ── App Dark Mode toggle ──
+                // ── Electron / Browser Hint ──
                 Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
 
                 ColumnLayout {
-                    Layout.fillWidth: true; spacing: 6
+                    Layout.fillWidth: true; spacing: 8
 
-                    RowLayout {
-                        Layout.fillWidth: true; spacing: 12
+                    Text {
+                        text: "ELECTRON / BROWSER HINT"
+                        color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
+                    }
 
-                        Text {
-                            text: "App Dark Mode"
-                            color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize
-                            Layout.fillWidth: true; Layout.alignment: Qt.AlignVCenter
+                    Row {
+                        spacing: 6
+
+                        Rectangle {
+                            id: lightHintBtn
+                            property bool isActive: settingsPop.themeState.dark_hint === false
+                            width: lightHintLabel.implicitWidth + 20; height: Theme.btnHeight; radius: Theme.btnRadius
+                            color: isActive ? Theme.accent : (lightHintArea.containsMouse ? Theme.bg2 : Theme.bg1)
+                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                            border.width: 1; border.color: isActive ? Theme.accent : Theme.bg3
+                            Behavior on border.color { ColorAnimation { duration: Theme.animSpring } }
+                            scale: lightHintArea.pressed ? 0.95 : 1.0
+                            Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                            transformOrigin: Item.Center
+
+                            Text {
+                                id: lightHintLabel; anchors.centerIn: parent; text: "Light"
+                                color: lightHintBtn.isActive ? Theme.bg : Theme.fg
+                                Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                            }
+                            MouseArea {
+                                id: lightHintArea; anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                                onClicked: settingsPop.runSet("dark_hint", "light")
+                            }
                         }
 
-                        Item {
-                            width: Theme.toggleWidth; height: Theme.toggleHeight
+                        Rectangle {
+                            id: darkHintBtn
+                            property bool isActive: settingsPop.themeState.dark_hint !== false
+                            width: darkHintLabel.implicitWidth + 20; height: Theme.btnHeight; radius: Theme.btnRadius
+                            color: isActive ? Theme.accent : (darkHintArea.containsMouse ? Theme.bg2 : Theme.bg1)
+                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                            border.width: 1; border.color: isActive ? Theme.accent : Theme.bg3
+                            Behavior on border.color { ColorAnimation { duration: Theme.animSpring } }
+                            scale: darkHintArea.pressed ? 0.95 : 1.0
+                            Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                            transformOrigin: Item.Center
 
-                            Rectangle {
-                                id: darkTrack
-                                property bool isDark: settingsPop.themeState.dark_hint !== false
-                                anchors.fill: parent; radius: height / 2
-                                color: isDark ? Theme.greenBright : Theme.bg3
-                                Behavior on color { ColorAnimation { duration: Theme.animSpring } }
-
-                                Rectangle {
-                                    width: Theme.toggleKnobSize; height: Theme.toggleKnobSize
-                                    radius: width / 2; y: (parent.height - height) / 2
-                                    x: darkTrack.isDark ? parent.width - width - (parent.height - height) / 2 : (parent.height - height) / 2
-                                    color: Theme.fg
-                                    scale: darkToggleMouse.pressed ? 1.1 : 1.0
-                                    Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                                    Behavior on x { NumberAnimation { duration: Theme.animSpring; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
-                                }
+                            Text {
+                                id: darkHintLabel; anchors.centerIn: parent; text: "Dark"
+                                color: darkHintBtn.isActive ? Theme.bg : Theme.fg
+                                Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                             }
-
                             MouseArea {
-                                id: darkToggleMouse; anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                                onClicked: settingsPop.runSet("dark_hint", darkTrack.isDark ? "light" : "dark")
+                                id: darkHintArea; anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                                onClicked: settingsPop.runSet("dark_hint", "dark")
                             }
                         }
                     }
