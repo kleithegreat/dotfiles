@@ -25,6 +25,7 @@ DEPENDS: dict[str, set[str]] = {
     "cursor_size":    {"cursor"},
     "font_size":      {"gtk", "qt"},
     "mono_font_size": {"alacritty", "ghostty", "qt"},
+    "dark_hint":      {"gtk"},
 }
 
 
