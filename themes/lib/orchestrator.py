@@ -80,16 +80,27 @@ def _assemble(target: ModuleType, content: str | list[list[str]],
     else:
         raise ValueError(f"Unknown assembly strategy: {assembly!r}")
 
+    # Write to extra output paths (e.g. qt5ct equivalent of qt6ct scheme)
+    for extra in getattr(target, "EXTRA_OUTPUTS", []):
+        p = Path(extra).expanduser()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(out.read_text())
 
-def _reload(target: ModuleType) -> None:
-    """Fire the target's reload command, if any."""
+
+def _reload(target: ModuleType, colors: ColorScheme, state: ThemeState) -> None:
+    """Fire the target's reload command and/or on_apply hook."""
     cmd = getattr(target, "RELOAD_CMD", None)
-    if not cmd:
-        return
-    try:
-        subprocess.run(cmd, check=True, capture_output=True, text=True)
-    except (FileNotFoundError, subprocess.CalledProcessError) as exc:
-        print(f"  reload warning ({target.TARGET_NAME}): {exc}", file=sys.stderr)
+    if cmd:
+        try:
+            subprocess.run(cmd, check=True, capture_output=True, text=True)
+        except (FileNotFoundError, subprocess.CalledProcessError) as exc:
+            print(f"  reload warning ({target.TARGET_NAME}): {exc}", file=sys.stderr)
+    fn = getattr(target, "on_apply", None)
+    if fn:
+        try:
+            fn(colors, state)
+        except Exception as exc:
+            print(f"  reload warning ({target.TARGET_NAME}): {exc}", file=sys.stderr)
 
 
 def apply_target(name: str, colors: ColorScheme, state: ThemeState) -> bool:
@@ -101,12 +112,20 @@ def apply_target(name: str, colors: ColorScheme, state: ThemeState) -> bool:
     try:
         content = target.generate(colors, state)
         _assemble(target, content, colors)
-        _reload(target)
+        _reload(target, colors, state)
         print(f"  {name}: ok")
         return True
     except Exception as exc:
         print(f"  {name}: FAILED — {exc}", file=sys.stderr)
         return False
+
+
+def _sorted_targets(names: set[str]) -> list[str]:
+    """Sort targets: file-writing first, command targets last, alpha within."""
+    def _key(name: str) -> tuple[int, str]:
+        t = REGISTRY.get(name)
+        return (1 if t and t.ASSEMBLY == "command" else 0, name)
+    return sorted(names, key=_key)
 
 
 def apply_targets(names: set[str], colors: ColorScheme, state: ThemeState) -> None:
@@ -115,13 +134,13 @@ def apply_targets(names: set[str], colors: ColorScheme, state: ThemeState) -> No
     skipped = names - REGISTRY.keys()
     if skipped:
         print(f"  (skipping unregistered: {', '.join(sorted(skipped))})")
-    for name in sorted(available):
+    for name in _sorted_targets(available):
         apply_target(name, colors, state)
 
 
 def apply_all(colors: ColorScheme, state: ThemeState) -> None:
     """Run every registered target."""
-    for name in sorted(REGISTRY):
+    for name in _sorted_targets(set(REGISTRY)):
         apply_target(name, colors, state)
 
 
