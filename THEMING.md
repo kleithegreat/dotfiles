@@ -485,7 +485,7 @@ white   = "{colors.palette[15]}"
 | starship     | `concat`     | `~/.config/starship.toml`               | `$DOTFILES/config/starship/base.toml` | auto (next prompt)     | Base has format strings; generated has palette |
 | tmux         | `import`     | `~/.config/tmux/colors.conf`            | —                                 | `tmux source-file ...`     | Add `source-file` to base tmux.conf        |
 | gtk          | `command`    | —                                       | —                                 | immediate                  | gsettings for theme, font, icons, color-scheme |
-| qt           | `standalone` | `~/.config/qt6ct/colors/current.conf`   | —                                 | relaunch Qt apps           | Also generates qt5ct equivalent            |
+| qt           | `standalone` | `~/.config/qt6ct/colors/current.conf`   | —                                 | relaunch Qt apps           | Also generates qt5ct equiv, KColorScheme `.colors`, and `hyprqt6engine.conf` |
 | vicinae      | `concat`     | `~/.config/vicinae/settings.json`       | `$DOTFILES/config/vicinae/base.json` | auto                   | JSON merge: base providers + generated theming |
 | wallpaper    | `command`    | —                                       | —                                 | immediate                  | `swww img`                                 |
 | cursor       | `command`    | —                                       | —                                 | immediate                  | gsettings + `hyprctl setcursor`            |
@@ -843,9 +843,15 @@ def generate(colors: ColorScheme, state: ThemeState) -> list[list[str]]:
 **Generated file:** `~/.config/qt6ct/colors/current.conf` (and qt5ct equivalent)
 **Reload:** Qt apps must be relaunched.
 
-Generates an INI-format color scheme file that qt6ct can reference. The active
-color scheme in qt6ct is set separately (via qt6ct's own config or a command).
-This target is more complex — see qt6ct documentation for the INI color format.
+Generates an INI-format color scheme file that qt6ct can reference. The `on_apply()`
+hook additionally writes:
+- `~/.local/share/color-schemes/current.colors` — standalone KColorScheme file
+- `~/.config/hypr/hyprqt6engine.conf` — hyprqt6engine config pointing to the
+  KColorScheme file, with icon_theme, fonts, and style from ThemeState
+
+Qt6 apps use hyprqt6engine (`QT_QPA_PLATFORMTHEME=hyprqt6engine`) which reads the
+KColorScheme file for full KDE Frameworks color support (toolbars, sidebars, menus).
+Qt5 apps fall back to qt5ct.
 
 ---
 
