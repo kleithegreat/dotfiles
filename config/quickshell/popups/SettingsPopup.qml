@@ -607,6 +607,20 @@ PanelWindow {
             ColumnLayout {
                 id: wpCol; width: parent.width; spacing: 8
 
+                Text {
+                    text: "Directory: ~/wallpapers/"
+                    color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                    Layout.fillWidth: true
+                }
+
+                Text {
+                    visible: settingsPop.wallpapers.length === 0
+                    text: "No wallpapers found. Place image files in ~/wallpapers/ and they will appear here."
+                    color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize
+                    wrapMode: Text.WordWrap; Layout.fillWidth: true
+                    Layout.topMargin: 24
+                }
+
                 Grid {
                     id: wpGrid
                     Layout.fillWidth: true
@@ -676,7 +690,7 @@ PanelWindow {
                 Flow {
                     Layout.fillWidth: true; spacing: 6
                     Repeater {
-                        model: ["Papirus-Dark", "Papirus", "Papirus-Light", "Adwaita", "hicolor"]
+                        model: ["Neuwaita", "Papirus-Dark", "Papirus", "Papirus-Light", "Adwaita", "hicolor"]
                         delegate: Rectangle {
                             id: itBtn
                             required property string modelData; required property int index
