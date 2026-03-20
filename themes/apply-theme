@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import typing
 from dataclasses import asdict, fields
 from pathlib import Path
 
@@ -37,7 +38,7 @@ _COLOR_TARGETS = {
 }
 
 # "fonts" subcommand: targets that depend on any font-related key
-_FONT_TARGETS = {"alacritty", "ghostty", "quickshell", "tmux", "gtk", "vicinae"}
+_FONT_TARGETS = {"alacritty", "ghostty", "quickshell", "tmux", "gtk", "qt", "vicinae"}
 
 
 def _load(args: argparse.Namespace) -> tuple:
@@ -103,7 +104,7 @@ def cmd_set(args: argparse.Namespace) -> None:
     state_dict = asdict(state)
 
     # Coerce int fields
-    int_fields = {f.name for f in fields(ThemeState) if f.type == "int"}
+    int_fields = {name for name, tp in typing.get_type_hints(ThemeState).items() if tp is int}
     if key in int_fields:
         try:
             value = int(value)

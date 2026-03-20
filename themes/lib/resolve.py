@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import typing
 from dataclasses import asdict, fields
 from pathlib import Path
 
@@ -16,12 +17,9 @@ _COLOR_FIELDS = frozenset(
     f.name for f in fields(ColorScheme) if f.name not in ("family", "variant", "palette")
 )
 
-_STATE_STR_FIELDS = frozenset(
-    f.name for f in fields(ThemeState) if f.type == "str"
-)
-_STATE_INT_FIELDS = frozenset(
-    f.name for f in fields(ThemeState) if f.type == "int"
-)
+_STATE_HINTS = typing.get_type_hints(ThemeState)
+_STATE_STR_FIELDS = frozenset(name for name, tp in _STATE_HINTS.items() if tp is str)
+_STATE_INT_FIELDS = frozenset(name for name, tp in _STATE_HINTS.items() if tp is int)
 
 
 def _check_hex(value: str, label: str) -> None:
@@ -66,7 +64,12 @@ def load_colors(scheme_name: str, colors_dir: Path) -> ColorScheme:
     for i, entry in enumerate(palette):
         _check_hex(entry, f"{path} palette[{i}]")
 
-    return ColorScheme.from_json(path)
+    return ColorScheme(
+        family=data["family"],
+        variant=data["variant"],
+        palette=tuple(palette),
+        **colors,
+    )
 
 
 def load_state(state_path: Path) -> ThemeState:
@@ -94,7 +97,7 @@ def load_state(state_path: Path) -> ThemeState:
         if not isinstance(data[name], int) or isinstance(data[name], bool):
             raise ValueError(f"{state_path}: '{name}' must be an integer")
 
-    return ThemeState.from_json(state_path)
+    return ThemeState(**data)
 
 
 def save_state(state: ThemeState, state_path: Path) -> None:
