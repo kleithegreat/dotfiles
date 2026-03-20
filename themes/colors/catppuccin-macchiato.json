@@ -1,0 +1,36 @@
+{
+  "family": "catppuccin",
+  "variant": "macchiato",
+  "colors": {
+    "bg":           "#24273a",
+    "bg_dim":       "#1e2030",
+    "bg1":          "#363a4f",
+    "bg2":          "#494d64",
+    "bg3":          "#5b6078",
+    "fg":           "#cad3f5",
+    "fg2":          "#b8c0e0",
+    "fg3":          "#a5adcb",
+    "fg4":          "#939ab7",
+    "red":          "#ed8796",
+    "green":        "#a6da95",
+    "yellow":       "#eed49f",
+    "blue":         "#8aadf4",
+    "purple":       "#c6a0f6",
+    "cyan":         "#8bd5ca",
+    "orange":       "#f5a97f",
+    "accent":       "#c6a0f6",
+    "red_bright":   "#ed8796",
+    "green_bright": "#a6da95",
+    "yellow_bright":"#eed49f",
+    "blue_bright":  "#8aadf4",
+    "purple_bright":"#f5bde6",
+    "cyan_bright":  "#8bd5ca",
+    "orange_bright":"#f5a97f"
+  },
+  "palette": [
+    "#494d64", "#ed8796", "#a6da95", "#eed49f",
+    "#8aadf4", "#f5bde6", "#8bd5ca", "#b8c0e0",
+    "#5b6078", "#ed8796", "#a6da95", "#eed49f",
+    "#8aadf4", "#f5bde6", "#8bd5ca", "#a5adcb"
+  ]
+}

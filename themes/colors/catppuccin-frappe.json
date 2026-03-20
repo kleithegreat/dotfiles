@@ -1,0 +1,36 @@
+{
+  "family": "catppuccin",
+  "variant": "frappe",
+  "colors": {
+    "bg":           "#303446",
+    "bg_dim":       "#292c3c",
+    "bg1":          "#414559",
+    "bg2":          "#51576d",
+    "bg3":          "#626880",
+    "fg":           "#c6d0f5",
+    "fg2":          "#b5bfe2",
+    "fg3":          "#a5adce",
+    "fg4":          "#949cbb",
+    "red":          "#e78284",
+    "green":        "#a6d189",
+    "yellow":       "#e5c890",
+    "blue":         "#8caaee",
+    "purple":       "#ca9ee6",
+    "cyan":         "#81c8be",
+    "orange":       "#ef9f76",
+    "accent":       "#ca9ee6",
+    "red_bright":   "#e78284",
+    "green_bright": "#a6d189",
+    "yellow_bright":"#e5c890",
+    "blue_bright":  "#8caaee",
+    "purple_bright":"#f4b8e4",
+    "cyan_bright":  "#81c8be",
+    "orange_bright":"#ef9f76"
+  },
+  "palette": [
+    "#51576d", "#e78284", "#a6d189", "#e5c890",
+    "#8caaee", "#f4b8e4", "#81c8be", "#b5bfe2",
+    "#626880", "#e78284", "#a6d189", "#e5c890",
+    "#8caaee", "#f4b8e4", "#81c8be", "#a5adce"
+  ]
+}

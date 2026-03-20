@@ -1,0 +1,36 @@
+{
+  "family": "tokyonight",
+  "variant": "light",
+  "colors": {
+    "bg":           "#e6e7ed",
+    "bg_dim":       "#dcdee3",
+    "bg1":          "#d6d8df",
+    "bg2":          "#cdced1",
+    "bg3":          "#c1c2c7",
+    "fg":           "#343b59",
+    "fg2":          "#5a607d",
+    "fg3":          "#888b94",
+    "fg4":          "#9da0ab",
+    "red":          "#8c4351",
+    "green":        "#33635c",
+    "yellow":       "#8f5e15",
+    "blue":         "#2959aa",
+    "purple":       "#7b43ba",
+    "cyan":         "#006c86",
+    "orange":       "#965027",
+    "accent":       "#2959aa",
+    "red_bright":   "#8c4351",
+    "green_bright": "#33635c",
+    "yellow_bright":"#8f5e15",
+    "blue_bright":  "#2959aa",
+    "purple_bright":"#7b43ba",
+    "cyan_bright":  "#006c86",
+    "orange_bright":"#965027"
+  },
+  "palette": [
+    "#343b58", "#8c4351", "#33635c", "#8f5e15",
+    "#2959aa", "#7b43ba", "#006c86", "#707280",
+    "#343b58", "#8c4351", "#33635c", "#8f5e15",
+    "#2959aa", "#7b43ba", "#006c86", "#707280"
+  ]
+}
