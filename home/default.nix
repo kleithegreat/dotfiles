@@ -233,6 +233,30 @@ in
     executable = true;
   };
 
+  # ── Desktop entry overrides ───────────────────────────────
+  # Launch VS Code via hyprctl so Hyprland tracks the correct workspace
+  xdg.desktopEntries.code = {
+    name = "Visual Studio Code";
+    comment = "Code Editing. Redefined.";
+    genericName = "Text Editor";
+    icon = "vscode";
+    exec = "hyprctl dispatch exec code %F";
+    categories = ["Utility" "TextEditor" "Development" "IDE"];
+    startupNotify = true;
+    settings = {
+      Keywords = "vscode";
+      StartupWMClass = "Code";
+      Version = "1.5";
+    };
+    actions = {
+      new-empty-window = {
+        name = "New Empty Window";
+        icon = "vscode";
+        exec = "hyprctl dispatch exec -- code --new-window %F";
+      };
+    };
+  };
+
   # ── Default applications ────────────────────────────────────
   xdg.mimeApps = {
     enable = true;
