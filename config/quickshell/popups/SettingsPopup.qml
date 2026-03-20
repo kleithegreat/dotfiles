@@ -28,6 +28,7 @@ PanelWindow {
     property string currentVariant: ""
     property int selectedCategory: 0
     property string selectedColorFamily: ""
+    property string wallpaperDir: "/home/kevin/repos/dotfiles/wallpapers"
     property var categoryNames: ["Presets", "Colors", "Fonts", "Wallpaper", "Icons & Cursors"]
     property var categoryIcons: ["󰒓", "󰏘", "󰛖", "󰋩", "󰍽"]
 
@@ -109,24 +110,58 @@ PanelWindow {
 
     Process {
         id: listPresetsProc; running: false
-        command: ["bash", "-c", "for f in /home/kevin/repos/dotfiles/themes/presets/*.json; do basename \"$f\" .json; done"]
+        command: ["bash", "-c", "for f in /home/kevin/repos/dotfiles/themes/presets/*.json; do name=$(basename \"$f\" .json); jq -c --arg name \"$name\" '{name: $name} + .' \"$f\"; done"]
         property var items: []
-        stdout: SplitParser { onRead: (line) => { listPresetsProc.items.push(line.trim()); } }
+        stdout: SplitParser { onRead: (line) => { try { listPresetsProc.items.push(JSON.parse(line.trim())); } catch(e) {} } }
         onExited: { settingsPop.presets = items; items = []; }
     }
 
     Process {
         id: listWallpapersProc; running: false
-        command: ["bash", "-c", "ls /home/kevin/repos/dotfiles/wallpapers/ 2>/dev/null || true"]
+        command: ["bash", "-c", "ls -- \"$1\" 2>/dev/null || true", "_", settingsPop.wallpaperDir]
         property var items: []
         stdout: SplitParser { onRead: (line) => { let t = line.trim(); if (t !== "") listWallpapersProc.items.push(t); } }
         onExited: { settingsPop.wallpapers = items; items = []; }
+    }
+
+    Process {
+        id: dirPickerProc; running: false
+        command: ["zenity", "--file-selection", "--directory", "--title=Select Wallpaper Directory"]
+        property string result: ""
+        stdout: SplitParser { onRead: (line) => { dirPickerProc.result = line.trim(); } }
+        onExited: {
+            if (result !== "") {
+                settingsPop.wallpaperDir = result;
+                listWallpapersProc.items = [];
+                listWallpapersProc.running = true;
+            }
+            result = "";
+        }
     }
 
     // ── Helper functions ──
     function familyDisplayName(name) {
         if (name === "tokyonight") return "Tokyo Night";
         return name.charAt(0).toUpperCase() + name.slice(1);
+    }
+
+    function isLightVariant(v) {
+        let n = (v || "").toLowerCase();
+        return n === "light" || n === "latte" || n === "dawn";
+    }
+
+    function findVariant(family, wantLight) {
+        let fams = colorFamilies;
+        for (let i = 0; i < fams.length; i++) {
+            if (fams[i].name !== family) continue;
+            let variants = fams[i].variants;
+            for (let j = 0; j < variants.length; j++) {
+                if (isLightVariant(variants[j].variant) === wantLight)
+                    return variants[j].schemeName;
+            }
+            if (variants.length > 0) return variants[0].schemeName;
+        }
+        return "";
     }
 
     // ── Apply commands ──
@@ -189,8 +224,6 @@ PanelWindow {
                 id: sidebar
                 width: 190; height: parent.height
                 color: Theme.bg0_h
-                topLeftRadius: Theme.popupRadius
-                bottomLeftRadius: Theme.popupRadius
 
                 ColumnLayout {
                     anchors.fill: parent
@@ -203,7 +236,7 @@ PanelWindow {
                         Layout.preferredHeight: 36
 
                         Text {
-                            text: "Settings"
+                            text: "Appearance"
                             anchors { left: parent.left; leftMargin: 8; verticalCenter: parent.verticalCenter }
                             color: Theme.fg
                             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeLarge; font.bold: true
@@ -288,28 +321,6 @@ PanelWindow {
                 }
             }
         }
-
-        // ── Close button (top-right corner) ──
-        Rectangle {
-            width: 24; height: 24; radius: Theme.hoverRadius; color: "transparent"
-            anchors { right: parent.right; top: parent.top; rightMargin: 10; topMargin: 10 }
-            z: 1
-            Rectangle {
-                anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                opacity: closeArea.pressed ? 0.9 : (closeArea.containsMouse ? 0.6 : 0)
-                Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
-            }
-            scale: closeArea.pressed ? 0.9 : 1.0
-            Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-            transformOrigin: Item.Center
-            Text {
-                anchors.centerIn: parent; text: "󰅖"
-                color: closeArea.containsMouse ? Theme.redBright : Theme.fg4
-                Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
-            }
-            MouseArea { id: closeArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: settingsPop.close() }
-        }
     }
 
     // ── Detail: Presets ──
@@ -321,26 +332,58 @@ PanelWindow {
             clip: true; boundsBehavior: Flickable.StopAtBounds
 
             ColumnLayout {
-                id: presetsCol; width: parent.width; spacing: 12
+                id: presetsCol; width: parent.width; spacing: 10
 
-                Text { text: "Apply a preset to change multiple settings at once."; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                Repeater {
+                    model: settingsPop.presets.length
+                    delegate: Rectangle {
+                        id: presetCard
+                        required property int index
+                        property var preset: settingsPop.presets[index] || {}
+                        property string presetName: preset.name || ""
 
-                Flow {
-                    Layout.fillWidth: true; spacing: 8
-                    Repeater {
-                        model: settingsPop.presets
-                        delegate: Rectangle {
-                            id: presetBtn
-                            required property string modelData; required property int index
-                            width: presetLabel.implicitWidth + 20; height: 32; radius: Theme.btnRadius
-                            color: presetArea.containsMouse ? Theme.bg2 : Theme.bg1
-                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                            border.width: 1; border.color: Theme.bg3
-                            scale: presetArea.pressed ? 0.95 : 1.0
-                            Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                            transformOrigin: Item.Center
-                            Text { id: presetLabel; anchors.centerIn: parent; text: presetBtn.modelData; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
-                            MouseArea { id: presetArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: settingsPop.runPreset(presetBtn.modelData) }
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: presetContent.implicitHeight + 24
+                        radius: Theme.btnRadius + 2
+                        color: presetCardArea.containsMouse ? Theme.bg2 : Theme.bg1
+                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                        border.width: 1
+                        border.color: presetCardArea.containsMouse ? Theme.accent : Theme.bg3
+                        Behavior on border.color { ColorAnimation { duration: Theme.animHover } }
+                        scale: presetCardArea.pressed ? 0.98 : 1.0
+                        Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                        transformOrigin: Item.Center
+
+                        ColumnLayout {
+                            id: presetContent
+                            anchors { left: parent.left; right: parent.right; top: parent.top; margins: 12 }
+                            spacing: 4
+
+                            Text {
+                                text: settingsPop.familyDisplayName(presetCard.presetName)
+                                color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; font.bold: true
+                            }
+
+                            Text {
+                                text: {
+                                    let p = presetCard.preset;
+                                    let lines = [];
+                                    let keys = Object.keys(p);
+                                    for (let i = 0; i < keys.length; i++) {
+                                        if (keys[i] !== "name")
+                                            lines.push(keys[i].replace(/_/g, " ") + ":  " + p[keys[i]]);
+                                    }
+                                    return lines.join("\n");
+                                }
+                                color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                                wrapMode: Text.WordWrap; Layout.fillWidth: true; lineHeight: 1.4
+                            }
+                        }
+
+                        MouseArea {
+                            id: presetCardArea; anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                            onClicked: settingsPop.runPreset(presetCard.presetName)
                         }
                     }
                 }
@@ -377,8 +420,8 @@ PanelWindow {
                             width: (colorGrid.width - 16) / 3; height: 80
                             radius: Theme.btnRadius + 2
                             color: preview ? preview.bg : Theme.bg1
-                            border.width: isSelected ? 2 : 1
-                            border.color: isSelected ? Theme.accent : Theme.bg3
+                            border.width: isActive ? 2 : 1
+                            border.color: isActive ? Theme.accent : (isSelected ? Theme.fg4 : Theme.bg3)
                             Behavior on border.color { ColorAnimation { duration: Theme.animSpring } }
                             scale: famArea.pressed ? 0.97 : 1.0
                             Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
@@ -417,26 +460,68 @@ PanelWindow {
                             MouseArea {
                                 id: famArea; anchors.fill: parent
                                 cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                                onClicked: settingsPop.selectedColorFamily = famCard.family.name
+                                onClicked: {
+                                    settingsPop.selectedColorFamily = famCard.family.name;
+                                    let wantLight = settingsPop.isLightVariant(settingsPop.currentVariant);
+                                    let scheme = settingsPop.findVariant(famCard.family.name, wantLight);
+                                    if (scheme) settingsPop.runSet("color_scheme", scheme);
+                                }
                             }
                         }
                     }
                 }
 
-                // Variant selector
+                // ── Light Mode toggle ──
                 Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3; visible: settingsPop.selectedColorFamily !== "" }
 
                 ColumnLayout {
-                    Layout.fillWidth: true; spacing: 8
+                    Layout.fillWidth: true; spacing: 10
                     visible: settingsPop.selectedColorFamily !== ""
 
-                    Text {
-                        text: "Variant — " + settingsPop.familyDisplayName(settingsPop.selectedColorFamily)
-                        color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
+                    RowLayout {
+                        Layout.fillWidth: true; spacing: 12
+
+                        Text {
+                            text: "Light Mode — " + settingsPop.familyDisplayName(settingsPop.selectedColorFamily)
+                            color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize
+                            Layout.fillWidth: true; Layout.alignment: Qt.AlignVCenter
+                        }
+
+                        Item {
+                            width: Theme.toggleWidth; height: Theme.toggleHeight
+
+                            Rectangle {
+                                anchors.fill: parent; radius: height / 2
+                                color: settingsPop.isLightVariant(settingsPop.currentVariant) ? Theme.greenBright : Theme.bg3
+                                Behavior on color { ColorAnimation { duration: Theme.animSpring } }
+
+                                Rectangle {
+                                    width: Theme.toggleKnobSize; height: Theme.toggleKnobSize
+                                    radius: width / 2; y: (parent.height - height) / 2
+                                    x: settingsPop.isLightVariant(settingsPop.currentVariant) ? parent.width - width - (parent.height - height) / 2 : (parent.height - height) / 2
+                                    color: Theme.fg
+                                    scale: dlToggleMouse.pressed ? 1.1 : 1.0
+                                    Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                                    Behavior on x { NumberAnimation { duration: Theme.animSpring; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+                                }
+                            }
+
+                            MouseArea {
+                                id: dlToggleMouse; anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    let wantLight = !settingsPop.isLightVariant(settingsPop.currentVariant);
+                                    let scheme = settingsPop.findVariant(settingsPop.selectedColorFamily, wantLight);
+                                    if (scheme) settingsPop.runSet("color_scheme", scheme);
+                                }
+                            }
+                        }
                     }
 
+                    // Variant buttons for families with more than 2 variants
                     Flow {
                         Layout.fillWidth: true; spacing: 6
+                        visible: settingsPop.selectedFamilyVariants.length > 2
+
                         Repeater {
                             model: settingsPop.selectedFamilyVariants
                             delegate: Rectangle {
@@ -475,34 +560,50 @@ PanelWindow {
                 // ── App Dark Mode toggle ──
                 Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
 
-                RowLayout {
-                    Layout.fillWidth: true; spacing: 12
+                ColumnLayout {
+                    Layout.fillWidth: true; spacing: 6
 
-                    Text {
-                        text: "App Dark Mode"
-                        color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize
-                        Layout.fillWidth: true; Layout.alignment: Qt.AlignVCenter
+                    RowLayout {
+                        Layout.fillWidth: true; spacing: 12
+
+                        Text {
+                            text: "App Dark Mode"
+                            color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize
+                            Layout.fillWidth: true; Layout.alignment: Qt.AlignVCenter
+                        }
+
+                        Item {
+                            width: Theme.toggleWidth; height: Theme.toggleHeight
+
+                            Rectangle {
+                                id: darkTrack
+                                property bool isDark: settingsPop.themeState.dark_hint !== false
+                                anchors.fill: parent; radius: height / 2
+                                color: isDark ? Theme.greenBright : Theme.bg3
+                                Behavior on color { ColorAnimation { duration: Theme.animSpring } }
+
+                                Rectangle {
+                                    width: Theme.toggleKnobSize; height: Theme.toggleKnobSize
+                                    radius: width / 2; y: (parent.height - height) / 2
+                                    x: darkTrack.isDark ? parent.width - width - (parent.height - height) / 2 : (parent.height - height) / 2
+                                    color: Theme.fg
+                                    scale: darkToggleMouse.pressed ? 1.1 : 1.0
+                                    Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                                    Behavior on x { NumberAnimation { duration: Theme.animSpring; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+                                }
+                            }
+
+                            MouseArea {
+                                id: darkToggleMouse; anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                                onClicked: settingsPop.runSet("dark_hint", darkTrack.isDark ? "light" : "dark")
+                            }
+                        }
                     }
 
-                    Rectangle {
-                        id: darkToggle
-                        property bool isDark: settingsPop.themeState.dark_hint !== false
-                        width: 44; height: 24; radius: 12
-                        color: isDark ? Theme.accent : Theme.bg3
-                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
-
-                        Rectangle {
-                            width: 18; height: 18; radius: 9
-                            anchors.verticalCenter: parent.verticalCenter
-                            x: darkToggle.isDark ? parent.width - width - 3 : 3
-                            color: Theme.fg
-                            Behavior on x { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                            onClicked: settingsPop.runSet("dark_hint", darkToggle.isDark ? "light" : "dark")
-                        }
+                    Text {
+                        text: "Controls Chrome & Electron dark mode independently of color scheme."
+                        color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                        wrapMode: Text.WordWrap; Layout.fillWidth: true
                     }
                 }
             }
@@ -637,14 +738,8 @@ PanelWindow {
                 id: wpCol; width: parent.width; spacing: 8
 
                 Text {
-                    text: "Directory: /home/kevin/repos/dotfiles/wallpapers/"
-                    color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                    Layout.fillWidth: true
-                }
-
-                Text {
                     visible: settingsPop.wallpapers.length === 0
-                    text: "No wallpapers found. Place image files in /home/kevin/repos/dotfiles/wallpapers/ and they will appear here."
+                    text: "No wallpapers found in the selected directory."
                     color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize
                     wrapMode: Text.WordWrap; Layout.fillWidth: true
                     Layout.topMargin: 24
@@ -657,33 +752,37 @@ PanelWindow {
 
                     Repeater {
                         model: settingsPop.wallpapers
-                        delegate: Rectangle {
+                        delegate: Item {
                             id: wpCard
                             required property string modelData; required property int index
-                            property bool isCurrent: settingsPop.themeState.wallpaper === "/home/kevin/repos/dotfiles/wallpapers/" + modelData
+                            property bool isCurrent: settingsPop.themeState.wallpaper === settingsPop.wallpaperDir + "/" + modelData
 
                             width: (wpGrid.width - 16) / 3
-                            height: width * 0.65 + 22
-                            radius: Theme.btnRadius
-                            color: Theme.bg1
-                            border.width: isCurrent ? 2 : 1
-                            border.color: isCurrent ? Theme.accent : Theme.bg3
-                            Behavior on border.color { ColorAnimation { duration: Theme.animSpring } }
-                            clip: true
+                            height: width * 0.65 + 24
                             scale: wpArea.pressed ? 0.97 : 1.0
                             Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
                             transformOrigin: Item.Center
 
                             Column {
-                                anchors.fill: parent
-                                Image {
-                                    width: parent.width; height: parent.height - 22
-                                    source: "file:///home/kevin/repos/dotfiles/wallpapers/" + wpCard.modelData
-                                    fillMode: Image.PreserveAspectCrop
-                                    asynchronous: true
+                                anchors.fill: parent; spacing: 4
+
+                                Rectangle {
+                                    width: parent.width; height: parent.height - 24
+                                    radius: 8; clip: true; color: Theme.bg1
+                                    border.width: wpCard.isCurrent ? 2 : 1
+                                    border.color: wpCard.isCurrent ? Theme.accent : (wpArea.containsMouse ? Theme.fg4 : Theme.bg3)
+                                    Behavior on border.color { ColorAnimation { duration: Theme.animHover } }
+
+                                    Image {
+                                        anchors.fill: parent; anchors.margins: 1
+                                        source: "file://" + settingsPop.wallpaperDir + "/" + wpCard.modelData
+                                        fillMode: Image.PreserveAspectCrop
+                                        asynchronous: true
+                                    }
                                 }
+
                                 Text {
-                                    width: parent.width; height: 22
+                                    width: parent.width; height: 20
                                     text: wpCard.modelData.replace(/\.\w+$/, "")
                                     color: wpCard.isCurrent ? Theme.accent : Theme.fg3
                                     Behavior on color { ColorAnimation { duration: Theme.animHover } }
@@ -694,8 +793,36 @@ PanelWindow {
                             }
 
                             MouseArea { id: wpArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                                onClicked: settingsPop.runSet("wallpaper", "/home/kevin/repos/dotfiles/wallpapers/" + wpCard.modelData) }
+                                onClicked: settingsPop.runSet("wallpaper", settingsPop.wallpaperDir + "/" + wpCard.modelData) }
                         }
+                    }
+                }
+
+                // ── Directory path + picker ──
+                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3; Layout.topMargin: 8 }
+
+                RowLayout {
+                    Layout.fillWidth: true; spacing: 8
+
+                    Text {
+                        text: settingsPop.wallpaperDir
+                        color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                        Layout.fillWidth: true; Layout.alignment: Qt.AlignVCenter
+                        elide: Text.ElideMiddle
+                    }
+
+                    Rectangle {
+                        width: changeDirLabel.implicitWidth + 16; height: Theme.btnHeight; radius: Theme.btnRadius
+                        color: changeDirArea.containsMouse ? Theme.bg2 : Theme.bg1
+                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                        border.width: 1; border.color: Theme.bg3
+                        scale: changeDirArea.pressed ? 0.95 : 1.0
+                        Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                        transformOrigin: Item.Center
+
+                        Text { id: changeDirLabel; anchors.centerIn: parent; text: "Change Directory..."; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+                        MouseArea { id: changeDirArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                            onClicked: dirPickerProc.running = true }
                     }
                 }
             }
