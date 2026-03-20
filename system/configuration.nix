@@ -213,8 +213,8 @@ in
   programs.dconf.enable = true;
 
   # ── Qt theming ───────────────────────────────────────────────
-  # qt6ct is set via env var in Hyprland env.conf (QT_QPA_PLATFORMTHEME=qt6ct)
-  # The qt6ct package itself is in home-manager packages
+  # hyprqt6engine replaces qt6ct as the primary Qt6 platform theme (QT_QPA_PLATFORMTHEME=hyprqt6engine)
+  # qt6ct is kept for qt5ct backward compatibility (Qt5 apps like VLC still use it)
   
   # ── Man pages ────────────────────────────────────────────────
   documentation.man.enable = true;
@@ -271,7 +271,8 @@ in
     wget
     curl
     cifs-utils       # SMB/CIFS mount support
-    qt6Packages.qt6ct  # Qt6 configuration tool (system-wide so env var works)
+    qt6Packages.qt6ct  # Qt5 configuration tool (kept for qt5ct backward compat)
+    inputs.hyprqt6engine.packages.${pkgs.system}.default  # Hyprland-native Qt6 theme engine
     sddm-theme
   ];
 

@@ -1,4 +1,4 @@
-"""Qt6ct/qt5ct color scheme and KDE color globals generator."""
+"""Qt6ct/qt5ct color scheme, KDE color globals, and hyprqt6engine generator."""
 
 import configparser
 from pathlib import Path
@@ -15,6 +15,8 @@ COMMENT = ";"
 _QT6CT_CONF = "~/.config/qt6ct/qt6ct.conf"
 _QT5CT_CONF = "~/.config/qt5ct/qt5ct.conf"
 _KDEGLOBALS = "~/.config/kdeglobals"
+_KCOLORSCHEME = "~/.local/share/color-schemes/current.colors"
+_HYPRQT6ENGINE_CONF = "~/.config/hypr/hyprqt6engine.conf"
 
 
 def _argb(hex_color: str) -> str:
@@ -80,7 +82,7 @@ def generate(colors: ColorScheme, state: ThemeState) -> str:
 
 
 def on_apply(colors: ColorScheme, state: ThemeState) -> None:
-    """Update qt6ct/qt5ct configs and KDE globals."""
+    """Update qt6ct/qt5ct configs, KDE globals, KColorScheme, and hyprqt6engine."""
     for conf, scheme in [
         (_QT6CT_CONF, OUTPUT_PATH),
         (_QT5CT_CONF, EXTRA_OUTPUTS[0]),
@@ -90,6 +92,8 @@ def on_apply(colors: ColorScheme, state: ThemeState) -> None:
             str(Path(scheme).expanduser()),
         )
     _update_kdeglobals(colors)
+    _write_kcolorscheme(colors)
+    _write_hyprqt6engine_conf(colors, state)
 
 
 def _update_qtct_config(conf_path: Path, scheme_path: str) -> None:
@@ -132,14 +136,9 @@ def _kde_color_group(config: configparser.RawConfigParser, section: str,
         config.set(section, key, value)
 
 
-def _update_kdeglobals(colors: ColorScheme) -> None:
-    """Write KDE color groups to ~/.config/kdeglobals."""
-    conf_path = Path(_KDEGLOBALS).expanduser()
-    config = configparser.RawConfigParser()
-    config.optionxform = str
-    if conf_path.is_file():
-        config.read(str(conf_path))
-
+def _apply_kde_colors(config: configparser.RawConfigParser,
+                      colors: ColorScheme) -> None:
+    """Write all KDE color sections to a configparser instance."""
     fg = _rgb(colors.fg)
     fg_dim = _rgb(colors.fg4)
 
@@ -170,6 +169,7 @@ def _update_kdeglobals(colors: ColorScheme) -> None:
     if not config.has_section("General"):
         config.add_section("General")
     config.set("General", "ColorScheme", "Custom")
+    config.set("General", "Name", "Current Theme")
     config.set("General", "shadeSortColumn", "true")
 
     # KDE contrast
@@ -213,5 +213,48 @@ def _update_kdeglobals(colors: ColorScheme) -> None:
         for key, value in vals.items():
             config.set(section, key, value)
 
+
+def _update_kdeglobals(colors: ColorScheme) -> None:
+    """Write KDE color groups to ~/.config/kdeglobals."""
+    conf_path = Path(_KDEGLOBALS).expanduser()
+    config = configparser.RawConfigParser()
+    config.optionxform = str
+    if conf_path.is_file():
+        config.read(str(conf_path))
+    _apply_kde_colors(config, colors)
+    with open(conf_path, "w") as f:
+        config.write(f, space_around_delimiters=False)
+
+
+def _write_kcolorscheme(colors: ColorScheme) -> None:
+    """Write a standalone KColorScheme .colors file for hyprqt6engine."""
+    conf_path = Path(_KCOLORSCHEME).expanduser()
+    conf_path.parent.mkdir(parents=True, exist_ok=True)
+    config = configparser.RawConfigParser()
+    config.optionxform = str
+    _apply_kde_colors(config, colors)
+    with open(conf_path, "w") as f:
+        config.write(f, space_around_delimiters=False)
+
+
+def _write_hyprqt6engine_conf(colors: ColorScheme, state: ThemeState) -> None:
+    """Write hyprqt6engine.conf pointing to the KColorScheme file."""
+    conf_path = Path(_HYPRQT6ENGINE_CONF).expanduser()
+    scheme_path = str(Path(_KCOLORSCHEME).expanduser())
+    config = configparser.RawConfigParser()
+    config.optionxform = str
+    config.add_section("theme")
+    config.set("theme", "color_scheme", scheme_path)
+    config.set("theme", "icon_theme", state.icon_theme)
+    config.set("theme", "style", "Fusion")
+    config.set("theme", "font", state.system_font)
+    config.set("theme", "font_size", str(state.font_size))
+    config.set("theme", "font_fixed", state.mono_font)
+    config.set("theme", "font_fixed_size", str(state.mono_font_size))
+    config.add_section("misc")
+    config.set("misc", "menus_have_icons", "true")
+    config.set("misc", "single_click_activate", "false")
+    config.set("misc", "shortcuts_for_context_menus", "true")
+    conf_path.parent.mkdir(parents=True, exist_ok=True)
     with open(conf_path, "w") as f:
         config.write(f, space_around_delimiters=False)
