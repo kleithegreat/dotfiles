@@ -79,12 +79,31 @@ PanelWindow {
 
     Process {
         id: listColorsProc; running: false
-        command: ["bash", "-c", "for f in /home/kevin/repos/dotfiles/themes/colors/*.json; do basename \"$f\" .json; done"]
+        command: ["bash", "-c", "for f in /home/kevin/repos/dotfiles/themes/colors/*.json; do name=$(basename \"$f\" .json); jq -c --arg name \"$name\" '{schemeName: $name, family: .family, variant: .variant, bg: .colors.bg, fg: .colors.fg, accent: .colors.accent, red: .colors.red, green: .colors.green, blue: .colors.blue, yellow: .colors.yellow, purple: .colors.purple}' \"$f\"; done"]
         property var items: []
-        stdout: SplitParser { onRead: (line) => { listColorsProc.items.push(line.trim()); } }
+        stdout: SplitParser { onRead: (line) => { try { listColorsProc.items.push(JSON.parse(line.trim())); } catch(e) {} } }
         onExited: {
-            settingsPop.colorSchemes = items; items = [];
-            settingsPop.colorFamilies = settingsPop.buildColorFamilies();
+            let schemes = [];
+            let families = {};
+            let order = [];
+            for (let i = 0; i < items.length; i++) {
+                let d = items[i];
+                schemes.push(d.schemeName);
+                let fam = d.family || d.schemeName;
+                if (!families[fam]) { families[fam] = { name: fam, variants: [] }; order.push(fam); }
+                families[fam].variants.push({
+                    schemeName: d.schemeName, variant: d.variant || "dark",
+                    bg: d.bg || "#282828", fg: d.fg || "#ebdbb2",
+                    accent: d.accent || "#458588", red: d.red || "#cc241d",
+                    green: d.green || "#98971a", blue: d.blue || "#458588",
+                    yellow: d.yellow || "#d79921", purple: d.purple || "#b16286"
+                });
+            }
+            let result = [];
+            for (let j = 0; j < order.length; j++) result.push(families[order[j]]);
+            settingsPop.colorSchemes = schemes;
+            settingsPop.colorFamilies = result;
+            items = [];
         }
     }
 
@@ -98,39 +117,13 @@ PanelWindow {
 
     Process {
         id: listWallpapersProc; running: false
-        command: ["bash", "-c", "ls ~/wallpapers/ 2>/dev/null || true"]
+        command: ["bash", "-c", "ls /home/kevin/repos/dotfiles/wallpapers/ 2>/dev/null || true"]
         property var items: []
         stdout: SplitParser { onRead: (line) => { let t = line.trim(); if (t !== "") listWallpapersProc.items.push(t); } }
         onExited: { settingsPop.wallpapers = items; items = []; }
     }
 
     // ── Helper functions ──
-    function buildColorFamilies() {
-        let families = {};
-        let order = [];
-        for (let i = 0; i < colorSchemes.length; i++) {
-            let name = colorSchemes[i];
-            try {
-                let xhr = new XMLHttpRequest();
-                xhr.open("GET", "file:///home/kevin/repos/dotfiles/themes/colors/" + name + ".json", false);
-                xhr.send();
-                let data = JSON.parse(xhr.responseText);
-                let fam = data.family || name;
-                if (!families[fam]) { families[fam] = { name: fam, variants: [] }; order.push(fam); }
-                families[fam].variants.push({
-                    schemeName: name, variant: data.variant || "dark",
-                    bg: data.colors.bg || "#282828", fg: data.colors.fg || "#ebdbb2",
-                    accent: data.colors.accent || "#458588", red: data.colors.red || "#cc241d",
-                    green: data.colors.green || "#98971a", blue: data.colors.blue || "#458588",
-                    yellow: data.colors.yellow || "#d79921", purple: data.colors.purple || "#b16286"
-                });
-            } catch(e) {}
-        }
-        let result = [];
-        for (let j = 0; j < order.length; j++) result.push(families[order[j]]);
-        return result;
-    }
-
     function familyDisplayName(name) {
         if (name === "tokyonight") return "Tokyo Night";
         return name.charAt(0).toUpperCase() + name.slice(1);
@@ -196,6 +189,8 @@ PanelWindow {
                 id: sidebar
                 width: 190; height: parent.height
                 color: Theme.bg0_h
+                topLeftRadius: Theme.popupRadius
+                bottomLeftRadius: Theme.popupRadius
 
                 ColumnLayout {
                     anchors.fill: parent
@@ -608,14 +603,14 @@ PanelWindow {
                 id: wpCol; width: parent.width; spacing: 8
 
                 Text {
-                    text: "Directory: ~/wallpapers/"
+                    text: "Directory: /home/kevin/repos/dotfiles/wallpapers/"
                     color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
 
                 Text {
                     visible: settingsPop.wallpapers.length === 0
-                    text: "No wallpapers found. Place image files in ~/wallpapers/ and they will appear here."
+                    text: "No wallpapers found. Place image files in /home/kevin/repos/dotfiles/wallpapers/ and they will appear here."
                     color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize
                     wrapMode: Text.WordWrap; Layout.fillWidth: true
                     Layout.topMargin: 24
@@ -631,7 +626,7 @@ PanelWindow {
                         delegate: Rectangle {
                             id: wpCard
                             required property string modelData; required property int index
-                            property bool isCurrent: settingsPop.themeState.wallpaper === "/home/kevin/wallpapers/" + modelData
+                            property bool isCurrent: settingsPop.themeState.wallpaper === "/home/kevin/repos/dotfiles/wallpapers/" + modelData
 
                             width: (wpGrid.width - 16) / 3
                             height: width * 0.65 + 22
@@ -649,7 +644,7 @@ PanelWindow {
                                 anchors.fill: parent
                                 Image {
                                     width: parent.width; height: parent.height - 22
-                                    source: "file:///home/kevin/wallpapers/" + wpCard.modelData
+                                    source: "file:///home/kevin/repos/dotfiles/wallpapers/" + wpCard.modelData
                                     fillMode: Image.PreserveAspectCrop
                                     asynchronous: true
                                 }
@@ -665,7 +660,7 @@ PanelWindow {
                             }
 
                             MouseArea { id: wpArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                                onClicked: settingsPop.runSet("wallpaper", "/home/kevin/wallpapers/" + wpCard.modelData) }
+                                onClicked: settingsPop.runSet("wallpaper", "/home/kevin/repos/dotfiles/wallpapers/" + wpCard.modelData) }
                         }
                     }
                 }
