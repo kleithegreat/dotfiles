@@ -1,20 +1,27 @@
 pragma Singleton
 import QtQuick
+import Quickshell.Io
 
 QtObject {
     id: root
 
-    // ── Load from generated JSON ──
-    property var _data: {
-        try {
-            let xhr = new XMLHttpRequest();
-            xhr.open("GET", "file:///home/kevin/.config/quickshell/GeneratedTheme.json", false);
-            xhr.send();
-            return JSON.parse(xhr.responseText);
-        } catch(e) {
-            return null;
-        }
+    // ── Load from generated JSON (auto-reloads on file change) ──
+    property FileView _themeFile: FileView {
+        path: "/home/kevin/.config/quickshell/GeneratedTheme.json"
+        watchChanges: true
+        blockLoading: true
+        onFileChanged: reload()
+        onLoaded: root._reparse()
     }
+
+    property var _data: null
+
+    function _reparse() {
+        try { _data = JSON.parse(_themeFile.text()); }
+        catch(e) {}
+    }
+
+    Component.onCompleted: _reparse()
 
     property var _colors: _data ? _data.colors : {}
     property var _fonts: _data ? _data.fonts : {}
