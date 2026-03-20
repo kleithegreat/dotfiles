@@ -1,0 +1,36 @@
+{
+  "family": "nord",
+  "variant": "light",
+  "colors": {
+    "bg":           "#eceff4",
+    "bg_dim":       "#e5e9f0",
+    "bg1":          "#d8dee9",
+    "bg2":          "#cdd3de",
+    "bg3":          "#c2c8d4",
+    "fg":           "#2e3440",
+    "fg2":          "#3b4252",
+    "fg3":          "#434c5e",
+    "fg4":          "#4c566a",
+    "red":          "#bf616a",
+    "green":        "#a3be8c",
+    "yellow":       "#ebcb8b",
+    "blue":         "#5e81ac",
+    "purple":       "#b48ead",
+    "cyan":         "#88c0d0",
+    "orange":       "#d08770",
+    "accent":       "#5e81ac",
+    "red_bright":   "#bf616a",
+    "green_bright": "#a3be8c",
+    "yellow_bright":"#ebcb8b",
+    "blue_bright":  "#81a1c1",
+    "purple_bright":"#b48ead",
+    "cyan_bright":  "#8fbcbb",
+    "orange_bright":"#d08770"
+  },
+  "palette": [
+    "#d8dee9", "#bf616a", "#a3be8c", "#ebcb8b",
+    "#5e81ac", "#b48ead", "#88c0d0", "#3b4252",
+    "#e5e9f0", "#bf616a", "#a3be8c", "#ebcb8b",
+    "#81a1c1", "#b48ead", "#8fbcbb", "#2e3440"
+  ]
+}

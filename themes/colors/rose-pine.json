@@ -1,0 +1,36 @@
+{
+  "family": "rosepine",
+  "variant": "dark",
+  "colors": {
+    "bg":           "#191724",
+    "bg_dim":       "#13111e",
+    "bg1":          "#1f1d2e",
+    "bg2":          "#26233a",
+    "bg3":          "#403d52",
+    "fg":           "#e0def4",
+    "fg2":          "#908caa",
+    "fg3":          "#6e6a86",
+    "fg4":          "#524f67",
+    "red":          "#eb6f92",
+    "green":        "#31748f",
+    "yellow":       "#f6c177",
+    "blue":         "#9ccfd8",
+    "purple":       "#c4a7e7",
+    "cyan":         "#ebbcba",
+    "orange":       "#f6c177",
+    "accent":       "#c4a7e7",
+    "red_bright":   "#eb6f92",
+    "green_bright": "#31748f",
+    "yellow_bright":"#f6c177",
+    "blue_bright":  "#9ccfd8",
+    "purple_bright":"#c4a7e7",
+    "cyan_bright":  "#ebbcba",
+    "orange_bright":"#f6c177"
+  },
+  "palette": [
+    "#26233a", "#eb6f92", "#31748f", "#f6c177",
+    "#9ccfd8", "#c4a7e7", "#ebbcba", "#e0def4",
+    "#6e6a86", "#eb6f92", "#31748f", "#f6c177",
+    "#9ccfd8", "#c4a7e7", "#ebbcba", "#e0def4"
+  ]
+}
