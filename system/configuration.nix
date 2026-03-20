@@ -25,6 +25,8 @@ let
   };
 in
 {
+  boot.tmp.useTmpfs = true;
+
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" ];
     substituters = [
