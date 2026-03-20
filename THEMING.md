@@ -96,8 +96,6 @@ remain version-controlled and managed by home-manager where applicable.
 │   │       ├── alacritty.py
 │   │       ├── ghostty.py
 │   │       ├── hyprland.py
-│   │       ├── hyprlock.py
-│   │       ├── hyprplugins.py
 │   │       ├── zathura.py
 │   │       ├── quickshell.py
 │   │       ├── neovim.py
@@ -123,10 +121,10 @@ remain version-controlled and managed by home-manager where applicable.
 ├── config/
 │   ├── alacritty/
 │   │   ├── alacritty.toml       # Base config (scrollback, padding, keybinds)
-│   │   └── colors.toml          # GENERATED — .gitignore'd
+│   │   └── theme.toml           # GENERATED — .gitignore'd
 │   ├── ghostty/
-│   │   ├── config               # Base config (non-theming settings)
-│   │   └── themes/current       # GENERATED — .gitignore'd
+│   │   ├── base                 # Base config (non-theming settings)
+│   │   └── config               # GENERATED (concat of base + theme) — not in repo
 │   ├── hypr/
 │   │   ├── colors.conf          # GENERATED — .gitignore'd (standalone)
 │   │   ├── hyprlock.conf        # Base config — sources colors via $theme_* vars
@@ -140,8 +138,8 @@ remain version-controlled and managed by home-manager where applicable.
 │   │   ├── GeneratedTheme.json  # GENERATED — .gitignore'd
 │   │   └── ...
 │   ├── starship/
-│   │   ├── starship.toml        # Base config (format strings, module settings)
-│   │   └── palette.toml         # GENERATED — .gitignore'd
+│   │   └── base.toml            # Base config (format strings, module settings)
+│   │   # GENERATED: ~/.config/starship.toml (concat of base + palette) — not in repo
 │   ├── tmux/
 │   │   ├── tmux.conf            # Base config (keybinds, options)
 │   │   └── colors.conf          # GENERATED — .gitignore'd
@@ -575,7 +573,7 @@ $theme_font_size = 11
 
 ---
 
-#### `hyprlock.py` — NO GENERATOR NEEDED
+#### Hyprlock — no target module (uses `$theme_*` vars from colors.conf)
 
 Hyprlock supports `source` and can read the `$theme_*` variables defined by
 `hyprland.py`'s `colors.conf`.
@@ -601,7 +599,7 @@ and the lock screen is triggered. No separate generator module needed.
 
 ---
 
-#### `hyprplugins.py` — NO GENERATOR NEEDED
+#### Hyprland plugins — no target module (uses `$theme_*` vars from colors.conf)
 
 Same approach as hyprlock. `pluginsettings.conf` is sourced by `hyprland.conf`
 which also sources `colors.conf`, so `$theme_*` variables are available.

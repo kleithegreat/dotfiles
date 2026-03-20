@@ -18,13 +18,13 @@ DEPENDS: dict[str, set[str]] = {
         "neovim", "starship", "tmux", "gtk", "qt", "vicinae", "bat",
     },
     "wallpaper":      {"wallpaper"},
-    "system_font":    {"quickshell", "gtk", "vicinae"},
-    "mono_font":      {"alacritty", "ghostty", "quickshell", "tmux"},
-    "icon_theme":     {"gtk"},
+    "system_font":    {"quickshell", "gtk", "qt", "vicinae"},
+    "mono_font":      {"alacritty", "ghostty", "quickshell", "qt", "tmux"},
+    "icon_theme":     {"gtk", "qt"},
     "cursor_theme":   {"cursor"},
     "cursor_size":    {"cursor"},
-    "font_size":      {"gtk"},
-    "mono_font_size": {"alacritty", "ghostty"},
+    "font_size":      {"gtk", "qt"},
+    "mono_font_size": {"alacritty", "ghostty", "qt"},
 }
 
 
@@ -66,11 +66,17 @@ def _assemble(target: ModuleType, content: str | list[list[str]],
             print(f"  skip: base file missing: {base_path}", file=sys.stderr)
             return
 
-        # JSON merge variant (e.g. vicinae)
+        # JSON merge variant (e.g. vicinae) — depth-1 merge preserves
+        # nested dicts from both sides.
         if out.suffix == ".json":
             base_data = json.loads(base_path.read_text())
             gen_data = json.loads(content)
-            merged = {**base_data, **gen_data}
+            merged = {**base_data}
+            for k, v in gen_data.items():
+                if k in merged and isinstance(merged[k], dict) and isinstance(v, dict):
+                    merged[k] = {**merged[k], **v}
+                else:
+                    merged[k] = v
             out.write_text(json.dumps(merged, indent=2) + "\n")
         else:
             base = base_path.read_text()
