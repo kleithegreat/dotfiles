@@ -1,6 +1,14 @@
 { config, pkgs, hyprland, hostName, inputs, ... }:
 
 let
+  hyprqt6engine = inputs.hyprqt6engine.packages.${pkgs.system}.default.overrideAttrs (old: {
+    buildInputs = (old.buildInputs or []) ++ [
+      pkgs.kdePackages.kcolorscheme
+      pkgs.kdePackages.kconfig
+      pkgs.kdePackages.kiconthemes
+    ];
+  });
+
   sddm-theme = pkgs.where-is-my-sddm-theme.override {
     themeConfig.General = {
       backgroundMode = "fill";
@@ -108,7 +116,7 @@ in
   environment.sessionVariables.__EGL_VENDOR_LIBRARY_FILENAMES =
     "/run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json";
   environment.sessionVariables.QT_PLUGIN_PATH = [
-    "${inputs.hyprqt6engine.packages.${pkgs.system}.default}/lib/qt-6"
+    "${hyprqt6engine}/lib/qt-6"
   ];
 
   # ── XDG Portals ──────────────────────────────────────────────
@@ -277,7 +285,7 @@ in
     curl
     cifs-utils       # SMB/CIFS mount support
     qt6Packages.qt6ct  # Qt5 configuration tool (kept for qt5ct backward compat)
-    inputs.hyprqt6engine.packages.${pkgs.system}.default  # Hyprland-native Qt6 theme engine
+    hyprqt6engine  # Hyprland-native Qt6 theme engine (with KF6 for full KDE app theming)
     sddm-theme
   ];
 

@@ -238,23 +238,25 @@ def _write_kcolorscheme(colors: ColorScheme) -> None:
 
 
 def _write_hyprqt6engine_conf(colors: ColorScheme, state: ThemeState) -> None:
-    """Write hyprqt6engine.conf pointing to the KColorScheme file."""
+    """Write hyprqt6engine.conf (hyprlang format) pointing to the qt6ct palette."""
     conf_path = Path(_HYPRQT6ENGINE_CONF).expanduser()
-    scheme_path = str(Path(_KCOLORSCHEME).expanduser())
-    config = configparser.RawConfigParser()
-    config.optionxform = str
-    config.add_section("theme")
-    config.set("theme", "color_scheme", scheme_path)
-    config.set("theme", "icon_theme", state.icon_theme)
-    config.set("theme", "style", "Fusion")
-    config.set("theme", "font", state.system_font)
-    config.set("theme", "font_size", str(state.font_size))
-    config.set("theme", "font_fixed", state.mono_font)
-    config.set("theme", "font_fixed_size", str(state.mono_font_size))
-    config.add_section("misc")
-    config.set("misc", "menus_have_icons", "true")
-    config.set("misc", "single_click_activate", "false")
-    config.set("misc", "shortcuts_for_context_menus", "true")
+    scheme_path = str(Path(OUTPUT_PATH).expanduser())
     conf_path.parent.mkdir(parents=True, exist_ok=True)
     with open(conf_path, "w") as f:
-        config.write(f, space_around_delimiters=False)
+        f.write(
+            f"theme {{\n"
+            f"    color_scheme = {scheme_path}\n"
+            f"    icon_theme = {state.icon_theme}\n"
+            f"    style = Fusion\n"
+            f"    font = {state.system_font}\n"
+            f"    font_size = {state.font_size}\n"
+            f"    font_fixed = {state.mono_font}\n"
+            f"    font_fixed_size = {state.mono_font_size}\n"
+            f"}}\n"
+            f"\n"
+            f"misc {{\n"
+            f"    menus_have_icons = true\n"
+            f"    single_click_activate = false\n"
+            f"    shortcuts_for_context_menus = true\n"
+            f"}}\n"
+        )
