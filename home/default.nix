@@ -138,6 +138,8 @@ in
     quickshell
     snappy-switcher-pkg
     papirus-icon-theme
+    rose-pine-cursor
+    rose-pine-hyprcursor
 
     # Dev tools (lightweight baseline — heavy stuff goes in devshells)
     python3
