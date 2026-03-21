@@ -149,6 +149,8 @@ in
 
     # Theming / desktop integration
     libsecret      # Secret Service client (git credential helpers, etc.)
+    kdePackages.qtstyleplugin-kvantum  # Kvantum Qt6 style engine
+    libsForQt5.qtstyleplugin-kvantum   # Kvantum Qt5 style engine
 
     # Man pages
     man-pages          # Linux man pages (sections 2-7)
