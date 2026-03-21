@@ -15,6 +15,7 @@ Read this file before starting any theming-related task.
 - [Orchestrator](#orchestrator)
 - [Home-Manager Migration](#home-manager-migration)
 - [Quickshell Integration](#quickshell-integration)
+- [KDE App Theming on Hyprland](#kde-app-theming-on-hyprland)
 - [Testing](#testing)
 - [Implementation Plan](#implementation-plan)
 
@@ -483,7 +484,7 @@ white   = "{colors.palette[15]}"
 | starship     | `concat`     | `~/.config/starship.toml`               | `$DOTFILES/config/starship/base.toml` | auto (next prompt)     | Base has format strings; generated has palette |
 | tmux         | `import`     | `~/.config/tmux/colors.conf`            | —                                 | `tmux source-file ...`     | Add `source-file` to base tmux.conf        |
 | gtk          | `command`    | —                                       | —                                 | immediate                  | gsettings for theme, font, icons, color-scheme |
-| qt           | `standalone` | `~/.config/qt6ct/colors/current.conf`   | —                                 | relaunch Qt apps           | Also generates qt5ct equiv, KColorScheme `.colors`, and `hyprqt6engine.conf` |
+| qt           | `standalone` | `~/.config/qt6ct/colors/current.conf`   | —                                 | relaunch Qt apps           | Multi-layered: QPalette + KColorScheme + Kvantum + hyprqt6engine. See [KDE App Theming](#kde-app-theming-on-hyprland). |
 | vicinae      | `concat`     | `~/.config/vicinae/settings.json`       | `$DOTFILES/config/vicinae/base.json` | auto                   | JSON merge: base providers + generated theming |
 | wallpaper    | `command`    | —                                       | —                                 | immediate                  | `swww img`                                 |
 | cursor       | `command`    | —                                       | —                                 | immediate                  | gsettings + `hyprctl setcursor`            |
@@ -841,15 +842,53 @@ def generate(colors: ColorScheme, state: ThemeState) -> list[list[str]]:
 **Generated file:** `~/.config/qt6ct/colors/current.conf` (and qt5ct equivalent)
 **Reload:** Qt apps must be relaunched.
 
-Generates an INI-format color scheme file that qt6ct can reference. The `on_apply()`
-hook additionally writes:
-- `~/.local/share/color-schemes/current.colors` — standalone KColorScheme file
-- `~/.config/hypr/hyprqt6engine.conf` — hyprqt6engine config pointing to the
-  KColorScheme file, with icon_theme, fonts, and style from ThemeState
+The qt target is the most complex target — it writes to multiple config systems
+because different KDE components read colors from different sources. See
+[KDE App Theming on Hyprland](#kde-app-theming-on-hyprland) for the full rationale.
 
-Qt6 apps use hyprqt6engine (`QT_QPA_PLATFORMTHEME=hyprqt6engine`) which reads the
-KColorScheme file for full KDE Frameworks color support (toolbars, sidebars, menus).
-Qt5 apps fall back to qt5ct.
+**`generate()` output** (written by the orchestrator):
+- `~/.config/qt6ct/colors/current.conf` — QPalette INI format (21 color roles)
+- `~/.config/qt5ct/colors/current.conf` — same, for Qt5 apps (via `EXTRA_OUTPUTS`)
+
+**`on_apply()` side effects** (written directly by the target):
+- `~/.config/qt6ct/qt6ct.conf` — sets `style=kvantum`, points to the color scheme
+- `~/.config/qt5ct/qt5ct.conf` — same, for Qt5 apps
+- `~/.config/kdeglobals` — KDE color groups (`Colors:Window`, `Colors:View`, etc.)
+- `~/.local/share/color-schemes/current.colors` — standalone KColorScheme file
+- `~/.config/hypr/hyprqt6engine.conf` — platform theme config (`style=kvantum`,
+  fonts, icons, color_scheme path)
+- `~/.config/Kvantum/GeneratedTheme/GeneratedTheme.kvconfig` — custom Kvantum theme
+  with `[GeneralColors]` mapped from the active ColorScheme
+- `~/.config/Kvantum/GeneratedTheme/GeneratedTheme.svg` — symlink to KvGnomeDark
+  SVG (dark themes) or KvGnome SVG (light themes) for widget shapes
+- `~/.config/Kvantum/kvantum.kvconfig` — theme selector pointing to GeneratedTheme
+
+All of these files are written to `~/.config/` or `~/.local/share/`, not the repo —
+they do not need `.gitignore` entries.
+
+**Environment variables** (set in `config/hypr/env.conf`, version-controlled):
+- `QT_QPA_PLATFORMTHEME=hyprqt6engine` — fonts, icons, file dialogs
+- `QT_STYLE_OVERRIDE=kvantum` — forces Kvantum as the widget style for all Qt apps
+
+**Nix packages** (in `home/default.nix`):
+- `kdePackages.qtstyleplugin-kvantum` (Qt6)
+- `libsForQt5.qtstyleplugin-kvantum` (Qt5)
+- `hyprqt6engine` (overridden with KF6 buildInputs in `system/configuration.nix`)
+
+**Color mapping from ColorScheme to Kvantum `[GeneralColors]`:**
+
+| Kvantum key              | ColorScheme field | Purpose                          |
+|--------------------------|-------------------|----------------------------------|
+| `window.color`           | `bg`              | Window chrome background         |
+| `base.color`             | `bg`              | Content area background          |
+| `alt.base.color`         | `bg`              | Same as base (prevents zebra stripes) |
+| `button.color`           | `bg1`             | Button background                |
+| `highlight.color`        | `accent`          | Selection/focus highlight        |
+| `text.color`             | `fg`              | Primary text                     |
+| `highlight.text.color`   | `fg`              | Text on highlighted items        |
+| `disabled.text.color`    | `fg4`             | Disabled/muted text              |
+| `link.color`             | `blue`            | Hyperlinks                       |
+| `link.visited.color`     | `purple`          | Visited hyperlinks               |
 
 ---
 
@@ -1117,6 +1156,134 @@ current `set-theme.sh` script. The flow:
 3. `apply-theme` updates `state.json`, regenerates affected files, fires reloads
 4. Quickshell detects `GeneratedTheme.json` changed, updates Theme.qml properties
 5. All Quickshell UI updates reactively
+
+---
+
+## KDE App Theming on Hyprland
+
+KDE apps (Dolphin, Kate, Ark, Gwenview, etc.) on Hyprland are uniquely difficult to
+theme because there is no Plasma session. This section documents every approach tried
+and why each failed or partially worked. Future agents: read this before touching
+`qt.py`.
+
+### The core problem
+
+KDE apps have two rendering layers:
+
+1. **Standard Qt widgets** (file list rows, buttons, scrollbars, text inputs) — these
+   respect the QPalette set by the platform theme (qt6ct, hyprqt6engine).
+2. **Kirigami chrome** (toolbar, sidebar, menubar, header area) — these are painted by
+   KDE Frameworks using its own color system. Kirigami ignores QPalette on non-Plasma
+   sessions and falls back to Breeze Light defaults.
+
+Any solution that only sets QPalette will theme layer 1 but leave layer 2 completely
+unthemed (light toolbar on dark file list).
+
+### Approaches tried
+
+#### 1. qt6ct + Fusion style
+
+**Result:** Partial. File list and standard widgets themed correctly. Toolbar, sidebar,
+and menubar remained light/unthemed.
+
+**Why:** Fusion is a QPalette-only style engine. It renders from the palette for
+standard QWidgets but has no hook into Kirigami's rendering path. Kirigami toolbar/
+sidebar widgets are QQuickItems, not QWidgets — they don't use QPalette at all.
+
+#### 2. hyprqt6engine (Hyprland's Qt6 theme engine)
+
+**Result:** Same as qt6ct + Fusion. QPalette works, Kirigami chrome unthemed.
+
+**Details:** hyprqt6engine was rebuilt with KF6 support (kcolorscheme, kconfig,
+kiconthemes added to `buildInputs` via `overrideAttrs` in `system/configuration.nix`).
+Even with KF6 linked, hyprqt6engine correctly provides QPalette, fonts, and icons
+to standard Qt widgets but cannot force Kirigami to use its colors. hyprqt6engine
+remains useful as the platform theme for fonts, icons, and file dialogs.
+
+#### 3. kdeglobals (KDE's global color config)
+
+**Result:** No effect on Kirigami chrome. Does work for Kate's KColorScheme.
+
+**Details:** Even copying BreezeDark.colors directly into `~/.config/kdeglobals`
+had zero visible effect on Dolphin's toolbar or sidebar. KDE Frameworks reads
+kdeglobals but Kirigami on non-Plasma sessions doesn't apply those colors to its
+QML chrome. However, Kate/KWrite DO read kdeglobals via KColorScheme for their
+editor chrome colors — so kdeglobals is still needed for Kate support.
+
+#### 4. QT_STYLE_OVERRIDE=Fusion
+
+**Result:** No effect on Kirigami chrome. Fusion only controls QPalette-based rendering.
+
+#### 5. Kvantum (current solution)
+
+**Result:** Kirigami chrome IS themed (toolbar, sidebar, menubar become dark). This
+is the only approach that successfully themes Kirigami on a non-Plasma session.
+
+**Why it works:** Kvantum is a Qt style engine that hooks in at a deeper level than
+Fusion. It completely replaces the QPalette in its `polish()` method and renders
+widget backgrounds from SVG artwork. Critically, Kvantum's rendering covers both
+standard QWidgets and QQuickItem-based Kirigami components.
+
+**Known limitation:** Kvantum's `polish(QPalette)` completely overwrites the incoming
+QPalette with its own colors from `[GeneralColors]`. There is no way to make Kvantum
+"inherit" or "pass through" the platform theme's palette. This is by design — the
+Kvantum maintainer has explicitly stated this will not change. This is why we must
+generate a custom Kvantum theme with our exact ColorScheme values.
+
+### Current architecture
+
+All layers are used simultaneously because different KDE components read from
+different sources:
+
+```
+hyprqt6engine (QT_QPA_PLATFORMTHEME)  → fonts, icons, file dialogs
+Kvantum (QT_STYLE_OVERRIDE)           → all widget surface painting including Kirigami
+GeneratedTheme.kvconfig                → color values for Kvantum's palette + widget rendering
+GeneratedTheme.svg                     → widget shapes (symlink to KvGnomeDark/KvGnome)
+qt6ct/qt5ct palette                    → fallback QPalette (unused when Kvantum active, kept for compat)
+kdeglobals + current.colors            → Kate/KWrite KColorScheme (editor chrome, syntax theme selector)
+```
+
+### Why KvDark was rejected
+
+The built-in KvDark theme caused two visual defects:
+
+1. **Zebra-striped file list rows:** `alt.base.color=#383838` vs `base.color=#2E2E2E`
+   creates visible alternating row backgrounds. Our GeneratedTheme sets both to the
+   same value (`colors.bg`) to eliminate this.
+2. **Dark-on-dark text:** KvDark sets `text.press.color=black` and
+   `text.toggle.color=black` in its `[ItemView]` section. When an item is pressed
+   but the background hasn't transitioned to the light highlight color, black text
+   becomes invisible on the dark background. KvGnomeDark (our SVG base) avoids this
+   by using `inherits=PanelButtonCommand` chains instead of hardcoded black.
+
+### The GeneratedTheme approach
+
+Instead of using a pre-built Kvantum theme, `qt.py` generates a custom one:
+
+1. **`GeneratedTheme.kvconfig`** — `[GeneralColors]` mapped from the active
+   ColorScheme, `[%General]` settings from KvGnomeDark for polished behavior,
+   `[Hacks]` for app-specific workarounds.
+2. **`GeneratedTheme.svg`** — symlinked to KvGnomeDark's SVG (dark themes) or
+   KvGnome's SVG (light themes). The SVG provides widget background shapes; colors
+   are overridden by the kvconfig. The SVG is found at apply-time by searching
+   `XDG_DATA_DIRS` and NixOS profile paths.
+3. **`kvantum.kvconfig`** — theme selector file pointing to GeneratedTheme.
+
+This approach hot-swaps correctly: when the user changes color schemes, `qt.py`
+regenerates the kvconfig with new `[GeneralColors]` values. The SVG symlink only
+changes when switching between dark and light variants.
+
+### Remaining known issues
+
+- **Kate/KWrite syntax highlighting:** KSyntaxHighlighting uses its own theme system
+  separate from both Kvantum and KColorScheme. Kate's editor area colors come from
+  its built-in color themes (Settings > Color Themes), not from the system theme.
+  The UI chrome (sidebar, toolbar, tab bar) is themed via Kvantum + KColorScheme.
+- **SVG background mismatch:** KvGnomeDark's SVG has its own dark gray backgrounds
+  (~#353535) which may not exactly match the ColorScheme's `bg` value. The visual
+  difference is subtle for most dark themes but could be noticeable for schemes with
+  unusual background colors.
 
 ---
 
