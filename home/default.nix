@@ -158,6 +158,7 @@ in
     man-pages-posix    # POSIX man pages
 
     claude-code
+    codex
   ];
 
   # ── Hyprland configs ─────────────────────────────────────────
