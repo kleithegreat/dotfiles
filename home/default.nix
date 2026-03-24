@@ -1,7 +1,7 @@
 { config, pkgs, lib, dotfilesPath, hostName, hyprland, vicinae, snappy-switcher, ... }:
 
 let
-  snappy-switcher-pkg = snappy-switcher.packages.${pkgs.system}.default;
+  snappy-switcher-pkg = snappy-switcher.packages.${pkgs.stdenv.hostPlatform.system}.default;
 in
 {
   imports = [
