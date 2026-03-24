@@ -8,7 +8,7 @@ let
       owner = "RusticBard";
       repo = "Neuwaita";
       rev = "main";
-      sha256 = "sha256-ixMo4n2hrXe3iWm/HjZsAK2892UA42NB7tBJ905L740=";
+      sha256 = "sha256-A4yfcB+L1IwHGKhg32gq/E9qMoBF84zsnfl8fvWhYag=";
     };
     installPhase = ''
       mkdir -p $out/share/icons/Neuwaita
@@ -37,6 +37,7 @@ in
       size = 11;
     };
     gtk3.extraConfig.gtk-application-prefer-dark-theme = true;
+    gtk4.theme = config.gtk.theme;
     gtk4.extraConfig.gtk-application-prefer-dark-theme = true;
   };
 
