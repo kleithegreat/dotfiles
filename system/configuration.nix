@@ -1,7 +1,7 @@
 { config, pkgs, hyprland, hostName, inputs, ... }:
 
 let
-  hyprqt6engine = inputs.hyprqt6engine.packages.${pkgs.system}.default.overrideAttrs (old: {
+  hyprqt6engine = inputs.hyprqt6engine.packages.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs (old: {
     buildInputs = (old.buildInputs or []) ++ [
       pkgs.kdePackages.kcolorscheme
       pkgs.kdePackages.kconfig
