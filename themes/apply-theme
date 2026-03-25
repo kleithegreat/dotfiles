@@ -35,10 +35,14 @@ STATE_PATH = THEMES_DIR / "state.json"
 _COLOR_TARGETS = {
     "alacritty", "ghostty", "hyprland", "zathura", "quickshell",
     "neovim", "starship", "tmux", "gtk", "qt", "vicinae", "bat",
+    "snappy_switcher",
 }
 
 # "fonts" subcommand: targets that depend on any font-related key
-_FONT_TARGETS = {"alacritty", "ghostty", "quickshell", "tmux", "gtk", "qt", "vicinae"}
+_FONT_TARGETS = {
+    "alacritty", "ghostty", "quickshell", "tmux", "gtk", "qt", "vicinae",
+    "snappy_switcher",
+}
 
 
 def _load(args: argparse.Namespace) -> tuple:
