@@ -20,6 +20,7 @@ _COLOR_FIELDS = frozenset(
 _STATE_HINTS = typing.get_type_hints(ThemeState)
 _STATE_STR_FIELDS = frozenset(name for name, tp in _STATE_HINTS.items() if tp is str)
 _STATE_INT_FIELDS = frozenset(name for name, tp in _STATE_HINTS.items() if tp is int)
+_STATE_BOOL_FIELDS = frozenset(name for name, tp in _STATE_HINTS.items() if tp is bool)
 
 
 def _check_hex(value: str, label: str) -> None:
@@ -96,6 +97,10 @@ def load_state(state_path: Path) -> ThemeState:
     for name in sorted(_STATE_INT_FIELDS):
         if not isinstance(data[name], int) or isinstance(data[name], bool):
             raise ValueError(f"{state_path}: '{name}' must be an integer")
+
+    for name in sorted(_STATE_BOOL_FIELDS):
+        if not isinstance(data[name], bool):
+            raise ValueError(f"{state_path}: '{name}' must be a boolean")
 
     return ThemeState(**data)
 

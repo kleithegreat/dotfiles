@@ -16,9 +16,11 @@ DEPENDS: dict[str, set[str]] = {
     "color_scheme": {
         "alacritty", "ghostty", "hyprland", "zathura", "quickshell",
         "neovim", "starship", "tmux", "gtk", "qt", "vicinae", "bat",
+        "wallpaper",
         "snappy_switcher",
     },
     "wallpaper":      {"wallpaper"},
+    "filter_wallpaper": {"wallpaper"},
     "system_font":    {"quickshell", "gtk", "qt", "vicinae", "snappy_switcher"},
     "mono_font":      {"alacritty", "ghostty", "quickshell", "qt", "tmux"},
     "icon_theme":     {"gtk", "qt", "snappy_switcher"},
@@ -152,6 +154,9 @@ def apply_all(colors: ColorScheme, state: ThemeState) -> None:
         apply_target(name, colors, state)
 
 
-def targets_for_key(state_key: str) -> set[str]:
+def targets_for_key(state_key: str, state: ThemeState | None = None) -> set[str]:
     """Return the set of target names affected by a state key change."""
-    return DEPENDS.get(state_key, set())
+    targets = set(DEPENDS.get(state_key, set()))
+    if state_key == "color_scheme" and state is not None and not state.filter_wallpaper:
+        targets.discard("wallpaper")
+    return targets

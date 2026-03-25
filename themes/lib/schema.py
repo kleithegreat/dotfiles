@@ -70,6 +70,7 @@ class ColorScheme:
 class ThemeState:
     color_scheme: str      # Key into themes/colors/ (e.g. "gruvbox-dark")
     wallpaper: str         # Absolute path (e.g. "/home/kevin/wallpapers/lmao.png")
+    filter_wallpaper: bool # True = color-grade wallpaper to match active palette
     system_font: str       # e.g. "Overpass"
     mono_font: str         # e.g. "JetBrains Mono Nerd Font"
     icon_theme: str        # e.g. "Papirus-Dark"
