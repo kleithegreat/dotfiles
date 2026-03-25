@@ -16,18 +16,18 @@ DEPENDS: dict[str, set[str]] = {
     "color_scheme": {
         "alacritty", "ghostty", "hyprland", "zathura", "quickshell",
         "neovim", "starship", "tmux", "gtk", "qt", "vicinae", "bat",
-        "wallpaper",
+        "wallpaper", "vscode",
         "snappy_switcher",
     },
     "wallpaper":      {"wallpaper"},
     "filter_wallpaper": {"wallpaper"},
     "system_font":    {"quickshell", "gtk", "qt", "vicinae", "snappy_switcher"},
-    "mono_font":      {"alacritty", "ghostty", "quickshell", "qt", "tmux"},
+    "mono_font":      {"alacritty", "ghostty", "quickshell", "qt", "tmux", "vscode"},
     "icon_theme":     {"gtk", "qt", "snappy_switcher"},
     "cursor_theme":   {"cursor"},
     "cursor_size":    {"cursor"},
     "font_size":      {"gtk", "qt", "snappy_switcher"},
-    "mono_font_size": {"alacritty", "ghostty", "qt"},
+    "mono_font_size": {"alacritty", "ghostty", "qt", "vscode"},
     "dark_hint":      {"gtk"},
 }
 
