@@ -15,7 +15,7 @@ PanelWindow {
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
     WlrLayershell.namespace: "quickshell:settings"
-    WlrLayershell.layer: dirPickerProc.running ? WlrLayer.Bottom : WlrLayer.Overlay
+    WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: active ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     exclusionMode: ExclusionMode.Ignore
 
@@ -25,6 +25,9 @@ PanelWindow {
     property var colorFamilies: []
     property var presets: []
     property var wallpapers: []
+    property bool directoryBrowserOpen: false
+    property string directoryBrowserPath: "/home/kevin/repos/dotfiles/wallpapers"
+    property var directoryBrowserEntries: []
     property int selectedCategory: 0
     property string wallpaperDir: "/home/kevin/repos/dotfiles/wallpapers"
     property var categoryNames: ["Presets", "Colors", "Fonts", "Wallpaper", "Icons & Cursors"]
@@ -32,7 +35,7 @@ PanelWindow {
 
     onActiveChanged: {
         if (active) { panel.opacity = 0; panel.scale = 0.92; loadState(); settingsOpenAnim.start(); }
-        else if (!closing) { closing = true; settingsCloseAnim.start(); }
+        else if (!closing) { closeDirectoryBrowser(); closing = true; settingsCloseAnim.start(); }
     }
 
     // ── Data loading ──
@@ -40,7 +43,7 @@ PanelWindow {
         stateProc.running = true;
         listColorsProc.running = true;
         listPresetsProc.running = true;
-        listWallpapersProc.running = true;
+        refreshWallpapers();
     }
 
     Process {
@@ -99,18 +102,17 @@ PanelWindow {
     }
 
     Process {
-        id: dirPickerProc; running: false
-        command: ["python3", Qt.resolvedUrl("../scripts/dir-picker.py").toString().replace("file://", "")]
-        property string result: ""
-        stdout: SplitParser { onRead: (line) => { dirPickerProc.result = line.trim(); } }
-        onExited: {
-            if (result !== "") {
-                settingsPop.wallpaperDir = result;
-                listWallpapersProc.items = [];
-                listWallpapersProc.running = true;
-            }
-            result = "";
-        }
+        id: listDirectoriesProc; running: false
+        command: [
+            "bash",
+            "-c",
+            "find \"$1\" -mindepth 1 -maxdepth 1 -type d -printf '%f\\n' 2>/dev/null | sort -f || true",
+            "_",
+            settingsPop.directoryBrowserPath
+        ]
+        property var items: []
+        stdout: SplitParser { onRead: (line) => { let t = line.trim(); if (t !== "") listDirectoriesProc.items.push(t); } }
+        onExited: { settingsPop.directoryBrowserEntries = items; items = []; }
     }
 
     // ── Helper functions ──
@@ -119,8 +121,64 @@ PanelWindow {
         return name.charAt(0).toUpperCase() + name.slice(1);
     }
 
+    function refreshWallpapers() {
+        listWallpapersProc.items = [];
+        listWallpapersProc.running = true;
+    }
+
+    function refreshDirectoryBrowser() {
+        listDirectoriesProc.items = [];
+        listDirectoriesProc.running = true;
+    }
+
+    function parentDirectory(path) {
+        if (!path || path === "/") return "/";
+        let normalized = path;
+        while (normalized.length > 1 && normalized.endsWith("/"))
+            normalized = normalized.slice(0, normalized.length - 1);
+        let slash = normalized.lastIndexOf("/");
+        return slash <= 0 ? "/" : normalized.slice(0, slash);
+    }
+
+    function joinPath(base, name) {
+        return base === "/" ? "/" + name : base + "/" + name;
+    }
+
+    function openDirectoryBrowser() {
+        settingsPop.directoryBrowserPath = settingsPop.wallpaperDir;
+        settingsPop.directoryBrowserOpen = true;
+        refreshDirectoryBrowser();
+    }
+
+    function closeDirectoryBrowser() {
+        settingsPop.directoryBrowserOpen = false;
+        settingsPop.directoryBrowserPath = settingsPop.wallpaperDir;
+        settingsPop.directoryBrowserEntries = [];
+    }
+
+    function browseDirectory(name) {
+        let nextPath = name === ".."
+            ? parentDirectory(settingsPop.directoryBrowserPath)
+            : joinPath(settingsPop.directoryBrowserPath, name);
+        settingsPop.directoryBrowserPath = nextPath;
+        refreshDirectoryBrowser();
+    }
+
+    function confirmDirectoryBrowser() {
+        settingsPop.wallpaperDir = settingsPop.directoryBrowserPath;
+        settingsPop.directoryBrowserOpen = false;
+        settingsPop.directoryBrowserEntries = [];
+        refreshWallpapers();
+    }
+
     // ── Apply commands ──
-    Process { id: applyProc; running: false }
+    Process {
+        id: applyProc; running: false
+        stderr: SplitParser { onRead: (line) => { console.log("[apply-theme stderr]", line); } }
+        onExited: (code, status) => {
+            if (code !== 0) console.log("[apply-theme] exit", code);
+        }
+    }
 
     function runSet(key, value) {
         applyProc.command = ["/home/kevin/repos/dotfiles/themes/apply-theme", "set", key, value];
@@ -650,7 +708,7 @@ PanelWindow {
                 Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
 
                 Text {
-                    visible: settingsPop.wallpapers.length === 0
+                    visible: !settingsPop.directoryBrowserOpen && settingsPop.wallpapers.length === 0
                     text: "No wallpapers found in the selected directory."
                     color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize
                     wrapMode: Text.WordWrap; Layout.fillWidth: true
@@ -659,6 +717,7 @@ PanelWindow {
 
                 Grid {
                     id: wpGrid
+                    visible: !settingsPop.directoryBrowserOpen
                     Layout.fillWidth: true
                     columns: 3; spacing: 8
 
@@ -734,7 +793,220 @@ PanelWindow {
 
                         Text { id: changeDirLabel; anchors.centerIn: parent; text: "Change Directory..."; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
                         MouseArea { id: changeDirArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                            onClicked: dirPickerProc.running = true }
+                            onClicked: settingsPop.openDirectoryBrowser() }
+                    }
+                }
+
+                Rectangle {
+                    id: directoryBrowserPanel
+                    visible: settingsPop.directoryBrowserOpen
+                    Layout.fillWidth: true
+                    Layout.topMargin: 8
+                    implicitHeight: directoryBrowserContent.implicitHeight + 24
+                    Layout.preferredHeight: implicitHeight
+                    radius: Theme.btnRadius + 2
+                    color: Theme.bg1
+                    border.width: 1
+                    border.color: Theme.bg3
+                    clip: true
+
+                    ColumnLayout {
+                        id: directoryBrowserContent
+                        anchors.fill: parent
+                        anchors.margins: 12
+                        spacing: 10
+
+                        Text {
+                            text: "Browse Directories"
+                            color: Theme.fg4
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeSmall
+                            font.bold: true
+                        }
+
+                        Text {
+                            text: "Current Path"
+                            color: Theme.fg4
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeSmall
+                            font.bold: true
+                        }
+
+                        Text {
+                            text: settingsPop.directoryBrowserPath
+                            color: Theme.fg
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeSmall
+                            Layout.fillWidth: true
+                            wrapMode: Text.WrapAnywhere
+                        }
+
+                        Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Theme.bg3 }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: Math.min(Math.max(directoryListContent.implicitHeight + 8, 76), 184)
+                            radius: Theme.btnRadius
+                            color: Theme.bg
+                            border.width: 1
+                            border.color: Theme.bg3
+
+                            Flickable {
+                                id: directoryListFlick
+                                anchors.fill: parent
+                                anchors.margins: 4
+                                clip: true
+                                contentWidth: width
+                                contentHeight: directoryListContent.implicitHeight
+                                boundsBehavior: Flickable.StopAtBounds
+
+                                Column {
+                                    id: directoryListContent
+                                    width: directoryListFlick.width
+                                    spacing: 4
+
+                                    Rectangle {
+                                        id: parentDirectoryEntry
+                                        width: directoryListContent.width
+                                        height: 32
+                                        radius: Theme.hoverRadius
+                                        color: parentDirectoryArea.containsMouse && settingsPop.directoryBrowserPath !== "/" ? Theme.bg2 : "transparent"
+                                        border.width: 1
+                                        border.color: parentDirectoryArea.containsMouse && settingsPop.directoryBrowserPath !== "/" ? Theme.bg3 : "transparent"
+                                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                                        Behavior on border.color { ColorAnimation { duration: Theme.animHover } }
+
+                                        Text {
+                                            anchors { left: parent.left; leftMargin: 10; right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
+                                            text: ".."
+                                            color: settingsPop.directoryBrowserPath === "/" ? Theme.fg4 : Theme.fg
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: Theme.fontSizeSmall
+                                            elide: Text.ElideMiddle
+                                        }
+
+                                        MouseArea {
+                                            id: parentDirectoryArea
+                                            anchors.fill: parent
+                                            enabled: settingsPop.directoryBrowserPath !== "/"
+                                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                            hoverEnabled: true
+                                            onClicked: settingsPop.browseDirectory("..")
+                                        }
+                                    }
+
+                                    Repeater {
+                                        model: settingsPop.directoryBrowserEntries
+                                        delegate: Rectangle {
+                                            id: subdirEntry
+                                            required property string modelData
+
+                                            width: directoryListContent.width
+                                            height: 32
+                                            radius: Theme.hoverRadius
+                                            color: subdirEntryArea.containsMouse ? Theme.bg2 : "transparent"
+                                            border.width: 1
+                                            border.color: subdirEntryArea.containsMouse ? Theme.bg3 : "transparent"
+                                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                                            Behavior on border.color { ColorAnimation { duration: Theme.animHover } }
+
+                                            Text {
+                                                anchors { left: parent.left; leftMargin: 10; right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
+                                                text: subdirEntry.modelData
+                                                color: Theme.fg
+                                                font.family: Theme.fontFamily
+                                                font.pixelSize: Theme.fontSizeSmall
+                                                elide: Text.ElideMiddle
+                                            }
+
+                                            MouseArea {
+                                                id: subdirEntryArea
+                                                anchors.fill: parent
+                                                cursorShape: Qt.PointingHandCursor
+                                                hoverEnabled: true
+                                                onClicked: settingsPop.browseDirectory(subdirEntry.modelData)
+                                            }
+                                        }
+                                    }
+
+                                    Text {
+                                        visible: settingsPop.directoryBrowserEntries.length === 0
+                                        width: directoryListContent.width
+                                        text: "No subdirectories in this location."
+                                        color: Theme.fg4
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSizeSmall
+                                        wrapMode: Text.WordWrap
+                                        leftPadding: 10
+                                        rightPadding: 10
+                                        topPadding: 6
+                                        bottomPadding: 6
+                                    }
+                                }
+                            }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 8
+                            Layout.topMargin: 2
+
+                            Item { Layout.fillWidth: true }
+
+                            Rectangle {
+                                width: cancelDirLabel.implicitWidth + 20; height: Theme.btnHeight; radius: Theme.btnRadius
+                                color: cancelDirArea.containsMouse ? Theme.bg2 : Theme.bg
+                                border.width: 1; border.color: Theme.bg3
+                                Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                                scale: cancelDirArea.pressed ? 0.95 : 1.0
+                                Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                                transformOrigin: Item.Center
+
+                                Text {
+                                    id: cancelDirLabel
+                                    anchors.centerIn: parent
+                                    text: "Cancel"
+                                    color: Theme.fg
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.fontSizeSmall
+                                }
+
+                                MouseArea {
+                                    id: cancelDirArea
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    hoverEnabled: true
+                                    onClicked: settingsPop.closeDirectoryBrowser()
+                                }
+                            }
+
+                            Rectangle {
+                                width: selectDirLabel.implicitWidth + 20; height: Theme.btnHeight; radius: Theme.btnRadius
+                                color: selectDirArea.containsMouse ? Theme.greenBright : Theme.accent
+                                border.width: 1; border.color: Theme.accent
+                                Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                                scale: selectDirArea.pressed ? 0.95 : 1.0
+                                Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                                transformOrigin: Item.Center
+
+                                Text {
+                                    id: selectDirLabel
+                                    anchors.centerIn: parent
+                                    text: "Select"
+                                    color: Theme.bg
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.fontSizeSmall
+                                }
+
+                                MouseArea {
+                                    id: selectDirArea
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    hoverEnabled: true
+                                    onClicked: settingsPop.confirmDirectoryBrowser()
+                                }
+                            }
+                        }
                     }
                 }
             }

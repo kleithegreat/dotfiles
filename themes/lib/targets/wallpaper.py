@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -61,6 +62,21 @@ def _run_command(cmd: list[str]) -> tuple[bool, str]:
         return False, message
 
 
+def _warn(message: str) -> None:
+    print(f"  wallpaper warning: {message}", file=sys.stderr)
+
+
+def _apply_wallpaper(path: Path) -> None:
+    ok, message = _run_command(_swww_command(str(path)))
+    if not ok:
+        _warn(f"failed to apply wallpaper {path}: {message}")
+
+
+def _fallback_to_source(source: Path, reason: str) -> None:
+    _warn(f"{reason}; using original wallpaper")
+    _apply_wallpaper(source)
+
+
 def generate(colors: ColorScheme, state: ThemeState) -> list[list[str]]:
     del colors
     if state.filter_wallpaper:
@@ -73,11 +89,29 @@ def on_apply(colors: ColorScheme, state: ThemeState) -> None:
         return
 
     source = Path(state.wallpaper).expanduser()
+    if not source.is_file():
+        _warn(f"source wallpaper does not exist: {source}")
+        return
 
     try:
         filtered = _filtered_wallpaper_path(colors, state)
         if not filtered.is_file():
-            filtered.parent.mkdir(parents=True, exist_ok=True)
+            if shutil.which("lutgen") is None:
+                _fallback_to_source(
+                    source,
+                    "filter_wallpaper is enabled but 'lutgen' is not installed",
+                )
+                return
+
+            try:
+                filtered.parent.mkdir(parents=True, exist_ok=True)
+            except OSError as exc:
+                _fallback_to_source(
+                    source,
+                    f"could not create wallpaper filter cache at {filtered.parent}: {exc}",
+                )
+                return
+
             ok, message = _run_command(
                 [
                     "lutgen",
@@ -92,16 +126,14 @@ def on_apply(colors: ColorScheme, state: ThemeState) -> None:
             )
             if not ok:
                 filtered.unlink(missing_ok=True)
-                print(
-                    f"  wallpaper warning: lutgen failed ({message}); falling back to original wallpaper",
-                    file=sys.stderr,
+                _fallback_to_source(
+                    source,
+                    f"could not generate filtered wallpaper with lutgen: {message}",
                 )
-                filtered = source
-        ok, message = _run_command(_swww_command(str(filtered)))
-        if not ok:
-            print(f"  wallpaper warning: {message}", file=sys.stderr)
+                return
+        _apply_wallpaper(filtered)
     except Exception as exc:
-        print(f"  wallpaper warning: {exc}", file=sys.stderr)
-        ok, message = _run_command(_swww_command(str(source)))
-        if not ok:
-            print(f"  wallpaper warning: {message}", file=sys.stderr)
+        _fallback_to_source(
+            source,
+            f"unexpected error while preparing filtered wallpaper: {exc}",
+        )
