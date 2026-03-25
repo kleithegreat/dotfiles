@@ -179,6 +179,8 @@ PanelWindow {
                 id: sidebar
                 width: 190; height: parent.height
                 color: Theme.bg0_h
+                radius: Theme.popupRadius
+                topRightRadius: 0; bottomRightRadius: 0
 
                 ColumnLayout {
                     anchors.fill: parent
@@ -349,17 +351,19 @@ PanelWindow {
     // ── Detail: Colors ──
     Component {
         id: colorsPane
-        Flickable {
+        ColumnLayout {
             anchors.fill: parent
-            contentHeight: colorsCol.implicitHeight
-            clip: true; boundsBehavior: Flickable.StopAtBounds
+            spacing: 16
 
-            ColumnLayout {
-                id: colorsCol; width: parent.width; spacing: 16
+            Flickable {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                contentHeight: colorGrid.implicitHeight
+                clip: true; boundsBehavior: Flickable.StopAtBounds
 
                 Grid {
                     id: colorGrid
-                    Layout.fillWidth: true
+                    width: parent.width
                     columns: 3; spacing: 8
 
                     Repeater {
@@ -424,77 +428,77 @@ PanelWindow {
                         }
                     }
                 }
+            }
 
-                // ── Electron / Browser Hint ──
-                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+            // ── Electron / Browser Hint ──
+            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
 
-                ColumnLayout {
-                    Layout.fillWidth: true; spacing: 8
+            ColumnLayout {
+                Layout.fillWidth: true; spacing: 8
 
-                    Text {
-                        text: "ELECTRON / BROWSER HINT"
-                        color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
-                    }
+                Text {
+                    text: "ELECTRON / BROWSER HINT"
+                    color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
+                }
 
-                    Row {
-                        spacing: 6
+                Row {
+                    spacing: 6
 
-                        Rectangle {
-                            id: lightHintBtn
-                            property bool isActive: settingsPop.themeState.dark_hint === false
-                            width: lightHintLabel.implicitWidth + 20; height: Theme.btnHeight; radius: Theme.btnRadius
-                            color: isActive ? Theme.accent : (lightHintArea.containsMouse ? Theme.bg2 : Theme.bg1)
+                    Rectangle {
+                        id: lightHintBtn
+                        property bool isActive: settingsPop.themeState.dark_hint === false
+                        width: lightHintLabel.implicitWidth + 20; height: Theme.btnHeight; radius: Theme.btnRadius
+                        color: isActive ? Theme.accent : (lightHintArea.containsMouse ? Theme.bg2 : Theme.bg1)
+                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                        border.width: 1; border.color: isActive ? Theme.accent : Theme.bg3
+                        Behavior on border.color { ColorAnimation { duration: Theme.animSpring } }
+                        scale: lightHintArea.pressed ? 0.95 : 1.0
+                        Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                        transformOrigin: Item.Center
+
+                        Text {
+                            id: lightHintLabel; anchors.centerIn: parent; text: "Light"
+                            color: lightHintBtn.isActive ? Theme.bg : Theme.fg
                             Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                            border.width: 1; border.color: isActive ? Theme.accent : Theme.bg3
-                            Behavior on border.color { ColorAnimation { duration: Theme.animSpring } }
-                            scale: lightHintArea.pressed ? 0.95 : 1.0
-                            Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                            transformOrigin: Item.Center
-
-                            Text {
-                                id: lightHintLabel; anchors.centerIn: parent; text: "Light"
-                                color: lightHintBtn.isActive ? Theme.bg : Theme.fg
-                                Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                            }
-                            MouseArea {
-                                id: lightHintArea; anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                                onClicked: settingsPop.runSet("dark_hint", "light")
-                            }
+                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                         }
-
-                        Rectangle {
-                            id: darkHintBtn
-                            property bool isActive: settingsPop.themeState.dark_hint !== false
-                            width: darkHintLabel.implicitWidth + 20; height: Theme.btnHeight; radius: Theme.btnRadius
-                            color: isActive ? Theme.accent : (darkHintArea.containsMouse ? Theme.bg2 : Theme.bg1)
-                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                            border.width: 1; border.color: isActive ? Theme.accent : Theme.bg3
-                            Behavior on border.color { ColorAnimation { duration: Theme.animSpring } }
-                            scale: darkHintArea.pressed ? 0.95 : 1.0
-                            Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                            transformOrigin: Item.Center
-
-                            Text {
-                                id: darkHintLabel; anchors.centerIn: parent; text: "Dark"
-                                color: darkHintBtn.isActive ? Theme.bg : Theme.fg
-                                Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                            }
-                            MouseArea {
-                                id: darkHintArea; anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                                onClicked: settingsPop.runSet("dark_hint", "dark")
-                            }
+                        MouseArea {
+                            id: lightHintArea; anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                            onClicked: settingsPop.runSet("dark_hint", "light")
                         }
                     }
 
-                    Text {
-                        text: "Controls Chrome & Electron dark mode independently of color scheme."
-                        color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                        wrapMode: Text.WordWrap; Layout.fillWidth: true
+                    Rectangle {
+                        id: darkHintBtn
+                        property bool isActive: settingsPop.themeState.dark_hint !== false
+                        width: darkHintLabel.implicitWidth + 20; height: Theme.btnHeight; radius: Theme.btnRadius
+                        color: isActive ? Theme.accent : (darkHintArea.containsMouse ? Theme.bg2 : Theme.bg1)
+                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                        border.width: 1; border.color: isActive ? Theme.accent : Theme.bg3
+                        Behavior on border.color { ColorAnimation { duration: Theme.animSpring } }
+                        scale: darkHintArea.pressed ? 0.95 : 1.0
+                        Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                        transformOrigin: Item.Center
+
+                        Text {
+                            id: darkHintLabel; anchors.centerIn: parent; text: "Dark"
+                            color: darkHintBtn.isActive ? Theme.bg : Theme.fg
+                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                        }
+                        MouseArea {
+                            id: darkHintArea; anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                            onClicked: settingsPop.runSet("dark_hint", "dark")
+                        }
                     }
+                }
+
+                Text {
+                    text: "Controls Chrome & Electron dark mode independently of color scheme."
+                    color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.WordWrap; Layout.fillWidth: true
                 }
             }
         }
