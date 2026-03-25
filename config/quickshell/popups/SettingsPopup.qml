@@ -15,7 +15,7 @@ PanelWindow {
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
     WlrLayershell.namespace: "quickshell:settings"
-    WlrLayershell.layer: WlrLayer.Overlay
+    WlrLayershell.layer: dirPickerProc.running ? WlrLayer.Bottom : WlrLayer.Overlay
     WlrLayershell.keyboardFocus: active ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     exclusionMode: ExclusionMode.Ignore
 
@@ -100,7 +100,7 @@ PanelWindow {
 
     Process {
         id: dirPickerProc; running: false
-        command: ["bash", "-c", "if command -v kdialog >/dev/null 2>&1; then kdialog --getexistingdirectory \"$1\"; else zenity --file-selection --directory --title='Select Wallpaper Directory'; fi", "_", settingsPop.wallpaperDir]
+        command: ["python3", Qt.resolvedUrl("../scripts/dir-picker.py").toString().replace("file://", "")]
         property string result: ""
         stdout: SplitParser { onRead: (line) => { dirPickerProc.result = line.trim(); } }
         onExited: {
@@ -494,12 +494,6 @@ PanelWindow {
                         }
                     }
                 }
-
-                Text {
-                    text: "Controls Chrome & Electron dark mode independently of color scheme."
-                    color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                    wrapMode: Text.WordWrap; Layout.fillWidth: true
-                }
             }
         }
     }
@@ -631,38 +625,17 @@ PanelWindow {
             ColumnLayout {
                 id: wpCol; width: parent.width; spacing: 8
 
-                Text {
-                    text: "FILTER TO THEME"
-                    color: Theme.fg4
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                    font.bold: true
-                }
-
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 12
 
-                    ColumnLayout {
+                    Text {
+                        text: "Filter to theme"
+                        color: Theme.fg
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeSmall
                         Layout.fillWidth: true
-                        spacing: 4
-
-                        Text {
-                            text: "Color-grade wallpaper before applying"
-                            color: Theme.fg
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSizeSmall
-                            Layout.fillWidth: true
-                        }
-
-                        Text {
-                            text: "Uses the active theme palette before sending the image to swww."
-                            color: Theme.fg4
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSizeSmall
-                            wrapMode: Text.WordWrap
-                            Layout.fillWidth: true
-                        }
+                        Layout.alignment: Qt.AlignVCenter
                     }
 
                     Components.ToggleSwitch {
