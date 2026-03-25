@@ -80,7 +80,6 @@ in
     # GUI apps
     discord
     obsidian
-    chromium
     slack
     thunderbird
     obs-studio
@@ -296,6 +295,17 @@ in
     PATH="${lib.makeBinPath [pkgs.python3 pkgs.glib pkgs.swww pkgs.hyprland snappy-switcher-pkg]}:$PATH"
     ${dotfilesPath}/themes/apply-theme all 2>&1 | head -50 || true
   '';
+
+  # ── Chromium ───────────────────────────────────────────────
+  programs.chromium = {
+    enable = true;
+    extensions = [
+      "ddkjiahejlhfcafbddmgiahcphecmpfh" # uBlock Origin Lite
+      "nngceckbapebfimnlniiiahkandclblb"  # Bitwarden
+      "nkbihfbeogaeaoehlefnkodbefgpgknn"  # MetaMask
+      "bfnaelmomeimhlpmgjnjophhpkkoljpa"  # Phantom
+    ];
+  };
 
   programs.home-manager.enable = true;
   home.stateVersion = "25.05";
