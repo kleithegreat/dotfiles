@@ -125,6 +125,7 @@ in
 
     # Desktop utilities
     swww
+    lutgen
     brightnessctl
     grim
     slurp
