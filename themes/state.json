@@ -1,6 +1,7 @@
 {
   "color_scheme": "gruvbox-dark",
   "wallpaper": "/home/kevin/repos/dotfiles/wallpapers/lmao.png",
+  "filter_wallpaper": false,
   "system_font": "Overpass",
   "mono_font": "JetBrains Mono Nerd Font",
   "icon_theme": "Neuwaita",

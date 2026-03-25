@@ -31,8 +31,9 @@ STATE_PATH = THEMES_DIR / "state.json"
 
 # ── Subcommand groups ────────────────────────────────────────────────────
 
-# "colors" subcommand: every target except wallpaper/cursor
-_COLOR_TARGETS = {
+# "colors" subcommand: every color-dependent target except wallpaper/cursor.
+# Wallpaper is added dynamically when palette filtering is enabled.
+_BASE_COLOR_TARGETS = {
     "alacritty", "ghostty", "hyprland", "zathura", "quickshell",
     "neovim", "starship", "tmux", "gtk", "qt", "vicinae", "bat",
     "snappy_switcher",
@@ -60,6 +61,14 @@ def _load(args: argparse.Namespace) -> tuple:
     return state, colors
 
 
+def _color_targets_for_state(state: ThemeState) -> set[str]:
+    """Return targets affected by the current color scheme."""
+    targets = set(_BASE_COLOR_TARGETS)
+    if state.filter_wallpaper:
+        targets.add("wallpaper")
+    return targets
+
+
 def cmd_all(args: argparse.Namespace) -> None:
     state, colors = _load(args)
     print(f"Applying all targets ({colors.family}-{colors.variant})...")
@@ -69,7 +78,7 @@ def cmd_all(args: argparse.Namespace) -> None:
 def cmd_colors(args: argparse.Namespace) -> None:
     state, colors = _load(args)
     print(f"Applying color targets ({colors.family}-{colors.variant})...")
-    apply_targets(_COLOR_TARGETS, colors, state)
+    apply_targets(_color_targets_for_state(state), colors, state)
 
 
 def cmd_wallpaper(args: argparse.Namespace) -> None:
@@ -139,7 +148,7 @@ def cmd_set(args: argparse.Namespace) -> None:
     print(f"Set {key} = {value!r}")
 
     colors = load_colors(new_state.color_scheme, COLORS_DIR)
-    affected = targets_for_key(key)
+    affected = targets_for_key(key, new_state)
     if affected:
         print(f"Applying affected targets...")
         apply_targets(affected, colors, new_state)

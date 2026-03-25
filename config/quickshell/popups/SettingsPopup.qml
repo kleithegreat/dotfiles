@@ -4,6 +4,7 @@ import Quickshell.Wayland
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Io
+import "../components" as Components
 
 PanelWindow {
     id: settingsPop
@@ -722,6 +723,51 @@ PanelWindow {
 
             ColumnLayout {
                 id: wpCol; width: parent.width; spacing: 8
+
+                Text {
+                    text: "FILTER TO THEME"
+                    color: Theme.fg4
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontSizeSmall
+                    font.bold: true
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 12
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 4
+
+                        Text {
+                            text: "Color-grade wallpaper before applying"
+                            color: Theme.fg
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeSmall
+                            Layout.fillWidth: true
+                        }
+
+                        Text {
+                            text: "Uses the active theme palette before sending the image to swww."
+                            color: Theme.fg4
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeSmall
+                            wrapMode: Text.WordWrap
+                            Layout.fillWidth: true
+                        }
+                    }
+
+                    Components.ToggleSwitch {
+                        checked: settingsPop.themeState.filter_wallpaper === true
+                        onToggled: settingsPop.runSet(
+                            "filter_wallpaper",
+                            settingsPop.themeState.filter_wallpaper === true ? "off" : "on"
+                        )
+                    }
+                }
+
+                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
 
                 Text {
                     visible: settingsPop.wallpapers.length === 0
