@@ -608,11 +608,11 @@
         "nixpkgs": "nixpkgs_3"
       },
       "locked": {
-        "lastModified": 1773572716,
-        "narHash": "sha256-fX+SqH3bHSXPtLE49uLT9PABUiiyWrzK/te7IXV2qw0=",
+        "lastModified": 1774398805,
+        "narHash": "sha256-pCrX0FwGodN5alKvSGIM3BszC03dSOegyI3TZNbWLQ0=",
         "owner": "OpalAayan",
         "repo": "snappy-switcher",
-        "rev": "7f8ff9d5a7af9bf8a3137a3002ef167269a47fc0",
+        "rev": "4cb46e1370c32e18a8c93650e0b6b8ec86644739",
         "type": "github"
       },
       "original": {
