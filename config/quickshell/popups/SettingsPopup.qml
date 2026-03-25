@@ -25,21 +25,10 @@ PanelWindow {
     property var colorFamilies: []
     property var presets: []
     property var wallpapers: []
-    property string currentFamily: ""
-    property string currentVariant: ""
     property int selectedCategory: 0
-    property string selectedColorFamily: ""
     property string wallpaperDir: "/home/kevin/repos/dotfiles/wallpapers"
     property var categoryNames: ["Presets", "Colors", "Fonts", "Wallpaper", "Icons & Cursors"]
     property var categoryIcons: ["󰒓", "󰏘", "󰛖", "󰋩", "󰍽"]
-
-    property var selectedFamilyVariants: {
-        let fams = colorFamilies;
-        let sel = selectedColorFamily;
-        for (let i = 0; i < fams.length; i++)
-            if (fams[i].name === sel) return fams[i].variants;
-        return [];
-    }
 
     onActiveChanged: {
         if (active) { panel.opacity = 0; panel.scale = 0.92; loadState(); settingsOpenAnim.start(); }
@@ -61,22 +50,9 @@ PanelWindow {
         onExited: {
             try {
                 settingsPop.themeState = JSON.parse(buf);
-                familyProc.running = true;
             } catch(e) {}
             buf = "";
         }
-    }
-
-    Process {
-        id: familyProc; running: false
-        command: ["bash", "-c", "jq -r '.family + \"/\" + .variant' /home/kevin/repos/dotfiles/themes/colors/" + (themeState.color_scheme || "gruvbox-dark") + ".json"]
-        stdout: SplitParser { onRead: (line) => {
-            let p = line.trim().split("/");
-            settingsPop.currentFamily = p[0] || "";
-            settingsPop.currentVariant = p[1] || "";
-            if (settingsPop.selectedColorFamily === "")
-                settingsPop.selectedColorFamily = settingsPop.currentFamily;
-        } }
     }
 
     Process {
@@ -86,23 +62,20 @@ PanelWindow {
         stdout: SplitParser { onRead: (line) => { try { listColorsProc.items.push(JSON.parse(line.trim())); } catch(e) {} } }
         onExited: {
             let schemes = [];
-            let families = {};
-            let order = [];
+            let result = [];
             for (let i = 0; i < items.length; i++) {
                 let d = items[i];
                 schemes.push(d.schemeName);
-                let fam = d.family || d.schemeName;
-                if (!families[fam]) { families[fam] = { name: fam, variants: [] }; order.push(fam); }
-                families[fam].variants.push({
-                    schemeName: d.schemeName, variant: d.variant || "dark",
+                result.push({
+                    schemeName: d.schemeName,
+                    family: d.family || d.schemeName,
+                    variant: d.variant || "dark",
                     bg: d.bg || "#282828", fg: d.fg || "#ebdbb2",
                     accent: d.accent || "#458588", red: d.red || "#cc241d",
                     green: d.green || "#98971a", blue: d.blue || "#458588",
                     yellow: d.yellow || "#d79921", purple: d.purple || "#b16286"
                 });
             }
-            let result = [];
-            for (let j = 0; j < order.length; j++) result.push(families[order[j]]);
             settingsPop.colorSchemes = schemes;
             settingsPop.colorFamilies = result;
             items = [];
@@ -144,25 +117,6 @@ PanelWindow {
     function familyDisplayName(name) {
         if (name === "tokyonight") return "Tokyo Night";
         return name.charAt(0).toUpperCase() + name.slice(1);
-    }
-
-    function isLightVariant(v) {
-        let n = (v || "").toLowerCase();
-        return n === "light" || n === "latte" || n === "dawn";
-    }
-
-    function findVariant(family, wantLight) {
-        let fams = colorFamilies;
-        for (let i = 0; i < fams.length; i++) {
-            if (fams[i].name !== family) continue;
-            let variants = fams[i].variants;
-            for (let j = 0; j < variants.length; j++) {
-                if (isLightVariant(variants[j].variant) === wantLight)
-                    return variants[j].schemeName;
-            }
-            if (variants.length > 0) return variants[0].schemeName;
-        }
-        return "";
     }
 
     // ── Apply commands ──
@@ -413,16 +367,14 @@ PanelWindow {
                         delegate: Rectangle {
                             id: famCard
                             required property int index
-                            property var family: settingsPop.colorFamilies[index]
-                            property var preview: family ? family.variants[0] : null
-                            property bool isActive: settingsPop.currentFamily === (family ? family.name : "")
-                            property bool isSelected: settingsPop.selectedColorFamily === (family ? family.name : "")
+                            property var variant: settingsPop.colorFamilies[index]
+                            property bool isActive: settingsPop.themeState.color_scheme === (variant ? variant.schemeName : "")
 
                             width: (colorGrid.width - 16) / 3; height: 80
                             radius: Theme.btnRadius + 2
-                            color: preview ? preview.bg : Theme.bg1
+                            color: variant ? variant.bg : Theme.bg1
                             border.width: isActive ? 2 : 1
-                            border.color: isActive ? Theme.accent : (isSelected ? Theme.fg4 : Theme.bg3)
+                            border.color: isActive ? (variant ? variant.accent : Theme.accent) : (famArea.containsMouse ? Theme.fg4 : Theme.bg3)
                             Behavior on border.color { ColorAnimation { duration: Theme.animSpring } }
                             scale: famArea.pressed ? 0.97 : 1.0
                             Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
@@ -435,88 +387,39 @@ PanelWindow {
                                 RowLayout {
                                     Layout.fillWidth: true
                                     Text {
-                                        text: settingsPop.familyDisplayName(famCard.family ? famCard.family.name : "")
-                                        color: famCard.preview ? famCard.preview.fg : Theme.fg
+                                        text: settingsPop.familyDisplayName(famCard.variant ? famCard.variant.family : "")
+                                        color: famCard.variant ? famCard.variant.fg : Theme.fg
                                         font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; font.bold: true
+                                    }
+                                    Text {
+                                        text: famCard.variant ? famCard.variant.variant : ""
+                                        color: famCard.variant ? famCard.variant.fg : Theme.fg4
+                                        opacity: 0.6
+                                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                                         Layout.fillWidth: true
                                     }
                                     Text {
                                         text: "✓"; visible: famCard.isActive
-                                        color: famCard.preview ? famCard.preview.accent : Theme.accent
+                                        color: famCard.variant ? famCard.variant.accent : Theme.accent
                                         font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; font.bold: true
                                     }
                                 }
 
                                 Row {
                                     spacing: 4
-                                    Rectangle { width: 14; height: 14; radius: 7; color: famCard.preview ? famCard.preview.accent : Theme.accent; border.width: 1; border.color: Qt.rgba(0, 0, 0, 0.15) }
-                                    Rectangle { width: 14; height: 14; radius: 7; color: famCard.preview ? famCard.preview.red : Theme.red; border.width: 1; border.color: Qt.rgba(0, 0, 0, 0.15) }
-                                    Rectangle { width: 14; height: 14; radius: 7; color: famCard.preview ? famCard.preview.green : Theme.green; border.width: 1; border.color: Qt.rgba(0, 0, 0, 0.15) }
-                                    Rectangle { width: 14; height: 14; radius: 7; color: famCard.preview ? famCard.preview.blue : Theme.blue; border.width: 1; border.color: Qt.rgba(0, 0, 0, 0.15) }
-                                    Rectangle { width: 14; height: 14; radius: 7; color: famCard.preview ? famCard.preview.yellow : Theme.yellow; border.width: 1; border.color: Qt.rgba(0, 0, 0, 0.15) }
-                                    Rectangle { width: 14; height: 14; radius: 7; color: famCard.preview ? famCard.preview.purple : Theme.purple; border.width: 1; border.color: Qt.rgba(0, 0, 0, 0.15) }
+                                    Rectangle { width: 14; height: 14; radius: 7; color: famCard.variant ? famCard.variant.accent : Theme.accent; border.width: 1; border.color: Qt.rgba(0, 0, 0, 0.15) }
+                                    Rectangle { width: 14; height: 14; radius: 7; color: famCard.variant ? famCard.variant.red : Theme.red; border.width: 1; border.color: Qt.rgba(0, 0, 0, 0.15) }
+                                    Rectangle { width: 14; height: 14; radius: 7; color: famCard.variant ? famCard.variant.green : Theme.green; border.width: 1; border.color: Qt.rgba(0, 0, 0, 0.15) }
+                                    Rectangle { width: 14; height: 14; radius: 7; color: famCard.variant ? famCard.variant.blue : Theme.blue; border.width: 1; border.color: Qt.rgba(0, 0, 0, 0.15) }
+                                    Rectangle { width: 14; height: 14; radius: 7; color: famCard.variant ? famCard.variant.yellow : Theme.yellow; border.width: 1; border.color: Qt.rgba(0, 0, 0, 0.15) }
+                                    Rectangle { width: 14; height: 14; radius: 7; color: famCard.variant ? famCard.variant.purple : Theme.purple; border.width: 1; border.color: Qt.rgba(0, 0, 0, 0.15) }
                                 }
                             }
 
                             MouseArea {
                                 id: famArea; anchors.fill: parent
                                 cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                                onClicked: {
-                                    settingsPop.selectedColorFamily = famCard.family.name;
-                                    let wantLight = settingsPop.isLightVariant(settingsPop.currentVariant);
-                                    let scheme = settingsPop.findVariant(famCard.family.name, wantLight);
-                                    if (scheme) settingsPop.runSet("color_scheme", scheme);
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // ── Variant selector ──
-                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3; visible: settingsPop.selectedColorFamily !== "" }
-
-                ColumnLayout {
-                    Layout.fillWidth: true; spacing: 8
-                    visible: settingsPop.selectedColorFamily !== ""
-
-                    Text {
-                        text: "VARIANT"
-                        color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
-                    }
-
-                    Flow {
-                        Layout.fillWidth: true; spacing: 6
-
-                        Repeater {
-                            model: settingsPop.selectedFamilyVariants
-                            delegate: Rectangle {
-                                id: varBtn
-                                required property var modelData; required property int index
-                                property string schemeName: modelData.schemeName || ""
-                                property string variantName: modelData.variant || ""
-                                property bool isCurrent: settingsPop.themeState.color_scheme === schemeName
-
-                                width: varLabel.implicitWidth + 20; height: Theme.btnHeight; radius: Theme.btnRadius
-                                color: isCurrent ? Theme.accent : (varArea.containsMouse ? Theme.bg2 : Theme.bg1)
-                                Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                                border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
-                                Behavior on border.color { ColorAnimation { duration: Theme.animSpring } }
-                                scale: varArea.pressed ? 0.95 : 1.0
-                                Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                                transformOrigin: Item.Center
-
-                                Text {
-                                    id: varLabel; anchors.centerIn: parent
-                                    text: varBtn.variantName.charAt(0).toUpperCase() + varBtn.variantName.slice(1)
-                                    color: varBtn.isCurrent ? Theme.bg : Theme.fg
-                                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                                }
-                                MouseArea {
-                                    id: varArea; anchors.fill: parent
-                                    cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                                    onClicked: settingsPop.runSet("color_scheme", varBtn.schemeName)
-                                }
+                                onClicked: settingsPop.runSet("color_scheme", famCard.variant.schemeName)
                             }
                         }
                     }
