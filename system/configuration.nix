@@ -9,7 +9,24 @@ let
     ];
   });
 
-  hyprPluginPkgs = inputs.hyprland-plugins.packages.${pkgs.stdenv.hostPlatform.system};
+  hyprPluginPkgs =
+    let
+      upstreamHyprPluginPkgs = inputs.hyprland-plugins.packages.${pkgs.stdenv.hostPlatform.system};
+    in
+    upstreamHyprPluginPkgs
+    // {
+      hyprbars = upstreamHyprPluginPkgs.hyprbars.overrideAttrs (old: {
+        patches = (old.patches or []) ++ [
+          ../patches/hyprland-plugins/hyprbars-hyprland-0.54.patch
+        ];
+      });
+
+      hyprexpo = upstreamHyprPluginPkgs.hyprexpo.overrideAttrs (old: {
+        patches = (old.patches or []) ++ [
+          ../patches/hyprland-plugins/hyprexpo-hyprland-0.54.patch
+        ];
+      });
+    };
   hyprPluginDir = pkgs.symlinkJoin {
     name = "hyprland-plugins";
     paths = with hyprPluginPkgs; [
