@@ -89,6 +89,7 @@ in
     zathura
     vscode
     imv            # Wayland image viewer
+    nautilus
     kdePackages.dolphin
     kdePackages.ark
     kdePackages.plasma-systemmonitor
