@@ -1,4 +1,4 @@
-"""GTK settings files plus best-effort live GNOME settings updates."""
+"""GTK live settings updates without owning GTK settings files."""
 
 from __future__ import annotations
 
@@ -7,10 +7,10 @@ import subprocess
 from themes.lib.schema import ColorScheme, ThemeState
 
 TARGET_NAME = "gtk"
-ASSEMBLY = "standalone"
-OUTPUT_PATH = "~/.config/gtk-3.0/settings.ini"
-EXTRA_OUTPUTS = ["~/.config/gtk-4.0/settings.ini"]
-COMMENT = "#"
+ASSEMBLY = "command"
+# GTK theming is live-session state only; there is nothing to persist during
+# Home Manager's non-interactive sync pass.
+SYNC_SAFE = False
 
 _DCONF_PREFIX = "/org/gnome/desktop/interface/"
 
@@ -24,19 +24,9 @@ def _dconf_set(key: str, value: str) -> None:
     )
 
 
-def generate(colors: ColorScheme, state: ThemeState) -> str:
-    del colors
-    gtk_theme = "adw-gtk3-dark" if state.dark_hint else "adw-gtk3"
-    dark_hint = "1" if state.dark_hint else "0"
-    return (
-        "[Settings]\n"
-        f"gtk-theme-name={gtk_theme}\n"
-        f"gtk-icon-theme-name={state.icon_theme}\n"
-        f"gtk-font-name={state.system_font} {state.font_size}\n"
-        f"gtk-cursor-theme-name={state.cursor_theme}\n"
-        f"gtk-cursor-theme-size={state.cursor_size}\n"
-        f"gtk-application-prefer-dark-theme={dark_hint}\n"
-    )
+def generate(colors: ColorScheme, state: ThemeState) -> list[list[str]]:
+    del colors, state
+    return []
 
 
 def on_apply(colors: ColorScheme, state: ThemeState) -> None:

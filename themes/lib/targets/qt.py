@@ -28,7 +28,7 @@ _KWRITERC = "~/.config/kwriterc"
 
 
 def _new_config() -> configparser.RawConfigParser:
-    config = configparser.RawConfigParser()
+    config = configparser.RawConfigParser(strict=False)
     config.optionxform = str
     return config
 
