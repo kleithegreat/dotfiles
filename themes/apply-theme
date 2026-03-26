@@ -72,31 +72,43 @@ def _color_targets_for_state(state: ThemeState) -> set[str]:
 def cmd_all(args: argparse.Namespace) -> None:
     state, colors = _load(args)
     print(f"Applying all targets ({colors.family}-{colors.variant})...")
-    apply_all(colors, state)
+    if not apply_all(colors, state):
+        sys.exit(1)
 
 
 def cmd_colors(args: argparse.Namespace) -> None:
     state, colors = _load(args)
     print(f"Applying color targets ({colors.family}-{colors.variant})...")
-    apply_targets(_color_targets_for_state(state), colors, state)
+    if not apply_targets(_color_targets_for_state(state), colors, state):
+        sys.exit(1)
 
 
 def cmd_wallpaper(args: argparse.Namespace) -> None:
     state, colors = _load(args)
     print(f"Applying wallpaper ({state.wallpaper})...")
-    apply_targets({"wallpaper"}, colors, state)
+    if not apply_targets({"wallpaper"}, colors, state):
+        sys.exit(1)
 
 
 def cmd_cursor(args: argparse.Namespace) -> None:
     state, colors = _load(args)
     print(f"Applying cursor ({state.cursor_theme} {state.cursor_size})...")
-    apply_targets({"cursor"}, colors, state)
+    if not apply_targets({"cursor"}, colors, state):
+        sys.exit(1)
 
 
 def cmd_fonts(args: argparse.Namespace) -> None:
     state, colors = _load(args)
     print(f"Applying font targets ({state.mono_font}, {state.system_font})...")
-    apply_targets(_FONT_TARGETS, colors, state)
+    if not apply_targets(_FONT_TARGETS, colors, state):
+        sys.exit(1)
+
+
+def cmd_sync(args: argparse.Namespace) -> None:
+    state, colors = _load(args)
+    print(f"Syncing theme-managed config ({colors.family}-{colors.variant})...")
+    if not apply_all(colors, state, runtime=False, sync_safe=True):
+        sys.exit(1)
 
 
 def cmd_target(args: argparse.Namespace) -> None:
@@ -151,7 +163,8 @@ def cmd_set(args: argparse.Namespace) -> None:
     affected = targets_for_key(key, new_state)
     if affected:
         print(f"Applying affected targets...")
-        apply_targets(affected, colors, new_state)
+        if not apply_targets(affected, colors, new_state):
+            sys.exit(1)
 
 
 def cmd_preset(args: argparse.Namespace) -> None:
@@ -173,7 +186,8 @@ def cmd_preset(args: argparse.Namespace) -> None:
     save_state(new_state, STATE_PATH)
     print(f"Loaded preset '{args.name}', applying all targets...")
     colors = load_colors(new_state.color_scheme, COLORS_DIR)
-    apply_all(colors, new_state)
+    if not apply_all(colors, new_state):
+        sys.exit(1)
 
 
 def cmd_list_schemes(args: argparse.Namespace) -> None:
@@ -216,6 +230,7 @@ def main() -> None:
     sub.add_parser("wallpaper", help="Apply wallpaper only")
     sub.add_parser("cursor", help="Apply cursor only")
     sub.add_parser("fonts", help="Apply font-dependent targets")
+    sub.add_parser("sync", help="Write theme-managed config without live-session reloads")
 
     p_target = sub.add_parser("target", help="Apply a single target")
     p_target.add_argument("name")
@@ -238,6 +253,7 @@ def main() -> None:
         "wallpaper": cmd_wallpaper,
         "cursor": cmd_cursor,
         "fonts": cmd_fonts,
+        "sync": cmd_sync,
         "target": cmd_target,
         "set": cmd_set,
         "preset": cmd_preset,

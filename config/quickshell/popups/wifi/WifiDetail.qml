@@ -17,7 +17,7 @@ ColumnLayout {
 
     signal connectRequested(string ssid, string security)
     signal disconnectRequested()
-    signal forgetRequested(string ssid)
+    signal forgetRequested()
     signal diagnosticsRequested()
 
     function signalIcon(sig) {
@@ -130,7 +130,7 @@ ColumnLayout {
                 Behavior on color { ColorAnimation { duration: Theme.animHover } }
                 font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
             MouseArea { id: forgetA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                onClicked: root.forgetRequested(root.targetSsid) }
+                onClicked: root.forgetRequested() }
         }
 
         // Diagnostics button (connected only)

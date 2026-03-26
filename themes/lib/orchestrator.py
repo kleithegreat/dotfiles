@@ -46,13 +46,16 @@ def _assemble(target: ModuleType, content: str | list[list[str]],
     assembly = target.ASSEMBLY
 
     if assembly == "command":
+        failures: list[str] = []
         for cmd in content:
             try:
                 subprocess.run(cmd, check=True, capture_output=True, text=True)
             except FileNotFoundError:
-                print(f"  skip: {cmd[0]!r} not found", file=sys.stderr)
+                failures.append(f"{cmd[0]!r} not found")
             except subprocess.CalledProcessError as exc:
-                print(f"  warning: {cmd} failed: {exc.stderr.strip()}", file=sys.stderr)
+                failures.append(exc.stderr.strip() or exc.stdout.strip() or str(exc))
+        if failures:
+            raise RuntimeError("; ".join(failures))
         return
 
     out = Path(target.OUTPUT_PATH).expanduser()
@@ -97,8 +100,15 @@ def _assemble(target: ModuleType, content: str | list[list[str]],
         p.write_text(out.read_text())
 
 
+def _persist(target: ModuleType, colors: ColorScheme, state: ThemeState) -> None:
+    """Run any persistent post-write hooks that must succeed."""
+    fn = getattr(target, "persist", None)
+    if fn:
+        fn(colors, state)
+
+
 def _reload(target: ModuleType, colors: ColorScheme, state: ThemeState) -> None:
-    """Fire the target's reload command and/or on_apply hook."""
+    """Fire best-effort live-session reload commands and hooks."""
     cmd = getattr(target, "RELOAD_CMD", None)
     if cmd:
         try:
@@ -113,7 +123,13 @@ def _reload(target: ModuleType, colors: ColorScheme, state: ThemeState) -> None:
             print(f"  reload warning ({target.TARGET_NAME}): {exc}", file=sys.stderr)
 
 
-def apply_target(name: str, colors: ColorScheme, state: ThemeState) -> bool:
+def apply_target(
+    name: str,
+    colors: ColorScheme,
+    state: ThemeState,
+    *,
+    runtime: bool = True,
+) -> bool:
     """Run a single target by name. Returns True on success."""
     target = REGISTRY.get(name)
     if target is None:
@@ -122,7 +138,9 @@ def apply_target(name: str, colors: ColorScheme, state: ThemeState) -> bool:
     try:
         content = target.generate(colors, state)
         _assemble(target, content, colors)
-        _reload(target, colors, state)
+        _persist(target, colors, state)
+        if runtime:
+            _reload(target, colors, state)
         print(f"  {name}: ok")
         return True
     except Exception as exc:
@@ -138,20 +156,46 @@ def _sorted_targets(names: set[str]) -> list[str]:
     return sorted(names, key=_key)
 
 
-def apply_targets(names: set[str], colors: ColorScheme, state: ThemeState) -> None:
+def apply_targets(
+    names: set[str],
+    colors: ColorScheme,
+    state: ThemeState,
+    *,
+    runtime: bool = True,
+) -> bool:
     """Run a set of targets, skipping any that aren't registered."""
     available = names & REGISTRY.keys()
     skipped = names - REGISTRY.keys()
     if skipped:
         print(f"  (skipping unregistered: {', '.join(sorted(skipped))})")
+    ok = True
     for name in _sorted_targets(available):
-        apply_target(name, colors, state)
+        ok = apply_target(name, colors, state, runtime=runtime) and ok
+    return ok
 
 
-def apply_all(colors: ColorScheme, state: ThemeState) -> None:
+def _all_target_names(*, sync_safe: bool) -> set[str]:
+    names = set(REGISTRY)
+    if sync_safe:
+        names = {
+            name for name, target in REGISTRY.items()
+            if getattr(target, "SYNC_SAFE", True)
+        }
+    return names
+
+
+def apply_all(
+    colors: ColorScheme,
+    state: ThemeState,
+    *,
+    runtime: bool = True,
+    sync_safe: bool = False,
+) -> bool:
     """Run every registered target."""
-    for name in _sorted_targets(set(REGISTRY)):
-        apply_target(name, colors, state)
+    ok = True
+    for name in _sorted_targets(_all_target_names(sync_safe=sync_safe)):
+        ok = apply_target(name, colors, state, runtime=runtime) and ok
+    return ok
 
 
 def targets_for_key(state_key: str, state: ThemeState | None = None) -> set[str]:

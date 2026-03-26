@@ -86,7 +86,7 @@ def generate(colors: ColorScheme, state: ThemeState) -> str:
     )
 
 
-def on_apply(colors: ColorScheme, state: ThemeState) -> None:
+def persist(colors: ColorScheme, state: ThemeState) -> None:
     """Update qt6ct/qt5ct configs, KDE globals, KColorScheme, hyprqt6engine, and Kvantum."""
     for conf, scheme in [
         (_QT6CT_CONF, OUTPUT_PATH),

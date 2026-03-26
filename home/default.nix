@@ -181,9 +181,13 @@ in
   xdg.configFile."hypr/monitors.conf" = if hostName == "laptop"
     then { source = "${dotfilesPath}/hosts/laptop/monitors.conf"; }
     else { text = "monitor = ,preferred,auto,1\n"; };
-  xdg.configFile."hypr/env.conf" = if hostName == "laptop"
-    then { source = "${dotfilesPath}/config/hypr/env.conf"; }
-    else { text = "env = XCURSOR_SIZE,24\n"; };
+  xdg.configFile."hypr/env.conf" =
+    if hostName == "laptop" then
+      { source = "${dotfilesPath}/config/hypr/env.conf"; }
+    else if hostName == "desktop" then
+      { source = "${dotfilesPath}/hosts/desktop/env.conf"; }
+    else
+      { text = ""; };
 
   # ── XDG Desktop Portal config ───────────────────────────────
   # Route file picker to KDE, everything else through Hyprland → GTK fallback
@@ -293,8 +297,8 @@ in
 
   # ── Theme activation ────────────────────────────────────────
   home.activation.applyTheme = lib.hm.dag.entryAfter ["writeBoundary"] ''
-    PATH="${lib.makeBinPath [pkgs.python3 pkgs.glib pkgs.swww pkgs.hyprland snappy-switcher-pkg]}:$PATH"
-    ${dotfilesPath}/themes/apply-theme all 2>&1 | head -50 || true
+    PATH="${lib.makeBinPath [pkgs.python3]}:$PATH"
+    ${dotfilesPath}/themes/apply-theme sync
   '';
 
   # ── Chromium ───────────────────────────────────────────────

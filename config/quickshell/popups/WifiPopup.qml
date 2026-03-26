@@ -19,6 +19,8 @@ PanelWindow {
     exclusionMode: ExclusionMode.Ignore
 
     property string connectedSsid: ""
+    property string connectedConnectionId: ""
+    property string connectedConnectionUuid: ""
     ListModel { id: netModel }
     ListModel { id: knownModel }
 
@@ -28,6 +30,8 @@ PanelWindow {
     property int    targetSignal: 0
     property bool   targetIsConnected: false
     property bool   targetIsKnown: false
+    property string targetConnectionId: ""
+    property string targetConnectionUuid: ""
     property string connectError: ""
 
     // Detail view info
@@ -113,16 +117,45 @@ PanelWindow {
     function resetState() {
         popupState = "list"; targetSsid = ""; targetSecurity = ""; targetSignal = 0;
         targetIsConnected = false; targetIsKnown = false; connectError = "";
+        targetConnectionId = ""; targetConnectionUuid = "";
         detailIp = ""; detailGateway = ""; detailDns = ""; detailFreq = "";
         diagLoading = false; speedTestRunning = false;
     }
 
-    function scan() { netModel.clear(); connectedSsid = ""; scanProc.running = true; connectivityProc.running = true; }
+    function scan() {
+        netModel.clear();
+        connectedSsid = "";
+        connectedConnectionId = "";
+        connectedConnectionUuid = "";
+        scanProc.running = true;
+        connectivityProc.running = true;
+    }
     function loadKnown() { knownModel.clear(); knownProc.running = true; }
 
+    function knownConnection(ssid) {
+        for (let i = 0; i < knownModel.count; i++) {
+            let entry = knownModel.get(i);
+            if (entry.ssid === ssid) return entry;
+        }
+        return null;
+    }
+
     function isKnown(ssid) {
-        for (let i = 0; i < knownModel.count; i++) if (knownModel.get(i).name === ssid) return true;
-        return false;
+        return knownConnection(ssid) !== null;
+    }
+
+    function connectionIdForSsid(ssid) {
+        if (connectedSsid === ssid && connectedConnectionId !== "")
+            return connectedConnectionId;
+        let entry = knownConnection(ssid);
+        return entry ? (entry.id || "") : "";
+    }
+
+    function connectionUuidForSsid(ssid) {
+        if (connectedSsid === ssid && connectedConnectionUuid !== "")
+            return connectedConnectionUuid;
+        let entry = knownConnection(ssid);
+        return entry ? (entry.uuid || "") : "";
     }
 
     function parseNmcli(line) {
@@ -150,13 +183,25 @@ PanelWindow {
     function connectTo(ssid, security) {
         connectError = "";
         if (isEnterprise(security)) {
-            targetSsid = ssid; targetSecurity = security; popupState = "enterprise";
+            targetSsid = ssid;
+            targetSecurity = security;
+            targetConnectionId = connectionIdForSsid(ssid);
+            targetConnectionUuid = connectionUuidForSsid(ssid);
+            popupState = "enterprise";
         } else if (isKnown(ssid)) {
-            popupState = "connecting"; targetSsid = ssid;
-            connectProc.command = ["nmcli", "dev", "wifi", "connect", ssid];
+            let uuid = connectionUuidForSsid(ssid);
+            let id = connectionIdForSsid(ssid);
+            popupState = "connecting";
+            targetSsid = ssid;
+            if (uuid !== "")
+                connectProc.command = ["nmcli", "con", "up", "uuid", uuid];
+            else
+                connectProc.command = ["nmcli", "con", "up", "id", id];
             connectProc.running = true;
         } else if (security !== "") {
-            targetSsid = ssid; targetSecurity = security; popupState = "password";
+            targetSsid = ssid;
+            targetSecurity = security;
+            popupState = "password";
         } else {
             popupState = "connecting"; targetSsid = ssid;
             connectProc.command = ["nmcli", "dev", "wifi", "connect", ssid];
@@ -179,39 +224,52 @@ PanelWindow {
         enterpriseProc.command = [
             "bash", "-c",
             'iface=$(nmcli -t -f DEVICE,TYPE dev | grep ":wifi$" | head -1 | cut -d: -f1); ' +
-            'nmcli connection delete id "$1" 2>/dev/null; ' +
+            'if [ -n "$4" ]; then nmcli connection delete uuid "$4" 2>/dev/null; ' +
+            'elif [ -n "$5" ]; then nmcli connection delete id "$5" 2>/dev/null; fi; ' +
             'nmcli connection add type wifi ifname "$iface" con-name "$1" ssid "$1" ' +
             'wifi-sec.key-mgmt wpa-eap 802-1x.eap peap 802-1x.phase2-auth mschapv2 ' +
             '802-1x.identity "$2" 802-1x.password "$3" && ' +
             'nmcli connection up id "$1"',
-            "--", targetSsid, identity, password
+            "--", targetSsid, identity, password, targetConnectionUuid, targetConnectionId
         ];
         enterpriseProc.running = true;
     }
 
     function disconnect() {
-        // Disconnect the specific connection by name, not the whole interface
-        disconnectProc.command = ["nmcli", "con", "down", "id", connectedSsid];
+        if (connectedConnectionUuid === "") return;
+        disconnectProc.command = ["nmcli", "con", "down", "uuid", connectedConnectionUuid];
         disconnectProc.running = true;
     }
 
-    function forgetNetwork(ssid) {
-        forgetProc.command = ["nmcli", "con", "delete", "id", ssid];
+    function forgetNetwork() {
+        let uuid = targetConnectionUuid;
+        let id = targetConnectionId;
+        if (uuid !== "")
+            forgetProc.command = ["nmcli", "con", "delete", "uuid", uuid];
+        else if (id !== "")
+            forgetProc.command = ["nmcli", "con", "delete", "id", id];
+        else
+            return;
         forgetProc.running = true;
     }
 
     function openDetail(ssid, security, signal, isActive) {
         targetSsid = ssid; targetSecurity = security; targetSignal = signal;
-        targetIsConnected = isActive; targetIsKnown = isKnown(ssid);
+        targetConnectionId = connectionIdForSsid(ssid);
+        targetConnectionUuid = connectionUuidForSsid(ssid);
+        targetIsConnected = isActive;
+        targetIsKnown = targetConnectionId !== "" || targetConnectionUuid !== "";
         detailIp = ""; detailGateway = ""; detailDns = ""; detailFreq = "";
         connectError = "";
         popupState = "detail";
         if (isActive) {
             detailProc.command = [
                 "bash", "-c",
-                'echo "IP|$(nmcli -t -f IP4.ADDRESS con show id "$1" 2>/dev/null | head -1 | cut -d: -f2)"; ' +
-                'echo "GW|$(nmcli -t -f IP4.GATEWAY con show id "$1" 2>/dev/null | head -1 | cut -d: -f2)"; ' +
-                'echo "DNS|$(nmcli -t -f IP4.DNS con show id "$1" 2>/dev/null | head -1 | cut -d: -f2)"; ' +
+                'ref_kind=id; ref="$1"; ' +
+                'if [ -n "$2" ]; then ref_kind=uuid; ref="$2"; elif [ -n "$3" ]; then ref="$3"; fi; ' +
+                'echo "IP|$(nmcli -t -f IP4.ADDRESS con show "$ref_kind" "$ref" 2>/dev/null | head -1 | cut -d: -f2)"; ' +
+                'echo "GW|$(nmcli -t -f IP4.GATEWAY con show "$ref_kind" "$ref" 2>/dev/null | head -1 | cut -d: -f2)"; ' +
+                'echo "DNS|$(nmcli -t -f IP4.DNS con show "$ref_kind" "$ref" 2>/dev/null | head -1 | cut -d: -f2)"; ' +
                 'freq=$(nmcli -t -f IN-USE,FREQ dev wifi list 2>/dev/null | grep "^\\*" | head -1 | cut -d: -f2); ' +
                 'freq=$(echo "$freq" | tr -dc "0-9"); ' +
                 'if [ -n "$freq" ]; then ' +
@@ -220,7 +278,7 @@ PanelWindow {
                 '  else freq="$freq MHz (6 GHz)"; fi; ' +
                 'fi; ' +
                 'echo "FREQ|${freq:-}"',
-                "--", ssid
+                "--", ssid, targetConnectionUuid, targetConnectionId
             ];
             detailProc.running = true;
         }
@@ -276,11 +334,11 @@ PanelWindow {
     }
 
     function switchDns(server) {
-        if (connectedSsid === "") return;
+        if (connectedConnectionUuid === "") return;
         if (server === "auto") {
-            dnsSwitchProc.command = ["nmcli", "con", "mod", connectedSsid, "ipv4.dns", "", "ipv4.ignore-auto-dns", "no"];
+            dnsSwitchProc.command = ["nmcli", "con", "mod", "uuid", connectedConnectionUuid, "ipv4.dns", "", "ipv4.ignore-auto-dns", "no"];
         } else {
-            dnsSwitchProc.command = ["nmcli", "con", "mod", connectedSsid, "ipv4.dns", server, "ipv4.ignore-auto-dns", "yes"];
+            dnsSwitchProc.command = ["nmcli", "con", "mod", "uuid", connectedConnectionUuid, "ipv4.dns", server, "ipv4.ignore-auto-dns", "yes"];
         }
         dnsSwitchProc.running = true;
     }
@@ -421,20 +479,45 @@ PanelWindow {
     }
 
     Process {
-        id: knownProc; command: ["nmcli", "-t", "-f", "NAME", "con", "show"]; running: false
-        stdout: SplitParser { onRead: (line) => { if (line.trim()) knownModel.append({ name: line.trim() }); } }
+        id: knownProc
+        command: [
+            "bash", "-c",
+            "escape() { local value=\"$1\"; value=${value//\\\\/\\\\\\\\}; value=${value//:/\\\\:}; printf '%s' \"$value\"; }; " +
+            "nmcli -t -f UUID,TYPE con show | while IFS=: read -r uuid type; do " +
+            "  [ \"$type\" = '802-11-wireless' ] || continue; " +
+            "  id=$(nmcli -g connection.id con show uuid \"$uuid\" 2>/dev/null | head -1); " +
+            "  ssid=$(nmcli -g 802-11-wireless.ssid con show uuid \"$uuid\" 2>/dev/null | head -1); " +
+            "  [ -n \"$id\" ] || continue; " +
+            "  [ -n \"$ssid\" ] || ssid=\"$id\"; " +
+            "  printf '%s:%s:%s\\n' \"$(escape \"$id\")\" \"$(escape \"$uuid\")\" \"$(escape \"$ssid\")\"; " +
+            "done"
+        ]
+        running: false
+        stdout: SplitParser { onRead: (line) => {
+            let parts = wifiPop.parseNmcli(line);
+            if (parts.length < 3) return;
+            knownModel.append({
+                id: parts[0],
+                uuid: parts[1],
+                ssid: parts[2] || parts[0]
+            });
+        } }
     }
 
     Process {
         id: activeProc
-        command: ["nmcli", "-t", "-f", "NAME,TYPE,DEVICE", "con", "show", "--active"]
+        command: ["nmcli", "-t", "-f", "NAME,UUID,TYPE,DEVICE", "con", "show", "--active"]
         running: false
         stdout: SplitParser { onRead: (line) => {
-            let parts = line.split(":");
-            if (parts.length >= 3 && parts[1] === "802-11-wireless") {
-                wifiPop.connectedSsid = parts[0];
+            let parts = wifiPop.parseNmcli(line);
+            if (parts.length >= 4 && parts[2] === "802-11-wireless") {
+                let ssid = wifiPop.connectedSsid || parts[0];
+                if (wifiPop.connectedSsid === "")
+                    wifiPop.connectedSsid = ssid;
+                wifiPop.connectedConnectionId = parts[0] || "";
+                wifiPop.connectedConnectionUuid = parts[1] || "";
                 for (let i = 0; i < netModel.count; i++) {
-                    if (netModel.get(i).ssid === parts[0]) {
+                    if (netModel.get(i).ssid === ssid) {
                         netModel.setProperty(i, "active", true);
                         return;
                     }
@@ -464,6 +547,8 @@ PanelWindow {
         // command set dynamically in disconnect()
         onExited: (code, status) => {
             wifiPop.connectedSsid = "";
+            wifiPop.connectedConnectionId = "";
+            wifiPop.connectedConnectionUuid = "";
             wifiPop.resetState(); wifiPop.scan();
         }
     }
@@ -789,7 +874,7 @@ PanelWindow {
         id: dnsSwitchProc; running: false
         onExited: (code, status) => {
             if (code === 0) {
-                dnsReconnectProc.command = ["nmcli", "con", "up", wifiPop.connectedSsid];
+                dnsReconnectProc.command = ["nmcli", "con", "up", "uuid", wifiPop.connectedConnectionUuid];
                 dnsReconnectProc.running = true;
             } else {
                 console.log("[dns-switch] failed, exit", code);
@@ -963,7 +1048,7 @@ PanelWindow {
                 connectError: wifiPop.connectError
                 onConnectRequested: (ssid, security) => wifiPop.connectTo(ssid, security)
                 onDisconnectRequested: wifiPop.disconnect()
-                onForgetRequested: (ssid) => wifiPop.forgetNetwork(ssid)
+                onForgetRequested: wifiPop.forgetNetwork()
                 onDiagnosticsRequested: wifiPop.startDiagnostics()
             }
 
