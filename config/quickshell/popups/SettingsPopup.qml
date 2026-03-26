@@ -1060,7 +1060,7 @@ PanelWindow {
                 Flow {
                     Layout.fillWidth: true; spacing: 6
                     Repeater {
-                        model: ["Adwaita", "Bibata-Modern-Classic", "Bibata-Modern-Ice", "BreezeX-RosePine-Linux", "BreezeX-RosePineDawn-Linux"]
+                        model: ["Adwaita", "BreezeX-RosePine-Linux", "BreezeX-RosePineDawn-Linux"]
                         delegate: Rectangle {
                             id: ctBtn
                             required property string modelData; required property int index

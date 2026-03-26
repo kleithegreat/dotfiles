@@ -13,6 +13,7 @@ from themes.lib.schema import ColorScheme, ThemeState
 
 TARGET_NAME = "wallpaper"
 ASSEMBLY = "command"
+SYNC_SAFE = False
 _CACHE_VERSION = "lutgen-apply-v1"
 
 

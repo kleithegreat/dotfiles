@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ pkgs, ... }:
 
 let
   neuwaita = pkgs.stdenvNoCC.mkDerivation {
@@ -17,36 +17,10 @@ let
   };
 in
 {
-  gtk = {
-    enable = true;
-    theme = {
-      name = "adw-gtk3-dark";
-      package = pkgs.adw-gtk3;
-    };
-    iconTheme = {
-      name = "Neuwaita";
-      package = neuwaita;
-    };
-    cursorTheme = {
-      name = "Adwaita";
-      package = pkgs.adwaita-icon-theme;
-      size = 24;
-    };
-    font = {
-      name = "Overpass";
-      size = 11;
-    };
-    gtk3.extraConfig.gtk-application-prefer-dark-theme = true;
-    gtk4.theme = config.gtk.theme;
-    gtk4.extraConfig.gtk-application-prefer-dark-theme = true;
-  };
-
-  home.pointerCursor = {
-    name = "Adwaita";
-    package = pkgs.adwaita-icon-theme;
-    size = 24;
-    gtk.enable = true;
-    x11.enable = true;
-  };
-
+  # Theme packages stay declarative; the theme switcher owns the active settings.
+  home.packages = [
+    pkgs.adw-gtk3
+    pkgs.adwaita-icon-theme
+    neuwaita
+  ];
 }
