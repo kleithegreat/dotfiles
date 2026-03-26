@@ -1,4 +1,4 @@
-{ config, pkgs, lib, dotfilesPath, hostName, hyprland, vicinae, snappy-switcher, ... }:
+{ config, pkgs, lib, dotfilesPath, hostName, hyprland, hyprland-plugins, vicinae, snappy-switcher, ... }:
 
 let
   snappy-switcher-pkg = snappy-switcher.packages.${pkgs.stdenv.hostPlatform.system}.default;
@@ -171,11 +171,7 @@ in
   xdg.configFile."hypr/rules.conf".source = "${dotfilesPath}/config/hypr/rules.conf";
   xdg.configFile."hypr/hypridle.conf".source = "${dotfilesPath}/config/hypr/hypridle.conf";
   xdg.configFile."hypr/hyprlock.conf".source = "${dotfilesPath}/config/hypr/hyprlock.conf";
-  xdg.configFile."hypr/plugins.conf".text = ''
-      source = ~/.config/hypr/pluginsettings.conf
-  '';
-
-  xdg.configFile."hypr/pluginsettings.conf".source = "${dotfilesPath}/config/hypr/pluginsettings.conf";
+  xdg.configFile."hypr/plugins.conf".source = "${dotfilesPath}/config/hypr/plugins.conf";
 
   # Host-specific — monitors and GPU env vars
   xdg.configFile."hypr/monitors.conf" = if hostName == "laptop"

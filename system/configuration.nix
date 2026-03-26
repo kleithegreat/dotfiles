@@ -9,6 +9,15 @@ let
     ];
   });
 
+  hyprPluginPkgs = inputs.hyprland-plugins.packages.${pkgs.stdenv.hostPlatform.system};
+  hyprPluginDir = pkgs.symlinkJoin {
+    name = "hyprland-plugins";
+    paths = with hyprPluginPkgs; [
+      hyprbars
+      hyprexpo
+    ];
+  };
+
   sddm-theme = pkgs.where-is-my-sddm-theme.override {
     themeConfig.General = {
       backgroundMode = "fill";
@@ -115,6 +124,7 @@ in
   environment.sessionVariables.NIXOS_OZONE_WL = "1";
   environment.sessionVariables.__EGL_VENDOR_LIBRARY_FILENAMES =
     "/run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json";
+  environment.sessionVariables.HYPR_PLUGIN_DIR = hyprPluginDir;
   environment.sessionVariables.QT_PLUGIN_PATH = [
     "${hyprqt6engine}/lib/qt-6"
   ];
