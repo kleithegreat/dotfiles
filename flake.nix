@@ -8,6 +8,10 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     hyprland.url = "github:hyprwm/Hyprland";
+    hyprland-plugins = {
+      url = "github:hyprwm/hyprland-plugins";
+      inputs.hyprland.follows = "hyprland";
+    };
     hyprqt6engine = {
       url = "github:hyprwm/hyprqt6engine";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -16,12 +20,12 @@
     snappy-switcher.url = "github:OpalAayan/snappy-switcher";
   };
 
-  outputs = { self, nixpkgs, home-manager, hyprland, hyprqt6engine, vicinae, snappy-switcher, ... }:
+  outputs = { self, nixpkgs, home-manager, hyprland, hyprland-plugins, hyprqt6engine, vicinae, snappy-switcher, ... }:
   let
     mkHost = hostName: hostModule: nixpkgs.lib.nixosSystem {
       specialArgs = {
         inherit hyprland hostName;
-        inputs = { inherit nixpkgs hyprland hyprqt6engine vicinae snappy-switcher home-manager; };
+        inputs = { inherit nixpkgs hyprland hyprland-plugins hyprqt6engine vicinae snappy-switcher home-manager; };
       };
       modules = [
         { nixpkgs.hostPlatform = "x86_64-linux"; }
@@ -35,7 +39,7 @@
           home-manager.users.kevin = import ./home;
           home-manager.extraSpecialArgs = {
             dotfilesPath = self;
-            inherit hostName hyprland hyprqt6engine vicinae snappy-switcher;
+            inherit hostName hyprland hyprland-plugins hyprqt6engine vicinae snappy-switcher;
           };
         }
       ];
