@@ -29,6 +29,113 @@ COLORS_DIR = THEMES_DIR / "colors"
 PRESETS_DIR = THEMES_DIR / "presets"
 STATE_PATH = THEMES_DIR / "state.json"
 
+_THEME_STATE_FIELDS = tuple(f.name for f in fields(ThemeState))
+_THEME_STATE_FIELD_SET = frozenset(_THEME_STATE_FIELDS)
+_THEME_STATE_HINTS = typing.get_type_hints(ThemeState)
+_THEME_STATE_STR_FIELDS = frozenset(name for name, tp in _THEME_STATE_HINTS.items() if tp is str)
+_THEME_STATE_INT_FIELDS = frozenset(name for name, tp in _THEME_STATE_HINTS.items() if tp is int)
+_THEME_STATE_BOOL_FIELDS = frozenset(name for name, tp in _THEME_STATE_HINTS.items() if tp is bool)
+
+
+def _available_presets() -> list[str]:
+    return sorted(p.stem for p in PRESETS_DIR.glob("*.json"))
+
+
+def _ordered_theme_mapping(data: dict[str, typing.Any]) -> dict[str, typing.Any]:
+    return {name: data[name] for name in _THEME_STATE_FIELDS if name in data}
+
+
+def _preset_name(name: str) -> str:
+    normalized = name.strip()
+    if normalized.lower().endswith(".json"):
+        normalized = normalized[:-5]
+
+    if not normalized:
+        raise ValueError("preset name must not be empty")
+    if normalized in {".", ".."} or "/" in normalized or "\\" in normalized:
+        raise ValueError(f"invalid preset name {name!r}")
+
+    return normalized
+
+
+def _preset_path(name: str) -> tuple[str, Path]:
+    preset_name = _preset_name(name)
+    return preset_name, PRESETS_DIR / f"{preset_name}.json"
+
+
+def _coerce_theme_value(key: str, value: typing.Any) -> typing.Any:
+    if key not in _THEME_STATE_FIELD_SET:
+        raise ValueError(
+            f"unknown key '{key}'. Valid: {', '.join(sorted(_THEME_STATE_FIELD_SET))}"
+        )
+
+    if key in _THEME_STATE_INT_FIELDS:
+        if isinstance(value, bool):
+            raise ValueError(f"'{key}' must be an integer")
+        if isinstance(value, int):
+            return value
+        if isinstance(value, str):
+            try:
+                return int(value)
+            except ValueError as exc:
+                raise ValueError(f"'{key}' must be an integer, got {value!r}") from exc
+        raise ValueError(f"'{key}' must be an integer, got {value!r}")
+
+    if key in _THEME_STATE_BOOL_FIELDS:
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            truthy = {"true", "on", "dark", "yes", "1"}
+            falsy = {"false", "off", "light", "no", "0"}
+            lowered = value.lower()
+            if lowered in truthy:
+                return True
+            if lowered in falsy:
+                return False
+        raise ValueError(
+            f"'{key}' must be a boolean (true/false, on/off, dark/light), got {value!r}"
+        )
+
+    if key in _THEME_STATE_STR_FIELDS:
+        if not isinstance(value, str) or not value:
+            raise ValueError(f"'{key}' must be a non-empty string")
+        return value
+
+    return value
+
+
+def _normalize_theme_patch(
+    data: typing.Any,
+    *,
+    label: str,
+) -> dict[str, typing.Any]:
+    if not isinstance(data, dict):
+        raise ValueError(f"{label} must be a JSON object")
+
+    normalized: dict[str, typing.Any] = {}
+    for key, value in data.items():
+        normalized[key] = _coerce_theme_value(key, value)
+
+    return _ordered_theme_mapping(normalized)
+
+
+def _validated_theme_state(
+    data: dict[str, typing.Any],
+    *,
+    label: str,
+) -> ThemeState:
+    missing = _THEME_STATE_FIELD_SET - data.keys()
+    if missing:
+        raise ValueError(
+            f"{label}: missing required keys: {', '.join(sorted(missing))}"
+        )
+
+    normalized = {
+        key: _coerce_theme_value(key, data[key])
+        for key in _THEME_STATE_FIELDS
+    }
+    return ThemeState(**normalized)
+
 # ── Subcommand groups ────────────────────────────────────────────────────
 
 # "colors" subcommand: every color-dependent target except wallpaper/cursor.
@@ -120,42 +227,24 @@ def cmd_target(args: argparse.Namespace) -> None:
 
 def cmd_set(args: argparse.Namespace) -> None:
     key, value = args.key, args.value
-    valid_keys = {f.name for f in fields(ThemeState)}
-    if key not in valid_keys:
-        print(f"error: unknown key '{key}'. Valid: {', '.join(sorted(valid_keys))}", file=sys.stderr)
-        sys.exit(1)
-
     state = load_state(STATE_PATH)
     state_dict = asdict(state)
-
-    # Coerce int fields
-    int_fields = {name for name, tp in typing.get_type_hints(ThemeState).items() if tp is int}
-    if key in int_fields:
-        try:
-            value = int(value)
-        except ValueError:
-            print(f"error: '{key}' must be an integer, got '{value}'", file=sys.stderr)
-            sys.exit(1)
-
-    # Coerce bool fields
-    bool_fields = {name for name, tp in typing.get_type_hints(ThemeState).items() if tp is bool}
-    if key in bool_fields:
-        truthy = {"true", "on", "dark", "yes", "1"}
-        falsy = {"false", "off", "light", "no", "0"}
-        if value.lower() in truthy:
-            value = True
-        elif value.lower() in falsy:
-            value = False
-        else:
-            print(f"error: '{key}' must be a boolean (true/false, on/off, dark/light), got '{value}'", file=sys.stderr)
-            sys.exit(1)
+    try:
+        value = _coerce_theme_value(key, value)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        sys.exit(1)
 
     if state_dict[key] == value:
         print(f"{key} is already '{value}', nothing to do.")
         return
 
     state_dict[key] = value
-    new_state = ThemeState(**state_dict)
+    try:
+        new_state = _validated_theme_state(state_dict, label="theme state")
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        sys.exit(1)
     save_state(new_state, STATE_PATH)
     print(f"Set {key} = {value!r}")
 
@@ -168,26 +257,86 @@ def cmd_set(args: argparse.Namespace) -> None:
 
 
 def cmd_preset(args: argparse.Namespace) -> None:
-    path = PRESETS_DIR / f"{args.name}.json"
+    try:
+        preset_name, path = _preset_path(args.name)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        sys.exit(1)
+
     if not path.is_file():
-        available = sorted(p.stem for p in PRESETS_DIR.glob("*.json"))
+        available = _available_presets()
         print(
-            f"error: preset '{args.name}' not found. "
+            f"error: preset '{preset_name}' not found. "
             f"Available: {', '.join(available) or '(none)'}",
             file=sys.stderr,
         )
         sys.exit(1)
 
-    preset = json.loads(path.read_text())
+    try:
+        preset_data = json.loads(path.read_text())
+        preset = _normalize_theme_patch(
+            preset_data,
+            label=f"preset '{preset_name}'",
+        )
+    except (json.JSONDecodeError, ValueError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        sys.exit(1)
+
     state = load_state(STATE_PATH)
     state_dict = asdict(state)
     state_dict.update(preset)
-    new_state = ThemeState(**state_dict)
+    try:
+        new_state = _validated_theme_state(state_dict, label="theme state")
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        sys.exit(1)
     save_state(new_state, STATE_PATH)
-    print(f"Loaded preset '{args.name}', applying all targets...")
+    print(f"Loaded preset '{preset_name}', applying all targets...")
     colors = load_colors(new_state.color_scheme, COLORS_DIR)
     if not apply_all(colors, new_state):
         sys.exit(1)
+
+
+def cmd_save_preset(args: argparse.Namespace) -> None:
+    try:
+        preset_name, path = _preset_path(args.name)
+        preset = _normalize_theme_patch(
+            json.loads(args.payload),
+            label=f"preset '{preset_name}'",
+        )
+    except (json.JSONDecodeError, ValueError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    if not preset:
+        print("error: preset must include at least one field", file=sys.stderr)
+        sys.exit(1)
+
+    PRESETS_DIR.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(_ordered_theme_mapping(preset), indent=2) + "\n")
+    count = len(preset)
+    noun = "field" if count == 1 else "fields"
+    print(f"Saved preset '{preset_name}' ({count} {noun}).")
+
+
+def cmd_delete_preset(args: argparse.Namespace) -> None:
+    try:
+        preset_name, path = _preset_path(args.name)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    if not path.is_file():
+        available = _available_presets()
+        print(
+            f"error: preset '{preset_name}' not found. "
+            f"Available: {', '.join(available) or '(none)'}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    path.unlink()
+    print(f"Deleted preset '{preset_name}'.")
 
 
 def cmd_list_schemes(args: argparse.Namespace) -> None:
@@ -242,6 +391,13 @@ def main() -> None:
     p_preset = sub.add_parser("preset", help="Load a preset and apply all")
     p_preset.add_argument("name")
 
+    p_save_preset = sub.add_parser("save-preset", help="Create or update a preset from a JSON patch")
+    p_save_preset.add_argument("name")
+    p_save_preset.add_argument("payload")
+
+    p_delete_preset = sub.add_parser("delete-preset", help="Delete a preset")
+    p_delete_preset.add_argument("name")
+
     sub.add_parser("list-schemes", help="List available color schemes")
     sub.add_parser("list-presets", help="List available presets")
     sub.add_parser("status", help="Show current theme state")
@@ -257,6 +413,8 @@ def main() -> None:
         "target": cmd_target,
         "set": cmd_set,
         "preset": cmd_preset,
+        "save-preset": cmd_save_preset,
+        "delete-preset": cmd_delete_preset,
         "list-schemes": cmd_list_schemes,
         "list-presets": cmd_list_presets,
         "status": cmd_status,
