@@ -73,5 +73,7 @@
   powerManagement.powertop.enable = true;
   networking.useDHCP = lib.mkDefault true;
 
-  environment.systemPackages = with pkgs; [ ];
+  environment.systemPackages = with pkgs; [
+    libsmbios
+  ];
 }
