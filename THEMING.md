@@ -128,6 +128,7 @@ remain version-controlled and managed by home-manager where applicable.
 │   │   └── config               # GENERATED (concat of base + theme) — not in repo
 │   ├── hypr/
 │   │   ├── colors.conf          # GENERATED — .gitignore'd (standalone)
+│   │   ├── appearance-theme.conf # GENERATED — runtime appearance overrides
 │   │   ├── hyprlock.conf        # Base config — sources colors via $theme_* vars
 │   │   ├── pluginsettings.conf  # Base config — uses $theme_* vars from colors.conf
 │   │   └── ...                  # Other hypr configs (unchanged)
@@ -490,6 +491,7 @@ white   = "{colors.palette[15]}"
 | alacritty    | `import`     | `~/.config/alacritty/colors.toml`       | —                                 | auto (inotify)             | Add `import = ["~/.config/alacritty/colors.toml"]` to base |
 | ghostty      | `concat`     | `~/.config/ghostty/config`              | `$DOTFILES/config/ghostty/base`   | auto (inotify)             | Base has non-theming settings only         |
 | hyprland     | `standalone` | `~/.config/hypr/colors.conf`            | —                                 | `hyprctl reload`           | Defines `$theme_*` variables               |
+| hypr_appearance | `standalone` | `~/.config/hypr/appearance-theme.conf` | —                               | `hyprctl reload`           | Generated gaps, borders, rounding, blur, animations |
 | hyprlock     | (none)       | —                                       | —                                 | —                          | Refactor to use `$theme_*` vars from colors.conf |
 | hyprplugins  | (none)       | —                                       | —                                 | `hyprctl reload`           | Refactor to use `$theme_*` vars from colors.conf |
 | zathura      | `import`     | `~/.config/zathura/colors`              | —                                 | relaunch                   | Add `include colors` to base zathurarc     |
@@ -1177,6 +1179,10 @@ current `set-theme.sh` script. The flow:
 3. `apply-theme` updates `state.json`, regenerates affected files, fires reloads
 4. Quickshell detects `GeneratedTheme.json` changed, updates Theme.qml properties
 5. All Quickshell UI updates reactively
+
+The same pattern applies to live Hyprland appearance controls: the popup updates
+state keys, `apply-theme` regenerates `~/.config/hypr/appearance-theme.conf`, and
+Hyprland picks up the change on reload through the base `appearance.conf`.
 
 ---
 

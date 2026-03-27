@@ -37,11 +37,45 @@ PanelWindow {
     ]
     property int selectedCategory: 0
     property string wallpaperDir: "/home/kevin/repos/dotfiles/wallpapers"
-    property var categoryNames: ["Presets", "Colors", "Fonts", "Wallpaper", "Icons & Cursors"]
-    property var categoryIcons: ["󰒓", "󰏘", "󰛖", "󰋩", "󰍽"]
+    property var categoryNames: ["Presets", "Colors", "Fonts", "Wallpaper", "Icons & Cursors", "Hyprland"]
+    property var categoryIcons: ["󰒓", "󰏘", "󰛖", "󰋩", "󰍽", "󰖯"]
+    property var hyprOptionInfo: ({
+        "general:gaps_in": { label: "Inner gaps", type: "int", fallback: 4, minimum: 0, step: 1, stateKey: "hypr_gaps_in" },
+        "general:gaps_out": { label: "Outer gaps", type: "int", fallback: 6, minimum: 0, step: 1, stateKey: "hypr_gaps_out" },
+        "general:border_size": { label: "Border size", type: "int", fallback: 0, minimum: 0, step: 1, stateKey: "hypr_border_size" },
+        "decoration:rounding": { label: "Rounding", type: "int", fallback: 8, minimum: 0, step: 1, stateKey: "hypr_rounding" },
+        "decoration:blur:enabled": { label: "Enable blur", type: "bool", fallback: false, stateKey: "hypr_blur_enabled" },
+        "decoration:blur:size": { label: "Blur size", type: "int", fallback: 3, minimum: 1, step: 1, stateKey: "hypr_blur_size" },
+        "decoration:blur:passes": { label: "Blur passes", type: "int", fallback: 4, minimum: 1, step: 1, stateKey: "hypr_blur_passes" },
+        "animations:enabled": { label: "Enable animations", type: "bool", fallback: true, stateKey: "hypr_animations_enabled" }
+    })
+    property var hyprGeneralOptions: ["general:gaps_in", "general:gaps_out", "general:border_size"]
+    property var hyprDecorationOptions: ["decoration:rounding"]
+    property var hyprBlurOptions: ["decoration:blur:size", "decoration:blur:passes"]
+    property var hyprManagedOptions: [
+        "general:gaps_in",
+        "general:gaps_out",
+        "general:border_size",
+        "decoration:rounding",
+        "decoration:blur:enabled",
+        "decoration:blur:size",
+        "decoration:blur:passes",
+        "animations:enabled"
+    ]
+    property var hyprDraftState: ({})
+    property var hyprDirtyValues: ({})
+    property var hyprDirtyOrder: []
+    property string hyprRuntimeError: ""
+    property bool hyprApplyQueued: false
+    property var hyprNotificationQueue: []
 
     onActiveChanged: {
-        if (active) { panel.opacity = 0; panel.scale = 0.92; loadState(); settingsOpenAnim.start(); }
+        if (active) {
+            panel.opacity = 0;
+            panel.scale = 0.92;
+            loadState();
+            settingsOpenAnim.start();
+        }
         else if (!closing) { closeDirectoryBrowser(); closing = true; settingsCloseAnim.start(); }
     }
 
@@ -60,6 +94,7 @@ PanelWindow {
         onExited: {
             try {
                 settingsPop.themeState = JSON.parse(buf);
+                settingsPop.syncHyprDraftState();
             } catch(e) {}
             buf = "";
         }
@@ -120,6 +155,56 @@ PanelWindow {
         property var items: []
         stdout: SplitParser { onRead: (line) => { let t = line.trim(); if (t !== "") listDirectoriesProc.items.push(t); } }
         onExited: { settingsPop.directoryBrowserEntries = items; items = []; }
+    }
+
+    Process {
+        id: hyprApplyProc
+        running: false
+        property string buf: ""
+        property string pendingStateKey: ""
+        property string pendingValue: ""
+        property string pendingLabel: ""
+        stdout: SplitParser { onRead: (line) => { hyprApplyProc.buf += line; } }
+        stderr: SplitParser { onRead: (line) => { hyprApplyProc.buf += line; } }
+        onExited: (code, status) => {
+            let output = (buf || "").trim();
+            if (code !== 0) {
+                settingsPop.hyprRuntimeError = output !== "" ? output : "Failed to update Hyprland";
+                if (pendingLabel !== "")
+                    settingsPop.queueHyprNotification("Hyprland update failed", settingsPop.hyprNotificationBody([pendingLabel], settingsPop.hyprRuntimeError));
+                settingsPop.syncHyprDraftState();
+            } else {
+                settingsPop.hyprRuntimeError = "";
+                if (pendingLabel !== "")
+                    settingsPop.queueHyprNotification("Hyprland updated", pendingLabel);
+                settingsPop.loadState();
+            }
+
+            buf = "";
+            pendingStateKey = "";
+            pendingValue = "";
+            pendingLabel = "";
+
+            if (settingsPop.hyprApplyQueued || settingsPop.hyprDirtyOrder.length > 0) {
+                settingsPop.hyprApplyQueued = false;
+                hyprWriteTimer.restart();
+            }
+        }
+    }
+
+    Process {
+        id: hyprNotifyProc
+        running: false
+        stdout: SplitParser { onRead: (_) => {} }
+        stderr: SplitParser { onRead: (_) => {} }
+        onExited: settingsPop.runNextHyprNotification()
+    }
+
+    Timer {
+        id: hyprWriteTimer
+        interval: 120
+        repeat: false
+        onTriggered: settingsPop.flushHyprStateWrites()
     }
 
     // ── Helper functions ──
@@ -210,6 +295,225 @@ PanelWindow {
         settingsPop.directoryBrowserOpen = false;
         settingsPop.directoryBrowserEntries = [];
         refreshWallpapers();
+    }
+
+    function cloneMap(source) {
+        let next = {};
+        let keys = Object.keys(source || {});
+
+        for (let i = 0; i < keys.length; i++)
+            next[keys[i]] = source[keys[i]];
+
+        return next;
+    }
+
+    function hyprOptionMeta(option) {
+        return settingsPop.hyprOptionInfo[option] || {};
+    }
+
+    function hyprStateKey(option) {
+        return settingsPop.hyprOptionMeta(option).stateKey || "";
+    }
+
+    function hyprThemeStateValue(stateKey, fallback) {
+        let value = settingsPop.themeState[stateKey];
+        return value === undefined || value === null ? fallback : value;
+    }
+
+    function hyprStateValue(stateKey, fallback) {
+        let value = settingsPop.hyprDraftState[stateKey];
+        if (value !== undefined && value !== null)
+            return value;
+
+        return settingsPop.hyprThemeStateValue(stateKey, fallback);
+    }
+
+    function syncHyprDraftState() {
+        let nextDraft = settingsPop.cloneMap(settingsPop.hyprDraftState);
+        let dirty = settingsPop.hyprDirtyValues || {};
+        let pendingKey = hyprApplyProc.pendingStateKey;
+
+        for (let i = 0; i < settingsPop.hyprManagedOptions.length; i++) {
+            let option = settingsPop.hyprManagedOptions[i];
+            let stateKey = settingsPop.hyprStateKey(option);
+            if (stateKey === "" || dirty[stateKey] !== undefined || stateKey === pendingKey)
+                continue;
+
+            nextDraft[stateKey] = settingsPop.hyprThemeStateValue(stateKey, settingsPop.hyprOptionMeta(option).fallback);
+        }
+
+        settingsPop.hyprDraftState = nextDraft;
+    }
+
+    function hyprNotificationBody(labels, detail) {
+        let text = "";
+
+        if ((labels || []).length > 0) {
+            if (labels.length <= 3)
+                text = labels.join(", ");
+            else
+                text = labels.slice(0, 3).join(", ") + " +" + String(labels.length - 3) + " more";
+        }
+
+        if (detail && detail !== "")
+            text = text !== "" ? text + "\n" + detail : detail;
+
+        return text;
+    }
+
+    function queueHyprNotification(summary, body) {
+        settingsPop.hyprNotificationQueue.push({
+            summary: summary,
+            body: body || ""
+        });
+
+        if (!hyprNotifyProc.running)
+            settingsPop.runNextHyprNotification();
+    }
+
+    function runNextHyprNotification() {
+        if (hyprNotifyProc.running || settingsPop.hyprNotificationQueue.length === 0)
+            return;
+
+        let next = settingsPop.hyprNotificationQueue.shift();
+        hyprNotifyProc.command = [
+            "busctl",
+            "--user",
+            "call",
+            "org.freedesktop.Notifications",
+            "/org/freedesktop/Notifications",
+            "org.freedesktop.Notifications",
+            "Notify",
+            "susssasa{sv}i",
+            "Settings",
+            "0",
+            "",
+            next.summary,
+            next.body,
+            "0",
+            "0",
+            "1600"
+        ];
+        hyprNotifyProc.running = true;
+    }
+
+    function removeHyprDirtyKey(stateKey) {
+        let nextDirty = settingsPop.cloneMap(settingsPop.hyprDirtyValues);
+        delete nextDirty[stateKey];
+        settingsPop.hyprDirtyValues = nextDirty;
+
+        let nextOrder = [];
+        for (let i = 0; i < settingsPop.hyprDirtyOrder.length; i++) {
+            if (settingsPop.hyprDirtyOrder[i] !== stateKey)
+                nextOrder.push(settingsPop.hyprDirtyOrder[i]);
+        }
+        settingsPop.hyprDirtyOrder = nextOrder;
+    }
+
+    function hyprLabelForStateKey(stateKey) {
+        for (let i = 0; i < settingsPop.hyprManagedOptions.length; i++) {
+            let option = settingsPop.hyprManagedOptions[i];
+            if (settingsPop.hyprStateKey(option) === stateKey)
+                return settingsPop.hyprOptionMeta(option).label || stateKey;
+        }
+
+        return stateKey;
+    }
+
+    function hyprCommandValue(value) {
+        return typeof value === "boolean" ? (value ? "true" : "false") : String(value);
+    }
+
+    function flushHyprStateWrites() {
+        if (hyprApplyProc.running) {
+            settingsPop.hyprApplyQueued = true;
+            return;
+        }
+
+        settingsPop.runNextHyprStateWrite();
+    }
+
+    function runNextHyprStateWrite() {
+        if (hyprApplyProc.running)
+            return;
+
+        for (let i = 0; i < settingsPop.hyprDirtyOrder.length; i++) {
+            let stateKey = settingsPop.hyprDirtyOrder[i];
+            let value = settingsPop.hyprDirtyValues[stateKey];
+            let currentValue = settingsPop.themeState[stateKey];
+
+            if (value === currentValue) {
+                settingsPop.removeHyprDirtyKey(stateKey);
+                i -= 1;
+                continue;
+            }
+
+            hyprApplyProc.buf = "";
+            hyprApplyProc.pendingStateKey = stateKey;
+            hyprApplyProc.pendingValue = settingsPop.hyprCommandValue(value);
+            hyprApplyProc.pendingLabel = settingsPop.hyprLabelForStateKey(stateKey);
+            settingsPop.removeHyprDirtyKey(stateKey);
+            hyprApplyProc.command = [
+                "/home/kevin/repos/dotfiles/themes/apply-theme",
+                "set",
+                stateKey,
+                hyprApplyProc.pendingValue
+            ];
+            hyprApplyProc.running = true;
+            return;
+        }
+    }
+
+    function hyprIntValue(option) {
+        let meta = settingsPop.hyprOptionMeta(option);
+        let value = settingsPop.hyprStateValue(settingsPop.hyprStateKey(option), meta.fallback);
+        let parsed = parseInt(value, 10);
+
+        return isNaN(parsed) ? (meta.fallback === undefined ? 0 : meta.fallback) : parsed;
+    }
+
+    function hyprBoolValue(option) {
+        let meta = settingsPop.hyprOptionMeta(option);
+        let value = settingsPop.hyprStateValue(settingsPop.hyprStateKey(option), meta.fallback);
+        return value === undefined ? !!meta.fallback : !!value;
+    }
+
+    function queueHyprOptionValue(option, value) {
+        let stateKey = settingsPop.hyprStateKey(option);
+        if (stateKey === "")
+            return;
+
+        let nextDraft = settingsPop.cloneMap(settingsPop.hyprDraftState);
+        nextDraft[stateKey] = value;
+        settingsPop.hyprDraftState = nextDraft;
+
+        let nextDirty = settingsPop.cloneMap(settingsPop.hyprDirtyValues);
+        nextDirty[stateKey] = value;
+        settingsPop.hyprDirtyValues = nextDirty;
+
+        if (settingsPop.hyprDirtyOrder.indexOf(stateKey) === -1) {
+            let nextOrder = settingsPop.hyprDirtyOrder.slice(0);
+            nextOrder.push(stateKey);
+            settingsPop.hyprDirtyOrder = nextOrder;
+        }
+
+        hyprWriteTimer.restart();
+    }
+
+    function toggleHyprOption(option) {
+        let nextValue = !settingsPop.hyprBoolValue(option);
+        settingsPop.queueHyprOptionValue(option, nextValue);
+    }
+
+    function adjustHyprOption(option, direction) {
+        let meta = settingsPop.hyprOptionMeta(option);
+        let step = meta.step || 1;
+        let nextValue = settingsPop.hyprIntValue(option) + direction * step;
+
+        if (meta.minimum !== undefined && nextValue < meta.minimum)
+            return;
+
+        settingsPop.queueHyprOptionValue(option, nextValue);
     }
 
     // ── Apply commands ──
@@ -304,7 +608,7 @@ PanelWindow {
 
                     // Category items
                     Repeater {
-                        model: 5
+                        model: settingsPop.categoryNames.length
                         delegate: Rectangle {
                             id: catItem
                             required property int index
@@ -371,6 +675,7 @@ PanelWindow {
                             case 2: return fontsPane;
                             case 3: return wallpaperPane;
                             case 4: return iconsPane;
+                            case 5: return hyprlandPane;
                             default: return null;
                         }
                     }
@@ -1133,6 +1438,400 @@ PanelWindow {
                                 }
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    // ── Detail: Hyprland ──
+    Component {
+        id: hyprlandPane
+        Flickable {
+            anchors.fill: parent
+            contentHeight: hyprCol.implicitHeight
+            clip: true; boundsBehavior: Flickable.StopAtBounds
+
+            ColumnLayout {
+                id: hyprCol
+                width: parent.width
+                spacing: 16
+
+                Text {
+                    visible: settingsPop.hyprRuntimeError !== ""
+                    text: settingsPop.hyprRuntimeError
+                    color: Theme.redBright
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontSizeSmall
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                }
+
+                Text {
+                    text: "GENERAL"
+                    color: Theme.fg4
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontSizeSmall
+                    font.bold: true
+                }
+
+                Repeater {
+                    model: settingsPop.hyprGeneralOptions
+                    delegate: RowLayout {
+                        required property string modelData
+                        required property int index
+                        property var meta: settingsPop.hyprOptionMeta(modelData)
+
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        Text {
+                            text: meta.label
+                            color: Theme.fg
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeSmall
+                            Layout.fillWidth: true
+                            Layout.alignment: Qt.AlignVCenter
+                        }
+
+                        Rectangle {
+                            id: hyprMinusBtn
+                            property bool canDecrease: meta.minimum === undefined || settingsPop.hyprIntValue(modelData) > meta.minimum
+
+                            Layout.preferredWidth: 28
+                            Layout.preferredHeight: Theme.btnHeight
+                            radius: Theme.btnRadius
+                            color: hyprMinusArea.containsMouse && canDecrease ? Theme.bg2 : Theme.bg1
+                            opacity: canDecrease ? 1 : 0.45
+                            border.width: 1
+                            border.color: Theme.bg3
+                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "−"
+                                color: Theme.fg
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSize
+                            }
+
+                            MouseArea {
+                                id: hyprMinusArea
+                                anchors.fill: parent
+                                enabled: hyprMinusBtn.canDecrease
+                                cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                hoverEnabled: true
+                                onClicked: settingsPop.adjustHyprOption(modelData, -1)
+                            }
+                        }
+
+                        Text {
+                            text: String(settingsPop.hyprIntValue(modelData))
+                            color: Theme.fg
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSize
+                            Layout.preferredWidth: 36
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+
+                        Rectangle {
+                            id: hyprPlusBtn
+                            Layout.preferredWidth: 28
+                            Layout.preferredHeight: Theme.btnHeight
+                            radius: Theme.btnRadius
+                            color: hyprPlusArea.containsMouse ? Theme.bg2 : Theme.bg1
+                            border.width: 1
+                            border.color: Theme.bg3
+                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "+"
+                                color: Theme.fg
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSize
+                            }
+
+                            MouseArea {
+                                id: hyprPlusArea
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                hoverEnabled: true
+                                onClicked: settingsPop.adjustHyprOption(modelData, 1)
+                            }
+                        }
+                    }
+                }
+
+                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+
+                Text {
+                    text: "DECORATION"
+                    color: Theme.fg4
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontSizeSmall
+                    font.bold: true
+                }
+
+                Repeater {
+                    model: settingsPop.hyprDecorationOptions
+                    delegate: RowLayout {
+                        required property string modelData
+                        required property int index
+                        property var meta: settingsPop.hyprOptionMeta(modelData)
+
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        Text {
+                            text: meta.label
+                            color: Theme.fg
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeSmall
+                            Layout.fillWidth: true
+                            Layout.alignment: Qt.AlignVCenter
+                        }
+
+                        Rectangle {
+                            id: decorationMinusBtn
+                            property bool canDecrease: meta.minimum === undefined || settingsPop.hyprIntValue(modelData) > meta.minimum
+
+                            Layout.preferredWidth: 28
+                            Layout.preferredHeight: Theme.btnHeight
+                            radius: Theme.btnRadius
+                            color: decorationMinusArea.containsMouse && canDecrease ? Theme.bg2 : Theme.bg1
+                            opacity: canDecrease ? 1 : 0.45
+                            border.width: 1
+                            border.color: Theme.bg3
+                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "−"
+                                color: Theme.fg
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSize
+                            }
+
+                            MouseArea {
+                                id: decorationMinusArea
+                                anchors.fill: parent
+                                enabled: decorationMinusBtn.canDecrease
+                                cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                hoverEnabled: true
+                                onClicked: settingsPop.adjustHyprOption(modelData, -1)
+                            }
+                        }
+
+                        Text {
+                            text: String(settingsPop.hyprIntValue(modelData))
+                            color: Theme.fg
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSize
+                            Layout.preferredWidth: 36
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+
+                        Rectangle {
+                            id: decorationPlusBtn
+                            Layout.preferredWidth: 28
+                            Layout.preferredHeight: Theme.btnHeight
+                            radius: Theme.btnRadius
+                            color: decorationPlusArea.containsMouse ? Theme.bg2 : Theme.bg1
+                            border.width: 1
+                            border.color: Theme.bg3
+                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "+"
+                                color: Theme.fg
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSize
+                            }
+
+                            MouseArea {
+                                id: decorationPlusArea
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                hoverEnabled: true
+                                onClicked: settingsPop.adjustHyprOption(modelData, 1)
+                            }
+                        }
+                    }
+                }
+
+                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+
+                Text {
+                    text: "BLUR"
+                    color: Theme.fg4
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontSizeSmall
+                    font.bold: true
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    Text {
+                        text: settingsPop.hyprOptionMeta("decoration:blur:enabled").label
+                        color: Theme.fg
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeSmall
+                        Layout.fillWidth: true
+                        Layout.alignment: Qt.AlignVCenter
+                    }
+
+                    Text {
+                        text: settingsPop.hyprBoolValue("decoration:blur:enabled") ? "On" : "Off"
+                        color: settingsPop.hyprBoolValue("decoration:blur:enabled") ? Theme.fg3 : Theme.fg4
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeSmall
+                        Layout.alignment: Qt.AlignVCenter
+                    }
+
+                    Components.ToggleSwitch {
+                        checked: settingsPop.hyprBoolValue("decoration:blur:enabled")
+                        onToggled: settingsPop.toggleHyprOption("decoration:blur:enabled")
+                    }
+                }
+
+                Repeater {
+                    model: settingsPop.hyprBlurOptions
+                    delegate: RowLayout {
+                        required property string modelData
+                        required property int index
+                        property var meta: settingsPop.hyprOptionMeta(modelData)
+
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        Text {
+                            text: meta.label
+                            color: Theme.fg
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeSmall
+                            Layout.fillWidth: true
+                            Layout.alignment: Qt.AlignVCenter
+                        }
+
+                        Rectangle {
+                            id: blurMinusBtn
+                            property bool canDecrease: meta.minimum === undefined || settingsPop.hyprIntValue(modelData) > meta.minimum
+
+                            Layout.preferredWidth: 28
+                            Layout.preferredHeight: Theme.btnHeight
+                            radius: Theme.btnRadius
+                            color: blurMinusArea.containsMouse && canDecrease ? Theme.bg2 : Theme.bg1
+                            opacity: canDecrease ? 1 : 0.45
+                            border.width: 1
+                            border.color: Theme.bg3
+                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "−"
+                                color: Theme.fg
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSize
+                            }
+
+                            MouseArea {
+                                id: blurMinusArea
+                                anchors.fill: parent
+                                enabled: blurMinusBtn.canDecrease
+                                cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                hoverEnabled: true
+                                onClicked: settingsPop.adjustHyprOption(modelData, -1)
+                            }
+                        }
+
+                        Text {
+                            text: String(settingsPop.hyprIntValue(modelData))
+                            color: Theme.fg
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSize
+                            Layout.preferredWidth: 36
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+
+                        Rectangle {
+                            id: blurPlusBtn
+                            Layout.preferredWidth: 28
+                            Layout.preferredHeight: Theme.btnHeight
+                            radius: Theme.btnRadius
+                            color: blurPlusArea.containsMouse ? Theme.bg2 : Theme.bg1
+                            border.width: 1
+                            border.color: Theme.bg3
+                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "+"
+                                color: Theme.fg
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSize
+                            }
+
+                            MouseArea {
+                                id: blurPlusArea
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                hoverEnabled: true
+                                onClicked: settingsPop.adjustHyprOption(modelData, 1)
+                            }
+                        }
+                    }
+                }
+
+                Text {
+                    text: "Blur size and passes must stay at 1 or above."
+                    color: Theme.fg4
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontSizeSmall
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                }
+
+                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+
+                Text {
+                    text: "ANIMATIONS"
+                    color: Theme.fg4
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontSizeSmall
+                    font.bold: true
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    Text {
+                        text: settingsPop.hyprOptionMeta("animations:enabled").label
+                        color: Theme.fg
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeSmall
+                        Layout.fillWidth: true
+                        Layout.alignment: Qt.AlignVCenter
+                    }
+
+                    Text {
+                        text: settingsPop.hyprBoolValue("animations:enabled") ? "On" : "Off"
+                        color: settingsPop.hyprBoolValue("animations:enabled") ? Theme.fg3 : Theme.fg4
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeSmall
+                        Layout.alignment: Qt.AlignVCenter
+                    }
+
+                    Components.ToggleSwitch {
+                        checked: settingsPop.hyprBoolValue("animations:enabled")
+                        onToggled: settingsPop.toggleHyprOption("animations:enabled")
                     }
                 }
             }
