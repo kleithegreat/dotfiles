@@ -370,6 +370,7 @@ def _write_hyprqt6engine_conf(colors: ColorScheme, state: ThemeState) -> None:
     """Write hyprqt6engine.conf (hyprlang format) pointing to the qt6ct palette."""
     conf_path = Path(_HYPRQT6ENGINE_CONF).expanduser()
     scheme_path = str(Path(OUTPUT_PATH).expanduser())
+    fixed_font_size = state.mono_font_size_for(TARGET_NAME)
     conf_path.parent.mkdir(parents=True, exist_ok=True)
     with open(conf_path, "w") as f:
         f.write(
@@ -380,7 +381,7 @@ def _write_hyprqt6engine_conf(colors: ColorScheme, state: ThemeState) -> None:
             f"    font = {state.system_font}\n"
             f"    font_size = {state.font_size}\n"
             f"    font_fixed = {state.mono_font}\n"
-            f"    font_fixed_size = {state.mono_font_size}\n"
+            f"    font_fixed_size = {fixed_font_size}\n"
             f"}}\n"
             f"\n"
             f"misc {{\n"

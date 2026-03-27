@@ -28,6 +28,13 @@ PanelWindow {
     property bool directoryBrowserOpen: false
     property string directoryBrowserPath: "/home/kevin/repos/dotfiles/wallpapers"
     property var directoryBrowserEntries: []
+    property var monoFontSizeOffsetTargets: [
+        { label: "Alacritty", key: "alacritty_mono_font_size_offset" },
+        { label: "Ghostty", key: "ghostty_mono_font_size_offset" },
+        { label: "GTK", key: "gtk_mono_font_size_offset" },
+        { label: "Qt", key: "qt_mono_font_size_offset" },
+        { label: "VS Code", key: "vscode_mono_font_size_offset" }
+    ]
     property int selectedCategory: 0
     property string wallpaperDir: "/home/kevin/repos/dotfiles/wallpapers"
     property var categoryNames: ["Presets", "Colors", "Fonts", "Wallpaper", "Icons & Cursors"]
@@ -162,6 +169,40 @@ PanelWindow {
             : joinPath(settingsPop.directoryBrowserPath, name);
         settingsPop.directoryBrowserPath = nextPath;
         refreshDirectoryBrowser();
+    }
+
+    function monoFontBaseSize() {
+        return settingsPop.themeState.mono_font_size || 11;
+    }
+
+    function monoFontSizeOffset(key) {
+        let value = settingsPop.themeState[key];
+        return value === undefined || value === null ? 0 : value;
+    }
+
+    function effectiveMonoFontSize(key) {
+        return monoFontBaseSize() + monoFontSizeOffset(key);
+    }
+
+    function minimumMonoFontSizeOffset() {
+        let minOffset = 0;
+        for (let i = 0; i < settingsPop.monoFontSizeOffsetTargets.length; i++) {
+            let offset = monoFontSizeOffset(settingsPop.monoFontSizeOffsetTargets[i].key);
+            if (offset < minOffset)
+                minOffset = offset;
+        }
+        return minOffset;
+    }
+
+    function formatSignedNumber(value) {
+        return value > 0 ? "+" + value : String(value);
+    }
+
+    function adjustMonoFontSizeOffset(key, delta) {
+        let next = monoFontSizeOffset(key) + delta;
+        if (monoFontBaseSize() + next < 1)
+            return;
+        settingsPop.runSet(key, String(next));
     }
 
     function confirmDirectoryBrowser() {
@@ -604,16 +645,101 @@ PanelWindow {
                         Behavior on color { ColorAnimation { duration: Theme.animHover } }
                         Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
                         MouseArea { id: mfMinus; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                            onClicked: { let s = (settingsPop.themeState.mono_font_size || 11) - 1; if (s >= 6) settingsPop.runSet("mono_font_size", String(s)); } }
+                            onClicked: {
+                                let s = settingsPop.monoFontBaseSize() - 1;
+                                if (s >= 6 && s + settingsPop.minimumMonoFontSizeOffset() >= 1)
+                                    settingsPop.runSet("mono_font_size", String(s));
+                            } }
                     }
-                    Text { text: String(settingsPop.themeState.mono_font_size || 11); color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; width: 24; horizontalAlignment: Text.AlignHCenter; height: Theme.btnHeight; verticalAlignment: Text.AlignVCenter }
+                    Text { text: String(settingsPop.monoFontBaseSize()); color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; width: 24; horizontalAlignment: Text.AlignHCenter; height: Theme.btnHeight; verticalAlignment: Text.AlignVCenter }
                     Rectangle {
                         width: 28; height: Theme.btnHeight; radius: Theme.btnRadius
                         color: mfPlus.containsMouse ? Theme.bg2 : Theme.bg1; border.width: 1; border.color: Theme.bg3
                         Behavior on color { ColorAnimation { duration: Theme.animHover } }
                         Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
                         MouseArea { id: mfPlus; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                            onClicked: { let s = (settingsPop.themeState.mono_font_size || 11) + 1; if (s <= 24) settingsPop.runSet("mono_font_size", String(s)); } }
+                            onClicked: { let s = settingsPop.monoFontBaseSize() + 1; if (s <= 24) settingsPop.runSet("mono_font_size", String(s)); } }
+                    }
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    Text {
+                        text: "Per-target offsets"
+                        color: Theme.fg3
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeSmall
+                    }
+
+                    Repeater {
+                        model: settingsPop.monoFontSizeOffsetTargets
+                        delegate: RowLayout {
+                            required property var modelData
+                            required property int index
+
+                            Layout.fillWidth: true
+                            spacing: 8
+
+                            Text {
+                                text: modelData.label
+                                color: Theme.fg
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeSmall
+                                Layout.fillWidth: true
+                                Layout.alignment: Qt.AlignVCenter
+                            }
+
+                            Rectangle {
+                                width: 28; height: Theme.btnHeight; radius: Theme.btnRadius
+                                color: offsetMinus.containsMouse ? Theme.bg2 : Theme.bg1
+                                border.width: 1; border.color: Theme.bg3
+                                Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                                Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
+                                MouseArea {
+                                    id: offsetMinus
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    hoverEnabled: true
+                                    onClicked: settingsPop.adjustMonoFontSizeOffset(modelData.key, -1)
+                                }
+                            }
+
+                            Text {
+                                text: settingsPop.formatSignedNumber(settingsPop.monoFontSizeOffset(modelData.key))
+                                color: Theme.fg
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSize
+                                width: 36
+                                horizontalAlignment: Text.AlignHCenter
+                                height: Theme.btnHeight
+                                verticalAlignment: Text.AlignVCenter
+                            }
+
+                            Rectangle {
+                                width: 28; height: Theme.btnHeight; radius: Theme.btnRadius
+                                color: offsetPlus.containsMouse ? Theme.bg2 : Theme.bg1
+                                border.width: 1; border.color: Theme.bg3
+                                Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                                Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
+                                MouseArea {
+                                    id: offsetPlus
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    hoverEnabled: true
+                                    onClicked: settingsPop.adjustMonoFontSizeOffset(modelData.key, 1)
+                                }
+                            }
+
+                            Text {
+                                text: "Effective " + String(settingsPop.effectiveMonoFontSize(modelData.key))
+                                color: Theme.fg4
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeSmall
+                                Layout.alignment: Qt.AlignVCenter
+                            }
+                        }
                     }
                 }
 

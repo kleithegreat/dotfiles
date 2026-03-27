@@ -13,7 +13,7 @@ def generate(colors: ColorScheme, state: ThemeState) -> str:
     return f"""\
 [font]
 normal = {{ family = "{state.mono_font}" }}
-size = {state.mono_font_size}
+size = {state.mono_font_size_for(TARGET_NAME)}
 
 [colors.primary]
 background = "{colors.bg}"

@@ -13,7 +13,7 @@ COMMENT = "#"
 def generate(colors: ColorScheme, state: ThemeState) -> str:
     lines = [
         f"font-family = {state.mono_font}",
-        f"font-size = {state.mono_font_size}",
+        f"font-size = {state.mono_font_size_for(TARGET_NAME)}",
         f"background = {colors.bg}",
         f"foreground = {colors.fg}",
         f"selection-background = {colors.bg3}",

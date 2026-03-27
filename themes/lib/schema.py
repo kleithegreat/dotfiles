@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import ClassVar
 
 
 @dataclass(frozen=True)
@@ -68,6 +69,14 @@ class ColorScheme:
 
 @dataclass(frozen=True)
 class ThemeState:
+    MONO_FONT_SIZE_OFFSET_KEYS: ClassVar[dict[str, str]] = {
+        "alacritty": "alacritty_mono_font_size_offset",
+        "ghostty": "ghostty_mono_font_size_offset",
+        "gtk": "gtk_mono_font_size_offset",
+        "qt": "qt_mono_font_size_offset",
+        "vscode": "vscode_mono_font_size_offset",
+    }
+
     color_scheme: str      # Key into themes/colors/ (e.g. "gruvbox-dark")
     wallpaper: str         # Absolute path (e.g. "/home/kevin/wallpapers/lmao.png")
     filter_wallpaper: bool # True = color-grade wallpaper to match active palette
@@ -78,7 +87,24 @@ class ThemeState:
     cursor_size: int       # e.g. 24
     font_size: int         # System font size (e.g. 11)
     mono_font_size: int    # Terminal/editor font size (e.g. 11)
+    alacritty_mono_font_size_offset: int  # Per-target delta from mono_font_size
+    ghostty_mono_font_size_offset: int
+    gtk_mono_font_size_offset: int
+    qt_mono_font_size_offset: int
+    vscode_mono_font_size_offset: int
     dark_hint: bool        # True = prefer-dark, False = prefer-light
+
+    def mono_font_size_offset_for(self, target_name: str) -> int:
+        """Return the mono font size offset configured for a target."""
+        try:
+            offset_key = self.MONO_FONT_SIZE_OFFSET_KEYS[target_name]
+        except KeyError as exc:
+            raise ValueError(f"Unknown mono font size target: {target_name}") from exc
+        return getattr(self, offset_key)
+
+    def mono_font_size_for(self, target_name: str) -> int:
+        """Return the base mono font size plus the target-specific offset."""
+        return self.mono_font_size + self.mono_font_size_offset_for(target_name)
 
     @classmethod
     def from_json(cls, path: Path) -> ThemeState:
