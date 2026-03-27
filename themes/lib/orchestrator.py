@@ -34,6 +34,14 @@ DEPENDS: dict[str, set[str]] = {
     "qt_mono_font_size_offset": {"qt"},
     "vscode_mono_font_size_offset": {"vscode"},
     "dark_hint":      {"gtk"},
+    "hypr_gaps_in": {"hypr_appearance"},
+    "hypr_gaps_out": {"hypr_appearance"},
+    "hypr_border_size": {"hypr_appearance"},
+    "hypr_rounding": {"hypr_appearance"},
+    "hypr_blur_enabled": {"hypr_appearance"},
+    "hypr_blur_size": {"hypr_appearance"},
+    "hypr_blur_passes": {"hypr_appearance"},
+    "hypr_animations_enabled": {"hypr_appearance"},
 }
 
 

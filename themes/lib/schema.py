@@ -93,6 +93,14 @@ class ThemeState:
     qt_mono_font_size_offset: int
     vscode_mono_font_size_offset: int
     dark_hint: bool        # True = prefer-dark, False = prefer-light
+    hypr_gaps_in: int
+    hypr_gaps_out: int
+    hypr_border_size: int
+    hypr_rounding: int
+    hypr_blur_enabled: bool
+    hypr_blur_size: int
+    hypr_blur_passes: int
+    hypr_animations_enabled: bool
 
     def mono_font_size_offset_for(self, target_name: str) -> int:
         """Return the mono font size offset configured for a target."""
