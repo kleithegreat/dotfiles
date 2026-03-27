@@ -36,13 +36,13 @@ STATE_PATH = THEMES_DIR / "state.json"
 _BASE_COLOR_TARGETS = {
     "alacritty", "ghostty", "hyprland", "zathura", "quickshell",
     "neovim", "starship", "tmux", "gtk", "qt", "vicinae", "bat",
-    "snappy_switcher",
+    "snappy_switcher", "vscode",
 }
 
 # "fonts" subcommand: targets that depend on any font-related key
 _FONT_TARGETS = {
     "alacritty", "ghostty", "quickshell", "tmux", "gtk", "qt", "vicinae",
-    "snappy_switcher",
+    "snappy_switcher", "vscode",
 }
 
 

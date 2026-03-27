@@ -221,6 +221,7 @@ class ColorScheme:
 class ThemeState:
     color_scheme: str      # Key into themes/colors/ (e.g. "gruvbox-dark")
     wallpaper: str         # Absolute path (e.g. "/home/kevin/wallpapers/lmao.png")
+    filter_wallpaper: bool # True = color-grade wallpaper to match active palette
     system_font: str       # e.g. "Overpass"
     mono_font: str         # e.g. "JetBrains Mono Nerd Font"
     icon_theme: str        # e.g. "Papirus-Dark"
@@ -228,6 +229,12 @@ class ThemeState:
     cursor_size: int       # e.g. 24
     font_size: int         # System font size (e.g. 11)
     mono_font_size: int    # Terminal/editor font size (e.g. 11)
+    alacritty_mono_font_size_offset: int
+    ghostty_mono_font_size_offset: int
+    gtk_mono_font_size_offset: int
+    qt_mono_font_size_offset: int
+    vscode_mono_font_size_offset: int
+    dark_hint: bool        # True = prefer-dark, False = prefer-light
 ```
 
 ### Color JSON file (`themes/colors/<name>.json`)
@@ -277,13 +284,20 @@ class ThemeState:
 {
   "color_scheme": "gruvbox-dark",
   "wallpaper": "/home/kevin/wallpapers/lmao.png",
+  "filter_wallpaper": false,
   "system_font": "Overpass",
   "mono_font": "JetBrains Mono Nerd Font",
   "icon_theme": "Papirus-Dark",
   "cursor_theme": "Adwaita",
   "cursor_size": 24,
   "font_size": 11,
-  "mono_font_size": 11
+  "mono_font_size": 11,
+  "alacritty_mono_font_size_offset": 0,
+  "ghostty_mono_font_size_offset": 0,
+  "gtk_mono_font_size_offset": 0,
+  "qt_mono_font_size_offset": 0,
+  "vscode_mono_font_size_offset": 0,
+  "dark_hint": false
 }
 ```
 
@@ -994,17 +1008,24 @@ Subcommands:
 When `apply-theme set color_scheme gruvbox-dark` is called, it should only
 re-apply targets that depend on colors — not wallpaper or cursor. Dependency map:
 
-| State key      | Affected targets                                                              |
-|--------------- |-------------------------------------------------------------------------------|
-| color_scheme   | alacritty, ghostty, hyprland, zathura, quickshell, neovim, starship, tmux, gtk (color-scheme), qt, vicinae, bat |
-| wallpaper      | wallpaper                                                                     |
-| system_font    | quickshell, gtk (font-name), vicinae                                          |
-| mono_font      | alacritty, ghostty, quickshell, tmux                                          |
-| icon_theme     | gtk (icon-theme)                                                              |
-| cursor_theme   | cursor                                                                        |
-| cursor_size    | cursor                                                                        |
-| font_size      | gtk (font-name)                                                               |
-| mono_font_size | alacritty, ghostty                                                            |
+| State key                        | Affected targets                                                                                  |
+|--------------------------------- |---------------------------------------------------------------------------------------------------|
+| color_scheme                     | alacritty, ghostty, hyprland, zathura, quickshell, neovim, starship, tmux, gtk, qt, vicinae, bat, wallpaper, vscode, snappy_switcher |
+| wallpaper                        | wallpaper                                                                                         |
+| filter_wallpaper                 | wallpaper                                                                                         |
+| system_font                      | quickshell, gtk, qt, vicinae, snappy_switcher                                                     |
+| mono_font                        | alacritty, ghostty, gtk, quickshell, qt, tmux, vscode                                             |
+| icon_theme                       | gtk, qt, snappy_switcher                                                                          |
+| cursor_theme                     | cursor                                                                                            |
+| cursor_size                      | cursor                                                                                            |
+| font_size                        | gtk, qt, snappy_switcher                                                                          |
+| mono_font_size                   | alacritty, ghostty, gtk, qt, vscode                                                               |
+| alacritty_mono_font_size_offset  | alacritty                                                                                         |
+| ghostty_mono_font_size_offset    | ghostty                                                                                           |
+| gtk_mono_font_size_offset        | gtk                                                                                               |
+| qt_mono_font_size_offset         | qt                                                                                                |
+| vscode_mono_font_size_offset     | vscode                                                                                            |
+| dark_hint                        | gtk                                                                                               |
 
 ### Error handling
 
@@ -1310,9 +1331,16 @@ colors = ColorScheme(
 state = ThemeState(
     color_scheme='gruvbox-dark',
     wallpaper='/home/kevin/wallpapers/lmao.png',
+    filter_wallpaper=False,
     system_font='Overpass', mono_font='JetBrains Mono Nerd Font',
     icon_theme='Papirus-Dark', cursor_theme='Adwaita', cursor_size=24,
-    font_size=11, mono_font_size=11
+    font_size=11, mono_font_size=11,
+    alacritty_mono_font_size_offset=0,
+    ghostty_mono_font_size_offset=0,
+    gtk_mono_font_size_offset=0,
+    qt_mono_font_size_offset=0,
+    vscode_mono_font_size_offset=0,
+    dark_hint=False
 )
 print(generate(colors, state))
 "

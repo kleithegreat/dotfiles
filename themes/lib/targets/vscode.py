@@ -30,10 +30,11 @@ def _resolve_theme(family: str, variant: str) -> str:
 
 
 def generate(colors: ColorScheme, state: ThemeState) -> str:
+    font_size = state.mono_font_size_for(TARGET_NAME)
     return json.dumps({
         "workbench.colorTheme": _resolve_theme(colors.family, colors.variant),
         "editor.fontFamily": state.mono_font,
-        "editor.fontSize": state.mono_font_size,
+        "editor.fontSize": font_size,
         "terminal.integrated.fontFamily": state.mono_font,
-        "terminal.integrated.fontSize": state.mono_font_size,
+        "terminal.integrated.fontSize": font_size,
     }, indent=2)

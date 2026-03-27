@@ -36,5 +36,8 @@ def on_apply(colors: ColorScheme, state: ThemeState) -> None:
     _dconf_set("gtk-theme", f"'{gtk_theme}'")
     _dconf_set("color-scheme", f"'{color_pref}'")
     _dconf_set("font-name", f"'{state.system_font} {state.font_size}'")
-    _dconf_set("monospace-font-name", f"'{state.mono_font} {state.mono_font_size}'")
+    _dconf_set(
+        "monospace-font-name",
+        f"'{state.mono_font} {state.mono_font_size_for(TARGET_NAME)}'",
+    )
     _dconf_set("icon-theme", f"'{state.icon_theme}'")
