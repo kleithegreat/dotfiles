@@ -96,7 +96,7 @@ QtObject {
     readonly property int audioPopupWidth: 340
     readonly property int sliderHeight: 6
 
-    readonly property int calCellSize: 32
+    readonly property int calCellSize: 38
     readonly property int calWidth: calCellSize * 7 + popupPadding * 2 + 12
 
     readonly property int mprisArtSize: 80
