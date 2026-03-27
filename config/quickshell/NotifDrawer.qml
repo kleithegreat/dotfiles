@@ -50,7 +50,7 @@ PanelWindow {
         id: drawerPanel
         anchors.top: parent.top; anchors.right: parent.right
         anchors.topMargin: Theme.popupTopMargin; anchors.rightMargin: Theme.gapOut
-        width: Theme.drawerWidth; height: Math.min(drawerCol.implicitHeight + Theme.notifPadding * 2, 480)
+        width: Theme.drawerWidth; height: Math.min(drawerCol.implicitHeight + Theme.notifPadding * 2, parent.height - Theme.popupTopMargin - Theme.gapOut)
         radius: Theme.notifRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
         opacity: 0; scale: 0.92
         transformOrigin: Item.TopRight
