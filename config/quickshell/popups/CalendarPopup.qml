@@ -18,6 +18,9 @@ PanelWindow {
 
     onActiveChanged: {
         if (active) {
+            let today = new Date();
+            viewYear = today.getFullYear();
+            viewMonth = today.getMonth();
             calPanel.opacity = 0; calPanel.scale = 0.92;
             calOpenAnim.start();
         } else if (!closing) {
@@ -44,9 +47,10 @@ PanelWindow {
     property int viewYear: new Date().getFullYear()
     property int viewMonth: new Date().getMonth()
     property bool gridVisible: true
+    readonly property real calHighlightSize: Theme.calCellSize * 26 / 32
 
     function daysInMonth(y, m) { return new Date(y, m + 1, 0).getDate(); }
-    function firstDow(y, m) { let d = new Date(y, m, 1).getDay(); return d === 0 ? 6 : d - 1; }
+    function firstDow(y, m) { return new Date(y, m, 1).getDay(); }
     function prevMonth() { gridVisible = false; swapTimer.action = function() { if (cal.viewMonth === 0) { cal.viewMonth = 11; cal.viewYear--; } else cal.viewMonth--; }; swapTimer.start(); }
     function nextMonth() { gridVisible = false; swapTimer.action = function() { if (cal.viewMonth === 11) { cal.viewMonth = 0; cal.viewYear++; } else cal.viewMonth++; }; swapTimer.start(); }
 
@@ -124,7 +128,7 @@ PanelWindow {
             Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
 
             RowLayout { spacing: 0; Layout.fillWidth: true
-                Repeater { model: ["Mo","Tu","We","Th","Fr","Sa","Su"]
+                Repeater { model: ["Su","Mo","Tu","We","Th","Fr","Sa"]
                     Text { required property string modelData; text: modelData; color: Theme.fg4
                         font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                         Layout.preferredWidth: Theme.calCellSize; horizontalAlignment: Text.AlignHCenter }
@@ -150,7 +154,7 @@ PanelWindow {
 
                         // Hover highlight for all valid days
                         Rectangle {
-                            anchors.centerIn: parent; width: 26; height: 26; radius: 13
+                            anchors.centerIn: parent; width: cal.calHighlightSize; height: cal.calHighlightSize; radius: width / 2
                             color: Theme.bg2
                             opacity: isCur && !isToday && dayCellMouse.containsMouse ? 0.5 : 0
                             Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
@@ -158,7 +162,7 @@ PanelWindow {
 
                         Rectangle {
                             id: todayCircle
-                            anchors.centerIn: parent; width: 26; height: 26; radius: 13
+                            anchors.centerIn: parent; width: cal.calHighlightSize; height: cal.calHighlightSize; radius: width / 2
                             color: isToday ? Theme.blueBright : "transparent"
                             // Gentle scale pulse on popup open for today
                             scale: isToday && cal.active ? 1.0 : 0.8
@@ -166,7 +170,7 @@ PanelWindow {
                         }
                         Text {
                             anchors.centerIn: parent; text: isCur ? dayNum : ""
-                            color: isToday ? Theme.bg : ((index % 7 >= 5) ? Theme.fg4 : Theme.fg)
+                            color: isToday ? Theme.bg : (((index % 7) === 0 || (index % 7) === 6) ? Theme.fg4 : Theme.fg)
                             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: isToday
                         }
                         MouseArea {
