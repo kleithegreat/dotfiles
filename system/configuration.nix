@@ -114,6 +114,26 @@ in
   # hyprlock — also auto-creates security.pam.services.hyprlock
   programs.hyprlock.enable = true;
 
+  # ── Fingerprint auth ────────────────────────────────────────
+  # Goodix 27c6:63ac is supported by upstream libfprint, so keep TOD disabled.
+  services.fprintd = {
+    enable = true;
+    tod.enable = false;
+  };
+
+  security.pam.services = {
+    # SDDM authenticates through the `login` PAM stack. Keep fingerprint auth
+    # off there so the greeter always preserves password login.
+    login.fprintAuth = false;
+
+    sudo.fprintAuth = true;
+    polkit-1.fprintAuth = true;
+
+    # Hyprlock uses its native fprintd integration for parallel fingerprint
+    # unlock, while PAM remains password-only as a fallback path.
+    hyprlock.fprintAuth = false;
+  };
+
   # ── Captive Portal Browser ──────────────────────────────────
   # Dedicated Chromium instance for logging into captive portals
   # (hotel/airport WiFi) without messing with your DNS settings.
