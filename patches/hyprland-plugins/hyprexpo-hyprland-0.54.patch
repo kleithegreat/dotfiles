@@ -1,6 +1,6 @@
 diff -ruN -x '*.orig' -x '*.rej' a/OverviewPassElement.hpp b/OverviewPassElement.hpp
---- a/OverviewPassElement.hpp	2026-03-27 16:15:07.495946831 -0500
-+++ b/OverviewPassElement.hpp	2026-03-27 16:15:07.497719281 -0500
+--- a/OverviewPassElement.hpp	2026-03-27 18:01:39.736796196 -0500
++++ b/OverviewPassElement.hpp	2026-03-27 18:01:39.738710065 -0500
 @@ -12,6 +12,9 @@
      virtual bool                needsLiveBlur();
      virtual bool                needsPrecomputeBlur();
@@ -12,8 +12,8 @@ diff -ruN -x '*.orig' -x '*.rej' a/OverviewPassElement.hpp b/OverviewPassElement
  
      virtual const char*         passName() {
 diff -ruN -x '*.orig' -x '*.rej' a/main.cpp b/main.cpp
---- a/main.cpp	2026-03-27 16:15:07.495979855 -0500
-+++ b/main.cpp	2026-03-27 16:15:07.497746800 -0500
+--- a/main.cpp	2026-03-27 18:01:39.736830569 -0500
++++ b/main.cpp	2026-03-27 18:01:39.738721901 -0500
 @@ -263,5 +263,5 @@
  
      g_unloading = true;
@@ -22,11 +22,12 @@ diff -ruN -x '*.orig' -x '*.rej' a/main.cpp b/main.cpp
 +    Config::mgr()->reload(); // we need to reload now to clear all the gestures
  }
 diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
---- a/overview.cpp	2026-03-27 16:15:07.496005445 -0500
-+++ b/overview.cpp	2026-03-27 16:15:07.497761301 -0500
-@@ -1,17 +1,21 @@
+--- a/overview.cpp	2026-03-27 18:01:39.736857614 -0500
++++ b/overview.cpp	2026-03-27 18:01:39.738737213 -0500
+@@ -1,17 +1,22 @@
  #include "overview.hpp"
  #include <any>
++#include <chrono>
  #define private public
 +#define protected public
  #include <hyprland/src/render/Renderer.hpp>
@@ -46,7 +47,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
  #undef private
  #include "OverviewPassElement.hpp"
  
-@@ -20,10 +24,10 @@
+@@ -20,10 +25,10 @@
  }
  
  COverview::~COverview() {
@@ -59,7 +60,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
  }
  
  COverview::COverview(PHLWORKSPACE startedOn_, bool swipe_) : startedOn(startedOn_), swipe(swipe_) {
-@@ -43,7 +47,7 @@
+@@ -43,7 +48,7 @@
      // process the method
      bool     methodCenter  = true;
      int      methodStartID = pMonitor->activeWorkspaceID();
@@ -68,7 +69,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
      if (method.size() < 2)
          Log::logger->log(Log::ERR, "[he] invalid workspace_method");
      else {
-@@ -120,7 +124,7 @@
+@@ -120,7 +125,7 @@
          pMonitor->m_activeWorkspace = startedOn;
      }
  
@@ -77,7 +78,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
  
      Vector2D tileSize       = pMonitor->m_size / SIDE_LENGTH;
      Vector2D tileRenderSize = (pMonitor->m_size - Vector2D{GAP_WIDTH * pMonitor->m_scale, GAP_WIDTH * pMonitor->m_scale} * (SIDE_LENGTH - 1)) / SIDE_LENGTH;
-@@ -141,10 +145,12 @@
+@@ -141,10 +146,12 @@
  
      for (size_t i = 0; i < (size_t)(SIDE_LENGTH * SIDE_LENGTH); ++i) {
          COverview::SWorkspaceImage& image = images[i];
@@ -92,7 +93,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
  
          g_pHyprOpenGL->clear(CHyprColor{0, 0, 0, 1.0});
  
-@@ -156,7 +162,6 @@
+@@ -156,7 +163,6 @@
          if (PWORKSPACE) {
              image.pWorkspace            = PWORKSPACE;
              PMONITOR->m_activeWorkspace = PWORKSPACE;
@@ -100,7 +101,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
              PWORKSPACE->m_visible = true;
  
              if (PWORKSPACE == startedOn)
-@@ -165,7 +170,6 @@
+@@ -165,7 +171,6 @@
              g_pHyprRenderer->renderWorkspace(PMONITOR, PWORKSPACE, Time::steadyNow(), monbox);
  
              PWORKSPACE->m_visible = false;
@@ -108,7 +109,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
  
              if (PWORKSPACE == startedOn)
                  PMONITOR->m_activeSpecialWorkspace.reset();
-@@ -175,7 +179,7 @@
+@@ -175,7 +180,7 @@
          image.box = {(i % SIDE_LENGTH) * tileRenderSize.x + (i % SIDE_LENGTH) * GAP_WIDTH, (i / SIDE_LENGTH) * tileRenderSize.y + (i / SIDE_LENGTH) * GAP_WIDTH, tileRenderSize.x,
                       tileRenderSize.y};
  
@@ -117,7 +118,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
          g_pHyprRenderer->endRender();
      }
  
-@@ -184,15 +188,14 @@
+@@ -184,15 +189,14 @@
      PMONITOR->m_activeSpecialWorkspace = openSpecial;
      PMONITOR->m_activeWorkspace        = startedOn;
      startedOn->m_visible               = true;
@@ -135,7 +136,33 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
  
      size->setUpdateCallback(damageMonitor);
      pos->setUpdateCallback(damageMonitor);
-@@ -250,14 +253,14 @@
+@@ -209,6 +213,7 @@
+     Cursor::overrideController->setOverride("left_ptr", Cursor::CURSOR_OVERRIDE_UNKNOWN);
+ 
+     lastMousePosLocal = g_pInputManager->getMouseCoordsInternal() - pMonitor->m_position;
++    const auto OPENED_AT = Time::steadyNow();
+ 
+     auto onCursorMove = [this](Event::SCallbackInfo& info) {
+         if (closing)
+@@ -218,12 +223,16 @@
+         lastMousePosLocal = g_pInputManager->getMouseCoordsInternal() - pMonitor->m_position;
+     };
+ 
+-    auto onCursorSelect = [this](Event::SCallbackInfo& info) {
++    auto onCursorSelect = [this, OPENED_AT](Event::SCallbackInfo& info) {
+         if (closing)
+             return;
+ 
+         info.cancelled = true;
+ 
++        // Ignore accidental touchpad/button events that arrive as the overview opens.
++        if (std::chrono::duration_cast<std::chrono::milliseconds>(Time::steadyNow() - OPENED_AT).count() < 200)
++            return;
++
+         selectHoveredWorkspace();
+ 
+         close();
+@@ -250,14 +259,14 @@
      if (!pMonitor)
          return;
  
@@ -152,7 +179,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
  
      id = std::clamp(id, 0, SIDE_LENGTH * SIDE_LENGTH);
  
-@@ -273,13 +276,16 @@
+@@ -273,13 +282,16 @@
  
      auto& image = images[id];
  
@@ -173,7 +200,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
  
      g_pHyprOpenGL->clear(CHyprColor{0, 0, 0, 1.0});
  
-@@ -293,7 +299,6 @@
+@@ -293,7 +305,6 @@
  
      if (PWORKSPACE) {
          pMonitor->m_activeWorkspace = PWORKSPACE;
@@ -181,7 +208,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
          PWORKSPACE->m_visible = true;
  
          if (PWORKSPACE == startedOn)
-@@ -302,20 +307,18 @@
+@@ -302,20 +313,18 @@
          g_pHyprRenderer->renderWorkspace(pMonitor.lock(), PWORKSPACE, Time::steadyNow(), monbox);
  
          PWORKSPACE->m_visible = false;
@@ -203,7 +230,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
  
      blockOverviewRendering = false;
  }
-@@ -384,16 +387,11 @@
+@@ -384,16 +393,11 @@
  
          const auto NEWIDWS = g_pCompositor->getWorkspaceByID(NEWID);
  
@@ -220,7 +247,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
          startedOn = pMonitor->m_activeWorkspace;
      }
  
-@@ -408,9 +406,7 @@
+@@ -408,9 +412,7 @@
  }
  
  void COverview::onWorkspaceChange() {
@@ -231,7 +258,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
          startedOn = pMonitor->m_activeWorkspace;
  
      for (size_t i = 0; i < (size_t)(SIDE_LENGTH * SIDE_LENGTH); ++i) {
-@@ -433,7 +429,7 @@
+@@ -433,7 +435,7 @@
  void COverview::fullRender() {
      const auto GAPSIZE = (closing ? (1.0 - size->getPercent()) : size->getPercent()) * GAP_WIDTH;
  
@@ -240,7 +267,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
          // likely user changed.
          onWorkspaceChange();
      }
-@@ -450,8 +446,10 @@
+@@ -450,8 +452,10 @@
              CBox texbox = {x * tileRenderSize.x + x * GAPSIZE, y * tileRenderSize.y + y * GAPSIZE, tileRenderSize.x, tileRenderSize.y};
              texbox.scale(pMonitor->m_scale).translate(pos->value());
              texbox.round();
@@ -253,8 +280,8 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
      }
  }
 diff -ruN -x '*.orig' -x '*.rej' a/overview.hpp b/overview.hpp
---- a/overview.hpp	2026-03-27 16:15:07.496021438 -0500
-+++ b/overview.hpp	2026-03-27 16:15:07.497729532 -0500
+--- a/overview.hpp	2026-03-27 18:01:39.736877096 -0500
++++ b/overview.hpp	2026-03-27 18:01:39.738756143 -0500
 @@ -54,9 +54,9 @@
      bool       damageDirty = false;
  
