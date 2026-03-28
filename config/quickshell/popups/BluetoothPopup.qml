@@ -328,7 +328,7 @@ PanelWindow {
                 opacity: btPop.popupState === "list" ? 1 : 0
                 Behavior on opacity { NumberAnimation { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
 
-                Flickable {
+                Components.WheelFlickable {
                     anchors.fill: parent
                     contentHeight: devCol.implicitHeight; clip: true; boundsBehavior: Flickable.StopAtBounds
 

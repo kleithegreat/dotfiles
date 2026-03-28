@@ -1,6 +1,7 @@
 import qs
 import QtQuick
 import QtQuick.Layouts
+import "../../components" as Components
 
 ColumnLayout {
     id: root
@@ -19,7 +20,7 @@ ColumnLayout {
     anchors.fill: parent
     spacing: 16
 
-    Flickable {
+    Components.WheelFlickable {
         Layout.fillWidth: true
         Layout.fillHeight: true
         contentHeight: colorGrid.implicitHeight

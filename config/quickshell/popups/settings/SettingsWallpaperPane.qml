@@ -3,7 +3,7 @@ import QtQuick
 import QtQuick.Layouts
 import "../../components" as Components
 
-Flickable {
+Components.WheelFlickable {
     id: root
     required property var themeState
     required property var wallpapers
@@ -229,7 +229,7 @@ Flickable {
                     border.width: 1
                     border.color: Theme.bg3
 
-                    Flickable {
+                    Components.WheelFlickable {
                         id: directoryListFlick
                         anchors.fill: parent
                         anchors.margins: 4

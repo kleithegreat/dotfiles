@@ -1,6 +1,7 @@
 import qs
 import QtQuick
 import QtQuick.Layouts
+import "../../components" as Components
 
 ColumnLayout {
     id: root
@@ -62,7 +63,7 @@ ColumnLayout {
         }
     }
 
-    Flickable {
+    Components.WheelFlickable {
         visible: !root.scanning
         Layout.fillWidth: true; Layout.preferredHeight: Math.min(channelCol.implicitHeight, 300)
         Layout.maximumHeight: 300

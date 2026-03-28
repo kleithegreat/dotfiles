@@ -143,6 +143,7 @@ QtObject {
     readonly property int listItemPadding: 10   // standard row left/right inset
     readonly property int sectionSpacing: 12    // space between logical sections in a popup
     readonly property int headerFontSize: fontSize // popup header text size
+    readonly property int flickableWheelStep: 72
 
     // Toggle switch dimensions
     readonly property int toggleWidth: 40

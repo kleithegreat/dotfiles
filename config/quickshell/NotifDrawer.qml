@@ -94,7 +94,7 @@ PanelWindow {
                 }
             }
             Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
-            Flickable {
+            Components.WheelFlickable {
                 Layout.fillWidth: true; Layout.fillHeight: true; Layout.minimumHeight: 40; Layout.maximumHeight: 400
                 contentHeight: histCol.implicitHeight; clip: true; boundsBehavior: Flickable.StopAtBounds
                 Column { id: histCol; width: parent.width; spacing: Theme.notifSpacing

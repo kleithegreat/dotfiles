@@ -1,6 +1,7 @@
 import qs
 import QtQuick
 import QtQuick.Layouts
+import "../../components" as Components
 
 Item {
     id: root
@@ -210,7 +211,7 @@ Item {
     }
 
     // ── Diagnostics results ─────────────────────
-    Flickable {
+    Components.WheelFlickable {
         visible: !root.diagLoading
         anchors.fill: parent
         contentHeight: diagCol.implicitHeight; clip: true; boundsBehavior: Flickable.StopAtBounds
