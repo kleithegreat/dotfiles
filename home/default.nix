@@ -54,6 +54,7 @@ in
     rsync
     usbutils
     lm_sensors
+    nvtopPackages.full
 
     # Network diagnostic tools
     nmap
@@ -61,6 +62,7 @@ in
     traceroute
     inetutils      # provides telnet, ftp, hostname, etc.
     iw
+    netcat-openbsd
 
     # Editors
     neovim
@@ -105,6 +107,13 @@ in
     zoom-us
     tor-browser
     f3d            # 3D file viewer
+    anki
+    gimp
+    krita
+    kdePackages.kdenlive
+    kdePackages.krdc
+    qbittorrent
+    telegram-desktop
     pavucontrol    # PulseAudio/PipeWire volume control GUI
     pkgs.gnome-secrets
 
