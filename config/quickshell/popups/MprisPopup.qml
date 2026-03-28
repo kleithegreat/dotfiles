@@ -17,7 +17,13 @@ PanelWindow {
     WlrLayershell.keyboardFocus: active ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     exclusionMode: ExclusionMode.Ignore
 
-    property var player: Mpris.players.values.length > 0 ? Mpris.players.values[0] : null
+    property var player: {
+        let players = Mpris.players.values;
+        for (let i = 0; i < players.length; i++) {
+            if (players[i].isPlaying) return players[i];
+        }
+        return players.length > 0 ? players[0] : null;
+    }
     property real pos: player?.position ?? 0
     property real len: player?.length ?? 0
     property bool hasLen: len > 0
