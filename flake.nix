@@ -47,5 +47,6 @@
   in {
     nixosConfigurations.vm = mkHost "vm" ./hosts/vm/system.nix;
     nixosConfigurations.laptop = mkHost "laptop" ./hosts/laptop/system.nix;
+    nixosConfigurations.desktop = mkHost "desktop" ./hosts/desktop/system.nix;
   };
 }
