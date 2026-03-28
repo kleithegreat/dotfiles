@@ -117,9 +117,20 @@ in
   # ── Fonts ────────────────────────────────────────────────────
   fonts.packages = with pkgs; [
     nerd-fonts.jetbrains-mono
+    nerd-fonts.fira-code
+    nerd-fonts.iosevka
     nerd-fonts.recursive-mono
+    commit-mono
     overpass
+    inter
+    geist-font
+    ibm-plex
+    rubik
     noto-fonts
+    cantarell-fonts
+    source-sans
+    # Quickshell menu fonts without a nixpkgs package in this revision:
+    # Berkeley Mono, Outfit, SF Pro (would need custom derivations)
     noto-fonts-cjk-sans
     noto-fonts-color-emoji
     roboto
