@@ -184,9 +184,13 @@ in
   xdg.configFile."hypr/plugins.conf".source = "${dotfilesPath}/config/hypr/plugins.conf";
 
   # Host-specific — monitors and GPU env vars
-  xdg.configFile."hypr/monitors.conf" = if hostName == "laptop"
-    then { source = "${dotfilesPath}/hosts/laptop/monitors.conf"; }
-    else { text = "monitor = ,preferred,auto,1\n"; };
+  xdg.configFile."hypr/monitors.conf" =
+    if hostName == "laptop" then
+      { source = "${dotfilesPath}/hosts/laptop/monitors.conf"; }
+    else if hostName == "desktop" then
+      { source = "${dotfilesPath}/hosts/desktop/monitors.conf"; }
+    else
+      { text = "monitor = ,preferred,auto,1\n"; };
   xdg.configFile."hypr/env.conf" =
     if hostName == "laptop" then
       { source = "${dotfilesPath}/config/hypr/env.conf"; }
