@@ -1,8 +1,9 @@
 import qs
 import QtQuick
 import QtQuick.Layouts
+import "../../components" as Components
 
-Flickable {
+Components.WheelFlickable {
     id: root
     required property var themeState
 

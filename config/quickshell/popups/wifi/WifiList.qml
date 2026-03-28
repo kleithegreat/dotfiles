@@ -1,6 +1,7 @@
 import qs
 import QtQuick
 import QtQuick.Layouts
+import "../../components" as Components
 
 Item {
     id: root
@@ -21,7 +22,7 @@ Item {
 
     function isEnterprise(sec) { return sec.indexOf("802.1X") >= 0; }
 
-    Flickable {
+    Components.WheelFlickable {
         anchors.fill: parent
         contentHeight: netCol.implicitHeight; clip: true; boundsBehavior: Flickable.StopAtBounds
 

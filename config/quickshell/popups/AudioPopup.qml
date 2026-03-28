@@ -184,7 +184,7 @@ PanelWindow {
             // ── Application Streams ──
             Text { text: "󰀻  Applications"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true }
 
-            Flickable {
+            Components.WheelFlickable {
                 Layout.fillWidth: true; Layout.maximumHeight: 200; Layout.minimumHeight: 30
                 contentHeight: appCol.implicitHeight; clip: true; boundsBehavior: Flickable.StopAtBounds
 

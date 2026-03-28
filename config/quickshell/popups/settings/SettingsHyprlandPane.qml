@@ -3,7 +3,7 @@ import QtQuick
 import QtQuick.Layouts
 import "../../components" as Components
 
-Flickable {
+Components.WheelFlickable {
     id: root
     required property string hyprRuntimeError
     required property var hyprOptionInfo
