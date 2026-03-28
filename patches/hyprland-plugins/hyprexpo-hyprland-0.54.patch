@@ -24,7 +24,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/main.cpp b/main.cpp
 diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
 --- a/overview.cpp	2026-03-27 18:01:39.736857614 -0500
 +++ b/overview.cpp	2026-03-27 18:01:39.738737213 -0500
-@@ -1,17 +1,22 @@
+@@ -1,20 +1,27 @@
  #include "overview.hpp"
  #include <any>
 +#include <chrono>
@@ -46,10 +46,14 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
 +#undef protected
  #undef private
  #include "OverviewPassElement.hpp"
- 
-@@ -20,10 +25,10 @@
+-
++using Render::GL::g_pHyprOpenGL;
++using Render::RENDER_MODE_FULL_FAKE;
++
+ static void damageMonitor(WP<Hyprutils::Animation::CBaseAnimatedVariable> thisptr) {
+     g_pOverview->damage();
  }
- 
+@@ -22,8 +29,8 @@
  COverview::~COverview() {
 -    g_pHyprRenderer->makeEGLCurrent();
 +    g_pHyprOpenGL->makeEGLCurrent();
@@ -58,7 +62,8 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
 -    g_pHyprOpenGL->markBlurDirtyForMonitor(pMonitor.lock());
 +    g_pHyprRenderer->damageMonitor(pMonitor.lock());
  }
- 
+-
++
  COverview::COverview(PHLWORKSPACE startedOn_, bool swipe_) : startedOn(startedOn_), swipe(swipe_) {
 @@ -43,7 +48,7 @@
      // process the method
@@ -91,7 +96,8 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
 -        g_pHyprRenderer->beginRender(PMONITOR, fakeDamage, RENDER_MODE_FULL_FAKE, nullptr, &image.fb);
 +        g_pHyprRenderer->beginRender(PMONITOR, fakeDamage, RENDER_MODE_FULL_FAKE, nullptr, image.fb);
  
-         g_pHyprOpenGL->clear(CHyprColor{0, 0, 0, 1.0});
+-        g_pHyprOpenGL->clear(CHyprColor{0, 0, 0, 1.0});
++        g_pHyprRenderer->draw(CClearPassElement::SClearData{CHyprColor{0, 0, 0, 1.0}});
  
 @@ -156,7 +163,6 @@
          if (PWORKSPACE) {
@@ -198,7 +204,8 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
 -    g_pHyprRenderer->beginRender(pMonitor.lock(), fakeDamage, RENDER_MODE_FULL_FAKE, nullptr, &image.fb);
 +    g_pHyprRenderer->beginRender(pMonitor.lock(), fakeDamage, RENDER_MODE_FULL_FAKE, nullptr, image.fb);
  
-     g_pHyprOpenGL->clear(CHyprColor{0, 0, 0, 1.0});
+-    g_pHyprOpenGL->clear(CHyprColor{0, 0, 0, 1.0});
++    g_pHyprRenderer->draw(CClearPassElement::SClearData{CHyprColor{0, 0, 0, 1.0}});
  
 @@ -293,7 +305,6 @@
  
@@ -267,6 +274,15 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
          // likely user changed.
          onWorkspaceChange();
      }
+@@ -446,7 +448,7 @@
+     Vector2D tileSize       = (SIZE / SIDE_LENGTH);
+     Vector2D tileRenderSize = (SIZE - Vector2D{GAPSIZE, GAPSIZE} * (SIDE_LENGTH - 1)) / SIDE_LENGTH;
+ 
+-    g_pHyprOpenGL->clear(BG_COLOR.stripA());
++    g_pHyprRenderer->draw(CClearPassElement::SClearData{BG_COLOR.stripA()});
+ 
+     for (size_t y = 0; y < (size_t)SIDE_LENGTH; ++y) {
+         for (size_t x = 0; x < (size_t)SIDE_LENGTH; ++x) {
 @@ -450,8 +452,10 @@
              CBox texbox = {x * tileRenderSize.x + x * GAPSIZE, y * tileRenderSize.y + y * GAPSIZE, tileRenderSize.x, tileRenderSize.y};
              texbox.scale(pMonitor->m_scale).translate(pos->value());
@@ -289,7 +305,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.hpp b/overview.hpp
 -        CFramebuffer fb;
 -        int64_t      workspaceID = -1;
 -        PHLWORKSPACE pWorkspace;
-+        SP<IFramebuffer> fb;
++        SP<Render::IFramebuffer> fb;
 +        int64_t          workspaceID = -1;
 +        PHLWORKSPACE     pWorkspace;
          CBox         box;

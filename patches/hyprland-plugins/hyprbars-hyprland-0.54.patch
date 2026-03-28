@@ -61,6 +61,15 @@ diff -ruN -x '*.orig' -x '*.rej' a/barDeco.cpp b/barDeco.cpp
  #include <hyprland/src/managers/animation/AnimationManager.hpp>
  #include <hyprland/src/protocols/LayerShell.hpp>
  #include <hyprland/src/event/EventBus.hpp>
+@@ -15,6 +16,8 @@
+ 
+ #include "globals.hpp"
+ #include "BarPassElement.hpp"
++
++using Render::GL::g_pHyprOpenGL;
+ 
+ CHyprBar::CHyprBar(PHLWINDOW pWindow) : IHyprWindowDecoration(pWindow) {
+     m_pWindow = pWindow;
 @@ -34,10 +35,7 @@
      m_pTouchMoveCallback = Event::bus()->m_events.input.touch.motion.listen([&](ITouch::SMotionEvent e, Event::SCallbackInfo& info) { onTouchMove(info, e); });
      m_pMouseMoveCallback = Event::bus()->m_events.input.mouse.move.listen([&](Vector2D c, Event::SCallbackInfo& info) { onMouseMove(c); });
@@ -78,7 +87,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/barDeco.cpp b/barDeco.cpp
  }
  
 -void CHyprBar::renderText(SP<CTexture> out, const std::string& text, const CHyprColor& color, const Vector2D& bufferSize, const float scale, const int fontSize) {
-+void CHyprBar::renderText(SP<ITexture>& out, const std::string& text, const CHyprColor& color, const Vector2D& bufferSize, const float scale, const int fontSize) {
++void CHyprBar::renderText(SP<Render::ITexture>& out, const std::string& text, const CHyprColor& color, const Vector2D& bufferSize, const float scale, const int fontSize) {
      const auto CAIROSURFACE = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, bufferSize.x, bufferSize.y);
      const auto CAIRO        = cairo_create(CAIROSURFACE);
  
@@ -254,8 +263,8 @@ diff -ruN -x '*.orig' -x '*.rej' a/barDeco.hpp b/barDeco.hpp
  
 -    SP<CTexture>              m_pTextTex;
 -    SP<CTexture>              m_pButtonsTex;
-+    SP<ITexture>              m_pTextTex;
-+    SP<ITexture>              m_pButtonsTex;
++    SP<Render::ITexture>      m_pTextTex;
++    SP<Render::ITexture>      m_pButtonsTex;
  
      bool                      m_bWindowSizeChanged = false;
      bool                      m_hidden             = false;
@@ -264,7 +273,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/barDeco.hpp b/barDeco.hpp
      void                      renderPass(PHLMONITOR, float const& a);
      void                      renderBarTitle(const Vector2D& bufferSize, const float scale);
 -    void                      renderText(SP<CTexture> out, const std::string& text, const CHyprColor& color, const Vector2D& bufferSize, const float scale, const int fontSize);
-+    void                      renderText(SP<ITexture>& out, const std::string& text, const CHyprColor& color, const Vector2D& bufferSize, const float scale, const int fontSize);
++    void                      renderText(SP<Render::ITexture>& out, const std::string& text, const CHyprColor& color, const Vector2D& bufferSize, const float scale, const int fontSize);
      void                      renderBarButtons(const Vector2D& bufferSize, const float scale);
      void                      renderBarButtonsText(CBox* barBox, const float scale, const float a);
      void                      damageOnButtonHover();
@@ -276,7 +285,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/globals.hpp b/globals.hpp
      float        size    = 10;
      std::string  icon    = "";
 -    SP<CTexture> iconTex = makeShared<CTexture>();
-+    SP<ITexture> iconTex = nullptr;
++    SP<Render::ITexture> iconTex = nullptr;
  };
  
  class CHyprBar;
