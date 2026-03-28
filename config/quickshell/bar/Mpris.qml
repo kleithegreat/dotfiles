@@ -10,7 +10,13 @@ Item {
     visible: player !== null
     signal labelClicked()
 
-    property var player: Mpris.players.values.length > 0 ? Mpris.players.values[0] : null
+    property var player: {
+        let players = Mpris.players.values;
+        for (let i = 0; i < players.length; i++) {
+            if (players[i].isPlaying) return players[i];
+        }
+        return players.length > 0 ? players[0] : null;
+    }
 
     RowLayout {
         id: row; spacing: 6
