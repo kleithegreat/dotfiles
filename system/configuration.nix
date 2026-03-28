@@ -302,6 +302,8 @@ in
     wget
     curl
     cifs-utils       # SMB/CIFS mount support
+    ntfs3g           # NTFS read/write (Windows dual-boot)
+    dosfstools       # FAT filesystem tools (EFI partitions)
     qt6Packages.qt6ct  # Qt5 configuration tool (kept for qt5ct backward compat)
     hyprqt6engine  # Hyprland-native Qt6 theme engine (with KF6 for full KDE app theming)
     sddm-theme

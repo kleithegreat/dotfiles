@@ -64,5 +64,16 @@
     enableGraphical = true;  # solaar
   };
 
-  environment.systemPackages = with pkgs; [ ];
+  # ── Steam ─────────────────────────────────────────────────────
+  programs.steam = {
+    enable = true;
+    remotePlay.openFirewall = true;
+    localNetworkGameTransfers.openFirewall = true;
+    extest.enable = true;  # X11→uinput translation for controllers on Wayland
+    protontricks.enable = true;
+  };
+
+  environment.systemPackages = with pkgs; [
+    nvidia-vaapi-driver  # VA-API backend for NVIDIA (LIBVA_DRIVER_NAME=nvidia)
+  ];
 }
