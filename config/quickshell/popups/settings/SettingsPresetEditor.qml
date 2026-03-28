@@ -154,7 +154,7 @@ Rectangle {
                 Text {
                     text: root.mode === "edit" ? "Edit Preset" : "Create Preset"
                     color: Theme.fg
-                    font.family: Theme.fontFamily
+                    font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSize
                     font.bold: true
                 }
@@ -162,7 +162,7 @@ Rectangle {
                 Text {
                     text: String(root.includedFieldCount) + " fields included"
                     color: Theme.fg4
-                    font.family: Theme.fontFamily
+                    font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
                 }
             }
@@ -185,7 +185,7 @@ Rectangle {
                     anchors.centerIn: parent
                     text: "Cancel"
                     color: Theme.fg
-                    font.family: Theme.fontFamily
+                    font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
                 }
 
@@ -203,7 +203,7 @@ Rectangle {
         Text {
             text: "Presets are partial overrides. Toggle only the fields you want this preset to change."
             color: Theme.fg4
-            font.family: Theme.fontFamily
+            font.family: Theme.systemFamily
             font.pixelSize: Theme.fontSizeSmall
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
@@ -216,7 +216,7 @@ Rectangle {
             Text {
                 text: "PRESET NAME"
                 color: Theme.fg4
-                font.family: Theme.fontFamily
+                font.family: Theme.systemFamily
                 font.pixelSize: Theme.fontSizeSmall
                 font.bold: true
             }
@@ -238,7 +238,7 @@ Rectangle {
                     color: Theme.fg
                     selectionColor: Theme.blueBright
                     selectedTextColor: Theme.bg
-                    font.family: Theme.fontFamily
+                    font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
                     clip: true
                     onTextEdited: root.draftName = text
@@ -252,7 +252,7 @@ Rectangle {
                     anchors.left: parent.left
                     anchors.leftMargin: 8
                     anchors.verticalCenter: parent.verticalCenter
-                    font.family: Theme.fontFamily
+                    font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
                 }
 
@@ -265,7 +265,7 @@ Rectangle {
                     }
                     text: root.initialName
                     color: Theme.fg
-                    font.family: Theme.fontFamily
+                    font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
                 }
             }
@@ -274,7 +274,7 @@ Rectangle {
                 visible: root.mode === "edit"
                 text: "Rename by creating a new preset, then deleting the old one."
                 color: Theme.fg4
-                font.family: Theme.fontFamily
+                font.family: Theme.systemFamily
                 font.pixelSize: Theme.fontSizeSmall
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
@@ -285,7 +285,7 @@ Rectangle {
             visible: root.errorMessage !== ""
             text: root.errorMessage
             color: Theme.redBright
-            font.family: Theme.fontFamily
+            font.family: Theme.systemFamily
             font.pixelSize: Theme.fontSizeSmall
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
@@ -293,7 +293,7 @@ Rectangle {
 
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
 
-        Text { text: "APPEARANCE"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+        Text { text: "APPEARANCE"; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
 
         ColumnLayout {
             Layout.fillWidth: true
@@ -306,7 +306,7 @@ Rectangle {
                 Text {
                     text: "Color scheme"
                     color: Theme.fg
-                    font.family: Theme.fontFamily
+                    font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -348,7 +348,7 @@ Rectangle {
                             anchors.centerIn: parent
                             text: root.familyDisplayName(modelData.family) + " " + modelData.variant
                             color: colorChip.isActive ? Theme.bg : Theme.fg
-                            font.family: Theme.fontFamily
+                            font.family: Theme.systemFamily
                             font.pixelSize: Theme.fontSizeSmall
                             Behavior on color { ColorAnimation { duration: Theme.animHover } }
                         }
@@ -376,7 +376,7 @@ Rectangle {
                 Text {
                     text: "Browser / electron hint"
                     color: Theme.fg
-                    font.family: Theme.fontFamily
+                    font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -412,7 +412,7 @@ Rectangle {
                         anchors.centerIn: parent
                         text: "Light"
                         color: lightHintBtn.isActive ? Theme.bg : Theme.fg
-                        font.family: Theme.fontFamily
+                        font.family: Theme.systemFamily
                         font.pixelSize: Theme.fontSizeSmall
                         Behavior on color { ColorAnimation { duration: Theme.animHover } }
                     }
@@ -447,7 +447,7 @@ Rectangle {
                         anchors.centerIn: parent
                         text: "Dark"
                         color: darkHintBtn.isActive ? Theme.bg : Theme.fg
-                        font.family: Theme.fontFamily
+                        font.family: Theme.systemFamily
                         font.pixelSize: Theme.fontSizeSmall
                         Behavior on color { ColorAnimation { duration: Theme.animHover } }
                     }
@@ -465,7 +465,7 @@ Rectangle {
 
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
 
-        Text { text: "WALLPAPER"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+        Text { text: "WALLPAPER"; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
 
         ColumnLayout {
             Layout.fillWidth: true
@@ -478,7 +478,7 @@ Rectangle {
                 Text {
                     text: "Wallpaper path"
                     color: Theme.fg
-                    font.family: Theme.fontFamily
+                    font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -506,7 +506,7 @@ Rectangle {
                     color: Theme.fg
                     selectionColor: Theme.blueBright
                     selectedTextColor: Theme.bg
-                    font.family: Theme.fontFamily
+                    font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
                     clip: true
                     onTextEdited: root.setField("wallpaper", text)
@@ -519,7 +519,7 @@ Rectangle {
                     anchors.left: parent.left
                     anchors.leftMargin: 8
                     anchors.verticalCenter: parent.verticalCenter
-                    font.family: Theme.fontFamily
+                    font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
                 }
             }
@@ -536,7 +536,7 @@ Rectangle {
                 Text {
                     text: "Filter wallpaper"
                     color: Theme.fg
-                    font.family: Theme.fontFamily
+                    font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -555,7 +555,7 @@ Rectangle {
                 Text {
                     text: root.currentBoolValue("filter_wallpaper", false) ? "On" : "Off"
                     color: root.currentBoolValue("filter_wallpaper", false) ? Theme.fg3 : Theme.fg4
-                    font.family: Theme.fontFamily
+                    font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -569,7 +569,7 @@ Rectangle {
 
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
 
-        Text { text: "FONTS"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+        Text { text: "FONTS"; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
 
         ColumnLayout {
             Layout.fillWidth: true
@@ -582,7 +582,7 @@ Rectangle {
                 Text {
                     text: "System font"
                     color: Theme.fg
-                    font.family: Theme.fontFamily
+                    font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -599,7 +599,7 @@ Rectangle {
                 spacing: 6
 
                 Repeater {
-                    model: ["Overpass", "Inter", "Noto Sans", "Cantarell", "Source Sans 3"]
+                    model: ["Overpass", "Inter", "Geist", "IBM Plex Sans", "Rubik", "Noto Sans", "Cantarell", "Source Sans 3", "Outfit", "SF Pro"]
 
                     delegate: Rectangle {
                         id: systemFontChip
@@ -624,7 +624,7 @@ Rectangle {
                             anchors.centerIn: parent
                             text: modelData
                             color: systemFontChip.isActive ? Theme.bg : Theme.fg
-                            font.family: Theme.fontFamily
+                            font.family: Theme.systemFamily
                             font.pixelSize: Theme.fontSizeSmall
                             Behavior on color { ColorAnimation { duration: Theme.animHover } }
                         }
@@ -652,7 +652,7 @@ Rectangle {
                 Text {
                     text: "System font size"
                     color: Theme.fg
-                    font.family: Theme.fontFamily
+                    font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -676,7 +676,7 @@ Rectangle {
                     border.color: Theme.bg3
                     Behavior on color { ColorAnimation { duration: Theme.animHover } }
 
-                    Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
+                    Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
 
                     MouseArea {
                         id: fontSizeMinus
@@ -690,7 +690,7 @@ Rectangle {
                 Text {
                     text: String(root.currentIntValue("font_size", 11))
                     color: Theme.fg
-                    font.family: Theme.fontFamily
+                    font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSize
                     width: 28
                     horizontalAlignment: Text.AlignHCenter
@@ -707,7 +707,7 @@ Rectangle {
                     border.color: Theme.bg3
                     Behavior on color { ColorAnimation { duration: Theme.animHover } }
 
-                    Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
+                    Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
 
                     MouseArea {
                         id: fontSizePlus
@@ -731,7 +731,7 @@ Rectangle {
                 Text {
                     text: "Coding font"
                     color: Theme.fg
-                    font.family: Theme.fontFamily
+                    font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -748,7 +748,7 @@ Rectangle {
                 spacing: 6
 
                 Repeater {
-                    model: ["JetBrains Mono Nerd Font", "Berkeley Mono", "Recursive Mono", "Fira Code Nerd Font", "Iosevka Nerd Font"]
+                    model: ["JetBrains Mono Nerd Font", "Berkeley Mono", "Commit Mono", "Recursive Mono", "Fira Code Nerd Font", "Iosevka Nerd Font"]
 
                     delegate: Rectangle {
                         id: monoFontChip
@@ -773,7 +773,7 @@ Rectangle {
                             anchors.centerIn: parent
                             text: modelData.replace(" Nerd Font", "")
                             color: monoFontChip.isActive ? Theme.bg : Theme.fg
-                            font.family: Theme.fontFamily
+                            font.family: Theme.systemFamily
                             font.pixelSize: Theme.fontSizeSmall
                             Behavior on color { ColorAnimation { duration: Theme.animHover } }
                         }
@@ -801,7 +801,7 @@ Rectangle {
                 Text {
                     text: "Coding font size"
                     color: Theme.fg
-                    font.family: Theme.fontFamily
+                    font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -825,7 +825,7 @@ Rectangle {
                     border.color: Theme.bg3
                     Behavior on color { ColorAnimation { duration: Theme.animHover } }
 
-                    Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
+                    Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
 
                     MouseArea {
                         id: monoFontSizeMinus
@@ -839,7 +839,7 @@ Rectangle {
                 Text {
                     text: String(root.currentIntValue("mono_font_size", 11))
                     color: Theme.fg
-                    font.family: Theme.fontFamily
+                    font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSize
                     width: 28
                     horizontalAlignment: Text.AlignHCenter
@@ -856,7 +856,7 @@ Rectangle {
                     border.color: Theme.bg3
                     Behavior on color { ColorAnimation { duration: Theme.animHover } }
 
-                    Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
+                    Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
 
                     MouseArea {
                         id: monoFontSizePlus
@@ -887,7 +887,7 @@ Rectangle {
                     Text {
                         text: modelData.label + " offset"
                         color: Theme.fg
-                        font.family: Theme.fontFamily
+                        font.family: Theme.systemFamily
                         font.pixelSize: Theme.fontSizeSmall
                         Layout.fillWidth: true
                     }
@@ -911,7 +911,7 @@ Rectangle {
                         border.color: Theme.bg3
                         Behavior on color { ColorAnimation { duration: Theme.animHover } }
 
-                        Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
+                        Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
 
                         MouseArea {
                             id: offsetMinus
@@ -925,7 +925,7 @@ Rectangle {
                     Text {
                         text: String(root.currentIntValue(fieldKey, 0))
                         color: Theme.fg
-                        font.family: Theme.fontFamily
+                        font.family: Theme.systemFamily
                         font.pixelSize: Theme.fontSize
                         width: 28
                         horizontalAlignment: Text.AlignHCenter
@@ -942,7 +942,7 @@ Rectangle {
                         border.color: Theme.bg3
                         Behavior on color { ColorAnimation { duration: Theme.animHover } }
 
-                        Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
+                        Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
 
                         MouseArea {
                             id: offsetPlus
@@ -958,7 +958,7 @@ Rectangle {
 
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
 
-        Text { text: "ICONS & CURSORS"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+        Text { text: "ICONS & CURSORS"; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
 
         ColumnLayout {
             Layout.fillWidth: true
@@ -971,7 +971,7 @@ Rectangle {
                 Text {
                     text: "Icon theme"
                     color: Theme.fg
-                    font.family: Theme.fontFamily
+                    font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -1013,7 +1013,7 @@ Rectangle {
                             anchors.centerIn: parent
                             text: modelData
                             color: iconThemeChip.isActive ? Theme.bg : Theme.fg
-                            font.family: Theme.fontFamily
+                            font.family: Theme.systemFamily
                             font.pixelSize: Theme.fontSizeSmall
                             Behavior on color { ColorAnimation { duration: Theme.animHover } }
                         }
@@ -1041,7 +1041,7 @@ Rectangle {
                 Text {
                     text: "Cursor theme"
                     color: Theme.fg
-                    font.family: Theme.fontFamily
+                    font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -1083,7 +1083,7 @@ Rectangle {
                             anchors.centerIn: parent
                             text: modelData
                             color: cursorThemeChip.isActive ? Theme.bg : Theme.fg
-                            font.family: Theme.fontFamily
+                            font.family: Theme.systemFamily
                             font.pixelSize: Theme.fontSizeSmall
                             Behavior on color { ColorAnimation { duration: Theme.animHover } }
                         }
@@ -1111,7 +1111,7 @@ Rectangle {
                 Text {
                     text: "Cursor size"
                     color: Theme.fg
-                    font.family: Theme.fontFamily
+                    font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -1135,7 +1135,7 @@ Rectangle {
                     border.color: Theme.bg3
                     Behavior on color { ColorAnimation { duration: Theme.animHover } }
 
-                    Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
+                    Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
 
                     MouseArea {
                         id: cursorSizeMinus
@@ -1149,7 +1149,7 @@ Rectangle {
                 Text {
                     text: String(root.currentIntValue("cursor_size", 24))
                     color: Theme.fg
-                    font.family: Theme.fontFamily
+                    font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSize
                     width: 28
                     horizontalAlignment: Text.AlignHCenter
@@ -1166,7 +1166,7 @@ Rectangle {
                     border.color: Theme.bg3
                     Behavior on color { ColorAnimation { duration: Theme.animHover } }
 
-                    Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
+                    Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
 
                     MouseArea {
                         id: cursorSizePlus
@@ -1181,7 +1181,7 @@ Rectangle {
 
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
 
-        Text { text: "HYPRLAND"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+        Text { text: "HYPRLAND"; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
 
         Repeater {
             model: [
@@ -1207,7 +1207,7 @@ Rectangle {
                     Text {
                         text: modelData.label
                         color: Theme.fg
-                        font.family: Theme.fontFamily
+                        font.family: Theme.systemFamily
                         font.pixelSize: Theme.fontSizeSmall
                         Layout.fillWidth: true
                     }
@@ -1234,7 +1234,7 @@ Rectangle {
                         border.color: Theme.bg3
                         Behavior on color { ColorAnimation { duration: Theme.animHover } }
 
-                        Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
+                        Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
 
                         MouseArea {
                             id: hyprIntMinus
@@ -1248,7 +1248,7 @@ Rectangle {
                     Text {
                         text: String(root.currentIntValue(modelData.key, modelData.minimum))
                         color: Theme.fg
-                        font.family: Theme.fontFamily
+                        font.family: Theme.systemFamily
                         font.pixelSize: Theme.fontSize
                         width: 28
                         horizontalAlignment: Text.AlignHCenter
@@ -1265,7 +1265,7 @@ Rectangle {
                         border.color: Theme.bg3
                         Behavior on color { ColorAnimation { duration: Theme.animHover } }
 
-                        Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
+                        Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
 
                         MouseArea {
                             id: hyprIntPlus
@@ -1290,7 +1290,7 @@ Rectangle {
                 Text {
                     text: "Enable blur"
                     color: Theme.fg
-                    font.family: Theme.fontFamily
+                    font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -1309,7 +1309,7 @@ Rectangle {
                 Text {
                     text: root.currentBoolValue("hypr_blur_enabled", false) ? "On" : "Off"
                     color: root.currentBoolValue("hypr_blur_enabled", false) ? Theme.fg3 : Theme.fg4
-                    font.family: Theme.fontFamily
+                    font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -1332,7 +1332,7 @@ Rectangle {
                 Text {
                     text: "Enable animations"
                     color: Theme.fg
-                    font.family: Theme.fontFamily
+                    font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -1351,7 +1351,7 @@ Rectangle {
                 Text {
                     text: root.currentBoolValue("hypr_animations_enabled", true) ? "On" : "Off"
                     color: root.currentBoolValue("hypr_animations_enabled", true) ? Theme.fg3 : Theme.fg4
-                    font.family: Theme.fontFamily
+                    font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -1376,7 +1376,7 @@ Rectangle {
                         : "Saving " + root.busyTargetName + "…"
                 ) : ""
                 color: Theme.fg4
-                font.family: Theme.fontFamily
+                font.family: Theme.systemFamily
                 font.pixelSize: Theme.fontSizeSmall
                 Layout.fillWidth: true
             }
@@ -1399,7 +1399,7 @@ Rectangle {
                     anchors.centerIn: parent
                     text: "Cancel"
                     color: Theme.fg
-                    font.family: Theme.fontFamily
+                    font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
                 }
 
@@ -1431,7 +1431,7 @@ Rectangle {
                     anchors.centerIn: parent
                     text: root.busy ? "Working..." : (root.mode === "edit" ? "Save Changes" : "Create Preset")
                     color: root.canSave() ? Theme.bg : Theme.fg4
-                    font.family: Theme.fontFamily
+                    font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
                     font.bold: root.canSave()
                     Behavior on color { ColorAnimation { duration: Theme.animHover } }

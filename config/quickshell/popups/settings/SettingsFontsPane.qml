@@ -56,14 +56,14 @@ Flickable {
         width: parent.width
         spacing: 16
 
-        Text { text: "CODING FONT"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+        Text { text: "CODING FONT"; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
 
         Flow {
             Layout.fillWidth: true
             spacing: 6
 
             Repeater {
-                model: ["JetBrains Mono Nerd Font", "Berkeley Mono", "Recursive Mono", "Fira Code Nerd Font", "Iosevka Nerd Font"]
+                model: ["JetBrains Mono Nerd Font", "Berkeley Mono", "Commit Mono", "Recursive Mono", "Fira Code Nerd Font", "Iosevka Nerd Font"]
 
                 delegate: Rectangle {
                     id: mfBtn
@@ -88,7 +88,7 @@ Flickable {
                         anchors.centerIn: parent
                         text: mfBtn.modelData.replace(" Nerd Font", "")
                         color: mfBtn.isCurrent ? Theme.bg : Theme.fg
-                        font.family: Theme.fontFamily
+                        font.family: Theme.systemFamily
                         font.pixelSize: Theme.fontSizeSmall
                         Behavior on color { ColorAnimation { duration: Theme.animHover } }
                     }
@@ -107,7 +107,7 @@ Flickable {
         Row {
             spacing: 8
 
-            Text { text: "Size:"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; height: Theme.btnHeight; verticalAlignment: Text.AlignVCenter }
+            Text { text: "Size:"; color: Theme.fg3; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; height: Theme.btnHeight; verticalAlignment: Text.AlignVCenter }
 
             Rectangle {
                 width: 28
@@ -118,7 +118,7 @@ Flickable {
                 border.color: Theme.bg3
                 Behavior on color { ColorAnimation { duration: Theme.animHover } }
 
-                Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
+                Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
 
                 MouseArea {
                     id: mfMinus
@@ -133,7 +133,7 @@ Flickable {
                 }
             }
 
-            Text { text: String(root.monoFontBaseSize()); color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; width: 24; horizontalAlignment: Text.AlignHCenter; height: Theme.btnHeight; verticalAlignment: Text.AlignVCenter }
+            Text { text: String(root.monoFontBaseSize()); color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize; width: 24; horizontalAlignment: Text.AlignHCenter; height: Theme.btnHeight; verticalAlignment: Text.AlignVCenter }
 
             Rectangle {
                 width: 28
@@ -144,7 +144,7 @@ Flickable {
                 border.color: Theme.bg3
                 Behavior on color { ColorAnimation { duration: Theme.animHover } }
 
-                Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
+                Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
 
                 MouseArea {
                     id: mfPlus
@@ -167,7 +167,7 @@ Flickable {
             Text {
                 text: "Per-target offsets"
                 color: Theme.fg3
-                font.family: Theme.fontFamily
+                font.family: Theme.systemFamily
                 font.pixelSize: Theme.fontSizeSmall
             }
 
@@ -184,7 +184,7 @@ Flickable {
                     Text {
                         text: modelData.label
                         color: Theme.fg
-                        font.family: Theme.fontFamily
+                        font.family: Theme.systemFamily
                         font.pixelSize: Theme.fontSizeSmall
                         Layout.fillWidth: true
                         Layout.alignment: Qt.AlignVCenter
@@ -199,7 +199,7 @@ Flickable {
                         border.color: Theme.bg3
                         Behavior on color { ColorAnimation { duration: Theme.animHover } }
 
-                        Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
+                        Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
 
                         MouseArea {
                             id: offsetMinus
@@ -213,7 +213,7 @@ Flickable {
                     Text {
                         text: root.formatSignedNumber(root.monoFontSizeOffset(modelData.key))
                         color: Theme.fg
-                        font.family: Theme.fontFamily
+                        font.family: Theme.systemFamily
                         font.pixelSize: Theme.fontSize
                         width: 36
                         horizontalAlignment: Text.AlignHCenter
@@ -230,7 +230,7 @@ Flickable {
                         border.color: Theme.bg3
                         Behavior on color { ColorAnimation { duration: Theme.animHover } }
 
-                        Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
+                        Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
 
                         MouseArea {
                             id: offsetPlus
@@ -244,7 +244,7 @@ Flickable {
                     Text {
                         text: "Effective " + String(root.effectiveMonoFontSize(modelData.key))
                         color: Theme.fg4
-                        font.family: Theme.fontFamily
+                        font.family: Theme.systemFamily
                         font.pixelSize: Theme.fontSizeSmall
                         Layout.alignment: Qt.AlignVCenter
                     }
@@ -254,14 +254,14 @@ Flickable {
 
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
 
-        Text { text: "SYSTEM FONT"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+        Text { text: "SYSTEM FONT"; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
 
         Flow {
             Layout.fillWidth: true
             spacing: 6
 
             Repeater {
-                model: ["Overpass", "Inter", "Noto Sans", "Cantarell", "Source Sans 3"]
+                model: ["Overpass", "Inter", "Geist", "IBM Plex Sans", "Rubik", "Noto Sans", "Cantarell", "Source Sans 3", "Outfit", "SF Pro"]
 
                 delegate: Rectangle {
                     id: sfBtn
@@ -286,7 +286,7 @@ Flickable {
                         anchors.centerIn: parent
                         text: sfBtn.modelData
                         color: sfBtn.isCurrent ? Theme.bg : Theme.fg
-                        font.family: Theme.fontFamily
+                        font.family: Theme.systemFamily
                         font.pixelSize: Theme.fontSizeSmall
                         Behavior on color { ColorAnimation { duration: Theme.animHover } }
                     }
@@ -305,7 +305,7 @@ Flickable {
         Row {
             spacing: 8
 
-            Text { text: "Size:"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; height: Theme.btnHeight; verticalAlignment: Text.AlignVCenter }
+            Text { text: "Size:"; color: Theme.fg3; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; height: Theme.btnHeight; verticalAlignment: Text.AlignVCenter }
 
             Rectangle {
                 width: 28
@@ -316,7 +316,7 @@ Flickable {
                 border.color: Theme.bg3
                 Behavior on color { ColorAnimation { duration: Theme.animHover } }
 
-                Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
+                Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
 
                 MouseArea {
                     id: sfMinus
@@ -331,7 +331,7 @@ Flickable {
                 }
             }
 
-            Text { text: String(root.themeState.font_size || 11); color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; width: 24; horizontalAlignment: Text.AlignHCenter; height: Theme.btnHeight; verticalAlignment: Text.AlignVCenter }
+            Text { text: String(root.themeState.font_size || 11); color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize; width: 24; horizontalAlignment: Text.AlignHCenter; height: Theme.btnHeight; verticalAlignment: Text.AlignVCenter }
 
             Rectangle {
                 width: 28
@@ -342,7 +342,7 @@ Flickable {
                 border.color: Theme.bg3
                 Behavior on color { ColorAnimation { duration: Theme.animHover } }
 
-                Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
+                Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
 
                 MouseArea {
                     id: sfPlus
