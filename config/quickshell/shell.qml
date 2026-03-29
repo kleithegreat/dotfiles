@@ -7,6 +7,7 @@ import Quickshell.Io
 import qs
 import qs.bar as Bar
 import qs.popups as Popups
+import "components" as Components
 
 Scope {
     id: root
@@ -78,30 +79,40 @@ Scope {
     }
     function showBrightnessOsd(pct) { AudioService.showOsdState(pct, pct + "%", "󰃟"); }
 
-    LazyLoader {
-        active: AudioService.showOsd
-        PanelWindow {
-            visible: AudioService.showOsd
-            anchors { top: true }
-            margins { top: Theme.barHeight + Theme.barMargin + Theme.gapOut }
-            implicitWidth: Theme.osdWidth; implicitHeight: Theme.osdHeight; color: "transparent"; mask: Region {}
-            WlrLayershell.namespace: "quickshell:osd"; WlrLayershell.layer: WlrLayer.Overlay; exclusionMode: ExclusionMode.Ignore
-            Rectangle { anchors.fill: parent; radius: Theme.osdRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
-                scale: AudioService.showOsd ? 1.0 : 0.85
-                opacity: AudioService.showOsd ? 1.0 : 0.0
-                Behavior on scale { NumberAnimation { duration: Theme.animOsdIn; easing.type: Easing.OutCubic } }
-                Behavior on opacity { NumberAnimation { duration: AudioService.showOsd ? Theme.animOsdIn : Theme.animOsdOut } }
-                Row { anchors.centerIn: parent; spacing: 10
-                    Text { text: AudioService.osdIcon; font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize; color: Theme.fg; anchors.verticalCenter: parent.verticalCenter }
-                    Rectangle { width: Theme.osdWidth - 100; height: Theme.osdBarHeight; radius: Theme.osdBarRadius; color: Theme.bg3; anchors.verticalCenter: parent.verticalCenter
-                        Rectangle {
-                            width: parent.width * (AudioService.osdValue / 100); radius: parent.radius; color: Theme.greenBright
-                            anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
-                            Behavior on width { NumberAnimation { duration: 80 } }
-                        }
-                    }
-                    Text { text: AudioService.osdLabel; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; color: Theme.fg3; width: 38; horizontalAlignment: Text.AlignRight; anchors.verticalCenter: parent.verticalCenter }
+    PanelWindow {
+        visible: AudioService.showOsd || osdPanel.opacity > 0.001
+        anchors { top: true }
+        margins { top: Theme.barHeight + Theme.barMargin + Theme.gapOut }
+        implicitWidth: Theme.osdWidth; implicitHeight: Theme.osdHeight; color: "transparent"; mask: Region {}
+        WlrLayershell.namespace: "quickshell:osd"; WlrLayershell.layer: WlrLayer.Overlay; exclusionMode: ExclusionMode.Ignore
+        Rectangle {
+            id: osdPanel
+            anchors.fill: parent
+            radius: Theme.osdRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
+            scale: AudioService.showOsd ? 1.0 : 0.85
+            opacity: AudioService.showOsd ? 1.0 : 0.0
+            Behavior on scale {
+                Components.Anim {
+                    duration: AudioService.showOsd ? Theme.animOsdIn : Theme.animOsdOut
+                    easing.type: AudioService.showOsd ? Easing.OutCubic : Easing.InCubic
                 }
+            }
+            Behavior on opacity {
+                Components.Anim {
+                    duration: AudioService.showOsd ? Theme.animOsdIn : Theme.animOsdOut
+                    easing.type: AudioService.showOsd ? Easing.OutCubic : Easing.InCubic
+                }
+            }
+            Row { anchors.centerIn: parent; spacing: 10
+                Text { text: AudioService.osdIcon; font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize; color: Theme.fg; anchors.verticalCenter: parent.verticalCenter }
+                Rectangle { width: Theme.osdWidth - 100; height: Theme.osdBarHeight; radius: Theme.osdBarRadius; color: Theme.bg3; anchors.verticalCenter: parent.verticalCenter
+                    Rectangle {
+                        width: parent.width * (AudioService.osdValue / 100); radius: parent.radius; color: Theme.greenBright
+                        anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
+                        Behavior on width { Components.Anim { duration: 80; easing.type: Easing.OutCubic } }
+                    }
+                }
+                Text { text: AudioService.osdLabel; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; color: Theme.fg3; width: 38; horizontalAlignment: Text.AlignRight; anchors.verticalCenter: parent.verticalCenter }
             }
         }
     }
@@ -110,8 +121,6 @@ Scope {
     PowerMenu { active: root.activePopup === "powermenu"; onClose: root.activePopup = "" }
     NotifDrawer {
         active: root.activePopup === "drawer"; onClose: root.activePopup = ""
-        model: NotificationService.historyModel; doNotDisturb: NotificationService.doNotDisturb
-        onToggleDnd: NotificationService.toggleDnd(); onClearAll: NotificationService.clearHistory(); onRemoveItem: (nid) => NotificationService.removeHistory(nid)
     }
     Popups.CalendarPopup { active: root.activePopup === "calendar"; onClose: root.activePopup = "" }
     Popups.TrayPopup { active: root.activePopup === "tray"; onClose: root.activePopup = "" }
