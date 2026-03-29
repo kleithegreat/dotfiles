@@ -35,6 +35,7 @@ PanelWindow {
         anchors.rightMargin: Theme.barPadding; spacing: Theme.barSpacing
 
         Network { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleWifi(); } }
+        Vpn { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleVpn(); } }
         Bluetooth { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleBluetooth(); } }
         Volume { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleAudio(); } }
         Battery { onClicked: { if (bar.popupVisibility) bar.popupVisibility.togglePowerProfile(); } }
