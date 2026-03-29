@@ -23,4 +23,11 @@ in
     pkgs.adwaita-icon-theme
     neuwaita
   ];
+
+  # ── dconf / GNOME settings ───────────────────────────────────
+  dconf.settings = {
+    "org/gnome/desktop/interface" = {
+      clock-format = "12h";
+    };
+  };
 }
