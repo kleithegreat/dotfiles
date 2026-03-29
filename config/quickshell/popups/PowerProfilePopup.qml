@@ -11,6 +11,7 @@ PanelWindow {
     id: ppPop
     property bool active: false; signal close()
     property bool closing: false
+    property bool contentLoaded: false
     visible: active || closing
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
@@ -57,15 +58,32 @@ PanelWindow {
     }
     onCurrentProfileChanged: pendingProfile = ""
 
+    function preparePanelForOpen() {
+        let item = ppContentLoader.item;
+        if (!item)
+            return false;
+
+        item.opacity = 0;
+        item.scale = 0.92;
+        return true;
+    }
+
     onActiveChanged: {
         if (active) {
-            ppPanel.opacity = 0;
-            ppPanel.scale = 0.92;
+            contentLoaded = true;
             detect();
             detectChargeLimit();
-            ppOpenAnim.start();
+            if (preparePanelForOpen())
+                ppOpenAnim.start();
         }
-        else if (!closing) { closing = true; ppCloseAnim.start(); }
+        else if (!closing) {
+            if (ppContentLoader.item) {
+                closing = true;
+                ppCloseAnim.start();
+            } else {
+                closing = false;
+            }
+        }
     }
 
     function detect() { ppctlProc.running = true; }
@@ -244,7 +262,7 @@ PanelWindow {
         id: ppOpenAnim
         ParallelAnimation {
             Components.Anim {
-                target: ppPanel
+                target: ppContentLoader.item
                 property: "opacity"
                 to: 1
                 duration: Theme.animPopupIn
@@ -252,7 +270,7 @@ PanelWindow {
                 easing.bezierCurve: Theme.animCurveEmphasizedEnter
             }
             Components.Anim {
-                target: ppPanel
+                target: ppContentLoader.item
                 property: "scale"
                 to: 1.0
                 duration: Theme.animPopupIn
@@ -265,7 +283,7 @@ PanelWindow {
         id: ppCloseAnim
         ParallelAnimation {
             Components.Anim {
-                target: ppPanel
+                target: ppContentLoader.item
                 property: "opacity"
                 to: 0
                 duration: Theme.animPopupOut
@@ -273,7 +291,7 @@ PanelWindow {
                 easing.bezierCurve: Theme.animCurveExit
             }
             Components.Anim {
-                target: ppPanel
+                target: ppContentLoader.item
                 property: "scale"
                 to: 0.92
                 duration: Theme.animPopupOut
@@ -284,25 +302,45 @@ PanelWindow {
         ScriptAction { script: { ppPop.closing = false; } }
     }
 
-    Rectangle {
-        id: ppPanel
+    Loader {
+        id: ppContentLoader
         anchors.right: parent.right; anchors.top: parent.top
         anchors.topMargin: Theme.popupTopMargin; anchors.rightMargin: Theme.gapOut
-        width: 260; height: ppCol.implicitHeight + Theme.popupPadding * 2
-        radius: Theme.popupRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
-        opacity: 0; scale: 0.92
-        transformOrigin: Item.TopRight
-        Behavior on height {
-            Components.Anim {
-                duration: Theme.animHeightResize
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: Theme.animCurveStandard
-            }
-        }
-        MouseArea { anchors.fill: parent }
+        width: 260
+        height: item ? item.implicitHeight : 0
+        active: ppPop.contentLoaded || ppPop.active || ppPop.closing
+        asynchronous: true
+        sourceComponent: ppPanelComponent
 
-        ColumnLayout {
-            id: ppCol; anchors.fill: parent; anchors.margins: Theme.popupPadding; spacing: 8
+        onLoaded: {
+            item.opacity = 0;
+            item.scale = 0.92;
+            if (ppPop.active)
+                ppOpenAnim.start();
+        }
+    }
+
+    Component {
+        id: ppPanelComponent
+
+        Rectangle {
+            id: ppPanel
+            anchors.fill: parent
+            implicitHeight: ppCol.implicitHeight + Theme.popupPadding * 2
+            radius: Theme.popupRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
+            opacity: 0; scale: 0.92
+            transformOrigin: Item.TopRight
+            Behavior on height {
+                Components.Anim {
+                    duration: Theme.animHeightResize
+                    easing.type: Easing.BezierSpline
+                    easing.bezierCurve: Theme.animCurveStandard
+                }
+            }
+            MouseArea { anchors.fill: parent }
+
+            ColumnLayout {
+                id: ppCol; anchors.fill: parent; anchors.margins: Theme.popupPadding; spacing: 8
 
             Text { text: "⚡ Power Profile"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true }
             Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
@@ -433,6 +471,7 @@ PanelWindow {
                     wrapMode: Text.WordWrap
                     Layout.fillWidth: true
                 }
+            }
             }
         }
     }

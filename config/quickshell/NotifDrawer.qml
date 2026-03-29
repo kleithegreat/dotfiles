@@ -9,6 +9,7 @@ PanelWindow {
     id: drawer
     property bool active: false; signal close()
     property bool closing: false
+    property bool contentLoaded: false
     component StateLayer: Item {
         id: stateLayerRoot
 
@@ -46,39 +47,79 @@ PanelWindow {
         MouseArea { anchors.fill: parent; onClicked: drawer.close() }
     }
 
+    function preparePanelForOpen() {
+        let item = drawerContentLoader.item;
+        if (!item)
+            return false;
+
+        item.opacity = 0;
+        item.scale = 0.92;
+        return true;
+    }
+
     onActiveChanged: {
-        if (active) { drawerPanel.opacity = 0; drawerPanel.scale = 0.92; drawerOpenAnim.start(); }
-        else if (!closing) { closing = true; drawerCloseAnim.start(); }
+        if (active) {
+            contentLoaded = true;
+            if (preparePanelForOpen())
+                drawerOpenAnim.start();
+        } else if (!closing) {
+            if (drawerContentLoader.item) {
+                closing = true;
+                drawerCloseAnim.start();
+            } else {
+                closing = false;
+            }
+        }
     }
 
     SequentialAnimation {
         id: drawerOpenAnim
         ParallelAnimation {
-            Components.Anim { target: drawerPanel; property: "opacity"; to: 1; duration: Theme.animPopupIn; easing.type: Easing.OutCubic }
-            Components.Anim { target: drawerPanel; property: "scale"; to: 1.0; duration: Theme.animPopupIn; easing.type: Easing.OutCubic }
+            Components.Anim { target: drawerContentLoader.item; property: "opacity"; to: 1; duration: Theme.animPopupIn; easing.type: Easing.OutCubic }
+            Components.Anim { target: drawerContentLoader.item; property: "scale"; to: 1.0; duration: Theme.animPopupIn; easing.type: Easing.OutCubic }
         }
     }
     SequentialAnimation {
         id: drawerCloseAnim
         ParallelAnimation {
-            Components.Anim { target: drawerPanel; property: "opacity"; to: 0; duration: Theme.animPopupOut; easing.type: Easing.InCubic }
-            Components.Anim { target: drawerPanel; property: "scale"; to: 0.92; duration: Theme.animPopupOut; easing.type: Easing.InCubic }
+            Components.Anim { target: drawerContentLoader.item; property: "opacity"; to: 0; duration: Theme.animPopupOut; easing.type: Easing.InCubic }
+            Components.Anim { target: drawerContentLoader.item; property: "scale"; to: 0.92; duration: Theme.animPopupOut; easing.type: Easing.InCubic }
         }
         ScriptAction { script: { drawer.closing = false; } }
     }
 
-    Rectangle {
-        id: drawerPanel
+    Loader {
+        id: drawerContentLoader
         anchors.top: parent.top; anchors.right: parent.right
         anchors.topMargin: Theme.popupTopMargin; anchors.rightMargin: Theme.gapOut
-        width: Theme.drawerWidth; height: Math.min(drawerCol.implicitHeight + Theme.notifPadding * 2, parent.height - Theme.popupTopMargin - Theme.gapOut)
-        radius: Theme.notifRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
-        opacity: 0; scale: 0.92
-        transformOrigin: Item.TopRight
-        MouseArea { anchors.fill: parent }
+        width: Theme.drawerWidth
+        height: item ? Math.min(item.implicitHeight, parent.height - Theme.popupTopMargin - Theme.gapOut) : 0
+        active: drawer.contentLoaded || drawer.active || drawer.closing
+        asynchronous: true
+        sourceComponent: drawerPanelComponent
 
-        ColumnLayout {
-            id: drawerCol; anchors.fill: parent; anchors.margins: Theme.notifPadding; spacing: 8
+        onLoaded: {
+            item.opacity = 0;
+            item.scale = 0.92;
+            if (drawer.active)
+                drawerOpenAnim.start();
+        }
+    }
+
+    Component {
+        id: drawerPanelComponent
+
+        Rectangle {
+            id: drawerPanel
+            anchors.fill: parent
+            implicitHeight: drawerCol.implicitHeight + Theme.notifPadding * 2
+            radius: Theme.notifRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
+            opacity: 0; scale: 0.92
+            transformOrigin: Item.TopRight
+            MouseArea { anchors.fill: parent }
+
+            ColumnLayout {
+                id: drawerCol; anchors.fill: parent; anchors.margins: Theme.notifPadding; spacing: 8
             RowLayout { Layout.fillWidth: true; spacing: 8
                 Text { text: "󰂚  Notifications"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true; Layout.fillWidth: true }
 
@@ -174,6 +215,7 @@ PanelWindow {
                 Layout.topMargin: 20; Layout.bottomMargin: 20
                 Text { text: "󰂚"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: 24; Layout.alignment: Qt.AlignHCenter }
                 Text { text: "No notifications"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.alignment: Qt.AlignHCenter }
+            }
             }
         }
     }

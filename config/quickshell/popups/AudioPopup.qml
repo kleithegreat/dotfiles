@@ -10,6 +10,7 @@ PanelWindow {
     id: audioPop
     property bool active: false; signal close()
     property bool closing: false
+    property bool contentLoaded: false
     visible: active || closing
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
@@ -18,12 +19,28 @@ PanelWindow {
     WlrLayershell.keyboardFocus: active ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     exclusionMode: ExclusionMode.Ignore
 
+    function preparePanelForOpen() {
+        let item = audioContentLoader.item;
+        if (!item)
+            return false;
+
+        item.opacity = 0;
+        item.scale = 0.92;
+        return true;
+    }
+
     onActiveChanged: {
         if (active) {
-            audioPanel.opacity = 0; audioPanel.scale = 0.92;
-            audioOpenAnim.start();
+            contentLoaded = true;
+            if (preparePanelForOpen())
+                audioOpenAnim.start();
         } else if (!closing) {
-            closing = true; audioCloseAnim.start();
+            if (audioContentLoader.item) {
+                closing = true;
+                audioCloseAnim.start();
+            } else {
+                closing = false;
+            }
         }
     }
 
@@ -31,7 +48,7 @@ PanelWindow {
         id: audioOpenAnim
         ParallelAnimation {
             Components.Anim {
-                target: audioPanel
+                target: audioContentLoader.item
                 property: "opacity"
                 to: 1
                 duration: Theme.animPopupIn
@@ -39,7 +56,7 @@ PanelWindow {
                 easing.bezierCurve: Theme.animCurveEmphasizedEnter
             }
             Components.Anim {
-                target: audioPanel
+                target: audioContentLoader.item
                 property: "scale"
                 to: 1.0
                 duration: Theme.animPopupIn
@@ -52,7 +69,7 @@ PanelWindow {
         id: audioCloseAnim
         ParallelAnimation {
             Components.Anim {
-                target: audioPanel
+                target: audioContentLoader.item
                 property: "opacity"
                 to: 0
                 duration: Theme.animPopupOut
@@ -60,7 +77,7 @@ PanelWindow {
                 easing.bezierCurve: Theme.animCurveExit
             }
             Components.Anim {
-                target: audioPanel
+                target: audioContentLoader.item
                 property: "scale"
                 to: 0.92
                 duration: Theme.animPopupOut
@@ -81,18 +98,38 @@ PanelWindow {
         MouseArea { anchors.fill: parent; onClicked: audioPop.close() }
     }
 
-    Rectangle {
-        id: audioPanel
+    Loader {
+        id: audioContentLoader
         anchors.right: parent.right; anchors.top: parent.top
         anchors.topMargin: Theme.popupTopMargin; anchors.rightMargin: Theme.gapOut
-        width: Theme.audioPopupWidth; height: audioCol.implicitHeight + Theme.popupPadding * 2
-        radius: Theme.popupRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
-        opacity: 0; scale: 0.92
-        transformOrigin: Item.TopRight
-        MouseArea { anchors.fill: parent }
+        width: Theme.audioPopupWidth
+        height: item ? item.implicitHeight : 0
+        active: audioPop.contentLoaded || audioPop.active || audioPop.closing
+        asynchronous: true
+        sourceComponent: audioPanelComponent
 
-        ColumnLayout {
-            id: audioCol; anchors.fill: parent; anchors.margins: Theme.popupPadding; spacing: Theme.listItemPadding
+        onLoaded: {
+            item.opacity = 0;
+            item.scale = 0.92;
+            if (audioPop.active)
+                audioOpenAnim.start();
+        }
+    }
+
+    Component {
+        id: audioPanelComponent
+
+        Rectangle {
+            id: audioPanel
+            anchors.fill: parent
+            implicitHeight: audioCol.implicitHeight + Theme.popupPadding * 2
+            radius: Theme.popupRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
+            opacity: 0; scale: 0.92
+            transformOrigin: Item.TopRight
+            MouseArea { anchors.fill: parent }
+
+            ColumnLayout {
+                id: audioCol; anchors.fill: parent; anchors.margins: Theme.popupPadding; spacing: Theme.listItemPadding
 
             // ── Output ──
             RowLayout { Layout.fillWidth: true; spacing: 8
@@ -343,6 +380,7 @@ PanelWindow {
                     }
                     Text { visible: appCol.visibleAppCount === 0; text: "No applications playing"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
                 }
+            }
             }
         }
     }

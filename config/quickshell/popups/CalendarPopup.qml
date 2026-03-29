@@ -9,6 +9,7 @@ PanelWindow {
     id: cal
     property bool active: false; signal close()
     property bool closing: false
+    property bool contentLoaded: false
     visible: active || closing
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
@@ -17,15 +18,31 @@ PanelWindow {
     WlrLayershell.keyboardFocus: active ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     exclusionMode: ExclusionMode.Ignore
 
+    function preparePanelForOpen() {
+        let item = calContentLoader.item;
+        if (!item)
+            return false;
+
+        item.opacity = 0;
+        item.scale = 0.92;
+        return true;
+    }
+
     onActiveChanged: {
         if (active) {
             let today = new Date();
             viewYear = today.getFullYear();
             viewMonth = today.getMonth();
-            calPanel.opacity = 0; calPanel.scale = 0.92;
-            calOpenAnim.start();
+            contentLoaded = true;
+            if (preparePanelForOpen())
+                calOpenAnim.start();
         } else if (!closing) {
-            closing = true; calCloseAnim.start();
+            if (calContentLoader.item) {
+                closing = true;
+                calCloseAnim.start();
+            } else {
+                closing = false;
+            }
         }
     }
 
@@ -33,7 +50,7 @@ PanelWindow {
         id: calOpenAnim
         ParallelAnimation {
             Components.Anim {
-                target: calPanel
+                target: calContentLoader.item
                 property: "opacity"
                 to: 1
                 duration: Theme.animPopupIn
@@ -41,7 +58,7 @@ PanelWindow {
                 easing.bezierCurve: Theme.animCurveEmphasizedEnter
             }
             Components.Anim {
-                target: calPanel
+                target: calContentLoader.item
                 property: "scale"
                 to: 1.0
                 duration: Theme.animPopupIn
@@ -54,7 +71,7 @@ PanelWindow {
         id: calCloseAnim
         ParallelAnimation {
             Components.Anim {
-                target: calPanel
+                target: calContentLoader.item
                 property: "opacity"
                 to: 0
                 duration: Theme.animPopupOut
@@ -62,7 +79,7 @@ PanelWindow {
                 easing.bezierCurve: Theme.animCurveExit
             }
             Components.Anim {
-                target: calPanel
+                target: calContentLoader.item
                 property: "scale"
                 to: 0.92
                 duration: Theme.animPopupOut
@@ -95,19 +112,39 @@ PanelWindow {
         MouseArea { anchors.fill: parent; onClicked: cal.close() }
     }
 
-    // Panel
-    Rectangle {
-        id: calPanel
+    Loader {
+        id: calContentLoader
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top; anchors.topMargin: Theme.popupTopMargin
-        width: Theme.calWidth; height: calCol.implicitHeight + Theme.popupPadding * 2
-        radius: Theme.popupRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
-        opacity: 0; scale: 0.92
-        transformOrigin: Item.Top
-        MouseArea { anchors.fill: parent }
+        width: Theme.calWidth
+        height: item ? item.implicitHeight : 0
+        active: cal.contentLoaded || cal.active || cal.closing
+        asynchronous: true
+        sourceComponent: calPanelComponent
 
-        ColumnLayout {
-            id: calCol; anchors.fill: parent; anchors.margins: Theme.popupPadding; spacing: 6
+        onLoaded: {
+            item.opacity = 0;
+            item.scale = 0.92;
+            if (cal.active)
+                calOpenAnim.start();
+        }
+    }
+
+    Component {
+        id: calPanelComponent
+
+        // Panel
+        Rectangle {
+            id: calPanel
+            anchors.fill: parent
+            implicitHeight: calCol.implicitHeight + Theme.popupPadding * 2
+            radius: Theme.popupRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
+            opacity: 0; scale: 0.92
+            transformOrigin: Item.Top
+            MouseArea { anchors.fill: parent }
+
+            ColumnLayout {
+                id: calCol; anchors.fill: parent; anchors.margins: Theme.popupPadding; spacing: 6
 
             RowLayout {
                 Layout.fillWidth: true
@@ -238,6 +275,7 @@ PanelWindow {
                 text: Qt.formatDateTime(new Date(), "dddd, MMMM d, yyyy  h:mm AP")
                 color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                 Layout.alignment: Qt.AlignHCenter
+            }
             }
         }
     }

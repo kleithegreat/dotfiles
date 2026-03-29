@@ -12,6 +12,7 @@ PanelWindow {
     property bool active: false
     signal close()
     property bool closing: false
+    property bool contentLoaded: false
     visible: active || closing
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
@@ -72,14 +73,32 @@ PanelWindow {
     property string presetCommandError: ""
     property int presetMutationToken: 0
 
+    function preparePanelForOpen() {
+        let item = settingsContentLoader.item;
+        if (!item)
+            return false;
+
+        item.opacity = 0;
+        item.scale = 0.92;
+        return true;
+    }
+
     onActiveChanged: {
         if (active) {
-            panel.opacity = 0;
-            panel.scale = 0.92;
+            contentLoaded = true;
             loadState();
-            settingsOpenAnim.start();
+            if (preparePanelForOpen())
+                settingsOpenAnim.start();
         }
-        else if (!closing) { closeDirectoryBrowser(); closing = true; settingsCloseAnim.start(); }
+        else if (!closing) {
+            closeDirectoryBrowser();
+            if (settingsContentLoader.item) {
+                closing = true;
+                settingsCloseAnim.start();
+            } else {
+                closing = false;
+            }
+        }
     }
 
     // ── Data loading ──
@@ -619,7 +638,7 @@ PanelWindow {
         id: settingsOpenAnim
         ParallelAnimation {
             Components.Anim {
-                target: panel
+                target: settingsContentLoader.item
                 property: "opacity"
                 to: 1
                 duration: Theme.animPopupIn
@@ -627,7 +646,7 @@ PanelWindow {
                 easing.bezierCurve: Theme.animCurveEmphasizedEnter
             }
             Components.Anim {
-                target: panel
+                target: settingsContentLoader.item
                 property: "scale"
                 to: 1.0
                 duration: Theme.animPopupIn
@@ -640,7 +659,7 @@ PanelWindow {
         id: settingsCloseAnim
         ParallelAnimation {
             Components.Anim {
-                target: panel
+                target: settingsContentLoader.item
                 property: "opacity"
                 to: 0
                 duration: Theme.animPopupOut
@@ -648,7 +667,7 @@ PanelWindow {
                 easing.bezierCurve: Theme.animCurveExit
             }
             Components.Anim {
-                target: panel
+                target: settingsContentLoader.item
                 property: "scale"
                 to: 0.92
                 duration: Theme.animPopupOut
@@ -659,55 +678,74 @@ PanelWindow {
         ScriptAction { script: { settingsPop.closing = false; } }
     }
 
-    // ── Panel ──
-    Rectangle {
-        id: panel
+    Loader {
+        id: settingsContentLoader
         width: 700
         height: 500
         anchors.centerIn: parent
-        radius: Theme.popupRadius
-        color: Theme.bg
-        border.width: 1
-        border.color: Theme.bg3
-        opacity: 0
-        scale: 0.92
-        transformOrigin: Item.Center
-        clip: true
-        layer.enabled: true
+        active: settingsPop.contentLoaded || settingsPop.active || settingsPop.closing
+        asynchronous: true
+        sourceComponent: settingsPanelComponent
 
-        Row {
+        onLoaded: {
+            item.opacity = 0;
+            item.scale = 0.92;
+            if (settingsPop.active)
+                settingsOpenAnim.start();
+        }
+    }
+
+    Component {
+        id: settingsPanelComponent
+
+        // ── Panel ──
+        Rectangle {
+            id: panel
             anchors.fill: parent
+            radius: Theme.popupRadius
+            color: Theme.bg
+            border.width: 1
+            border.color: Theme.bg3
+            opacity: 0
+            scale: 0.92
+            transformOrigin: Item.Center
+            clip: true
+            layer.enabled: true
 
-            Settings.SettingsSidebar {
-                selectedCategory: settingsPop.selectedCategory
-                categoryNames: settingsPop.categoryNames
-                categoryIcons: settingsPop.categoryIcons
-                onCategorySelected: (index) => settingsPop.selectedCategory = index
-            }
+            Row {
+                anchors.fill: parent
 
-            Rectangle {
-                width: 1
-                height: parent.height
-                color: Theme.bg3
-            }
+                Settings.SettingsSidebar {
+                    selectedCategory: settingsPop.selectedCategory
+                    categoryNames: settingsPop.categoryNames
+                    categoryIcons: settingsPop.categoryIcons
+                    onCategorySelected: (index) => settingsPop.selectedCategory = index
+                }
 
-            Item {
-                width: parent.width - 191
-                height: parent.height
+                Rectangle {
+                    width: 1
+                    height: parent.height
+                    color: Theme.bg3
+                }
 
-                Loader {
-                    id: detailLoader
-                    anchors.fill: parent
-                    anchors.margins: Theme.popupPadding
-                    sourceComponent: {
-                        switch (settingsPop.selectedCategory) {
-                            case 0: return presetsPane;
-                            case 1: return colorsPane;
-                            case 2: return fontsPane;
-                            case 3: return wallpaperPane;
-                            case 4: return iconsPane;
-                            case 5: return hyprlandPane;
-                            default: return null;
+                Item {
+                    width: parent.width - 191
+                    height: parent.height
+
+                    Loader {
+                        id: detailLoader
+                        anchors.fill: parent
+                        anchors.margins: Theme.popupPadding
+                        sourceComponent: {
+                            switch (settingsPop.selectedCategory) {
+                                case 0: return presetsPane;
+                                case 1: return colorsPane;
+                                case 2: return fontsPane;
+                                case 3: return wallpaperPane;
+                                case 4: return iconsPane;
+                                case 5: return hyprlandPane;
+                                default: return null;
+                            }
                         }
                     }
                 }
