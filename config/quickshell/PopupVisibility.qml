@@ -11,6 +11,7 @@ QtObject {
     property bool bluetoothVisible: false
     property bool powerProfileVisible: false
     property bool settingsVisible: false
+    property bool vpnVisible: false
 
     function closeAll() {
         powerMenuVisible = false
@@ -23,6 +24,7 @@ QtObject {
         bluetoothVisible = false
         powerProfileVisible = false
         settingsVisible = false
+        vpnVisible = false
     }
 
     function toggleExclusive(isVisible, showPopup) {
@@ -45,4 +47,5 @@ QtObject {
     function toggleBluetooth() { toggleExclusive(bluetoothVisible, function() { bluetoothVisible = true }) }
     function togglePowerProfile() { toggleExclusive(powerProfileVisible, function() { powerProfileVisible = true }) }
     function toggleSettings() { toggleExclusive(settingsVisible, function() { settingsVisible = true }) }
+    function toggleVpn() { toggleExclusive(vpnVisible, function() { vpnVisible = true }) }
 }
