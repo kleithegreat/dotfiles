@@ -1,5 +1,6 @@
 import qs
 import QtQuick
+import "../components" as Components
 
 Item {
     id: clockRoot
@@ -7,9 +8,10 @@ Item {
     implicitHeight: clockText.implicitHeight
     signal clicked()
 
-    Text {
+    Components.StyledText {
         id: clockText
         property string timeStr: ""
+        animate: true
         text: timeStr
         color: clockArea.containsMouse ? Theme.yellowBright : Theme.fg
         font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; font.bold: true

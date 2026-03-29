@@ -1,6 +1,7 @@
 import qs
 import QtQuick
 import QtQuick.Layouts
+import "../components" as Components
 
 Item {
     id: volumeRoot
@@ -20,12 +21,12 @@ Item {
             font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
             Behavior on text {
                 SequentialAnimation {
-                    NumberAnimation { target: volIcon; property: "opacity"; to: 0; duration: Theme.animFast; easing.type: Easing.InQuad }
+                    Components.Anim { target: volIcon; property: "opacity"; to: 0; duration: Theme.animFast; easing.type: Easing.InQuad }
                     PropertyAction { target: volIcon; property: "text" }
-                    NumberAnimation { target: volIcon; property: "opacity"; to: 1; duration: Theme.animNormal; easing.type: Easing.OutCubic }
+                    Components.Anim { target: volIcon; property: "opacity"; to: 1; duration: Theme.animNormal; easing.type: Easing.OutCubic }
                 }
             }
-            Behavior on color { ColorAnimation { duration: 150 } }
+            Behavior on color { Components.CAnim { duration: 150 } }
         }
         Text {
             text: muted ? "Muted" : Math.round(volume * 100) + "%"
