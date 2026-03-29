@@ -2,6 +2,7 @@ import qs
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Io
+import "../components" as Components
 
 RowLayout {
     id: netRoot; spacing: 4; signal clicked()
@@ -26,12 +27,12 @@ RowLayout {
         // Smooth icon swap: crossfade + subtle vertical slide
         Behavior on text {
             SequentialAnimation {
-                NumberAnimation { target: netIcon; property: "opacity"; to: 0; duration: 120; easing.type: Easing.InQuad }
+                Components.Anim { target: netIcon; property: "opacity"; to: 0; duration: 120; easing.type: Easing.InQuad }
                 PropertyAction { target: netIcon; property: "text" }
-                NumberAnimation { target: netIcon; property: "opacity"; to: 1; duration: 200; easing.type: Easing.OutCubic }
+                Components.Anim { target: netIcon; property: "opacity"; to: 1; duration: 200; easing.type: Easing.OutCubic }
             }
         }
-        Behavior on color { ColorAnimation { duration: 150 } }
+        Behavior on color { Components.CAnim { duration: 150 } }
     }
 
     Item {
@@ -43,7 +44,7 @@ RowLayout {
         clip: true
 
         opacity: connected ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+        Behavior on opacity { Components.Anim { duration: 200; easing.type: Easing.OutCubic } }
 
         property bool overflowing: netLabel.implicitWidth > netRoot.maxLabelWidth
 
@@ -54,7 +55,7 @@ RowLayout {
             color: netArea.containsMouse ? Theme.yellowBright : Theme.fg
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
 
-            Behavior on color { ColorAnimation { duration: 150 } }
+            Behavior on color { Components.CAnim { duration: 150 } }
         }
 
         SequentialAnimation {

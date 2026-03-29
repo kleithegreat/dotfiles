@@ -2,6 +2,7 @@ import qs
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Io
+import "../components" as Components
 
 RowLayout {
     id: btRoot; spacing: 4; signal clicked()
@@ -25,12 +26,12 @@ RowLayout {
 
         Behavior on text {
             SequentialAnimation {
-                NumberAnimation { target: btIcon; property: "opacity"; to: 0; duration: 120; easing.type: Easing.InQuad }
+                Components.Anim { target: btIcon; property: "opacity"; to: 0; duration: 120; easing.type: Easing.InQuad }
                 PropertyAction { target: btIcon; property: "text" }
-                NumberAnimation { target: btIcon; property: "opacity"; to: 1; duration: 200; easing.type: Easing.OutCubic }
+                Components.Anim { target: btIcon; property: "opacity"; to: 1; duration: 200; easing.type: Easing.OutCubic }
             }
         }
-        Behavior on color { ColorAnimation { duration: 150 } }
+        Behavior on color { Components.CAnim { duration: 150 } }
     }
 
     Item {
@@ -42,7 +43,7 @@ RowLayout {
         clip: true
 
         opacity: connected ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+        Behavior on opacity { Components.Anim { duration: 200; easing.type: Easing.OutCubic } }
 
         property bool overflowing: btLabel.implicitWidth > btRoot.maxLabelWidth
 
@@ -52,7 +53,7 @@ RowLayout {
             y: 0
             color: btArea.containsMouse ? Theme.yellowBright : Theme.fg
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-            Behavior on color { ColorAnimation { duration: 150 } }
+            Behavior on color { Components.CAnim { duration: 150 } }
         }
 
         SequentialAnimation {

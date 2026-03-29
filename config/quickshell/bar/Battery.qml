@@ -2,6 +2,7 @@ import qs
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Services.UPower
+import "../components" as Components
 
 RowLayout {
     id: batRoot; spacing: 4; visible: UPower.displayDevice.isPresent
@@ -32,8 +33,13 @@ RowLayout {
         onTriggered: batRoot.charging = batRoot._rawCharging
     }
 
-    Text {
+    Components.StyledText {
         id: batIcon
+        animate: true
+        swapOpacityOutDuration: 100
+        swapScaleOutDuration: 100
+        swapOpacityInDuration: 250
+        swapScaleInDuration: 300
         text: {
             if (charging) return "󰂄";
             if (pct > 90) return "󰁹";
@@ -51,21 +57,7 @@ RowLayout {
         }
         font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
 
-        // Smooth icon swap with scale bounce (like caelestia status icons)
-        Behavior on text {
-            SequentialAnimation {
-                ParallelAnimation {
-                    NumberAnimation { target: batIcon; property: "opacity"; to: 0; duration: 100; easing.type: Easing.InQuad }
-                    NumberAnimation { target: batIcon; property: "scale"; to: 0.6; duration: 100; easing.type: Easing.InQuad }
-                }
-                PropertyAction { target: batIcon; property: "text" }
-                ParallelAnimation {
-                    NumberAnimation { target: batIcon; property: "opacity"; to: 1; duration: 250; easing.type: Easing.OutCubic }
-                    NumberAnimation { target: batIcon; property: "scale"; to: 1.0; duration: 300; easing.type: Easing.OutCubic }
-                }
-            }
-        }
-        Behavior on color { ColorAnimation { duration: 200 } }
+        Behavior on color { Components.CAnim { duration: 200 } }
     }
 
     Text {
@@ -73,7 +65,7 @@ RowLayout {
         text: Math.round(pct) + "%"
         color: batArea.containsMouse ? Theme.yellowBright : Theme.fg
         font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-        Behavior on color { ColorAnimation { duration: 150 } }
+        Behavior on color { Components.CAnim { duration: 150 } }
     }
 
     MouseArea {
