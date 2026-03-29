@@ -13,15 +13,18 @@ Scope {
     id: root
 
     // ── Popup state ──
-    property string activePopup: ""
-    function openPopup(name) { activePopup = (activePopup === name) ? "" : name; }
+    property QtObject popupVisibility: PopupVisibility {}
 
     // ── Notification state (compat for existing popup/bar wiring) ──
     readonly property bool doNotDisturb: NotificationService.doNotDisturb
     readonly property int historyCount: NotificationService.historyCount
 
     // ── Bar ──
-    Bar.Bar { shellRoot: root }
+    Bar.Bar {
+        popupVisibility: root.popupVisibility
+        doNotDisturb: root.doNotDisturb
+        historyCount: root.historyCount
+    }
 
     // ── Notification Popups ──
     PanelWindow {
@@ -117,18 +120,18 @@ Scope {
         }
     }
 
-    // ── All Popups (bound to activePopup) ──
-    PowerMenu { active: root.activePopup === "powermenu"; onClose: root.activePopup = "" }
+    // ── All Popups (bound to popupVisibility) ──
+    PowerMenu { active: root.popupVisibility.powerMenuVisible; onClose: root.popupVisibility.powerMenuVisible = false }
     NotifDrawer {
-        active: root.activePopup === "drawer"; onClose: root.activePopup = ""
+        active: root.popupVisibility.drawerVisible; onClose: root.popupVisibility.drawerVisible = false
     }
-    Popups.CalendarPopup { active: root.activePopup === "calendar"; onClose: root.activePopup = "" }
-    Popups.TrayPopup { active: root.activePopup === "tray"; onClose: root.activePopup = "" }
-    Popups.MprisPopup { active: root.activePopup === "mpris"; onClose: root.activePopup = "" }
-    Popups.AudioPopup { active: root.activePopup === "audio"; onClose: root.activePopup = "" }
-    Popups.WifiPopup { active: root.activePopup === "wifi"; onClose: root.activePopup = "" }
-    Popups.BluetoothPopup { active: root.activePopup === "bluetooth"; onClose: root.activePopup = "" }
-    Popups.PowerProfilePopup { active: root.activePopup === "powerprofile"; onClose: root.activePopup = "" }
-    Popups.SettingsPopup { active: root.activePopup === "settings"; onClose: root.activePopup = "" }
-    IpcHandler { target: "settings"; function toggle() { root.openPopup("settings"); } }
+    Popups.CalendarPopup { active: root.popupVisibility.calendarVisible; onClose: root.popupVisibility.calendarVisible = false }
+    Popups.TrayPopup { active: root.popupVisibility.trayVisible; onClose: root.popupVisibility.trayVisible = false }
+    Popups.MprisPopup { active: root.popupVisibility.mprisVisible; onClose: root.popupVisibility.mprisVisible = false }
+    Popups.AudioPopup { active: root.popupVisibility.audioVisible; onClose: root.popupVisibility.audioVisible = false }
+    Popups.WifiPopup { active: root.popupVisibility.wifiVisible; onClose: root.popupVisibility.wifiVisible = false }
+    Popups.BluetoothPopup { active: root.popupVisibility.bluetoothVisible; onClose: root.popupVisibility.bluetoothVisible = false }
+    Popups.PowerProfilePopup { active: root.popupVisibility.powerProfileVisible; onClose: root.popupVisibility.powerProfileVisible = false }
+    Popups.SettingsPopup { active: root.popupVisibility.settingsVisible; onClose: root.popupVisibility.settingsVisible = false }
+    IpcHandler { target: "settings"; function toggle() { root.popupVisibility.toggleSettings(); } }
 }

@@ -6,7 +6,9 @@ import QtQuick.Layouts
 
 PanelWindow {
     id: bar
-    property var shellRoot: null
+    property QtObject popupVisibility: null
+    property bool doNotDisturb: false
+    property int historyCount: 0
     anchors { top: true; left: true; right: true }
     margins { top: Theme.barMargin; left: Theme.barMargin; right: Theme.barMargin }
     implicitHeight: Theme.barHeight
@@ -20,32 +22,32 @@ PanelWindow {
         anchors.leftMargin: Theme.barPadding; spacing: Theme.barSpacing
         Workspaces {}
         Rectangle { visible: mpris.visible; width: 1; height: Theme.barHeight * 0.4; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
-        Mpris { id: mpris; onLabelClicked: { if (bar.shellRoot) bar.shellRoot.openPopup("mpris"); } }
+        Mpris { id: mpris; onLabelClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleMpris(); } }
     }
 
     Clock {
         anchors.centerIn: parent
-        onClicked: { if (bar.shellRoot) bar.shellRoot.openPopup("calendar"); }
+        onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleCalendar(); }
     }
 
     RowLayout {
         anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
         anchors.rightMargin: Theme.barPadding; spacing: Theme.barSpacing
 
-        Network { onClicked: { if (bar.shellRoot) bar.shellRoot.openPopup("wifi"); } }
-        Bluetooth { onClicked: { if (bar.shellRoot) bar.shellRoot.openPopup("bluetooth"); } }
-        Volume { onClicked: { if (bar.shellRoot) bar.shellRoot.openPopup("audio"); } }
-        Battery { onClicked: { if (bar.shellRoot) bar.shellRoot.openPopup("powerprofile"); } }
+        Network { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleWifi(); } }
+        Bluetooth { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleBluetooth(); } }
+        Volume { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleAudio(); } }
+        Battery { onClicked: { if (bar.popupVisibility) bar.popupVisibility.togglePowerProfile(); } }
 
         Bell {
-            doNotDisturb: bar.shellRoot?.doNotDisturb ?? false
-            historyCount: bar.shellRoot?.historyCount ?? 0
-            onClicked: { if (bar.shellRoot) bar.shellRoot.openPopup("drawer"); }
+            doNotDisturb: bar.doNotDisturb
+            historyCount: bar.historyCount
+            onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleDrawer(); }
         }
 
-        TrayExpand { onClicked: { if (bar.shellRoot) bar.shellRoot.openPopup("tray"); } }
+        TrayExpand { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleTray(); } }
 
         Rectangle { width: 1; height: Theme.barHeight * 0.4; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
-        Power { onClicked: { if (bar.shellRoot) bar.shellRoot.openPopup("powermenu"); } }
+        Power { onClicked: { if (bar.popupVisibility) bar.popupVisibility.togglePowerMenu(); } }
     }
 }
