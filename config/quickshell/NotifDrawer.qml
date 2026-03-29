@@ -5,7 +5,7 @@ import QtQuick
 import QtQuick.Layouts
 import "components" as Components
 
-PanelWindow {
+FocusScope {
     id: drawer
     property bool active: false; signal close()
     property bool closing: false
@@ -35,7 +35,19 @@ PanelWindow {
         }
     }
 
-    visible: active || closing
+    readonly property bool overlayVisible: active || closing
+    readonly property Item panelItem: drawerContentLoader.item
+    readonly property Item focusTarget: drawer
+    readonly property bool scrimEnabled: false
+    readonly property color scrimColor: "transparent"
+    readonly property real scrimOpacity: 0
+    visible: overlayVisible
+    anchors.fill: parent
+    focus: active
+    Keys.priority: Keys.BeforeItem
+
+    /*
+    Legacy per-popup PanelWindow wrapper retained during the overlay-host migration:
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
     WlrLayershell.namespace: "quickshell:drawer"
@@ -46,6 +58,7 @@ PanelWindow {
     Rectangle { anchors.fill: parent; color: "transparent"; focus: true; Keys.onEscapePressed: drawer.close()
         MouseArea { anchors.fill: parent; onClicked: drawer.close() }
     }
+    */
 
     function preparePanelForOpen() {
         let item = drawerContentLoader.item;
@@ -59,6 +72,7 @@ PanelWindow {
 
     onActiveChanged: {
         if (active) {
+            forceActiveFocus();
             contentLoaded = true;
             if (preparePanelForOpen())
                 drawerOpenAnim.start();
@@ -87,6 +101,8 @@ PanelWindow {
         }
         ScriptAction { script: { drawer.closing = false; } }
     }
+
+    Keys.onEscapePressed: drawer.close()
 
     Loader {
         id: drawerContentLoader

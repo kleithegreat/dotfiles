@@ -6,16 +6,23 @@ import QtQuick.Layouts
 import Quickshell.Services.SystemTray
 import "../components" as Components
 
-PanelWindow {
+FocusScope {
     id: trayPop
     property bool active: false; signal close()
     property bool closing: false
-    visible: (active || closing) && SystemTray.items.values.length > 0
+    readonly property bool overlayVisible: (active || closing) && SystemTray.items.values.length > 0
+    readonly property Item panelItem: trayPanel
+    readonly property Item focusTarget: trayPop
+    readonly property bool scrimEnabled: false
+    readonly property color scrimColor: "transparent"
+    readonly property real scrimOpacity: 0
+    visible: overlayVisible
+    anchors.fill: parent
+    focus: active
+    Keys.priority: Keys.BeforeItem
 
-    onActiveChanged: {
-        if (active) { trayPanel.opacity = 0; trayPanel.scale = 0.92; trayOpenAnim.start(); }
-        else if (!closing) { closing = true; trayCloseAnim.start(); }
-    }
+    /*
+    Legacy per-popup PanelWindow wrapper retained during the overlay-host migration:
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
     WlrLayershell.namespace: "quickshell:tray"
@@ -23,12 +30,23 @@ PanelWindow {
     WlrLayershell.keyboardFocus: active ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     exclusionMode: ExclusionMode.Ignore
 
-    // ── Backdrop with animated dim ──
     Rectangle {
         anchors.fill: parent; color: "transparent"; focus: true
         Keys.onEscapePressed: trayPop.close()
         MouseArea { anchors.fill: parent; onClicked: trayPop.close() }
     }
+    */
+
+    onActiveChanged: {
+        if (active) {
+            forceActiveFocus();
+            trayPanel.opacity = 0;
+            trayPanel.scale = 0.92;
+            trayOpenAnim.start();
+        }
+        else if (!closing) { closing = true; trayCloseAnim.start(); }
+    }
+    Keys.onEscapePressed: trayPop.close()
 
     SequentialAnimation {
         id: trayOpenAnim

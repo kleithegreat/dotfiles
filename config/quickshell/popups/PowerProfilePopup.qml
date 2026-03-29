@@ -7,18 +7,37 @@ import Quickshell.Io
 import Quickshell.Services.UPower
 import "../components" as Components
 
-PanelWindow {
+FocusScope {
     id: ppPop
     property bool active: false; signal close()
     property bool closing: false
     property bool contentLoaded: false
-    visible: active || closing
+    readonly property bool overlayVisible: active || closing
+    readonly property Item panelItem: ppContentLoader.item
+    readonly property Item focusTarget: ppPop
+    readonly property bool scrimEnabled: false
+    readonly property color scrimColor: "transparent"
+    readonly property real scrimOpacity: 0
+    visible: overlayVisible
+    anchors.fill: parent
+    focus: active
+    Keys.priority: Keys.BeforeItem
+
+    /*
+    Legacy per-popup PanelWindow wrapper retained during the overlay-host migration:
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
     WlrLayershell.namespace: "quickshell:powerprofile"
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: active ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     exclusionMode: ExclusionMode.Ignore
+
+    Rectangle {
+        anchors.fill: parent; color: "transparent"; focus: true
+        Keys.onEscapePressed: ppPop.close()
+        MouseArea { anchors.fill: parent; onClicked: ppPop.close() }
+    }
+    */
 
     property string currentProfile: "unknown"
     property string pendingProfile: ""
@@ -70,6 +89,7 @@ PanelWindow {
 
     onActiveChanged: {
         if (active) {
+            forceActiveFocus();
             contentLoaded = true;
             detect();
             detectChargeLimit();
@@ -252,11 +272,7 @@ PanelWindow {
     }
     property bool charging: UPower.displayDevice.state === UPowerDeviceState.Charging || UPower.displayDevice.state === UPowerDeviceState.FullyCharged
 
-    Rectangle {
-        anchors.fill: parent; color: "transparent"; focus: true
-        Keys.onEscapePressed: ppPop.close()
-        MouseArea { anchors.fill: parent; onClicked: ppPop.close() }
-    }
+    Keys.onEscapePressed: ppPop.close()
 
     SequentialAnimation {
         id: ppOpenAnim
