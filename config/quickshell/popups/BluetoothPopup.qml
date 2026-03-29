@@ -6,18 +6,37 @@ import QtQuick.Layouts
 import Quickshell.Io
 import "../components" as Components
 
-PanelWindow {
+FocusScope {
     id: btPop
     property bool active: false; signal close()
     property bool closing: false
     property bool contentLoaded: false
-    visible: active || closing
+    readonly property bool overlayVisible: active || closing
+    readonly property Item panelItem: btContentLoader.item
+    readonly property Item focusTarget: btPop
+    readonly property bool scrimEnabled: false
+    readonly property color scrimColor: "transparent"
+    readonly property real scrimOpacity: 0
+    visible: overlayVisible
+    anchors.fill: parent
+    focus: active
+    Keys.priority: Keys.BeforeItem
+
+    /*
+    Legacy per-popup PanelWindow wrapper retained during the overlay-host migration:
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
     WlrLayershell.namespace: "quickshell:bluetooth"
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: active ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     exclusionMode: ExclusionMode.Ignore
+
+    Rectangle {
+        anchors.fill: parent; color: "transparent"; focus: true
+        Keys.onEscapePressed: btPop.close()
+        MouseArea { anchors.fill: parent; onClicked: btPop.close() }
+    }
+    */
 
     property bool powered: false
     property bool scanning: false
@@ -47,6 +66,7 @@ PanelWindow {
 
     onActiveChanged: {
         if (active) {
+            forceActiveFocus();
             contentLoaded = true;
             if (preparePanelForOpen())
                 btOpenAnim.start();
@@ -241,11 +261,7 @@ PanelWindow {
     }
 
     // ── Backdrop ──────────────────────────────────────────────
-    Rectangle {
-        anchors.fill: parent; color: "transparent"; focus: true
-        Keys.onEscapePressed: btPop.close()
-        MouseArea { anchors.fill: parent; onClicked: btPop.close() }
-    }
+    Keys.onEscapePressed: btPop.close()
 
     Loader {
         id: btContentLoader

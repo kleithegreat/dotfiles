@@ -6,17 +6,36 @@ import QtQuick.Layouts
 import Quickshell.Services.Mpris
 import "../components" as Components
 
-PanelWindow {
+FocusScope {
     id: mprisPop
     property bool active: false; signal close()
     property bool closing: false
-    visible: (active || closing) && Mpris.players.values.length > 0
+    readonly property bool overlayVisible: (active || closing) && Mpris.players.values.length > 0
+    readonly property Item panelItem: mprisPanel
+    readonly property Item focusTarget: mprisPop
+    readonly property bool scrimEnabled: false
+    readonly property color scrimColor: "transparent"
+    readonly property real scrimOpacity: 0
+    visible: overlayVisible
+    anchors.fill: parent
+    focus: active
+    Keys.priority: Keys.BeforeItem
+
+    /*
+    Legacy per-popup PanelWindow wrapper retained during the overlay-host migration:
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
     WlrLayershell.namespace: "quickshell:mpris"
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: active ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     exclusionMode: ExclusionMode.Ignore
+
+    Rectangle {
+        anchors.fill: parent; color: "transparent"; focus: true
+        Keys.onEscapePressed: mprisPop.close()
+        MouseArea { anchors.fill: parent; onClicked: mprisPop.close() }
+    }
+    */
 
     property var player: {
         let players = Mpris.players.values;
@@ -52,16 +71,16 @@ PanelWindow {
         return m + ":" + s.toString().padStart(2, '0');
     }
 
-    Rectangle {
-        anchors.fill: parent; color: "transparent"; focus: true
-        Keys.onEscapePressed: mprisPop.close()
-        MouseArea { anchors.fill: parent; onClicked: mprisPop.close() }
-    }
-
     onActiveChanged: {
-        if (active) { mprisPanel.opacity = 0; mprisPanel.scale = 0.92; mprisOpenAnim.start(); }
+        if (active) {
+            forceActiveFocus();
+            mprisPanel.opacity = 0;
+            mprisPanel.scale = 0.92;
+            mprisOpenAnim.start();
+        }
         else if (!closing) { closing = true; mprisCloseAnim.start(); }
     }
+    Keys.onEscapePressed: mprisPop.close()
 
     SequentialAnimation {
         id: mprisOpenAnim

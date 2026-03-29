@@ -6,21 +6,24 @@ import QtQuick.Layouts
 import Quickshell.Io
 import "components" as Components
 
-PanelWindow {
+FocusScope {
     id: powerMenu
     property bool active: false; signal close()
     property bool closing: false
     property bool contentLoaded: false
-    visible: active || closing
+    readonly property bool overlayVisible: active || closing
+    readonly property Item panelItem: powerMenuContentLoader.item
+    readonly property Item focusTarget: powerMenu
+    readonly property bool scrimEnabled: true
+    readonly property color scrimColor: Theme.bg0_h
+    readonly property real scrimOpacity: 0.72
+    visible: overlayVisible
+    anchors.fill: parent
+    focus: active
+    Keys.priority: Keys.BeforeItem
 
-    onActiveChanged: {
-        if (active) {
-            contentLoaded = true;
-        } else if (!closing) {
-            closing = true; pwrCloseTimer.start();
-        }
-    }
-    Timer { id: pwrCloseTimer; interval: Theme.animPopupOut; onTriggered: powerMenu.closing = false }
+    /*
+    Legacy per-popup PanelWindow wrapper retained during the overlay-host migration:
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
     WlrLayershell.namespace: "quickshell:powermenu"
@@ -29,16 +32,22 @@ PanelWindow {
     exclusionMode: ExclusionMode.Ignore
 
     Rectangle { anchors.fill: parent; color: Theme.bg0_h; opacity: powerMenu.active ? 0.72 : 0; focus: true
-        Behavior on opacity {
-            Components.Anim {
-                duration: powerMenu.active ? Theme.animPopupIn : Theme.animPopupOut
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: powerMenu.active ? Theme.animCurveEmphasizedEnter : Theme.animCurveExit
-            }
-        }
         Keys.onEscapePressed: powerMenu.close()
         MouseArea { anchors.fill: parent; onClicked: powerMenu.close() }
     }
+    */
+
+    onActiveChanged: {
+        if (active) {
+            forceActiveFocus();
+            contentLoaded = true;
+        } else if (!closing) {
+            closing = true; pwrCloseTimer.start();
+        }
+    }
+    Timer { id: pwrCloseTimer; interval: Theme.animPopupOut; onTriggered: powerMenu.closing = false }
+
+    Keys.onEscapePressed: powerMenu.close()
 
     Loader {
         id: powerMenuContentLoader

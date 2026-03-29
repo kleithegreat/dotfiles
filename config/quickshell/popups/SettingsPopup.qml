@@ -7,19 +7,38 @@ import Quickshell.Io
 import "../components" as Components
 import "settings" as Settings
 
-PanelWindow {
+FocusScope {
     id: settingsPop
     property bool active: false
     signal close()
     property bool closing: false
     property bool contentLoaded: false
-    visible: active || closing
+    readonly property bool overlayVisible: active || closing
+    readonly property Item panelItem: settingsContentLoader.item
+    readonly property Item focusTarget: settingsPop
+    readonly property bool scrimEnabled: false
+    readonly property color scrimColor: "transparent"
+    readonly property real scrimOpacity: 0
+    visible: overlayVisible
+    anchors.fill: parent
+    focus: active
+    Keys.priority: Keys.BeforeItem
+
+    /*
+    Legacy per-popup PanelWindow wrapper retained during the overlay-host migration:
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
     WlrLayershell.namespace: "quickshell:settings"
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: active ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     exclusionMode: ExclusionMode.Ignore
+
+    MouseArea {
+        anchors.fill: parent; onClicked: settingsPop.close()
+        focus: settingsPop.active
+        Keys.onEscapePressed: settingsPop.close()
+    }
+    */
 
     // ── State ──
     property var themeState: ({})
@@ -85,6 +104,7 @@ PanelWindow {
 
     onActiveChanged: {
         if (active) {
+            forceActiveFocus();
             contentLoaded = true;
             loadState();
             if (preparePanelForOpen())
@@ -627,11 +647,7 @@ PanelWindow {
     Timer { id: reloadTimer; interval: 1500; onTriggered: loadState() }
 
     // ── Backdrop ──
-    MouseArea {
-        anchors.fill: parent; onClicked: settingsPop.close()
-        focus: settingsPop.active
-        Keys.onEscapePressed: settingsPop.close()
-    }
+    Keys.onEscapePressed: settingsPop.close()
 
     // ── Animations ──
     SequentialAnimation {

@@ -7,18 +7,40 @@ import Quickshell.Io
 import "../components" as Components
 import "wifi"
 
-PanelWindow {
+FocusScope {
     id: wifiPop
     property bool active: false; signal close()
     property bool closing: false
     property bool contentLoaded: false
-    visible: active || closing
+    readonly property bool overlayVisible: active || closing
+    readonly property Item panelItem: wifiContentLoader.item
+    readonly property Item focusTarget: wifiPop
+    readonly property bool scrimEnabled: false
+    readonly property color scrimColor: "transparent"
+    readonly property real scrimOpacity: 0
+    visible: overlayVisible
+    anchors.fill: parent
+    focus: active
+    Keys.priority: Keys.BeforeItem
+
+    /*
+    Legacy per-popup PanelWindow wrapper retained during the overlay-host migration:
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
     WlrLayershell.namespace: "quickshell:wifi"
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: active ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     exclusionMode: ExclusionMode.Ignore
+
+    Rectangle {
+        anchors.fill: parent; color: "transparent"; focus: true
+        Keys.onEscapePressed: {
+            if (wifiPop.popupState !== "list") wifiPop.resetState();
+            else wifiPop.close();
+        }
+        MouseArea { anchors.fill: parent; onClicked: wifiPop.close() }
+    }
+    */
 
     property string connectedSsid: ""
     property string connectedConnectionId: ""
@@ -104,6 +126,7 @@ PanelWindow {
 
     onActiveChanged: {
         if (active) {
+            forceActiveFocus();
             contentLoaded = true;
             if (preparePanelForOpen())
                 wifiOpenAnim.start();
@@ -966,13 +989,9 @@ PanelWindow {
     }
 
     // ── Backdrop ──────────────────────────────────────────────
-    Rectangle {
-        anchors.fill: parent; color: "transparent"; focus: true
-        Keys.onEscapePressed: {
-            if (wifiPop.popupState !== "list") wifiPop.resetState();
-            else wifiPop.close();
-        }
-        MouseArea { anchors.fill: parent; onClicked: wifiPop.close() }
+    Keys.onEscapePressed: {
+        if (wifiPop.popupState !== "list") wifiPop.resetState();
+        else wifiPop.close();
     }
 
     Loader {
