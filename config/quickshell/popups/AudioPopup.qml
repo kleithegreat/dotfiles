@@ -9,7 +9,6 @@ import "../components" as Components
 PanelWindow {
     id: audioPop
     property bool active: false; signal close()
-    property var shellRoot: null
     property bool closing: false
     visible: active || closing
     anchors { top: true; bottom: true; left: true; right: true }
@@ -79,9 +78,9 @@ PanelWindow {
                 Components.ToggleSwitch {
                     checked: !(audioPop.sink?.audio?.muted ?? true)
                     onToggled: {
-                        if (audioPop.shellRoot) audioPop.shellRoot.suppressOsd = true;
-                        if (audioPop.sink?.audio) audioPop.sink.audio.muted = !audioPop.sink.audio.muted;
-                        Qt.callLater(() => { if (audioPop.shellRoot) audioPop.shellRoot.suppressOsd = false; });
+                        AudioService.suppressOsd = true;
+                        AudioService.toggleMute();
+                        Qt.callLater(() => { AudioService.suppressOsd = false; });
                     }
                 }
             }
@@ -113,10 +112,10 @@ PanelWindow {
                     MouseArea {
                         id: outSliderMouse
                         anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                        onPressed: { if (audioPop.shellRoot) audioPop.shellRoot.suppressOsd = true; }
-                        onReleased: { Qt.callLater(() => { if (audioPop.shellRoot) audioPop.shellRoot.suppressOsd = false; }); }
-                        onClicked: (mouse) => { if (audioPop.sink?.audio) audioPop.sink.audio.volume = mouse.x / parent.width; }
-                        onPositionChanged: (mouse) => { if (pressed && audioPop.sink?.audio) audioPop.sink.audio.volume = Math.max(0, Math.min(1, mouse.x / parent.width)); }
+                        onPressed: { AudioService.suppressOsd = true; }
+                        onReleased: { Qt.callLater(() => { AudioService.suppressOsd = false; }); }
+                        onClicked: (mouse) => { AudioService.setVolume(mouse.x / parent.width); }
+                        onPositionChanged: (mouse) => { if (pressed) AudioService.setVolume(mouse.x / parent.width); }
                     }
                 }
                 Text { text: Math.round((audioPop.sink?.audio?.volume ?? 0) * 100) + "%"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 32; horizontalAlignment: Text.AlignRight }
@@ -136,9 +135,9 @@ PanelWindow {
                 Components.ToggleSwitch {
                     checked: !(audioPop.source?.audio?.muted ?? true)
                     onToggled: {
-                        if (audioPop.shellRoot) audioPop.shellRoot.suppressOsd = true;
+                        AudioService.suppressOsd = true;
                         if (audioPop.source?.audio) audioPop.source.audio.muted = !audioPop.source.audio.muted;
-                        Qt.callLater(() => { if (audioPop.shellRoot) audioPop.shellRoot.suppressOsd = false; });
+                        Qt.callLater(() => { AudioService.suppressOsd = false; });
                     }
                 }
             }
@@ -170,8 +169,8 @@ PanelWindow {
                     MouseArea {
                         id: inSliderMouse
                         anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                        onPressed: { if (audioPop.shellRoot) audioPop.shellRoot.suppressOsd = true; }
-                        onReleased: { Qt.callLater(() => { if (audioPop.shellRoot) audioPop.shellRoot.suppressOsd = false; }); }
+                        onPressed: { AudioService.suppressOsd = true; }
+                        onReleased: { Qt.callLater(() => { AudioService.suppressOsd = false; }); }
                         onClicked: (mouse) => { if (audioPop.source?.audio) audioPop.source.audio.volume = mouse.x / parent.width; }
                         onPositionChanged: (mouse) => { if (pressed && audioPop.source?.audio) audioPop.source.audio.volume = Math.max(0, Math.min(1, mouse.x / parent.width)); }
                     }
@@ -224,8 +223,8 @@ PanelWindow {
                                 MouseArea {
                                     id: appSliderMouse
                                     anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                                    onPressed: { if (audioPop.shellRoot) audioPop.shellRoot.suppressOsd = true; }
-                                    onReleased: { Qt.callLater(() => { if (audioPop.shellRoot) audioPop.shellRoot.suppressOsd = false; }); }
+                                    onPressed: { AudioService.suppressOsd = true; }
+                                    onReleased: { Qt.callLater(() => { AudioService.suppressOsd = false; }); }
                                     onClicked: (mouse) => { if (appRow.modelData.audio) appRow.modelData.audio.volume = mouse.x / parent.width; }
                                     onPositionChanged: (mouse) => { if (pressed && appRow.modelData.audio) appRow.modelData.audio.volume = Math.max(0, Math.min(1, mouse.x / parent.width)); }
                                 }

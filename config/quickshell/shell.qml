@@ -2,7 +2,6 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
 import Quickshell.Services.Notifications
-import Quickshell.Services.Pipewire
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Io
@@ -15,7 +14,6 @@ Scope {
 
     // ── Popup state ──
     property string activePopup: ""
-    property bool suppressOsd: false
     function openPopup(name) { activePopup = (activePopup === name) ? "" : name; }
 
     // ── Notification state ──
@@ -91,24 +89,6 @@ Scope {
         }
     }
 
-    // ── OSD ──
-    PwObjectTracker { id: osdPwTracker; objects: [Pipewire.defaultAudioSink] }
-    property bool osdVolInit: false; property bool showOsd: false; property real osdValue: 0; property string osdIcon: ""; property string osdLabel: ""
-
-    Connections {
-        target: Pipewire.defaultAudioSink?.audio ?? null
-        function onVolumeChanged() { if (!root.osdVolInit) { root.osdVolInit = true; return; } if (root.suppressOsd) return; root.showVolumeOsd(); }
-        function onMutedChanged() { if (!root.osdVolInit) return; if (root.suppressOsd) return; root.showVolumeOsd(); }
-    }
-
-    function showVolumeOsd() {
-        let s = Pipewire.defaultAudioSink; if (!s) return;
-        let v = Math.round(s.audio.volume * 100), m = s.audio.muted;
-        osdValue = m ? 0 : Math.min(v, 100); osdLabel = m ? "Muted" : v + "%";
-        if (m) osdIcon = "󰝟"; else if (v > 66) osdIcon = "󰕾"; else if (v > 33) osdIcon = "󰖀"; else osdIcon = "󰕿";
-        showOsd = true; osdHideTimer.restart();
-    }
-
     property real lastBrightness: -1; property bool brightnessInit: false
     Process { id: brightnessProc; command: ["tail", "-F", "/tmp/quickshell-brightness"]; running: true
         stdout: SplitParser { onRead: data => {
@@ -119,32 +99,31 @@ Scope {
             if (pct !== root.lastBrightness) { root.lastBrightness = pct; root.showBrightnessOsd(pct); }
         } }
     }
-    function showBrightnessOsd(pct) { osdValue = pct; osdLabel = pct + "%"; osdIcon = "󰃟"; showOsd = true; osdHideTimer.restart(); }
-    Timer { id: osdHideTimer; interval: Theme.osdTimeout; onTriggered: root.showOsd = false }
+    function showBrightnessOsd(pct) { AudioService.showOsdState(pct, pct + "%", "󰃟"); }
 
     LazyLoader {
-        active: root.showOsd
+        active: AudioService.showOsd
         PanelWindow {
-            visible: root.showOsd
+            visible: AudioService.showOsd
             anchors { top: true }
             margins { top: Theme.barHeight + Theme.barMargin + Theme.gapOut }
             implicitWidth: Theme.osdWidth; implicitHeight: Theme.osdHeight; color: "transparent"; mask: Region {}
             WlrLayershell.namespace: "quickshell:osd"; WlrLayershell.layer: WlrLayer.Overlay; exclusionMode: ExclusionMode.Ignore
             Rectangle { anchors.fill: parent; radius: Theme.osdRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
-                scale: root.showOsd ? 1.0 : 0.85
-                opacity: root.showOsd ? 1.0 : 0.0
+                scale: AudioService.showOsd ? 1.0 : 0.85
+                opacity: AudioService.showOsd ? 1.0 : 0.0
                 Behavior on scale { NumberAnimation { duration: Theme.animOsdIn; easing.type: Easing.OutCubic } }
-                Behavior on opacity { NumberAnimation { duration: root.showOsd ? Theme.animOsdIn : Theme.animOsdOut } }
+                Behavior on opacity { NumberAnimation { duration: AudioService.showOsd ? Theme.animOsdIn : Theme.animOsdOut } }
                 Row { anchors.centerIn: parent; spacing: 10
-                    Text { text: root.osdIcon; font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize; color: Theme.fg; anchors.verticalCenter: parent.verticalCenter }
+                    Text { text: AudioService.osdIcon; font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize; color: Theme.fg; anchors.verticalCenter: parent.verticalCenter }
                     Rectangle { width: Theme.osdWidth - 100; height: Theme.osdBarHeight; radius: Theme.osdBarRadius; color: Theme.bg3; anchors.verticalCenter: parent.verticalCenter
                         Rectangle {
-                            width: parent.width * (root.osdValue / 100); radius: parent.radius; color: Theme.greenBright
+                            width: parent.width * (AudioService.osdValue / 100); radius: parent.radius; color: Theme.greenBright
                             anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
                             Behavior on width { NumberAnimation { duration: 80 } }
                         }
                     }
-                    Text { text: root.osdLabel; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; color: Theme.fg3; width: 38; horizontalAlignment: Text.AlignRight; anchors.verticalCenter: parent.verticalCenter }
+                    Text { text: AudioService.osdLabel; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; color: Theme.fg3; width: 38; horizontalAlignment: Text.AlignRight; anchors.verticalCenter: parent.verticalCenter }
                 }
             }
         }
@@ -160,7 +139,7 @@ Scope {
     Popups.CalendarPopup { active: root.activePopup === "calendar"; onClose: root.activePopup = "" }
     Popups.TrayPopup { active: root.activePopup === "tray"; onClose: root.activePopup = "" }
     Popups.MprisPopup { active: root.activePopup === "mpris"; onClose: root.activePopup = "" }
-    Popups.AudioPopup { active: root.activePopup === "audio"; onClose: root.activePopup = ""; shellRoot: root }
+    Popups.AudioPopup { active: root.activePopup === "audio"; onClose: root.activePopup = "" }
     Popups.WifiPopup { active: root.activePopup === "wifi"; onClose: root.activePopup = "" }
     Popups.BluetoothPopup { active: root.activePopup === "bluetooth"; onClose: root.activePopup = "" }
     Popups.PowerProfilePopup { active: root.activePopup === "powerprofile"; onClose: root.activePopup = "" }

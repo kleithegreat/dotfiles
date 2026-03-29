@@ -1,19 +1,15 @@
 import qs
 import QtQuick
 import QtQuick.Layouts
-import Quickshell.Services.Pipewire
 
 Item {
     id: volumeRoot
     implicitWidth: volumeRow.implicitWidth
     implicitHeight: volumeRow.implicitHeight
     signal clicked()
-    property var shellRoot: null
 
-    property var sink: Pipewire.defaultAudioSink
-    property real volume: sink?.audio?.volume ?? 0
-    property bool muted: sink?.audio?.muted ?? false
-    PwObjectTracker { objects: [volumeRoot.sink] }
+    property real volume: AudioService.volume
+    property bool muted: AudioService.muted
 
     RowLayout {
         id: volumeRow; anchors.fill: parent; spacing: 4
@@ -42,18 +38,17 @@ Item {
         acceptedButtons: Qt.LeftButton | Qt.MiddleButton; hoverEnabled: true
         onClicked: (mouse) => {
             if (mouse.button === Qt.MiddleButton) {
-                if (volumeRoot.shellRoot) volumeRoot.shellRoot.suppressOsd = true;
-                if (sink?.audio) sink.audio.muted = !sink.audio.muted;
-                Qt.callLater(() => { if (volumeRoot.shellRoot) volumeRoot.shellRoot.suppressOsd = false; });
+                AudioService.suppressOsd = true;
+                AudioService.toggleMute();
+                Qt.callLater(() => { AudioService.suppressOsd = false; });
             }
             else volumeRoot.clicked();
         }
         onWheel: (wheel) => {
-            if (!sink?.audio) return;
-            if (volumeRoot.shellRoot) volumeRoot.shellRoot.suppressOsd = true;
-            if (wheel.angleDelta.y > 0) sink.audio.volume = Math.min(1.0, volume + 0.05);
-            else sink.audio.volume = Math.max(0.0, volume - 0.05);
-            Qt.callLater(() => { if (volumeRoot.shellRoot) volumeRoot.shellRoot.suppressOsd = false; });
+            AudioService.suppressOsd = true;
+            if (wheel.angleDelta.y > 0) AudioService.incrementVolume(0.05);
+            else AudioService.decrementVolume(0.05);
+            Qt.callLater(() => { AudioService.suppressOsd = false; });
         }
     }
 }
