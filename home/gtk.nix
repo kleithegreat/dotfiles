@@ -21,6 +21,7 @@ in
   home.packages = [
     pkgs.adw-gtk3
     pkgs.adwaita-icon-theme
+    pkgs.colloid-icon-theme
     neuwaita
   ];
 
