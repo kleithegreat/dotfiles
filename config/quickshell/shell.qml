@@ -136,5 +136,34 @@ Scope {
     // Popups.BluetoothPopup { active: root.popupVisibility.bluetoothVisible; onClose: root.popupVisibility.bluetoothVisible = false }
     // Popups.PowerProfilePopup { active: root.popupVisibility.powerProfileVisible; onClose: root.popupVisibility.powerProfileVisible = false }
     // Popups.SettingsPopup { active: root.popupVisibility.settingsVisible; onClose: root.popupVisibility.settingsVisible = false }
-    IpcHandler { target: "settings"; function toggle() { root.popupVisibility.toggleSettings(); } }
+
+    IpcHandler {
+        target: "popups"
+
+        function closeAll(): void { root.popupVisibility.closeAll(); }
+        function togglePowerMenu(): void { root.popupVisibility.togglePowerMenu(); }
+        function toggleDrawer(): void { root.popupVisibility.toggleDrawer(); }
+        function toggleCalendar(): void { root.popupVisibility.toggleCalendar(); }
+        function toggleTray(): void { root.popupVisibility.toggleTray(); }
+        function toggleMpris(): void { root.popupVisibility.toggleMpris(); }
+        function toggleAudio(): void { root.popupVisibility.toggleAudio(); }
+        function toggleWifi(): void { root.popupVisibility.toggleWifi(); }
+        function toggleBluetooth(): void { root.popupVisibility.toggleBluetooth(); }
+        function togglePowerProfile(): void { root.popupVisibility.togglePowerProfile(); }
+        function toggleSettings(): void { root.popupVisibility.toggleSettings(); }
+        function toggleVpn(): void { root.popupVisibility.toggleVpn(); }
+    }
+
+    IpcHandler {
+        target: "notifications"
+
+        function toggleDnd(): void { NotificationService.toggleDnd(); }
+        function clearHistory(): void { NotificationService.clearHistory(); }
+    }
+
+    IpcHandler {
+        target: "settings"
+
+        function toggle(): void { root.popupVisibility.toggleSettings(); }
+    }
 }
