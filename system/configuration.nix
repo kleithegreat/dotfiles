@@ -239,7 +239,10 @@ in
   services.tailscale.enable = true;
 
   # ── Mullvad VPN ──────────────────────────────────────────────
-  services.mullvad-vpn.enable = true;
+  services.mullvad-vpn = {
+    enable = true;
+    package = pkgs.mullvad-vpn;  # default (pkgs.mullvad) is CLI-only; this adds the GUI
+  };
 
   # ── Keyring (gnome-keyring — most reliable with SDDM + Hyprland) ──
   services.gnome.gnome-keyring.enable = true;
@@ -263,7 +266,7 @@ in
   documentation.dev.enable = true;  # development man pages
 
   # ── Locale ───────────────────────────────────────────────────
-  services.automatic-timezoned.enable = true;
+  time.timeZone = "America/Chicago";
   i18n.defaultLocale = "en_US.UTF-8";
   i18n.extraLocaleSettings = {
     LC_ADDRESS        = "en_US.UTF-8";
