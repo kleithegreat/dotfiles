@@ -436,12 +436,24 @@ Item {
                         visible: !parent.isCurrent
                         anchors.fill: parent; radius: parent.radius; color: Theme.bg2
                         opacity: dnsAutoA.pressed ? 0.9 : (dnsAutoA.containsMouse ? 0.6 : 0.3)
-                        Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                        Behavior on opacity {
+                            Components.Anim {
+                                duration: Theme.animHover
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveStandard
+                            }
+                        }
                     }
                     Text { id: dnsAutoLabel; anchors.centerIn: parent; text: "Router"
                         color: parent.isCurrent ? Theme.bg : (dnsAutoA.containsMouse ? Theme.fg : Theme.fg4); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
-                        Behavior on color { ColorAnimation { duration: Theme.animHover } } }
-                    MouseArea { id: dnsAutoA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                        Behavior on color {
+                            Components.CAnim {
+                                duration: Theme.animHover
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveStandard
+                            }
+                        } }
+                    Components.HoverLayer { id: dnsAutoA; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 0.98
                         onClicked: root.dnsChanged("auto") }
                 }
 
@@ -454,12 +466,24 @@ Item {
                         visible: !parent.isCurrent
                         anchors.fill: parent; radius: parent.radius; color: Theme.bg2
                         opacity: dnsGoogleA.pressed ? 0.9 : (dnsGoogleA.containsMouse ? 0.6 : 0.3)
-                        Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                        Behavior on opacity {
+                            Components.Anim {
+                                duration: Theme.animHover
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveStandard
+                            }
+                        }
                     }
                     Text { id: dnsGoogleLabel; anchors.centerIn: parent; text: "Google"
                         color: parent.isCurrent ? Theme.bg : (dnsGoogleA.containsMouse ? Theme.fg : Theme.fg4); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
-                        Behavior on color { ColorAnimation { duration: Theme.animHover } } }
-                    MouseArea { id: dnsGoogleA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                        Behavior on color {
+                            Components.CAnim {
+                                duration: Theme.animHover
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveStandard
+                            }
+                        } }
+                    Components.HoverLayer { id: dnsGoogleA; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 0.98
                         onClicked: root.dnsChanged("8.8.8.8") }
                 }
 
@@ -472,12 +496,24 @@ Item {
                         visible: !parent.isCurrent
                         anchors.fill: parent; radius: parent.radius; color: Theme.bg2
                         opacity: dnsCfA.pressed ? 0.9 : (dnsCfA.containsMouse ? 0.6 : 0.3)
-                        Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                        Behavior on opacity {
+                            Components.Anim {
+                                duration: Theme.animHover
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveStandard
+                            }
+                        }
                     }
                     Text { id: dnsCfLabel; anchors.centerIn: parent; text: "Cloudflare"
                         color: parent.isCurrent ? Theme.bg : (dnsCfA.containsMouse ? Theme.fg : Theme.fg4); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
-                        Behavior on color { ColorAnimation { duration: Theme.animHover } } }
-                    MouseArea { id: dnsCfA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                        Behavior on color {
+                            Components.CAnim {
+                                duration: Theme.animHover
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveStandard
+                            }
+                        } }
+                    Components.HoverLayer { id: dnsCfA; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 0.98
                         onClicked: root.dnsChanged("1.1.1.1") }
                 }
             }
@@ -490,12 +526,24 @@ Item {
                 Rectangle {
                     anchors.fill: parent; radius: parent.radius; color: Theme.bg2
                     opacity: chanScanA.pressed ? 0.9 : (chanScanA.containsMouse ? 0.6 : 0.3)
-                    Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                    Behavior on opacity {
+                        Components.Anim {
+                            duration: Theme.animHover
+                            easing.type: Easing.BezierSpline
+                            easing.bezierCurve: Theme.animCurveStandard
+                        }
+                    }
                 }
                 Text { anchors.centerIn: parent; text: "󰐻  Scan Channels"; color: chanScanA.containsMouse ? Theme.blueBright : Theme.fg4
                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                    Behavior on color { ColorAnimation { duration: Theme.animHover } } }
-                MouseArea { id: chanScanA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                    Behavior on color {
+                        Components.CAnim {
+                            duration: Theme.animHover
+                            easing.type: Easing.BezierSpline
+                            easing.bezierCurve: Theme.animCurveStandard
+                        }
+                    } }
+                Components.HoverLayer { id: chanScanA; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 0.98
                     onClicked: root.channelScanRequested() }
             }
 
@@ -521,12 +569,24 @@ Item {
                     Rectangle {
                         anchors.fill: parent; radius: parent.radius; color: Theme.bg2
                         opacity: retestA.pressed ? 0.9 : (retestA.containsMouse ? 0.6 : 0)
-                        Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                        Behavior on opacity {
+                            Components.Anim {
+                                duration: Theme.animHover
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveStandard
+                            }
+                        }
                     }
                     Text { id: retestLabel; anchors.centerIn: parent; text: "Retest"; color: retestA.containsMouse ? Theme.blueBright : Theme.fg4
                         font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                        Behavior on color { ColorAnimation { duration: Theme.animHover } } }
-                    MouseArea { id: retestA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                        Behavior on color {
+                            Components.CAnim {
+                                duration: Theme.animHover
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveStandard
+                            }
+                        } }
+                    Components.HoverLayer { id: retestA; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 0.98
                         onClicked: root.speedTestRequested() }
                 }
             }
@@ -552,21 +612,33 @@ Item {
                 Rectangle {
                     anchors.fill: parent; radius: parent.radius; color: Theme.bg2
                     opacity: speedBtnA.pressed ? 0.9 : (speedBtnA.containsMouse ? 0.6 : 0.3)
-                    Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                    Behavior on opacity {
+                        Components.Anim {
+                            duration: Theme.animHover
+                            easing.type: Easing.BezierSpline
+                            easing.bezierCurve: Theme.animCurveStandard
+                        }
+                    }
                 }
                 Text {
                     id: speedBtnText; anchors.centerIn: parent
                     text: root.speedTestRunning ? "Testing\u2026" : "Run Speed Test"
                     color: speedBtnA.containsMouse ? Theme.blueBright : Theme.fg4
                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                    Behavior on color {
+                        Components.CAnim {
+                            duration: Theme.animHover
+                            easing.type: Easing.BezierSpline
+                            easing.bezierCurve: Theme.animCurveStandard
+                        }
+                    }
                     SequentialAnimation on opacity {
                         running: root.speedTestRunning; loops: Animation.Infinite
                         NumberAnimation { from: 1; to: 0.4; duration: 600 }
                         NumberAnimation { from: 0.4; to: 1; duration: 600 }
                     }
                 }
-                MouseArea { id: speedBtnA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; enabled: !root.speedTestRunning
+                Components.HoverLayer { id: speedBtnA; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 0.98; disabled: root.speedTestRunning
                     onClicked: root.speedTestRequested() }
             }
 
@@ -581,13 +653,25 @@ Item {
                     Rectangle {
                         anchors.fill: parent; radius: parent.radius; color: Theme.bg2
                         opacity: exportA.pressed ? 0.9 : (exportA.containsMouse ? 0.6 : 0)
-                        Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                        Behavior on opacity {
+                            Components.Anim {
+                                duration: Theme.animHover
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveStandard
+                            }
+                        }
                     }
                     Text { anchors.centerIn: parent; text: root.exportCopied ? "\u2713 Copied" : "󰋼  Export Report"
                         color: root.exportCopied ? Theme.greenBright : (exportA.containsMouse ? Theme.blueBright : Theme.fg4)
                         font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                        Behavior on color { ColorAnimation { duration: Theme.animHover } } }
-                    MouseArea { id: exportA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                        Behavior on color {
+                            Components.CAnim {
+                                duration: Theme.animHover
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveStandard
+                            }
+                        } }
+                    Components.HoverLayer { id: exportA; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 0.98
                         onClicked: root.exportRequested() }
                 }
 
@@ -597,12 +681,24 @@ Item {
                     Rectangle {
                         anchors.fill: parent; radius: parent.radius; color: Theme.bg2
                         opacity: rerunA.pressed ? 0.9 : (rerunA.containsMouse ? 0.6 : 0)
-                        Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                        Behavior on opacity {
+                            Components.Anim {
+                                duration: Theme.animHover
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveStandard
+                            }
+                        }
                     }
                     Text { anchors.centerIn: parent; text: "\u21bb Rerun"; color: rerunA.containsMouse ? Theme.blueBright : Theme.fg4
                         font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                        Behavior on color { ColorAnimation { duration: Theme.animHover } } }
-                    MouseArea { id: rerunA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                        Behavior on color {
+                            Components.CAnim {
+                                duration: Theme.animHover
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveStandard
+                            }
+                        } }
+                    Components.HoverLayer { id: rerunA; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 0.98
                         onClicked: root.rerunRequested() }
                 }
             }

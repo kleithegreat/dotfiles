@@ -30,20 +30,48 @@ PanelWindow {
     SequentialAnimation {
         id: audioOpenAnim
         ParallelAnimation {
-            NumberAnimation { target: audioPanel; property: "opacity"; to: 1; duration: Theme.animPopupIn; easing.type: Easing.OutCubic }
-            NumberAnimation { target: audioPanel; property: "scale"; to: 1.0; duration: Theme.animPopupIn; easing.type: Easing.OutCubic }
+            Components.Anim {
+                target: audioPanel
+                property: "opacity"
+                to: 1
+                duration: Theme.animPopupIn
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveEmphasizedEnter
+            }
+            Components.Anim {
+                target: audioPanel
+                property: "scale"
+                to: 1.0
+                duration: Theme.animPopupIn
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveEmphasizedEnter
+            }
         }
     }
     SequentialAnimation {
         id: audioCloseAnim
         ParallelAnimation {
-            NumberAnimation { target: audioPanel; property: "opacity"; to: 0; duration: Theme.animPopupOut; easing.type: Easing.InCubic }
-            NumberAnimation { target: audioPanel; property: "scale"; to: 0.92; duration: Theme.animPopupOut; easing.type: Easing.InCubic }
+            Components.Anim {
+                target: audioPanel
+                property: "opacity"
+                to: 0
+                duration: Theme.animPopupOut
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveExit
+            }
+            Components.Anim {
+                target: audioPanel
+                property: "scale"
+                to: 0.92
+                duration: Theme.animPopupOut
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveExit
+            }
         }
         ScriptAction { script: { audioPop.closing = false; } }
     }
 
-    property var sink: Pipewire.defaultAudioSink
+    property var sink: AudioService.sink
     property var source: Pipewire.defaultAudioSource
     PwObjectTracker { objects: [audioPop.sink, audioPop.source] }
 
@@ -72,7 +100,13 @@ PanelWindow {
                 Text {
                     text: (audioPop.sink?.audio?.muted ?? false) ? "Muted" : "On"
                     color: (audioPop.sink?.audio?.muted ?? false) ? Theme.fg4 : Theme.fg3
-                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                    Behavior on color {
+                        Components.CAnim {
+                            duration: Theme.animHover
+                            easing.type: Easing.BezierSpline
+                            easing.bezierCurve: Theme.animCurveStandard
+                        }
+                    }
                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                 }
                 Components.ToggleSwitch {
@@ -99,19 +133,39 @@ PanelWindow {
                         anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
                         width: parent.width * Math.min(1.0, audioPop.sink?.audio?.volume ?? 0)
                         radius: parent.radius; color: Theme.greenBright
-                        Behavior on width { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                        Behavior on width {
+                            Components.Anim {
+                                duration: Theme.animMicro
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveStandard
+                            }
+                        }
                     }
                     Rectangle {
                         width: 12; height: 12; radius: 6
                         color: Theme.fg; y: (parent.height - height) / 2
                         x: Math.max(0, Math.min(parent.width - width, parent.width * Math.min(1.0, audioPop.sink?.audio?.volume ?? 0) - width / 2))
                         scale: outSliderMouse.pressed ? 1.2 : (outSliderMouse.containsMouse ? 1.1 : 1.0)
-                        Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                        Behavior on x { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                        Behavior on scale {
+                            Components.Anim {
+                                duration: Theme.animMicro
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveStandard
+                            }
+                        }
+                        Behavior on x {
+                            Components.Anim {
+                                duration: Theme.animMicro
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveStandard
+                            }
+                        }
                     }
-                    MouseArea {
+                    Components.HoverLayer {
                         id: outSliderMouse
-                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                        hoverOpacity: 0
+                        pressedOpacity: 0
+                        pressedScale: 1.0
                         onPressed: { AudioService.suppressOsd = true; }
                         onReleased: { Qt.callLater(() => { AudioService.suppressOsd = false; }); }
                         onClicked: (mouse) => { AudioService.setVolume(mouse.x / parent.width); }
@@ -129,7 +183,13 @@ PanelWindow {
                 Text {
                     text: (audioPop.source?.audio?.muted ?? true) ? "Muted" : "On"
                     color: (audioPop.source?.audio?.muted ?? true) ? Theme.fg4 : Theme.fg3
-                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                    Behavior on color {
+                        Components.CAnim {
+                            duration: Theme.animHover
+                            easing.type: Easing.BezierSpline
+                            easing.bezierCurve: Theme.animCurveStandard
+                        }
+                    }
                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                 }
                 Components.ToggleSwitch {
@@ -156,19 +216,39 @@ PanelWindow {
                         anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
                         width: parent.width * Math.min(1.0, audioPop.source?.audio?.volume ?? 0)
                         radius: parent.radius; color: Theme.aquaBright
-                        Behavior on width { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                        Behavior on width {
+                            Components.Anim {
+                                duration: Theme.animMicro
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveStandard
+                            }
+                        }
                     }
                     Rectangle {
                         width: 12; height: 12; radius: 6
                         color: Theme.fg; y: (parent.height - height) / 2
                         x: Math.max(0, Math.min(parent.width - width, parent.width * Math.min(1.0, audioPop.source?.audio?.volume ?? 0) - width / 2))
                         scale: inSliderMouse.pressed ? 1.2 : (inSliderMouse.containsMouse ? 1.1 : 1.0)
-                        Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                        Behavior on x { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                        Behavior on scale {
+                            Components.Anim {
+                                duration: Theme.animMicro
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveStandard
+                            }
+                        }
+                        Behavior on x {
+                            Components.Anim {
+                                duration: Theme.animMicro
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveStandard
+                            }
+                        }
                     }
-                    MouseArea {
+                    Components.HoverLayer {
                         id: inSliderMouse
-                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                        hoverOpacity: 0
+                        pressedOpacity: 0
+                        pressedScale: 1.0
                         onPressed: { AudioService.suppressOsd = true; }
                         onReleased: { Qt.callLater(() => { AudioService.suppressOsd = false; }); }
                         onClicked: (mouse) => { if (audioPop.source?.audio) audioPop.source.audio.volume = mouse.x / parent.width; }
@@ -210,19 +290,39 @@ PanelWindow {
                                     anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
                                     width: parent.width * Math.min(1.0, appRow.modelData.audio?.volume ?? 0)
                                     radius: parent.radius; color: Theme.yellowBright
-                                    Behavior on width { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                                    Behavior on width {
+                                        Components.Anim {
+                                            duration: Theme.animMicro
+                                            easing.type: Easing.BezierSpline
+                                            easing.bezierCurve: Theme.animCurveStandard
+                                        }
+                                    }
                                 }
                                 Rectangle {
                                     width: 10; height: 10; radius: 5
                                     color: Theme.fg; y: (parent.height - height) / 2
                                     x: Math.max(0, Math.min(parent.width - width, parent.width * Math.min(1.0, appRow.modelData.audio?.volume ?? 0) - width / 2))
                                     scale: appSliderMouse.pressed ? 1.2 : (appSliderMouse.containsMouse ? 1.1 : 1.0)
-                                    Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                                    Behavior on x { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                                    Behavior on scale {
+                                        Components.Anim {
+                                            duration: Theme.animMicro
+                                            easing.type: Easing.BezierSpline
+                                            easing.bezierCurve: Theme.animCurveStandard
+                                        }
+                                    }
+                                    Behavior on x {
+                                        Components.Anim {
+                                            duration: Theme.animMicro
+                                            easing.type: Easing.BezierSpline
+                                            easing.bezierCurve: Theme.animCurveStandard
+                                        }
+                                    }
                                 }
-                                MouseArea {
+                                Components.HoverLayer {
                                     id: appSliderMouse
-                                    anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                                    hoverOpacity: 0
+                                    pressedOpacity: 0
+                                    pressedScale: 1.0
                                     onPressed: { AudioService.suppressOsd = true; }
                                     onReleased: { Qt.callLater(() => { AudioService.suppressOsd = false; }); }
                                     onClicked: (mouse) => { if (appRow.modelData.audio) appRow.modelData.audio.volume = mouse.x / parent.width; }

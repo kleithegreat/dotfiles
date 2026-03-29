@@ -104,15 +104,43 @@ PanelWindow {
     SequentialAnimation {
         id: wifiOpenAnim
         ParallelAnimation {
-            NumberAnimation { target: wifiPanel; property: "opacity"; to: 1; duration: Theme.animPopupIn; easing.type: Easing.OutCubic }
-            NumberAnimation { target: wifiPanel; property: "scale"; to: 1.0; duration: Theme.animPopupIn; easing.type: Easing.OutCubic }
+            Components.Anim {
+                target: wifiPanel
+                property: "opacity"
+                to: 1
+                duration: Theme.animPopupIn
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveEmphasizedEnter
+            }
+            Components.Anim {
+                target: wifiPanel
+                property: "scale"
+                to: 1.0
+                duration: Theme.animPopupIn
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveEmphasizedEnter
+            }
         }
     }
     SequentialAnimation {
         id: wifiCloseAnim
         ParallelAnimation {
-            NumberAnimation { target: wifiPanel; property: "opacity"; to: 0; duration: Theme.animPopupOut; easing.type: Easing.InCubic }
-            NumberAnimation { target: wifiPanel; property: "scale"; to: 0.92; duration: Theme.animPopupOut; easing.type: Easing.InCubic }
+            Components.Anim {
+                target: wifiPanel
+                property: "opacity"
+                to: 0
+                duration: Theme.animPopupOut
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveExit
+            }
+            Components.Anim {
+                target: wifiPanel
+                property: "scale"
+                to: 0.92
+                duration: Theme.animPopupOut
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveExit
+            }
         }
         ScriptAction { script: { wifiPop.closing = false; } }
     }
@@ -939,7 +967,13 @@ PanelWindow {
         radius: Theme.popupRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
         opacity: 0; scale: 0.92
         transformOrigin: Item.TopRight
-        Behavior on height { NumberAnimation { duration: Theme.animHeightResize; easing.type: Easing.OutCubic } }
+        Behavior on height {
+            Components.Anim {
+                duration: Theme.animHeightResize
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveStandard
+            }
+        }
         MouseArea { anchors.fill: parent }
 
         ColumnLayout {
@@ -965,41 +999,51 @@ PanelWindow {
                     visible: wifiPop.popupState !== "list" && wifiPop.popupState !== "connecting"
                     width: backLabel.implicitWidth + Theme.btnPaddingH * 2; height: Theme.btnHeight; radius: Theme.btnRadius
                     color: "transparent"
-                    Rectangle {
-                        anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                        opacity: backA.pressed ? 0.9 : (backA.containsMouse ? 0.6 : 0)
-                        Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
-                    }
-                    scale: backA.pressed ? 0.98 : 1.0
-                    Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                    transformOrigin: Item.Center
-                    Text { id: backLabel; anchors.centerIn: parent; text: "← Back"; color: backA.containsMouse ? Theme.blueBright : Theme.fg4
-                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-                    MouseArea { id: backA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                    Components.HoverLayer {
+                        id: backA
+                        color: Theme.bg2
+                        hoverOpacity: 0.6
+                        pressedOpacity: 0.9
+                        pressedScale: 0.98
                         onClicked: {
                             if (wifiPop.popupState === "channels") wifiPop.popupState = "diagnostics";
                             else wifiPop.resetState();
-                        } }
+                        }
+
+                        Text { id: backLabel; anchors.centerIn: parent; text: "← Back"; color: backA.containsMouse ? Theme.blueBright : Theme.fg4
+                            Behavior on color {
+                                Components.CAnim {
+                                    duration: Theme.animHover
+                                    easing.type: Easing.BezierSpline
+                                    easing.bezierCurve: Theme.animCurveStandard
+                                }
+                            }
+                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+                    }
                 }
                 // Rescan button (list only)
                 Rectangle {
                     visible: wifiPop.popupState === "list"
                     width: rescanLabel.implicitWidth + Theme.btnPaddingH * 2; height: Theme.btnHeight; radius: Theme.btnRadius
                     color: "transparent"
-                    Rectangle {
-                        anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                        opacity: rescanA.pressed ? 0.9 : (rescanA.containsMouse ? 0.6 : 0)
-                        Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                    Components.HoverLayer {
+                        id: rescanA
+                        color: Theme.bg2
+                        hoverOpacity: 0.6
+                        pressedOpacity: 0.9
+                        pressedScale: 0.98
+                        onClicked: wifiPop.scan()
+
+                        Text { id: rescanLabel; anchors.centerIn: parent; text: "Rescan"; color: rescanA.containsMouse ? Theme.blueBright : Theme.fg4
+                            Behavior on color {
+                                Components.CAnim {
+                                    duration: Theme.animHover
+                                    easing.type: Easing.BezierSpline
+                                    easing.bezierCurve: Theme.animCurveStandard
+                                }
+                            }
+                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
                     }
-                    scale: rescanA.pressed ? 0.98 : 1.0
-                    Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                    transformOrigin: Item.Center
-                    Text { id: rescanLabel; anchors.centerIn: parent; text: "Rescan"; color: rescanA.containsMouse ? Theme.blueBright : Theme.fg4
-                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-                    MouseArea { id: rescanA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                        onClicked: wifiPop.scan() }
                 }
             }
 
@@ -1013,8 +1057,20 @@ PanelWindow {
                     wrapMode: Text.WordWrap
                     opacity: wifiPop.connectError !== "" ? 1 : 0
                     y: wifiPop.connectError !== "" ? 0 : 6
-                    Behavior on opacity { NumberAnimation { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
-                    Behavior on y { NumberAnimation { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
+                    Behavior on opacity {
+                        Components.Anim {
+                            duration: Theme.animContentSwap
+                            easing.type: Easing.BezierSpline
+                            easing.bezierCurve: Theme.animCurveStandard
+                        }
+                    }
+                    Behavior on y {
+                        Components.Anim {
+                            duration: Theme.animContentSwap
+                            easing.type: Easing.BezierSpline
+                            easing.bezierCurve: Theme.animCurveStandard
+                        }
+                    }
                 }
             }
 
@@ -1028,13 +1084,25 @@ PanelWindow {
                 visible: wifiPop.popupState === "list"
                 opacity: wifiPop.popupState === "list" ? 1 : 0
                 clip: true
-                Behavior on opacity { Components.Anim { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
+                Behavior on opacity {
+                    Components.Anim {
+                        duration: Theme.animContentSwap
+                        easing.type: Easing.BezierSpline
+                        easing.bezierCurve: Theme.animCurveStandard
+                    }
+                }
 
                 WifiList {
                     anchors.fill: parent
                     opacity: wifiPop.listLoading ? 0 : 1
                     enabled: opacity > 0.01
-                    Behavior on opacity { Components.Anim { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
+                    Behavior on opacity {
+                        Components.Anim {
+                            duration: Theme.animContentSwap
+                            easing.type: Easing.BezierSpline
+                            easing.bezierCurve: Theme.animCurveStandard
+                        }
+                    }
                     netModel: netModel
                     connectedSsid: wifiPop.connectedSsid
                     isCaptivePortal: wifiPop.isCaptivePortal
@@ -1050,7 +1118,13 @@ PanelWindow {
                     opacity: wifiPop.listLoading ? 1 : 0
                     visible: opacity > 0
                     z: 1
-                    Behavior on opacity { Components.Anim { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
+                    Behavior on opacity {
+                        Components.Anim {
+                            duration: Theme.animContentSwap
+                            easing.type: Easing.BezierSpline
+                            easing.bezierCurve: Theme.animCurveStandard
+                        }
+                    }
 
                     Repeater {
                         model: ListModel {
@@ -1095,7 +1169,13 @@ PanelWindow {
             WifiDetail {
                 visible: wifiPop.popupState === "detail"
                 opacity: wifiPop.popupState === "detail" ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
+                Behavior on opacity {
+                    Components.Anim {
+                        duration: Theme.animContentSwap
+                        easing.type: Easing.BezierSpline
+                        easing.bezierCurve: Theme.animCurveStandard
+                    }
+                }
                 Layout.fillWidth: true
                 targetSsid: wifiPop.targetSsid
                 targetSecurity: wifiPop.targetSecurity
@@ -1116,7 +1196,13 @@ PanelWindow {
             WifiPassword {
                 visible: wifiPop.popupState === "password"
                 opacity: wifiPop.popupState === "password" ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
+                Behavior on opacity {
+                    Components.Anim {
+                        duration: Theme.animContentSwap
+                        easing.type: Easing.BezierSpline
+                        easing.bezierCurve: Theme.animCurveStandard
+                    }
+                }
                 Layout.fillWidth: true
                 targetSsid: wifiPop.targetSsid
                 connectError: wifiPop.connectError
@@ -1127,7 +1213,13 @@ PanelWindow {
             WifiEnterprise {
                 visible: wifiPop.popupState === "enterprise"
                 opacity: wifiPop.popupState === "enterprise" ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
+                Behavior on opacity {
+                    Components.Anim {
+                        duration: Theme.animContentSwap
+                        easing.type: Easing.BezierSpline
+                        easing.bezierCurve: Theme.animCurveStandard
+                    }
+                }
                 Layout.fillWidth: true
                 targetSsid: wifiPop.targetSsid
                 connectError: wifiPop.connectError
@@ -1138,7 +1230,13 @@ PanelWindow {
             WifiConnecting {
                 visible: wifiPop.popupState === "connecting"
                 opacity: wifiPop.popupState === "connecting" ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
+                Behavior on opacity {
+                    Components.Anim {
+                        duration: Theme.animContentSwap
+                        easing.type: Easing.BezierSpline
+                        easing.bezierCurve: Theme.animCurveStandard
+                    }
+                }
                 Layout.fillWidth: true; Layout.alignment: Qt.AlignHCenter
                 targetSsid: wifiPop.targetSsid
             }
@@ -1147,7 +1245,13 @@ PanelWindow {
                 Layout.fillWidth: true; Layout.preferredHeight: 500; Layout.maximumHeight: 500
                 visible: wifiPop.popupState === "diagnostics"
                 opacity: wifiPop.popupState === "diagnostics" ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
+                Behavior on opacity {
+                    Components.Anim {
+                        duration: Theme.animContentSwap
+                        easing.type: Easing.BezierSpline
+                        easing.bezierCurve: Theme.animCurveStandard
+                    }
+                }
                 diagLoading: wifiPop.diagLoading
                 speedTestRunning: wifiPop.speedTestRunning
                 connectedSsid: wifiPop.connectedSsid
@@ -1194,14 +1298,26 @@ PanelWindow {
                 visible: wifiPop.popupState === "channels"
                 opacity: wifiPop.popupState === "channels" ? 1 : 0
                 clip: true
-                Behavior on opacity { Components.Anim { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
+                Behavior on opacity {
+                    Components.Anim {
+                        duration: Theme.animContentSwap
+                        easing.type: Easing.BezierSpline
+                        easing.bezierCurve: Theme.animCurveStandard
+                    }
+                }
 
                 WifiChannels {
                     id: channelView
                     anchors.fill: parent
                     opacity: wifiPop.channelLoading ? 0 : 1
                     enabled: opacity > 0.01
-                    Behavior on opacity { Components.Anim { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
+                    Behavior on opacity {
+                        Components.Anim {
+                            duration: Theme.animContentSwap
+                            easing.type: Easing.BezierSpline
+                            easing.bezierCurve: Theme.animCurveStandard
+                        }
+                    }
                     channelModel: channelModel
                     currentChannel: wifiPop.currentChannel
                     currentBand: wifiPop.currentBand
@@ -1217,7 +1333,13 @@ PanelWindow {
                     opacity: wifiPop.channelLoading ? 1 : 0
                     visible: opacity > 0
                     z: 1
-                    Behavior on opacity { Components.Anim { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
+                    Behavior on opacity {
+                        Components.Anim {
+                            duration: Theme.animContentSwap
+                            easing.type: Easing.BezierSpline
+                            easing.bezierCurve: Theme.animCurveStandard
+                        }
+                    }
 
                     Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
 

@@ -38,12 +38,12 @@ Components.WheelFlickable {
                     height: Theme.btnHeight
                     radius: Theme.btnRadius
                     color: isCurrent ? Theme.accent : (itArea.containsMouse ? Theme.bg2 : Theme.bg1)
-                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                     border.width: 1
                     border.color: isCurrent ? Theme.accent : Theme.bg3
-                    Behavior on border.color { ColorAnimation { duration: Theme.animSpring } }
+                    Behavior on border.color { Components.CAnim { duration: Theme.animSpring; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                     scale: itArea.pressed ? 0.95 : 1.0
-                    Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                    Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                     transformOrigin: Item.Center
 
                     Text {
@@ -53,14 +53,20 @@ Components.WheelFlickable {
                         color: itBtn.isCurrent ? Theme.bg : Theme.fg
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSizeSmall
-                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                     }
 
-                    MouseArea {
+                    Components.HoverLayer {
                         id: itArea
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
                         hoverEnabled: true
+
+                        hoverOpacity: 0
+
+                        pressedOpacity: 0
+
+                        pressedScale: 1.0
                         onClicked: root.setRequested("icon_theme", itBtn.modelData)
                     }
                 }
@@ -88,12 +94,12 @@ Components.WheelFlickable {
                     height: Theme.btnHeight
                     radius: Theme.btnRadius
                     color: isCurrent ? Theme.accent : (ctArea.containsMouse ? Theme.bg2 : Theme.bg1)
-                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                     border.width: 1
                     border.color: isCurrent ? Theme.accent : Theme.bg3
-                    Behavior on border.color { ColorAnimation { duration: Theme.animSpring } }
+                    Behavior on border.color { Components.CAnim { duration: Theme.animSpring; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                     scale: ctArea.pressed ? 0.95 : 1.0
-                    Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                    Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                     transformOrigin: Item.Center
 
                     Text {
@@ -103,14 +109,20 @@ Components.WheelFlickable {
                         color: ctBtn.isCurrent ? Theme.bg : Theme.fg
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSizeSmall
-                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                     }
 
-                    MouseArea {
+                    Components.HoverLayer {
                         id: ctArea
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
                         hoverEnabled: true
+
+                        hoverOpacity: 0
+
+                        pressedOpacity: 0
+
+                        pressedScale: 1.0
                         onClicked: root.setRequested("cursor_theme", ctBtn.modelData)
                     }
                 }
@@ -131,15 +143,21 @@ Components.WheelFlickable {
                 color: csMinus.containsMouse ? Theme.bg2 : Theme.bg1
                 border.width: 1
                 border.color: Theme.bg3
-                Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
 
                 Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
 
-                MouseArea {
+                Components.HoverLayer {
                     id: csMinus
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
                     hoverEnabled: true
+
+                    hoverOpacity: 0
+
+                    pressedOpacity: 0
+
+                    pressedScale: 1.0
                     onClicked: {
                         let s = (root.themeState.cursor_size || 24) - 4;
                         if (s >= 16)
@@ -157,15 +175,21 @@ Components.WheelFlickable {
                 color: csPlus.containsMouse ? Theme.bg2 : Theme.bg1
                 border.width: 1
                 border.color: Theme.bg3
-                Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
 
                 Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
 
-                MouseArea {
+                Components.HoverLayer {
                     id: csPlus
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
                     hoverEnabled: true
+
+                    hoverOpacity: 0
+
+                    pressedOpacity: 0
+
+                    pressedScale: 1.0
                     onClicked: {
                         let s = (root.themeState.cursor_size || 24) + 4;
                         if (s <= 48)

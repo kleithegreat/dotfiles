@@ -4,6 +4,7 @@ import Quickshell.Wayland
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Services.Mpris
+import "../components" as Components
 
 PanelWindow {
     id: mprisPop
@@ -65,15 +66,43 @@ PanelWindow {
     SequentialAnimation {
         id: mprisOpenAnim
         ParallelAnimation {
-            NumberAnimation { target: mprisPanel; property: "opacity"; to: 1; duration: Theme.animPopupIn; easing.type: Easing.OutCubic }
-            NumberAnimation { target: mprisPanel; property: "scale"; to: 1.0; duration: Theme.animPopupIn; easing.type: Easing.OutCubic }
+            Components.Anim {
+                target: mprisPanel
+                property: "opacity"
+                to: 1
+                duration: Theme.animPopupIn
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveEmphasizedEnter
+            }
+            Components.Anim {
+                target: mprisPanel
+                property: "scale"
+                to: 1.0
+                duration: Theme.animPopupIn
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveEmphasizedEnter
+            }
         }
     }
     SequentialAnimation {
         id: mprisCloseAnim
         ParallelAnimation {
-            NumberAnimation { target: mprisPanel; property: "opacity"; to: 0; duration: Theme.animPopupOut; easing.type: Easing.InCubic }
-            NumberAnimation { target: mprisPanel; property: "scale"; to: 0.92; duration: Theme.animPopupOut; easing.type: Easing.InCubic }
+            Components.Anim {
+                target: mprisPanel
+                property: "opacity"
+                to: 0
+                duration: Theme.animPopupOut
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveExit
+            }
+            Components.Anim {
+                target: mprisPanel
+                property: "scale"
+                to: 0.92
+                duration: Theme.animPopupOut
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveExit
+            }
         }
         ScriptAction { script: { mprisPop.closing = false; } }
     }
@@ -116,8 +145,22 @@ PanelWindow {
                         NumberAnimation { target: artImgOld; property: "opacity"; to: 1; duration: 0 }
                         NumberAnimation { target: artImg; property: "opacity"; to: 0; duration: 0 }
                         ParallelAnimation {
-                            NumberAnimation { target: artImgOld; property: "opacity"; to: 0; duration: Theme.animContentSwap; easing.type: Easing.OutCubic }
-                            NumberAnimation { target: artImg; property: "opacity"; to: 1; duration: Theme.animContentSwap; easing.type: Easing.OutCubic }
+                            Components.Anim {
+                                target: artImgOld
+                                property: "opacity"
+                                to: 0
+                                duration: Theme.animContentSwap
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveExit
+                            }
+                            Components.Anim {
+                                target: artImg
+                                property: "opacity"
+                                to: 1
+                                duration: Theme.animContentSwap
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveStandard
+                            }
                         }
                     }
 
@@ -167,13 +210,41 @@ PanelWindow {
                     SequentialAnimation {
                         id: trackChangeAnim
                         ParallelAnimation {
-                            NumberAnimation { target: trackInfoCol; property: "opacity"; to: 0; duration: Theme.animContentSwap / 2; easing.type: Easing.InCubic }
-                            NumberAnimation { target: trackInfoCol; property: "y"; to: -6; duration: Theme.animContentSwap / 2; easing.type: Easing.InCubic }
+                            Components.Anim {
+                                target: trackInfoCol
+                                property: "opacity"
+                                to: 0
+                                duration: Theme.animContentSwap / 2
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveExit
+                            }
+                            Components.Anim {
+                                target: trackInfoCol
+                                property: "y"
+                                to: -6
+                                duration: Theme.animContentSwap / 2
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveExit
+                            }
                         }
                         ScriptAction { script: { trackInfoCol.y = 6; } }
                         ParallelAnimation {
-                            NumberAnimation { target: trackInfoCol; property: "opacity"; to: 1; duration: Theme.animContentSwap / 2; easing.type: Easing.OutCubic }
-                            NumberAnimation { target: trackInfoCol; property: "y"; to: 0; duration: Theme.animContentSwap / 2; easing.type: Easing.OutCubic }
+                            Components.Anim {
+                                target: trackInfoCol
+                                property: "opacity"
+                                to: 1
+                                duration: Theme.animContentSwap / 2
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveStandard
+                            }
+                            Components.Anim {
+                                target: trackInfoCol
+                                property: "y"
+                                to: 0
+                                duration: Theme.animContentSwap / 2
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveStandard
+                            }
                         }
                     }
                 }
@@ -187,7 +258,13 @@ PanelWindow {
                         anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
                         width: mprisPop.hasLen ? parent.width * Math.min(1.0, mprisPop.pos / mprisPop.len) : 0
                         radius: 2; color: Theme.greenBright
-                        Behavior on width { NumberAnimation { duration: 300 } }
+                        Behavior on width {
+                            Components.Anim {
+                                duration: 300
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveStandard
+                            }
+                        }
                     }
                     MouseArea {
                         anchors.fill: parent; cursorShape: Qt.PointingHandCursor
@@ -209,63 +286,78 @@ PanelWindow {
                 // Previous
                 Rectangle {
                     width: 28; height: 28; radius: Theme.hoverRadius; color: "transparent"
-                    Rectangle {
-                        anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                        opacity: pA.pressed ? 0.9 : (pA.containsMouse ? 0.6 : 0)
-                        Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                    Components.HoverLayer {
+                        id: pA
+                        color: Theme.bg2
+                        hoverOpacity: 0.6
+                        pressedOpacity: 0.9
+                        pressedScale: 0.85
+                        onClicked: { if (mprisPop.player?.canGoPrevious) mprisPop.player.previous(); }
+
+                        Text {
+                            anchors.centerIn: parent; text: "󰒮"
+                            color: pA.containsMouse ? Theme.fg : Theme.fg3
+                            Behavior on color {
+                                Components.CAnim {
+                                    duration: Theme.animHover
+                                    easing.type: Easing.BezierSpline
+                                    easing.bezierCurve: Theme.animCurveStandard
+                                }
+                            }
+                            font.family: Theme.fontFamily; font.pixelSize: 18
+                        }
                     }
-                    scale: pA.pressed ? 0.85 : 1.0
-                    Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                    transformOrigin: Item.Center
-                    Text {
-                        anchors.centerIn: parent; text: "󰒮"
-                        color: pA.containsMouse ? Theme.fg : Theme.fg3
-                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                        font.family: Theme.fontFamily; font.pixelSize: 18
-                    }
-                    MouseArea { id: pA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                        onClicked: { if (mprisPop.player?.canGoPrevious) mprisPop.player.previous(); } }
                 }
                 // Play/Pause
                 Rectangle {
                     width: 32; height: 32; radius: Theme.hoverRadius; color: "transparent"
-                    Rectangle {
-                        anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                        opacity: ppA.pressed ? 0.9 : (ppA.containsMouse ? 0.6 : 0)
-                        Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                    Components.HoverLayer {
+                        id: ppA
+                        color: Theme.bg2
+                        hoverOpacity: 0.6
+                        pressedOpacity: 0.9
+                        pressedScale: 0.85
+                        onClicked: { if (mprisPop.player?.canTogglePlaying ?? false) mprisPop.player.isPlaying = !mprisPop.player.isPlaying; }
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: (mprisPop.player?.isPlaying ?? false) ? "󰏤" : "󰐊"
+                            color: ppA.containsMouse ? Theme.yellowBright : Theme.fg
+                            Behavior on color {
+                                Components.CAnim {
+                                    duration: Theme.animHover
+                                    easing.type: Easing.BezierSpline
+                                    easing.bezierCurve: Theme.animCurveStandard
+                                }
+                            }
+                            font.family: Theme.fontFamily; font.pixelSize: 22
+                        }
                     }
-                    scale: ppA.pressed ? 0.85 : 1.0
-                    Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                    transformOrigin: Item.Center
-                    Text {
-                        anchors.centerIn: parent
-                        text: (mprisPop.player?.isPlaying ?? false) ? "󰏤" : "󰐊"
-                        color: ppA.containsMouse ? Theme.yellowBright : Theme.fg
-                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                        font.family: Theme.fontFamily; font.pixelSize: 22
-                    }
-                    MouseArea { id: ppA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                        onClicked: { if (mprisPop.player?.canTogglePlaying ?? false) mprisPop.player.isPlaying = !mprisPop.player.isPlaying; } }
                 }
                 // Next
                 Rectangle {
                     width: 28; height: 28; radius: Theme.hoverRadius; color: "transparent"
-                    Rectangle {
-                        anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                        opacity: nA.pressed ? 0.9 : (nA.containsMouse ? 0.6 : 0)
-                        Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                    Components.HoverLayer {
+                        id: nA
+                        color: Theme.bg2
+                        hoverOpacity: 0.6
+                        pressedOpacity: 0.9
+                        pressedScale: 0.85
+                        onClicked: { if (mprisPop.player?.canGoNext) mprisPop.player.next(); }
+
+                        Text {
+                            anchors.centerIn: parent; text: "󰒭"
+                            color: nA.containsMouse ? Theme.fg : Theme.fg3
+                            Behavior on color {
+                                Components.CAnim {
+                                    duration: Theme.animHover
+                                    easing.type: Easing.BezierSpline
+                                    easing.bezierCurve: Theme.animCurveStandard
+                                }
+                            }
+                            font.family: Theme.fontFamily; font.pixelSize: 18
+                        }
                     }
-                    scale: nA.pressed ? 0.85 : 1.0
-                    Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                    transformOrigin: Item.Center
-                    Text {
-                        anchors.centerIn: parent; text: "󰒭"
-                        color: nA.containsMouse ? Theme.fg : Theme.fg3
-                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                        font.family: Theme.fontFamily; font.pixelSize: 18
-                    }
-                    MouseArea { id: nA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                        onClicked: { if (mprisPop.player?.canGoNext) mprisPop.player.next(); } }
                 }
             }
         }

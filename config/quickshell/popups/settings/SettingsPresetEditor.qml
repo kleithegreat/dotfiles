@@ -175,9 +175,9 @@ Rectangle {
                 border.width: 1
                 border.color: Theme.bg3
                 opacity: root.busy ? 0.5 : 1
-                Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                 scale: cancelTopArea.pressed ? 0.95 : 1.0
-                Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                 transformOrigin: Item.Center
 
                 Text {
@@ -189,12 +189,18 @@ Rectangle {
                     font.pixelSize: Theme.fontSizeSmall
                 }
 
-                MouseArea {
+                Components.HoverLayer {
                     id: cancelTopArea
                     anchors.fill: parent
                     enabled: !root.busy
                     cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                     hoverEnabled: true
+
+                    hoverOpacity: 0
+
+                    pressedOpacity: 0
+
+                    pressedScale: 1.0
                     onClicked: root.cancelRequested()
                 }
             }
@@ -228,7 +234,7 @@ Rectangle {
                 color: root.mode === "edit" ? Theme.bg : Theme.bg2
                 border.width: 1
                 border.color: root.mode === "create" && nameInput.activeFocus ? Theme.blueBright : Theme.bg3
-                Behavior on border.color { ColorAnimation { duration: Theme.animHover } }
+                Behavior on border.color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
 
                 TextInput {
                     id: nameInput
@@ -337,10 +343,10 @@ Rectangle {
                         color: isActive ? Theme.accent : (chipArea.containsMouse ? Theme.bg2 : Theme.bg)
                         border.width: 1
                         border.color: isActive ? Theme.accent : Theme.bg3
-                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                        Behavior on border.color { ColorAnimation { duration: Theme.animHover } }
+                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                        Behavior on border.color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                         scale: chipArea.pressed ? 0.95 : 1.0
-                        Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                        Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                         transformOrigin: Item.Center
 
                         Text {
@@ -350,14 +356,20 @@ Rectangle {
                             color: colorChip.isActive ? Theme.bg : Theme.fg
                             font.family: Theme.systemFamily
                             font.pixelSize: Theme.fontSizeSmall
-                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                            Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                         }
 
-                        MouseArea {
+                        Components.HoverLayer {
                             id: chipArea
                             anchors.fill: parent
                             cursorShape: Qt.PointingHandCursor
                             hoverEnabled: true
+
+                            hoverOpacity: 0
+
+                            pressedOpacity: 0
+
+                            pressedScale: 1.0
                             onClicked: root.setField("color_scheme", modelData.schemeName)
                         }
                     }
@@ -401,10 +413,10 @@ Rectangle {
                     color: isActive ? Theme.accent : (lightHintArea.containsMouse ? Theme.bg2 : Theme.bg)
                     border.width: 1
                     border.color: isActive ? Theme.accent : Theme.bg3
-                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                    Behavior on border.color { ColorAnimation { duration: Theme.animHover } }
+                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                    Behavior on border.color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                     scale: lightHintArea.pressed ? 0.95 : 1.0
-                    Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                    Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                     transformOrigin: Item.Center
 
                     Text {
@@ -414,14 +426,20 @@ Rectangle {
                         color: lightHintBtn.isActive ? Theme.bg : Theme.fg
                         font.family: Theme.systemFamily
                         font.pixelSize: Theme.fontSizeSmall
-                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                     }
 
-                    MouseArea {
+                    Components.HoverLayer {
                         id: lightHintArea
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
                         hoverEnabled: true
+
+                        hoverOpacity: 0
+
+                        pressedOpacity: 0
+
+                        pressedScale: 1.0
                         onClicked: root.setField("dark_hint", false)
                     }
                 }
@@ -436,10 +454,10 @@ Rectangle {
                     color: isActive ? Theme.accent : (darkHintArea.containsMouse ? Theme.bg2 : Theme.bg)
                     border.width: 1
                     border.color: isActive ? Theme.accent : Theme.bg3
-                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                    Behavior on border.color { ColorAnimation { duration: Theme.animHover } }
+                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                    Behavior on border.color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                     scale: darkHintArea.pressed ? 0.95 : 1.0
-                    Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                    Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                     transformOrigin: Item.Center
 
                     Text {
@@ -449,14 +467,20 @@ Rectangle {
                         color: darkHintBtn.isActive ? Theme.bg : Theme.fg
                         font.family: Theme.systemFamily
                         font.pixelSize: Theme.fontSizeSmall
-                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                     }
 
-                    MouseArea {
+                    Components.HoverLayer {
                         id: darkHintArea
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
                         hoverEnabled: true
+
+                        hoverOpacity: 0
+
+                        pressedOpacity: 0
+
+                        pressedScale: 1.0
                         onClicked: root.setField("dark_hint", true)
                     }
                 }
@@ -497,7 +521,7 @@ Rectangle {
                 color: Theme.bg2
                 border.width: 1
                 border.color: wallpaperInput.activeFocus ? Theme.blueBright : Theme.bg3
-                Behavior on border.color { ColorAnimation { duration: Theme.animHover } }
+                Behavior on border.color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
 
                 TextInput {
                     id: wallpaperInput
@@ -613,10 +637,10 @@ Rectangle {
                         color: isActive ? Theme.accent : (area.containsMouse ? Theme.bg2 : Theme.bg)
                         border.width: 1
                         border.color: isActive ? Theme.accent : Theme.bg3
-                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                        Behavior on border.color { ColorAnimation { duration: Theme.animHover } }
+                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                        Behavior on border.color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                         scale: area.pressed ? 0.95 : 1.0
-                        Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                        Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                         transformOrigin: Item.Center
 
                         Text {
@@ -626,14 +650,20 @@ Rectangle {
                             color: systemFontChip.isActive ? Theme.bg : Theme.fg
                             font.family: Theme.systemFamily
                             font.pixelSize: Theme.fontSizeSmall
-                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                            Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                         }
 
-                        MouseArea {
+                        Components.HoverLayer {
                             id: area
                             anchors.fill: parent
                             cursorShape: Qt.PointingHandCursor
                             hoverEnabled: true
+
+                            hoverOpacity: 0
+
+                            pressedOpacity: 0
+
+                            pressedScale: 1.0
                             onClicked: root.setField("system_font", modelData)
                         }
                     }
@@ -674,15 +704,21 @@ Rectangle {
                     color: fontSizeMinus.containsMouse ? Theme.bg2 : Theme.bg
                     border.width: 1
                     border.color: Theme.bg3
-                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
 
                     Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
 
-                    MouseArea {
+                    Components.HoverLayer {
                         id: fontSizeMinus
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
                         hoverEnabled: true
+
+                        hoverOpacity: 0
+
+                        pressedOpacity: 0
+
+                        pressedScale: 1.0
                         onClicked: root.stepField("font_size", -1, 6, 24)
                     }
                 }
@@ -705,15 +741,21 @@ Rectangle {
                     color: fontSizePlus.containsMouse ? Theme.bg2 : Theme.bg
                     border.width: 1
                     border.color: Theme.bg3
-                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
 
                     Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
 
-                    MouseArea {
+                    Components.HoverLayer {
                         id: fontSizePlus
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
                         hoverEnabled: true
+
+                        hoverOpacity: 0
+
+                        pressedOpacity: 0
+
+                        pressedScale: 1.0
                         onClicked: root.stepField("font_size", 1, 6, 24)
                     }
                 }
@@ -762,10 +804,10 @@ Rectangle {
                         color: isActive ? Theme.accent : (area.containsMouse ? Theme.bg2 : Theme.bg)
                         border.width: 1
                         border.color: isActive ? Theme.accent : Theme.bg3
-                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                        Behavior on border.color { ColorAnimation { duration: Theme.animHover } }
+                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                        Behavior on border.color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                         scale: area.pressed ? 0.95 : 1.0
-                        Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                        Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                         transformOrigin: Item.Center
 
                         Text {
@@ -775,14 +817,20 @@ Rectangle {
                             color: monoFontChip.isActive ? Theme.bg : Theme.fg
                             font.family: Theme.systemFamily
                             font.pixelSize: Theme.fontSizeSmall
-                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                            Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                         }
 
-                        MouseArea {
+                        Components.HoverLayer {
                             id: area
                             anchors.fill: parent
                             cursorShape: Qt.PointingHandCursor
                             hoverEnabled: true
+
+                            hoverOpacity: 0
+
+                            pressedOpacity: 0
+
+                            pressedScale: 1.0
                             onClicked: root.setField("mono_font", modelData)
                         }
                     }
@@ -823,15 +871,21 @@ Rectangle {
                     color: monoFontSizeMinus.containsMouse ? Theme.bg2 : Theme.bg
                     border.width: 1
                     border.color: Theme.bg3
-                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
 
                     Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
 
-                    MouseArea {
+                    Components.HoverLayer {
                         id: monoFontSizeMinus
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
                         hoverEnabled: true
+
+                        hoverOpacity: 0
+
+                        pressedOpacity: 0
+
+                        pressedScale: 1.0
                         onClicked: root.stepField("mono_font_size", -1, 6, 24)
                     }
                 }
@@ -854,15 +908,21 @@ Rectangle {
                     color: monoFontSizePlus.containsMouse ? Theme.bg2 : Theme.bg
                     border.width: 1
                     border.color: Theme.bg3
-                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
 
                     Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
 
-                    MouseArea {
+                    Components.HoverLayer {
                         id: monoFontSizePlus
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
                         hoverEnabled: true
+
+                        hoverOpacity: 0
+
+                        pressedOpacity: 0
+
+                        pressedScale: 1.0
                         onClicked: root.stepField("mono_font_size", 1, 6, 24)
                     }
                 }
@@ -909,15 +969,21 @@ Rectangle {
                         color: offsetMinus.containsMouse ? Theme.bg2 : Theme.bg
                         border.width: 1
                         border.color: Theme.bg3
-                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
 
                         Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
 
-                        MouseArea {
+                        Components.HoverLayer {
                             id: offsetMinus
                             anchors.fill: parent
                             cursorShape: Qt.PointingHandCursor
                             hoverEnabled: true
+
+                            hoverOpacity: 0
+
+                            pressedOpacity: 0
+
+                            pressedScale: 1.0
                             onClicked: root.stepField(fieldKey, -1)
                         }
                     }
@@ -940,15 +1006,21 @@ Rectangle {
                         color: offsetPlus.containsMouse ? Theme.bg2 : Theme.bg
                         border.width: 1
                         border.color: Theme.bg3
-                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
 
                         Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
 
-                        MouseArea {
+                        Components.HoverLayer {
                             id: offsetPlus
                             anchors.fill: parent
                             cursorShape: Qt.PointingHandCursor
                             hoverEnabled: true
+
+                            hoverOpacity: 0
+
+                            pressedOpacity: 0
+
+                            pressedScale: 1.0
                             onClicked: root.stepField(fieldKey, 1)
                         }
                     }
@@ -1002,10 +1074,10 @@ Rectangle {
                         color: isActive ? Theme.accent : (area.containsMouse ? Theme.bg2 : Theme.bg)
                         border.width: 1
                         border.color: isActive ? Theme.accent : Theme.bg3
-                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                        Behavior on border.color { ColorAnimation { duration: Theme.animHover } }
+                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                        Behavior on border.color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                         scale: area.pressed ? 0.95 : 1.0
-                        Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                        Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                         transformOrigin: Item.Center
 
                         Text {
@@ -1015,14 +1087,20 @@ Rectangle {
                             color: iconThemeChip.isActive ? Theme.bg : Theme.fg
                             font.family: Theme.systemFamily
                             font.pixelSize: Theme.fontSizeSmall
-                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                            Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                         }
 
-                        MouseArea {
+                        Components.HoverLayer {
                             id: area
                             anchors.fill: parent
                             cursorShape: Qt.PointingHandCursor
                             hoverEnabled: true
+
+                            hoverOpacity: 0
+
+                            pressedOpacity: 0
+
+                            pressedScale: 1.0
                             onClicked: root.setField("icon_theme", modelData)
                         }
                     }
@@ -1072,10 +1150,10 @@ Rectangle {
                         color: isActive ? Theme.accent : (area.containsMouse ? Theme.bg2 : Theme.bg)
                         border.width: 1
                         border.color: isActive ? Theme.accent : Theme.bg3
-                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                        Behavior on border.color { ColorAnimation { duration: Theme.animHover } }
+                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                        Behavior on border.color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                         scale: area.pressed ? 0.95 : 1.0
-                        Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                        Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                         transformOrigin: Item.Center
 
                         Text {
@@ -1085,14 +1163,20 @@ Rectangle {
                             color: cursorThemeChip.isActive ? Theme.bg : Theme.fg
                             font.family: Theme.systemFamily
                             font.pixelSize: Theme.fontSizeSmall
-                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                            Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                         }
 
-                        MouseArea {
+                        Components.HoverLayer {
                             id: area
                             anchors.fill: parent
                             cursorShape: Qt.PointingHandCursor
                             hoverEnabled: true
+
+                            hoverOpacity: 0
+
+                            pressedOpacity: 0
+
+                            pressedScale: 1.0
                             onClicked: root.setField("cursor_theme", modelData)
                         }
                     }
@@ -1133,15 +1217,21 @@ Rectangle {
                     color: cursorSizeMinus.containsMouse ? Theme.bg2 : Theme.bg
                     border.width: 1
                     border.color: Theme.bg3
-                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
 
                     Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
 
-                    MouseArea {
+                    Components.HoverLayer {
                         id: cursorSizeMinus
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
                         hoverEnabled: true
+
+                        hoverOpacity: 0
+
+                        pressedOpacity: 0
+
+                        pressedScale: 1.0
                         onClicked: root.stepField("cursor_size", -4, 16, 48)
                     }
                 }
@@ -1164,15 +1254,21 @@ Rectangle {
                     color: cursorSizePlus.containsMouse ? Theme.bg2 : Theme.bg
                     border.width: 1
                     border.color: Theme.bg3
-                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
 
                     Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
 
-                    MouseArea {
+                    Components.HoverLayer {
                         id: cursorSizePlus
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
                         hoverEnabled: true
+
+                        hoverOpacity: 0
+
+                        pressedOpacity: 0
+
+                        pressedScale: 1.0
                         onClicked: root.stepField("cursor_size", 4, 16, 48)
                     }
                 }
@@ -1232,15 +1328,21 @@ Rectangle {
                         color: hyprIntMinus.containsMouse ? Theme.bg2 : Theme.bg
                         border.width: 1
                         border.color: Theme.bg3
-                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
 
                         Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
 
-                        MouseArea {
+                        Components.HoverLayer {
                             id: hyprIntMinus
                             anchors.fill: parent
                             cursorShape: Qt.PointingHandCursor
                             hoverEnabled: true
+
+                            hoverOpacity: 0
+
+                            pressedOpacity: 0
+
+                            pressedScale: 1.0
                             onClicked: root.stepField(modelData.key, -(modelData.step || 1), modelData.minimum)
                         }
                     }
@@ -1263,15 +1365,21 @@ Rectangle {
                         color: hyprIntPlus.containsMouse ? Theme.bg2 : Theme.bg
                         border.width: 1
                         border.color: Theme.bg3
-                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
 
                         Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
 
-                        MouseArea {
+                        Components.HoverLayer {
                             id: hyprIntPlus
                             anchors.fill: parent
                             cursorShape: Qt.PointingHandCursor
                             hoverEnabled: true
+
+                            hoverOpacity: 0
+
+                            pressedOpacity: 0
+
+                            pressedScale: 1.0
                             onClicked: root.stepField(modelData.key, modelData.step || 1, modelData.minimum)
                         }
                     }
@@ -1389,9 +1497,9 @@ Rectangle {
                 border.width: 1
                 border.color: Theme.bg3
                 opacity: root.busy ? 0.5 : 1
-                Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                 scale: cancelBottomArea.pressed ? 0.95 : 1.0
-                Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                 transformOrigin: Item.Center
 
                 Text {
@@ -1403,12 +1511,18 @@ Rectangle {
                     font.pixelSize: Theme.fontSizeSmall
                 }
 
-                MouseArea {
+                Components.HoverLayer {
                     id: cancelBottomArea
                     anchors.fill: parent
                     enabled: !root.busy
                     cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                     hoverEnabled: true
+
+                    hoverOpacity: 0
+
+                    pressedOpacity: 0
+
+                    pressedScale: 1.0
                     onClicked: root.cancelRequested()
                 }
             }
@@ -1420,10 +1534,10 @@ Rectangle {
                 color: root.canSave() ? (saveArea.containsMouse ? Theme.greenBright : Theme.accent) : Theme.bg2
                 border.width: 1
                 border.color: root.canSave() ? Theme.accent : Theme.bg3
-                Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                Behavior on border.color { ColorAnimation { duration: Theme.animHover } }
+                Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                Behavior on border.color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                 scale: saveArea.pressed ? 0.95 : 1.0
-                Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                 transformOrigin: Item.Center
 
                 Text {
@@ -1434,15 +1548,21 @@ Rectangle {
                     font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
                     font.bold: root.canSave()
-                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                 }
 
-                MouseArea {
+                Components.HoverLayer {
                     id: saveArea
                     anchors.fill: parent
                     enabled: root.canSave()
                     cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                     hoverEnabled: true
+
+                    hoverOpacity: 0
+
+                    pressedOpacity: 0
+
+                    pressedScale: 1.0
                     onClicked: root.submit()
                 }
             }

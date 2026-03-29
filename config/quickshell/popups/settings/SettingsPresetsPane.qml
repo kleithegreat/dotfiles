@@ -136,9 +136,9 @@ Components.WheelFlickable {
                 color: createArea.containsMouse ? Theme.greenBright : Theme.accent
                 border.width: 1
                 border.color: Theme.accent
-                Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                 scale: createArea.pressed ? 0.95 : 1.0
-                Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                 transformOrigin: Item.Center
 
                 Text {
@@ -151,11 +151,17 @@ Components.WheelFlickable {
                     font.bold: true
                 }
 
-                MouseArea {
+                Components.HoverLayer {
                     id: createArea
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
                     hoverEnabled: true
+
+                    hoverOpacity: 0
+
+                    pressedOpacity: 0
+
+                    pressedScale: 1.0
                     onClicked: root.openCreateEditor()
                 }
             }
@@ -213,19 +219,25 @@ Components.WheelFlickable {
                 Layout.preferredHeight: presetContent.implicitHeight + 24
                 radius: Theme.btnRadius + 2
                 color: presetCardArea.containsMouse ? Theme.bg2 : Theme.bg1
-                Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                 border.width: 1
                 border.color: presetCardArea.containsMouse ? Theme.accent : Theme.bg3
-                Behavior on border.color { ColorAnimation { duration: Theme.animHover } }
+                Behavior on border.color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                 scale: presetCardArea.pressed ? 0.98 : 1.0
-                Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                 transformOrigin: Item.Center
 
-                MouseArea {
+                Components.HoverLayer {
                     id: presetCardArea
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
                     hoverEnabled: true
+
+                    hoverOpacity: 0
+
+                    pressedOpacity: 0
+
+                    pressedScale: 1.0
                     onClicked: root.presetActivated(presetCard.presetName)
                 }
 
@@ -270,9 +282,9 @@ Components.WheelFlickable {
                             color: editArea.containsMouse ? Theme.bg3 : Theme.bg
                             border.width: 1
                             border.color: Theme.bg3
-                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                            Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                             scale: editArea.pressed ? 0.95 : 1.0
-                            Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                            Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                             transformOrigin: Item.Center
 
                             Text {
@@ -284,11 +296,17 @@ Components.WheelFlickable {
                                 font.pixelSize: Theme.fontSizeSmall
                             }
 
-                            MouseArea {
+                            Components.HoverLayer {
                                 id: editArea
                                 anchors.fill: parent
                                 cursorShape: Qt.PointingHandCursor
                                 hoverEnabled: true
+
+                                hoverOpacity: 0
+
+                                pressedOpacity: 0
+
+                                pressedScale: 1.0
                                 onClicked: root.openEditEditor(presetCard.preset)
                             }
                         }
@@ -306,10 +324,10 @@ Components.WheelFlickable {
                             }
                             border.width: 1
                             border.color: root.pendingDeleteName === presetCard.presetName ? Theme.redBright : Theme.bg3
-                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                            Behavior on border.color { ColorAnimation { duration: Theme.animHover } }
+                            Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                            Behavior on border.color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                             scale: deleteArea.pressed ? 0.95 : 1.0
-                            Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                            Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                             transformOrigin: Item.Center
 
                             Text {
@@ -326,12 +344,18 @@ Components.WheelFlickable {
                                 font.bold: root.pendingDeleteName === presetCard.presetName
                             }
 
-                            MouseArea {
+                            Components.HoverLayer {
                                 id: deleteArea
                                 anchors.fill: parent
                                 enabled: !root.presetCommandRunning
                                 cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                                 hoverEnabled: true
+
+                                hoverOpacity: 0
+
+                                pressedOpacity: 0
+
+                                pressedScale: 1.0
                                 onClicked: {
                                     if (root.pendingDeleteName === presetCard.presetName)
                                         root.presetDeleteRequested(presetCard.presetName);

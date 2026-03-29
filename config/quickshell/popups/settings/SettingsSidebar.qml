@@ -1,6 +1,7 @@
 import qs
 import QtQuick
 import QtQuick.Layouts
+import "../../components" as Components
 
 Rectangle {
     id: root
@@ -62,11 +63,7 @@ Rectangle {
                 Layout.preferredHeight: 32
                 radius: Theme.hoverRadius
                 color: isSelected ? Theme.bg2 : (catArea.containsMouse ? Theme.bg1 : "transparent")
-                Behavior on color {
-                    ColorAnimation {
-                        duration: Theme.animHover
-                    }
-                }
+                Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
 
                 Rectangle {
                     visible: catItem.isSelected
@@ -92,11 +89,7 @@ Rectangle {
                     Text {
                         text: root.categoryIcons[catItem.index]
                         color: catItem.isSelected ? Theme.accent : Theme.fg4
-                        Behavior on color {
-                            ColorAnimation {
-                                duration: Theme.animHover
-                            }
-                        }
+                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.iconSize
                         Layout.alignment: Qt.AlignVCenter
@@ -105,11 +98,7 @@ Rectangle {
                     Text {
                         text: root.categoryNames[catItem.index]
                         color: catItem.isSelected ? Theme.fg : Theme.fg3
-                        Behavior on color {
-                            ColorAnimation {
-                                duration: Theme.animHover
-                            }
-                        }
+                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSize
                         Layout.alignment: Qt.AlignVCenter
@@ -117,11 +106,14 @@ Rectangle {
                     }
                 }
 
-                MouseArea {
+                Components.HoverLayer {
                     id: catArea
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
                     hoverEnabled: true
+                    hoverOpacity: 0
+                    pressedOpacity: 0
+                    pressedScale: 1.0
                     onClicked: root.categorySelected(catItem.index)
                 }
             }

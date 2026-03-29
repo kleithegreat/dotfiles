@@ -1,6 +1,7 @@
 import qs
 import QtQuick
 import QtQuick.Layouts
+import "../../components" as Components
 
 ColumnLayout {
     id: root
@@ -82,15 +83,30 @@ ColumnLayout {
             visible: !root.targetIsConnected
             Layout.fillWidth: true; height: 32; radius: Theme.btnRadius
             color: detailConnA.containsMouse ? Theme.blueBright : Theme.bg3
-            Behavior on color { ColorAnimation { duration: Theme.animHover } }
-            scale: detailConnA.pressed ? 0.98 : 1.0
-            Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-            transformOrigin: Item.Center
-            Text { anchors.centerIn: parent; text: "Connect"; color: detailConnA.containsMouse ? Theme.bg : Theme.fg
-                Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
-            MouseArea { id: detailConnA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                onClicked: root.connectRequested(root.targetSsid, root.targetSecurity) }
+            Behavior on color {
+                Components.CAnim {
+                    duration: Theme.animHover
+                    easing.type: Easing.BezierSpline
+                    easing.bezierCurve: Theme.animCurveStandard
+                }
+            }
+            Components.HoverLayer {
+                id: detailConnA
+                hoverOpacity: 0
+                pressedOpacity: 0
+                pressedScale: 0.98
+                onClicked: root.connectRequested(root.targetSsid, root.targetSecurity)
+
+                Text { anchors.centerIn: parent; text: "Connect"; color: detailConnA.containsMouse ? Theme.bg : Theme.fg
+                    Behavior on color {
+                        Components.CAnim {
+                            duration: Theme.animHover
+                            easing.type: Easing.BezierSpline
+                            easing.bezierCurve: Theme.animCurveStandard
+                        }
+                    }
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+            }
         }
 
         // Disconnect button (connected only)
@@ -98,19 +114,24 @@ ColumnLayout {
             visible: root.targetIsConnected
             Layout.fillWidth: true; height: 32; radius: Theme.btnRadius
             color: "transparent"
-            Rectangle {
-                anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                opacity: detailDcA.pressed ? 0.9 : (detailDcA.containsMouse ? 0.6 : 0)
-                Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+            Components.HoverLayer {
+                id: detailDcA
+                color: Theme.bg2
+                hoverOpacity: 0.6
+                pressedOpacity: 0.9
+                pressedScale: 0.98
+                onClicked: root.disconnectRequested()
+
+                Text { anchors.centerIn: parent; text: "Disconnect"; color: detailDcA.containsMouse ? Theme.fg : Theme.fg4
+                    Behavior on color {
+                        Components.CAnim {
+                            duration: Theme.animHover
+                            easing.type: Easing.BezierSpline
+                            easing.bezierCurve: Theme.animCurveStandard
+                        }
+                    }
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
             }
-            scale: detailDcA.pressed ? 0.98 : 1.0
-            Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-            transformOrigin: Item.Center
-            Text { anchors.centerIn: parent; text: "Disconnect"; color: detailDcA.containsMouse ? Theme.fg : Theme.fg4
-                Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-            MouseArea { id: detailDcA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                onClicked: root.disconnectRequested() }
         }
 
         // Forget button (known networks only)
@@ -118,19 +139,24 @@ ColumnLayout {
             visible: root.targetIsKnown
             Layout.fillWidth: true; height: 32; radius: Theme.btnRadius
             color: "transparent"
-            Rectangle {
-                anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                opacity: forgetA.pressed ? 0.9 : (forgetA.containsMouse ? 0.6 : 0)
-                Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+            Components.HoverLayer {
+                id: forgetA
+                color: Theme.bg2
+                hoverOpacity: 0.6
+                pressedOpacity: 0.9
+                pressedScale: 0.98
+                onClicked: root.forgetRequested()
+
+                Text { anchors.centerIn: parent; text: "Forget This Network"; color: forgetA.containsMouse ? Theme.redBright : Theme.fg4
+                    Behavior on color {
+                        Components.CAnim {
+                            duration: Theme.animHover
+                            easing.type: Easing.BezierSpline
+                            easing.bezierCurve: Theme.animCurveStandard
+                        }
+                    }
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
             }
-            scale: forgetA.pressed ? 0.98 : 1.0
-            Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-            transformOrigin: Item.Center
-            Text { anchors.centerIn: parent; text: "Forget This Network"; color: forgetA.containsMouse ? Theme.redBright : Theme.fg4
-                Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-            MouseArea { id: forgetA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                onClicked: root.forgetRequested() }
         }
 
         // Diagnostics button (connected only)
@@ -138,19 +164,25 @@ ColumnLayout {
             visible: root.targetIsConnected
             Layout.fillWidth: true; height: 32; radius: Theme.btnRadius
             color: "transparent"
-            Rectangle {
-                anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                opacity: detailDiagA.pressed ? 0.9 : (detailDiagA.containsMouse ? 0.6 : 0.3)
-                Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+            Components.HoverLayer {
+                id: detailDiagA
+                color: Theme.bg2
+                idleOpacity: 0.3
+                hoverOpacity: 0.6
+                pressedOpacity: 0.9
+                pressedScale: 0.98
+                onClicked: root.diagnosticsRequested()
+
+                Text { anchors.centerIn: parent; text: "󱍸  Run Diagnostics"; color: detailDiagA.containsMouse ? Theme.blueBright : Theme.fg4
+                    Behavior on color {
+                        Components.CAnim {
+                            duration: Theme.animHover
+                            easing.type: Easing.BezierSpline
+                            easing.bezierCurve: Theme.animCurveStandard
+                        }
+                    }
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
             }
-            scale: detailDiagA.pressed ? 0.98 : 1.0
-            Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-            transformOrigin: Item.Center
-            Text { anchors.centerIn: parent; text: "󱍸  Run Diagnostics"; color: detailDiagA.containsMouse ? Theme.blueBright : Theme.fg4
-                Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-            MouseArea { id: detailDiagA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                onClicked: root.diagnosticsRequested() }
         }
     }
 }

@@ -48,18 +48,9 @@ ColumnLayout {
                     color: variant ? variant.bg : Theme.bg1
                     border.width: isActive ? 2 : 1
                     border.color: isActive ? (variant ? variant.accent : Theme.accent) : (famArea.containsMouse ? Theme.fg4 : Theme.bg3)
-                    Behavior on border.color {
-                        ColorAnimation {
-                            duration: Theme.animSpring
-                        }
-                    }
+                    Behavior on border.color { Components.CAnim { duration: Theme.animSpring; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                     scale: famArea.pressed ? 0.97 : 1.0
-                    Behavior on scale {
-                        NumberAnimation {
-                            duration: Theme.animMicro
-                            easing.type: Easing.OutCubic
-                        }
-                    }
+                    Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                     transformOrigin: Item.Center
 
                     ColumnLayout {
@@ -108,11 +99,17 @@ ColumnLayout {
                         }
                     }
 
-                    MouseArea {
+                    Components.HoverLayer {
                         id: famArea
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
                         hoverEnabled: true
+
+                        hoverOpacity: 0
+
+                        pressedOpacity: 0
+
+                        pressedScale: 1.0
                         onClicked: root.colorSchemeSelected(famCard.variant.schemeName)
                     }
                 }
@@ -149,25 +146,12 @@ ColumnLayout {
                 height: Theme.btnHeight
                 radius: Theme.btnRadius
                 color: isActive ? Theme.accent : (lightHintArea.containsMouse ? Theme.bg2 : Theme.bg1)
-                Behavior on color {
-                    ColorAnimation {
-                        duration: Theme.animHover
-                    }
-                }
+                Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                 border.width: 1
                 border.color: isActive ? Theme.accent : Theme.bg3
-                Behavior on border.color {
-                    ColorAnimation {
-                        duration: Theme.animSpring
-                    }
-                }
+                Behavior on border.color { Components.CAnim { duration: Theme.animSpring; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                 scale: lightHintArea.pressed ? 0.95 : 1.0
-                Behavior on scale {
-                    NumberAnimation {
-                        duration: Theme.animMicro
-                        easing.type: Easing.OutCubic
-                    }
-                }
+                Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                 transformOrigin: Item.Center
 
                 Text {
@@ -175,20 +159,22 @@ ColumnLayout {
                     anchors.centerIn: parent
                     text: "Light"
                     color: lightHintBtn.isActive ? Theme.bg : Theme.fg
-                    Behavior on color {
-                        ColorAnimation {
-                            duration: Theme.animHover
-                        }
-                    }
+                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                 }
 
-                MouseArea {
+                Components.HoverLayer {
                     id: lightHintArea
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
                     hoverEnabled: true
+
+                    hoverOpacity: 0
+
+                    pressedOpacity: 0
+
+                    pressedScale: 1.0
                     onClicked: root.darkHintSelected("light")
                 }
             }
@@ -201,25 +187,12 @@ ColumnLayout {
                 height: Theme.btnHeight
                 radius: Theme.btnRadius
                 color: isActive ? Theme.accent : (darkHintArea.containsMouse ? Theme.bg2 : Theme.bg1)
-                Behavior on color {
-                    ColorAnimation {
-                        duration: Theme.animHover
-                    }
-                }
+                Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                 border.width: 1
                 border.color: isActive ? Theme.accent : Theme.bg3
-                Behavior on border.color {
-                    ColorAnimation {
-                        duration: Theme.animSpring
-                    }
-                }
+                Behavior on border.color { Components.CAnim { duration: Theme.animSpring; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                 scale: darkHintArea.pressed ? 0.95 : 1.0
-                Behavior on scale {
-                    NumberAnimation {
-                        duration: Theme.animMicro
-                        easing.type: Easing.OutCubic
-                    }
-                }
+                Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                 transformOrigin: Item.Center
 
                 Text {
@@ -227,20 +200,22 @@ ColumnLayout {
                     anchors.centerIn: parent
                     text: "Dark"
                     color: darkHintBtn.isActive ? Theme.bg : Theme.fg
-                    Behavior on color {
-                        ColorAnimation {
-                            duration: Theme.animHover
-                        }
-                    }
+                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                 }
 
-                MouseArea {
+                Components.HoverLayer {
                     id: darkHintArea
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
                     hoverEnabled: true
+
+                    hoverOpacity: 0
+
+                    pressedOpacity: 0
+
+                    pressedScale: 1.0
                     onClicked: root.darkHintSelected("dark")
                 }
             }

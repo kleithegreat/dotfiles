@@ -4,6 +4,7 @@ import Quickshell.Wayland
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Services.SystemTray
+import "../components" as Components
 
 PanelWindow {
     id: trayPop
@@ -32,15 +33,43 @@ PanelWindow {
     SequentialAnimation {
         id: trayOpenAnim
         ParallelAnimation {
-            NumberAnimation { target: trayPanel; property: "opacity"; to: 1; duration: Theme.animPopupIn; easing.type: Easing.OutCubic }
-            NumberAnimation { target: trayPanel; property: "scale"; to: 1.0; duration: Theme.animPopupIn; easing.type: Easing.OutCubic }
+            Components.Anim {
+                target: trayPanel
+                property: "opacity"
+                to: 1
+                duration: Theme.animPopupIn
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveEmphasizedEnter
+            }
+            Components.Anim {
+                target: trayPanel
+                property: "scale"
+                to: 1.0
+                duration: Theme.animPopupIn
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveEmphasizedEnter
+            }
         }
     }
     SequentialAnimation {
         id: trayCloseAnim
         ParallelAnimation {
-            NumberAnimation { target: trayPanel; property: "opacity"; to: 0; duration: Theme.animPopupOut; easing.type: Easing.InCubic }
-            NumberAnimation { target: trayPanel; property: "scale"; to: 0.92; duration: Theme.animPopupOut; easing.type: Easing.InCubic }
+            Components.Anim {
+                target: trayPanel
+                property: "opacity"
+                to: 0
+                duration: Theme.animPopupOut
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveExit
+            }
+            Components.Anim {
+                target: trayPanel
+                property: "scale"
+                to: 0.92
+                duration: Theme.animPopupOut
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveExit
+            }
         }
         ScriptAction { script: { trayPop.closing = false; } }
     }
@@ -57,7 +86,13 @@ PanelWindow {
         opacity: 0; scale: 0.92
         transformOrigin: Item.TopRight
         y: trayPop.active ? anchors.topMargin : anchors.topMargin - 12
-        Behavior on y { NumberAnimation { duration: Theme.animPopupIn; easing.type: Easing.OutCubic } }
+        Behavior on y {
+            Components.Anim {
+                duration: trayPop.active ? Theme.animPopupIn : Theme.animPopupOut
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: trayPop.active ? Theme.animCurveEmphasizedEnter : Theme.animCurveExit
+            }
+        }
 
         Grid {
             id: trayGrid; anchors.centerIn: parent; columns: Math.min(4, SystemTray.items.values.length); spacing: Theme.barSpacing
@@ -66,46 +101,15 @@ PanelWindow {
                 Item {
                     id: trayItem; required property var modelData; required property int index
                     width: Theme.iconSize + 4; height: Theme.iconSize + 4
-
-                    Image {
-                        id: trayImg; anchors.centerIn: parent
-                        width: Theme.iconSize; height: Theme.iconSize
-                        source: Quickshell.iconPath(trayItem.modelData.id ?? "", true) || (trayItem.modelData.icon ?? "")
-                        sourceSize.width: Theme.iconSize * 2; sourceSize.height: Theme.iconSize * 2
-                        smooth: true; fillMode: Image.PreserveAspectFit
-                        cache: false
-                        visible: status === Image.Ready
-                    }
-
-                    // Fallback: nerd font icon for known apps, then first letter
-                    Text {
-                        anchors.centerIn: parent; visible: !trayImg.visible
-                        text: {
-                            let id = (trayItem.modelData.id ?? trayItem.modelData.title ?? "").toLowerCase();
-                            // Known apps with broken pixmaps — add more here
-                            if (id.includes("spotify")) return "󰓇";
-                            return id.length > 0 ? id.charAt(0).toUpperCase() : "?";
-                        }
-                        color: Theme.fg3
-                        font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize; font.bold: true
-                    }
-
-                    // ── Hover effect with animated opacity + press scale ──
                     Rectangle {
-                        anchors.fill: parent; radius: 4; z: -1
-                        color: Theme.bg2
-                        opacity: trayMouseArea.pressed ? 0.9 : (trayMouseArea.containsMouse ? 0.7 : 0)
+                        anchors.fill: parent; radius: 4
+                        color: "transparent"
                         border.width: 1; border.color: Theme.bg3
-                        Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
                     }
-
-                    // Press scale feedback
-                    scale: trayMouseArea.pressed ? 0.9 : 1.0
-                    Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                    transformOrigin: Item.Center
 
                     // ── Staggered entrance animation ──
                     opacity: 0
+                    scale: 0.92
                     Component.onCompleted: {
                         staggerAnim.delay = index * 30;
                         staggerAnim.start();
@@ -115,18 +119,56 @@ PanelWindow {
                         property int delay: 0
                         PauseAnimation { duration: staggerAnim.delay }
                         ParallelAnimation {
-                            NumberAnimation { target: trayItem; property: "opacity"; to: 1; duration: 200; easing.type: Easing.OutCubic }
-                            NumberAnimation { target: trayItem; property: "scale"; to: 1.0; duration: 250; easing.type: Easing.OutBack }
+                            Components.Anim {
+                                target: trayItem
+                                property: "opacity"
+                                to: 1
+                                duration: 200
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveEnter
+                            }
+                            Components.Anim {
+                                target: trayItem
+                                property: "scale"
+                                to: 1.0
+                                duration: 250
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveEmphasizedEnter
+                            }
                         }
                     }
 
-                    MouseArea {
+                    Components.HoverLayer {
                         id: trayMouseArea
-                        anchors.fill: parent; acceptedButtons: Qt.LeftButton | Qt.RightButton
-                        cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                        acceptedButtons: Qt.LeftButton | Qt.RightButton
+                        color: Theme.bg2
+                        hoverOpacity: 0.7
+                        pressedOpacity: 0.9
+                        pressedScale: 0.9
                         onClicked: (mouse) => {
                             if (mouse.button === Qt.LeftButton) trayItem.modelData.activate();
                             else trayItem.modelData.secondaryActivate();
+                        }
+
+                        Image {
+                            id: trayImg; anchors.centerIn: parent
+                            width: Theme.iconSize; height: Theme.iconSize
+                            source: Quickshell.iconPath(trayItem.modelData.id ?? "", true) || (trayItem.modelData.icon ?? "")
+                            sourceSize.width: Theme.iconSize * 2; sourceSize.height: Theme.iconSize * 2
+                            smooth: true; fillMode: Image.PreserveAspectFit
+                            cache: false
+                            visible: status === Image.Ready
+                        }
+
+                        Text {
+                            anchors.centerIn: parent; visible: !trayImg.visible
+                            text: {
+                                let id = (trayItem.modelData.id ?? trayItem.modelData.title ?? "").toLowerCase();
+                                if (id.includes("spotify")) return "󰓇";
+                                return id.length > 0 ? id.charAt(0).toUpperCase() : "?";
+                            }
+                            color: Theme.fg3
+                            font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize; font.bold: true
                         }
                     }
                 }
