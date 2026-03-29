@@ -10,6 +10,7 @@ PanelWindow {
     id: btPop
     property bool active: false; signal close()
     property bool closing: false
+    property bool contentLoaded: false
     visible: active || closing
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
@@ -34,13 +35,29 @@ PanelWindow {
     ListModel { id: pairedModel }
     ListModel { id: discoveredModel }
 
+    function preparePanelForOpen() {
+        let item = btContentLoader.item;
+        if (!item)
+            return false;
+
+        item.opacity = 0;
+        item.scale = 0.92;
+        return true;
+    }
+
     onActiveChanged: {
         if (active) {
-            btPanel.opacity = 0; btPanel.scale = 0.92;
-            btOpenAnim.start();
+            contentLoaded = true;
+            if (preparePanelForOpen())
+                btOpenAnim.start();
             resetState(); refresh();
         } else if (!closing) {
-            closing = true; btCloseAnim.start();
+            if (btContentLoader.item) {
+                closing = true;
+                btCloseAnim.start();
+            } else {
+                closing = false;
+            }
         }
     }
 
@@ -48,7 +65,7 @@ PanelWindow {
         id: btOpenAnim
         ParallelAnimation {
             Components.Anim {
-                target: btPanel
+                target: btContentLoader.item
                 property: "opacity"
                 to: 1
                 duration: Theme.animPopupIn
@@ -56,7 +73,7 @@ PanelWindow {
                 easing.bezierCurve: Theme.animCurveEmphasizedEnter
             }
             Components.Anim {
-                target: btPanel
+                target: btContentLoader.item
                 property: "scale"
                 to: 1.0
                 duration: Theme.animPopupIn
@@ -69,7 +86,7 @@ PanelWindow {
         id: btCloseAnim
         ParallelAnimation {
             Components.Anim {
-                target: btPanel
+                target: btContentLoader.item
                 property: "opacity"
                 to: 0
                 duration: Theme.animPopupOut
@@ -77,7 +94,7 @@ PanelWindow {
                 easing.bezierCurve: Theme.animCurveExit
             }
             Components.Anim {
-                target: btPanel
+                target: btContentLoader.item
                 property: "scale"
                 to: 0.92
                 duration: Theme.animPopupOut
@@ -230,26 +247,46 @@ PanelWindow {
         MouseArea { anchors.fill: parent; onClicked: btPop.close() }
     }
 
-    // ── Popup card ────────────────────────────────────────────
-    Rectangle {
-        id: btPanel
+    Loader {
+        id: btContentLoader
         anchors.right: parent.right; anchors.top: parent.top
         anchors.topMargin: Theme.popupTopMargin; anchors.rightMargin: Theme.gapOut
-        width: Theme.popupWidth; height: btCol.implicitHeight + Theme.popupPadding * 2
-        radius: Theme.popupRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
-        opacity: 0; scale: 0.92
-        transformOrigin: Item.TopRight
-        Behavior on height {
-            Components.Anim {
-                duration: Theme.animHeightResize
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: Theme.animCurveStandard
-            }
-        }
-        MouseArea { anchors.fill: parent }
+        width: Theme.popupWidth
+        height: item ? item.implicitHeight : 0
+        active: btPop.contentLoaded || btPop.active || btPop.closing
+        asynchronous: true
+        sourceComponent: btPanelComponent
 
-        ColumnLayout {
-            id: btCol; anchors.fill: parent; anchors.margins: Theme.popupPadding; spacing: 8
+        onLoaded: {
+            item.opacity = 0;
+            item.scale = 0.92;
+            if (btPop.active)
+                btOpenAnim.start();
+        }
+    }
+
+    Component {
+        id: btPanelComponent
+
+        // ── Popup card ────────────────────────────────────────────
+        Rectangle {
+            id: btPanel
+            anchors.fill: parent
+            implicitHeight: btCol.implicitHeight + Theme.popupPadding * 2
+            radius: Theme.popupRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
+            opacity: 0; scale: 0.92
+            transformOrigin: Item.TopRight
+            Behavior on height {
+                Components.Anim {
+                    duration: Theme.animHeightResize
+                    easing.type: Easing.BezierSpline
+                    easing.bezierCurve: Theme.animCurveStandard
+                }
+            }
+            MouseArea { anchors.fill: parent }
+
+            ColumnLayout {
+                id: btCol; anchors.fill: parent; anchors.margins: Theme.popupPadding; spacing: 8
 
             // ── Header ──────────────────────────────────────
             RowLayout { Layout.fillWidth: true
@@ -707,6 +744,7 @@ PanelWindow {
                         }
                     }
                 }
+            }
             }
         }
     }

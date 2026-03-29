@@ -11,6 +11,7 @@ PanelWindow {
     id: wifiPop
     property bool active: false; signal close()
     property bool closing: false
+    property bool contentLoaded: false
     visible: active || closing
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
@@ -91,13 +92,29 @@ PanelWindow {
     property var histNetLoss: []
     property var histDnsTime: []
 
+    function preparePanelForOpen() {
+        let item = wifiContentLoader.item;
+        if (!item)
+            return false;
+
+        item.opacity = 0;
+        item.scale = 0.92;
+        return true;
+    }
+
     onActiveChanged: {
         if (active) {
-            wifiPanel.opacity = 0; wifiPanel.scale = 0.92;
-            wifiOpenAnim.start();
+            contentLoaded = true;
+            if (preparePanelForOpen())
+                wifiOpenAnim.start();
             resetState(); scan(); loadKnown();
         } else if (!closing) {
-            closing = true; wifiCloseAnim.start();
+            if (wifiContentLoader.item) {
+                closing = true;
+                wifiCloseAnim.start();
+            } else {
+                closing = false;
+            }
         }
     }
 
@@ -105,7 +122,7 @@ PanelWindow {
         id: wifiOpenAnim
         ParallelAnimation {
             Components.Anim {
-                target: wifiPanel
+                target: wifiContentLoader.item
                 property: "opacity"
                 to: 1
                 duration: Theme.animPopupIn
@@ -113,7 +130,7 @@ PanelWindow {
                 easing.bezierCurve: Theme.animCurveEmphasizedEnter
             }
             Components.Anim {
-                target: wifiPanel
+                target: wifiContentLoader.item
                 property: "scale"
                 to: 1.0
                 duration: Theme.animPopupIn
@@ -126,7 +143,7 @@ PanelWindow {
         id: wifiCloseAnim
         ParallelAnimation {
             Components.Anim {
-                target: wifiPanel
+                target: wifiContentLoader.item
                 property: "opacity"
                 to: 0
                 duration: Theme.animPopupOut
@@ -134,7 +151,7 @@ PanelWindow {
                 easing.bezierCurve: Theme.animCurveExit
             }
             Components.Anim {
-                target: wifiPanel
+                target: wifiContentLoader.item
                 property: "scale"
                 to: 0.92
                 duration: Theme.animPopupOut
@@ -958,26 +975,46 @@ PanelWindow {
         MouseArea { anchors.fill: parent; onClicked: wifiPop.close() }
     }
 
-    // ── Popup card ────────────────────────────────────────────
-    Rectangle {
-        id: wifiPanel
+    Loader {
+        id: wifiContentLoader
         anchors.right: parent.right; anchors.top: parent.top
         anchors.topMargin: Theme.popupTopMargin; anchors.rightMargin: Theme.gapOut
-        width: Theme.popupWidth; height: wifiCol.implicitHeight + Theme.popupPadding * 2
-        radius: Theme.popupRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
-        opacity: 0; scale: 0.92
-        transformOrigin: Item.TopRight
-        Behavior on height {
-            Components.Anim {
-                duration: Theme.animHeightResize
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: Theme.animCurveStandard
-            }
-        }
-        MouseArea { anchors.fill: parent }
+        width: Theme.popupWidth
+        height: item ? item.implicitHeight : 0
+        active: wifiPop.contentLoaded || wifiPop.active || wifiPop.closing
+        asynchronous: true
+        sourceComponent: wifiPanelComponent
 
-        ColumnLayout {
-            id: wifiCol; anchors.fill: parent; anchors.margins: Theme.popupPadding; spacing: 8
+        onLoaded: {
+            item.opacity = 0;
+            item.scale = 0.92;
+            if (wifiPop.active)
+                wifiOpenAnim.start();
+        }
+    }
+
+    Component {
+        id: wifiPanelComponent
+
+        // ── Popup card ────────────────────────────────────────────
+        Rectangle {
+            id: wifiPanel
+            anchors.fill: parent
+            implicitHeight: wifiCol.implicitHeight + Theme.popupPadding * 2
+            radius: Theme.popupRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
+            opacity: 0; scale: 0.92
+            transformOrigin: Item.TopRight
+            Behavior on height {
+                Components.Anim {
+                    duration: Theme.animHeightResize
+                    easing.type: Easing.BezierSpline
+                    easing.bezierCurve: Theme.animCurveStandard
+                }
+            }
+            MouseArea { anchors.fill: parent }
+
+            ColumnLayout {
+                id: wifiCol; anchors.fill: parent; anchors.margins: Theme.popupPadding; spacing: 8
 
             // ── Header ────────────────────────────────────────
             RowLayout { Layout.fillWidth: true
@@ -1389,6 +1426,7 @@ PanelWindow {
                         }
                     }
                 }
+            }
             }
         }
     }
