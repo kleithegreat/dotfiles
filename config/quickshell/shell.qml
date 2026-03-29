@@ -1,7 +1,6 @@
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
-import Quickshell.Services.Notifications
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Io
@@ -16,48 +15,26 @@ Scope {
     property string activePopup: ""
     function openPopup(name) { activePopup = (activePopup === name) ? "" : name; }
 
-    // ── Notification state ──
-    property bool doNotDisturb: false
-    property int historyCount: historyModel.count
-    function toggleDnd() { doNotDisturb = !doNotDisturb; }
+    // ── Notification state (compat for existing popup/bar wiring) ──
+    readonly property bool doNotDisturb: NotificationService.doNotDisturb
+    readonly property int historyCount: NotificationService.historyCount
 
     // ── Bar ──
     Bar.Bar { shellRoot: root }
-
-    // ── Notification Server ──
-    NotificationServer {
-        id: server; bodySupported: true; bodyImagesSupported: true; imageSupported: true; keepOnReload: false
-        onNotification: (notification) => {
-            let data = { appName: notification.appName || "Notification", summary: notification.summary || "", body: notification.body || "", nid: notification.id };
-            historyModel.insert(0, data);
-            if (!root.doNotDisturb) {
-                notifModel.insert(0, data);
-                let timeout = notification.expireTimeout > 0 ? notification.expireTimeout : Theme.notifTimeout;
-                dismissTimer.createObject(root, { targetNid: data.nid, interval: timeout });
-            }
-        }
-    }
-
-    Component { id: dismissTimer; Timer { required property int targetNid; running: true; repeat: false; onTriggered: { root.removeNotifPopup(targetNid); this.destroy(); } } }
-    ListModel { id: notifModel }
-    ListModel { id: historyModel }
-    function removeNotifPopup(nid) { for (let i = 0; i < notifModel.count; i++) if (notifModel.get(i).nid === nid) { notifModel.remove(i); break; } }
-    function removeHistory(nid) { for (let i = 0; i < historyModel.count; i++) if (historyModel.get(i).nid === nid) { historyModel.remove(i); break; } }
-    function clearHistory() { historyModel.clear(); }
 
     // ── Notification Popups ──
     PanelWindow {
         anchors { top: true; right: true }
         margins { top: Theme.barHeight + Theme.barMargin + Theme.gapOut; right: Theme.gapOut }
         implicitWidth: Theme.notifWidth; implicitHeight: notifColumn.implicitHeight
-        visible: notifModel.count > 0; color: "transparent"
+        visible: NotificationService.popupModel.count > 0; color: "transparent"
         WlrLayershell.namespace: "quickshell:notifications"; WlrLayershell.layer: WlrLayer.Overlay; exclusionMode: ExclusionMode.Ignore
 
         Column {
             id: notifColumn; spacing: Theme.notifSpacing
             anchors { left: parent.left; right: parent.right; top: parent.top }
             Repeater {
-                model: notifModel
+                model: NotificationService.popupModel
                 Rectangle {
                     id: card; required property string appName; required property string summary; required property string body; required property int nid; required property int index
                     width: Theme.notifWidth; height: cardC.implicitHeight + Theme.notifPadding * 2; radius: Theme.notifRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
@@ -79,7 +56,7 @@ Scope {
                         RowLayout { Layout.fillWidth: true
                             Text { text: card.appName; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; elide: Text.ElideRight; Layout.fillWidth: true }
                             Text { text: "󰅖"; color: pcA.containsMouse ? Theme.redBright : Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                                MouseArea { id: pcA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: root.removeNotifPopup(card.nid) } }
+                                MouseArea { id: pcA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: NotificationService.removeNotifPopup(card.nid) } }
                         }
                         Text { text: card.summary; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true; visible: text !== "" }
                         Text { text: card.body; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; wrapMode: Text.WordWrap; maximumLineCount: 3; elide: Text.ElideRight; Layout.fillWidth: true; visible: text !== "" }
@@ -133,8 +110,8 @@ Scope {
     PowerMenu { active: root.activePopup === "powermenu"; onClose: root.activePopup = "" }
     NotifDrawer {
         active: root.activePopup === "drawer"; onClose: root.activePopup = ""
-        model: historyModel; doNotDisturb: root.doNotDisturb
-        onToggleDnd: root.toggleDnd(); onClearAll: root.clearHistory(); onRemoveItem: (nid) => root.removeHistory(nid)
+        model: NotificationService.historyModel; doNotDisturb: NotificationService.doNotDisturb
+        onToggleDnd: NotificationService.toggleDnd(); onClearAll: NotificationService.clearHistory(); onRemoveItem: (nid) => NotificationService.removeHistory(nid)
     }
     Popups.CalendarPopup { active: root.activePopup === "calendar"; onClose: root.activePopup = "" }
     Popups.TrayPopup { active: root.activePopup === "tray"; onClose: root.activePopup = "" }
