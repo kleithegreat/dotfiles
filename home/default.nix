@@ -151,6 +151,7 @@ in
     papirus-icon-theme
     rose-pine-cursor
     rose-pine-hyprcursor
+    bibata-cursors
 
     # Dev tools (lightweight baseline — heavy stuff goes in devshells)
     python3

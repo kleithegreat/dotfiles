@@ -1060,7 +1060,7 @@ Rectangle {
                 spacing: 6
 
                 Repeater {
-                    model: ["Neuwaita", "Papirus-Dark", "Papirus", "Papirus-Light", "Adwaita", "hicolor"]
+                    model: ["Neuwaita", "Colloid", "Colloid-Dark", "Colloid-Light", "Papirus-Dark", "Papirus", "Papirus-Light", "Adwaita", "hicolor"]
 
                     delegate: Rectangle {
                         id: iconThemeChip
@@ -1136,7 +1136,7 @@ Rectangle {
                 spacing: 6
 
                 Repeater {
-                    model: ["Adwaita", "BreezeX-RosePine-Linux", "BreezeX-RosePineDawn-Linux"]
+                    model: ["Adwaita", "BreezeX-RosePine-Linux", "BreezeX-RosePineDawn-Linux", "Bibata-Modern-Classic", "Bibata-Modern-Ice", "Bibata-Original-Classic", "Bibata-Original-Ice"]
 
                     delegate: Rectangle {
                         id: cursorThemeChip
