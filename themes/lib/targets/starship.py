@@ -35,10 +35,14 @@ def _contrast_ratio(first: str, second: str) -> float:
 
 def _accent_foreground(accent: str, colors: ColorScheme) -> str:
     """Pick readable text for accent segments without disturbing good schemes."""
-    if _contrast_ratio(accent, colors.fg) >= WCAG_AA_NORMAL_TEXT:
-        return colors.fg
-    if _contrast_ratio(accent, colors.bg) >= WCAG_AA_NORMAL_TEXT:
-        return colors.bg
+    candidates = [
+        colors.fg, colors.bg,
+        colors.fg2, colors.fg3, colors.fg4,
+        colors.bg_dim, colors.bg1, colors.bg2, colors.bg3,
+    ]
+    for candidate in candidates:
+        if _contrast_ratio(accent, candidate) >= WCAG_AA_NORMAL_TEXT:
+            return candidate
 
     black = "#000000"
     white = "#ffffff"
