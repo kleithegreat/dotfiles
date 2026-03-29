@@ -137,6 +137,16 @@ QtObject {
     readonly property int animOsdIn:       200
     readonly property int animOsdOut:      140
 
+    // QML Easing.BezierSpline format: [cx1, cy1, cx2, cy2, 1.0, 1.0]
+    // Default for opens/enters: quick response up front, then a soft landing.
+    readonly property var animCurveEnter:             [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
+    // Default for closes/exits: get moving immediately and clear the screen fast.
+    readonly property var animCurveExit:              [0.3, 0.0, 1.0, 1.0, 1.0, 1.0]
+    // Balanced curve for continuous motion like hover fades, toggles, and progress.
+    readonly property var animCurveStandard:          [0.4, 0.0, 0.2, 1.0, 1.0, 1.0]
+    // Stronger deceleration for showpiece entrances like popups and notification slides.
+    readonly property var animCurveEmphasizedEnter:   [0.05, 0.7, 0.1, 1.0, 1.0, 1.0]
+
     // ── Shared interactive element geometry ──
     readonly property int hoverRadius: 8        // unified hover highlight corner radius
     readonly property int listItemHeight: 40    // standard interactive row height
