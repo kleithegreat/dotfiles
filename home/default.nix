@@ -177,6 +177,13 @@ in
   xdg.configFile."hypr/appearance.conf".source = "${dotfilesPath}/config/hypr/appearance.conf";
   xdg.configFile."hypr/autostart.conf".source = "${dotfilesPath}/config/hypr/autostart.conf";
   xdg.configFile."hypr/input.conf".source = "${dotfilesPath}/config/hypr/input.conf";
+  xdg.configFile."hypr/input-devices.conf" =
+    if hostName == "laptop" then
+      { source = "${dotfilesPath}/hosts/laptop/input-devices.conf"; }
+    else if hostName == "desktop" then
+      { source = "${dotfilesPath}/hosts/desktop/input-devices.conf"; }
+    else
+      { text = ""; };
   xdg.configFile."hypr/keybinds.conf".source = "${dotfilesPath}/config/hypr/keybinds.conf";
   xdg.configFile."hypr/rules.conf".source = "${dotfilesPath}/config/hypr/rules.conf";
   xdg.configFile."hypr/hypridle.conf".source = "${dotfilesPath}/config/hypr/hypridle.conf";
