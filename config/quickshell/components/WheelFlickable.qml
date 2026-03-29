@@ -5,6 +5,15 @@ Flickable {
     id: root
 
     property real wheelStep: Root.Theme.flickableWheelStep
+    property real wheelOvershoot: Math.max(24, Math.min(48, wheelStep / 2))
+
+    maximumFlickVelocity: 3000
+
+    rebound: Transition {
+        Anim {
+            properties: "x,y"
+        }
+    }
 
     function applyWheelDelta(deltaY) {
         if (deltaY === 0)
@@ -12,11 +21,30 @@ Flickable {
 
         let minY = root.originY;
         let maxY = Math.max(minY, root.originY + root.contentHeight - root.height);
-        let nextY = Math.max(minY, Math.min(root.contentY - deltaY, maxY));
-        if (nextY === root.contentY)
+        if (maxY <= minY)
             return false;
 
+        let nextY = root.contentY - deltaY;
+        let overshooting = false;
+
+        // Allow a small wheel overshoot so Flickable.rebound can animate the snap-back.
+        if (nextY < minY) {
+            nextY = Math.max(minY - root.wheelOvershoot, nextY);
+            overshooting = true;
+        } else if (nextY > maxY) {
+            nextY = Math.min(maxY + root.wheelOvershoot, nextY);
+            overshooting = true;
+        }
+
+        if (Math.abs(nextY - root.contentY) < 0.01)
+            return false;
+
+        root.cancelFlick();
         root.contentY = nextY;
+
+        if (overshooting)
+            root.returnToBounds();
+
         return true;
     }
 
