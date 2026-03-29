@@ -1,16 +1,46 @@
 diff -ruN -x '*.orig' -x '*.rej' a/OverviewPassElement.hpp b/OverviewPassElement.hpp
---- a/OverviewPassElement.hpp	2026-03-27 18:01:39.736796196 -0500
-+++ b/OverviewPassElement.hpp	2026-03-27 18:01:39.738710065 -0500
-@@ -12,6 +12,9 @@
+--- a/OverviewPassElement.hpp
++++ b/OverviewPassElement.hpp
+@@ -8,13 +8,16 @@
+     COverviewPassElement();
+     virtual ~COverviewPassElement() = default;
+ 
+-    virtual void                draw(const CRegion& damage);
++    virtual std::vector<UP<IPassElement>> draw();
      virtual bool                needsLiveBlur();
      virtual bool                needsPrecomputeBlur();
      virtual std::optional<CBox> boundingBox();
 +    virtual ePassElementType    type() {
-+        return EK_UNKNOWN;
++        return EK_CUSTOM;
 +    }
      virtual CRegion             opaqueRegion();
  
      virtual const char*         passName() {
+         return "COverviewPassElement";
+     }
+-};
+\ No newline at end of file
++};
+diff -ruN -x '*.orig' -x '*.rej' a/OverviewPassElement.cpp b/OverviewPassElement.cpp
+--- a/OverviewPassElement.cpp
++++ b/OverviewPassElement.cpp
+@@ -1,13 +1,15 @@
+ #include "OverviewPassElement.hpp"
+ #include <hyprland/src/render/OpenGL.hpp>
++#include <vector>
+ #include "overview.hpp"
+ 
+ COverviewPassElement::COverviewPassElement() {
+     ;
+ }
+ 
+-void COverviewPassElement::draw(const CRegion& damage) {
++std::vector<UP<IPassElement>> COverviewPassElement::draw() {
+     g_pOverview->fullRender();
++    return {};
+ }
+ 
+ bool COverviewPassElement::needsLiveBlur() {
 diff -ruN -x '*.orig' -x '*.rej' a/main.cpp b/main.cpp
 --- a/main.cpp	2026-03-27 18:01:39.736830569 -0500
 +++ b/main.cpp	2026-03-27 18:01:39.738721901 -0500
