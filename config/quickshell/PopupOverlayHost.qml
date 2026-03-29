@@ -21,7 +21,8 @@ PanelWindow {
             powerProfilePopup,
             bluetoothPopup,
             wifiPopup,
-            settingsPopup
+            settingsPopup,
+            vpnPopup
         ];
     }
 
@@ -185,6 +186,14 @@ PanelWindow {
         z: active ? 2 : (overlayVisible ? 1 : 0)
         active: overlayHost.popupVisibility.settingsVisible
         onClose: overlayHost.popupVisibility.settingsVisible = false
+    }
+
+    Popups.VpnPopup {
+        id: vpnPopup
+        anchors.fill: parent
+        z: active ? 2 : (overlayVisible ? 1 : 0)
+        active: overlayHost.popupVisibility.vpnVisible
+        onClose: overlayHost.popupVisibility.vpnVisible = false
     }
 
     NotifDrawer {
