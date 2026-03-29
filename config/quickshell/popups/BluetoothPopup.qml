@@ -26,6 +26,10 @@ PanelWindow {
     property string popupState: "list"
     property string targetName: ""
     property string connectError: ""
+    property bool deviceListLoading: popupState === "list"
+        && pairedModel.count === 0
+        && discoveredModel.count === 0
+        && (showProc.running || connInfoProc.running || pairedProc.running || allDevicesProc.running || btPop.scanning)
 
     ListModel { id: pairedModel }
     ListModel { id: discoveredModel }
@@ -254,7 +258,7 @@ PanelWindow {
 
             // ── Powered off empty state ─────────────────────
             Item {
-                visible: !btPop.powered && btPop.popupState === "list"
+                visible: !btPop.powered && btPop.popupState === "list" && !btPop.deviceListLoading
                 Layout.fillWidth: true; implicitHeight: 40
                 Text { anchors.centerIn: parent; text: "Bluetooth is off"; color: Theme.fg4
                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
@@ -324,12 +328,16 @@ PanelWindow {
             // ── Device list ─────────────────────────────────
             Item {
                 Layout.fillWidth: true; Layout.preferredHeight: 170; Layout.maximumHeight: 170
-                visible: btPop.popupState === "list" && btPop.powered
-                opacity: btPop.popupState === "list" ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
+                visible: btPop.popupState === "list" && (btPop.powered || btPop.deviceListLoading)
+                opacity: btPop.popupState === "list" && (btPop.powered || btPop.deviceListLoading) ? 1 : 0
+                clip: true
+                Behavior on opacity { Components.Anim { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
 
                 Components.WheelFlickable {
                     anchors.fill: parent
+                    opacity: btPop.deviceListLoading ? 0 : 1
+                    enabled: opacity > 0.01
+                    Behavior on opacity { Components.Anim { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
                     contentHeight: devCol.implicitHeight; clip: true; boundsBehavior: Flickable.StopAtBounds
 
                     Column {
@@ -439,41 +447,104 @@ PanelWindow {
                             }
                         }
 
-                        // ── Skeleton loading rows ──
-                        Column {
-                            visible: btPop.scanning && btPop.powered && btPop.popupState === "list"
-                            width: parent.width; spacing: 0
+                    }
+                }
 
-                            Repeater {
-                                model: ListModel {
-                                    ListElement { skelWidth: 110 }
-                                    ListElement { skelWidth: 140 }
-                                    ListElement { skelWidth: 95 }
-                                    ListElement { skelWidth: 125 }
-                                }
-                                delegate: Item {
-                                    required property int skelWidth
-                                    required property int index
-                                    width: parent.width; height: 30
-                                    RowLayout {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        anchors.left: parent.left; anchors.right: parent.right
-                                        anchors.leftMargin: Theme.listItemPadding; anchors.rightMargin: Theme.listItemPadding
-                                        spacing: 8
+                Column {
+                    anchors.fill: parent
+                    anchors.topMargin: 4
+                    spacing: 4
+                    opacity: btPop.deviceListLoading ? 1 : 0
+                    visible: opacity > 0
+                    z: 1
+                    Behavior on opacity { Components.Anim { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
 
-                                        Rectangle { width: 14; height: 14; radius: 7; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
-                                        Rectangle { width: skelWidth; height: 10; radius: 5; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
-                                        Item { Layout.fillWidth: true }
-                                        Rectangle { width: 44; height: 10; radius: 5; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
-                                    }
+                    Item {
+                        width: parent.width
+                        height: 14
+                        Rectangle {
+                            anchors.left: parent.left
+                            anchors.leftMargin: Theme.listItemPadding
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 46; height: 8; radius: 4; color: Theme.bg3
+                        }
+                    }
 
-                                    SequentialAnimation on opacity {
-                                        loops: Animation.Infinite
-                                        PauseAnimation { duration: index * 120 }
-                                        NumberAnimation { from: 0.4; to: 0.8; duration: 800; easing.type: Easing.InOutQuad }
-                                        NumberAnimation { from: 0.8; to: 0.4; duration: 800; easing.type: Easing.InOutQuad }
-                                    }
-                                }
+                    Repeater {
+                        model: ListModel {
+                            ListElement { skelWidth: 110 }
+                            ListElement { skelWidth: 140 }
+                        }
+                        delegate: Item {
+                            required property int skelWidth
+                            required property int index
+                            width: parent.width
+                            height: 30
+
+                            RowLayout {
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.leftMargin: Theme.listItemPadding
+                                anchors.rightMargin: Theme.listItemPadding
+                                spacing: 8
+
+                                Rectangle { width: 14; height: 14; radius: 7; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
+                                Rectangle { width: skelWidth; height: 10; radius: 5; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
+                                Item { Layout.fillWidth: true }
+                                Rectangle { width: 44; height: 10; radius: 5; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
+                            }
+
+                            SequentialAnimation on opacity {
+                                loops: Animation.Infinite
+                                PauseAnimation { duration: index * 120 }
+                                Components.Anim { from: 0.4; to: 0.8; duration: 800; easing.type: Easing.InOutQuad }
+                                Components.Anim { from: 0.8; to: 0.4; duration: 800; easing.type: Easing.InOutQuad }
+                            }
+                        }
+                    }
+
+                    Item {
+                        width: parent.width
+                        height: 14
+                        Rectangle {
+                            anchors.left: parent.left
+                            anchors.leftMargin: Theme.listItemPadding
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 72; height: 8; radius: 4; color: Theme.bg3
+                        }
+                    }
+
+                    Repeater {
+                        model: ListModel {
+                            ListElement { skelWidth: 95 }
+                            ListElement { skelWidth: 125 }
+                        }
+                        delegate: Item {
+                            required property int skelWidth
+                            required property int index
+                            width: parent.width
+                            height: 30
+
+                            RowLayout {
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.leftMargin: Theme.listItemPadding
+                                anchors.rightMargin: Theme.listItemPadding
+                                spacing: 8
+
+                                Rectangle { width: 14; height: 14; radius: 7; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
+                                Rectangle { width: skelWidth; height: 10; radius: 5; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
+                                Item { Layout.fillWidth: true }
+                                Rectangle { width: 44; height: 10; radius: 5; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
+                            }
+
+                            SequentialAnimation on opacity {
+                                loops: Animation.Infinite
+                                PauseAnimation { duration: (index + 2) * 120 }
+                                Components.Anim { from: 0.4; to: 0.8; duration: 800; easing.type: Easing.InOutQuad }
+                                Components.Anim { from: 0.8; to: 0.4; duration: 800; easing.type: Easing.InOutQuad }
                             }
                         }
                     }
@@ -482,7 +553,8 @@ PanelWindow {
 
             // ── Scanning indicator ──────────────────────────
             Item {
-                visible: btPop.popupState === "list" && btPop.powered && pairedModel.count === 0 && discoveredModel.count === 0
+                visible: btPop.popupState === "list" && btPop.powered && !btPop.deviceListLoading
+                    && btPop.scanning && pairedModel.count === 0 && discoveredModel.count === 0
                 Layout.fillWidth: true; Layout.alignment: Qt.AlignHCenter
                 implicitHeight: scanningRow.implicitHeight
                 RowLayout {

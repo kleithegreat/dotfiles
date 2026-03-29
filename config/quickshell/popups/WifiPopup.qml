@@ -4,6 +4,7 @@ import Quickshell.Wayland
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Io
+import "../components" as Components
 import "wifi"
 
 PanelWindow {
@@ -73,6 +74,8 @@ PanelWindow {
     property string currentChannel: ""
     property string currentBand: ""
     ListModel { id: channelModel }
+    property bool listLoading: popupState === "list" && scanProc.running && netModel.count === 0
+    property bool channelLoading: popupState === "channels" && channelScanProc.running
 
     // ── Export state ──
     property bool exportCopied: false
@@ -1018,17 +1021,75 @@ PanelWindow {
             Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
 
             // ── State views ──────────────────────────────────
-            WifiList {
-                Layout.fillWidth: true; Layout.preferredHeight: netModel.count === 0 ? 144 : 170; Layout.maximumHeight: 220
+            Item {
+                Layout.fillWidth: true
+                Layout.preferredHeight: netModel.count === 0 ? 144 : 170
+                Layout.maximumHeight: 220
                 visible: wifiPop.popupState === "list"
                 opacity: wifiPop.popupState === "list" ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
-                netModel: netModel
-                connectedSsid: wifiPop.connectedSsid
-                isCaptivePortal: wifiPop.isCaptivePortal
-                onConnectRequested: (ssid, security) => wifiPop.connectTo(ssid, security)
-                onDetailRequested: (ssid, security, signal, isActive) => wifiPop.openDetail(ssid, security, signal, isActive)
-                onCaptiveLoginRequested: captiveOpenProc.running = true
+                clip: true
+                Behavior on opacity { Components.Anim { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
+
+                WifiList {
+                    anchors.fill: parent
+                    opacity: wifiPop.listLoading ? 0 : 1
+                    enabled: opacity > 0.01
+                    Behavior on opacity { Components.Anim { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
+                    netModel: netModel
+                    connectedSsid: wifiPop.connectedSsid
+                    isCaptivePortal: wifiPop.isCaptivePortal
+                    onConnectRequested: (ssid, security) => wifiPop.connectTo(ssid, security)
+                    onDetailRequested: (ssid, security, signal, isActive) => wifiPop.openDetail(ssid, security, signal, isActive)
+                    onCaptiveLoginRequested: captiveOpenProc.running = true
+                }
+
+                Column {
+                    anchors.fill: parent
+                    anchors.topMargin: 4
+                    spacing: 0
+                    opacity: wifiPop.listLoading ? 1 : 0
+                    visible: opacity > 0
+                    z: 1
+                    Behavior on opacity { Components.Anim { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
+
+                    Repeater {
+                        model: ListModel {
+                            ListElement { skelWidth: 120 }
+                            ListElement { skelWidth: 90 }
+                            ListElement { skelWidth: 150 }
+                            ListElement { skelWidth: 105 }
+                        }
+                        delegate: Item {
+                            required property int skelWidth
+                            required property int index
+                            width: parent.width
+                            height: 36
+
+                            RowLayout {
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.leftMargin: 6
+                                anchors.rightMargin: 6
+                                spacing: 8
+
+                                Rectangle { width: 18; height: 18; radius: 9; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
+                                Rectangle { width: skelWidth; height: 10; radius: 5; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
+                                Item { Layout.fillWidth: true }
+                                Rectangle { width: 10; height: 10; radius: 5; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
+                                Rectangle { width: 28; height: 10; radius: 5; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
+                                Rectangle { width: 24; height: 24; radius: 12; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
+                            }
+
+                            SequentialAnimation on opacity {
+                                loops: Animation.Infinite
+                                PauseAnimation { duration: index * 120 }
+                                Components.Anim { from: 0.4; to: 0.8; duration: 800; easing.type: Easing.InOutQuad }
+                                Components.Anim { from: 0.8; to: 0.4; duration: 800; easing.type: Easing.InOutQuad }
+                            }
+                        }
+                    }
+                }
             }
 
             WifiDetail {
@@ -1125,15 +1186,87 @@ PanelWindow {
                 onRerunRequested: wifiPop.startDiagnostics()
             }
 
-            WifiChannels {
+            Item {
+                id: channelSection
+                Layout.fillWidth: true
+                implicitHeight: Math.max(channelView.implicitHeight, channelSkeleton.implicitHeight)
+                Layout.preferredHeight: implicitHeight
                 visible: wifiPop.popupState === "channels"
                 opacity: wifiPop.popupState === "channels" ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
-                Layout.fillWidth: true
-                channelModel: channelModel
-                currentChannel: wifiPop.currentChannel
-                currentBand: wifiPop.currentBand
-                scanning: channelScanProc.running
+                clip: true
+                Behavior on opacity { Components.Anim { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
+
+                WifiChannels {
+                    id: channelView
+                    anchors.fill: parent
+                    opacity: wifiPop.channelLoading ? 0 : 1
+                    enabled: opacity > 0.01
+                    Behavior on opacity { Components.Anim { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
+                    channelModel: channelModel
+                    currentChannel: wifiPop.currentChannel
+                    currentBand: wifiPop.currentBand
+                    scanning: channelScanProc.running
+                }
+
+                ColumnLayout {
+                    id: channelSkeleton
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    spacing: 8
+                    opacity: wifiPop.channelLoading ? 1 : 0
+                    visible: opacity > 0
+                    z: 1
+                    Behavior on opacity { Components.Anim { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
+
+                    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+
+                    Column {
+                        Layout.fillWidth: true
+                        spacing: 0
+
+                        Repeater {
+                            model: ListModel {
+                                ListElement { skelWidth: 120 }
+                                ListElement { skelWidth: 150 }
+                                ListElement { skelWidth: 100 }
+                                ListElement { skelWidth: 140 }
+                                ListElement { skelWidth: 110 }
+                            }
+                            delegate: Item {
+                                required property int skelWidth
+                                required property int index
+                                width: parent.width
+                                height: 52
+
+                                ColumnLayout {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    anchors.leftMargin: 8
+                                    anchors.rightMargin: 8
+                                    spacing: 6
+
+                                    RowLayout {
+                                        spacing: 6
+                                        Rectangle { width: 36; height: 10; radius: 5; color: Theme.bg3 }
+                                        Rectangle { width: 40; height: 10; radius: 5; color: Theme.bg3 }
+                                        Item { Layout.fillWidth: true }
+                                        Rectangle { width: 65; height: 10; radius: 5; color: Theme.bg3 }
+                                    }
+                                    Rectangle { width: skelWidth; height: 8; radius: 4; color: Theme.bg3 }
+                                }
+
+                                SequentialAnimation on opacity {
+                                    loops: Animation.Infinite
+                                    PauseAnimation { duration: index * 120 }
+                                    Components.Anim { from: 0.4; to: 0.8; duration: 800; easing.type: Easing.InOutQuad }
+                                    Components.Anim { from: 0.8; to: 0.4; duration: 800; easing.type: Easing.InOutQuad }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
