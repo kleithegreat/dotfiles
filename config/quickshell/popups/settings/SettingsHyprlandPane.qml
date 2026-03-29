@@ -110,7 +110,7 @@ Components.WheelFlickable {
                     opacity: canDecrease ? 1 : 0.45
                     border.width: 1
                     border.color: Theme.bg3
-                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
 
                     Text {
                         anchors.centerIn: parent
@@ -120,12 +120,18 @@ Components.WheelFlickable {
                         font.pixelSize: Theme.fontSize
                     }
 
-                    MouseArea {
+                    Components.HoverLayer {
                         id: hyprMinusArea
                         anchors.fill: parent
                         enabled: hyprMinusBtn.canDecrease
                         cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                         hoverEnabled: true
+
+                        hoverOpacity: 0
+
+                        pressedOpacity: 0
+
+                        pressedScale: 1.0
                         onClicked: root.hyprOptionAdjusted(modelData, -1)
                     }
                 }
@@ -148,7 +154,7 @@ Components.WheelFlickable {
                     color: hyprPlusArea.containsMouse ? Theme.bg2 : Theme.bg1
                     border.width: 1
                     border.color: Theme.bg3
-                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
 
                     Text {
                         anchors.centerIn: parent
@@ -158,11 +164,17 @@ Components.WheelFlickable {
                         font.pixelSize: Theme.fontSize
                     }
 
-                    MouseArea {
+                    Components.HoverLayer {
                         id: hyprPlusArea
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
                         hoverEnabled: true
+
+                        hoverOpacity: 0
+
+                        pressedOpacity: 0
+
+                        pressedScale: 1.0
                         onClicked: root.hyprOptionAdjusted(modelData, 1)
                     }
                 }
@@ -210,7 +222,7 @@ Components.WheelFlickable {
                     opacity: canDecrease ? 1 : 0.45
                     border.width: 1
                     border.color: Theme.bg3
-                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
 
                     Text {
                         anchors.centerIn: parent
@@ -220,12 +232,18 @@ Components.WheelFlickable {
                         font.pixelSize: Theme.fontSize
                     }
 
-                    MouseArea {
+                    Components.HoverLayer {
                         id: decorationMinusArea
                         anchors.fill: parent
                         enabled: decorationMinusBtn.canDecrease
                         cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                         hoverEnabled: true
+
+                        hoverOpacity: 0
+
+                        pressedOpacity: 0
+
+                        pressedScale: 1.0
                         onClicked: root.hyprOptionAdjusted(modelData, -1)
                     }
                 }
@@ -248,7 +266,7 @@ Components.WheelFlickable {
                     color: decorationPlusArea.containsMouse ? Theme.bg2 : Theme.bg1
                     border.width: 1
                     border.color: Theme.bg3
-                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
 
                     Text {
                         anchors.centerIn: parent
@@ -258,11 +276,17 @@ Components.WheelFlickable {
                         font.pixelSize: Theme.fontSize
                     }
 
-                    MouseArea {
+                    Components.HoverLayer {
                         id: decorationPlusArea
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
                         hoverEnabled: true
+
+                        hoverOpacity: 0
+
+                        pressedOpacity: 0
+
+                        pressedScale: 1.0
                         onClicked: root.hyprOptionAdjusted(modelData, 1)
                     }
                 }
@@ -337,7 +361,7 @@ Components.WheelFlickable {
                     opacity: canDecrease ? 1 : 0.45
                     border.width: 1
                     border.color: Theme.bg3
-                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
 
                     Text {
                         anchors.centerIn: parent
@@ -347,12 +371,18 @@ Components.WheelFlickable {
                         font.pixelSize: Theme.fontSize
                     }
 
-                    MouseArea {
+                    Components.HoverLayer {
                         id: blurMinusArea
                         anchors.fill: parent
                         enabled: blurMinusBtn.canDecrease
                         cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                         hoverEnabled: true
+
+                        hoverOpacity: 0
+
+                        pressedOpacity: 0
+
+                        pressedScale: 1.0
                         onClicked: root.hyprOptionAdjusted(modelData, -1)
                     }
                 }
@@ -375,7 +405,7 @@ Components.WheelFlickable {
                     color: blurPlusArea.containsMouse ? Theme.bg2 : Theme.bg1
                     border.width: 1
                     border.color: Theme.bg3
-                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
 
                     Text {
                         anchors.centerIn: parent
@@ -385,11 +415,17 @@ Components.WheelFlickable {
                         font.pixelSize: Theme.fontSize
                     }
 
-                    MouseArea {
+                    Components.HoverLayer {
                         id: blurPlusArea
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
                         hoverEnabled: true
+
+                        hoverOpacity: 0
+
+                        pressedOpacity: 0
+
+                        pressedScale: 1.0
                         onClicked: root.hyprOptionAdjusted(modelData, 1)
                     }
                 }

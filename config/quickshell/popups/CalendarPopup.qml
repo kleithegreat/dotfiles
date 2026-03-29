@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Wayland
 import QtQuick
 import QtQuick.Layouts
+import "../components" as Components
 
 PanelWindow {
     id: cal
@@ -31,15 +32,43 @@ PanelWindow {
     SequentialAnimation {
         id: calOpenAnim
         ParallelAnimation {
-            NumberAnimation { target: calPanel; property: "opacity"; to: 1; duration: Theme.animPopupIn; easing.type: Easing.OutCubic }
-            NumberAnimation { target: calPanel; property: "scale"; to: 1.0; duration: Theme.animPopupIn; easing.type: Easing.OutCubic }
+            Components.Anim {
+                target: calPanel
+                property: "opacity"
+                to: 1
+                duration: Theme.animPopupIn
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveEmphasizedEnter
+            }
+            Components.Anim {
+                target: calPanel
+                property: "scale"
+                to: 1.0
+                duration: Theme.animPopupIn
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveEmphasizedEnter
+            }
         }
     }
     SequentialAnimation {
         id: calCloseAnim
         ParallelAnimation {
-            NumberAnimation { target: calPanel; property: "opacity"; to: 0; duration: Theme.animPopupOut; easing.type: Easing.InCubic }
-            NumberAnimation { target: calPanel; property: "scale"; to: 0.92; duration: Theme.animPopupOut; easing.type: Easing.InCubic }
+            Components.Anim {
+                target: calPanel
+                property: "opacity"
+                to: 0
+                duration: Theme.animPopupOut
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveExit
+            }
+            Components.Anim {
+                target: calPanel
+                property: "scale"
+                to: 0.92
+                duration: Theme.animPopupOut
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveExit
+            }
         }
         ScriptAction { script: { cal.closing = false; } }
     }
@@ -84,21 +113,27 @@ PanelWindow {
                 Layout.fillWidth: true
                 Rectangle {
                     width: 24; height: 24; radius: Theme.hoverRadius; color: "transparent"
-                    Rectangle {
-                        anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                        opacity: navL.pressed ? 0.9 : (navL.containsMouse ? 0.6 : 0)
-                        Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                    Components.HoverLayer {
+                        id: navL
+                        color: Theme.bg2
+                        hoverOpacity: 0.6
+                        pressedOpacity: 0.9
+                        pressedScale: 0.98
+                        onClicked: cal.prevMonth()
+
+                        Text {
+                            anchors.centerIn: parent; text: "󰅁"
+                            color: navL.containsMouse ? Theme.fg : Theme.fg4
+                            Behavior on color {
+                                Components.CAnim {
+                                    duration: Theme.animHover
+                                    easing.type: Easing.BezierSpline
+                                    easing.bezierCurve: Theme.animCurveStandard
+                                }
+                            }
+                            font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
+                        }
                     }
-                    scale: navL.pressed ? 0.98 : 1.0
-                    Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                    transformOrigin: Item.Center
-                    Text {
-                        anchors.centerIn: parent; text: "󰅁"
-                        color: navL.containsMouse ? Theme.fg : Theme.fg4
-                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                        font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
-                    }
-                    MouseArea { id: navL; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: cal.prevMonth() }
                 }
                 Text {
                     text: ["January","February","March","April","May","June","July","August","September","October","November","December"][cal.viewMonth] + " " + cal.viewYear
@@ -107,21 +142,27 @@ PanelWindow {
                 }
                 Rectangle {
                     width: 24; height: 24; radius: Theme.hoverRadius; color: "transparent"
-                    Rectangle {
-                        anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                        opacity: navR.pressed ? 0.9 : (navR.containsMouse ? 0.6 : 0)
-                        Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                    Components.HoverLayer {
+                        id: navR
+                        color: Theme.bg2
+                        hoverOpacity: 0.6
+                        pressedOpacity: 0.9
+                        pressedScale: 0.98
+                        onClicked: cal.nextMonth()
+
+                        Text {
+                            anchors.centerIn: parent; text: "󰅂"
+                            color: navR.containsMouse ? Theme.fg : Theme.fg4
+                            Behavior on color {
+                                Components.CAnim {
+                                    duration: Theme.animHover
+                                    easing.type: Easing.BezierSpline
+                                    easing.bezierCurve: Theme.animCurveStandard
+                                }
+                            }
+                            font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
+                        }
                     }
-                    scale: navR.pressed ? 0.98 : 1.0
-                    Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                    transformOrigin: Item.Center
-                    Text {
-                        anchors.centerIn: parent; text: "󰅂"
-                        color: navR.containsMouse ? Theme.fg : Theme.fg4
-                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                        font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
-                    }
-                    MouseArea { id: navR; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: cal.nextMonth() }
                 }
             }
 
@@ -138,7 +179,13 @@ PanelWindow {
             Grid {
                 columns: 7; Layout.fillWidth: true; spacing: 0
                 opacity: cal.gridVisible ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
+                Behavior on opacity {
+                    Components.Anim {
+                        duration: Theme.animContentSwap
+                        easing.type: Easing.BezierSpline
+                        easing.bezierCurve: Theme.animCurveStandard
+                    }
+                }
 
                 Repeater {
                     model: 42
@@ -157,7 +204,13 @@ PanelWindow {
                             anchors.centerIn: parent; width: cal.calHighlightSize; height: cal.calHighlightSize; radius: width / 2
                             color: Theme.bg2
                             opacity: isCur && !isToday && dayCellMouse.containsMouse ? 0.5 : 0
-                            Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                            Behavior on opacity {
+                                Components.Anim {
+                                    duration: Theme.animHover
+                                    easing.type: Easing.BezierSpline
+                                    easing.bezierCurve: Theme.animCurveStandard
+                                }
+                            }
                         }
 
                         Rectangle {

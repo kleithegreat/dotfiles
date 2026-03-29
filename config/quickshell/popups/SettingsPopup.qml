@@ -4,6 +4,7 @@ import Quickshell.Wayland
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Io
+import "../components" as Components
 import "settings" as Settings
 
 PanelWindow {
@@ -617,15 +618,43 @@ PanelWindow {
     SequentialAnimation {
         id: settingsOpenAnim
         ParallelAnimation {
-            NumberAnimation { target: panel; property: "opacity"; to: 1; duration: Theme.animPopupIn; easing.type: Easing.OutCubic }
-            NumberAnimation { target: panel; property: "scale"; to: 1.0; duration: Theme.animPopupIn; easing.type: Easing.OutCubic }
+            Components.Anim {
+                target: panel
+                property: "opacity"
+                to: 1
+                duration: Theme.animPopupIn
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveEmphasizedEnter
+            }
+            Components.Anim {
+                target: panel
+                property: "scale"
+                to: 1.0
+                duration: Theme.animPopupIn
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveEmphasizedEnter
+            }
         }
     }
     SequentialAnimation {
         id: settingsCloseAnim
         ParallelAnimation {
-            NumberAnimation { target: panel; property: "opacity"; to: 0; duration: Theme.animPopupOut; easing.type: Easing.InCubic }
-            NumberAnimation { target: panel; property: "scale"; to: 0.92; duration: Theme.animPopupOut; easing.type: Easing.InCubic }
+            Components.Anim {
+                target: panel
+                property: "opacity"
+                to: 0
+                duration: Theme.animPopupOut
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveExit
+            }
+            Components.Anim {
+                target: panel
+                property: "scale"
+                to: 0.92
+                duration: Theme.animPopupOut
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveExit
+            }
         }
         ScriptAction { script: { settingsPop.closing = false; } }
     }

@@ -56,13 +56,16 @@ Item {
                         width: captiveLoginLabel.implicitWidth + Theme.btnPaddingH * 2
                         height: Theme.btnHeight; radius: Theme.btnRadius
                         color: Theme.yellowBright
-                        scale: captiveLoginA.pressed ? 0.98 : 1.0
-                        Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                        transformOrigin: Item.Center
-                        Text { id: captiveLoginLabel; anchors.centerIn: parent; text: "Open Login Page"
-                            color: Theme.bg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
-                        MouseArea { id: captiveLoginA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                            onClicked: root.captiveLoginRequested() }
+                        Components.HoverLayer {
+                            id: captiveLoginA
+                            hoverOpacity: 0
+                            pressedOpacity: 0
+                            pressedScale: 0.98
+                            onClicked: root.captiveLoginRequested()
+
+                            Text { id: captiveLoginLabel; anchors.centerIn: parent; text: "Open Login Page"
+                                color: Theme.bg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+                        }
                     }
                 }
             }
@@ -79,10 +82,22 @@ Item {
                     Rectangle {
                         anchors.fill: parent; radius: parent.radius; color: Theme.bg2
                         opacity: niRowArea.pressed ? 0.9 : (niRowArea.containsMouse ? 0.6 : 0)
-                        Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                        Behavior on opacity {
+                            Components.Anim {
+                                duration: Theme.animHover
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveStandard
+                            }
+                        }
                     }
                     scale: niRowArea.pressed ? 0.98 : 1.0
-                    Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                    Behavior on scale {
+                        Components.Anim {
+                            duration: Theme.animMicro
+                            easing.type: Easing.BezierSpline
+                            easing.bezierCurve: Theme.animCurveStandard
+                        }
+                    }
                     transformOrigin: Item.Center
 
                     RowLayout {
@@ -97,7 +112,7 @@ Item {
                                 if (netItem.signal > 30) return Theme.fg3;
                                 return Theme.fg4;
                             }
-                            Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                            Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                             font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
                         }
                         // SSID
@@ -114,27 +129,36 @@ Item {
                         Text { text: netItem.signal + "%"; color: Theme.fg4
                             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
                         // info button
-                        Rectangle {
-                            width: 24; height: 24; radius: 12
-                            color: "transparent"
                             Rectangle {
-                                anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                                opacity: infoA.pressed ? 0.9 : (infoA.containsMouse ? 0.7 : 0)
-                                Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                                width: 24; height: 24; radius: 12
+                                color: "transparent"
+                                Components.HoverLayer {
+                                    id: infoA
+                                    color: Theme.bg2
+                                    hoverOpacity: 0.7
+                                    pressedOpacity: 0.9
+                                    onClicked: root.detailRequested(netItem.ssid, netItem.security, netItem.signal, netItem.active)
+
+                                    Text { anchors.centerIn: parent; text: "󰋼"; color: infoA.containsMouse ? Theme.blueBright : Theme.fg4
+                                        Behavior on color {
+                                            Components.CAnim {
+                                                duration: Theme.animHover
+                                                easing.type: Easing.BezierSpline
+                                                easing.bezierCurve: Theme.animCurveStandard
+                                            }
+                                        }
+                                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
+                                }
                             }
-                            Text { anchors.centerIn: parent; text: "󰋼"; color: infoA.containsMouse ? Theme.blueBright : Theme.fg4
-                                Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
-                            MouseArea { id: infoA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                                onClicked: root.detailRequested(netItem.ssid, netItem.security, netItem.signal, netItem.active) }
-                        }
                     }
 
                     // Row click: connected -> detail, otherwise -> connect
-                    MouseArea {
+                    Components.HoverLayer {
                         id: niRowArea; anchors.left: parent.left; anchors.top: parent.top
                         anchors.bottom: parent.bottom; anchors.right: parent.right; anchors.rightMargin: 30
-                        cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                        hoverOpacity: 0
+                        pressedOpacity: 0
+                        pressedScale: 1.0
                         onClicked: {
                             if (netItem.active)
                                 root.detailRequested(netItem.ssid, netItem.security, netItem.signal, true);

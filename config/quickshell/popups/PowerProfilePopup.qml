@@ -243,15 +243,43 @@ PanelWindow {
     SequentialAnimation {
         id: ppOpenAnim
         ParallelAnimation {
-            NumberAnimation { target: ppPanel; property: "opacity"; to: 1; duration: Theme.animPopupIn; easing.type: Easing.OutCubic }
-            NumberAnimation { target: ppPanel; property: "scale"; to: 1.0; duration: Theme.animPopupIn; easing.type: Easing.OutCubic }
+            Components.Anim {
+                target: ppPanel
+                property: "opacity"
+                to: 1
+                duration: Theme.animPopupIn
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveEmphasizedEnter
+            }
+            Components.Anim {
+                target: ppPanel
+                property: "scale"
+                to: 1.0
+                duration: Theme.animPopupIn
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveEmphasizedEnter
+            }
         }
     }
     SequentialAnimation {
         id: ppCloseAnim
         ParallelAnimation {
-            NumberAnimation { target: ppPanel; property: "opacity"; to: 0; duration: Theme.animPopupOut; easing.type: Easing.InCubic }
-            NumberAnimation { target: ppPanel; property: "scale"; to: 0.92; duration: Theme.animPopupOut; easing.type: Easing.InCubic }
+            Components.Anim {
+                target: ppPanel
+                property: "opacity"
+                to: 0
+                duration: Theme.animPopupOut
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveExit
+            }
+            Components.Anim {
+                target: ppPanel
+                property: "scale"
+                to: 0.92
+                duration: Theme.animPopupOut
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveExit
+            }
         }
         ScriptAction { script: { ppPop.closing = false; } }
     }
@@ -264,7 +292,13 @@ PanelWindow {
         radius: Theme.popupRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
         opacity: 0; scale: 0.92
         transformOrigin: Item.TopRight
-        Behavior on height { NumberAnimation { duration: Theme.animHeightResize; easing.type: Easing.OutCubic } }
+        Behavior on height {
+            Components.Anim {
+                duration: Theme.animHeightResize
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveStandard
+            }
+        }
         MouseArea { anchors.fill: parent }
 
         ColumnLayout {
@@ -291,7 +325,13 @@ PanelWindow {
                         anchors.fill: parent; radius: parent.radius
                         color: ppBtn.isCur ? Theme.bg2 : Theme.bg2
                         opacity: ppBtn.isCur ? 0.8 : (ppBtn.isPending ? 0.5 : (ppBtnA.pressed ? 0.9 : (ppBtnA.containsMouse ? 0.6 : 0)))
-                        Behavior on opacity { NumberAnimation { duration: Theme.animSpring; easing.type: Easing.OutCubic } }
+                        Behavior on opacity {
+                            Components.Anim {
+                                duration: Theme.animSpring
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveStandard
+                            }
+                        }
                     }
 
                     // Pulsing border while profile switch is in progress
@@ -309,24 +349,38 @@ PanelWindow {
 
                     // Animated selection border
                     border.width: ppBtn.isCur ? 1 : 0; border.color: Theme.blueBright
-                    Behavior on border.width { NumberAnimation { duration: Theme.animSpring; easing.type: Easing.OutCubic } }
-
-                    scale: ppBtnA.pressed ? 0.98 : 1.0
-                    Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                    transformOrigin: Item.Center
-
-                    RowLayout { anchors.fill: parent; anchors.leftMargin: Theme.listItemPadding; anchors.rightMargin: Theme.listItemPadding; spacing: 8
-                        Text { text: ppBtn.modelData.icon
-                            color: (ppBtn.isCur || ppBtn.isPending) ? Theme.blueBright : Theme.fg
-                            Behavior on color { ColorAnimation { duration: Theme.animSpring } }
-                            font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize }
-                        ColumnLayout { spacing: 0; Layout.fillWidth: true
-                            Text { text: ppBtn.modelData.label; color: (ppBtn.isCur || ppBtn.isPending) ? Theme.fg : Theme.fg2; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: ppBtn.isCur }
-                            Text { text: ppBtn.modelData.desc; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
+                    Behavior on border.width {
+                        Components.Anim {
+                            duration: Theme.animSpring
+                            easing.type: Easing.BezierSpline
+                            easing.bezierCurve: Theme.animCurveStandard
                         }
                     }
-                    MouseArea { id: ppBtnA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                        onClicked: ppPop.setProfile(ppBtn.modelData.name) }
+
+                    Components.HoverLayer {
+                        id: ppBtnA
+                        hoverOpacity: 0
+                        pressedOpacity: 0
+                        pressedScale: 0.98
+                        onClicked: ppPop.setProfile(ppBtn.modelData.name)
+
+                        RowLayout { anchors.fill: parent; anchors.leftMargin: Theme.listItemPadding; anchors.rightMargin: Theme.listItemPadding; spacing: 8
+                            Text { text: ppBtn.modelData.icon
+                                color: (ppBtn.isCur || ppBtn.isPending) ? Theme.blueBright : Theme.fg
+                                Behavior on color {
+                                    Components.CAnim {
+                                        duration: Theme.animSpring
+                                        easing.type: Easing.BezierSpline
+                                        easing.bezierCurve: Theme.animCurveStandard
+                                    }
+                                }
+                                font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize }
+                            ColumnLayout { spacing: 0; Layout.fillWidth: true
+                                Text { text: ppBtn.modelData.label; color: (ppBtn.isCur || ppBtn.isPending) ? Theme.fg : Theme.fg2; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: ppBtn.isCur }
+                                Text { text: ppBtn.modelData.desc; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
+                            }
+                        }
+                    }
                 }
             }
 

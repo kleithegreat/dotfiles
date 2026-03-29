@@ -1,6 +1,7 @@
 import qs
 import QtQuick
 import QtQuick.Layouts
+import "../../components" as Components
 
 ColumnLayout {
     id: root
@@ -24,7 +25,13 @@ ColumnLayout {
     Rectangle {
         Layout.fillWidth: true; height: 32; radius: Theme.btnRadius; color: Theme.bg2
         border.width: 1; border.color: eapIdentity.activeFocus ? Theme.blueBright : Theme.bg3
-        Behavior on border.color { ColorAnimation { duration: Theme.animHover } }
+        Behavior on border.color {
+            Components.CAnim {
+                duration: Theme.animHover
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveStandard
+            }
+        }
         TextInput {
             id: eapIdentity; anchors.fill: parent; anchors.margins: 8
             color: Theme.fg; selectionColor: Theme.blueBright; selectedTextColor: Theme.bg
@@ -39,7 +46,13 @@ ColumnLayout {
     Rectangle {
         Layout.fillWidth: true; height: 32; radius: Theme.btnRadius; color: Theme.bg2
         border.width: 1; border.color: eapPassword.activeFocus ? Theme.blueBright : Theme.bg3
-        Behavior on border.color { ColorAnimation { duration: Theme.animHover } }
+        Behavior on border.color {
+            Components.CAnim {
+                duration: Theme.animHover
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveStandard
+            }
+        }
         TextInput {
             id: eapPassword; anchors.fill: parent; anchors.margins: 8
             color: Theme.fg; selectionColor: Theme.blueBright; selectedTextColor: Theme.bg
@@ -55,15 +68,30 @@ ColumnLayout {
     Rectangle {
         Layout.fillWidth: true; height: 30; radius: Theme.btnRadius
         color: connEapA.containsMouse ? Theme.blueBright : Theme.bg3
-        Behavior on color { ColorAnimation { duration: Theme.animHover } }
-        scale: connEapA.pressed ? 0.98 : 1.0
-        Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-        transformOrigin: Item.Center
-        Text { anchors.centerIn: parent; text: "Sign In"; color: connEapA.containsMouse ? Theme.bg : Theme.fg
-            Behavior on color { ColorAnimation { duration: Theme.animHover } }
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
-        MouseArea { id: connEapA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-            onClicked: root.enterpriseSubmitted(eapIdentity.text, eapPassword.text) }
+        Behavior on color {
+            Components.CAnim {
+                duration: Theme.animHover
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveStandard
+            }
+        }
+        Components.HoverLayer {
+            id: connEapA
+            hoverOpacity: 0
+            pressedOpacity: 0
+            pressedScale: 0.98
+            onClicked: root.enterpriseSubmitted(eapIdentity.text, eapPassword.text)
+
+            Text { anchors.centerIn: parent; text: "Sign In"; color: connEapA.containsMouse ? Theme.bg : Theme.fg
+                Behavior on color {
+                    Components.CAnim {
+                        duration: Theme.animHover
+                        easing.type: Easing.BezierSpline
+                        easing.bezierCurve: Theme.animCurveStandard
+                    }
+                }
+                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+        }
     }
 
     Text { text: "Only PEAP/MSCHAPv2 is supported."; color: Theme.fg4; wrapMode: Text.WordWrap

@@ -47,15 +47,43 @@ PanelWindow {
     SequentialAnimation {
         id: btOpenAnim
         ParallelAnimation {
-            NumberAnimation { target: btPanel; property: "opacity"; to: 1; duration: Theme.animPopupIn; easing.type: Easing.OutCubic }
-            NumberAnimation { target: btPanel; property: "scale"; to: 1.0; duration: Theme.animPopupIn; easing.type: Easing.OutCubic }
+            Components.Anim {
+                target: btPanel
+                property: "opacity"
+                to: 1
+                duration: Theme.animPopupIn
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveEmphasizedEnter
+            }
+            Components.Anim {
+                target: btPanel
+                property: "scale"
+                to: 1.0
+                duration: Theme.animPopupIn
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveEmphasizedEnter
+            }
         }
     }
     SequentialAnimation {
         id: btCloseAnim
         ParallelAnimation {
-            NumberAnimation { target: btPanel; property: "opacity"; to: 0; duration: Theme.animPopupOut; easing.type: Easing.InCubic }
-            NumberAnimation { target: btPanel; property: "scale"; to: 0.92; duration: Theme.animPopupOut; easing.type: Easing.InCubic }
+            Components.Anim {
+                target: btPanel
+                property: "opacity"
+                to: 0
+                duration: Theme.animPopupOut
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveExit
+            }
+            Components.Anim {
+                target: btPanel
+                property: "scale"
+                to: 0.92
+                duration: Theme.animPopupOut
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveExit
+            }
         }
         ScriptAction { script: { btPop.closing = false; } }
     }
@@ -211,7 +239,13 @@ PanelWindow {
         radius: Theme.popupRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
         opacity: 0; scale: 0.92
         transformOrigin: Item.TopRight
-        Behavior on height { NumberAnimation { duration: Theme.animHeightResize; easing.type: Easing.OutCubic } }
+        Behavior on height {
+            Components.Anim {
+                duration: Theme.animHeightResize
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveStandard
+            }
+        }
         MouseArea { anchors.fill: parent }
 
         ColumnLayout {
@@ -227,21 +261,26 @@ PanelWindow {
                     visible: btPop.popupState === "list" && btPop.powered
                     Layout.preferredWidth: scanLabel.implicitWidth + Theme.btnPaddingH * 2; height: Theme.btnHeight; radius: Theme.btnRadius
                     color: "transparent"
-                    Rectangle {
-                        anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                        opacity: scanA.pressed ? 0.9 : (scanA.containsMouse ? 0.6 : 0)
-                        Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                    Components.HoverLayer {
+                        id: scanA
+                        color: Theme.bg2
+                        hoverOpacity: 0.6
+                        pressedOpacity: 0.9
+                        pressedScale: 0.98
+                        onClicked: { if (!btPop.scanning) btPop.startScan(); }
+
+                        Text { id: scanLabel; anchors.centerIn: parent
+                            text: btPop.scanning ? "Scanning…" : "Scan"
+                            color: scanA.containsMouse ? Theme.blueBright : Theme.fg4
+                            Behavior on color {
+                                Components.CAnim {
+                                    duration: Theme.animHover
+                                    easing.type: Easing.BezierSpline
+                                    easing.bezierCurve: Theme.animCurveStandard
+                                }
+                            }
+                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
                     }
-                    scale: scanA.pressed ? 0.98 : 1.0
-                    Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                    transformOrigin: Item.Center
-                    Text { id: scanLabel; anchors.centerIn: parent
-                        text: btPop.scanning ? "Scanning…" : "Scan"
-                        color: scanA.containsMouse ? Theme.blueBright : Theme.fg4
-                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-                    MouseArea { id: scanA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                        onClicked: { if (!btPop.scanning) btPop.startScan(); } }
                 }
             }
 
@@ -293,20 +332,25 @@ PanelWindow {
                     anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
                     width: connDcLabel.implicitWidth + Theme.btnPaddingH * 2; height: Theme.btnHeight; radius: Theme.btnRadius
                     color: "transparent"
-                    Rectangle {
-                        anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                        opacity: connDcA.pressed ? 0.9 : (connDcA.containsMouse ? 0.6 : 0)
-                        Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                    Components.HoverLayer {
+                        id: connDcA
+                        color: Theme.bg2
+                        hoverOpacity: 0.6
+                        pressedOpacity: 0.9
+                        pressedScale: 0.98
+                        onClicked: btPop.disconnectDevice()
+
+                        Text { id: connDcLabel; anchors.centerIn: parent; text: "Disconnect"
+                            color: connDcA.containsMouse ? Theme.redBright : Theme.fg4
+                            Behavior on color {
+                                Components.CAnim {
+                                    duration: Theme.animHover
+                                    easing.type: Easing.BezierSpline
+                                    easing.bezierCurve: Theme.animCurveStandard
+                                }
+                            }
+                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
                     }
-                    scale: connDcA.pressed ? 0.98 : 1.0
-                    Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
-                    transformOrigin: Item.Center
-                    Text { id: connDcLabel; anchors.centerIn: parent; text: "Disconnect"
-                        color: connDcA.containsMouse ? Theme.redBright : Theme.fg4
-                        Behavior on color { ColorAnimation { duration: Theme.animHover } }
-                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-                    MouseArea { id: connDcA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                        onClicked: btPop.disconnectDevice() }
                 }
             }
 
@@ -320,8 +364,20 @@ PanelWindow {
                     wrapMode: Text.WordWrap
                     opacity: btPop.connectError !== "" ? 1 : 0
                     y: btPop.connectError !== "" ? 0 : 6
-                    Behavior on opacity { NumberAnimation { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
-                    Behavior on y { NumberAnimation { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
+                    Behavior on opacity {
+                        Components.Anim {
+                            duration: Theme.animContentSwap
+                            easing.type: Easing.BezierSpline
+                            easing.bezierCurve: Theme.animCurveStandard
+                        }
+                    }
+                    Behavior on y {
+                        Components.Anim {
+                            duration: Theme.animContentSwap
+                            easing.type: Easing.BezierSpline
+                            easing.bezierCurve: Theme.animCurveStandard
+                        }
+                    }
                 }
             }
 
@@ -331,13 +387,25 @@ PanelWindow {
                 visible: btPop.popupState === "list" && (btPop.powered || btPop.deviceListLoading)
                 opacity: btPop.popupState === "list" && (btPop.powered || btPop.deviceListLoading) ? 1 : 0
                 clip: true
-                Behavior on opacity { Components.Anim { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
+                Behavior on opacity {
+                    Components.Anim {
+                        duration: Theme.animContentSwap
+                        easing.type: Easing.BezierSpline
+                        easing.bezierCurve: Theme.animCurveStandard
+                    }
+                }
 
                 Components.WheelFlickable {
                     anchors.fill: parent
                     opacity: btPop.deviceListLoading ? 0 : 1
                     enabled: opacity > 0.01
-                    Behavior on opacity { Components.Anim { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
+                    Behavior on opacity {
+                        Components.Anim {
+                            duration: Theme.animContentSwap
+                            easing.type: Easing.BezierSpline
+                            easing.bezierCurve: Theme.animCurveStandard
+                        }
+                    }
                     contentHeight: devCol.implicitHeight; clip: true; boundsBehavior: Flickable.StopAtBounds
 
                     Column {
@@ -361,10 +429,22 @@ PanelWindow {
                                 Rectangle {
                                     anchors.fill: parent; radius: parent.radius; color: Theme.bg2
                                     opacity: pArea.pressed ? 0.9 : (pArea.containsMouse ? 0.6 : 0)
-                                    Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                                    Behavior on opacity {
+                                        Components.Anim {
+                                            duration: Theme.animHover
+                                            easing.type: Easing.BezierSpline
+                                            easing.bezierCurve: Theme.animCurveStandard
+                                        }
+                                    }
                                 }
                                 scale: pArea.pressed ? 0.98 : 1.0
-                                Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                                Behavior on scale {
+                                    Components.Anim {
+                                        duration: Theme.animMicro
+                                        easing.type: Easing.BezierSpline
+                                        easing.bezierCurve: Theme.animCurveStandard
+                                    }
+                                }
                                 transformOrigin: Item.Center
 
                                 Text {
@@ -386,11 +466,17 @@ PanelWindow {
                                     anchors.right: parent.right; anchors.rightMargin: Theme.listItemPadding
                                     anchors.verticalCenter: parent.verticalCenter
                                     text: "Connect"; color: pArea.containsMouse ? Theme.blueBright : Theme.fg4
-                                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                                    Behavior on color {
+                                        Components.CAnim {
+                                            duration: Theme.animHover
+                                            easing.type: Easing.BezierSpline
+                                            easing.bezierCurve: Theme.animCurveStandard
+                                        }
+                                    }
                                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                                 }
 
-                                MouseArea { id: pArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                                Components.HoverLayer { id: pArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
                                     onClicked: btPop.connectDevice(pItem.mac, pItem.name) }
                             }
                         }
@@ -413,10 +499,22 @@ PanelWindow {
                                 Rectangle {
                                     anchors.fill: parent; radius: parent.radius; color: Theme.bg2
                                     opacity: dArea.pressed ? 0.9 : (dArea.containsMouse ? 0.6 : 0)
-                                    Behavior on opacity { NumberAnimation { duration: Theme.animHover; easing.type: Easing.OutCubic } }
+                                    Behavior on opacity {
+                                        Components.Anim {
+                                            duration: Theme.animHover
+                                            easing.type: Easing.BezierSpline
+                                            easing.bezierCurve: Theme.animCurveStandard
+                                        }
+                                    }
                                 }
                                 scale: dArea.pressed ? 0.98 : 1.0
-                                Behavior on scale { NumberAnimation { duration: Theme.animMicro; easing.type: Easing.OutCubic } }
+                                Behavior on scale {
+                                    Components.Anim {
+                                        duration: Theme.animMicro
+                                        easing.type: Easing.BezierSpline
+                                        easing.bezierCurve: Theme.animCurveStandard
+                                    }
+                                }
                                 transformOrigin: Item.Center
 
                                 Text {
@@ -438,11 +536,17 @@ PanelWindow {
                                     anchors.right: parent.right; anchors.rightMargin: Theme.listItemPadding
                                     anchors.verticalCenter: parent.verticalCenter
                                     text: "Connect"; color: dArea.containsMouse ? Theme.blueBright : Theme.fg4
-                                    Behavior on color { ColorAnimation { duration: Theme.animHover } }
+                                    Behavior on color {
+                                        Components.CAnim {
+                                            duration: Theme.animHover
+                                            easing.type: Easing.BezierSpline
+                                            easing.bezierCurve: Theme.animCurveStandard
+                                        }
+                                    }
                                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                                 }
 
-                                MouseArea { id: dArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                                Components.HoverLayer { id: dArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
                                     onClicked: btPop.connectDevice(dItem.mac, dItem.name) }
                             }
                         }
@@ -457,7 +561,13 @@ PanelWindow {
                     opacity: btPop.deviceListLoading ? 1 : 0
                     visible: opacity > 0
                     z: 1
-                    Behavior on opacity { Components.Anim { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
+                    Behavior on opacity {
+                        Components.Anim {
+                            duration: Theme.animContentSwap
+                            easing.type: Easing.BezierSpline
+                            easing.bezierCurve: Theme.animCurveStandard
+                        }
+                    }
 
                     Item {
                         width: parent.width
@@ -574,7 +684,13 @@ PanelWindow {
             ColumnLayout {
                 visible: btPop.popupState === "connecting"
                 opacity: btPop.popupState === "connecting" ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: Theme.animContentSwap; easing.type: Easing.OutCubic } }
+                Behavior on opacity {
+                    Components.Anim {
+                        duration: Theme.animContentSwap
+                        easing.type: Easing.BezierSpline
+                        easing.bezierCurve: Theme.animCurveStandard
+                    }
+                }
                 Layout.fillWidth: true; spacing: 8; Layout.alignment: Qt.AlignHCenter
 
                 Text { text: "Connecting to " + btPop.targetName + "…"; color: Theme.fg
