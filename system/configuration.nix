@@ -1,7 +1,9 @@
 { config, pkgs, hyprland, hostName, inputs, ... }:
 
 let
-  hyprqt6engine = inputs.hyprqt6engine.packages.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs (old: {
+  system = pkgs.stdenv.hostPlatform.system;
+
+  hyprqt6engine = inputs.hyprqt6engine.packages.${system}.default.overrideAttrs (old: {
     buildInputs = (old.buildInputs or []) ++ [
       pkgs.kdePackages.kcolorscheme
       pkgs.kdePackages.kconfig
@@ -9,25 +11,34 @@ let
     ];
   });
 
-  patchedHyprland = hyprland.packages.${pkgs.stdenv.hostPlatform.system}.hyprland.overrideAttrs (old: {
+  patchedHyprland = hyprland.packages.${system}.hyprland.overrideAttrs (old: {
     patches = (old.patches or []) ++ [
       ../patches/hyprland/hyprland-floating-top-decoration-rounding-0.54.patch
+      ../patches/hyprland/hyprland-gcc15-designated-initializer-fix-0.54.patch
     ];
   });
 
+  patchedHyprlandPortal = hyprland.packages.${system}.xdg-desktop-portal-hyprland.override {
+    hyprland = patchedHyprland;
+  };
+
   hyprPluginPkgs =
     let
-      upstreamHyprPluginPkgs = inputs.hyprland-plugins.packages.${pkgs.stdenv.hostPlatform.system};
+      upstreamHyprPluginPkgs = inputs.hyprland-plugins.packages.${system};
     in
     upstreamHyprPluginPkgs
     // {
-      hyprbars = upstreamHyprPluginPkgs.hyprbars.overrideAttrs (old: {
+      hyprbars = (upstreamHyprPluginPkgs.hyprbars.override {
+        hyprland = patchedHyprland;
+      }).overrideAttrs (old: {
         patches = (old.patches or []) ++ [
           ../patches/hyprland-plugins/hyprbars-hyprland-0.54.patch
         ];
       });
 
-      hyprexpo = upstreamHyprPluginPkgs.hyprexpo.overrideAttrs (old: {
+      hyprexpo = (upstreamHyprPluginPkgs.hyprexpo.override {
+        hyprland = patchedHyprland;
+      }).overrideAttrs (old: {
         patches = (old.patches or []) ++ [
           ../patches/hyprland-plugins/hyprexpo-hyprland-0.54.patch
         ];
@@ -114,7 +125,7 @@ in
     enable = true;
     xwayland.enable = true;
     package = patchedHyprland;
-    portalPackage = hyprland.packages.${pkgs.stdenv.hostPlatform.system}.xdg-desktop-portal-hyprland;
+    portalPackage = patchedHyprlandPortal;
   };
 
   # hyprlock — also auto-creates security.pam.services.hyprlock
@@ -161,7 +172,7 @@ in
   xdg.portal = {
     enable = true;
     extraPortals = [
-      hyprland.packages.${pkgs.stdenv.hostPlatform.system}.xdg-desktop-portal-hyprland
+      patchedHyprlandPortal
       pkgs.xdg-desktop-portal-gtk
       pkgs.kdePackages.xdg-desktop-portal-kde
     ];

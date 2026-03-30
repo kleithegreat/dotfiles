@@ -1,0 +1,202 @@
+diff -ruN a/src/render/OpenGL.cpp b/src/render/OpenGL.cpp
+--- a/src/render/OpenGL.cpp
++++ b/src/render/OpenGL.cpp
+@@ -1945,24 +1945,24 @@
+ 
+             glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+ 
+-            renderTexture(tex, box,
+-                          STextureRenderData{
+-                              .damage                      = &g_pHyprRenderer->m_renderData.damage,
+-                              .a                           = data.a,
+-                              .round                       = data.round,
+-                              .roundingPower               = data.roundingPower,
+-                              .noAA                        = data.noAA,
+-                              .discardActive               = true,
+-                              .allowCustomUV               = true,
+-                              .wrapX                       = data.wrapX,
+-                              .wrapY                       = data.wrapY,
+-                              .discardMode                 = data.discardMode,
+-                              .discardOpacity              = data.discardOpacity,
+-                              .clipRegion                  = data.clipRegion,
+-                              .currentLS                   = data.currentLS,
+-                              .primarySurfaceUVTopLeft     = g_pHyprRenderer->m_renderData.primarySurfaceUVTopLeft,
+-                              .primarySurfaceUVBottomRight = g_pHyprRenderer->m_renderData.primarySurfaceUVBottomRight,
+-                          }); // discard opaque and alpha < discardOpacity
++            auto stencilRenderData                          = STextureRenderData{};
++            stencilRenderData.damage                        = &g_pHyprRenderer->m_renderData.damage;
++            stencilRenderData.a                             = data.a;
++            stencilRenderData.round                         = data.round;
++            stencilRenderData.roundingPower                 = data.roundingPower;
++            stencilRenderData.noAA                          = data.noAA;
++            stencilRenderData.discardActive                 = true;
++            stencilRenderData.allowCustomUV                 = true;
++            stencilRenderData.wrapX                         = data.wrapX;
++            stencilRenderData.wrapY                         = data.wrapY;
++            stencilRenderData.discardMode                   = data.discardMode;
++            stencilRenderData.discardOpacity                = data.discardOpacity;
++            stencilRenderData.clipRegion                    = data.clipRegion;
++            stencilRenderData.currentLS                     = data.currentLS;
++            stencilRenderData.primarySurfaceUVTopLeft       = g_pHyprRenderer->m_renderData.primarySurfaceUVTopLeft;
++            stencilRenderData.primarySurfaceUVBottomRight   = g_pHyprRenderer->m_renderData.primarySurfaceUVBottomRight;
++
++            renderTexture(tex, box, stencilRenderData); // discard opaque and alpha < discardOpacity
+ 
+             glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+ 
+@@ -1987,25 +1987,24 @@
+         if (!data.blockBlurOptimization)
+             g_pHyprRenderer->m_renderData.renderModif.enabled = false;
+ 
+-        renderTextureInternal(data.blurredBG, box,
+-                              STextureRenderData{
+-                                  .damage         = data.damage,
+-                                  .a              = (*PBLURIGNOREOPACITY ? data.blurA : data.a * data.blurA) * data.overallA,
+-                                  .round          = data.round,
+-                                  .roundingPower  = data.roundingPower,
+-                                  .noAA           = data.noAA,
+-                                  .discardActive  = false,
+-                                  .allowCustomUV  = true,
+-                                  .wrapX          = data.wrapX,
+-                                  .wrapY          = data.wrapY,
+-                                  .discardMode    = data.discardMode,
+-                                  .discardOpacity = data.discardOpacity,
+-                                  .clipRegion     = data.clipRegion,
+-                                  .currentLS      = data.currentLS,
+-
+-                                  .primarySurfaceUVTopLeft     = monitorSpaceBox.pos() / m_renderData.pMonitor->m_transformedSize,
+-                                  .primarySurfaceUVBottomRight = (monitorSpaceBox.pos() + monitorSpaceBox.size()) / m_renderData.pMonitor->m_transformedSize,
+-                              });
++        auto blurredBGRenderData                        = STextureRenderData{};
++        blurredBGRenderData.damage                      = data.damage;
++        blurredBGRenderData.a                           = (*PBLURIGNOREOPACITY ? data.blurA : data.a * data.blurA) * data.overallA;
++        blurredBGRenderData.round                       = data.round;
++        blurredBGRenderData.roundingPower               = data.roundingPower;
++        blurredBGRenderData.noAA                        = data.noAA;
++        blurredBGRenderData.discardActive               = false;
++        blurredBGRenderData.allowCustomUV               = true;
++        blurredBGRenderData.wrapX                       = data.wrapX;
++        blurredBGRenderData.wrapY                       = data.wrapY;
++        blurredBGRenderData.discardMode                 = data.discardMode;
++        blurredBGRenderData.discardOpacity              = data.discardOpacity;
++        blurredBGRenderData.clipRegion                  = data.clipRegion;
++        blurredBGRenderData.currentLS                   = data.currentLS;
++        blurredBGRenderData.primarySurfaceUVTopLeft     = monitorSpaceBox.pos() / m_renderData.pMonitor->m_transformedSize;
++        blurredBGRenderData.primarySurfaceUVBottomRight = (monitorSpaceBox.pos() + monitorSpaceBox.size()) / m_renderData.pMonitor->m_transformedSize;
++
++        renderTextureInternal(data.blurredBG, box, blurredBGRenderData);
+ 
+         g_pHyprRenderer->m_renderData.renderModif.enabled = renderModif;
+         g_pHyprRenderer->popMonitorTransformEnabled();
+@@ -2015,28 +2014,27 @@
+     }
+ 
+     // draw window
+-    renderTextureInternal(tex, box,
+-                          STextureRenderData{
+-                              .blur           = *PBLEND,
+-                              .blurredBG      = data.blurredBG,
+-                              .damage         = data.damage,
+-                              .a              = data.a * data.overallA,
+-                              .round          = data.round,
+-                              .roundingPower  = data.roundingPower,
+-                              .noAA           = data.noAA,
+-                              .discardActive  = *PBLEND && NEEDS_STENCIL,
+-                              .allowCustomUV  = true,
+-                              .allowDim       = true,
+-                              .wrapX          = data.wrapX,
+-                              .wrapY          = data.wrapY,
+-                              .discardMode    = data.discardMode,
+-                              .discardOpacity = data.discardOpacity,
+-                              .clipRegion     = data.clipRegion,
+-                              .currentLS      = data.currentLS,
+-
+-                              .primarySurfaceUVTopLeft     = g_pHyprRenderer->m_renderData.primarySurfaceUVTopLeft,
+-                              .primarySurfaceUVBottomRight = g_pHyprRenderer->m_renderData.primarySurfaceUVBottomRight,
+-                          });
++    auto windowRenderData                        = STextureRenderData{};
++    windowRenderData.blur                        = *PBLEND;
++    windowRenderData.blurredBG                   = data.blurredBG;
++    windowRenderData.damage                      = data.damage;
++    windowRenderData.a                           = data.a * data.overallA;
++    windowRenderData.round                       = data.round;
++    windowRenderData.roundingPower               = data.roundingPower;
++    windowRenderData.noAA                        = data.noAA;
++    windowRenderData.discardActive               = *PBLEND && NEEDS_STENCIL;
++    windowRenderData.allowCustomUV               = true;
++    windowRenderData.allowDim                    = true;
++    windowRenderData.wrapX                       = data.wrapX;
++    windowRenderData.wrapY                       = data.wrapY;
++    windowRenderData.discardMode                 = data.discardMode;
++    windowRenderData.discardOpacity              = data.discardOpacity;
++    windowRenderData.clipRegion                  = data.clipRegion;
++    windowRenderData.currentLS                   = data.currentLS;
++    windowRenderData.primarySurfaceUVTopLeft     = g_pHyprRenderer->m_renderData.primarySurfaceUVTopLeft;
++    windowRenderData.primarySurfaceUVBottomRight = g_pHyprRenderer->m_renderData.primarySurfaceUVBottomRight;
++
++    renderTextureInternal(tex, box, windowRenderData);
+ 
+     GLFB(g_pHyprRenderer->m_renderData.currentFB)->invalidate({GL_STENCIL_ATTACHMENT});
+     scissor(nullptr);
+diff -ruN a/src/render/gl/GLElementRenderer.cpp b/src/render/gl/GLElementRenderer.cpp
+--- a/src/render/gl/GLElementRenderer.cpp
++++ b/src/render/gl/GLElementRenderer.cpp
+@@ -101,35 +101,31 @@
+ void CGLElementRenderer::draw(WP<CTexPassElement> element, const CRegion& damage) {
+     const auto m_data = element->m_data;
+ 
+-    g_pHyprOpenGL->renderTexture( //
+-        m_data.tex, m_data.box,
+-        {
+-            // blur settings for m_data.blur == true
+-            .blur                  = m_data.blur,
+-            .blurA                 = m_data.blurA,
+-            .overallA              = m_data.overallA,
+-            .blockBlurOptimization = m_data.blockBlurOptimization.value_or(false),
+-            .blurredBG             = m_data.blurredBG,
++    auto texRenderData                  = CHyprOpenGLImpl::STextureRenderData{};
++    texRenderData.blur                  = m_data.blur;
++    texRenderData.blurA                 = m_data.blurA;
++    texRenderData.overallA              = m_data.overallA;
++    texRenderData.blockBlurOptimization = m_data.blockBlurOptimization.value_or(false);
++    texRenderData.blurredBG             = m_data.blurredBG;
+ 
+-            // common settings
+-            .damage             = m_data.damage.empty() ? &damage : &m_data.damage,
+-            .surface            = m_data.surface,
+-            .a                  = m_data.a,
+-            .round              = m_data.round,
+-            .roundingPower      = m_data.roundingPower,
+-            .noAA               = m_data.squareTopCorners,
+-            .discardActive      = m_data.discardActive,
+-            .allowCustomUV      = m_data.allowCustomUV,
+-            .cmBackToSRGB       = m_data.cmBackToSRGB,
+-            .cmBackToSRGBSource = m_data.cmBackToSRGBSource,
+-            .discardMode        = m_data.ignoreAlpha.has_value() ? sc<uint32_t>(DISCARD_ALPHA) : m_data.discardMode,
+-            .discardOpacity     = m_data.ignoreAlpha.has_value() ? *m_data.ignoreAlpha : m_data.discardOpacity,
+-            .clipRegion         = m_data.clipRegion,
+-            .currentLS          = m_data.currentLS,
++    texRenderData.damage                = m_data.damage.empty() ? &damage : &m_data.damage;
++    texRenderData.surface               = m_data.surface;
++    texRenderData.a                     = m_data.a;
++    texRenderData.round                 = m_data.round;
++    texRenderData.roundingPower         = m_data.roundingPower;
++    texRenderData.noAA                  = m_data.squareTopCorners;
++    texRenderData.discardActive         = m_data.discardActive;
++    texRenderData.allowCustomUV         = m_data.allowCustomUV;
++    texRenderData.cmBackToSRGB          = m_data.cmBackToSRGB;
++    texRenderData.cmBackToSRGBSource    = m_data.cmBackToSRGBSource;
++    texRenderData.discardMode           = m_data.ignoreAlpha.has_value() ? sc<uint32_t>(DISCARD_ALPHA) : m_data.discardMode;
++    texRenderData.discardOpacity        = m_data.ignoreAlpha.has_value() ? *m_data.ignoreAlpha : m_data.discardOpacity;
++    texRenderData.clipRegion            = m_data.clipRegion;
++    texRenderData.currentLS             = m_data.currentLS;
++    texRenderData.primarySurfaceUVTopLeft     = g_pHyprRenderer->m_renderData.primarySurfaceUVTopLeft;
++    texRenderData.primarySurfaceUVBottomRight = g_pHyprRenderer->m_renderData.primarySurfaceUVBottomRight;
+ 
+-            .primarySurfaceUVTopLeft     = g_pHyprRenderer->m_renderData.primarySurfaceUVTopLeft,
+-            .primarySurfaceUVBottomRight = g_pHyprRenderer->m_renderData.primarySurfaceUVBottomRight,
+-        });
++    g_pHyprOpenGL->renderTexture(m_data.tex, m_data.box, texRenderData);
+ };
+ 
+ void CGLElementRenderer::draw(WP<CTextureMatteElement> element, const CRegion& damage) {
