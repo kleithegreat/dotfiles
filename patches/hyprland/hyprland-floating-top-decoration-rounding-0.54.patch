@@ -1,0 +1,326 @@
+diff -ruN a/src/desktop/view/Window.cpp b/src/desktop/view/Window.cpp
+--- a/src/desktop/view/Window.cpp	2026-03-29 22:17:55.710788766 -0500
++++ b/src/desktop/view/Window.cpp	2026-03-29 22:22:38.008254057 -0500
+@@ -722,6 +722,7 @@
+ bool CWindow::isInCurvedCorner(double x, double y) {
+     const int ROUNDING      = rounding();
+     const int ROUNDINGPOWER = roundingPower();
++    const bool SQUARETOP    = shouldSquareTopCorners();
+     if (getRealBorderSize() >= ROUNDING)
+         return false;
+ 
+@@ -731,10 +732,10 @@
+     double x1 = m_realPosition->value().x + m_realSize->value().x - ROUNDING;
+     double y1 = m_realPosition->value().y + m_realSize->value().y - ROUNDING;
+ 
+-    if (x < x0 && y < y0) {
++    if (!SQUARETOP && x < x0 && y < y0) {
+         return std::pow(x0 - x, ROUNDINGPOWER) + std::pow(y0 - y, ROUNDINGPOWER) > std::pow(sc<double>(ROUNDING), ROUNDINGPOWER);
+     }
+-    if (x > x1 && y < y0) {
++    if (!SQUARETOP && x > x1 && y < y0) {
+         return std::pow(x - x1, ROUNDINGPOWER) + std::pow(y0 - y, ROUNDINGPOWER) > std::pow(sc<double>(ROUNDING), ROUNDINGPOWER);
+     }
+     if (x < x0 && y > y1) {
+@@ -804,6 +805,20 @@
+     return m_ruleApplicator->roundingPower().valueOr(std::clamp(*PROUNDINGPOWER, 1.F, 10.F));
+ }
+ 
++bool CWindow::shouldSquareTopCorners() {
++    if (!m_isFloating || rounding() <= 0)
++        return false;
++
++    const auto SELF = m_self.lock();
++    if (!SELF)
++        return false;
++
++    const auto INCLUDED = g_pDecorationPositioner->getBoxWithIncludedDecos(SELF);
++    const auto TOPDECO  = getWindowMainSurfaceBox().y - INCLUDED.y;
++
++    return TOPDECO > getRealBorderSize() + 0.5;
++}
++
+ void CWindow::updateWindowData() {
+     const auto PWORKSPACE    = m_workspace;
+     const auto WORKSPACERULE = PWORKSPACE ? Config::workspaceRuleMgr()->getWorkspaceRuleFor(PWORKSPACE) : std::nullopt;
+diff -ruN a/src/desktop/view/Window.hpp b/src/desktop/view/Window.hpp
+--- a/src/desktop/view/Window.hpp	2026-03-29 22:17:55.705132590 -0500
++++ b/src/desktop/view/Window.hpp	2026-03-29 22:22:38.007254039 -0500
+@@ -299,6 +299,7 @@
+         bool                       opaque();
+         float                      rounding();
+         float                      roundingPower();
++        bool                       shouldSquareTopCorners();
+         bool                       canBeTorn();
+         void                       setSuspended(bool suspend);
+         bool                       visibleOnMonitor(PHLMONITOR pMonitor);
+diff -ruN a/src/render/ElementRenderer.cpp b/src/render/ElementRenderer.cpp
+--- a/src/render/ElementRenderer.cpp	2026-03-29 22:17:55.726020671 -0500
++++ b/src/render/ElementRenderer.cpp	2026-03-29 22:22:03.829660758 -0500
+@@ -300,6 +300,7 @@
+                             .overallA              = OVERALL_ALPHA,
+                             .round                 = rounding,
+                             .roundingPower         = roundingPower,
++                            .squareTopCorners      = m_data.squareTopCorners,
+                             .blur                  = true,
+                             .blockBlurOptimization = m_data.blockBlurOptimization,
+                             .allowCustomUV         = true,
+@@ -317,6 +318,7 @@
+                             .a              = ALPHA * OVERALL_ALPHA,
+                             .round          = rounding,
+                             .roundingPower  = roundingPower,
++                            .squareTopCorners = m_data.squareTopCorners,
+                             .discardActive  = false,
+                             .allowCustomUV  = true,
+                             .surface        = m_data.surface,
+@@ -336,6 +338,7 @@
+                             .overallA              = OVERALL_ALPHA,
+                             .round                 = rounding,
+                             .roundingPower         = roundingPower,
++                            .squareTopCorners      = m_data.squareTopCorners,
+                             .blur                  = true,
+                             .blockBlurOptimization = true,
+                             .allowCustomUV         = true,
+@@ -353,6 +356,7 @@
+                             .a              = ALPHA * OVERALL_ALPHA,
+                             .round          = rounding,
+                             .roundingPower  = roundingPower,
++                            .squareTopCorners = m_data.squareTopCorners,
+                             .discardActive  = false,
+                             .allowCustomUV  = true,
+                             .surface        = m_data.surface,
+diff -ruN a/src/render/OpenGL.cpp b/src/render/OpenGL.cpp
+--- a/src/render/OpenGL.cpp	2026-03-29 22:17:55.768112848 -0500
++++ b/src/render/OpenGL.cpp	2026-03-29 22:22:03.830660775 -0500
+@@ -1090,6 +1090,7 @@
+     shader->setUniformFloat2(SHADER_FULL_SIZE, sc<float>(FULLSIZE.x), sc<float>(FULLSIZE.y));
+     shader->setUniformFloat(SHADER_RADIUS, data.round);
+     shader->setUniformFloat(SHADER_ROUNDING_POWER, data.roundingPower);
++    shader->setUniformInt(SHADER_ROUNDED_CORNERS, 15);
+ 
+     glBindVertexArray(shader->getUniformLocation(SHADER_SHADER_VAO));
+ 
+@@ -1418,6 +1419,7 @@
+     shader->setUniformFloat2(SHADER_FULL_SIZE, FULLSIZE.x, FULLSIZE.y);
+     shader->setUniformFloat(SHADER_RADIUS, data.round);
+     shader->setUniformFloat(SHADER_ROUNDING_POWER, data.roundingPower);
++    shader->setUniformInt(SHADER_ROUNDED_CORNERS, data.noAA ? 12 : 15);
+ 
+     if (data.allowDim && g_pHyprRenderer->m_renderData.currentWindow) {
+         if (g_pHyprRenderer->m_renderData.currentWindow->m_notRespondingTint->value() > 0) {
+@@ -1949,6 +1951,7 @@
+                               .a                           = data.a,
+                               .round                       = data.round,
+                               .roundingPower               = data.roundingPower,
++                              .noAA                        = data.noAA,
+                               .discardActive               = true,
+                               .allowCustomUV               = true,
+                               .wrapX                       = data.wrapX,
+@@ -1990,9 +1993,9 @@
+                                   .a              = (*PBLURIGNOREOPACITY ? data.blurA : data.a * data.blurA) * data.overallA,
+                                   .round          = data.round,
+                                   .roundingPower  = data.roundingPower,
++                                  .noAA           = data.noAA,
+                                   .discardActive  = false,
+                                   .allowCustomUV  = true,
+-                                  .noAA           = false,
+                                   .wrapX          = data.wrapX,
+                                   .wrapY          = data.wrapY,
+                                   .discardMode    = data.discardMode,
+@@ -2020,10 +2023,10 @@
+                               .a              = data.a * data.overallA,
+                               .round          = data.round,
+                               .roundingPower  = data.roundingPower,
++                              .noAA           = data.noAA,
+                               .discardActive  = *PBLEND && NEEDS_STENCIL,
+                               .allowCustomUV  = true,
+                               .allowDim       = true,
+-                              .noAA           = false,
+                               .wrapX          = data.wrapX,
+                               .wrapY          = data.wrapY,
+                               .discardMode    = data.discardMode,
+diff -ruN a/src/render/Renderer.cpp b/src/render/Renderer.cpp
+--- a/src/render/Renderer.cpp	2026-03-29 22:19:54.629338799 -0500
++++ b/src/render/Renderer.cpp	2026-03-29 22:22:03.830660775 -0500
+@@ -562,6 +562,7 @@
+     renderdata.decorate      = decorate && !pWindow->m_X11DoesntWantBorders && !pWindow->isEffectiveInternalFSMode(FSMODE_FULLSCREEN);
+     renderdata.rounding      = standalone || renderdata.dontRound ? 0 : pWindow->rounding() * pMonitor->m_scale;
+     renderdata.roundingPower = standalone || renderdata.dontRound ? 2.0f : pWindow->roundingPower();
++    renderdata.squareTopCorners = !standalone && !renderdata.dontRound && pWindow->shouldSquareTopCorners();
+     renderdata.blur          = !standalone && shouldBlur(pWindow);
+     renderdata.pWindow       = pWindow;
+ 
+diff -ruN a/src/render/Shader.cpp b/src/render/Shader.cpp
+--- a/src/render/Shader.cpp	2026-03-29 22:17:55.756456655 -0500
++++ b/src/render/Shader.cpp	2026-03-29 22:22:03.829660758 -0500
+@@ -176,6 +176,7 @@
+     m_uniformLocations[SHADER_RADIUS]                    = getUniform("radius");
+     m_uniformLocations[SHADER_RADIUS_OUTER]              = getUniform("radiusOuter");
+     m_uniformLocations[SHADER_ROUNDING_POWER]            = getUniform("roundingPower");
++    m_uniformLocations[SHADER_ROUNDED_CORNERS]           = getUniform("roundedCorners");
+     m_uniformLocations[SHADER_THICK]                     = getUniform("thick");
+     m_uniformLocations[SHADER_HALFPIXEL]                 = getUniform("halfpixel");
+     m_uniformLocations[SHADER_RANGE]                     = getUniform("range");
+diff -ruN a/src/render/Shader.hpp b/src/render/Shader.hpp
+--- a/src/render/Shader.hpp	2026-03-29 22:17:55.745853602 -0500
++++ b/src/render/Shader.hpp	2026-03-29 22:22:03.829660758 -0500
+@@ -38,6 +38,7 @@
+     SHADER_RADIUS,
+     SHADER_RADIUS_OUTER,
+     SHADER_ROUNDING_POWER,
++    SHADER_ROUNDED_CORNERS,
+     SHADER_THICK,
+     SHADER_HALFPIXEL,
+     SHADER_RANGE,
+diff -ruN a/src/render/ShaderLoader.hpp b/src/render/ShaderLoader.hpp
+--- a/src/render/ShaderLoader.hpp	2026-03-29 22:17:55.763104509 -0500
++++ b/src/render/ShaderLoader.hpp	2026-03-29 22:22:03.829660758 -0500
+@@ -14,7 +14,7 @@
+         SH_FEAT_RGBA     = (1 << 0), // RGBA/RGBX texture sampling
+         SH_FEAT_DISCARD  = (1 << 1), // RGBA/RGBX texture sampling
+         SH_FEAT_TINT     = (1 << 2), // uniforms: tint; condition: applyTint
+-        SH_FEAT_ROUNDING = (1 << 3), // uniforms: radius, roundingPower, topLeft, fullSize; condition: radius > 0
++        SH_FEAT_ROUNDING = (1 << 3), // uniforms: radius, roundingPower, roundedCorners, topLeft, fullSize; condition: radius > 0
+         SH_FEAT_CM       = (1 << 4), // uniforms: srcTFRange, dstTFRange, srcRefLuminance, convertMatrix; condition: !skipCM
+         SH_FEAT_TONEMAP  = (1 << 5), // uniforms: maxLuminance, dstMaxLuminance, dstRefLuminance; condition: maxLuminance < dstMaxLuminance * 1.01
+         SH_FEAT_SDR_MOD  = (1 << 6), // uniforms: sdrSaturation, sdrBrightnessMultiplier; condition: SDR <-> HDR && (sdrSaturation != 1 || sdrBrightnessMultiplier != 1)
+diff -ruN a/src/render/gl/GLElementRenderer.cpp b/src/render/gl/GLElementRenderer.cpp
+--- a/src/render/gl/GLElementRenderer.cpp	2026-03-29 22:17:55.734872630 -0500
++++ b/src/render/gl/GLElementRenderer.cpp	2026-03-29 22:22:03.829660758 -0500
+@@ -117,6 +117,7 @@
+             .a                  = m_data.a,
+             .round              = m_data.round,
+             .roundingPower      = m_data.roundingPower,
++            .noAA               = m_data.squareTopCorners,
+             .discardActive      = m_data.discardActive,
+             .allowCustomUV      = m_data.allowCustomUV,
+             .cmBackToSRGB       = m_data.cmBackToSRGB,
+@@ -135,4 +136,4 @@
+     const auto m_data = element->m_data;
+ 
+     g_pHyprOpenGL->renderTextureMatte(m_data.tex, m_data.box, m_data.fb);
+-};
+\ No newline at end of file
++};
+diff -ruN a/src/render/pass/SurfacePassElement.hpp b/src/render/pass/SurfacePassElement.hpp
+--- a/src/render/pass/SurfacePassElement.hpp	2026-03-29 22:17:55.715758063 -0500
++++ b/src/render/pass/SurfacePassElement.hpp	2026-03-29 22:22:03.829660758 -0500
+@@ -25,6 +25,7 @@
+         int                    rounding      = 0;
+         bool                   dontRound     = true;
+         float                  roundingPower = 2.0F;
++        bool                   squareTopCorners = false;
+         bool                   decorate      = false;
+         float                  alpha = 1.F, fadeAlpha = 1.F;
+         bool                   blur                  = false;
+diff -ruN a/src/render/pass/TexPassElement.hpp b/src/render/pass/TexPassElement.hpp
+--- a/src/render/pass/TexPassElement.hpp	2026-03-29 22:17:55.721062550 -0500
++++ b/src/render/pass/TexPassElement.hpp	2026-03-29 22:22:03.829660758 -0500
+@@ -24,6 +24,7 @@
+         CRegion                damage;
+         int                    round               = 0;
+         float                  roundingPower       = 2.0f;
++        bool                   squareTopCorners    = false;
+         bool                   flipEndFrame        = false;
+         bool                   useMirrorProjection = false;
+         CBox                   clipBox;
+diff -ruN a/src/render/shaders/glsl/ext.frag b/src/render/shaders/glsl/ext.frag
+--- a/src/render/shaders/glsl/ext.frag	2026-03-29 22:17:55.783577900 -0500
++++ b/src/render/shaders/glsl/ext.frag	2026-03-29 22:22:03.830660775 -0500
+@@ -11,6 +11,7 @@
+ 
+ uniform float              radius;
+ uniform float              roundingPower;
++uniform int                roundedCorners;
+ uniform vec2               topLeft;
+ uniform vec2               fullSize;
+ #include "rounding.glsl"
+@@ -37,7 +38,7 @@
+     }
+ 
+     if (radius > 0.0)
+-        pixColor = rounding(pixColor, radius, roundingPower, topLeft, fullSize);
++        pixColor = rounding(pixColor, radius, roundingPower, topLeft, fullSize, roundedCorners);
+ 
+     fragColor = pixColor * alpha;
+ }
+diff -ruN a/src/render/shaders/glsl/quad.frag b/src/render/shaders/glsl/quad.frag
+--- a/src/render/shaders/glsl/quad.frag	2026-03-29 22:18:42.809596448 -0500
++++ b/src/render/shaders/glsl/quad.frag	2026-03-29 22:22:03.830660775 -0500
+@@ -10,6 +10,7 @@
+ #if USE_ROUNDING
+ uniform float radius;
+ uniform float roundingPower;
++uniform int   roundedCorners;
+ uniform vec2  topLeft;
+ uniform vec2  fullSize;
+ #include "rounding.glsl"
+@@ -23,7 +24,7 @@
+     vec4 pixColor = v_color;
+ 
+ #if USE_ROUNDING
+-    pixColor = rounding(pixColor, radius, roundingPower, topLeft, fullSize);
++    pixColor = rounding(pixColor, radius, roundingPower, topLeft, fullSize, roundedCorners);
+ #endif
+ 
+     fragColor = pixColor;
+diff -ruN a/src/render/shaders/glsl/rounding.glsl b/src/render/shaders/glsl/rounding.glsl
+--- a/src/render/shaders/glsl/rounding.glsl	2026-03-29 22:17:55.773361995 -0500
++++ b/src/render/shaders/glsl/rounding.glsl	2026-03-29 22:22:03.830660775 -0500
+@@ -4,10 +4,18 @@
+ #define M_PI               3.1415926535897932384626433832795
+ #define SMOOTHING_CONSTANT (M_PI / 5.34665792551)
+ 
+-vec4 rounding(vec4 color, float radius, float roundingPower, vec2 topLeft, vec2 fullSize) {
++vec4 rounding(vec4 color, float radius, float roundingPower, vec2 topLeft, vec2 fullSize, int roundedCorners) {
+     vec2 pixCoord = vec2(gl_FragCoord);
+     pixCoord -= topLeft + fullSize * 0.5;
+-    pixCoord *= vec2(lessThan(pixCoord, vec2(0.0))) * -2.0 + 1.0;
++
++    bool left   = pixCoord.x < 0.0;
++    bool top    = pixCoord.y < 0.0;
++    int  corner = top ? (left ? 1 : 2) : (left ? 8 : 4);
++
++    if ((roundedCorners & corner) == 0)
++        return color;
++
++    pixCoord *= vec2(left ? -1.0 : 1.0, top ? -1.0 : 1.0);
+     pixCoord -= fullSize * 0.5 - radius;
+     pixCoord += vec2(1.0, 1.0) / fullSize; // center the pix don't make it top-left
+ 
+@@ -24,4 +32,4 @@
+ 
+     return color;
+ }
+-#endif
+\ No newline at end of file
++#endif
+diff -ruN a/src/render/shaders/glsl/surface.frag b/src/render/shaders/glsl/surface.frag
+--- a/src/render/shaders/glsl/surface.frag	2026-03-29 22:17:55.778499681 -0500
++++ b/src/render/shaders/glsl/surface.frag	2026-03-29 22:22:03.830660775 -0500
+@@ -28,6 +28,7 @@
+ #if USE_ROUNDING
+ uniform float radius;
+ uniform float roundingPower;
++uniform int   roundedCorners;
+ uniform vec2  topLeft;
+ uniform vec2  fullSize;
+ #include "rounding.glsl"
+@@ -101,7 +102,7 @@
+ #endif
+ 
+ #if USE_ROUNDING
+-    pixColor = rounding(pixColor, radius, roundingPower, topLeft, fullSize);
++    pixColor = rounding(pixColor, radius, roundingPower, topLeft, fullSize, roundedCorners);
+ #endif
+ #if USE_BLUR
+ #if USE_DISCARD
+@@ -119,7 +120,7 @@
+ #endif
+ 
+ #if USE_ROUNDING
+-    mirrorColor = rounding(mirrorColor, radius, roundingPower, topLeft, fullSize);
++    mirrorColor = rounding(mirrorColor, radius, roundingPower, topLeft, fullSize, roundedCorners);
+ #endif
+ #if USE_BLUR
+ #if USE_DISCARD
