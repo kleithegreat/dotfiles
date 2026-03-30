@@ -3,6 +3,11 @@
 {
   boot.initrd.availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usbhid" "usb_storage" "sd_mod" ];
   boot.kernelModules = [ "kvm-intel" ];
+  # Preserve VRAM across suspend/resume on this dedicated NVIDIA desktop.
+  # /tmp is tmpfs-backed in shared config, so use disk-backed /var/tmp instead.
+  boot.extraModprobeConfig = ''
+    options nvidia NVreg_TemporaryFilePath=/var/tmp
+  '';
 
   fileSystems."/" = {
     device = "/dev/disk/by-uuid/431cdfea-3583-453d-b2dd-9a46d01c4a33";
@@ -46,6 +51,7 @@
   hardware.nvidia = {
     modesetting.enable = true;
     open = true;
+    powerManagement.enable = true;
   };
   services.xserver.videoDrivers = [ "nvidia" ];
 
