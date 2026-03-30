@@ -71,12 +71,19 @@ in
       { }
     else
       {
+        # Removed after auditing each optimized package against plain nixpkgs:
+        # - zstd: changes libarchive -> cmake -> llvm because libarchive
+        #   directly depends on zstd, cmake directly depends on libarchive, and
+        #   llvm directly depends on cmake. `zstd` does expose a separate `bin`
+        #   output, but it is produced by the same derivation as the shared
+        #   library outputs, so there is no clean in-place binary-only override.
+        #   Keep `pkgs.zstd` unmodified unless a separate opt-in CLI package is
+        #   added later.
         pipewire = optimizeCCPackage prev.pipewire;
         wireplumber = optimizeCCPackage prev.wireplumber;
         easyeffects = optimizeCCPackage prev.easyeffects;
         lsp-plugins = optimizeCCPackage prev.lsp-plugins;
         ffmpeg = optimizeCCPackage prev.ffmpeg;
-        zstd = optimizeCCPackage prev.zstd;
         p7zip = optimizeCCPackage prev.p7zip;
         lz4 = optimizeCCPackage prev.lz4;
         quickshell = optimizeCCPackage prev.quickshell;
