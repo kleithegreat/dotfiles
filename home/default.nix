@@ -256,10 +256,6 @@ in
     source = "${dotfilesPath}/scripts/brightness-step.sh";
     executable = true;
   };
-  home.file.".local/bin/hyprsunset-geo.sh" = {
-    source = "${dotfilesPath}/scripts/hyprsunset-geo.sh";
-    executable = true;
-  };
 
   # ── Desktop entry overrides ───────────────────────────────
   # Launch VS Code via hyprctl so Hyprland tracks the correct workspace
