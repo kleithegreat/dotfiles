@@ -22,31 +22,49 @@
 
   outputs = { self, nixpkgs, home-manager, hyprland, hyprland-plugins, hyprqt6engine, vicinae, snappy-switcher, ... }:
   let
-    mkHost = hostName: hostModule: nixpkgs.lib.nixosSystem {
-      specialArgs = {
-        inherit hyprland hostName;
-        inputs = { inherit nixpkgs hyprland hyprland-plugins hyprqt6engine vicinae snappy-switcher home-manager; };
+    mkHost =
+      {
+        hostName,
+        march,
+        hostModule,
+      }:
+      nixpkgs.lib.nixosSystem {
+        specialArgs = {
+          inherit hyprland hostName march;
+          inputs = { inherit nixpkgs hyprland hyprland-plugins hyprqt6engine vicinae snappy-switcher home-manager; };
+        };
+        modules = [
+          { nixpkgs.hostPlatform = "x86_64-linux"; }
+          ./system/configuration.nix
+          hostModule
+          home-manager.nixosModules.home-manager
+          {
+            home-manager.useGlobalPkgs = true;
+            home-manager.useUserPackages = true;
+            home-manager.backupFileExtension = "bak";
+            home-manager.users.kevin = import ./home;
+            home-manager.extraSpecialArgs = {
+              dotfilesPath = self;
+              inherit hostName hyprland hyprland-plugins hyprqt6engine vicinae snappy-switcher;
+            };
+          }
+        ];
       };
-      modules = [
-        { nixpkgs.hostPlatform = "x86_64-linux"; }
-        ./system/configuration.nix
-        hostModule
-        home-manager.nixosModules.home-manager
-        {
-          home-manager.useGlobalPkgs = true;
-          home-manager.useUserPackages = true;
-          home-manager.backupFileExtension = "bak";
-          home-manager.users.kevin = import ./home;
-          home-manager.extraSpecialArgs = {
-            dotfilesPath = self;
-            inherit hostName hyprland hyprland-plugins hyprqt6engine vicinae snappy-switcher;
-          };
-        }
-      ];
-    };
   in {
-    nixosConfigurations.vm = mkHost "vm" ./hosts/vm/system.nix;
-    nixosConfigurations.laptop = mkHost "laptop" ./hosts/laptop/system.nix;
-    nixosConfigurations.desktop = mkHost "desktop" ./hosts/desktop/system.nix;
+    nixosConfigurations.vm = mkHost {
+      hostName = "vm";
+      march = null;
+      hostModule = ./hosts/vm/system.nix;
+    };
+    nixosConfigurations.laptop = mkHost {
+      hostName = "laptop";
+      march = "alderlake";
+      hostModule = ./hosts/laptop/system.nix;
+    };
+    nixosConfigurations.desktop = mkHost {
+      hostName = "desktop";
+      march = "rocketlake";
+      hostModule = ./hosts/desktop/system.nix;
+    };
   };
 }
