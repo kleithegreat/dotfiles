@@ -38,6 +38,7 @@ PanelWindow {
         Vpn { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleVpn(); } }
         Bluetooth { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleBluetooth(); } }
         Volume { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleAudio(); } }
+        Brightness { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleBrightness(); } }
         Battery { onClicked: { if (bar.popupVisibility) bar.popupVisibility.togglePowerProfile(); } }
 
         Bell {
