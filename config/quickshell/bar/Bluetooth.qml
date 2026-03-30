@@ -88,7 +88,7 @@ RowLayout {
     // ── Poll: bluetoothctl show (adapter power) ──
     Process {
         id: showProc
-        command: ["bluetoothctl", "show"]
+        command: ["bluetoothctl", "--timeout", "2", "show"]
         running: true
         stdout: SplitParser { onRead: (line) => {
             let t = line.trim();
@@ -105,12 +105,13 @@ RowLayout {
     // ── Poll: bluetoothctl info (connected device) ──
     Process {
         id: infoProc
-        command: ["bluetoothctl", "info"]
+        command: ["bluetoothctl", "--timeout", "2", "devices", "Connected"]
         running: true
         stdout: SplitParser { onRead: (line) => {
             let t = line.trim();
-            if (t.startsWith("Name:")) {
-                btRoot._pendingName = t.substring(5).trim();
+            let match = t.match(/^Device\s+\S+\s+(.+)$/);
+            if (match) {
+                btRoot._pendingName = match[1];
                 btRoot._gotInfo = true;
             }
         } }
