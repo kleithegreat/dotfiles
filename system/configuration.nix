@@ -1,7 +1,10 @@
-{ config, pkgs, hyprland, hostName, inputs, ... }:
+{ config, lib, pkgs, hyprland, hostName, inputs, march, ... }:
 
 let
   system = pkgs.stdenv.hostPlatform.system;
+  optimizedPackages = import ../overlays/march-optimized.nix {
+    inherit lib inputs march;
+  };
 
   hyprqt6engine = inputs.hyprqt6engine.packages.${system}.default.overrideAttrs (old: {
     buildInputs = (old.buildInputs or []) ++ [
@@ -11,12 +14,14 @@ let
     ];
   });
 
-  patchedHyprland = hyprland.packages.${system}.hyprland.overrideAttrs (old: {
-    patches = (old.patches or []) ++ [
-      ../patches/hyprland/hyprland-floating-top-decoration-rounding-0.54.patch
-      ../patches/hyprland/hyprland-gcc15-designated-initializer-fix-0.54.patch
-    ];
-  });
+  patchedHyprland = optimizedPackages.optimizeCCPackage (
+    hyprland.packages.${system}.hyprland.overrideAttrs (old: {
+      patches = (old.patches or []) ++ [
+        ../patches/hyprland/hyprland-floating-top-decoration-rounding-0.54.patch
+        ../patches/hyprland/hyprland-gcc15-designated-initializer-fix-0.54.patch
+      ];
+    })
+  );
 
   patchedHyprlandPortal = hyprland.packages.${system}.xdg-desktop-portal-hyprland.override {
     hyprland = patchedHyprland;
@@ -103,6 +108,7 @@ in
     vicinae.flake = inputs.vicinae;
   };
   nixpkgs.config.allowUnfree = true;
+  nixpkgs.overlays = [ optimizedPackages.overlay ];
 
   # ── Networking ───────────────────────────────────────────────
   networking.hostName = hostName;
