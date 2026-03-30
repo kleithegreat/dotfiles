@@ -12,6 +12,7 @@
 { lib, inputs, march }:
 let
   hasMarch = march != null;
+  marchFeature = if hasMarch then "march-${march}" else null;
 
   cFlags = lib.optionals hasMarch [
     "-O3"
@@ -48,17 +49,34 @@ let
       };
     };
 
+  addRequiredMarchFeature =
+    old:
+    lib.optionalAttrs hasMarch {
+      requiredSystemFeatures = lib.unique (
+        (old.requiredSystemFeatures or [ ]) ++ [ marchFeature ]
+      );
+    };
+
+  addRequiredMarchFeatureRecursively =
+    value:
+    if lib.isDerivation value then
+      value.overrideAttrs addRequiredMarchFeature
+    else if builtins.isAttrs value then
+      lib.mapAttrs (_: addRequiredMarchFeatureRecursively) value
+    else
+      value;
+
   optimizeCCPackage =
     drv:
     if hasMarch then
-      drv.overrideAttrs (optimizeEnvFlag "NIX_CFLAGS_COMPILE" cFlags)
+      drv.overrideAttrs (old: (optimizeEnvFlag "NIX_CFLAGS_COMPILE" cFlags old) // (addRequiredMarchFeature old))
     else
       drv;
 
   optimizeRustPackage =
     drv:
     if hasMarch then
-      drv.overrideAttrs (optimizeEnvFlag "RUSTFLAGS" rustFlags)
+      drv.overrideAttrs (old: (optimizeEnvFlag "RUSTFLAGS" rustFlags old) // (addRequiredMarchFeature old))
     else
       drv;
 in
@@ -94,8 +112,10 @@ in
         # `texlive.combined.scheme-medium` is a buildEnv wrapper, so re-import
         # the texlive package set with a selective C/C++-flagged stdenv in
         # order to rebuild the underlying TeX Live binaries used by the scheme.
-        texlive = final.callPackage (inputs.nixpkgs.outPath + "/pkgs/tools/typesetting/tex/texlive") {
-          stdenv = prev.withCFlags cFlags prev.stdenv;
-        };
+        texlive = addRequiredMarchFeatureRecursively (
+          final.callPackage (inputs.nixpkgs.outPath + "/pkgs/tools/typesetting/tex/texlive") {
+            stdenv = prev.withCFlags cFlags prev.stdenv;
+          }
+        );
       };
 }

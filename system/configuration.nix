@@ -81,6 +81,10 @@ let
   };
 in
 {
+  imports = [
+    ./distributed-builds.nix
+  ];
+
   boot.tmp.useTmpfs = true;
 
   nix.settings = {
