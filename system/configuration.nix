@@ -9,6 +9,12 @@ let
     ];
   });
 
+  patchedHyprland = hyprland.packages.${pkgs.stdenv.hostPlatform.system}.hyprland.overrideAttrs (old: {
+    patches = (old.patches or []) ++ [
+      ../patches/hyprland/hyprland-floating-top-decoration-rounding-0.54.patch
+    ];
+  });
+
   hyprPluginPkgs =
     let
       upstreamHyprPluginPkgs = inputs.hyprland-plugins.packages.${pkgs.stdenv.hostPlatform.system};
@@ -107,7 +113,7 @@ in
   programs.hyprland = {
     enable = true;
     xwayland.enable = true;
-    package = hyprland.packages.${pkgs.stdenv.hostPlatform.system}.hyprland;
+    package = patchedHyprland;
     portalPackage = hyprland.packages.${pkgs.stdenv.hostPlatform.system}.xdg-desktop-portal-hyprland;
   };
 
