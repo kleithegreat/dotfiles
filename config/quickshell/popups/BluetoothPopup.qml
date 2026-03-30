@@ -131,6 +131,7 @@ FocusScope {
 
     function refresh() {
         connectedName = ""; connectedMac = ""; connectedBattery = -1;
+        scanning = false;
         pairedModel.clear(); discoveredModel.clear();
         showProc.running = true;
     }
@@ -142,7 +143,7 @@ FocusScope {
 
     function connectDevice(mac, name) {
         popupState = "connecting"; targetName = name; connectError = "";
-        connectProc.command = ["bluetoothctl", "connect", mac];
+        connectProc.command = ["bluetoothctl", "--timeout", "15", "connect", mac];
         connectProc.running = true;
     }
 
@@ -151,7 +152,7 @@ FocusScope {
     }
 
     function togglePower() {
-        powerProc.command = ["bluetoothctl", "power", powered ? "off" : "on"];
+        powerProc.command = ["bluetoothctl", "--timeout", "5", "power", powered ? "off" : "on"];
         powerProc.running = true;
     }
 
@@ -162,7 +163,7 @@ FocusScope {
     // ── Processes ─────────────────────────────────────────────
     Process {
         id: showProc
-        command: ["bluetoothctl", "show"]
+        command: ["bluetoothctl", "--timeout", "2", "show"]
         running: false
         property string buf: ""
         stdout: SplitParser { onRead: (line) => { showProc.buf += line + "\n"; } }
@@ -176,12 +177,12 @@ FocusScope {
     Process {
         id: connInfoProc
         command: ["bash", "-c",
-            "dev=$(bluetoothctl devices Connected 2>/dev/null | head -1); " +
+            "dev=$(bluetoothctl --timeout 2 devices Connected 2>/dev/null | head -1); " +
             "[ -z \"$dev\" ] && exit 0; " +
             "mac=$(echo \"$dev\" | awk '{print $2}'); " +
             "name=$(echo \"$dev\" | sed 's/^Device [^ ]* //'); " +
             "echo \"CONN|$mac|$name\"; " +
-            "batt=$(bluetoothctl info \"$mac\" 2>/dev/null | awk -F'[()]' '/Battery Percentage/{print $2}'); " +
+            "batt=$(bluetoothctl --timeout 2 info \"$mac\" 2>/dev/null | awk -F'[()]' '/Battery Percentage/{print $2}'); " +
             "[ -n \"$batt\" ] && echo \"BATT|$batt\""
         ]
         running: false
@@ -201,7 +202,7 @@ FocusScope {
 
     Process {
         id: pairedProc
-        command: ["bluetoothctl", "devices", "Paired"]
+        command: ["bluetoothctl", "--timeout", "2", "devices", "Paired"]
         running: false
         stdout: SplitParser { onRead: (line) => {
             let m = line.match(/^Device\s+(\S+)\s+(.+)$/);
@@ -216,7 +217,7 @@ FocusScope {
 
     Process {
         id: allDevicesProc
-        command: ["bluetoothctl", "devices"]
+        command: ["bluetoothctl", "--timeout", "2", "devices"]
         running: false
         stdout: SplitParser { onRead: (line) => {
             let m = line.match(/^Device\s+(\S+)\s+(.+)$/);
@@ -248,7 +249,7 @@ FocusScope {
 
     Process {
         id: disconnectProc
-        command: ["bluetoothctl", "disconnect"]
+        command: ["bluetoothctl", "--timeout", "5", "disconnect"]
         running: false
         onExited: { btPop.resetState(); btPop.refresh(); }
     }

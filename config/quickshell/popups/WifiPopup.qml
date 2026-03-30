@@ -47,6 +47,7 @@ FocusScope {
     property string connectedConnectionUuid: ""
     ListModel { id: netModel }
     ListModel { id: knownModel }
+    readonly property var wifiNetworksModel: netModel
 
     property string popupState: "list"   // list | detail | password | enterprise | connecting | diagnostics | channels
     property string targetSsid: ""
@@ -97,6 +98,7 @@ FocusScope {
     property string currentChannel: ""
     property string currentBand: ""
     ListModel { id: channelModel }
+    readonly property var wifiChannelEntriesModel: channelModel
     property bool listLoading: popupState === "list" && scanProc.running && netModel.count === 0
     property bool channelLoading: popupState === "channels" && channelScanProc.running
 
@@ -1159,7 +1161,7 @@ FocusScope {
                             easing.bezierCurve: Theme.animCurveStandard
                         }
                     }
-                    netModel: netModel
+                    netModel: wifiPop.wifiNetworksModel
                     connectedSsid: wifiPop.connectedSsid
                     isCaptivePortal: wifiPop.isCaptivePortal
                     onConnectRequested: (ssid, security) => wifiPop.connectTo(ssid, security)
@@ -1374,7 +1376,7 @@ FocusScope {
                             easing.bezierCurve: Theme.animCurveStandard
                         }
                     }
-                    channelModel: channelModel
+                    channelModel: wifiPop.wifiChannelEntriesModel
                     currentChannel: wifiPop.currentChannel
                     currentBand: wifiPop.currentBand
                     scanning: channelScanProc.running
