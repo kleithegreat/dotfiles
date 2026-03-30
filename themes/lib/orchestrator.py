@@ -16,7 +16,7 @@ DEPENDS: dict[str, set[str]] = {
     "color_scheme": {
         "alacritty", "ghostty", "hyprland", "zathura", "quickshell",
         "neovim", "starship", "tmux", "gtk", "qt", "vicinae", "bat",
-        "wallpaper", "vscode",
+        "wallpaper", "vscode", "spicetify",
         "snappy_switcher",
     },
     "wallpaper":      {"wallpaper"},
