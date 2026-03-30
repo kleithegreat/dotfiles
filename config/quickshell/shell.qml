@@ -147,6 +147,7 @@ Scope {
         function toggleTray(): void { root.popupVisibility.toggleTray(); }
         function toggleMpris(): void { root.popupVisibility.toggleMpris(); }
         function toggleAudio(): void { root.popupVisibility.toggleAudio(); }
+        function toggleBrightness(): void { root.popupVisibility.toggleBrightness(); }
         function toggleWifi(): void { root.popupVisibility.toggleWifi(); }
         function toggleBluetooth(): void { root.popupVisibility.toggleBluetooth(); }
         function togglePowerProfile(): void { root.popupVisibility.togglePowerProfile(); }

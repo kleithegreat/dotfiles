@@ -7,6 +7,7 @@ QtObject {
     property bool trayVisible: false
     property bool mprisVisible: false
     property bool audioVisible: false
+    property bool brightnessVisible: false
     property bool wifiVisible: false
     property bool bluetoothVisible: false
     property bool powerProfileVisible: false
@@ -20,6 +21,7 @@ QtObject {
         trayVisible = false
         mprisVisible = false
         audioVisible = false
+        brightnessVisible = false
         wifiVisible = false
         bluetoothVisible = false
         powerProfileVisible = false
@@ -43,6 +45,7 @@ QtObject {
     function toggleTray() { toggleExclusive(trayVisible, function() { trayVisible = true }) }
     function toggleMpris() { toggleExclusive(mprisVisible, function() { mprisVisible = true }) }
     function toggleAudio() { toggleExclusive(audioVisible, function() { audioVisible = true }) }
+    function toggleBrightness() { toggleExclusive(brightnessVisible, function() { brightnessVisible = true }) }
     function toggleWifi() { toggleExclusive(wifiVisible, function() { wifiVisible = true }) }
     function toggleBluetooth() { toggleExclusive(bluetoothVisible, function() { bluetoothVisible = true }) }
     function togglePowerProfile() { toggleExclusive(powerProfileVisible, function() { powerProfileVisible = true }) }

@@ -18,6 +18,7 @@ PanelWindow {
             trayPopup,
             mprisPopup,
             audioPopup,
+            brightnessPopup,
             powerProfilePopup,
             bluetoothPopup,
             wifiPopup,
@@ -154,6 +155,14 @@ PanelWindow {
         z: active ? 2 : (overlayVisible ? 1 : 0)
         active: overlayHost.popupVisibility.audioVisible
         onClose: overlayHost.popupVisibility.audioVisible = false
+    }
+
+    Popups.BrightnessPopup {
+        id: brightnessPopup
+        anchors.fill: parent
+        z: active ? 2 : (overlayVisible ? 1 : 0)
+        active: overlayHost.popupVisibility.brightnessVisible
+        onClose: overlayHost.popupVisibility.brightnessVisible = false
     }
 
     Popups.PowerProfilePopup {
