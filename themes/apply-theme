@@ -143,7 +143,7 @@ def _validated_theme_state(
 _BASE_COLOR_TARGETS = {
     "alacritty", "ghostty", "hyprland", "zathura", "quickshell",
     "neovim", "starship", "tmux", "gtk", "qt", "vicinae", "bat",
-    "snappy_switcher", "vscode",
+    "snappy_switcher", "spicetify", "vscode",
 }
 
 # "fonts" subcommand: targets that depend on any font-related key
