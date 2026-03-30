@@ -639,11 +639,11 @@
         "nixpkgs": "nixpkgs_3"
       },
       "locked": {
-        "lastModified": 1774818429,
-        "narHash": "sha256-ExsRjdDHF+3EJuOLYitItpOmLXQsAwKUpQ42wsKqiYY=",
+        "lastModified": 1774821330,
+        "narHash": "sha256-3p8O834XaNw5Ig62mQsKX384YAmIKNmhMJAm/RPQE1k=",
         "owner": "OpalAayan",
         "repo": "snappy-switcher",
-        "rev": "db72e717b29e201dd5dc2a9c7cbbaf1e8c714cb9",
+        "rev": "80298ce82cab5cf4c7432809df5febd294cb7722",
         "type": "github"
       },
       "original": {
