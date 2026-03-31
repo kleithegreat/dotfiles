@@ -16,7 +16,7 @@ FocusScope {
     readonly property bool scrimEnabled: false
     readonly property color scrimColor: "transparent"
     readonly property real scrimOpacity: 0
-    readonly property bool showBrightnessSection: DisplayService.hasBacklight
+    readonly property bool showBrightnessSection: BrightnessService.hasBacklight
     visible: overlayVisible
     anchors.fill: parent
     focus: active
@@ -36,6 +36,7 @@ FocusScope {
         if (active) {
             forceActiveFocus();
             contentLoaded = true;
+            BrightnessService.refresh();
             DisplayService.refresh();
             if (preparePanelForOpen())
                 displayOpenAnim.start();
@@ -157,7 +158,7 @@ FocusScope {
                     }
 
                     Text {
-                        text: DisplayService.hasBacklight ? (DisplayService.brightnessAvailable ? DisplayService.brightnessPercent + "%" : "") : DisplayService.nightLightSubtitle
+                        text: BrightnessService.hasBacklight ? (BrightnessService.brightnessAvailable ? BrightnessService.brightnessPercent + "%" : "") : DisplayService.nightLightSubtitle
                         color: Theme.fg3
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSizeSmall
@@ -325,7 +326,7 @@ FocusScope {
                             }
 
                             Text {
-                                text: DisplayService.backlightLabel
+                                text: BrightnessService.backlightLabel
                                 color: Theme.fg3
                                 font.family: Theme.fontFamily
                                 font.pixelSize: Theme.fontSizeSmall
@@ -339,7 +340,7 @@ FocusScope {
                         spacing: 8
 
                         Text {
-                            text: DisplayService.brightnessPercent < 25 ? "󰃞" : (DisplayService.brightnessPercent < 70 ? "󰃟" : "󰃠")
+                            text: BrightnessService.brightnessPercent < 25 ? "󰃞" : (BrightnessService.brightnessPercent < 70 ? "󰃟" : "󰃠")
                             color: Theme.fg4
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.iconSize
@@ -355,7 +356,7 @@ FocusScope {
 
                             Rectangle {
                                 anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
-                                width: parent.width * DisplayService.brightnessFraction
+                                width: parent.width * BrightnessService.brightnessFraction
                                 radius: parent.radius
                                 color: Theme.yellowBright
                                 Behavior on width {
@@ -373,7 +374,7 @@ FocusScope {
                                 radius: 6
                                 color: Theme.fg
                                 y: (parent.height - height) / 2
-                                x: Math.max(0, Math.min(parent.width - width, parent.width * DisplayService.brightnessFraction - width / 2))
+                                x: Math.max(0, Math.min(parent.width - width, parent.width * BrightnessService.brightnessFraction - width / 2))
                                 scale: brightnessSliderMouse.pressed ? 1.2 : (brightnessSliderMouse.containsMouse ? 1.1 : 1.0)
                                 Behavior on scale {
                                     Components.Anim {
@@ -396,16 +397,16 @@ FocusScope {
                                 hoverOpacity: 0
                                 pressedOpacity: 0
                                 pressedScale: 1.0
-                                onClicked: (mouse) => { DisplayService.setBrightnessFraction(mouse.x / parent.width); }
+                                onClicked: (mouse) => { BrightnessService.setBrightnessFraction(mouse.x / parent.width); }
                                 onPositionChanged: (mouse) => {
                                     if (pressed)
-                                        DisplayService.setBrightnessFraction(mouse.x / parent.width);
+                                        BrightnessService.setBrightnessFraction(mouse.x / parent.width);
                                 }
                             }
                         }
 
                         Text {
-                            text: DisplayService.brightnessAvailable ? DisplayService.brightnessPercent + "%" : ""
+                            text: BrightnessService.brightnessAvailable ? BrightnessService.brightnessPercent + "%" : ""
                             color: Theme.fg3
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.fontSizeSmall

@@ -9,8 +9,8 @@ Item {
     implicitHeight: displayRow.implicitHeight
     signal clicked()
 
-    readonly property int brightnessPercent: DisplayService.brightnessPercent
-    readonly property string labelText: DisplayService.hasBacklight ? (DisplayService.brightnessAvailable ? brightnessPercent + "%" : "") : DisplayService.nightLightSubtitle
+    readonly property int brightnessPercent: BrightnessService.brightnessPercent
+    readonly property string labelText: BrightnessService.hasBacklight ? (BrightnessService.brightnessAvailable ? brightnessPercent + "%" : "") : DisplayService.nightLightSubtitle
 
     RowLayout {
         id: displayRow
@@ -27,7 +27,7 @@ Item {
             text: {
                 if (DisplayService.nightLightEnabled)
                     return "󰖔";
-                if (!DisplayService.hasBacklight)
+                if (!BrightnessService.hasBacklight)
                     return "󰍹";
                 if (displayRoot.brightnessPercent < 25)
                     return "󰃞";
@@ -45,7 +45,7 @@ Item {
 
         Text {
             text: displayRoot.labelText
-            color: displayArea.containsMouse ? Theme.yellowBright : (DisplayService.hasBacklight ? Theme.fg : (DisplayService.nightLightEnabled ? Theme.orangeBright : Theme.fg3))
+            color: displayArea.containsMouse ? Theme.yellowBright : (BrightnessService.hasBacklight ? Theme.fg : (DisplayService.nightLightEnabled ? Theme.orangeBright : Theme.fg3))
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontSizeSmall
             Behavior on color { Components.CAnim { duration: 150 } }
