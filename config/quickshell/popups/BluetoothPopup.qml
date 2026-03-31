@@ -3,7 +3,6 @@ import Quickshell
 import Quickshell.Wayland
 import QtQuick
 import QtQuick.Layouts
-import Quickshell.Io
 import "../components" as Components
 
 FocusScope {
@@ -38,21 +37,20 @@ FocusScope {
     }
     */
 
-    property bool powered: false
-    property bool scanning: false
-    property string connectedName: ""
-    property string connectedMac: ""
-    property int connectedBattery: -1
-    property string popupState: "list"
-    property string targetName: ""
-    property string connectError: ""
+    readonly property string popupState: {
+        if (BluetoothService.connecting) return "connecting";
+        if (BluetoothService.connectError !== "") return "error";
+        return "list";
+    }
     property bool deviceListLoading: popupState === "list"
-        && pairedModel.count === 0
-        && discoveredModel.count === 0
-        && (showProc.running || connInfoProc.running || pairedProc.running || allDevicesProc.running || btPop.scanning)
+        && BluetoothService.pairedModel.count === 0
+        && BluetoothService.discoveredModel.count === 0
+        && (BluetoothService.refreshing || BluetoothService.scanning)
 
-    ListModel { id: pairedModel }
-    ListModel { id: discoveredModel }
+    onPopupStateChanged: {
+        if (popupState === "error")
+            errorTimer.restart();
+    }
 
     function preparePanelForOpen() {
         let item = btContentLoader.item;
@@ -70,7 +68,7 @@ FocusScope {
             contentLoaded = true;
             if (preparePanelForOpen())
                 btOpenAnim.start();
-            resetState(); refresh();
+            BluetoothService.clearConnectError(); BluetoothService.refresh();
         } else if (!closing) {
             if (btContentLoader.item) {
                 closing = true;
@@ -125,140 +123,9 @@ FocusScope {
         ScriptAction { script: { btPop.closing = false; } }
     }
 
-    function resetState() {
-        popupState = "list"; targetName = ""; connectError = "";
-    }
-
-    function refresh() {
-        connectedName = ""; connectedMac = ""; connectedBattery = -1;
-        scanning = false;
-        pairedModel.clear(); discoveredModel.clear();
-        showProc.running = true;
-    }
-
-    function startScan() {
-        scanning = true;
-        scanProc.running = true;
-    }
-
-    function connectDevice(mac, name) {
-        popupState = "connecting"; targetName = name; connectError = "";
-        connectProc.command = ["bluetoothctl", "--timeout", "15", "connect", mac];
-        connectProc.running = true;
-    }
-
-    function disconnectDevice() {
-        disconnectProc.running = true;
-    }
-
-    function togglePower() {
-        powerProc.command = ["bluetoothctl", "--timeout", "5", "power", powered ? "off" : "on"];
-        powerProc.running = true;
-    }
-
-    function isMacAddress(name) {
-        return /^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$/.test(name);
-    }
-
-    // ── Processes ─────────────────────────────────────────────
-    Process {
-        id: showProc
-        command: ["bluetoothctl", "--timeout", "2", "show"]
-        running: false
-        property string buf: ""
-        stdout: SplitParser { onRead: (line) => { showProc.buf += line + "\n"; } }
-        onExited: {
-            btPop.powered = showProc.buf.indexOf("Powered: yes") >= 0;
-            showProc.buf = "";
-            if (btPop.powered) connInfoProc.running = true;
-        }
-    }
-
-    Process {
-        id: connInfoProc
-        command: ["bash", "-c",
-            "dev=$(bluetoothctl --timeout 2 devices Connected 2>/dev/null | head -1); " +
-            "[ -z \"$dev\" ] && exit 0; " +
-            "mac=$(echo \"$dev\" | awk '{print $2}'); " +
-            "name=$(echo \"$dev\" | sed 's/^Device [^ ]* //'); " +
-            "echo \"CONN|$mac|$name\"; " +
-            "batt=$(bluetoothctl --timeout 2 info \"$mac\" 2>/dev/null | awk -F'[()]' '/Battery Percentage/{print $2}'); " +
-            "[ -n \"$batt\" ] && echo \"BATT|$batt\""
-        ]
-        running: false
-        stdout: SplitParser { onRead: (line) => {
-            if (line.startsWith("CONN|")) {
-                let parts = line.substring(5).split("|");
-                if (parts.length >= 2) {
-                    btPop.connectedMac = parts[0];
-                    btPop.connectedName = parts.slice(1).join("|");
-                }
-            } else if (line.startsWith("BATT|")) {
-                btPop.connectedBattery = parseInt(line.substring(5)) || -1;
-            }
-        } }
-        onExited: { pairedProc.running = true; }
-    }
-
-    Process {
-        id: pairedProc
-        command: ["bluetoothctl", "--timeout", "2", "devices", "Paired"]
-        running: false
-        stdout: SplitParser { onRead: (line) => {
-            let m = line.match(/^Device\s+(\S+)\s+(.+)$/);
-            if (!m) return;
-            let mac = m[1], name = m[2];
-            if (btPop.isMacAddress(name)) return;
-            if (mac === btPop.connectedMac) return;
-            pairedModel.append({ mac: mac, name: name });
-        } }
-        onExited: { allDevicesProc.running = true; }
-    }
-
-    Process {
-        id: allDevicesProc
-        command: ["bluetoothctl", "--timeout", "2", "devices"]
-        running: false
-        stdout: SplitParser { onRead: (line) => {
-            let m = line.match(/^Device\s+(\S+)\s+(.+)$/);
-            if (!m) return;
-            let mac = m[1], name = m[2];
-            if (btPop.isMacAddress(name)) return;
-            if (mac === btPop.connectedMac) return;
-            for (let i = 0; i < pairedModel.count; i++)
-                if (pairedModel.get(i).mac === mac) return;
-            discoveredModel.append({ mac: mac, name: name });
-        } }
-        onExited: { btPop.startScan(); }
-    }
-
-    Process {
-        id: scanProc
-        command: ["bluetoothctl", "--timeout", "8", "scan", "on"]
-        running: false
-        onExited: { btPop.scanning = false; }
-    }
-
-    Process {
-        id: connectProc; running: false
-        onExited: (code, status) => {
-            if (code === 0) { btPop.resetState(); btPop.refresh(); }
-            else { btPop.connectError = "Connection failed"; btPop.popupState = "error"; errorTimer.restart(); }
-        }
-    }
-
-    Process {
-        id: disconnectProc
-        command: ["bluetoothctl", "--timeout", "5", "disconnect"]
-        running: false
-        onExited: { btPop.resetState(); btPop.refresh(); }
-    }
-
-    Process { id: powerProc; running: false; onExited: { btPop.refresh(); } }
-
     Timer {
         id: errorTimer; interval: 2000
-        onTriggered: { btPop.connectError = ""; btPop.popupState = "list"; }
+        onTriggered: { BluetoothService.clearConnectError(); }
     }
 
     // ── Backdrop ──────────────────────────────────────────────
@@ -312,7 +179,7 @@ FocusScope {
                     color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true; Layout.fillWidth: true
                 }
                 Rectangle {
-                    visible: btPop.popupState === "list" && btPop.powered
+                    visible: btPop.popupState === "list" && BluetoothService.powered
                     Layout.preferredWidth: scanLabel.implicitWidth + Theme.btnPaddingH * 2; height: Theme.btnHeight; radius: Theme.btnRadius
                     color: "transparent"
                     Components.HoverLayer {
@@ -321,10 +188,10 @@ FocusScope {
                         hoverOpacity: 0.6
                         pressedOpacity: 0.9
                         pressedScale: 0.98
-                        onClicked: { if (!btPop.scanning) btPop.startScan(); }
+                        onClicked: { if (!BluetoothService.scanning) BluetoothService.startScan(); }
 
                         Text { id: scanLabel; anchors.centerIn: parent
-                            text: btPop.scanning ? "Scanning…" : "Scan"
+                            text: BluetoothService.scanning ? "Scanning…" : "Scan"
                             color: scanA.containsMouse ? Theme.blueBright : Theme.fg4
                             Behavior on color {
                                 Components.CAnim {
@@ -342,8 +209,8 @@ FocusScope {
             RowLayout { Layout.fillWidth: true; spacing: 8
                 Text { text: "Power"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.fillWidth: true }
                 Components.ToggleSwitch {
-                    checked: btPop.powered
-                    onToggled: btPop.togglePower()
+                    checked: BluetoothService.powered
+                    onToggled: BluetoothService.togglePower()
                 }
             }
 
@@ -351,7 +218,7 @@ FocusScope {
 
             // ── Powered off empty state ─────────────────────
             Item {
-                visible: !btPop.powered && btPop.popupState === "list" && !btPop.deviceListLoading
+                visible: !BluetoothService.powered && btPop.popupState === "list" && !btPop.deviceListLoading
                 Layout.fillWidth: true; implicitHeight: 40
                 Text { anchors.centerIn: parent; text: "Bluetooth is off"; color: Theme.fg4
                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
@@ -359,7 +226,7 @@ FocusScope {
 
             // ── Connected device ────────────────────────────
             Item {
-                visible: btPop.popupState === "list" && btPop.powered && btPop.connectedName !== ""
+                visible: btPop.popupState === "list" && BluetoothService.powered && BluetoothService.connectedName !== ""
                 Layout.fillWidth: true; implicitHeight: 30
 
                 Rectangle { id: connAccent; width: 3; height: parent.height; radius: 1.5; color: Theme.greenBright
@@ -369,15 +236,15 @@ FocusScope {
                     anchors.left: connAccent.right; anchors.leftMargin: 8
                     anchors.right: connBattText.visible ? connBattText.left : connDcBtn.left
                     anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
-                    text: btPop.connectedName; color: Theme.greenBright
+                    text: BluetoothService.connectedName; color: Theme.greenBright
                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                     elide: Text.ElideRight
                 }
 
                 Text {
-                    id: connBattText; visible: btPop.connectedBattery >= 0
+                    id: connBattText; visible: BluetoothService.connectedBattery >= 0
                     anchors.right: connDcBtn.left; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
-                    text: btPop.connectedBattery + "%"; color: Theme.fg4
+                    text: BluetoothService.connectedBattery + "%"; color: Theme.fg4
                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
                 }
 
@@ -392,7 +259,7 @@ FocusScope {
                         hoverOpacity: 0.6
                         pressedOpacity: 0.9
                         pressedScale: 0.98
-                        onClicked: btPop.disconnectDevice()
+                        onClicked: BluetoothService.disconnectDevice()
 
                         Text { id: connDcLabel; anchors.centerIn: parent; text: "Disconnect"
                             color: connDcA.containsMouse ? Theme.redBright : Theme.fg4
@@ -410,14 +277,14 @@ FocusScope {
 
             // ── Error message ───────────────────────────────
             Item {
-                Layout.fillWidth: true; visible: btPop.connectError !== ""
+                Layout.fillWidth: true; visible: BluetoothService.connectError !== ""
                 implicitHeight: errorText.implicitHeight
                 Text { id: errorText; width: parent.width
-                    text: btPop.connectError; color: Theme.redBright
+                    text: BluetoothService.connectError; color: Theme.redBright
                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                     wrapMode: Text.WordWrap
-                    opacity: btPop.connectError !== "" ? 1 : 0
-                    y: btPop.connectError !== "" ? 0 : 6
+                    opacity: BluetoothService.connectError !== "" ? 1 : 0
+                    y: BluetoothService.connectError !== "" ? 0 : 6
                     Behavior on opacity {
                         Components.Anim {
                             duration: Theme.animContentSwap
@@ -438,8 +305,8 @@ FocusScope {
             // ── Device list ─────────────────────────────────
             Item {
                 Layout.fillWidth: true; Layout.preferredHeight: 170; Layout.maximumHeight: 170
-                visible: btPop.popupState === "list" && (btPop.powered || btPop.deviceListLoading)
-                opacity: btPop.popupState === "list" && (btPop.powered || btPop.deviceListLoading) ? 1 : 0
+                visible: btPop.popupState === "list" && (BluetoothService.powered || btPop.deviceListLoading)
+                opacity: btPop.popupState === "list" && (BluetoothService.powered || btPop.deviceListLoading) ? 1 : 0
                 clip: true
                 Behavior on opacity {
                     Components.Anim {
@@ -467,7 +334,7 @@ FocusScope {
 
                         // ── PAIRED header ──
                         Text {
-                            visible: pairedModel.count > 0
+                            visible: BluetoothService.pairedModel.count > 0
                             text: "PAIRED"; color: Theme.fg4
                             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1; font.bold: true
                             topPadding: 4; bottomPadding: 2; leftPadding: Theme.listItemPadding
@@ -475,7 +342,7 @@ FocusScope {
 
                         // ── PAIRED devices ──
                         Repeater {
-                            model: pairedModel
+                            model: BluetoothService.pairedModel
                             Rectangle {
                                 id: pItem; required property string mac; required property string name; required property int index
                                 width: devCol.width; height: 30; radius: Theme.hoverRadius; color: "transparent"
@@ -531,13 +398,13 @@ FocusScope {
                                 }
 
                                 Components.HoverLayer { id: pArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
-                                    onClicked: btPop.connectDevice(pItem.mac, pItem.name) }
+                                    onClicked: BluetoothService.connectDevice(pItem.mac, pItem.name) }
                             }
                         }
 
                         // ── DISCOVERED header ──
                         Text {
-                            visible: discoveredModel.count > 0
+                            visible: BluetoothService.discoveredModel.count > 0
                             text: "DISCOVERED"; color: Theme.fg4
                             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1; font.bold: true
                             topPadding: 4; bottomPadding: 2; leftPadding: Theme.listItemPadding
@@ -545,7 +412,7 @@ FocusScope {
 
                         // ── DISCOVERED devices ──
                         Repeater {
-                            model: discoveredModel
+                            model: BluetoothService.discoveredModel
                             Rectangle {
                                 id: dItem; required property string mac; required property string name; required property int index
                                 width: devCol.width; height: 30; radius: Theme.hoverRadius; color: "transparent"
@@ -601,7 +468,7 @@ FocusScope {
                                 }
 
                                 Components.HoverLayer { id: dArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
-                                    onClicked: btPop.connectDevice(dItem.mac, dItem.name) }
+                                    onClicked: BluetoothService.connectDevice(dItem.mac, dItem.name) }
                             }
                         }
 
@@ -717,8 +584,8 @@ FocusScope {
 
             // ── Scanning indicator ──────────────────────────
             Item {
-                visible: btPop.popupState === "list" && btPop.powered && !btPop.deviceListLoading
-                    && btPop.scanning && pairedModel.count === 0 && discoveredModel.count === 0
+                visible: btPop.popupState === "list" && BluetoothService.powered && !btPop.deviceListLoading
+                    && BluetoothService.scanning && BluetoothService.pairedModel.count === 0 && BluetoothService.discoveredModel.count === 0
                 Layout.fillWidth: true; Layout.alignment: Qt.AlignHCenter
                 implicitHeight: scanningRow.implicitHeight
                 RowLayout {
@@ -747,7 +614,7 @@ FocusScope {
                 }
                 Layout.fillWidth: true; spacing: 8; Layout.alignment: Qt.AlignHCenter
 
-                Text { text: "Connecting to " + btPop.targetName + "…"; color: Theme.fg
+                Text { text: "Connecting to " + BluetoothService.connectingName + "…"; color: Theme.fg
                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.alignment: Qt.AlignHCenter }
 
                 Rectangle {
