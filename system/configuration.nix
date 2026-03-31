@@ -1,9 +1,9 @@
-{ config, lib, pkgs, hyprland, hostName, inputs, march, ... }:
+{ config, lib, pkgs, hyprland, hostName, inputs, march, enableMarchOptimizations, ... }:
 
 let
   system = pkgs.stdenv.hostPlatform.system;
   optimizedPackages = import ../overlays/march-optimized.nix {
-    inherit lib inputs march;
+    inherit lib inputs march enableMarchOptimizations;
   };
 
   hyprqt6engine = inputs.hyprqt6engine.packages.${system}.default.overrideAttrs (old: {

@@ -9,9 +9,9 @@
   a helper for applying the same C/C++ flags directly to the flake-provided
   derivation in `system/configuration.nix`.
 */
-{ lib, inputs, march }:
+{ lib, inputs, march, enableMarchOptimizations ? false }:
 let
-  hasMarch = march != null;
+  hasMarch = enableMarchOptimizations && march != null;
   marchFeature = if hasMarch then "march-${march}" else null;
 
   cFlags = lib.optionals hasMarch [

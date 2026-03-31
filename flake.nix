@@ -22,6 +22,10 @@
 
   outputs = { self, nixpkgs, home-manager, hyprland, hyprland-plugins, hyprqt6engine, vicinae, snappy-switcher, ... }:
   let
+    # Set to true to rebuild the targeted packages from source with host-
+    # specific march flags instead of using the stock nixpkgs binary cache.
+    enableMarchOptimizations = false;
+
     mkHost =
       {
         hostName,
@@ -30,7 +34,7 @@
       }:
       nixpkgs.lib.nixosSystem {
         specialArgs = {
-          inherit hyprland hostName march;
+          inherit hyprland hostName march enableMarchOptimizations;
           inputs = { inherit nixpkgs hyprland hyprland-plugins hyprqt6engine vicinae snappy-switcher home-manager; };
         };
         modules = [
