@@ -128,6 +128,7 @@ in
     (texlive.withPackages (ps: with ps; [
       scheme-small
       latexmk
+      tikz-cd
     ]))
 
     # Hyprland ecosystem
