@@ -6,13 +6,7 @@ QtObject {
     property bool calendarVisible: false
     property bool trayVisible: false
     property bool mprisVisible: false
-    property bool audioVisible: false
-    property bool brightnessVisible: false
-    property bool wifiVisible: false
-    property bool bluetoothVisible: false
-    property bool powerProfileVisible: false
     property bool settingsVisible: false
-    property bool vpnVisible: false
     property bool quickSettingsVisible: false
 
     function closeAll() {
@@ -21,13 +15,7 @@ QtObject {
         calendarVisible = false
         trayVisible = false
         mprisVisible = false
-        audioVisible = false
-        brightnessVisible = false
-        wifiVisible = false
-        bluetoothVisible = false
-        powerProfileVisible = false
         settingsVisible = false
-        vpnVisible = false
         quickSettingsVisible = false
     }
 
@@ -46,12 +34,6 @@ QtObject {
     function toggleCalendar() { toggleExclusive(calendarVisible, function() { calendarVisible = true }) }
     function toggleTray() { toggleExclusive(trayVisible, function() { trayVisible = true }) }
     function toggleMpris() { toggleExclusive(mprisVisible, function() { mprisVisible = true }) }
-    function toggleAudio() { toggleExclusive(audioVisible, function() { audioVisible = true }) }
-    function toggleBrightness() { toggleExclusive(brightnessVisible, function() { brightnessVisible = true }) }
-    function toggleWifi() { toggleExclusive(wifiVisible, function() { wifiVisible = true }) }
-    function toggleBluetooth() { toggleExclusive(bluetoothVisible, function() { bluetoothVisible = true }) }
-    function togglePowerProfile() { toggleExclusive(powerProfileVisible, function() { powerProfileVisible = true }) }
     function toggleSettings() { toggleExclusive(settingsVisible, function() { settingsVisible = true }) }
-    function toggleVpn() { toggleExclusive(vpnVisible, function() { vpnVisible = true }) }
     function toggleQuickSettings() { toggleExclusive(quickSettingsVisible, function() { quickSettingsVisible = true }) }
 }

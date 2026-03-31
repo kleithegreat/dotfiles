@@ -17,14 +17,8 @@ PanelWindow {
             calendarPopup,
             trayPopup,
             mprisPopup,
-            audioPopup,
-            brightnessPopup,
-            powerProfilePopup,
-            bluetoothPopup,
-            wifiPopup,
             quickSettingsPopup,
-            settingsPopup,
-            vpnPopup
+            settingsPopup
         ];
     }
 
@@ -150,60 +144,12 @@ PanelWindow {
         onClose: overlayHost.popupVisibility.mprisVisible = false
     }
 
-    Popups.AudioPopup {
-        id: audioPopup
-        anchors.fill: parent
-        z: active ? 2 : (overlayVisible ? 1 : 0)
-        active: overlayHost.popupVisibility.audioVisible
-        onClose: overlayHost.popupVisibility.audioVisible = false
-    }
-
-    Popups.BrightnessPopup {
-        id: brightnessPopup
-        anchors.fill: parent
-        z: active ? 2 : (overlayVisible ? 1 : 0)
-        active: overlayHost.popupVisibility.brightnessVisible
-        onClose: overlayHost.popupVisibility.brightnessVisible = false
-    }
-
-    Popups.PowerProfilePopup {
-        id: powerProfilePopup
-        anchors.fill: parent
-        z: active ? 2 : (overlayVisible ? 1 : 0)
-        active: overlayHost.popupVisibility.powerProfileVisible
-        onClose: overlayHost.popupVisibility.powerProfileVisible = false
-    }
-
-    Popups.BluetoothPopup {
-        id: bluetoothPopup
-        anchors.fill: parent
-        z: active ? 2 : (overlayVisible ? 1 : 0)
-        active: overlayHost.popupVisibility.bluetoothVisible
-        onClose: overlayHost.popupVisibility.bluetoothVisible = false
-    }
-
-    Popups.WifiPopup {
-        id: wifiPopup
-        anchors.fill: parent
-        z: active ? 2 : (overlayVisible ? 1 : 0)
-        active: overlayHost.popupVisibility.wifiVisible
-        onClose: overlayHost.popupVisibility.wifiVisible = false
-    }
-
     Popups.SettingsPopup {
         id: settingsPopup
         anchors.fill: parent
         z: active ? 2 : (overlayVisible ? 1 : 0)
         active: overlayHost.popupVisibility.settingsVisible
         onClose: overlayHost.popupVisibility.settingsVisible = false
-    }
-
-    Popups.VpnPopup {
-        id: vpnPopup
-        anchors.fill: parent
-        z: active ? 2 : (overlayVisible ? 1 : 0)
-        active: overlayHost.popupVisibility.vpnVisible
-        onClose: overlayHost.popupVisibility.vpnVisible = false
     }
 
     Popups.QuickSettingsPopup {
