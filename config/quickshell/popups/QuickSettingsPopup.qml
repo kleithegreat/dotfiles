@@ -1,0 +1,600 @@
+import qs
+import Quickshell
+import QtQuick
+import QtQuick.Layouts
+import Quickshell.Io
+import Quickshell.Services.UPower
+import "../components" as Components
+
+FocusScope {
+    id: qsPop
+    property bool active: false; signal close()
+    property bool closing: false
+    property bool contentLoaded: false
+    readonly property bool overlayVisible: active || closing
+    readonly property Item panelItem: qsContentLoader.item
+    readonly property Item focusTarget: qsPop
+    readonly property bool scrimEnabled: false
+    readonly property color scrimColor: "transparent"
+    readonly property real scrimOpacity: 0
+    visible: overlayVisible
+    anchors.fill: parent
+    focus: active
+    Keys.priority: Keys.BeforeItem
+
+    // Expand-to-full-page signals (wiring happens in a later prompt)
+    signal settingsRequested()
+    signal wifiExpandRequested()
+    signal bluetoothExpandRequested()
+    signal vpnExpandRequested()
+    signal dndExpandRequested()
+    signal powerProfileExpandRequested()
+
+    // ── WiFi radio state (NetworkService lacks a radio toggle) ──
+    property bool wifiEnabled: false
+    property bool wifiConnected: NetworkService.connectedSsid !== ""
+    property string wifiSsid: NetworkService.connectedSsid
+
+    Process {
+        id: wifiRadioCheck
+        command: ["nmcli", "radio", "wifi"]
+        running: false
+        stdout: SplitParser {
+            onRead: (line) => { qsPop.wifiEnabled = line.trim() === "enabled"; }
+        }
+    }
+
+    Process {
+        id: wifiRadioToggle
+        command: ["nmcli", "radio", "wifi", qsPop.wifiEnabled ? "off" : "on"]
+        running: false
+        onRunningChanged: {
+            if (!running)
+                Qt.callLater(function() { wifiRadioCheck.running = true; });
+        }
+    }
+
+    // ── Battery ──
+    property real batPct: {
+        let r = UPower.displayDevice.percentage;
+        return (r <= 1.0 && r > 0) ? r * 100 : r;
+    }
+    property bool batCharging: UPower.displayDevice.state === UPowerDeviceState.Charging
+                                || UPower.displayDevice.state === UPowerDeviceState.FullyCharged
+    property bool batPresent: UPower.displayDevice.isPresent
+
+    function batIcon() {
+        if (batCharging) return "󰂄";
+        if (batPct > 90) return "󰁹";
+        if (batPct > 70) return "󰂂";
+        if (batPct > 50) return "󰁿";
+        if (batPct > 30) return "󰁽";
+        return "󰁺";
+    }
+
+    // ── Power profile cycling ──
+    function cyclePowerProfile() {
+        let cur = PowerProfileService.currentProfile;
+        if (cur === "balanced") PowerProfileService.setProfile("performance");
+        else if (cur === "performance") PowerProfileService.setProfile("power-saver");
+        else PowerProfileService.setProfile("balanced");
+    }
+
+    // ── Standard popup lifecycle ──
+    function preparePanelForOpen() {
+        let item = qsContentLoader.item;
+        if (!item)
+            return false;
+        item.opacity = 0;
+        item.scale = 0.92;
+        return true;
+    }
+
+    onActiveChanged: {
+        if (active) {
+            forceActiveFocus();
+            contentLoaded = true;
+            wifiRadioCheck.running = true;
+            BrightnessService.refresh();
+            PowerProfileService.detect();
+            VpnService.refresh();
+            if (preparePanelForOpen())
+                qsOpenAnim.start();
+        } else if (!closing) {
+            if (qsContentLoader.item) {
+                closing = true;
+                qsCloseAnim.start();
+            } else {
+                closing = false;
+            }
+        }
+    }
+
+    SequentialAnimation {
+        id: qsOpenAnim
+        ParallelAnimation {
+            Components.Anim {
+                target: qsContentLoader.item; property: "opacity"; to: 1
+                duration: Theme.animPopupIn
+                easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveEmphasizedEnter
+            }
+            Components.Anim {
+                target: qsContentLoader.item; property: "scale"; to: 1.0
+                duration: Theme.animPopupIn
+                easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveEmphasizedEnter
+            }
+        }
+    }
+
+    SequentialAnimation {
+        id: qsCloseAnim
+        ParallelAnimation {
+            Components.Anim {
+                target: qsContentLoader.item; property: "opacity"; to: 0
+                duration: Theme.animPopupOut
+                easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveExit
+            }
+            Components.Anim {
+                target: qsContentLoader.item; property: "scale"; to: 0.92
+                duration: Theme.animPopupOut
+                easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveExit
+            }
+        }
+        ScriptAction { script: { qsPop.closing = false; } }
+    }
+
+    Keys.onEscapePressed: qsPop.close()
+
+    Loader {
+        id: qsContentLoader
+        anchors.right: parent.right; anchors.top: parent.top
+        anchors.topMargin: Theme.popupTopMargin; anchors.rightMargin: Theme.gapOut
+        width: 360
+        height: item ? item.implicitHeight : 0
+        active: qsPop.contentLoaded || qsPop.active || qsPop.closing
+        asynchronous: true
+        sourceComponent: qsPanelComponent
+
+        onLoaded: {
+            item.opacity = 0;
+            item.scale = 0.92;
+            if (qsPop.active)
+                qsOpenAnim.start();
+        }
+    }
+
+    Component {
+        id: qsPanelComponent
+
+        Rectangle {
+            id: qsPanel
+            anchors.fill: parent
+            implicitHeight: qsMainCol.implicitHeight + Theme.popupPadding * 2
+            radius: Theme.popupRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
+            opacity: 0; scale: 0.92
+            transformOrigin: Item.TopRight
+            Behavior on implicitHeight {
+                Components.Anim {
+                    duration: Theme.animHeightResize
+                    easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
+                }
+            }
+            MouseArea { anchors.fill: parent }
+
+            ColumnLayout {
+                id: qsMainCol
+                anchors.fill: parent; anchors.margins: Theme.popupPadding
+                spacing: Theme.sectionSpacing
+
+                // ═══════════════════ Toggle Tile Grid ═══════════════════
+
+                Grid {
+                    id: tileGrid
+                    Layout.fillWidth: true
+                    columns: 2; rowSpacing: 8; columnSpacing: 8
+
+                    Repeater {
+                        model: [
+                            { key: "wifi",      label: "Wi-Fi" },
+                            { key: "bluetooth", label: "Bluetooth" },
+                            { key: "vpn",       label: "VPN" },
+                            { key: "dnd",       label: "Do Not Disturb" },
+                            { key: "power",     label: "Power Profile" }
+                        ]
+
+                        Rectangle {
+                            id: tile
+                            required property var modelData
+                            required property int index
+                            width: (tileGrid.width - tileGrid.columnSpacing) / 2
+                            height: 56
+                            radius: Theme.hoverRadius
+                            color: "transparent"
+
+                            property bool isActive: {
+                                switch (modelData.key) {
+                                case "wifi": return qsPop.wifiEnabled;
+                                case "bluetooth": return BluetoothService.powered;
+                                case "vpn": return VpnService.mullvadState === "connected" || VpnService.mullvadState === "connecting";
+                                case "dnd": return NotificationService.doNotDisturb;
+                                case "power": return PowerProfileService.currentProfile !== "balanced" && PowerProfileService.currentProfile !== "unknown";
+                                default: return false;
+                                }
+                            }
+
+                            property string tileIcon: {
+                                switch (modelData.key) {
+                                case "wifi": return qsPop.wifiConnected ? "󰖩" : "󰖪";
+                                case "bluetooth":
+                                    if (!BluetoothService.powered) return "󰂲";
+                                    return BluetoothService.connectedName !== "" ? "󰂱" : "󰂯";
+                                case "vpn": return "󰖂";
+                                case "dnd": return NotificationService.doNotDisturb ? "󰂛" : "󰂚";
+                                case "power":
+                                    if (PowerProfileService.currentProfile === "performance") return "󰵣";
+                                    if (PowerProfileService.currentProfile === "power-saver") return "󰸲";
+                                    return "󰓅";
+                                default: return "";
+                                }
+                            }
+
+                            property string tileSublabel: {
+                                switch (modelData.key) {
+                                case "wifi":
+                                    if (!qsPop.wifiEnabled) return "Off";
+                                    return qsPop.wifiConnected ? qsPop.wifiSsid : "Not connected";
+                                case "bluetooth":
+                                    if (!BluetoothService.powered) return "Off";
+                                    return BluetoothService.connectedName !== "" ? BluetoothService.connectedName : "On";
+                                case "vpn":
+                                    if (VpnService.mullvadState === "connected")
+                                        return VpnService.mullvadCity || VpnService.mullvadCountry || "Connected";
+                                    if (VpnService.mullvadState === "connecting") return "Connecting…";
+                                    return "Off";
+                                case "dnd": return NotificationService.doNotDisturb ? "On" : "Off";
+                                case "power":
+                                    if (PowerProfileService.currentProfile === "performance") return "Performance";
+                                    if (PowerProfileService.currentProfile === "power-saver") return "Power Saver";
+                                    if (PowerProfileService.currentProfile === "balanced") return "Balanced";
+                                    return PowerProfileService.currentProfile;
+                                default: return "";
+                                }
+                            }
+
+                            property color tileActiveColor: {
+                                switch (modelData.key) {
+                                case "dnd": return Theme.orangeBright;
+                                case "power":
+                                    if (PowerProfileService.currentProfile === "performance") return Theme.redBright;
+                                    if (PowerProfileService.currentProfile === "power-saver") return Theme.greenBright;
+                                    return Theme.blueBright;
+                                default: return Theme.blueBright;
+                                }
+                            }
+
+                            function tileToggle() {
+                                switch (modelData.key) {
+                                case "wifi": wifiRadioToggle.running = true; break;
+                                case "bluetooth": BluetoothService.togglePower(); break;
+                                case "vpn":
+                                    if (VpnService.mullvadState === "connected" || VpnService.mullvadState === "connecting")
+                                        VpnService.mullvadDisconnect();
+                                    else
+                                        VpnService.mullvadConnect();
+                                    break;
+                                case "dnd": NotificationService.toggleDnd(); break;
+                                case "power": qsPop.cyclePowerProfile(); break;
+                                }
+                            }
+
+                            function tileExpand() {
+                                switch (modelData.key) {
+                                case "wifi": qsPop.wifiExpandRequested(); break;
+                                case "bluetooth": qsPop.bluetoothExpandRequested(); break;
+                                case "vpn": qsPop.vpnExpandRequested(); break;
+                                case "dnd": qsPop.dndExpandRequested(); break;
+                                case "power": qsPop.powerProfileExpandRequested(); break;
+                                }
+                            }
+
+                            // ── Tile visuals ──
+
+                            Rectangle {
+                                anchors.fill: parent; radius: parent.radius
+                                color: tile.isActive
+                                    ? Qt.rgba(tile.tileActiveColor.r, tile.tileActiveColor.g, tile.tileActiveColor.b, 0.15)
+                                    : Theme.bg2
+                                Behavior on color {
+                                    Components.CAnim {
+                                        duration: Theme.animSpring
+                                        easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                anchors.fill: parent; radius: parent.radius
+                                color: "transparent"
+                                border.width: tile.isActive ? 1 : 0; border.color: tile.tileActiveColor
+                                opacity: tile.isActive ? 0.5 : 0
+                                Behavior on opacity {
+                                    Components.Anim {
+                                        duration: Theme.animSpring
+                                        easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                anchors.fill: parent; radius: parent.radius
+                                color: Theme.fg
+                                opacity: tileMainArea.containsMouse ? (tileMainArea.pressed ? 0.08 : 0.04) : 0
+                                Behavior on opacity { Components.Anim { duration: Theme.animHover } }
+                            }
+
+                            scale: tileMainArea.pressed ? 0.97 : 1.0
+                            Behavior on scale { Components.Anim { duration: Theme.animMicro } }
+
+                            MouseArea {
+                                id: tileMainArea
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: tile.tileToggle()
+                            }
+
+                            RowLayout {
+                                anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 4; spacing: 6
+
+                                Text {
+                                    text: tile.tileIcon
+                                    color: tile.isActive ? tile.tileActiveColor : Theme.fg4
+                                    font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
+                                    Behavior on color { Components.CAnim { duration: Theme.animHover } }
+                                }
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true; spacing: 0
+                                    Text {
+                                        text: tile.modelData.label
+                                        color: tile.isActive ? Theme.fg : Theme.fg2
+                                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                                        font.bold: tile.isActive
+                                        elide: Text.ElideRight; Layout.fillWidth: true
+                                    }
+                                    Text {
+                                        text: tile.tileSublabel
+                                        color: Theme.fg4
+                                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
+                                        elide: Text.ElideRight; Layout.fillWidth: true
+                                    }
+                                }
+
+                                Rectangle {
+                                    width: 22; height: 22; radius: 11
+                                    color: expandBtnArea.containsMouse
+                                        ? (expandBtnArea.pressed ? Theme.bg3 : Qt.rgba(Theme.fg.r, Theme.fg.g, Theme.fg.b, 0.08))
+                                        : "transparent"
+                                    Behavior on color { Components.CAnim { duration: Theme.animHover } }
+
+                                    Text {
+                                        anchors.centerIn: parent; text: ">"
+                                        color: expandBtnArea.containsMouse ? Theme.fg : Theme.fg4
+                                        font.family: Theme.fontFamily; font.pixelSize: 10
+                                        Behavior on color { Components.CAnim { duration: Theme.animHover } }
+                                    }
+
+                                    MouseArea {
+                                        id: expandBtnArea
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: tile.tileExpand()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+
+                // ═══════════════════ Volume Slider ═══════════════════
+
+                RowLayout {
+                    Layout.fillWidth: true; spacing: 8
+
+                    Text {
+                        text: AudioService.muted ? "󰝟" : "󰕾"
+                        color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
+                        Layout.preferredWidth: 16; horizontalAlignment: Text.AlignHCenter
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true; height: Theme.sliderHeight; radius: Theme.sliderHeight / 2; color: Theme.bg3
+
+                        Rectangle {
+                            anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
+                            width: parent.width * Math.min(1.0, AudioService.volume)
+                            radius: parent.radius; color: Theme.greenBright
+                            Behavior on width {
+                                Components.Anim {
+                                    duration: Theme.animMicro
+                                    easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            width: 12; height: 12; radius: 6; color: Theme.fg
+                            y: (parent.height - height) / 2
+                            x: Math.max(0, Math.min(parent.width - width, parent.width * Math.min(1.0, AudioService.volume) - width / 2))
+                            scale: volSliderMouse.pressed ? 1.2 : (volSliderMouse.containsMouse ? 1.1 : 1.0)
+                            Behavior on scale {
+                                Components.Anim {
+                                    duration: Theme.animMicro
+                                    easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
+                                }
+                            }
+                            Behavior on x {
+                                Components.Anim {
+                                    duration: Theme.animMicro
+                                    easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
+                                }
+                            }
+                        }
+
+                        Components.HoverLayer {
+                            id: volSliderMouse
+                            hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
+                            onPressed: { AudioService.suppressOsd = true; }
+                            onReleased: { Qt.callLater(() => { AudioService.suppressOsd = false; }); }
+                            onClicked: (mouse) => { AudioService.setVolume(mouse.x / parent.width); }
+                            onPositionChanged: (mouse) => { if (pressed) AudioService.setVolume(mouse.x / parent.width); }
+                        }
+                    }
+
+                    Text {
+                        text: Math.round(AudioService.volume * 100) + "%"
+                        color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                        Layout.preferredWidth: 32; horizontalAlignment: Text.AlignRight
+                    }
+                }
+
+                // ═══════════════════ Brightness Slider ═══════════════════
+
+                RowLayout {
+                    visible: BrightnessService.hasBacklight
+                    Layout.fillWidth: true; spacing: 8
+
+                    Text {
+                        text: BrightnessService.brightnessPercent < 25 ? "󰃞" : (BrightnessService.brightnessPercent < 70 ? "󰃟" : "󰃠")
+                        color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
+                        Layout.preferredWidth: 16; horizontalAlignment: Text.AlignHCenter
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true; height: Theme.sliderHeight; radius: Theme.sliderHeight / 2; color: Theme.bg3
+
+                        Rectangle {
+                            anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
+                            width: parent.width * BrightnessService.brightnessFraction
+                            radius: parent.radius; color: Theme.yellowBright
+                            Behavior on width {
+                                Components.Anim {
+                                    duration: Theme.animMicro
+                                    easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            width: 12; height: 12; radius: 6; color: Theme.fg
+                            y: (parent.height - height) / 2
+                            x: Math.max(0, Math.min(parent.width - width, parent.width * BrightnessService.brightnessFraction - width / 2))
+                            scale: brightSliderMouse.pressed ? 1.2 : (brightSliderMouse.containsMouse ? 1.1 : 1.0)
+                            Behavior on scale {
+                                Components.Anim {
+                                    duration: Theme.animMicro
+                                    easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
+                                }
+                            }
+                            Behavior on x {
+                                Components.Anim {
+                                    duration: Theme.animMicro
+                                    easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
+                                }
+                            }
+                        }
+
+                        Components.HoverLayer {
+                            id: brightSliderMouse
+                            hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
+                            onClicked: (mouse) => { BrightnessService.setBrightnessFraction(mouse.x / parent.width); }
+                            onPositionChanged: (mouse) => {
+                                if (pressed)
+                                    BrightnessService.setBrightnessFraction(mouse.x / parent.width);
+                            }
+                        }
+                    }
+
+                    Text {
+                        text: BrightnessService.brightnessAvailable ? BrightnessService.brightnessPercent + "%" : ""
+                        color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                        Layout.preferredWidth: 32; horizontalAlignment: Text.AlignRight
+                    }
+                }
+
+                // ═══════════════════ Battery Status ═══════════════════
+
+                RowLayout {
+                    visible: qsPop.batPresent
+                    Layout.fillWidth: true; spacing: 8
+
+                    Text {
+                        text: qsPop.batIcon()
+                        color: {
+                            if (qsPop.batCharging) return Theme.greenBright;
+                            if (qsPop.batPct < 15) return Theme.redBright;
+                            if (qsPop.batPct < 30) return Theme.yellowBright;
+                            return Theme.fg;
+                        }
+                        font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
+                    }
+
+                    Text {
+                        text: Math.round(qsPop.batPct) + "%"
+                        color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                        font.bold: true
+                    }
+
+                    Text {
+                        text: qsPop.batCharging ? "Charging" : "On Battery"
+                        color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                        Layout.fillWidth: true
+                    }
+                }
+
+                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+
+                // ═══════════════════ Settings Footer ═══════════════════
+
+                Rectangle {
+                    Layout.fillWidth: true; height: Theme.listItemHeight
+                    radius: Theme.hoverRadius; color: "transparent"
+
+                    Components.HoverLayer {
+                        id: settingsArea
+                        hoverOpacity: 0.4; pressedOpacity: 0.7; pressedScale: 0.98
+                        color: Theme.bg2
+                        onClicked: qsPop.settingsRequested()
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: Theme.listItemPadding; anchors.rightMargin: Theme.listItemPadding
+                            spacing: 8
+
+                            Text {
+                                text: "󰒓"
+                                color: settingsArea.containsMouse ? Theme.fg : Theme.fg4
+                                font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
+                                Behavior on color { Components.CAnim { duration: Theme.animHover } }
+                            }
+                            Text {
+                                text: "All Settings"
+                                color: settingsArea.containsMouse ? Theme.fg : Theme.fg2
+                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                                Layout.fillWidth: true
+                                Behavior on color { Components.CAnim { duration: Theme.animHover } }
+                            }
+                            Text {
+                                text: ">"
+                                color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: 10
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

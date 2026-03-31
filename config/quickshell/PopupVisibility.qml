@@ -13,6 +13,7 @@ QtObject {
     property bool powerProfileVisible: false
     property bool settingsVisible: false
     property bool vpnVisible: false
+    property bool quickSettingsVisible: false
 
     function closeAll() {
         powerMenuVisible = false
@@ -27,6 +28,7 @@ QtObject {
         powerProfileVisible = false
         settingsVisible = false
         vpnVisible = false
+        quickSettingsVisible = false
     }
 
     function toggleExclusive(isVisible, showPopup) {
@@ -51,4 +53,5 @@ QtObject {
     function togglePowerProfile() { toggleExclusive(powerProfileVisible, function() { powerProfileVisible = true }) }
     function toggleSettings() { toggleExclusive(settingsVisible, function() { settingsVisible = true }) }
     function toggleVpn() { toggleExclusive(vpnVisible, function() { vpnVisible = true }) }
+    function toggleQuickSettings() { toggleExclusive(quickSettingsVisible, function() { quickSettingsVisible = true }) }
 }
