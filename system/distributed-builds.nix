@@ -1,4 +1,4 @@
-{ config, lib, pkgs, hostName, march, enableMarchOptimizations, ... }:
+{ config, lib, pkgs, hostName, march, enableMarchOptimizations, enableDistributedBuilds, ... }:
 
 let
   defaults = {
@@ -74,7 +74,7 @@ let
     };
   };
 
-  enableDistributedBuilds = builtins.elem hostName [
+  enableDistributedBuilds' = enableDistributedBuilds && builtins.elem hostName [
     "desktop"
     "laptop"
   ];
@@ -86,7 +86,7 @@ lib.mkMerge [
     nix.settings.system-features = lib.mkAfter hostMarchFeature;
   })
 
-  (lib.mkIf enableDistributedBuilds {
+  (lib.mkIf enableDistributedBuilds' {
   nix.distributedBuilds = true;
   nix.buildMachines = lib.mapAttrsToList (
     _: machine: machine
