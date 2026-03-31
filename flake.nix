@@ -26,6 +26,10 @@
     # specific march flags instead of using the stock nixpkgs binary cache.
     enableMarchOptimizations = false;
 
+    # Set to true to enable distributed builds, remote builders, and the
+    # post-build-hook that pushes paths to the homelab binary cache.
+    enableDistributedBuilds = false;
+
     mkHost =
       {
         hostName,
@@ -34,7 +38,7 @@
       }:
       nixpkgs.lib.nixosSystem {
         specialArgs = {
-          inherit hyprland hostName march enableMarchOptimizations;
+          inherit hyprland hostName march enableMarchOptimizations enableDistributedBuilds;
           inputs = { inherit nixpkgs hyprland hyprland-plugins hyprqt6engine vicinae snappy-switcher home-manager; };
         };
         modules = [
