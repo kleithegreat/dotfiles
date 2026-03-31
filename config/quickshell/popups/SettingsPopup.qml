@@ -57,9 +57,10 @@ FocusScope {
         { label: "VS Code", key: "vscode_mono_font_size_offset" }
     ]
     property int selectedCategory: 0
+    property int systemCategoryCount: 5
     property string wallpaperDir: "/home/kevin/repos/dotfiles/wallpapers"
-    property var categoryNames: ["Presets", "Colors", "Fonts", "Wallpaper", "Icons & Cursors", "Hyprland"]
-    property var categoryIcons: ["󰒓", "󰏘", "󰛖", "󰋩", "󰍽", "󰖯"]
+    property var categoryNames: ["Network", "Bluetooth", "Audio", "Display", "Power", "Presets", "Colors", "Fonts", "Wallpaper", "Icons & Cursors", "Hyprland"]
+    property var categoryIcons: ["󰖩", "󰂯", "󰕾", "󰍹", "⚡", "󰒓", "󰏘", "󰛖", "󰋩", "󰍽", "󰖯"]
     property var hyprOptionInfo: ({
         "general:gaps_in": { label: "Inner gaps", type: "int", fallback: 4, minimum: 0, step: 1, stateKey: "hypr_gaps_in" },
         "general:gaps_out": { label: "Outer gaps", type: "int", fallback: 6, minimum: 0, step: 1, stateKey: "hypr_gaps_out" },
@@ -107,6 +108,7 @@ FocusScope {
             forceActiveFocus();
             contentLoaded = true;
             loadState();
+            refreshSystemServices();
             if (preparePanelForOpen())
                 settingsOpenAnim.start();
         }
@@ -122,6 +124,18 @@ FocusScope {
     }
 
     // ── Data loading ──
+    function refreshSystemServices() {
+        NetworkService.scan();
+        NetworkService.loadKnown();
+        VpnService.refresh();
+        BluetoothService.clearConnectError();
+        BluetoothService.refresh();
+        BrightnessService.refresh();
+        DisplayService.refresh();
+        PowerProfileService.detect();
+        PowerProfileService.detectChargeLimit();
+    }
+
     function loadState() {
         stateProc.running = true;
         listColorsProc.running = true;
@@ -735,6 +749,7 @@ FocusScope {
                     selectedCategory: settingsPop.selectedCategory
                     categoryNames: settingsPop.categoryNames
                     categoryIcons: settingsPop.categoryIcons
+                    systemCategoryCount: settingsPop.systemCategoryCount
                     onCategorySelected: (index) => settingsPop.selectedCategory = index
                 }
 
@@ -754,12 +769,17 @@ FocusScope {
                         anchors.margins: Theme.popupPadding
                         sourceComponent: {
                             switch (settingsPop.selectedCategory) {
-                                case 0: return presetsPane;
-                                case 1: return colorsPane;
-                                case 2: return fontsPane;
-                                case 3: return wallpaperPane;
-                                case 4: return iconsPane;
-                                case 5: return hyprlandPane;
+                                case 0: return networkPane;
+                                case 1: return bluetoothPane;
+                                case 2: return audioPane;
+                                case 3: return displayPane;
+                                case 4: return powerPane;
+                                case 5: return presetsPane;
+                                case 6: return colorsPane;
+                                case 7: return fontsPane;
+                                case 8: return wallpaperPane;
+                                case 9: return iconsPane;
+                                case 10: return hyprlandPane;
                                 default: return null;
                             }
                         }
@@ -767,6 +787,31 @@ FocusScope {
                 }
             }
         }
+    }
+
+    Component {
+        id: networkPane
+        Settings.SettingsNetworkPane {}
+    }
+
+    Component {
+        id: bluetoothPane
+        Settings.SettingsBluetoothPane {}
+    }
+
+    Component {
+        id: audioPane
+        Settings.SettingsAudioPane {}
+    }
+
+    Component {
+        id: displayPane
+        Settings.SettingsDisplayPane {}
+    }
+
+    Component {
+        id: powerPane
+        Settings.SettingsPowerPane {}
     }
 
     Component {
