@@ -97,13 +97,16 @@ in
         #   library outputs, so there is no clean in-place binary-only override.
         #   Keep `pkgs.zstd` unmodified unless a separate opt-in CLI package is
         #   added later.
+        # - lz4: systemd directly depends on lz4, and rsync depends on lz4,
+        #   pulling in nix (via nix-manual -> rsync -> lz4) and essentially
+        #   every NixOS package that depends on systemd. Same cascade class as
+        #   zstd.
         pipewire = optimizeCCPackage prev.pipewire;
         wireplumber = optimizeCCPackage prev.wireplumber;
         easyeffects = optimizeCCPackage prev.easyeffects;
         lsp-plugins = optimizeCCPackage prev.lsp-plugins;
         ffmpeg = optimizeCCPackage prev.ffmpeg;
         p7zip = optimizeCCPackage prev.p7zip;
-        lz4 = optimizeCCPackage prev.lz4;
         quickshell = optimizeCCPackage prev.quickshell;
 
         ripgrep = optimizeRustPackage prev.ripgrep;

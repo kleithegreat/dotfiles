@@ -79,7 +79,15 @@ let
     "laptop"
   ];
 in
-lib.mkIf enableDistributedBuilds {
+lib.mkMerge [
+  # Every host unconditionally advertises its own march capability so the
+  # local builder can satisfy requiredSystemFeatures for march-optimized
+  # packages, regardless of whether distributed builds are enabled.
+  (lib.mkIf (march != null) {
+    nix.settings.system-features = lib.mkAfter hostMarchFeature;
+  })
+
+  (lib.mkIf enableDistributedBuilds {
   nix.distributedBuilds = true;
   nix.buildMachines = lib.mapAttrsToList (
     _: machine: machine
@@ -89,7 +97,6 @@ lib.mkIf enableDistributedBuilds {
     builders-use-substitutes = true;
     post-build-hook = "/etc/nix/push-to-homelab-cache.sh";
     substituters = lib.mkAfter [ cacheUrl ];
-    system-features = lib.mkAfter hostMarchFeature;
     trusted-public-keys = lib.mkAfter (lib.optional (data.cachePublicKey != null) data.cachePublicKey);
   };
 
@@ -134,4 +141,5 @@ lib.mkIf enableDistributedBuilds {
   networking.firewall.extraStopCommands = lib.mkIf (config.networking.firewall.backend == "iptables") ''
     iptables -D nixos-fw -p tcp -s ${localLanCidr} --dport 22 -j nixos-fw-accept -m comment --comment "LAN nix remote builds" 2>/dev/null || true
   '';
-}
+  })
+]
