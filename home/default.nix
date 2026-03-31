@@ -123,8 +123,12 @@ in
     # Document tools
     pandoc
 
-    # LaTeX (scheme-medium covers most packages including latexmk)
-    texlive.combined.scheme-medium
+    # `scheme-medium` pulls in `asymptote` via `collection-binextra`, which
+    # currently recurses during evaluation on this nixpkgs revision.
+    (texlive.withPackages (ps: with ps; [
+      scheme-small
+      latexmk
+    ]))
 
     # Hyprland ecosystem
     hyprlock
