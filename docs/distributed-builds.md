@@ -9,14 +9,17 @@ The shared NixOS logic lives in `system/distributed-builds.nix`. Environment-spe
 - Pushes completed build outputs to the homelab over SSH so `nix-serve` can publish them
 - Adds a local cache substituter pointing at the homelab
 - Restricts the NixOS SSH builder port to `192.168.8.0/24`
-- Tags march-optimized derivations with `requiredSystemFeatures = [ "march-..." ]` so they do not get scheduled onto CPUs that cannot safely execute build-time helper binaries
+- Tags only the march-optimized derivations that actually execute build-time target binaries with `requiredSystemFeatures = [ "march-..." ]`
 
-That last point is deliberate. In the current nixpkgs revision, at least these overlay members execute freshly built target binaries during their build:
+That last point is deliberate. In the current nixpkgs revision, these optimized derivations execute freshly built target binaries during their build:
 
-- `ripgrep`: runs the built `rg` binary in `postFixup` and `installCheck`
-- `fd`: runs the built `fd` binary to generate completions in `postInstall`
-- `ffmpeg`: enables `doCheck` and runs `make check`
-- `lsp-plugins`: enables `doCheck`
+- `ripgrep`: `cargo test` runs target executables, and the derivation also runs the built `rg` binary in `postFixup` and `installCheck`
+- `fd`: `cargo test` runs target executables, and the derivation also runs the built `fd` binary to generate completions in `postInstall`
+- `ffmpeg`: enables `doCheck`, and `make check` runs the FATE targets against the built `ffmpeg` and `ffprobe` programs
+- `pipewire`: Meson `doCheck` runs compiled SPA/PipeWire test and benchmark executables
+- `texlive` environment builders such as `texlive.combined.scheme-medium`: `build-tex-env.sh` exports `$out/bin` into `PATH` and runs `fmtutil`, `updmap-sys`, ConTeXt generation, and related helpers that drive the just-built TeX engines
+
+Other optimized packages stay untagged. In particular, `lsp-plugins` remains distributable because its derivation relies on stdenv's default check phase, but the top-level Makefile has no `check` or `test` target, so no target binaries are executed during the build.
 
 Because of that, `-march=alderlake` or `-march=rocketlake` outputs are not safe to build on an older CPU just because the compiler itself runs there.
 

@@ -57,28 +57,57 @@ let
       );
     };
 
-  addRequiredMarchFeatureRecursively =
-    value:
-    if lib.isDerivation value then
-      value.overrideAttrs addRequiredMarchFeature
-    else if builtins.isAttrs value then
-      lib.mapAttrs (_: addRequiredMarchFeatureRecursively) value
-    else
-      value;
-
-  optimizeCCPackage =
+  maybeAddRequiredMarchFeature =
     drv:
     if hasMarch then
-      drv.overrideAttrs (old: (optimizeEnvFlag "NIX_CFLAGS_COMPILE" cFlags old) // (addRequiredMarchFeature old))
+      drv.overrideAttrs addRequiredMarchFeature
     else
       drv;
 
-  optimizeRustPackage =
+  mapTaggedDerivations =
+    attrs:
+    let
+      mapped = lib.mapAttrs (_: maybeAddRequiredMarchFeature) (lib.removeAttrs attrs [ "recurseForDerivations" ]);
+    in
+    if attrs.recurseForDerivations or false then lib.recurseIntoAttrs mapped else mapped;
+
+  optimizePackage =
+    {
+      envName,
+      flags,
+      runsTargetBinariesDuringBuild ? false,
+    }:
     drv:
     if hasMarch then
-      drv.overrideAttrs (old: (optimizeEnvFlag "RUSTFLAGS" rustFlags old) // (addRequiredMarchFeature old))
+      drv.overrideAttrs (
+        old:
+        (optimizeEnvFlag envName flags old)
+        // lib.optionalAttrs runsTargetBinariesDuringBuild (addRequiredMarchFeature old)
+      )
     else
       drv;
+
+  optimizeCCPackage = optimizePackage {
+    envName = "NIX_CFLAGS_COMPILE";
+    flags = cFlags;
+  };
+
+  optimizeCCPackageRunningTargetBinaries = optimizePackage {
+    envName = "NIX_CFLAGS_COMPILE";
+    flags = cFlags;
+    runsTargetBinariesDuringBuild = true;
+  };
+
+  optimizeRustPackage = optimizePackage {
+    envName = "RUSTFLAGS";
+    flags = rustFlags;
+  };
+
+  optimizeRustPackageRunningTargetBinaries = optimizePackage {
+    envName = "RUSTFLAGS";
+    flags = rustFlags;
+    runsTargetBinariesDuringBuild = true;
+  };
 in
 {
   inherit optimizeCCPackage optimizeRustPackage;
@@ -101,24 +130,58 @@ in
         #   pulling in nix (via nix-manual -> rsync -> lz4) and essentially
         #   every NixOS package that depends on systemd. Same cascade class as
         #   zstd.
-        pipewire = optimizeCCPackage prev.pipewire;
+        #
+        # `requiredSystemFeatures` only belongs on derivations that execute
+        # binaries compiled with these host-specific flags during the build.
+        #
+        # Tagged:
+        # - ripgrep, fd: `cargo test` builds and runs target executables, and
+        #   the derivations also invoke `$out/bin/{rg,fd}` during fixup/install.
+        # - ffmpeg: `make check` runs the FATE/test targets against the built
+        #   `ffmpeg` and `ffprobe` programs.
+        # - pipewire: Meson `doCheck` runs compiled SPA/PipeWire test and
+        #   benchmark executables.
+        # - texlive environment builders (`combine`, `combined.*`,
+        #   `schemes.*`, `withPackages`): `build-tex-env.sh` exports
+        #   `$out/bin` into `PATH` and runs `fmtutil`, `updmap-sys`, ConTeXt,
+        #   and related helpers, which execute the just-built TeX engines.
+        #
+        # Untagged:
+        # - wireplumber, easyeffects, p7zip, quickshell, and Hyprland (via the
+        #   helper exported from this file) only compile/install outputs; they
+        #   do not run freshly built target binaries during their own builds.
+        # - lsp-plugins sets `doCheck = true`, but its top-level Makefile has
+        #   no `check` or `test` target, so stdenv's default check phase is a
+        #   no-op here.
+        # - raw texlive packages, including `texlive.bin.*`, keep the march
+        #   flags but remain untagged because their own derivations disable
+        #   checks and do not execute the produced binaries.
+        pipewire = optimizeCCPackageRunningTargetBinaries prev.pipewire;
         wireplumber = optimizeCCPackage prev.wireplumber;
         easyeffects = optimizeCCPackage prev.easyeffects;
         lsp-plugins = optimizeCCPackage prev.lsp-plugins;
-        ffmpeg = optimizeCCPackage prev.ffmpeg;
+        ffmpeg = optimizeCCPackageRunningTargetBinaries prev.ffmpeg;
         p7zip = optimizeCCPackage prev.p7zip;
         quickshell = optimizeCCPackage prev.quickshell;
 
-        ripgrep = optimizeRustPackage prev.ripgrep;
-        fd = optimizeRustPackage prev.fd;
+        ripgrep = optimizeRustPackageRunningTargetBinaries prev.ripgrep;
+        fd = optimizeRustPackageRunningTargetBinaries prev.fd;
 
         # `texlive.combined.scheme-medium` is a buildEnv wrapper, so re-import
         # the texlive package set with a selective C/C++-flagged stdenv in
         # order to rebuild the underlying TeX Live binaries used by the scheme.
-        texlive = addRequiredMarchFeatureRecursively (
-          final.callPackage (inputs.nixpkgs.outPath + "/pkgs/tools/typesetting/tex/texlive") {
-            stdenv = prev.withCFlags cFlags prev.stdenv;
-          }
-        );
+        texlive =
+          let
+            optimizedTexlive = final.callPackage (inputs.nixpkgs.outPath + "/pkgs/tools/typesetting/tex/texlive") {
+              stdenv = prev.withCFlags cFlags prev.stdenv;
+            };
+          in
+          optimizedTexlive
+          // {
+            combine = pkgList: maybeAddRequiredMarchFeature (optimizedTexlive.combine pkgList);
+            combined = mapTaggedDerivations optimizedTexlive.combined;
+            schemes = mapTaggedDerivations optimizedTexlive.schemes;
+            withPackages = f: maybeAddRequiredMarchFeature (optimizedTexlive.withPackages f);
+          };
       };
 }
