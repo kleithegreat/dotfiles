@@ -34,12 +34,24 @@ PanelWindow {
         anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
         anchors.rightMargin: Theme.barPadding; spacing: Theme.barSpacing
 
-        Network { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleWifi(); } }
-        Vpn { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleVpn(); } }
-        Bluetooth { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleBluetooth(); } }
-        Volume { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleAudio(); } }
-        Brightness { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleBrightness(); } }
-        Battery { onClicked: { if (bar.popupVisibility) bar.popupVisibility.togglePowerProfile(); } }
+        Rectangle {
+            color: Theme.bg1
+            radius: Theme.barRadius
+            implicitWidth: statusRow.implicitWidth + Theme.barSpacing * 2
+            implicitHeight: statusRow.implicitHeight + Theme.barSpacing
+            Layout.alignment: Qt.AlignVCenter
+
+            RowLayout {
+                id: statusRow
+                anchors.centerIn: parent
+                spacing: Theme.barSpacing
+
+                Network { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleQuickSettings(); } }
+                Bluetooth { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleQuickSettings(); } }
+                Volume { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleQuickSettings(); } }
+                Battery { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleQuickSettings(); } }
+            }
+        }
 
         Bell {
             doNotDisturb: bar.doNotDisturb
