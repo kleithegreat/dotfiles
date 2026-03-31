@@ -260,6 +260,10 @@ in
     source = "${dotfilesPath}/scripts/brightness-step.sh";
     executable = true;
   };
+  home.file.".local/bin/toggle-float.sh" = {
+    source = "${dotfilesPath}/scripts/toggle-float.sh";
+    executable = true;
+  };
 
   # ── Desktop entry overrides ───────────────────────────────
   # Launch VS Code via hyprctl so Hyprland tracks the correct workspace
