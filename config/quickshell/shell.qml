@@ -123,20 +123,6 @@ Scope {
     // ── Shared Overlay Host ──
     PopupOverlayHost { popupVisibility: root.popupVisibility }
 
-    // ── Remaining Popups (bound to popupVisibility) ──
-    // PowerMenu { active: root.popupVisibility.powerMenuVisible; onClose: root.popupVisibility.powerMenuVisible = false }
-    // NotifDrawer {
-    //     active: root.popupVisibility.drawerVisible; onClose: root.popupVisibility.drawerVisible = false
-    // }
-    // Popups.CalendarPopup { active: root.popupVisibility.calendarVisible; onClose: root.popupVisibility.calendarVisible = false }
-    // Popups.TrayPopup { active: root.popupVisibility.trayVisible; onClose: root.popupVisibility.trayVisible = false }
-    // Popups.MprisPopup { active: root.popupVisibility.mprisVisible; onClose: root.popupVisibility.mprisVisible = false }
-    // Popups.AudioPopup { active: root.popupVisibility.audioVisible; onClose: root.popupVisibility.audioVisible = false }
-    // Popups.WifiPopup { active: root.popupVisibility.wifiVisible; onClose: root.popupVisibility.wifiVisible = false }
-    // Popups.BluetoothPopup { active: root.popupVisibility.bluetoothVisible; onClose: root.popupVisibility.bluetoothVisible = false }
-    // Popups.PowerProfilePopup { active: root.popupVisibility.powerProfileVisible; onClose: root.popupVisibility.powerProfileVisible = false }
-    // Popups.SettingsPopup { active: root.popupVisibility.settingsVisible; onClose: root.popupVisibility.settingsVisible = false }
-
     IpcHandler {
         target: "popups"
 
@@ -146,13 +132,8 @@ Scope {
         function toggleCalendar(): void { root.popupVisibility.toggleCalendar(); }
         function toggleTray(): void { root.popupVisibility.toggleTray(); }
         function toggleMpris(): void { root.popupVisibility.toggleMpris(); }
-        function toggleAudio(): void { root.popupVisibility.toggleAudio(); }
-        function toggleBrightness(): void { root.popupVisibility.toggleBrightness(); }
-        function toggleWifi(): void { root.popupVisibility.toggleWifi(); }
-        function toggleBluetooth(): void { root.popupVisibility.toggleBluetooth(); }
-        function togglePowerProfile(): void { root.popupVisibility.togglePowerProfile(); }
         function toggleSettings(): void { root.popupVisibility.toggleSettings(); }
-        function toggleVpn(): void { root.popupVisibility.toggleVpn(); }
+        function toggleQuickSettings(): void { root.popupVisibility.toggleQuickSettings(); }
     }
 
     IpcHandler {
