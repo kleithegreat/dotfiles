@@ -72,8 +72,8 @@ FocusScope {
         if (active) {
             forceActiveFocus();
             contentLoaded = true;
-            NetworkService.refreshRadio();
-            NetworkService.refreshConnection();
+            NetworkService.refreshSummary();
+            BluetoothService.refreshSummary();
             BrightnessService.refresh();
             PowerProfileService.detect();
             VpnService.refresh();
