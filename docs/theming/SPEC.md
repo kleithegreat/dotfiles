@@ -1383,7 +1383,7 @@ To confirm a generator cannot touch non-theming config:
 
 ```
 Phase 0: Foundation (sequential)
-├── THEMING.md (this file) ✅
+├── docs/theming/SPEC.md (this file) ✅
 ├── themes/lib/schema.py
 ├── themes/lib/resolve.py
 └── themes/lib/orchestrator.py + themes/apply-theme
@@ -1436,9 +1436,9 @@ Create:
 Each agent gets a prompt like:
 
 > Implement `themes/lib/targets/alacritty.py` following the target contract in
-> THEMING.md. Also split `config/alacritty/alacritty.toml` into a base config
+> docs/theming/SPEC.md. Also split `config/alacritty/alacritty.toml` into a base config
 > (with an import line) and verify the generated output matches the current
-> theme. Read THEMING.md first.
+> theme. Read docs/theming/SPEC.md first.
 
 Each task is one target module + the corresponding config split. Every task is
 independent — no agent needs to coordinate with another.

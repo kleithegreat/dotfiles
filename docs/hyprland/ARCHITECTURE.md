@@ -7,7 +7,7 @@ This document describes the current Hyprland session architecture in this repo a
 - `config/hypr/*`
 - `hosts/laptop/*` and `hosts/desktop/*`
 - `home/default.nix`
-- Hyprland-related sections of `THEMING.md`
+- Hyprland-related sections of `docs/theming/SPEC.md`
 
 ## Top-Level Assembly
 
@@ -46,7 +46,7 @@ Two implications matter:
 
 The theme system is split into base config plus generated overlays.
 
-- `~/.config/hypr/colors.conf` is a generated standalone file. `THEMING.md` describes it as the source of `$theme_*` variables and says it reloads via `hyprctl reload`.
+- `~/.config/hypr/colors.conf` is a generated standalone file. `docs/theming/SPEC.md` describes it as the source of `$theme_*` variables and says it reloads via `hyprctl reload`.
 - `appearance.conf` immediately sources `~/.config/hypr/appearance-theme.conf`, another generated file used for runtime appearance values such as gaps, borders, rounding, blur, and animation settings.
 - `hyprlock.conf` sources `~/.config/hypr/colors.conf` directly so the lock screen inherits the same palette variables as the compositor.
 - `plugins.conf` consumes the same theme variables for `hyprbars` and `hyprexpo`.
@@ -57,13 +57,13 @@ This yields a three-layer model:
 2. Generated theme variable file: `colors.conf`
 3. Generated runtime appearance override file: `appearance-theme.conf`
 
-`THEMING.md` still describes a `pluginsettings.conf` base file, but the live source graph now uses `plugins.conf`. Architecturally, `plugins.conf` is the real theming consumer today.
+`docs/theming/SPEC.md` still describes a `pluginsettings.conf` base file, but the live source graph now uses `plugins.conf`. Architecturally, `plugins.conf` is the real theming consumer today.
 
 Relevant theming references:
 
-- `THEMING.md` generated-file layout: `colors.conf`, `appearance-theme.conf`
-- `THEMING.md` Hyprland target registry: `hyprland` and `hypr_appearance`
-- `THEMING.md` live appearance flow: Quickshell settings update theme state, `apply-theme` regenerates `appearance-theme.conf`, and Hyprland reloads
+- `docs/theming/SPEC.md` generated-file layout: `colors.conf`, `appearance-theme.conf`
+- `docs/theming/SPEC.md` Hyprland target registry: `hyprland` and `hypr_appearance`
+- `docs/theming/SPEC.md` live appearance flow: Quickshell settings update theme state, `apply-theme` regenerates `appearance-theme.conf`, and Hyprland reloads
 
 ## Appearance Layer
 
