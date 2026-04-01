@@ -398,17 +398,17 @@ So this should be treated as intentional, not as an accidental bug. It is still 
 
 ### 6.1 What currently exists
 
-There is documentation for the theming system:
+There is now domain-specific Quickshell documentation:
 
-- overall theming flow and principles: `docs/theming/SPEC.md:30-70`
-- Quickshell integration as part of theming: `docs/theming/SPEC.md:1120-1185`
+- `docs/quickshell/ARCHITECTURE.md`
+- `docs/quickshell/SPEC.md`
 
-There is also documentation under `docs/`, but it is Nix / infrastructure oriented:
+There is still supporting cross-domain documentation for theming:
 
-- `docs/nix/distributed-builds.md:1-65`
-- `docs/nix/homelab-builder-setup.md:1-157`
+- overall theming flow and principles: `docs/theming/SPEC.md:24-1101`
+- Quickshell-theme boundary details: `docs/theming/SPEC.md:1120-1185`
 
-The Quickshell implementation itself is only discoverable from code, primarily:
+The code remains the source for exact runtime behavior, primarily:
 
 - shell composition: `config/quickshell/shell.qml:12-186`
 - popup exclusivity: `config/quickshell/PopupVisibility.qml:3-39`
@@ -420,16 +420,18 @@ The Quickshell implementation itself is only discoverable from code, primarily:
 
 ### 6.2 What is missing for an agent without prior context
 
-There is no Quickshell architecture document covering:
+The top-level documentation gap is narrower now. `docs/quickshell/ARCHITECTURE.md`
+and `docs/quickshell/SPEC.md` cover the shell composition model, popup
+exclusivity, service-layer boundaries, settings host/pane contract, bar/service
+relationship, and the shell-side theme feedback contract.
 
-- the shell’s top-level composition and lifecycle
-- the popup system, exclusivity model, and overlay host
-- the service layer and which UI surfaces consume which services
-- the bar module inventory and why some bar modules bypass the singleton services
-- the settings popup host/pane contract
-- the category registry and how panes are added
-- which interactions go through `apply-theme`, which go directly to services, and which go through shell IPC
-- which state updates are push-based (`Theme.qml` file watch) versus timer/poll-based (`reloadTimer`, service timers, bar timers)
-- the preset subsystem and its relationship to the regular settings panes
+The remaining burden on a future agent is mostly at the implementation-detail
+level:
 
-That absence matters because the current codebase is understandable only by reverse-engineering multiple large files at once. `docs/theming/SPEC.md` explains the theme contract, but it does not explain the broader Quickshell architecture, and even its simplified Quickshell flow does not capture the current per-key differences in how settings round-trip back into the UI. Files: `docs/theming/SPEC.md:30-41`, `docs/theming/SPEC.md:1174-1185`, `config/quickshell/popups/SettingsPopup.qml:613-661`, `themes/lib/orchestrator.py:15-46`, `themes/lib/targets/quickshell.py:7-13`, `themes/lib/targets/gtk.py:32-43`.
+- the exact timer and refresh behaviors still live in code
+- pane-specific layout tradeoffs still live in code
+- service freshness and command paths still require reading the service files
+
+Those remaining details do not change the main point of the documentation update:
+the shell is no longer only discoverable by reverse-engineering `shell.qml`,
+`SettingsPopup.qml`, and the service singletons directly.
