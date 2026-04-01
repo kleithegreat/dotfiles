@@ -7,6 +7,7 @@ in
   imports = [
     ./shell.nix
     ./gtk.nix
+    ./sun-schedule.nix
     vicinae.homeManagerModules.default
   ];
 
