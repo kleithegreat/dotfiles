@@ -7,6 +7,9 @@ QtObject {
     id: root
 
     // ── Connection state ──
+    readonly property bool wifiEnabled: _wifiEnabled
+    readonly property bool wifiRadioReady: _wifiRadioReady
+    readonly property bool wifiRadioBusy: wifiRadioCheckProc.running || wifiRadioToggleProc.running
     readonly property string connectedSsid: _connectedSsid
     readonly property string connectedConnectionId: _connectedConnectionId
     readonly property string connectedConnectionUuid: _connectedConnectionUuid
@@ -82,6 +85,8 @@ QtObject {
 
     // ── Internal staging ──────────────────────────────────────
 
+    property bool _wifiEnabled: false
+    property bool _wifiRadioReady: false
     property string _connectedSsid: ""
     property string _connectedConnectionId: ""
     property string _connectedConnectionUuid: ""
@@ -139,21 +144,51 @@ QtObject {
     property string _currentBand: ""
     property bool _diagPolling: false
     property var _chanMap: ({})
+    property bool _scanAfterRadioRefresh: false
+    property bool _wifiTargetEnabled: false
 
     // ── Models ──
     property ListModel netModel: ListModel {}
     property ListModel knownModel: ListModel {}
     property ListModel channelModel: ListModel {}
 
+    Component.onCompleted: refreshRadio()
+
     // ── Public API ────────────────────────────────────────────
 
     function scan() {
-        netModel.clear();
+        clearLiveWifiState();
+        _scanAfterRadioRefresh = true;
+        refreshRadio();
+    }
+
+    function refreshRadio() {
+        if (!wifiRadioCheckProc.running)
+            wifiRadioCheckProc.running = true;
+    }
+
+    function refreshConnection() {
         _connectedSsid = "";
         _connectedConnectionId = "";
         _connectedConnectionUuid = "";
-        scanProc.running = true;
-        connectivityProc.running = true;
+        if (!activeProc.running)
+            activeProc.running = true;
+        if (!connectivityProc.running)
+            connectivityProc.running = true;
+    }
+
+    function setWifiEnabled(enabled) {
+        if (wifiRadioBusy)
+            return;
+        if (_wifiRadioReady && _wifiEnabled === enabled)
+            return;
+        _wifiTargetEnabled = enabled;
+        wifiRadioToggleProc.command = ["nmcli", "radio", "wifi", enabled ? "on" : "off"];
+        wifiRadioToggleProc.running = true;
+    }
+
+    function toggleWifiRadio() {
+        setWifiEnabled(!_wifiEnabled);
     }
 
     function loadKnown() {
@@ -372,6 +407,14 @@ QtObject {
         _diagPolling = false;
     }
 
+    function clearLiveWifiState() {
+        netModel.clear();
+        _connectedSsid = "";
+        _connectedConnectionId = "";
+        _connectedConnectionUuid = "";
+        _connectivityState = "";
+    }
+
     // ── Utility functions ─────────────────────────────────────
 
     function parseNmcli(line) {
@@ -498,6 +541,52 @@ QtObject {
         if (score >= 60) return Root.Theme.aquaBright;
         if (score >= 40) return Root.Theme.yellowBright;
         return Root.Theme.redBright;
+    }
+
+    // ── Radio processes ───────────────────────────────────────
+
+    property Process wifiRadioCheckProc: Process {
+        running: false
+        command: ["nmcli", "radio", "wifi"]
+        stdout: SplitParser { onRead: (line) => {
+            let state = line.trim();
+            if (state === "")
+                return;
+            root._wifiEnabled = state === "enabled";
+            root._wifiRadioReady = true;
+            if (!root._wifiEnabled)
+                root.clearLiveWifiState();
+        } }
+        onExited: (code, status) => {
+            if (root._scanAfterRadioRefresh) {
+                root._scanAfterRadioRefresh = false;
+                if (root._wifiEnabled) {
+                    root.scanProc.running = true;
+                    root.connectivityProc.running = true;
+                } else {
+                    root._connectivityState = "";
+                }
+            }
+            if (code !== 0)
+                console.log("[wifi-radio-check] exit", code);
+        }
+    }
+
+    property Process wifiRadioToggleProc: Process {
+        running: false
+        onExited: (code, status) => {
+            if (code === 0) {
+                if (root._wifiTargetEnabled) {
+                    root.scan();
+                    root.loadKnown();
+                } else {
+                    root.refreshRadio();
+                }
+            } else {
+                console.log("[wifi-radio-toggle] exit", code);
+                root.refreshRadio();
+            }
+        }
     }
 
     // ── Scan processes ────────────────────────────────────────
