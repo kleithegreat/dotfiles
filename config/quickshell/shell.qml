@@ -120,6 +120,64 @@ Scope {
         }
     }
 
+    // ── Toast ──
+    PanelWindow {
+        visible: ToastService.toastVisible || toastPanel.opacity > 0.001
+        anchors { bottom: true }
+        margins { bottom: Theme.gapOut }
+        implicitWidth: toastContent.implicitWidth + Theme.popupPadding * 2
+        implicitHeight: Theme.osdHeight
+        color: "transparent"; mask: Region {}
+        WlrLayershell.namespace: "quickshell:toast"; WlrLayershell.layer: WlrLayer.Overlay; exclusionMode: ExclusionMode.Ignore
+
+        Rectangle {
+            id: toastPanel
+            anchors.fill: parent
+            radius: Theme.osdRadius
+            color: ToastService.currentLevel === "error"   ? Qt.rgba(Theme.red.r, Theme.red.g, Theme.red.b, 0.25) :
+                   ToastService.currentLevel === "warning" ? Qt.rgba(Theme.yellow.r, Theme.yellow.g, Theme.yellow.b, 0.25) :
+                   Theme.bg1
+            border.width: 1; border.color: Theme.bg3
+            scale: ToastService.toastVisible ? 1.0 : 0.85
+            opacity: ToastService.toastVisible ? 1.0 : 0.0
+
+            Behavior on scale {
+                Components.Anim {
+                    duration: ToastService.toastVisible ? Theme.animOsdIn : Theme.animOsdOut
+                    easing.type: ToastService.toastVisible ? Easing.OutCubic : Easing.InCubic
+                }
+            }
+            Behavior on opacity {
+                Components.Anim {
+                    duration: ToastService.toastVisible ? Theme.animOsdIn : Theme.animOsdOut
+                    easing.type: ToastService.toastVisible ? Easing.OutCubic : Easing.InCubic
+                }
+            }
+
+            Row {
+                id: toastContent
+                anchors.centerIn: parent
+                spacing: 8
+
+                Text {
+                    text: ToastService.currentLevel === "error" ? "󰅚" :
+                          ToastService.currentLevel === "warning" ? "󰀪" : "󰋽"
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
+                    color: ToastService.currentLevel === "error"   ? Theme.redBright :
+                           ToastService.currentLevel === "warning" ? Theme.yellowBright : Theme.fg
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+
+                Text {
+                    text: ToastService.currentMessage
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize
+                    color: Theme.fg
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+            }
+        }
+    }
+
     // ── Shared Overlay Host ──
     PopupOverlayHost { popupVisibility: root.popupVisibility }
 
