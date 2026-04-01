@@ -209,4 +209,58 @@ Scope {
 
         function toggle(): void { root.popupVisibility.toggleSettings(); }
     }
+
+    IpcHandler {
+        target: "audio"
+
+        function toggleMute(): void { AudioService.toggleMute(); }
+        function status(): string {
+            return JSON.stringify({
+                volume: Math.round(AudioService.volume * 100),
+                muted: AudioService.muted,
+                sinkName: AudioService.sinkDescription
+            });
+        }
+    }
+
+    IpcHandler {
+        target: "vpn"
+
+        function mullvadConnect(): void { VpnService.mullvadConnect(); }
+        function mullvadDisconnect(): void { VpnService.mullvadDisconnect(); }
+        function tailscaleUp(): void { VpnService.tailscaleUp(); }
+        function tailscaleDown(): void { VpnService.tailscaleDown(); }
+        function refresh(): void { VpnService.refresh(); }
+        function status(): string {
+            return JSON.stringify({
+                mullvadState: VpnService.mullvadState,
+                mullvadCity: VpnService.mullvadCity,
+                tailscaleState: VpnService.tailscaleState,
+                tailscaleIp: VpnService.tailscaleIp
+            });
+        }
+    }
+
+    Process {
+        id: themeApplyProc
+        running: false
+    }
+
+    IpcHandler {
+        target: "theme"
+
+        function open(): void { root.popupVisibility.toggleSettings(); }
+        function apply(args): void {
+            themeApplyProc.command = ["/home/kevin/repos/dotfiles/themes/apply-theme"].concat(args.split(" "));
+            themeApplyProc.running = true;
+        }
+    }
+
+    IpcHandler {
+        target: "toast"
+
+        function info(message): void { ToastService.showInfo(message); }
+        function warning(message): void { ToastService.showWarning(message); }
+        function error(message): void { ToastService.showError(message); }
+    }
 }
