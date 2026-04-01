@@ -95,7 +95,7 @@ FocusScope {
     Rectangle {
         id: trayPanel
         anchors.right: parent.right; anchors.top: parent.top
-        anchors.topMargin: Theme.popupTopMargin; anchors.rightMargin: Theme.gapOut + 36
+        anchors.topMargin: Theme.popupTopMargin; anchors.rightMargin: Theme.gapOut + 140
         width: trayGrid.implicitWidth + Theme.barPadding * 2
         height: trayGrid.implicitHeight + Theme.barPadding * 2
         radius: Theme.popupRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3

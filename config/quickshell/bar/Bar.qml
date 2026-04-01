@@ -34,11 +34,7 @@ PanelWindow {
         anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
         anchors.rightMargin: Theme.barPadding; spacing: Theme.barSpacing
 
-        Bell {
-            doNotDisturb: bar.doNotDisturb
-            historyCount: bar.historyCount
-            onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleDrawer(); }
-        }
+        TrayExpand { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleTray(); } }
 
         Rectangle {
             color: Theme.bg1
@@ -59,7 +55,12 @@ PanelWindow {
             }
         }
 
-        TrayExpand { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleTray(); } }
+        Rectangle { width: 1; height: Theme.barHeight * 0.4; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
+        Bell {
+            doNotDisturb: bar.doNotDisturb
+            historyCount: bar.historyCount
+            onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleDrawer(); }
+        }
 
         Rectangle { width: 1; height: Theme.barHeight * 0.4; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
         Power { onClicked: { if (bar.popupVisibility) bar.popupVisibility.togglePowerMenu(); } }
