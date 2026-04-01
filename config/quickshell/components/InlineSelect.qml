@@ -9,6 +9,7 @@ FocusScope {
     property string currentText: ""
     property string placeholderText: "Select"
     property string secondaryText: ""
+    property string fontFamily: Root.Theme.fontFamily
     property bool disabled: root.optionCount === 0
     property bool expanded: false
     property int maxVisibleItems: 6
@@ -133,7 +134,7 @@ FocusScope {
                 animate: true
                 text: root.currentText !== "" ? root.currentText : root.placeholderText
                 color: root.disabled ? Root.Theme.fg4 : Root.Theme.fg
-                font.family: Root.Theme.fontFamily
+                font.family: root.fontFamily
                 font.pixelSize: Root.Theme.fontSizeSmall
                 elide: Text.ElideRight
             }
@@ -151,14 +152,14 @@ FocusScope {
                     visible: root.secondaryText !== ""
                     text: root.secondaryText
                     color: Root.Theme.fg4
-                    font.family: Root.Theme.fontFamily
+                    font.family: root.fontFamily
                     font.pixelSize: Root.Theme.fontSizeSmall
                 }
 
                 Text {
                     text: ">"
                     color: root.expanded ? Root.Theme.accent : Root.Theme.fg4
-                    font.family: Root.Theme.fontFamily
+                    font.family: root.fontFamily
                     font.pixelSize: Root.Theme.fontSizeSmall + 1
                     rotation: root.expanded ? 90 : 0
                     Behavior on color { CAnim { duration: Root.Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Root.Theme.animCurveStandard } }
@@ -249,7 +250,7 @@ FocusScope {
                                     }
                                     text: root.optionText(modelData)
                                     color: isCurrent ? Root.Theme.bg : Root.Theme.fg
-                                    font.family: Root.Theme.fontFamily
+                                    font.family: root.fontFamily
                                     font.pixelSize: Root.Theme.fontSizeSmall
                                     elide: Text.ElideRight
                                 }

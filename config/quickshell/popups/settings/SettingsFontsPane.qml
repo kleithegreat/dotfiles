@@ -10,6 +10,27 @@ Components.WheelFlickable {
 
     signal setRequested(string key, string value)
 
+    readonly property var monoFontOptions: [
+        "JetBrains Mono Nerd Font",
+        "Berkeley Mono",
+        "Commit Mono",
+        "Recursive Mono",
+        "Fira Code Nerd Font",
+        "Iosevka Nerd Font"
+    ]
+    readonly property var systemFontOptions: [
+        "Overpass",
+        "Inter",
+        "Geist",
+        "IBM Plex Sans",
+        "Rubik",
+        "Noto Sans",
+        "Cantarell",
+        "Source Sans 3",
+        "Outfit",
+        "SF Pro"
+    ]
+
     function monoFontBaseSize() {
         return root.themeState.mono_font_size || 11;
     }
@@ -39,6 +60,10 @@ Components.WheelFlickable {
         return value > 0 ? "+" + value : String(value);
     }
 
+    function monoFontLabel(fontName) {
+        return fontName.replace(" Nerd Font", "");
+    }
+
     function adjustMonoFontSizeOffset(key, delta) {
         let next = monoFontSizeOffset(key) + delta;
         if (monoFontBaseSize() + next < 1)
@@ -59,56 +84,21 @@ Components.WheelFlickable {
 
         Text { text: "CODING FONT"; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
 
-        Flow {
+        Components.InlineSelect {
+            id: monoFontSelect
             Layout.fillWidth: true
-            spacing: 6
-
-            Repeater {
-                model: ["JetBrains Mono Nerd Font", "Berkeley Mono", "Commit Mono", "Recursive Mono", "Fira Code Nerd Font", "Iosevka Nerd Font"]
-
-                delegate: Rectangle {
-                    id: mfBtn
-                    required property string modelData
-                    required property int index
-                    property bool isCurrent: root.themeState.mono_font === modelData
-
-                    width: mfLabel.implicitWidth + 16
-                    height: Theme.btnHeight
-                    radius: Theme.btnRadius
-                    color: isCurrent ? Theme.accent : (mfArea.containsMouse ? Theme.bg2 : Theme.bg1)
-                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    border.width: 1
-                    border.color: isCurrent ? Theme.accent : Theme.bg3
-                    Behavior on border.color { Components.CAnim { duration: Theme.animSpring; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    scale: mfArea.pressed ? 0.95 : 1.0
-                    Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    transformOrigin: Item.Center
-
-                    Text {
-                        id: mfLabel
-                        anchors.centerIn: parent
-                        text: mfBtn.modelData.replace(" Nerd Font", "")
-                        color: mfBtn.isCurrent ? Theme.bg : Theme.fg
-                        font.family: Theme.systemFamily
-                        font.pixelSize: Theme.fontSizeSmall
-                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    }
-
-                    Components.HoverLayer {
-                        id: mfArea
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        hoverEnabled: true
-
-                        hoverOpacity: 0
-
-                        pressedOpacity: 0
-
-                        pressedScale: 1.0
-                        onClicked: root.setRequested("mono_font", mfBtn.modelData)
-                    }
-                }
+            model: root.monoFontOptions
+            currentValue: root.themeState.mono_font
+            currentText: root.themeState.mono_font ? root.monoFontLabel(root.themeState.mono_font) : ""
+            secondaryText: root.monoFontOptions.length + " fonts"
+            textForValue: function(fontName) { return root.monoFontLabel(fontName); }
+            fontFamily: Theme.systemFamily
+            maxVisibleItems: 6
+            onExpandedChanged: {
+                if (expanded)
+                    systemFontSelect.expanded = false;
             }
+            onActivated: (fontName) => { root.setRequested("mono_font", fontName); }
         }
 
         Row {
@@ -287,56 +277,20 @@ Components.WheelFlickable {
 
         Text { text: "SYSTEM FONT"; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
 
-        Flow {
+        Components.InlineSelect {
+            id: systemFontSelect
             Layout.fillWidth: true
-            spacing: 6
-
-            Repeater {
-                model: ["Overpass", "Inter", "Geist", "IBM Plex Sans", "Rubik", "Noto Sans", "Cantarell", "Source Sans 3", "Outfit", "SF Pro"]
-
-                delegate: Rectangle {
-                    id: sfBtn
-                    required property string modelData
-                    required property int index
-                    property bool isCurrent: root.themeState.system_font === modelData
-
-                    width: sfLabel.implicitWidth + 16
-                    height: Theme.btnHeight
-                    radius: Theme.btnRadius
-                    color: isCurrent ? Theme.accent : (sfArea.containsMouse ? Theme.bg2 : Theme.bg1)
-                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    border.width: 1
-                    border.color: isCurrent ? Theme.accent : Theme.bg3
-                    Behavior on border.color { Components.CAnim { duration: Theme.animSpring; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    scale: sfArea.pressed ? 0.95 : 1.0
-                    Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    transformOrigin: Item.Center
-
-                    Text {
-                        id: sfLabel
-                        anchors.centerIn: parent
-                        text: sfBtn.modelData
-                        color: sfBtn.isCurrent ? Theme.bg : Theme.fg
-                        font.family: Theme.systemFamily
-                        font.pixelSize: Theme.fontSizeSmall
-                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    }
-
-                    Components.HoverLayer {
-                        id: sfArea
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        hoverEnabled: true
-
-                        hoverOpacity: 0
-
-                        pressedOpacity: 0
-
-                        pressedScale: 1.0
-                        onClicked: root.setRequested("system_font", sfBtn.modelData)
-                    }
-                }
+            model: root.systemFontOptions
+            currentValue: root.themeState.system_font
+            currentText: root.themeState.system_font || ""
+            secondaryText: root.systemFontOptions.length + " fonts"
+            fontFamily: Theme.systemFamily
+            maxVisibleItems: 7
+            onExpandedChanged: {
+                if (expanded)
+                    monoFontSelect.expanded = false;
             }
+            onActivated: (fontName) => { root.setRequested("system_font", fontName); }
         }
 
         Row {
