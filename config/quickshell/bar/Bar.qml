@@ -34,6 +34,12 @@ PanelWindow {
         anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
         anchors.rightMargin: Theme.barPadding; spacing: Theme.barSpacing
 
+        Bell {
+            doNotDisturb: bar.doNotDisturb
+            historyCount: bar.historyCount
+            onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleDrawer(); }
+        }
+
         Rectangle {
             color: Theme.bg1
             radius: Theme.barRadius
@@ -51,12 +57,6 @@ PanelWindow {
                 Volume { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleQuickSettings(); } }
                 Battery { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleQuickSettings(); } }
             }
-        }
-
-        Bell {
-            doNotDisturb: bar.doNotDisturb
-            historyCount: bar.historyCount
-            onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleDrawer(); }
         }
 
         TrayExpand { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleTray(); } }

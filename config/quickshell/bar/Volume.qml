@@ -28,11 +28,6 @@ Item {
             }
             Behavior on color { Components.CAnim { duration: 150 } }
         }
-        Text {
-            text: muted ? "Muted" : Math.round(volume * 100) + "%"
-            color: hoverA.containsMouse ? Theme.yellowBright : (muted ? Theme.fg4 : Theme.fg)
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-        }
     }
     MouseArea {
         id: hoverA; anchors.fill: parent
