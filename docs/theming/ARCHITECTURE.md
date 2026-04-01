@@ -13,7 +13,7 @@ It is based on:
 - `themes/lib/orchestrator.py`
 - every file under `themes/lib/targets/`
 - the current consumer integration points in `home/default.nix:225-241`,
-  `home/default.nix:326-330`, `config/quickshell/Theme.qml:5-25`,
+  `home/default.nix:327-329`, `config/quickshell/Theme.qml:5-167`,
   `config/nvim/lua/plugins/colors.lua:1-14`, and
   `config/nvim/lua/config/options.lua:29-29`
 
@@ -82,7 +82,8 @@ The currently registered target set is:
 
 - `alacritty`, `bat`, `cursor`, `ghostty`, `gtk`, `hypr_appearance`,
   `hyprland`, `neovide`, `neovim`, `qt`, `quickshell`, `snappy_switcher`,
-  `spicetify`, `starship`, `tmux`, `vicinae`, `vscode`, and `wallpaper`
+  `spicetify`, `starship`, `tmux`, `vicinae`, `vscode`, `wallpaper`, and
+  `zathura`
 
 That inventory extends beyond the target list in `docs/theming/SPEC.md`,
 especially with `hypr_appearance`, `neovide`, `snappy_switcher`, `spicetify`,
@@ -179,8 +180,8 @@ The live `import` targets are `alacritty`, `tmux`, and `zathura`
 `themes/lib/targets/zathura.py:5-36`). Each one writes a generated fragment while
 the repo-managed base file stays deployed by Home Manager:
 
-- `config/alacritty/alacritty.toml:1-8` imports `~/.config/alacritty/theme.toml`
-- `config/tmux/tmux.conf:1-50` sources `~/.config/tmux/colors.conf`
+- `config/alacritty/alacritty.toml:1-9` imports `~/.config/alacritty/theme.toml`
+- `config/tmux/tmux.conf:1-41` sources `~/.config/tmux/colors.conf`
 - `config/zathura/zathurarc:1-2` includes `colors`
 
 Only `tmux` declares an explicit reload command. `alacritty` relies on config
@@ -292,7 +293,7 @@ Home Manager is the current deployment layer for base config and activation:
 - `home/default.nix:225-241` deploys the recursive `quickshell/` and `nvim/`
   trees, the base configs for Alacritty, tmux, and Zathura, and the packaged
   Snappy Switcher themes
-- `home/default.nix:326-330` runs `themes/apply-theme sync` after the managed
+- `home/default.nix:327-329` runs `themes/apply-theme sync` after the managed
   files are written
 
 This means the theming system currently relies on two integration patterns:
@@ -304,7 +305,7 @@ This means the theming system currently relies on two integration patterns:
 
 The shell-side and editor-side consumer entry points are currently:
 
-- `config/quickshell/Theme.qml:5-25` for `GeneratedTheme.json`
+- `config/quickshell/Theme.qml:5-167` for `GeneratedTheme.json`
 - `config/nvim/lua/plugins/colors.lua:1-14` for `theme-state.json`
 - `config/nvim/lua/config/options.lua:29-29` for `neovide-theme.lua`
 
