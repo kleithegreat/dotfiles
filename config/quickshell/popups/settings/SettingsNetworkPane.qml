@@ -9,8 +9,11 @@ FocusScope {
     anchors.fill: parent
 
     property string paneState: "list"   // list | detail | password | enterprise | connecting | diagnostics | channels
-    property bool listLoading: paneState === "list" && NetworkService.scanning && NetworkService.networksModel.count === 0
+    property bool listLoading: paneState === "list"
+        && ((!NetworkService.wifiRadioReady && NetworkService.wifiRadioBusy)
+            || (NetworkService.wifiEnabled && NetworkService.scanning && NetworkService.networksModel.count === 0))
     property bool channelLoading: paneState === "channels" && NetworkService.channelScanning
+    readonly property bool wifiPoweredOff: NetworkService.wifiRadioReady && !NetworkService.wifiEnabled
 
     readonly property bool mullvadOn: VpnService.mullvadState === "connected" || VpnService.mullvadState === "connecting"
     readonly property bool tailscaleOn: VpnService.tailscaleState === "running" || VpnService.tailscaleState === "starting"
@@ -47,6 +50,10 @@ FocusScope {
         function onConnectFailed() { root.paneState = "list"; }
         function onDisconnected() { root.paneState = "list"; }
         function onNetworkForgotten() { root.paneState = "list"; }
+        function onWifiEnabledChanged() {
+            if (!NetworkService.wifiEnabled && root.paneState !== "list")
+                root.resetState();
+        }
     }
 
     function resetState() {
@@ -130,7 +137,7 @@ FocusScope {
             }
 
             Rectangle {
-                visible: root.paneState === "list"
+                visible: root.paneState === "list" && NetworkService.wifiEnabled
                 width: rescanLabel.implicitWidth + Theme.btnPaddingH * 2; height: Theme.btnHeight; radius: Theme.btnRadius
                 color: "transparent"
                 Components.HoverLayer {
@@ -141,6 +148,24 @@ FocusScope {
                         Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                         font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
                 }
+            }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+
+            Text {
+                text: "Power"
+                color: Theme.fg
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSizeSmall
+                Layout.fillWidth: true
+            }
+
+            Components.ToggleSwitch {
+                checked: NetworkService.wifiEnabled
+                onToggled: NetworkService.toggleWifiRadio()
             }
         }
 
@@ -176,6 +201,7 @@ FocusScope {
 
                     Wifi.WifiList {
                         anchors.fill: parent
+                        visible: NetworkService.wifiEnabled || root.listLoading
                         opacity: root.listLoading ? 0 : 1
                         enabled: opacity > 0.01
                         Behavior on opacity {
@@ -187,6 +213,19 @@ FocusScope {
                         onConnectRequested: (ssid, security) => root.connectTo(ssid, security)
                         onDetailRequested: (ssid, security, signal, isActive) => root.openDetail(ssid, security, signal, isActive)
                         onCaptiveLoginRequested: NetworkService.openCaptivePortal()
+                    }
+
+                    Item {
+                        anchors.fill: parent
+                        visible: root.wifiPoweredOff && !root.listLoading
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: "Wi-Fi is off"
+                            color: Theme.fg4
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeSmall
+                        }
                     }
 
                     Column {

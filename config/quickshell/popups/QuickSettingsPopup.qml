@@ -2,7 +2,6 @@ import qs
 import Quickshell
 import QtQuick
 import QtQuick.Layouts
-import Quickshell.Io
 import Quickshell.Services.UPower
 import "../components" as Components
 
@@ -30,29 +29,8 @@ FocusScope {
     signal dndExpandRequested()
     signal powerProfileExpandRequested()
 
-    // ── WiFi radio state (NetworkService lacks a radio toggle) ──
-    property bool wifiEnabled: false
     property bool wifiConnected: NetworkService.connectedSsid !== ""
     property string wifiSsid: NetworkService.connectedSsid
-
-    Process {
-        id: wifiRadioCheck
-        command: ["nmcli", "radio", "wifi"]
-        running: false
-        stdout: SplitParser {
-            onRead: (line) => { qsPop.wifiEnabled = line.trim() === "enabled"; }
-        }
-    }
-
-    Process {
-        id: wifiRadioToggle
-        command: ["nmcli", "radio", "wifi", qsPop.wifiEnabled ? "off" : "on"]
-        running: false
-        onRunningChanged: {
-            if (!running)
-                Qt.callLater(function() { wifiRadioCheck.running = true; });
-        }
-    }
 
     // ── Battery ──
     property real batPct: {
@@ -94,7 +72,8 @@ FocusScope {
         if (active) {
             forceActiveFocus();
             contentLoaded = true;
-            wifiRadioCheck.running = true;
+            NetworkService.refreshRadio();
+            NetworkService.refreshConnection();
             BrightnessService.refresh();
             PowerProfileService.detect();
             VpnService.refresh();
@@ -213,7 +192,7 @@ FocusScope {
 
                             property bool isActive: {
                                 switch (modelData.key) {
-                                case "wifi": return qsPop.wifiEnabled;
+                                case "wifi": return NetworkService.wifiEnabled;
                                 case "bluetooth": return BluetoothService.powered;
                                 case "vpn": return VpnService.mullvadState === "connected" || VpnService.mullvadState === "connecting";
                                 case "dnd": return NotificationService.doNotDisturb;
@@ -241,7 +220,8 @@ FocusScope {
                             property string tileSublabel: {
                                 switch (modelData.key) {
                                 case "wifi":
-                                    if (!qsPop.wifiEnabled) return "Off";
+                                    if (!NetworkService.wifiRadioReady) return "Checking…";
+                                    if (!NetworkService.wifiEnabled) return "Off";
                                     return qsPop.wifiConnected ? qsPop.wifiSsid : "Not connected";
                                 case "bluetooth":
                                     if (!BluetoothService.powered) return "Off";
@@ -274,7 +254,7 @@ FocusScope {
 
                             function tileToggle() {
                                 switch (modelData.key) {
-                                case "wifi": wifiRadioToggle.running = true; break;
+                                case "wifi": NetworkService.toggleWifiRadio(); break;
                                 case "bluetooth": BluetoothService.togglePower(); break;
                                 case "vpn":
                                     if (VpnService.mullvadState === "connected" || VpnService.mullvadState === "connecting")
