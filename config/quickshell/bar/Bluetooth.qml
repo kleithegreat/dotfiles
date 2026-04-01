@@ -9,8 +9,6 @@ RowLayout {
     property string deviceName: ""
     property bool powered: false
     property bool connected: deviceName !== ""
-    property int maxLabelWidth: 100
-
     // ── Debounced state: staging vars ──
     property string _pendingName: ""
     property bool _pendingPowered: false
@@ -32,51 +30,6 @@ RowLayout {
             }
         }
         Behavior on color { Components.CAnim { duration: 150 } }
-    }
-
-    Item {
-        id: marqueeContainer
-        visible: connected
-        Layout.maximumWidth: btRoot.maxLabelWidth
-        implicitWidth: Math.min(btLabel.implicitWidth, btRoot.maxLabelWidth)
-        implicitHeight: btLabel.implicitHeight
-        clip: true
-
-        opacity: connected ? 1 : 0
-        Behavior on opacity { Components.Anim { duration: 200; easing.type: Easing.OutCubic } }
-
-        property bool overflowing: btLabel.implicitWidth > btRoot.maxLabelWidth
-
-        Text {
-            id: btLabel
-            text: deviceName
-            y: 0
-            color: btArea.containsMouse ? Theme.yellowBright : Theme.fg
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-            Behavior on color { Components.CAnim { duration: 150 } }
-        }
-
-        SequentialAnimation {
-            id: marqueeAnim
-            running: marqueeContainer.overflowing && marqueeContainer.visible
-            loops: Animation.Infinite
-
-            PauseAnimation { duration: 2000 }
-            NumberAnimation {
-                target: btLabel; property: "x"
-                from: 0; to: -(btLabel.implicitWidth - btRoot.maxLabelWidth)
-                duration: Math.max(1500, (btLabel.implicitWidth - btRoot.maxLabelWidth) * 30)
-                easing.type: Easing.Linear
-            }
-            PauseAnimation { duration: 1500 }
-            PropertyAction { target: btLabel; property: "x"; value: 0 }
-        }
-
-        onOverflowingChanged: { marqueeAnim.stop(); btLabel.x = 0; }
-        Connections {
-            target: btRoot
-            function onDeviceNameChanged() { marqueeAnim.stop(); btLabel.x = 0; }
-        }
     }
 
     MouseArea {

@@ -60,14 +60,6 @@ RowLayout {
         Behavior on color { Components.CAnim { duration: 200 } }
     }
 
-    Text {
-        id: batLabel
-        text: Math.round(pct) + "%"
-        color: batArea.containsMouse ? Theme.yellowBright : Theme.fg
-        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-        Behavior on color { Components.CAnim { duration: 150 } }
-    }
-
     MouseArea {
         id: batArea; anchors.fill: parent
         cursorShape: Qt.PointingHandCursor; hoverEnabled: true

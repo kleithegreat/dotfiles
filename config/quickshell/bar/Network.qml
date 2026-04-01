@@ -9,8 +9,6 @@ RowLayout {
     property string networkName: ""
     property string connectionType: ""
     property bool connected: networkName !== ""
-    property int maxLabelWidth: 100
-
     // ── Debounced state: hold previous value until new data arrives ──
     // Instead of clearing networkName before each poll (which caused the flash),
     // we write into a staging property and only commit when we get a real answer.
@@ -33,59 +31,6 @@ RowLayout {
             }
         }
         Behavior on color { Components.CAnim { duration: 150 } }
-    }
-
-    Item {
-        id: marqueeContainer
-        visible: connected
-        Layout.maximumWidth: netRoot.maxLabelWidth
-        implicitWidth: Math.min(netLabel.implicitWidth, netRoot.maxLabelWidth)
-        implicitHeight: netLabel.implicitHeight
-        clip: true
-
-        opacity: connected ? 1 : 0
-        Behavior on opacity { Components.Anim { duration: 200; easing.type: Easing.OutCubic } }
-
-        property bool overflowing: netLabel.implicitWidth > netRoot.maxLabelWidth
-
-        Text {
-            id: netLabel
-            text: networkName
-            y: 0
-            color: netArea.containsMouse ? Theme.yellowBright : Theme.fg
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-
-            Behavior on color { Components.CAnim { duration: 150 } }
-        }
-
-        SequentialAnimation {
-            id: marqueeAnim
-            running: marqueeContainer.overflowing && marqueeContainer.visible
-            loops: Animation.Infinite
-
-            PauseAnimation { duration: 2000 }
-            NumberAnimation {
-                target: netLabel; property: "x"
-                from: 0; to: -(netLabel.implicitWidth - netRoot.maxLabelWidth)
-                duration: Math.max(1500, (netLabel.implicitWidth - netRoot.maxLabelWidth) * 30)
-                easing.type: Easing.Linear
-            }
-            PauseAnimation { duration: 1500 }
-            PropertyAction { target: netLabel; property: "x"; value: 0 }
-        }
-
-        onOverflowingChanged: {
-            marqueeAnim.stop();
-            netLabel.x = 0;
-        }
-
-        Connections {
-            target: netRoot
-            function onNetworkNameChanged() {
-                marqueeAnim.stop();
-                netLabel.x = 0;
-            }
-        }
     }
 
     MouseArea {
