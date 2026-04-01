@@ -10,6 +10,31 @@ QtObject {
     readonly property string mullvadCountry: _mullvadCountry
     readonly property string mullvadCity: _mullvadCity
     readonly property string mullvadIp: _mullvadIp
+    readonly property var mullvadRelayCountries: _mullvadRelayCountries
+    readonly property bool mullvadRelayListLoading: mullvadRelayListProc.running
+    readonly property bool mullvadRelaySelectionLoading: mullvadRelayGetProc.running
+    readonly property bool mullvadRelaySetting: mullvadSetLocationProc.running
+    readonly property string mullvadRelayError: _mullvadRelayError
+    readonly property string mullvadSelectedCountryCode: _mullvadSelectedCountryCode
+    readonly property string mullvadSelectedCityCode: _mullvadSelectedCityCode
+    readonly property string mullvadSelectedHostname: _mullvadSelectedHostname
+    readonly property string mullvadSelectedCountry: resolveMullvadCountryName(_mullvadSelectedCountryCode)
+    readonly property string mullvadSelectedCity: resolveMullvadCityName(_mullvadSelectedCountryCode, _mullvadSelectedCityCode)
+    readonly property string mullvadSelectedLocationLabel: {
+        if (_mullvadSelectedHostname)
+            return _mullvadSelectedHostname;
+
+        let country = root.mullvadSelectedCountry;
+        if (!country)
+            return "";
+
+        if (_mullvadSelectedCityCode) {
+            let city = root.mullvadSelectedCity;
+            return city ? country + " · " + city : country + " · " + _mullvadSelectedCityCode.toUpperCase();
+        }
+
+        return country;
+    }
 
     // ── Tailscale state ──
     readonly property string tailscaleState: _tailscaleState   // running | stopped | needs-login | starting
@@ -23,6 +48,17 @@ QtObject {
     property string _mullvadCity: ""
     property string _mullvadIp: ""
     property string _mullvadBuf: ""
+    property var _mullvadRelayCountries: []
+    property var _mullvadRelayCountryIndex: ({})
+    property bool _mullvadRelayListLoaded: false
+    property string _mullvadRelayListBuf: ""
+    property string _mullvadRelayListErrBuf: ""
+    property string _mullvadRelayGetBuf: ""
+    property string _mullvadRelayGetErrBuf: ""
+    property string _mullvadRelayError: ""
+    property string _mullvadSelectedCountryCode: ""
+    property string _mullvadSelectedCityCode: ""
+    property string _mullvadSelectedHostname: ""
 
     property string _tailscaleState: "stopped"
     property string _tailscaleTailnet: ""
@@ -30,13 +66,45 @@ QtObject {
     property bool _tailscaleExitNode: false
     property string _tailscaleBuf: ""
 
+    Component.onCompleted: refresh()
+
     // ── Public API ──
 
     function refresh() {
+        refreshMullvadStatus();
+        refreshMullvadSelection();
+        refreshTailscaleStatus();
+    }
+
+    function refreshMullvadStatus() {
         _mullvadBuf = "";
         mullvadProc.running = true;
+    }
+
+    function refreshMullvadSelection() {
+        _mullvadRelayGetBuf = "";
+        _mullvadRelayGetErrBuf = "";
+        mullvadRelayGetProc.running = true;
+    }
+
+    function refreshTailscaleStatus() {
         _tailscaleBuf = "";
         tailscaleProc.running = true;
+    }
+
+    function ensureMullvadRelayLocations() {
+        refreshMullvadRelayLocations(false);
+    }
+
+    function refreshMullvadRelayLocations(force) {
+        if (force === undefined)
+            force = false;
+        if (!force && (_mullvadRelayListLoaded || mullvadRelayListProc.running))
+            return;
+        _mullvadRelayError = "";
+        _mullvadRelayListBuf = "";
+        _mullvadRelayListErrBuf = "";
+        mullvadRelayListProc.running = true;
     }
 
     function mullvadConnect() {
@@ -55,11 +123,156 @@ QtObject {
         tailscaleDownProc.running = true;
     }
 
+    function mullvadSetLocation(countryCode, cityCode) {
+        if (!countryCode || mullvadSetLocationProc.running)
+            return;
+
+        let command = ["mullvad", "relay", "set", "location", countryCode];
+        if (cityCode)
+            command.push(cityCode);
+
+        _mullvadRelayError = "";
+        mullvadSetLocationProc.errBuf = "";
+        mullvadSetLocationProc.command = command;
+        mullvadSetLocationProc.running = true;
+    }
+
+    function mullvadCountryEntry(countryCode) {
+        if (!countryCode)
+            return null;
+        return _mullvadRelayCountryIndex[countryCode] || null;
+    }
+
+    function mullvadCitiesForCountry(countryCode) {
+        let country = mullvadCountryEntry(countryCode);
+        return country && Array.isArray(country.cities) ? country.cities : [];
+    }
+
+    function mullvadCountryName(countryCode) {
+        return resolveMullvadCountryName(countryCode);
+    }
+
+    function resolveMullvadCountryName(countryCode) {
+        if (!countryCode)
+            return "";
+        if (countryCode === "any")
+            return "Any country";
+
+        let country = _mullvadRelayCountryIndex[countryCode];
+        return country ? country.name : countryCode.toUpperCase();
+    }
+
+    function resolveMullvadCityName(countryCode, cityCode) {
+        if (!cityCode)
+            return "";
+
+        let cities = mullvadCitiesForCountry(countryCode);
+        for (let i = 0; i < cities.length; i++) {
+            if (cities[i].code === cityCode)
+                return cities[i].name;
+        }
+
+        return cityCode.toUpperCase();
+    }
+
+    function normalizeMullvadError(errBuf, fallbackMessage) {
+        let text = (errBuf || "").trim();
+        if (!text)
+            return fallbackMessage;
+
+        let lines = text.split(/\r?\n/);
+        let compact = [];
+        for (let i = 0; i < lines.length; i++) {
+            let line = lines[i].trim();
+            if (line !== "")
+                compact.push(line);
+        }
+
+        return compact.length > 0 ? compact[compact.length - 1] : fallbackMessage;
+    }
+
+    function applyMullvadRelayList(text) {
+        let countries = [];
+        let index = {};
+        let currentCountry = null;
+        let currentCity = null;
+        let lines = (text || "").split(/\r?\n/);
+
+        for (let i = 0; i < lines.length; i++) {
+            let line = lines[i];
+            if (!line)
+                continue;
+
+            let countryMatch = line.match(/^([^\t].*?) \(([a-z]{2})\)$/i);
+            if (countryMatch) {
+                currentCountry = {
+                    name: countryMatch[1],
+                    code: countryMatch[2],
+                    cityCount: 0,
+                    relayCount: 0,
+                    cities: []
+                };
+                countries.push(currentCountry);
+                index[currentCountry.code] = currentCountry;
+                currentCity = null;
+                continue;
+            }
+
+            let cityMatch = line.match(/^\t(.+?) \(([a-z]{3})\)\s+@/i);
+            if (cityMatch && currentCountry) {
+                currentCity = {
+                    name: cityMatch[1],
+                    code: cityMatch[2],
+                    relayCount: 0
+                };
+                currentCountry.cities.push(currentCity);
+                currentCountry.cityCount = currentCountry.cities.length;
+                continue;
+            }
+
+            if (/^\t\t\S+/.test(line) && currentCountry && currentCity) {
+                currentCity.relayCount += 1;
+                currentCountry.relayCount += 1;
+            }
+        }
+
+        _mullvadRelayCountries = countries;
+        _mullvadRelayCountryIndex = index;
+    }
+
+    function applyMullvadRelaySelection(text) {
+        let locationLine = (text || "").match(/^\s*Location:\s*(.+)$/m);
+        if (!locationLine) {
+            _mullvadSelectedCountryCode = "";
+            _mullvadSelectedCityCode = "";
+            _mullvadSelectedHostname = "";
+            return;
+        }
+
+        let countryCode = "";
+        let cityCode = "";
+        let hostname = "";
+        let match;
+        let tokenMatcher = /\b(country|city|hostname)\s+(\S+)/g;
+        while ((match = tokenMatcher.exec(locationLine[1])) !== null) {
+            if (match[1] === "country")
+                countryCode = match[2];
+            else if (match[1] === "city")
+                cityCode = match[2];
+            else if (match[1] === "hostname")
+                hostname = match[2];
+        }
+
+        _mullvadSelectedCountryCode = countryCode;
+        _mullvadSelectedCityCode = cityCode;
+        _mullvadSelectedHostname = hostname;
+    }
+
     // ── Mullvad status ──
 
     property Process mullvadProc: Process {
         command: ["mullvad", "status", "-j"]
-        running: true
+        running: false
         stdout: SplitParser {
             onRead: (line) => { root._mullvadBuf += line; }
         }
@@ -80,11 +293,54 @@ QtObject {
         }
     }
 
+    property Process mullvadRelayGetProc: Process {
+        command: ["mullvad", "relay", "get"]
+        running: false
+        stdout: SplitParser {
+            onRead: (line) => { root._mullvadRelayGetBuf += line + "\n"; }
+        }
+        stderr: SplitParser {
+            onRead: (line) => { root._mullvadRelayGetErrBuf += line + "\n"; }
+        }
+        onExited: (code, status) => {
+            if (code === 0 && root._mullvadRelayGetBuf) {
+                root.applyMullvadRelaySelection(root._mullvadRelayGetBuf);
+            } else if (code !== 0) {
+                console.log("[VpnService] mullvad relay get failed:", root.normalizeMullvadError(root._mullvadRelayGetErrBuf, "relay get failed"));
+            }
+            root._mullvadRelayGetBuf = "";
+            root._mullvadRelayGetErrBuf = "";
+        }
+    }
+
+    property Process mullvadRelayListProc: Process {
+        command: ["mullvad", "relay", "list"]
+        running: false
+        stdout: SplitParser {
+            onRead: (line) => { root._mullvadRelayListBuf += line + "\n"; }
+        }
+        stderr: SplitParser {
+            onRead: (line) => { root._mullvadRelayListErrBuf += line + "\n"; }
+        }
+        onExited: (code, status) => {
+            if (code === 0 && root._mullvadRelayListBuf) {
+                root._mullvadRelayError = "";
+                root._mullvadRelayListLoaded = true;
+                root.applyMullvadRelayList(root._mullvadRelayListBuf);
+            } else if (code !== 0) {
+                root._mullvadRelayError = root.normalizeMullvadError(root._mullvadRelayListErrBuf, "Failed to load Mullvad locations");
+                console.log("[VpnService] mullvad relay list failed:", root._mullvadRelayError);
+            }
+            root._mullvadRelayListBuf = "";
+            root._mullvadRelayListErrBuf = "";
+        }
+    }
+
     // ── Tailscale status ──
 
     property Process tailscaleProc: Process {
         command: ["tailscale", "status", "--json"]
-        running: true
+        running: false
         stdout: SplitParser {
             onRead: (line) => { root._tailscaleBuf += line; }
         }
@@ -130,25 +386,49 @@ QtObject {
     property Process mullvadConnectProc: Process {
         command: ["mullvad", "connect"]
         running: false
-        onExited: () => { root._mullvadBuf = ""; mullvadProc.running = true; }
+        onExited: () => {
+            root.refreshMullvadStatus();
+            root.refreshMullvadSelection();
+        }
     }
 
     property Process mullvadDisconnectProc: Process {
         command: ["mullvad", "disconnect"]
         running: false
-        onExited: () => { root._mullvadBuf = ""; mullvadProc.running = true; }
+        onExited: () => {
+            root.refreshMullvadStatus();
+            root.refreshMullvadSelection();
+        }
+    }
+
+    property Process mullvadSetLocationProc: Process {
+        property string errBuf: ""
+        running: false
+        stderr: SplitParser {
+            onRead: (line) => { mullvadSetLocationProc.errBuf += line + "\n"; }
+        }
+        onExited: (code, status) => {
+            if (code !== 0)
+                root._mullvadRelayError = root.normalizeMullvadError(mullvadSetLocationProc.errBuf, "Failed to set Mullvad location");
+            else
+                root._mullvadRelayError = "";
+
+            mullvadSetLocationProc.errBuf = "";
+            root.refreshMullvadStatus();
+            root.refreshMullvadSelection();
+        }
     }
 
     property Process tailscaleUpProc: Process {
         command: ["tailscale", "up"]
         running: false
-        onExited: () => { root._tailscaleBuf = ""; tailscaleProc.running = true; }
+        onExited: () => { root.refreshTailscaleStatus(); }
     }
 
     property Process tailscaleDownProc: Process {
         command: ["tailscale", "down"]
         running: false
-        onExited: () => { root._tailscaleBuf = ""; tailscaleProc.running = true; }
+        onExited: () => { root.refreshTailscaleStatus(); }
     }
 
     // ── Poll timer ──
