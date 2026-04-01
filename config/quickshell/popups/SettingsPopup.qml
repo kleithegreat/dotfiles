@@ -57,10 +57,10 @@ FocusScope {
         { label: "VS Code", key: "vscode_mono_font_size_offset" }
     ]
     property int selectedCategory: 0
-    property int systemCategoryCount: 5
+    property int systemCategoryCount: 6
     property string wallpaperDir: "/home/kevin/repos/dotfiles/wallpapers"
-    property var categoryNames: ["Network", "Bluetooth", "Audio", "Display", "Power", "Presets", "Colors", "Fonts", "Wallpaper", "Icons & Cursors", "Hyprland"]
-    property var categoryIcons: ["󰖩", "󰂯", "󰕾", "󰍹", "⚡", "󰒓", "󰏘", "󰛖", "󰋩", "󰍽", "󰖯"]
+    property var categoryNames: ["Network", "Bluetooth", "Audio", "Display", "Power", "Screen Time", "Presets", "Colors", "Fonts", "Wallpaper", "Icons & Cursors", "Hyprland"]
+    property var categoryIcons: ["󰖩", "󰂯", "󰕾", "󰍹", "⚡", "󱑎", "󰒓", "󰏘", "󰛖", "󰋩", "󰍽", "󰖯"]
     property var hyprOptionInfo: ({
         "general:gaps_in": { label: "Inner gaps", type: "int", fallback: 4, minimum: 0, step: 1, stateKey: "hypr_gaps_in" },
         "general:gaps_out": { label: "Outer gaps", type: "int", fallback: 6, minimum: 0, step: 1, stateKey: "hypr_gaps_out" },
@@ -774,12 +774,13 @@ FocusScope {
                                 case 2: return audioPane;
                                 case 3: return displayPane;
                                 case 4: return powerPane;
-                                case 5: return presetsPane;
-                                case 6: return colorsPane;
-                                case 7: return fontsPane;
-                                case 8: return wallpaperPane;
-                                case 9: return iconsPane;
-                                case 10: return hyprlandPane;
+                                case 5: return focusTimePane;
+                                case 6: return presetsPane;
+                                case 7: return colorsPane;
+                                case 8: return fontsPane;
+                                case 9: return wallpaperPane;
+                                case 10: return iconsPane;
+                                case 11: return hyprlandPane;
                                 default: return null;
                             }
                         }
@@ -812,6 +813,11 @@ FocusScope {
     Component {
         id: powerPane
         Settings.SettingsPowerPane {}
+    }
+
+    Component {
+        id: focusTimePane
+        Settings.SettingsFocusTimePane {}
     }
 
     Component {
