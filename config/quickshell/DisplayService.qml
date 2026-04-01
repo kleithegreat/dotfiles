@@ -33,6 +33,7 @@ QtObject {
 
     function refresh() {
         refreshNightLight();
+        refreshMonitors();
     }
 
     function refreshNightLight() {
@@ -133,6 +134,62 @@ QtObject {
         nightLightToggleProc.command = ["pkill", "-x", "hyprsunset"];
         nightLightToggleProc.running = true;
         nightLightRefreshTimer.restart();
+    }
+
+    // Monitor configuration
+    property var monitors: []
+    property string _monitorsBuf: ""
+    property string monitorApplyStatus: ""
+    readonly property bool monitorApplyBusy: monitorApplyProc.running
+
+    function refreshMonitors() {
+        if (!monitorsFetchProc.running)
+            monitorsFetchProc.running = true;
+    }
+
+    function applyMonitorMode(name, width, height, rate, scale) {
+        if (monitorApplyProc.running)
+            return;
+
+        monitorApplyStatus = "applying";
+        monitorApplyStatusTimer.stop();
+        monitorApplyProc.command = [
+            "hyprctl", "keyword", "monitor",
+            name + "," + width + "x" + height + "@" + rate.toFixed(2) + ",auto," + scale
+        ];
+        monitorApplyProc.running = true;
+    }
+
+    property Process monitorsFetchProc: Process {
+        command: ["hyprctl", "monitors", "-j"]
+        running: false
+        onRunningChanged: if (running) display._monitorsBuf = ""
+        stdout: SplitParser {
+            onRead: (line) => { display._monitorsBuf += line + "\n"; }
+        }
+        onExited: (code) => {
+            if (code === 0 && display._monitorsBuf.trim() !== "") {
+                try {
+                    display.monitors = JSON.parse(display._monitorsBuf);
+                } catch (e) {
+                    console.log("[DisplayService] monitors parse error:", e);
+                }
+            }
+        }
+    }
+
+    property Process monitorApplyProc: Process {
+        running: false
+        onExited: (code) => {
+            display.monitorApplyStatus = code === 0 ? "applied" : "error";
+            display.monitorApplyStatusTimer.restart();
+            display.refreshMonitors();
+        }
+    }
+
+    property Timer monitorApplyStatusTimer: Timer {
+        interval: 2000
+        onTriggered: display.monitorApplyStatus = ""
     }
 
     Component.onCompleted: refresh()

@@ -10,6 +10,114 @@ Components.WheelFlickable {
     clip: true
     boundsBehavior: Flickable.StopAtBounds
 
+    property int selectedMonitorIdx: 0
+    property string selectedResolution: ""
+    property real selectedRate: -1
+
+    readonly property var enabledMonitors: {
+        let m = DisplayService.monitors;
+        if (!m) return [];
+        let result = [];
+        for (let i = 0; i < m.length; i++) {
+            if (!m[i].disabled)
+                result.push(m[i]);
+        }
+        return result;
+    }
+
+    readonly property var currentMonitor: {
+        let m = root.enabledMonitors;
+        if (root.selectedMonitorIdx >= m.length) return null;
+        return m[root.selectedMonitorIdx];
+    }
+
+    readonly property var parsedModes: {
+        let mon = root.currentMonitor;
+        if (!mon || !mon.availableModes) return { resolutions: [], ratesByRes: {} };
+        let ratesByRes = {};
+        for (let i = 0; i < mon.availableModes.length; i++) {
+            let match = mon.availableModes[i].match(/(\d+)x(\d+)@([\d.]+)Hz/);
+            if (!match) continue;
+            let res = match[1] + "x" + match[2];
+            let rate = parseFloat(match[3]);
+            if (!ratesByRes[res]) ratesByRes[res] = [];
+            let isDupe = false;
+            for (let j = 0; j < ratesByRes[res].length; j++) {
+                if (Math.abs(ratesByRes[res][j] - rate) < 0.01) { isDupe = true; break; }
+            }
+            if (!isDupe) ratesByRes[res].push(rate);
+        }
+        let resolutions = Object.keys(ratesByRes);
+        for (let i = 0; i < resolutions.length; i++)
+            ratesByRes[resolutions[i]].sort(function(a, b) { return b - a; });
+        resolutions.sort(function(a, b) {
+            let ap = a.split("x"); let bp = b.split("x");
+            return (parseInt(bp[0]) * parseInt(bp[1])) - (parseInt(ap[0]) * parseInt(ap[1]));
+        });
+        return { resolutions: resolutions, ratesByRes: ratesByRes };
+    }
+
+    readonly property var resolutions: root.parsedModes.resolutions
+    readonly property var currentRates: root.parsedModes.ratesByRes[root.selectedResolution] || []
+
+    onCurrentMonitorChanged: {
+        if (root.currentMonitor)
+            root.syncSelectionFromMonitor();
+    }
+
+    function syncSelectionFromMonitor() {
+        let mon = root.currentMonitor;
+        if (!mon) return;
+        root.selectedResolution = mon.width + "x" + mon.height;
+        let rates = root.parsedModes.ratesByRes[root.selectedResolution] || [];
+        root.selectedRate = root.findClosestRate(rates, mon.refreshRate);
+    }
+
+    function findClosestRate(rates, target) {
+        if (rates.length === 0) return -1;
+        let best = rates[0];
+        let bestDiff = Math.abs(rates[0] - target);
+        for (let i = 1; i < rates.length; i++) {
+            let diff = Math.abs(rates[i] - target);
+            if (diff < bestDiff) { bestDiff = diff; best = rates[i]; }
+        }
+        return best;
+    }
+
+    function selectResolution(res) {
+        if (res === root.selectedResolution) return;
+        root.selectedResolution = res;
+        let rates = root.parsedModes.ratesByRes[res] || [];
+        root.selectedRate = rates.length > 0 ? rates[0] : -1;
+        root.applyCurrentSelection();
+    }
+
+    function selectRate(rate) {
+        if (Math.abs(rate - root.selectedRate) < 0.01) return;
+        root.selectedRate = rate;
+        root.applyCurrentSelection();
+    }
+
+    function applyCurrentSelection() {
+        let mon = root.currentMonitor;
+        if (!mon || root.selectedRate < 0) return;
+        let parts = root.selectedResolution.split("x");
+        DisplayService.applyMonitorMode(mon.name, parseInt(parts[0]), parseInt(parts[1]), root.selectedRate, mon.scale);
+    }
+
+    function formatRate(rate, allRates) {
+        let rounded = Math.round(rate);
+        for (let i = 0; i < allRates.length; i++) {
+            if (Math.abs(allRates[i] - rate) > 0.01 && Math.round(allRates[i]) === rounded)
+                return rate.toFixed(2) + "Hz";
+        }
+        return rounded + "Hz";
+    }
+
+    function formatResolution(res) {
+        return res.replace("x", " × ");
+    }
+
     Component.onCompleted: {
         BrightnessService.refresh();
         DisplayService.refresh();
@@ -19,6 +127,237 @@ Components.WheelFlickable {
         id: displayCol
         width: parent.width
         spacing: 16
+
+        // ── Monitors ─────────────────────────────────────────
+
+        Text {
+            visible: root.enabledMonitors.length > 0
+            text: "MONITORS"
+            color: Theme.fg4
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSizeSmall
+            font.bold: true
+        }
+
+        Flow {
+            visible: root.enabledMonitors.length > 1
+            Layout.fillWidth: true
+            spacing: 6
+
+            Repeater {
+                model: root.enabledMonitors
+
+                delegate: Rectangle {
+                    required property var modelData
+                    required property int index
+                    property bool isCurrent: index === root.selectedMonitorIdx
+
+                    width: monLabel.implicitWidth + 16
+                    height: Theme.btnHeight
+                    radius: Theme.btnRadius
+                    color: isCurrent ? Theme.accent : (monArea.containsMouse ? Theme.bg2 : Theme.bg1)
+                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                    border.width: 1
+                    border.color: isCurrent ? Theme.accent : Theme.bg3
+                    Behavior on border.color { Components.CAnim { duration: Theme.animSpring; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                    scale: monArea.pressed ? 0.95 : 1.0
+                    Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                    transformOrigin: Item.Center
+
+                    Text {
+                        id: monLabel
+                        anchors.centerIn: parent
+                        text: modelData.name
+                        color: isCurrent ? Theme.bg : Theme.fg
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeSmall
+                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                    }
+
+                    Components.HoverLayer {
+                        id: monArea
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        hoverEnabled: true
+                        hoverOpacity: 0
+                        pressedOpacity: 0
+                        pressedScale: 1.0
+                        onClicked: root.selectedMonitorIdx = index
+                    }
+                }
+            }
+        }
+
+        RowLayout {
+            visible: root.currentMonitor !== null
+            Layout.fillWidth: true
+            spacing: 8
+
+            Text {
+                text: "󰍹"
+                color: Theme.blueBright
+                font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
+                Layout.alignment: Qt.AlignVCenter
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 2
+
+                Text {
+                    text: root.currentMonitor ? root.currentMonitor.name : ""
+                    color: Theme.fg
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; font.bold: true
+                }
+
+                Text {
+                    text: root.currentMonitor ? (root.currentMonitor.model || root.currentMonitor.name) : ""
+                    color: Theme.fg3
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                }
+            }
+
+            Text {
+                text: root.currentMonitor ? (root.currentMonitor.width + " × " + root.currentMonitor.height + " @ " + Math.round(root.currentMonitor.refreshRate) + "Hz") : ""
+                color: Theme.fg3
+                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+            }
+        }
+
+        Text {
+            visible: root.resolutions.length > 0
+            text: "RESOLUTION"
+            color: Theme.fg4
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSizeSmall
+            font.bold: true
+        }
+
+        Flow {
+            visible: root.resolutions.length > 0
+            Layout.fillWidth: true
+            spacing: 6
+
+            Repeater {
+                model: root.resolutions
+
+                delegate: Rectangle {
+                    required property string modelData
+                    required property int index
+                    property bool isCurrent: modelData === root.selectedResolution
+
+                    width: resLabel.implicitWidth + 16
+                    height: Theme.btnHeight
+                    radius: Theme.btnRadius
+                    color: isCurrent ? Theme.accent : (resArea.containsMouse ? Theme.bg2 : Theme.bg1)
+                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                    border.width: 1
+                    border.color: isCurrent ? Theme.accent : Theme.bg3
+                    Behavior on border.color { Components.CAnim { duration: Theme.animSpring; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                    scale: resArea.pressed ? 0.95 : 1.0
+                    Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                    transformOrigin: Item.Center
+
+                    Text {
+                        id: resLabel
+                        anchors.centerIn: parent
+                        text: root.formatResolution(modelData)
+                        color: isCurrent ? Theme.bg : Theme.fg
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeSmall
+                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                    }
+
+                    Components.HoverLayer {
+                        id: resArea
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        hoverEnabled: true
+                        hoverOpacity: 0
+                        pressedOpacity: 0
+                        pressedScale: 1.0
+                        onClicked: root.selectResolution(modelData)
+                    }
+                }
+            }
+        }
+
+        Text {
+            visible: root.currentRates.length > 0
+            text: "REFRESH RATE"
+            color: Theme.fg4
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSizeSmall
+            font.bold: true
+        }
+
+        Flow {
+            visible: root.currentRates.length > 0
+            Layout.fillWidth: true
+            spacing: 6
+
+            Repeater {
+                model: root.currentRates
+
+                delegate: Rectangle {
+                    required property var modelData
+                    required property int index
+                    property bool isCurrent: Math.abs(modelData - root.selectedRate) < 0.05
+
+                    width: rateLabel.implicitWidth + 16
+                    height: Theme.btnHeight
+                    radius: Theme.btnRadius
+                    color: isCurrent ? Theme.accent : (rateArea.containsMouse ? Theme.bg2 : Theme.bg1)
+                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                    border.width: 1
+                    border.color: isCurrent ? Theme.accent : Theme.bg3
+                    Behavior on border.color { Components.CAnim { duration: Theme.animSpring; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                    scale: rateArea.pressed ? 0.95 : 1.0
+                    Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                    transformOrigin: Item.Center
+
+                    Text {
+                        id: rateLabel
+                        anchors.centerIn: parent
+                        text: root.formatRate(modelData, root.currentRates)
+                        color: isCurrent ? Theme.bg : Theme.fg
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeSmall
+                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                    }
+
+                    Components.HoverLayer {
+                        id: rateArea
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        hoverEnabled: true
+                        hoverOpacity: 0
+                        pressedOpacity: 0
+                        pressedScale: 1.0
+                        onClicked: root.selectRate(modelData)
+                    }
+                }
+            }
+        }
+
+        Text {
+            visible: DisplayService.monitorApplyStatus !== ""
+            text: DisplayService.monitorApplyStatus === "applying" ? "Applying…"
+                : DisplayService.monitorApplyStatus === "applied" ? "Applied"
+                : "Failed to apply"
+            color: DisplayService.monitorApplyStatus === "error" ? Theme.redBright
+                 : DisplayService.monitorApplyStatus === "applied" ? Theme.greenBright
+                 : Theme.fg3
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSizeSmall
+        }
+
+        Rectangle {
+            visible: root.enabledMonitors.length > 0
+            Layout.fillWidth: true
+            height: 1
+            color: Theme.bg3
+        }
 
         // ── Night Light ──────────────────────────────────────
 
