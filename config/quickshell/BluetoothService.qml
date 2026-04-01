@@ -20,18 +20,28 @@ QtObject {
     property ListModel pairedModel: ListModel { id: pairedModel }
     property ListModel discoveredModel: ListModel { id: discoveredModel }
 
+    Component.onCompleted: refreshSummary()
+
     function refresh(preservePowerState) {
         if (preservePowerState === undefined)
             preservePowerState = false;
-        connectedName = "";
-        connectedMac = "";
-        connectedBattery = -1;
         scanning = false;
         pairedModel.clear();
         discoveredModel.clear();
         if (!preservePowerState)
             powerStateKnown = false;
         showProc.running = true;
+    }
+
+    function refreshSummary() {
+        if (refreshing || scanProc.running || connectProc.running || disconnectProc.running || powerProc.running)
+            return;
+        _summaryShowDone = false;
+        _summaryConnDone = false;
+        if (!summaryShowProc.running)
+            summaryShowProc.running = true;
+        if (!summaryConnInfoProc.running)
+            summaryConnInfoProc.running = true;
     }
 
     function startScan() {
@@ -64,6 +74,30 @@ QtObject {
         return /^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$/.test(name);
     }
 
+    function _commitSummaryRefresh() {
+        if (!_summaryShowDone || !_summaryConnDone)
+            return;
+
+        powered = _summaryPendingPowered;
+        powerStateKnown = true;
+        if (powered) {
+            connectedMac = summaryConnInfoProc.pendingMac;
+            connectedName = summaryConnInfoProc.pendingName;
+            connectedBattery = summaryConnInfoProc.pendingBattery;
+        } else {
+            connectedMac = "";
+            connectedName = "";
+            connectedBattery = -1;
+        }
+
+        _summaryShowDone = false;
+        _summaryConnDone = false;
+    }
+
+    property bool _summaryPendingPowered: false
+    property bool _summaryShowDone: false
+    property bool _summaryConnDone: false
+
     // ── Processes ─────────────────────────────────────────────
 
     property Process showProc: Process {
@@ -76,7 +110,13 @@ QtObject {
             root.powered = showProc.buf.indexOf("Powered: yes") >= 0;
             root.powerStateKnown = true;
             showProc.buf = "";
-            if (root.powered) connInfoProc.running = true;
+            if (root.powered) {
+                connInfoProc.running = true;
+            } else {
+                root.connectedMac = "";
+                root.connectedName = "";
+                root.connectedBattery = -1;
+            }
         }
     }
 
@@ -92,18 +132,33 @@ QtObject {
             "[ -n \"$batt\" ] && echo \"BATT|$batt\""
         ]
         running: false
+        property string pendingMac: ""
+        property string pendingName: ""
+        property int pendingBattery: -1
+        onRunningChanged: {
+            if (running) {
+                pendingMac = "";
+                pendingName = "";
+                pendingBattery = -1;
+            }
+        }
         stdout: SplitParser { onRead: (line) => {
             if (line.startsWith("CONN|")) {
                 let parts = line.substring(5).split("|");
                 if (parts.length >= 2) {
-                    root.connectedMac = parts[0];
-                    root.connectedName = parts.slice(1).join("|");
+                    connInfoProc.pendingMac = parts[0];
+                    connInfoProc.pendingName = parts.slice(1).join("|");
                 }
             } else if (line.startsWith("BATT|")) {
-                root.connectedBattery = parseInt(line.substring(5)) || -1;
+                connInfoProc.pendingBattery = parseInt(line.substring(5)) || -1;
             }
         } }
-        onExited: { pairedProc.running = true; }
+        onExited: {
+            root.connectedMac = connInfoProc.pendingMac;
+            root.connectedName = connInfoProc.pendingName;
+            root.connectedBattery = connInfoProc.pendingBattery;
+            pairedProc.running = true;
+        }
     }
 
     property Process pairedProc: Process {
@@ -171,5 +226,65 @@ QtObject {
         id: powerProc
         running: false
         onExited: { root.refresh(); }
+    }
+
+    property Process summaryShowProc: Process {
+        id: summaryShowProc
+        command: ["bluetoothctl", "--timeout", "2", "show"]
+        running: false
+        property string buf: ""
+        stdout: SplitParser { onRead: (line) => { summaryShowProc.buf += line + "\n"; } }
+        onExited: {
+            root._summaryPendingPowered = summaryShowProc.buf.indexOf("Powered: yes") >= 0;
+            summaryShowProc.buf = "";
+            root._summaryShowDone = true;
+            root._commitSummaryRefresh();
+        }
+    }
+
+    property Process summaryConnInfoProc: Process {
+        id: summaryConnInfoProc
+        command: ["bash", "-c",
+            "dev=$(bluetoothctl --timeout 2 devices Connected 2>/dev/null | head -1); " +
+            "[ -z \"$dev\" ] && exit 0; " +
+            "mac=$(echo \"$dev\" | awk '{print $2}'); " +
+            "name=$(echo \"$dev\" | sed 's/^Device [^ ]* //'); " +
+            "echo \"CONN|$mac|$name\"; " +
+            "batt=$(bluetoothctl --timeout 2 info \"$mac\" 2>/dev/null | awk -F'[()]' '/Battery Percentage/{print $2}'); " +
+            "[ -n \"$batt\" ] && echo \"BATT|$batt\""
+        ]
+        running: false
+        property string pendingMac: ""
+        property string pendingName: ""
+        property int pendingBattery: -1
+        onRunningChanged: {
+            if (running) {
+                pendingMac = "";
+                pendingName = "";
+                pendingBattery = -1;
+            }
+        }
+        stdout: SplitParser { onRead: (line) => {
+            if (line.startsWith("CONN|")) {
+                let parts = line.substring(5).split("|");
+                if (parts.length >= 2) {
+                    summaryConnInfoProc.pendingMac = parts[0];
+                    summaryConnInfoProc.pendingName = parts.slice(1).join("|");
+                }
+            } else if (line.startsWith("BATT|")) {
+                summaryConnInfoProc.pendingBattery = parseInt(line.substring(5)) || -1;
+            }
+        } }
+        onExited: {
+            root._summaryConnDone = true;
+            root._commitSummaryRefresh();
+        }
+    }
+
+    property Timer summaryTimer: Timer {
+        interval: 10000
+        repeat: true
+        running: true
+        onTriggered: root.refreshSummary()
     }
 }

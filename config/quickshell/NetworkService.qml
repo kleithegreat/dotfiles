@@ -14,6 +14,8 @@ QtObject {
     readonly property string connectedConnectionId: _connectedConnectionId
     readonly property string connectedConnectionUuid: _connectedConnectionUuid
     readonly property string connectivityState: _connectivityState
+    readonly property string primaryConnectionType: _primaryConnectionType
+    readonly property string primaryConnectionLabel: _primaryConnectionLabel
     readonly property bool isCaptivePortal: _connectivityState === "portal" || _connectivityState === "limited"
     readonly property string connectError: _connectError
 
@@ -91,6 +93,8 @@ QtObject {
     property string _connectedConnectionId: ""
     property string _connectedConnectionUuid: ""
     property string _connectivityState: ""
+    property string _primaryConnectionType: ""
+    property string _primaryConnectionLabel: ""
     property string _connectError: ""
 
     property string _targetSsid: ""
@@ -152,9 +156,14 @@ QtObject {
     property ListModel knownModel: ListModel {}
     property ListModel channelModel: ListModel {}
 
-    Component.onCompleted: refreshRadio()
+    Component.onCompleted: refreshSummary()
 
     // ── Public API ────────────────────────────────────────────
+
+    function refreshSummary() {
+        refreshRadio();
+        refreshConnection();
+    }
 
     function scan() {
         clearLiveWifiState();
@@ -168,9 +177,6 @@ QtObject {
     }
 
     function refreshConnection() {
-        _connectedSsid = "";
-        _connectedConnectionId = "";
-        _connectedConnectionUuid = "";
         if (!activeProc.running)
             activeProc.running = true;
         if (!connectivityProc.running)
@@ -580,11 +586,11 @@ QtObject {
                     root.scan();
                     root.loadKnown();
                 } else {
-                    root.refreshRadio();
+                    root.refreshSummary();
                 }
             } else {
                 console.log("[wifi-radio-toggle] exit", code);
-                root.refreshRadio();
+                root.refreshSummary();
             }
         }
     }
@@ -642,24 +648,62 @@ QtObject {
     }
 
     property Process activeProc: Process {
+        id: activeProc
         command: ["nmcli", "-t", "-f", "NAME,UUID,TYPE,DEVICE", "con", "show", "--active"]
         running: false
+        property string pendingWifiSsid: ""
+        property string pendingWifiId: ""
+        property string pendingWifiUuid: ""
+        property bool sawWifi: false
+        property string pendingPrimaryType: ""
+        property string pendingPrimaryLabel: ""
+        onRunningChanged: {
+            if (running) {
+                pendingWifiSsid = "";
+                pendingWifiId = "";
+                pendingWifiUuid = "";
+                sawWifi = false;
+                pendingPrimaryType = "";
+                pendingPrimaryLabel = "";
+            }
+        }
         stdout: SplitParser { onRead: (line) => {
             let parts = root.parseNmcli(line);
-            if (parts.length >= 4 && parts[2] === "802-11-wireless") {
-                let ssid = root._connectedSsid || parts[0];
-                if (root._connectedSsid === "")
-                    root._connectedSsid = ssid;
-                root._connectedConnectionId = parts[0] || "";
-                root._connectedConnectionUuid = parts[1] || "";
-                for (let i = 0; i < root.netModel.count; i++) {
-                    if (root.netModel.get(i).ssid === ssid) {
-                        root.netModel.setProperty(i, "active", true);
-                        return;
-                    }
+            if (parts.length < 4)
+                return;
+
+            if (parts[2] === "802-3-ethernet") {
+                activeProc.pendingPrimaryType = "ethernet";
+                activeProc.pendingPrimaryLabel = "Ethernet";
+                return;
+            }
+
+            if (parts[2] !== "802-11-wireless")
+                return;
+
+            let ssid = parts[0] || "";
+            activeProc.sawWifi = true;
+            activeProc.pendingWifiSsid = ssid;
+            activeProc.pendingWifiId = parts[0] || "";
+            activeProc.pendingWifiUuid = parts[1] || "";
+            if (activeProc.pendingPrimaryType !== "ethernet") {
+                activeProc.pendingPrimaryType = "wifi";
+                activeProc.pendingPrimaryLabel = ssid;
+            }
+            for (let i = 0; i < root.netModel.count; i++) {
+                if (root.netModel.get(i).ssid === ssid) {
+                    root.netModel.setProperty(i, "active", true);
+                    return;
                 }
             }
         } }
+        onExited: {
+            root._connectedSsid = activeProc.sawWifi ? activeProc.pendingWifiSsid : "";
+            root._connectedConnectionId = activeProc.sawWifi ? activeProc.pendingWifiId : "";
+            root._connectedConnectionUuid = activeProc.sawWifi ? activeProc.pendingWifiUuid : "";
+            root._primaryConnectionType = activeProc.pendingPrimaryType;
+            root._primaryConnectionLabel = activeProc.pendingPrimaryLabel;
+        }
     }
 
     // ── Connection processes ──────────────────────────────────
@@ -1064,6 +1108,13 @@ QtObject {
     property Timer exportResetTimer: Timer {
         interval: 2000
         onTriggered: root._exportCopied = false
+    }
+
+    property Timer summaryTimer: Timer {
+        interval: 10000
+        repeat: true
+        running: true
+        onTriggered: root.refreshSummary()
     }
 
     property Timer diagTimer: Timer {
