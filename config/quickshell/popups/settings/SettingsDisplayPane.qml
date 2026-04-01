@@ -61,6 +61,10 @@ Components.WheelFlickable {
     readonly property var currentRates: root.parsedModes.ratesByRes[root.selectedResolution] || []
 
     onCurrentMonitorChanged: {
+        if (resolutionSelect)
+            resolutionSelect.expanded = false;
+        if (rateSelect)
+            rateSelect.expanded = false;
         if (root.currentMonitor)
             root.syncSelectionFromMonitor();
     }
@@ -233,53 +237,22 @@ Components.WheelFlickable {
             font.bold: true
         }
 
-        Flow {
+        Components.InlineSelect {
             visible: root.resolutions.length > 0
             Layout.fillWidth: true
-            spacing: 6
-
-            Repeater {
-                model: root.resolutions
-
-                delegate: Rectangle {
-                    required property string modelData
-                    required property int index
-                    property bool isCurrent: modelData === root.selectedResolution
-
-                    width: resLabel.implicitWidth + 16
-                    height: Theme.btnHeight
-                    radius: Theme.btnRadius
-                    color: isCurrent ? Theme.accent : (resArea.containsMouse ? Theme.bg2 : Theme.bg1)
-                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    border.width: 1
-                    border.color: isCurrent ? Theme.accent : Theme.bg3
-                    Behavior on border.color { Components.CAnim { duration: Theme.animSpring; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    scale: resArea.pressed ? 0.95 : 1.0
-                    Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    transformOrigin: Item.Center
-
-                    Text {
-                        id: resLabel
-                        anchors.centerIn: parent
-                        text: root.formatResolution(modelData)
-                        color: isCurrent ? Theme.bg : Theme.fg
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeSmall
-                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    }
-
-                    Components.HoverLayer {
-                        id: resArea
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        hoverEnabled: true
-                        hoverOpacity: 0
-                        pressedOpacity: 0
-                        pressedScale: 1.0
-                        onClicked: root.selectResolution(modelData)
-                    }
-                }
+            id: resolutionSelect
+            model: root.resolutions
+            currentValue: root.selectedResolution
+            currentText: root.selectedResolution ? root.formatResolution(root.selectedResolution) : ""
+            secondaryText: root.resolutions.length === 1 ? "1 mode" : root.resolutions.length + " modes"
+            disabled: root.resolutions.length < 2
+            textForValue: function(resolution) { return root.formatResolution(resolution); }
+            maxVisibleItems: 7
+            onExpandedChanged: {
+                if (expanded)
+                    rateSelect.expanded = false;
             }
+            onActivated: (resolution) => { root.selectResolution(resolution); }
         }
 
         Text {
@@ -291,53 +264,23 @@ Components.WheelFlickable {
             font.bold: true
         }
 
-        Flow {
+        Components.InlineSelect {
             visible: root.currentRates.length > 0
             Layout.fillWidth: true
-            spacing: 6
-
-            Repeater {
-                model: root.currentRates
-
-                delegate: Rectangle {
-                    required property var modelData
-                    required property int index
-                    property bool isCurrent: Math.abs(modelData - root.selectedRate) < 0.05
-
-                    width: rateLabel.implicitWidth + 16
-                    height: Theme.btnHeight
-                    radius: Theme.btnRadius
-                    color: isCurrent ? Theme.accent : (rateArea.containsMouse ? Theme.bg2 : Theme.bg1)
-                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    border.width: 1
-                    border.color: isCurrent ? Theme.accent : Theme.bg3
-                    Behavior on border.color { Components.CAnim { duration: Theme.animSpring; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    scale: rateArea.pressed ? 0.95 : 1.0
-                    Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    transformOrigin: Item.Center
-
-                    Text {
-                        id: rateLabel
-                        anchors.centerIn: parent
-                        text: root.formatRate(modelData, root.currentRates)
-                        color: isCurrent ? Theme.bg : Theme.fg
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeSmall
-                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    }
-
-                    Components.HoverLayer {
-                        id: rateArea
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        hoverEnabled: true
-                        hoverOpacity: 0
-                        pressedOpacity: 0
-                        pressedScale: 1.0
-                        onClicked: root.selectRate(modelData)
-                    }
-                }
+            id: rateSelect
+            model: root.currentRates
+            currentValue: root.selectedRate
+            currentText: root.selectedRate >= 0 ? root.formatRate(root.selectedRate, root.currentRates) : ""
+            secondaryText: root.currentRates.length === 1 ? "1 rate" : root.currentRates.length + " rates"
+            disabled: root.currentRates.length < 2
+            textForValue: function(rate) { return root.formatRate(rate, root.currentRates); }
+            matchesCurrent: function(rate, currentValue) { return Math.abs(rate - currentValue) < 0.05; }
+            maxVisibleItems: 6
+            onExpandedChanged: {
+                if (expanded)
+                    resolutionSelect.expanded = false;
             }
+            onActivated: (rate) => { root.selectRate(rate); }
         }
 
         Text {
