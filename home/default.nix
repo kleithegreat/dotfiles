@@ -266,6 +266,10 @@ in
     source = "${dotfilesPath}/scripts/toggle-float.sh";
     executable = true;
   };
+  home.file.".local/bin/focus-daemon.py" = {
+    source = "${dotfilesPath}/scripts/focus-daemon.py";
+    executable = true;
+  };
 
   # ── Desktop entry overrides ───────────────────────────────
   # Launch VS Code via hyprctl so Hyprland tracks the correct workspace
