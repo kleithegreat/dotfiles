@@ -33,7 +33,7 @@ Because of that, `-march=alderlake` or `-march=rocketlake` outputs are not safe 
 
    This creates `/root/.ssh/id_ed25519_nix_remote_build` if it does not exist, prints the root builder public key, and prints the machine's base64-encoded SSH host key.
 
-2. On the homelab, follow `docs/homelab-builder-setup.md`, then collect:
+2. On the homelab, follow `docs/nix/homelab-builder-setup.md`, then collect:
 
    - the base64-encoded SSH host key
    - the `homelab-cache-1:...` public cache signing key

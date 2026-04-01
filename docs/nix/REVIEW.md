@@ -7,7 +7,7 @@ This review compares the current repository against:
 - the NixOS wiki guidance for flakes and `nixos-rebuild`
 - the Nixpkgs module-system documentation for `specialArgs`
 - the Home Manager manual and NixOS-module options
-- `THEMING.md` section 4 and the later Home Manager migration notes
+- `docs/theming/SPEC.md` section 4 and the later Home Manager migration notes
 
 The goal here is to document where the current setup matches common documented practice, where it diverges, and whether each divergence looks intentional or accidental.
 
@@ -68,7 +68,7 @@ Assessment: aligned.
 
 ### Generated-file handling for most Home Manager config
 
-`THEMING.md` section 4 says generated files must not be managed by Home Manager because `xdg.configFile` produces read-only store symlinks.
+`docs/theming/SPEC.md` section 4 says generated files must not be managed by Home Manager because `xdg.configFile` produces read-only store symlinks.
 
 The current Home Manager config mostly follows that rule.
 
@@ -132,7 +132,7 @@ Assessment: intentional simplification.
 
 `home/default.nix` still manages `xdg.configFile."quickshell"` recursively, while the theme pipeline writes `~/.config/quickshell/GeneratedTheme.json` at runtime.
 
-`THEMING.md` explicitly called this out as an approach to verify, and the current repo has clearly adopted it.
+`docs/theming/SPEC.md` explicitly called this out as an approach to verify, and the current repo has clearly adopted it.
 
 There is no evidence in the current tree that this is failing. The architecture assumes:
 
@@ -180,11 +180,11 @@ That widens the module API without a clear need.
 
 Assessment: likely convenience-driven drift rather than an intentional interface design.
 
-### `THEMING.md` no longer exactly matches the live Home Manager setup
+### `docs/theming/SPEC.md` no longer exactly matches the live Home Manager setup
 
 This is the clearest stale-doc divergence in the repo.
 
-`THEMING.md` still says or implies:
+`docs/theming/SPEC.md` still says or implies:
 
 - the Home Manager activation hook should run `apply-theme all`
 - Hyprland plugin config lives at `pluginsettings.conf`
@@ -223,7 +223,7 @@ Assessment: organized and readable today, but optimized for a small repo rather 
 
 ## `xdg.configFile` Review
 
-Against `THEMING.md` section 4, the current `xdg.configFile` usage is mostly disciplined.
+Against `docs/theming/SPEC.md` section 4, the current `xdg.configFile` usage is mostly disciplined.
 
 ### Good current usage
 
@@ -254,7 +254,7 @@ These files either:
 
 ### No evident generated-file violations remain
 
-The repo does not currently symlink the generated final outputs that `THEMING.md` warned about, such as:
+The repo does not currently symlink the generated final outputs that `docs/theming/SPEC.md` warned about, such as:
 
 - final Ghostty config
 - final Starship config
@@ -323,7 +323,7 @@ The main cleanup opportunities are:
 
 - make the `nixosSystem` platform explicit at the call site
 - trim unused `specialArgs` / `extraSpecialArgs`
-- update `THEMING.md` so it matches `plugins.conf` and `apply-theme sync`
+- update `docs/theming/SPEC.md` so it matches `plugins.conf` and `apply-theme sync`
 
 Everything else reads as a conscious tradeoff toward a compact single-user, multi-host flake rather than as a design mistake.
 

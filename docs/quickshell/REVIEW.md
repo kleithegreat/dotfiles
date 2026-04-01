@@ -4,7 +4,7 @@
 
 This review is based on:
 
-- `THEMING.md`
+- `docs/theming/SPEC.md`
 - Everything currently under `docs/`
 - `themes/apply-theme` plus the relevant `themes/lib/*` targets and orchestrator code
 - Every QML file under `config/quickshell/`
@@ -248,7 +248,7 @@ That means:
 - `GeneratedTheme.json` is not re-read
 - the popup’s selected-state highlight only catches up after the 1500 ms `reloadTimer` re-reads `themes/state.json`
 
-This is a direct counterexample to the simplified flow documented in `THEMING.md`, which presents “user clicks in SettingsPopup → apply-theme → Quickshell re-reads GeneratedTheme.json” as the general path. Files: `THEMING.md:30-41`, `THEMING.md:1174-1181`.
+This is a direct counterexample to the simplified flow documented in `docs/theming/SPEC.md`, which presents “user clicks in SettingsPopup → apply-theme → Quickshell re-reads GeneratedTheme.json” as the general path. Files: `docs/theming/SPEC.md:30-41`, `docs/theming/SPEC.md:1174-1181`.
 
 The inconsistency matters because two controls that look adjacent in the same pane use different feedback loops. One updates shell visuals through a watched file; the other updates only after a fixed delayed state reload.
 
@@ -390,7 +390,7 @@ Hardcoded paths appear throughout the Quickshell implementation:
 - `SettingsPopup.qml` hardcodes `/home/kevin/repos/dotfiles/...` for `state.json`, colors, presets, wallpapers, and `apply-theme`. Files: `config/quickshell/popups/SettingsPopup.qml:146-214`, `config/quickshell/popups/SettingsPopup.qml:517-523`, `config/quickshell/popups/SettingsPopup.qml:588-610`, `config/quickshell/popups/SettingsPopup.qml:622-631`.
 - `shell.qml` hardcodes the same path for theme IPC. Files: `config/quickshell/shell.qml:244-256`.
 
-`THEMING.md` explicitly documents this as an intentional choice after an environment-propagation problem with Quickshell `Process` commands. Files: `THEMING.md:1167-1178`.
+`docs/theming/SPEC.md` explicitly documents this as an intentional choice after an environment-propagation problem with Quickshell `Process` commands. Files: `docs/theming/SPEC.md:1167-1178`.
 
 So this should be treated as intentional, not as an accidental bug. It is still a structural dependency future agents have to know about, because theme command execution and theme file loading are both tied to one repository layout.
 
@@ -400,13 +400,13 @@ So this should be treated as intentional, not as an accidental bug. It is still 
 
 There is documentation for the theming system:
 
-- overall theming flow and principles: `THEMING.md:30-70`
-- Quickshell integration as part of theming: `THEMING.md:1120-1185`
+- overall theming flow and principles: `docs/theming/SPEC.md:30-70`
+- Quickshell integration as part of theming: `docs/theming/SPEC.md:1120-1185`
 
 There is also documentation under `docs/`, but it is Nix / infrastructure oriented:
 
-- `docs/distributed-builds.md:1-65`
-- `docs/homelab-builder-setup.md:1-157`
+- `docs/nix/distributed-builds.md:1-65`
+- `docs/nix/homelab-builder-setup.md:1-157`
 
 The Quickshell implementation itself is only discoverable from code, primarily:
 
@@ -432,4 +432,4 @@ There is no Quickshell architecture document covering:
 - which state updates are push-based (`Theme.qml` file watch) versus timer/poll-based (`reloadTimer`, service timers, bar timers)
 - the preset subsystem and its relationship to the regular settings panes
 
-That absence matters because the current codebase is understandable only by reverse-engineering multiple large files at once. `THEMING.md` explains the theme contract, but it does not explain the broader Quickshell architecture, and even its simplified Quickshell flow does not capture the current per-key differences in how settings round-trip back into the UI. Files: `THEMING.md:30-41`, `THEMING.md:1174-1185`, `config/quickshell/popups/SettingsPopup.qml:613-661`, `themes/lib/orchestrator.py:15-46`, `themes/lib/targets/quickshell.py:7-13`, `themes/lib/targets/gtk.py:32-43`.
+That absence matters because the current codebase is understandable only by reverse-engineering multiple large files at once. `docs/theming/SPEC.md` explains the theme contract, but it does not explain the broader Quickshell architecture, and even its simplified Quickshell flow does not capture the current per-key differences in how settings round-trip back into the UI. Files: `docs/theming/SPEC.md:30-41`, `docs/theming/SPEC.md:1174-1185`, `config/quickshell/popups/SettingsPopup.qml:613-661`, `themes/lib/orchestrator.py:15-46`, `themes/lib/targets/quickshell.py:7-13`, `themes/lib/targets/gtk.py:32-43`.

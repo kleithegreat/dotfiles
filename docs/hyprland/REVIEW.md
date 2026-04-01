@@ -50,7 +50,7 @@ No obviously deprecated Hyprland syntax was found in the active files.
 
 The one legacy issue is organizational, not parser-level:
 
-- `THEMING.md` still describes `pluginsettings.conf` as the live plugin theming file, but the active config graph sources `plugins.conf` instead.
+- `docs/theming/SPEC.md` still describes `pluginsettings.conf` as the live plugin theming file, but the active config graph sources `plugins.conf` instead.
 
 ## What Already Matches The Wiki Well
 
@@ -113,7 +113,7 @@ This is the most concrete config issue in the current setup. On a hybrid laptop,
 The live modular story is good, but the repo graph has drifted:
 
 - `config/hypr/pluginsettings.conf` is no longer sourced by `hyprland.conf`
-- `THEMING.md` still treats `pluginsettings.conf` as the live plugin theming file
+- `docs/theming/SPEC.md` still treats `pluginsettings.conf` as the live plugin theming file
 - `config/hypr/monitors.conf` exists, but `home/default.nix` does not select it for either known host
 
 The wiki's sourced-file model works best when every module in the tree is either:

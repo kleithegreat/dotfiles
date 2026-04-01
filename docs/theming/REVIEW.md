@@ -1,16 +1,16 @@
-# THEMING.md Review
+# docs/theming/SPEC.md Review
 
 Reviewed on 2026-04-01.
 
 Scope:
-- Read `THEMING.md` in full.
+- Read `docs/theming/SPEC.md` in full.
 - Read `themes/apply-theme`, every file under `themes/lib/`, every file under `themes/colors/`, and every file under `themes/presets/`.
 - Cross-checked the consumer configs in `config/`, `home/default.nix`, and the current generated outputs under `~/.config` and `~/.local/share`.
 - Cross-checked upstream behavior against Quickshell, Hyprland, GTK, qt6ct, and Kvantum documentation.
 
 ## Verdict
 
-`THEMING.md` is still useful as historical context, but it is no longer an accurate current spec.
+`docs/theming/SPEC.md` is still useful as historical context, but it is no longer an accurate current spec.
 
 The highest-value parts are still correct at a high level:
 - Alacritty, Zathura, and tmux are split with repo-managed base configs plus generated theme files.
@@ -64,7 +64,7 @@ The main problem is that the implementation has moved past the documented contra
 
 ## Target Inventory Drift
 
-Implemented but undocumented as first-class targets in `THEMING.md`:
+Implemented but undocumented as first-class targets in `docs/theming/SPEC.md`:
 - `neovide`
 - `snappy_switcher`
 - `spicetify`
@@ -138,7 +138,7 @@ Present in the doc's directory layout or plan, but outdated as a description of 
 
 ### VS Code / Snappy Switcher / Spicetify / Neovide
 
-- These targets exist and are active in the implementation, but `THEMING.md` does not give them proper target sections.
+- These targets exist and are active in the implementation, but `docs/theming/SPEC.md` does not give them proper target sections.
 - The Quickshell settings UI also exposes `vscode_mono_font_size_offset`, but the schema/registry sections in the doc do not treat VS Code as a first-class target.
 
 ## Consumer Config Drift
@@ -176,7 +176,7 @@ Concrete consequences in the current implementation:
 - `rose-pine` and `tokyo-night` fall back to synthesized names in `vicinae.py` and `vscode.py`.
 - Catppuccin dark variants (`mocha`, `frappe`, `macchiato`) are treated as light by the current Qt dark/light branch.
 
-`THEMING.md` does not describe this drift, so its variant-related guidance is no longer safe to treat as authoritative.
+`docs/theming/SPEC.md` does not describe this drift, so its variant-related guidance is no longer safe to treat as authoritative.
 
 ## Dependency Map Drift
 
@@ -187,7 +187,7 @@ The documented dependency table is not consistent with the actual target code:
 
 ## External Doc Check
 
-These upstream docs support the current implementation more strongly than the older text in `THEMING.md`:
+These upstream docs support the current implementation more strongly than the older text in `docs/theming/SPEC.md`:
 
 - Quickshell `FileView` explicitly supports `watchChanges: true` with `onFileChanged: reload()` and documents `blockLoading` for configuration files:
   - <https://quickshell.outfoxxed.me/docs/types/Quickshell.Io/FileView/>
@@ -211,7 +211,7 @@ These upstream docs support the current implementation more strongly than the ol
 
 ## Bottom Line
 
-`THEMING.md` should not be treated as the source of truth for new theming work without a cleanup pass.
+`docs/theming/SPEC.md` should not be treated as the source of truth for new theming work without a cleanup pass.
 
 The minimum update set is:
 - refresh the documented schema
