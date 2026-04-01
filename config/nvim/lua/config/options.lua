@@ -26,6 +26,5 @@ opt.spell = false
 opt.spellfile = vim.fn.stdpath("config") .. "/spell/en.utf-8.add"
 
 if vim.g.neovide then
-  vim.o.guifont = "Comic Code:h12"
-  vim.g.neovide_scale_factor = 0.9
+  pcall(dofile, vim.fn.stdpath("config") .. "/lua/neovide-theme.lua")
 end

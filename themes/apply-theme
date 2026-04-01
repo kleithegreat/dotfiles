@@ -148,8 +148,8 @@ _BASE_COLOR_TARGETS = {
 
 # "fonts" subcommand: targets that depend on any font-related key
 _FONT_TARGETS = {
-    "alacritty", "ghostty", "quickshell", "tmux", "gtk", "qt", "vicinae",
-    "snappy_switcher", "vscode",
+    "alacritty", "ghostty", "neovide", "quickshell", "tmux", "gtk", "qt",
+    "vicinae", "snappy_switcher", "vscode",
 }
 
 
