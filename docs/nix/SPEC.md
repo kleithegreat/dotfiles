@@ -117,8 +117,8 @@ the Nix store.
 The intended `xdg.configFile` patterns are:
 
 - base files that import or source generated fragments, such as
-  `config/alacritty/alacritty.toml:1-8`, `config/tmux/tmux.conf:1-50`,
-  `config/zathura/zathurarc:1-2`, `config/hypr/hyprland.conf:1-11`, and
+  `config/alacritty/alacritty.toml:1-9`, `config/tmux/tmux.conf:1-41`,
+  `config/zathura/zathurarc:1-2`, `config/hypr/hyprland.conf:1-14`, and
   `config/hypr/appearance.conf:1-3`
 - static, version-controlled config trees such as `quickshell/` and `nvim/`
   deployed recursively from `home/default.nix:225-233`
@@ -146,7 +146,7 @@ runtime-generated sibling files. That is the intended deployment model for:
   `config/nvim/lua/config/options.lua:29-29`,
   `themes/lib/targets/neovim.py:7-17`, `themes/lib/targets/neovide.py:5-15`)
 
-The activation hook at `home/default.nix:326-330` is the intended rebuild-time
+The activation hook at `home/default.nix:327-329` is the intended rebuild-time
 sync path. It runs `themes/apply-theme sync`, which writes only the targets that
 are safe to materialize during Home Manager activation.
 
@@ -183,5 +183,5 @@ The Qt theming chain is the intended example of that split. The packages needed
 for Kvantum and the Qt style stack are installed through Nix
 (`home/default.nix:168-171`), while the user-session environment that selects the
 platform theme is expressed in the Hyprland config deployed by Home Manager
-(`config/hypr/env.conf:3-4`, `home/default.nix:208-214`). The package contract
+(`config/hypr/env.conf:4-5`, `home/default.nix:208-214`). The package contract
 and the config contract are distinct, but they are expected to line up.

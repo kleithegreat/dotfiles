@@ -1,87 +1,443 @@
 # Quickshell Architecture
 
-The Quickshell config is centered on `config/quickshell/shell.qml:12-266`. The root directory holds the shell entry point, singleton runtime wrappers such as `AudioService.qml`, `NetworkService.qml`, and `Theme.qml`, shared overlay helpers such as `PopupVisibility.qml` and `PopupOverlayHost.qml`, and a few standalone surfaces such as `TooltipWindow.qml`, `NotifDrawer.qml`, and `PowerMenu.qml`. Bar modules live under `config/quickshell/bar/`, popup implementations live under `config/quickshell/popups/`, shared UI primitives live under `config/quickshell/components/`, and there is one helper script at `config/quickshell/scripts/dir-picker.py:1-42`. No QML call site for `dir-picker.py` was evident in the inspected files.
+The Quickshell config is centered on `config/quickshell/shell.qml:12-266`. The
+root directory holds the shell entry point, the singleton runtime wrappers
+(`AudioService.qml`, `BluetoothService.qml`, `NetworkService.qml`, `Theme.qml`,
+and peers), popup coordination helpers (`PopupVisibility.qml`,
+`PopupOverlayHost.qml`), and the standalone surfaces that are not part of popup
+exclusivity (`TooltipWindow.qml`, `NotifDrawer.qml`, `PowerMenu.qml`). Bar
+modules live under `config/quickshell/bar/`, managed popup implementations live
+under `config/quickshell/popups/`, and reusable UI primitives live under
+`config/quickshell/components/`.
 
-## Shell Composition And Lifecycle
+One helper script still ships under `config/quickshell/scripts/dir-picker.py:1-42`,
+but the current wallpaper-directory flow is implemented in QML by the settings
+host and wallpaper pane instead (`config/quickshell/popups/SettingsPopup.qml:49-61`,
+`config/quickshell/popups/SettingsPopup.qml:217-229`,
+`config/quickshell/popups/SettingsPopup.qml:320-379`,
+`config/quickshell/popups/settings/SettingsWallpaperPane.qml:190-446`).
 
-`config/quickshell/shell.qml:12-266` is the shell root. Its `Scope` owns one `PopupVisibility` instance, exposes `doNotDisturb` and `historyCount` as read-only aliases of `NotificationService`, and instantiates `TooltipWindow`, one `Bar.Bar`, a notification `PanelWindow`, an audio and brightness OSD `PanelWindow`, a toast `PanelWindow`, and one shared `PopupOverlayHost`. The notification popup stack, OSD, and toast surfaces are mounted directly under the root scope rather than inside the overlay host, and each one binds straight to its corresponding singleton state in `NotificationService`, `AudioService`, or `ToastService` (`config/quickshell/shell.qml:18-185`, `config/quickshell/TooltipWindow.qml:6-48`).
+## Shell Composition And IPC
 
-The code does not express multi-monitor handling explicitly. Neither `config/quickshell/shell.qml:12-266` nor `config/quickshell/bar/Bar.qml:7-68` iterates outputs, creates per-screen variants, or binds windows to a named monitor. The code only anchors layer-shell windows to edges or center points and assigns namespaces such as `quickshell:bar`, `quickshell:notifications`, `quickshell:osd`, `quickshell:toast`, and `quickshell:popup-overlay` (`config/quickshell/bar/Bar.qml:12-18`, `config/quickshell/PopupOverlayHost.qml:74-80`).
+`config/quickshell/shell.qml:12-266` is the session root. The top-level `Scope`
+owns one `PopupVisibility` registry, forwards `doNotDisturb` and `historyCount`
+from `NotificationService`, mounts `TooltipWindow`, one `Bar.Bar`, the root
+notification popup stack, the shared audio and brightness OSD window, the toast
+window, and one shared `PopupOverlayHost`
+(`config/quickshell/shell.qml:16-185`).
 
-The launch path is `scripts/launch-quickshell.sh:1-30`. That script resolves the repo root from its own location, reads `${XDG_CONFIG_HOME:-$HOME/.config}/hypr/cursor.conf`, unsets `HYPRCURSOR_THEME` before optionally restoring it from the file, supports `--print-env`, and then executes `quickshell -p "$repo_dir/config/quickshell"` (`scripts/launch-quickshell.sh:4-30`).
+Brightness OSD updates still enter through a side-channel rather than through
+`BrightnessService`: `shell.qml` tails `/tmp/quickshell-brightness`, converts
+the raw percentage to a gamma-corrected shell percentage, and forwards that to
+`AudioService.showOsdState()` (`config/quickshell/shell.qml:76-86`). The audio
+volume OSD and the brightness OSD therefore share the same OSD window and state
+machine (`config/quickshell/shell.qml:88-124`,
+`config/quickshell/AudioService.qml:17-22`,
+`config/quickshell/AudioService.qml:66-115`).
 
-The IPC surface is also defined in `config/quickshell/shell.qml:187-265`. The `popups` target mirrors the popup toggles in `PopupVisibility`, `notifications` toggles DND and clears history, `settings` toggles the settings popup, `audio` toggles mute and returns sink status from `AudioService`, `vpn` proxies Mullvad and Tailscale actions through `VpnService`, `theme` either opens settings or runs `themes/apply-theme` through a local `Process`, and `toast` enqueues messages through `ToastService` (`config/quickshell/shell.qml:187-265`).
+There is still no explicit multi-output composition layer. Neither
+`config/quickshell/shell.qml:12-266` nor `config/quickshell/bar/Bar.qml:7-68`
+iterates over monitors or creates one bar per output. The current shell creates
+one set of layer-shell windows and anchors them to edges or center points.
 
-## Popup System
+The shell-wide IPC surface also lives in `config/quickshell/shell.qml:187-265`.
+It exposes:
 
-`config/quickshell/PopupVisibility.qml:3-39` is the exclusivity registry. It stores one boolean per managed overlay popup, `closeAll()` clears the entire set, and `toggleExclusive()` enforces the rule that only one of those managed popups can be visible at a time. All of the named toggle helpers delegate through that one function (`config/quickshell/PopupVisibility.qml:12-38`).
+- `popups` for exclusive popup toggles
+- `notifications` for DND and history clearing
+- `settings` for opening the settings popup
+- `audio` for mute and sink-status queries
+- `vpn` for Mullvad and Tailscale actions
+- `theme` for opening settings or spawning `themes/apply-theme`
+- `toast` for in-shell info, warning, and error messages
 
-`config/quickshell/PopupOverlayHost.qml:9-179` is the single window that turns those booleans into live overlay UI. The host is a full-screen `PanelWindow` on `WlrLayer.Overlay` with `WlrKeyboardFocus.Exclusive` while any managed popup is open. It derives `primaryPopup`, `scrimPopup`, and `overlayVisible` from the mounted popup items, uses `HyprlandFocusGrab` to keep focus on the overlay, and dismisses active popups through full-window `MouseArea` handlers on either a transparent background or a scrim rectangle (`config/quickshell/PopupOverlayHost.qml:25-121`).
+## Popup Registry And Overlay Host
 
-The host mounts `CalendarPopup`, `TrayPopup`, `MprisPopup`, `SettingsPopup`, `QuickSettingsPopup`, `NotifDrawer`, and `PowerMenu`, wiring each popup's `active` property to the corresponding `PopupVisibility` flag and each `close()` signal back to that flag (`config/quickshell/PopupOverlayHost.qml:123-179`). `QuickSettingsPopup` also emits `settingsRequested`, which the host maps to `popupVisibility.toggleSettings()` (`config/quickshell/PopupOverlayHost.qml:155-162`).
+`config/quickshell/PopupVisibility.qml:3-39` is the authoritative exclusivity
+registry for managed overlay popups. It stores one boolean per popup,
+`closeAll()` clears the set, and `toggleExclusive()` enforces the rule that at
+most one managed popup can be active at a time
+(`config/quickshell/PopupVisibility.qml:12-38`).
 
-Each managed popup implements the same small overlay contract in QML: `active`, `close()`, `overlayVisible`, `panelItem`, `focusTarget`, and optional scrim properties. The actual layer-shell window is the shared overlay host; the per-popup files keep the older per-popup `PanelWindow` wrappers as commented legacy code in several cases (`config/quickshell/popups/CalendarPopup.qml:6-130`, `config/quickshell/popups/TrayPopup.qml:9-196`, `config/quickshell/popups/MprisPopup.qml:9-220`, `config/quickshell/popups/QuickSettingsPopup.qml:9-164`, `config/quickshell/popups/SettingsPopup.qml:10-23`, `config/quickshell/NotifDrawer.qml:8-123`, `config/quickshell/PowerMenu.qml:9-60`). Panel placement is per popup: calendar is centered under the bar, MPRIS anchors top-left, tray and quick settings anchor top-right, settings is centered, the notification drawer anchors top-right, and the power menu centers and is the only managed popup with `scrimEnabled: true` (`config/quickshell/popups/CalendarPopup.qml:113-145`, `config/quickshell/popups/MprisPopup.qml:129-140`, `config/quickshell/popups/TrayPopup.qml:95-116`, `config/quickshell/popups/QuickSettingsPopup.qml:148-173`, `config/quickshell/popups/SettingsPopup.qml:711-790`, `config/quickshell/NotifDrawer.qml:107-138`, `config/quickshell/PowerMenu.qml:17-20`, `config/quickshell/PowerMenu.qml:52-66`).
+`config/quickshell/PopupOverlayHost.qml:9-179` is the only overlay
+`PanelWindow`. It derives `primaryPopup`, `scrimPopup`, and `overlayVisible`
+from the mounted popup items, takes `WlrKeyboardFocus.Exclusive` while any
+managed popup is visible, uses `HyprlandFocusGrab` to keep focus inside the
+overlay, and provides shared click-outside dismissal for both transparent and
+scrimmed popups (`config/quickshell/PopupOverlayHost.qml:13-121`).
 
-Notification popups, the audio and brightness OSD, toast messages, and the tooltip window do not participate in `PopupVisibility` or `PopupOverlayHost`. They are independent `PanelWindow`s created directly by `config/quickshell/shell.qml:33-185` and `config/quickshell/TooltipWindow.qml:6-48`.
+The host mounts seven managed overlay surfaces:
+
+- `CalendarPopup`
+- `TrayPopup`
+- `MprisPopup`
+- `SettingsPopup`
+- `QuickSettingsPopup`
+- `NotifDrawer`
+- `PowerMenu`
+
+That mounting happens directly in `config/quickshell/PopupOverlayHost.qml:123-178`.
+The only popup-to-popup handoff currently wired by the host is
+`QuickSettingsPopup.onSettingsRequested -> popupVisibility.toggleSettings()`
+(`config/quickshell/PopupOverlayHost.qml:155-162`).
+
+Each managed popup still implements the same host-facing shape: `active`,
+`close()`, `overlayVisible`, `panelItem`, `focusTarget`, and optional scrim
+properties. The popup files own layout and animation, while the host owns the
+actual layer-shell window and the exclusivity behavior. Current placements are:
+
+- calendar: centered below the bar
+  (`config/quickshell/popups/CalendarPopup.qml:113-145`)
+- tray: top-right
+  (`config/quickshell/popups/TrayPopup.qml:95-116`)
+- MPRIS: top-left
+  (`config/quickshell/popups/MprisPopup.qml:129-140`)
+- quick settings: top-right
+  (`config/quickshell/popups/QuickSettingsPopup.qml:127-143`)
+- settings: centered fixed-size panel
+  (`config/quickshell/popups/SettingsPopup.qml:732-811`)
+- notification drawer: top-right
+  (`config/quickshell/NotifDrawer.qml:107-136`)
+- power menu: centered, and the only managed popup with a scrim
+  (`config/quickshell/PowerMenu.qml:14-20`,
+  `config/quickshell/PowerMenu.qml:52-60`)
+
+The notification popup stack, OSD, toast window, and tooltip window do not
+participate in popup exclusivity. They are independent `PanelWindow`s created by
+`config/quickshell/shell.qml:33-182` and `config/quickshell/TooltipWindow.qml:6-48`.
 
 ## Service Layer
 
-The singleton runtime layer is the set of root-level QML files marked with `pragma Singleton`: `AudioService.qml`, `BluetoothService.qml`, `BrightnessService.qml`, `DisplayService.qml`, `NetworkService.qml`, `NotificationService.qml`, `PowerProfileService.qml`, `Theme.qml`, `ToastService.qml`, `TooltipService.qml`, and `VpnService.qml`. `Theme.qml` is covered separately below; the remaining singleton files are the shell's shared state and command wrappers.
+The root-level singleton set is:
 
-`config/quickshell/AudioService.qml:6-116` wraps `Quickshell.Services.Pipewire`. It exposes the default sink, volume, mute state, sink description, and a shared OSD state machine driven by `PwObjectTracker`, `Connections`, and an OSD hide timer (`config/quickshell/AudioService.qml:11-23`, `config/quickshell/AudioService.qml:82-115`). It is consumed by the shell OSD window and audio IPC target in `config/quickshell/shell.qml:88-124` and `config/quickshell/shell.qml:213-223`, by the bar volume module in `config/quickshell/bar/Volume.qml:12-57`, and by the settings audio pane in `config/quickshell/popups/settings/SettingsAudioPane.qml:14-118`.
+- `AudioService.qml`
+- `BluetoothService.qml`
+- `BrightnessService.qml`
+- `DisplayService.qml`
+- `NetworkService.qml`
+- `NotificationService.qml`
+- `PowerProfileService.qml`
+- `Theme.qml`
+- `ToastService.qml`
+- `TooltipService.qml`
+- `VpnService.qml`
 
-`config/quickshell/NotificationService.qml:6-306` wraps `Quickshell.Services.Notifications.NotificationServer`. It owns popup and history models, DND state, tracked-notification watchers, dismissal timers, and one adaptive timer for refreshing relative timestamps instead of a fixed poll (`config/quickshell/NotificationService.qml:9-19`, `config/quickshell/NotificationService.qml:54-76`, `config/quickshell/NotificationService.qml:155-170`, `config/quickshell/NotificationService.qml:263-306`). It drives the root notification popup stack in `config/quickshell/shell.qml:32-74`, the notification drawer in `config/quickshell/NotifDrawer.qml:137-235`, the bar bell through shell-level props in `config/quickshell/shell.qml:18-20` and `config/quickshell/bar/Bell.qml:7-36`, the quick settings DND tile in `config/quickshell/popups/QuickSettingsPopup.qml:214-285`, and the `notifications` IPC target in `config/quickshell/shell.qml:200-205`.
+`config/quickshell/AudioService.qml:6-116` wraps PipeWire and owns the shared
+volume, mute, sink-description, and OSD state used by the shell OSD window, the
+bar volume module, the settings audio pane, and the `audio` IPC target
+(`config/quickshell/shell.qml:88-124`,
+`config/quickshell/shell.qml:213-223`,
+`config/quickshell/bar/Volume.qml:12-57`,
+`config/quickshell/popups/settings/SettingsAudioPane.qml:14-201`).
 
-`config/quickshell/TooltipService.qml:4-53` and `config/quickshell/ToastService.qml:5-98` are in-memory UI state holders rather than system-daemon wrappers. `TooltipService` exposes delayed show and hide behavior and is rendered by `config/quickshell/TooltipWindow.qml:6-48`; interactive bar modules call it directly, for example `config/quickshell/bar/Battery.qml:64-75`, `config/quickshell/bar/Clock.qml:114-128`, and `config/quickshell/bar/Network.qml:41-52`. `ToastService` owns a bounded queue, duplicate suppression, and dismissal timers, and `config/quickshell/shell.qml:126-182` renders that state while `config/quickshell/shell.qml:259-265` exposes it over IPC.
+`config/quickshell/NotificationService.qml:6-306` wraps
+`NotificationServer`. It owns both popup and history models, DND state,
+tracked-notification dismissal, and one adaptive relative-time refresh timer.
+That state drives the root notification popup stack, the notification drawer,
+the bar bell via shell-level props, and the `notifications` IPC target
+(`config/quickshell/shell.qml:18-20`,
+`config/quickshell/shell.qml:32-74`,
+`config/quickshell/NotifDrawer.qml:137-235`,
+`config/quickshell/bar/Bell.qml:7-24`,
+`config/quickshell/shell.qml:200-205`).
 
-`config/quickshell/BluetoothService.qml:5-169` is a `bluetoothctl` wrapper. State freshness comes from an explicit refresh chain that runs `show`, then connected-device info, then paired devices, then all devices, then a scan; actions also call `refresh()`, but there is no standing poll timer (`config/quickshell/BluetoothService.qml:17-35`, `config/quickshell/BluetoothService.qml:64-168`). The Bluetooth settings pane and the quick settings Bluetooth tile bind to it directly (`config/quickshell/popups/settings/SettingsBluetoothPane.qml:10-23`, `config/quickshell/popups/QuickSettingsPopup.qml:214-248`). The bar Bluetooth module does not use the singleton; it implements its own 10-second `bluetoothctl` poll loop and staging state in `config/quickshell/bar/Bluetooth.qml:54-117`.
+`config/quickshell/TooltipService.qml:4-53` and
+`config/quickshell/ToastService.qml:5-98` are lightweight in-memory UI-state
+singletons. `TooltipService` controls delayed show and linger behavior for
+interactive modules, and `ToastService` owns a bounded toast queue with
+duplicate suppression and level-specific durations
+(`config/quickshell/TooltipWindow.qml:6-48`,
+`config/quickshell/shell.qml:126-182`,
+`config/quickshell/shell.qml:259-265`).
 
-`config/quickshell/NetworkService.qml:6-1079` is the largest singleton. It wraps `nmcli`, `iw`, `ping`, `curl`, and `wl-copy` for Wi-Fi radio state, radio on and off, connection-summary refresh, Wi-Fi scanning, known-network enumeration, connect and disconnect, enterprise auth, connection details, captive-portal handling, diagnostics, speed tests, channel scans, DNS switching, and report export (`config/quickshell/NetworkService.qml:10-78`, `config/quickshell/NetworkService.qml:159-377`, `config/quickshell/NetworkService.qml:548-1079`). Freshness is mostly explicit: `refreshRadio()`, `refreshConnection()`, `scan()`, and `loadKnown()` start the base refresh, diagnostics turn on a 2-second timer, and action processes refresh state on exit (`config/quickshell/NetworkService.qml:159-197`, `config/quickshell/NetworkService.qml:548-593`, `config/quickshell/NetworkService.qml:1069-1079`). The network settings pane binds to it directly, including the in-pane Wi-Fi power row and powered-off state (`config/quickshell/popups/settings/SettingsNetworkPane.qml:11-228`). `QuickSettingsPopup` now uses the same singleton-backed Wi-Fi radio state and toggle path instead of carrying its own `nmcli radio wifi` processes (`config/quickshell/popups/QuickSettingsPopup.qml:32-76`, `config/quickshell/popups/QuickSettingsPopup.qml:193-258`). Keeping radio control in `NetworkService`, rather than duplicating one capability in each surface, makes Wi-Fi power a single service concern in the same way Bluetooth power already is. The bar network module still bypasses the singleton and runs its own 10-second `nmcli device status` poller (`config/quickshell/bar/Network.qml:55-107`).
+`config/quickshell/BluetoothService.qml:5-290` now has two refresh modes. The
+full refresh path runs `show -> connected-device info -> paired devices -> all
+devices -> scan` and is used by the Bluetooth pane
+(`config/quickshell/BluetoothService.qml:25-35`,
+`config/quickshell/BluetoothService.qml:103-229`,
+`config/quickshell/popups/settings/SettingsBluetoothPane.qml:22-25`). The
+lightweight summary path fetches powered state and the current connected device,
+then keeps that summary fresh with a 10-second timer for bar and quick-settings
+consumers (`config/quickshell/BluetoothService.qml:36-45`,
+`config/quickshell/BluetoothService.qml:77-99`,
+`config/quickshell/BluetoothService.qml:231-289`,
+`config/quickshell/bar/Bluetooth.qml:7-46`,
+`config/quickshell/popups/QuickSettingsPopup.qml:71-80`).
 
-`config/quickshell/VpnService.qml:5-162` wraps Mullvad and Tailscale. It parses `mullvad status -j` and `tailscale status --json`, exposes state and metadata for both, provides action methods for connect, disconnect, up, and down, and keeps state fresh with a 15-second poll timer plus action-triggered refreshes (`config/quickshell/VpnService.qml:8-56`, `config/quickshell/VpnService.qml:60-161`). It is consumed by the network settings pane in `config/quickshell/popups/settings/SettingsNetworkPane.qml:15-42`, the quick settings VPN tile in `config/quickshell/popups/QuickSettingsPopup.qml:214-253`, the `vpn` IPC target in `config/quickshell/shell.qml:226-241`, and the optional bar VPN module in `config/quickshell/bar/Vpn.qml:6-44`. `config/quickshell/bar/Bar.qml:20-67` does not currently mount that bar VPN module.
+`config/quickshell/NetworkService.qml:6-1130` is the largest service boundary.
+It owns:
 
-`config/quickshell/BrightnessService.qml:5-159`, `config/quickshell/DisplayService.qml:5-287`, and `config/quickshell/PowerProfileService.qml:5-203` handle display-adjacent state. `BrightnessService` discovers the first backlight under `/sys/class/backlight`, watches the `brightness` and `max_brightness` files with `FileView`, retries discovery every 30 seconds while no backlight is found, and writes through `brightnessctl` (`config/quickshell/BrightnessService.qml:13-18`, `config/quickshell/BrightnessService.qml:25-41`, `config/quickshell/BrightnessService.qml:94-158`). `DisplayService` combines Hyprland monitor management and Hyprsunset-based night light; monitor state refreshes on demand through `hyprctl monitors -j`, while night-light state uses a 2-second poll plus shorter refresh and apply timers (`config/quickshell/DisplayService.qml:34-37`, `config/quickshell/DisplayService.qml:139-287`). `PowerProfileService` wraps `powerprofilesctl` or `auto-cpufreq`, and separately wraps `pkexec smbios-battery-ctl` for charge caps; it refreshes after writes with short timers instead of continuous polling (`config/quickshell/PowerProfileService.qml:46-52`, `config/quickshell/PowerProfileService.qml:90-203`). These singletons are consumed by `config/quickshell/popups/settings/SettingsDisplayPane.qml:17-60`, `config/quickshell/popups/settings/SettingsPowerPane.qml:14-149`, `config/quickshell/popups/QuickSettingsPopup.qml:75-100`, and the standalone bar brightness module in `config/quickshell/bar/Brightness.qml:12-60`.
+- Wi-Fi radio state and toggling
+  (`config/quickshell/NetworkService.qml:163-203`,
+  `config/quickshell/NetworkService.qml:554-596`)
+- Wi-Fi scanning, known-network loading, active-connection summary, and target
+  connection state
+  (`config/quickshell/NetworkService.qml:205-307`,
+  `config/quickshell/NetworkService.qml:600-771`)
+- diagnostics, speed test, captive portal, channel scan, DNS switching, and
+  report export
+  (`config/quickshell/NetworkService.qml:308-541`,
+  `config/quickshell/NetworkService.qml:775-1130`)
 
-Several UI surfaces bypass the singleton layer and read platform services or local files directly. `config/quickshell/popups/settings/SettingsFocusTimePane.qml:44-72` polls `$XDG_RUNTIME_DIR/focustime_state.json` every 3 seconds and keeps its own parsed state; there is no shared focus-time singleton. `config/quickshell/bar/Battery.qml:11-77`, `config/quickshell/popups/settings/SettingsPowerPane.qml:19-149`, and `config/quickshell/popups/QuickSettingsPopup.qml:57-73` read `Quickshell.Services.UPower` directly. `config/quickshell/bar/Mpris.qml:13-62` and `config/quickshell/popups/MprisPopup.qml:40-66` read `Quickshell.Services.Mpris` directly, `config/quickshell/popups/TrayPopup.qml:115-194` reads `Quickshell.Services.SystemTray`, and `config/quickshell/bar/Workspaces.qml:7-44` reads `Quickshell.Hyprland`. `config/quickshell/shell.qml:76-86` also bypasses `BrightnessService` for brightness notifications by tailing `/tmp/quickshell-brightness`.
+The service now runs a 10-second summary timer for steady-state bar and quick
+settings freshness, and a separate 2-second diagnostics timer while the
+diagnostics subpane is active (`config/quickshell/NetworkService.qml:1113-1128`).
+The bar network module, quick settings, and the full network pane all consume
+that shared state rather than maintaining their own polling/parsing layer
+(`config/quickshell/bar/Network.qml:7-47`,
+`config/quickshell/popups/QuickSettingsPopup.qml:32-79`,
+`config/quickshell/popups/settings/SettingsNetworkPane.qml:11-1099`).
+
+`config/quickshell/VpnService.qml:5-442` wraps both Mullvad and Tailscale. In
+addition to provider status, it now exposes Mullvad relay browsing and relay
+selection APIs, keeps provider state fresh with a 15-second poll timer, and
+refreshes status and selection after each provider action
+(`config/quickshell/VpnService.qml:71-177`,
+`config/quickshell/VpnService.qml:243-442`). The network pane consumes the full
+surface, the quick-settings tile still summarizes Mullvad only, and the optional
+bar VPN module summarizes both providers
+(`config/quickshell/popups/settings/SettingsNetworkPane.qml:16-188`,
+`config/quickshell/popups/settings/SettingsNetworkPane.qml:385-1099`,
+`config/quickshell/popups/QuickSettingsPopup.qml:193-278`,
+`config/quickshell/bar/Vpn.qml:7-44`).
+
+`config/quickshell/BrightnessService.qml:5-159`,
+`config/quickshell/DisplayService.qml:5-287`, and
+`config/quickshell/PowerProfileService.qml:5-203` cover display-adjacent system
+state:
+
+- `BrightnessService` discovers the first backlight, watches
+  `/sys/class/backlight/.../{brightness,max_brightness}` with `FileView`, and
+  writes through `brightnessctl`
+  (`config/quickshell/BrightnessService.qml:25-41`,
+  `config/quickshell/BrightnessService.qml:54-79`,
+  `config/quickshell/BrightnessService.qml:94-159`)
+- `DisplayService` owns monitor refresh/apply state and Hyprsunset night-light
+  state, with a 2-second poll for night-light status and explicit monitor
+  refresh/apply commands
+  (`config/quickshell/DisplayService.qml:34-137`,
+  `config/quickshell/DisplayService.qml:139-287`)
+- `PowerProfileService` wraps `powerprofilesctl` or `auto-cpufreq` for CPU
+  profiles and `pkexec smbios-battery-ctl` for Dell charge limits
+  (`config/quickshell/PowerProfileService.qml:46-52`,
+  `config/quickshell/PowerProfileService.qml:90-203`)
+
+Not every shell domain uses a repo-specific singleton. Current direct-upstream or
+local exceptions are:
+
+- `SettingsFocusTimePane`, which polls
+  `$XDG_RUNTIME_DIR/focustime_state.json` every 3 seconds instead of using a
+  shared singleton (`config/quickshell/popups/settings/SettingsFocusTimePane.qml:44-72`)
+- `Battery.qml`, which reads `Quickshell.Services.UPower` directly
+  (`config/quickshell/bar/Battery.qml:11-35`)
+- `QuickSettingsPopup` battery state, which also reads UPower directly
+  (`config/quickshell/popups/QuickSettingsPopup.qml:35-50`)
+- `MprisPopup` and `bar/Mpris.qml`, which read
+  `Quickshell.Services.Mpris` directly
+  (`config/quickshell/popups/MprisPopup.qml:40-66`,
+  `config/quickshell/bar/Mpris.qml:13-19`)
+- `TrayPopup`, which reads `Quickshell.Services.SystemTray`
+  (`config/quickshell/popups/TrayPopup.qml:115-194`)
+- `Workspaces.qml`, which reads `Quickshell.Hyprland`
+  (`config/quickshell/bar/Workspaces.qml:10-21`)
 
 ## The Bar
 
-`config/quickshell/bar/Bar.qml:7-68` defines one top layer-shell bar `PanelWindow`. The left side contains `Workspaces`, an optional separator, and `Mpris`; the center contains `Clock`; and the right side contains `TrayExpand`, a rounded status pill with `Network`, `Bluetooth`, `Volume`, and `Battery`, then `Bell`, then `Power` (`config/quickshell/bar/Bar.qml:20-67`). Clicks are translated into popup actions by the bar host rather than by the modules themselves: `Mpris` toggles the MPRIS popup, `Clock` toggles the calendar, `TrayExpand` toggles the tray popup, the status pill modules toggle quick settings, `Bell` toggles the notification drawer, and `Power` toggles the power menu (`config/quickshell/bar/Bar.qml:23-30`, `config/quickshell/bar/Bar.qml:37-66`).
+`config/quickshell/bar/Bar.qml:7-68` defines one top layer-shell bar. The left
+cluster mounts `Workspaces`, an optional divider, and `Mpris`; the center mounts
+`Clock`; and the right cluster mounts `TrayExpand`, a rounded status pill with
+`Network`, `Bluetooth`, `Volume`, and `Battery`, then `Bell`, then `Power`
+(`config/quickshell/bar/Bar.qml:20-67`).
 
-The mounted modules use a mix of singleton services, direct platform APIs, and local timers. `Workspaces` reads `Quickshell.Hyprland` directly (`config/quickshell/bar/Workspaces.qml:14-40`). `Mpris` reads `Quickshell.Services.Mpris` directly (`config/quickshell/bar/Mpris.qml:13-59`). `Clock` is a local `Date` plus `Timer` display (`config/quickshell/bar/Clock.qml:11-42`). `Network` and `Bluetooth` each implement their own polling processes instead of using `NetworkService` or `BluetoothService` (`config/quickshell/bar/Network.qml:55-107`, `config/quickshell/bar/Bluetooth.qml:54-117`). `Volume` binds to `AudioService` (`config/quickshell/bar/Volume.qml:12-57`). `Battery` reads `UPower` directly (`config/quickshell/bar/Battery.qml:11-35`). `Bell` is a presentational module that only consumes `doNotDisturb` and `historyCount` props passed in by `Bar.qml` (`config/quickshell/bar/Bell.qml:4-37`, `config/quickshell/bar/Bar.qml:59-63`). `Power` and `TrayExpand` are local icon buttons with tooltip behavior (`config/quickshell/bar/Power.qml:4-23`, `config/quickshell/bar/TrayExpand.qml:4-26`).
+Bar clicks still route through the bar host rather than through a separate
+command bus:
 
-Two bar modules exist as files but are not currently mounted by `config/quickshell/bar/Bar.qml:20-67`. `config/quickshell/bar/Brightness.qml:6-62` combines `BrightnessService` and `DisplayService`, and `config/quickshell/bar/Vpn.qml:6-44` combines both sides of `VpnService`.
+- `Mpris` toggles the MPRIS popup
+- `Clock` toggles the calendar
+- `TrayExpand` toggles the tray popup
+- the status-pill modules toggle quick settings
+- `Bell` toggles the notification drawer
+- `Power` toggles the power menu
+
+That wiring lives in `config/quickshell/bar/Bar.qml:23-30` and
+`config/quickshell/bar/Bar.qml:37-66`.
+
+The mounted modules now use a mix of shared services and direct upstream APIs:
+
+- `Workspaces` -> `Quickshell.Hyprland`
+  (`config/quickshell/bar/Workspaces.qml:7-44`)
+- `Mpris` -> `Quickshell.Services.Mpris`
+  (`config/quickshell/bar/Mpris.qml:13-62`)
+- `Clock` -> local `Date` plus `Timer`
+  (`config/quickshell/bar/Clock.qml:11-43`)
+- `Network` -> `NetworkService`
+  (`config/quickshell/bar/Network.qml:7-47`)
+- `Bluetooth` -> `BluetoothService`
+  (`config/quickshell/bar/Bluetooth.qml:7-46`)
+- `Volume` -> `AudioService`
+  (`config/quickshell/bar/Volume.qml:12-57`)
+- `Battery` -> `UPower`
+  (`config/quickshell/bar/Battery.qml:11-35`)
+- `Bell` -> props passed in from `shell.qml`
+  (`config/quickshell/bar/Bell.qml:7-24`,
+  `config/quickshell/shell.qml:18-20`)
+
+Two extra modules still exist on disk but are not mounted by `Bar.qml`:
+`config/quickshell/bar/Brightness.qml:6-62` and
+`config/quickshell/bar/Vpn.qml:7-44`.
 
 ## The Settings Popup
 
-`config/quickshell/popups/SettingsPopup.qml:10-905` is both the popup implementation and the settings host. The root `FocusScope` owns the current theme snapshot, the loaded lists of color schemes, presets, wallpapers, and directory entries, the category registry arrays, Hyprland option metadata, Hyprland draft and dirty state, and preset command state (`config/quickshell/popups/SettingsPopup.qml:43-95`). When the popup opens it calls `loadState()` to read `themes/state.json` and the supporting lists, and `refreshSystemServices()` to rescan `NetworkService`, `VpnService`, `BluetoothService`, `BrightnessService`, `DisplayService`, and `PowerProfileService` for panes that bind directly to those singletons (`config/quickshell/popups/SettingsPopup.qml:106-144`).
+`config/quickshell/popups/SettingsPopup.qml:10-926` is both popup implementation
+and settings host. The root `FocusScope` owns:
 
-The rendered panel is fixed at `700x500` and centered. Inside it, `SettingsSidebar` is a fixed `190` pixels wide and the right-hand detail area fills the remainder through a `Loader` with `Theme.popupPadding` margins (`config/quickshell/popups/SettingsPopup.qml:711-790`, `config/quickshell/popups/settings/SettingsSidebar.qml:15-240`). Categories are registered by the `categoryNames`, `categoryIcons`, and `systemCategoryCount` arrays on the host, and the detail pane is selected by a `switch` on `selectedCategory` (`config/quickshell/popups/SettingsPopup.qml:59-63`, `config/quickshell/popups/SettingsPopup.qml:766-785`).
+- the current theme snapshot
+- discovered colors, presets, wallpapers, and directory entries
+- category names, icons, and the system/appearance split
+- mono-font offset metadata
+- Hyprland option metadata, draft values, dirty queues, and notification state
+- preset mutation status
 
-The popup uses two different data-flow models. The service-direct panes are instantiated without host props and bind straight to singletons or local processes: `SettingsNetworkPane`, `SettingsBluetoothPane`, `SettingsAudioPane`, `SettingsDisplayPane`, `SettingsPowerPane`, and `SettingsFocusTimePane` (`config/quickshell/popups/SettingsPopup.qml:793-821`, `config/quickshell/popups/settings/SettingsNetworkPane.qml:11-228`, `config/quickshell/popups/settings/SettingsBluetoothPane.qml:10-23`, `config/quickshell/popups/settings/SettingsAudioPane.qml:14-17`, `config/quickshell/popups/settings/SettingsDisplayPane.qml:17-60`, `config/quickshell/popups/settings/SettingsPowerPane.qml:14-18`, `config/quickshell/popups/settings/SettingsFocusTimePane.qml:44-72`). In the network case that means the pane owns the local list and detail UI, but `NetworkService` owns the shared Wi-Fi radio state machine that both the pane and Quick Settings consume (`config/quickshell/NetworkService.qml:159-197`, `config/quickshell/NetworkService.qml:548-593`, `config/quickshell/popups/QuickSettingsPopup.qml:193-258`). The host-driven panes are mounted with explicit props and callback signals: `SettingsPresetsPane`, `SettingsColorsPane`, `SettingsFontsPane`, `SettingsWallpaperPane`, `SettingsIconsPane`, and `SettingsHyprlandPane` all receive host-owned data and signal back to host methods such as `runSet()`, `runPreset()`, `runSavePreset()`, and the Hyprland draft handlers (`config/quickshell/popups/SettingsPopup.qml:823-903`, `config/quickshell/popups/settings/SettingsPresetsPane.qml:6-98`, `config/quickshell/popups/settings/SettingsColorsPane.qml:6-179`, `config/quickshell/popups/settings/SettingsFontsPane.qml:6-220`, `config/quickshell/popups/settings/SettingsWallpaperPane.qml:6-120`, `config/quickshell/popups/settings/SettingsIconsPane.qml:6-120`, `config/quickshell/popups/settings/SettingsHyprlandPane.qml:6-52`).
+That host state lives in `config/quickshell/popups/SettingsPopup.qml:43-95`.
 
-Theme-managed writes and Hyprland-managed writes are also split at the host level. Generic theme keys and preset application use `applyProc`, `runSet()`, and `runPreset()`, which call `/home/kevin/repos/dotfiles/themes/apply-theme` and then start a 1.5-second `reloadTimer` that reruns `loadState()` (`config/quickshell/popups/SettingsPopup.qml:613-661`). Hyprland appearance controls use a separate queued write path: local draft state is updated first, `hyprWriteTimer` batches changes, and `hyprApplyProc` writes one `apply-theme set <hypr key> <value>` at a time; on success the host immediately calls `loadState()` and optionally sends a desktop notification through `hyprNotifyProc` (`config/quickshell/popups/SettingsPopup.qml:216-264`, `config/quickshell/popups/SettingsPopup.qml:392-578`).
+On open, the popup loads the theme snapshot and supporting lists, then refreshes
+the live system services consumed by service-direct panes
+(`config/quickshell/popups/SettingsPopup.qml:107-156`). Data loading currently
+uses local `Process` helpers:
+
+- `stateProc` reads `themes/state.json`
+- `listColorsProc` shells out through `jq` over `themes/colors/*.json`
+- `listPresetsProc` shells out through `jq` over `themes/presets/*.json`
+- `listWallpapersProc` lists the active wallpaper directory
+- `listDirectoriesProc` enumerates subdirectories for the wallpaper browser
+
+Those loaders live in `config/quickshell/popups/SettingsPopup.qml:158-229`.
+
+The settings host currently uses three write paths:
+
+- generic theme writes: `applyProc`, `runSet()`, and `runPreset()`
+  (`config/quickshell/popups/SettingsPopup.qml:633-655`)
+- preset save/delete commands: `presetCommandProc`,
+  `runSavePreset()`, and `runDeletePreset()`
+  (`config/quickshell/popups/SettingsPopup.qml:600-631`,
+  `config/quickshell/popups/SettingsPopup.qml:657-681`)
+- Hyprland appearance writes: a debounced dirty-value queue drained by
+  `hyprApplyProc` and `hyprWriteTimer`, with `busctl`-backed desktop
+  notifications (`config/quickshell/popups/SettingsPopup.qml:231-279`,
+  `config/quickshell/popups/SettingsPopup.qml:381-598`)
+
+The rendered panel is still a fixed `700x500` centered loader with a left
+sidebar, divider, and one detail loader on the right
+(`config/quickshell/popups/SettingsPopup.qml:732-811`). Pane ownership is split
+into two models:
+
+- service-direct panes instantiated bare in the detail loader:
+  `SettingsNetworkPane`, `SettingsBluetoothPane`, `SettingsAudioPane`,
+  `SettingsDisplayPane`, `SettingsPowerPane`, and `SettingsFocusTimePane`
+  (`config/quickshell/popups/SettingsPopup.qml:814-841`)
+- host-driven panes that receive host props and callbacks:
+  `SettingsPresetsPane`, `SettingsColorsPane`, `SettingsFontsPane`,
+  `SettingsWallpaperPane`, `SettingsIconsPane`, and `SettingsHyprlandPane`
+  (`config/quickshell/popups/SettingsPopup.qml:844-924`)
+
+Three current pane details matter for understanding the live settings system:
+
+- the sidebar is now scrollable through `WheelFlickable`
+  (`config/quickshell/popups/settings/SettingsSidebar.qml:24-258`)
+- the display pane now uses `InlineSelect` for monitor resolution and refresh
+  selection instead of open-ended chip flows
+  (`config/quickshell/popups/settings/SettingsDisplayPane.qml:17-124`,
+  `config/quickshell/popups/settings/SettingsDisplayPane.qml:240-283`)
+- the presets pane and preset editor are their own sub-system with host-driven
+  editing, partial-preset saves, and card summaries
+  (`config/quickshell/popups/settings/SettingsPresetsPane.qml:22-345`,
+  `config/quickshell/popups/settings/SettingsPresetsPane.qml:347-530`,
+  `config/quickshell/popups/settings/SettingsPresetEditor.qml:6-1571`)
 
 ## Theme Integration Layer
 
-`config/quickshell/Theme.qml:5-167` is the runtime theme facade. It watches `/home/kevin/.config/quickshell/GeneratedTheme.json` with `FileView.watchChanges`, reparses that JSON on load and on file changes, and exposes generated color keys and font-family values alongside hardcoded layout and animation constants (`config/quickshell/Theme.qml:8-28`, `config/quickshell/Theme.qml:29-167`). The generated portion currently includes colors plus `fonts.family`, `fonts.systemFamily`, and three font-size slots, while bar geometry, popup sizes, animation timing, and other layout constants stay hardcoded in `Theme.qml`, matching the theming note in `docs/theming/SPEC.md:1164-1165` and the generator in `themes/lib/targets/quickshell.py:13-49`.
+`config/quickshell/Theme.qml:5-167` is the shell-facing theme facade. It watches
+`~/.config/quickshell/GeneratedTheme.json` with `FileView.watchChanges`,
+reparses JSON on load and on file changes, exposes generated color keys and font
+fields, and keeps all layout, geometry, and animation constants as shell-owned
+values (`config/quickshell/Theme.qml:8-27`,
+`config/quickshell/Theme.qml:29-167`).
 
-The command side is shared between `SettingsPopup` and shell IPC. `SettingsPopup.runSet()` and `runPreset()` call `/home/kevin/repos/dotfiles/themes/apply-theme` through `applyProc` and then start a local `reloadTimer` (`config/quickshell/popups/SettingsPopup.qml:622-661`), while `config/quickshell/shell.qml:244-256` exposes a second path through the `theme` IPC target and `themeApplyProc` without that popup-local reload step. In both cases the CLI entry point is `themes/apply-theme:228-297`: `cmd_set()` loads `themes/state.json`, validates and writes the new state, resolves the active color scheme, asks `themes/lib/orchestrator.py:215-220` for the affected targets, and applies only those targets; `cmd_preset()` merges a preset into state and then calls `apply_all()` for every registered target (`themes/apply-theme:228-297`, `themes/lib/orchestrator.py:173-220`, `themes/lib/targets/__init__.py:15-32`).
+The Quickshell theming target is `themes/lib/targets/quickshell.py:7-49`. It is
+a `standalone` target that writes `GeneratedTheme.json`, maps the theming
+schema's `bg_dim/cyan` names into Quickshell's `bg0_h/aqua` names, and writes
+the shell font families plus fixed `size/sizeSmall/sizeLarge` values
+(`themes/lib/targets/quickshell.py:13-49`).
 
-The Quickshell target itself is `themes/lib/targets/quickshell.py:7-49`. It is a `standalone` target that writes `~/.config/quickshell/GeneratedTheme.json` and declares `RELOAD_CMD = None` because the shell watches the file directly (`themes/lib/targets/quickshell.py:7-10`). The simplified flow described in `docs/theming/SPEC.md:30-41` matches this high-level shape, but the shell code has two separate return paths: `Theme.qml` updates when `GeneratedTheme.json` changes, and `SettingsPopup` separately refreshes its host-owned `themeState` by rereading `themes/state.json` (`config/quickshell/Theme.qml:9-24`, `config/quickshell/popups/SettingsPopup.qml:139-156`, `config/quickshell/popups/SettingsPopup.qml:622-661`).
+Theme mutation currently enters Quickshell through two different code paths:
 
-Which feedback path is used depends on the state key. `themes/lib/orchestrator.py:15-30` includes the `quickshell` target for `color_scheme`, `system_font`, and `mono_font`, so those writes rewrite `GeneratedTheme.json` and then also round-trip through `SettingsPopup.reloadTimer` for the popup host state (`themes/lib/orchestrator.py:15-30`, `themes/lib/targets/quickshell.py:13-49`, `config/quickshell/Theme.qml:9-24`, `config/quickshell/popups/SettingsPopup.qml:622-661`). `dark_hint` only targets `gtk`, where `themes/lib/targets/gtk.py:32-43` writes live dconf state, so Quickshell-side feedback for that key comes from `SettingsPopup` rereading `themes/state.json`, not from `Theme.qml` rereading `GeneratedTheme.json` (`themes/lib/orchestrator.py:37`, `themes/lib/targets/gtk.py:32-43`, `config/quickshell/popups/SettingsPopup.qml:139-156`, `config/quickshell/popups/SettingsPopup.qml:622-661`). `font_size` and `mono_font_size` also omit the `quickshell` target in `DEPENDS`, and the Quickshell target generator hardcodes its own `size`, `sizeSmall`, and `sizeLarge` fields, so those keys likewise return to the popup host through `loadState()` rather than through a regenerated Quickshell theme file (`themes/lib/orchestrator.py:29-30`, `themes/lib/targets/quickshell.py:41-47`, `config/quickshell/popups/SettingsPopup.qml:139-156`, `config/quickshell/popups/SettingsPopup.qml:622-661`).
+- the settings host, which shells out to `themes/apply-theme` and refreshes its
+  own `themeState` on successful exit
+  (`config/quickshell/popups/SettingsPopup.qml:633-655`)
+- the shell IPC handler, which spawns `themes/apply-theme` through a separate
+  root-level `Process`
+  (`config/quickshell/shell.qml:244-256`)
 
-Hyprland appearance keys use a separate target and a separate host path. `themes/lib/orchestrator.py:38-45` maps `hypr_*` keys to `hypr_appearance`, and `themes/lib/targets/hypr_appearance.py:5-42` writes `~/.config/hypr/appearance-theme.conf` and reloads Hyprland with `hyprctl reload`. `SettingsPopup` reaches that target through `hyprApplyProc` rather than `applyProc`, and on successful exit it calls `loadState()` immediately instead of waiting for `reloadTimer` or for any Quickshell theme file change (`config/quickshell/popups/SettingsPopup.qml:216-264`, `config/quickshell/popups/SettingsPopup.qml:488-578`).
+On the CLI side, `themes/apply-theme` writes `themes/state.json`, computes the
+affected target set through `targets_for_key()`, and applies either that subset
+or the full target registry depending on the subcommand
+(`themes/apply-theme:228-297`,
+`themes/lib/orchestrator.py:14-46`,
+`themes/lib/orchestrator.py:173-220`).
 
-## The Component Library
+## Component Library And Conventions
 
-`config/quickshell/components/` is a small shared primitive layer. `Anim.qml` and `CAnim.qml` are theme-default wrappers around `NumberAnimation` and `ColorAnimation` (`config/quickshell/components/Anim.qml:1-7`, `config/quickshell/components/CAnim.qml:1-7`). `HoverLayer.qml` is the standard interactive wrapper: it fills its parent, exposes `disabled`, `color`, `radius`, `idleOpacity`, `hoverOpacity`, `pressedOpacity`, and `pressedScale`, sets the pointer cursor, and draws the animated hover background behind child content (`config/quickshell/components/HoverLayer.qml:4-68`). `StyledRect.qml` is a `Rectangle` with animated color changes (`config/quickshell/components/StyledRect.qml:3-9`). `StyledText.qml` is a `Text` wrapper with an optional animated text-swap sequence and theme-default font bindings (`config/quickshell/components/StyledText.qml:4-85`). `ToggleSwitch.qml` exposes a `checked` property and `toggled()` signal for the shared on and off control (`config/quickshell/components/ToggleSwitch.qml:4-38`). `WheelFlickable.qml` standardizes wheel scrolling, overshoot, and rebound behavior for scrollable panes (`config/quickshell/components/WheelFlickable.qml:4-66`).
+`config/quickshell/components/` is still a small primitive layer rather than a
+full design system. The main shared building blocks are:
 
-The main conventions are visible in the bar and popup code. Scrollable panes are usually built as `WheelFlickable` plus a `ColumnLayout`, as in `config/quickshell/popups/settings/SettingsBluetoothPane.qml:35-44`, `config/quickshell/popups/settings/SettingsWallpaperPane.qml:21-29`, `config/quickshell/popups/settings/SettingsPresetsPane.qml:98-106`, and `config/quickshell/NotifDrawer.qml:176-179`. Clickable surfaces usually place a `HoverLayer` over a rectangle or item instead of reimplementing press feedback, as in `config/quickshell/PowerMenu.qml:117-147`, `config/quickshell/popups/TrayPopup.qml:159-191`, and `config/quickshell/popups/settings/SettingsIconsPane.qml:59-70`. Animated icon and label swaps use either `StyledText` or the animation wrappers, as in `config/quickshell/bar/Battery.qml:37-61`, `config/quickshell/bar/Workspaces.qml:24-35`, and `config/quickshell/bar/Volume.qml:18-30`. Most of these shared components import `..` as `Root` and read `Root.Theme` directly, so the common convention is theme access through the singleton facade rather than explicit style props (`config/quickshell/components/HoverLayer.qml:1-30`, `config/quickshell/components/StyledText.qml:29-32`, `config/quickshell/components/WheelFlickable.qml:1-8`).
+- `HoverLayer.qml` for click, hover, and pressed-state overlays
+  (`config/quickshell/components/HoverLayer.qml:4-68`)
+- `WheelFlickable.qml` for wheel scrolling with controlled overshoot and rebound
+  (`config/quickshell/components/WheelFlickable.qml:4-66`)
+- `InlineSelect.qml` for bounded dropdown-like selection with keyboard support
+  (`config/quickshell/components/InlineSelect.qml:4-260`)
+- `StyledText.qml`, `StyledRect.qml`, `Anim.qml`, `CAnim.qml`, and
+  `ToggleSwitch.qml` for theme-default text, rectangles, animations, and toggle
+  controls
 
-## Hardcoded Paths And Environment Assumptions
+Most shared components import `..` as `Root` and read `Root.Theme` directly, so
+theme access remains implicit rather than being threaded through explicit style
+props (`config/quickshell/components/HoverLayer.qml:1-21`,
+`config/quickshell/components/InlineSelect.qml:1-18`).
 
-`docs/theming/SPEC.md:1167-1185` explains the intentional absolute-path usage in the shell-side theming code: Quickshell `Process` commands do not inherit the `$DOTFILES` environment expected by the theming tooling, so the shell calls them through explicit repo paths instead. That pattern appears in `config/quickshell/Theme.qml:9-15` for `/home/kevin/.config/quickshell/GeneratedTheme.json`, in `config/quickshell/popups/SettingsPopup.qml:50-61` and `config/quickshell/popups/SettingsPopup.qml:146-214` for the default wallpaper directory and the theme state and listing commands, in `config/quickshell/popups/SettingsPopup.qml:517-523`, `config/quickshell/popups/SettingsPopup.qml:588-610`, and `config/quickshell/popups/SettingsPopup.qml:622-631` for `themes/apply-theme`, and in `config/quickshell/shell.qml:244-256` for the IPC `theme.apply()` path. The launch script does not hardcode the repo root; it derives it dynamically from the script location in `scripts/launch-quickshell.sh:4-30`.
+## Runtime Assumptions And Paths
 
-The shell also assumes a specific runtime environment. `scripts/launch-quickshell.sh:5-23` assumes Hyprland cursor settings are readable from `${XDG_CONFIG_HOME:-$HOME/.config}/hypr/cursor.conf`. `config/quickshell/BrightnessService.qml:104-141` assumes a backlight device exists under `/sys/class/backlight`. `config/quickshell/shell.qml:77-86` assumes an external producer writes brightness events to `/tmp/quickshell-brightness`. `config/quickshell/popups/settings/SettingsFocusTimePane.qml:44-72` assumes a focus-time daemon writes `$XDG_RUNTIME_DIR/focustime_state.json`. The system-facing services assume CLI tools such as `nmcli`, `bluetoothctl`, `hyprctl`, `hyprsunset`, `mullvad`, `tailscale`, `brightnessctl`, `powerprofilesctl`, `pkexec`, `smbios-battery-ctl`, `iw`, `ping`, `curl`, `wl-copy`, `busctl`, `dbus-monitor`, and `dconf` are available on `PATH`, as shown by `config/quickshell/NetworkService.qml:150-990`, `config/quickshell/BluetoothService.qml:64-168`, `config/quickshell/DisplayService.qml:163-285`, `config/quickshell/PowerProfileService.qml:90-203`, `config/quickshell/VpnService.qml:60-160`, and `config/quickshell/scripts/dir-picker.py:6-42`.
+`scripts/launch-quickshell.sh:1-30` derives the repo root from the script
+location, reads `${XDG_CONFIG_HOME:-$HOME/.config}/hypr/cursor.conf`, exports
+`XCURSOR_THEME`, `XCURSOR_SIZE`, and `HYPRCURSOR_THEME` from that file, supports
+`--print-env`, and then executes `quickshell -p "$repo_dir/config/quickshell"`.
+
+The current shell still relies on hardcoded absolute paths for theme state and
+theme commands:
+
+- `Theme.qml` watches `/home/kevin/.config/quickshell/GeneratedTheme.json`
+  (`config/quickshell/Theme.qml:9-15`)
+- `SettingsPopup` reads `themes/state.json`, enumerates `themes/colors/`,
+  `themes/presets/`, and wallpapers under `/home/kevin/repos/dotfiles/...`, and
+  shells out to `/home/kevin/repos/dotfiles/themes/apply-theme`
+  (`config/quickshell/popups/SettingsPopup.qml:50-61`,
+  `config/quickshell/popups/SettingsPopup.qml:158-229`,
+  `config/quickshell/popups/SettingsPopup.qml:537-543`,
+  `config/quickshell/popups/SettingsPopup.qml:608-629`,
+  `config/quickshell/popups/SettingsPopup.qml:647-654`)
+- `shell.qml` uses the same absolute `apply-theme` path for the `theme` IPC
+  target (`config/quickshell/shell.qml:244-256`)
+
+The runtime environment also assumes:
+
+- `/tmp/quickshell-brightness` exists and is updated by an external producer
+  (`config/quickshell/shell.qml:76-86`)
+- a backlight is discoverable under `/sys/class/backlight`
+  (`config/quickshell/BrightnessService.qml:104-141`)
+- `$XDG_RUNTIME_DIR/focustime_state.json` exists when the focus-time daemon is
+  running (`config/quickshell/popups/settings/SettingsFocusTimePane.qml:44-72`)
+- CLI tools such as `nmcli`, `bluetoothctl`, `hyprctl`, `hyprsunset`,
+  `mullvad`, `tailscale`, `brightnessctl`, `powerprofilesctl`, `pkexec`,
+  `smbios-battery-ctl`, `iw`, `ping`, `curl`, `wl-copy`, `busctl`, and
+  `dbus-monitor` are on `PATH`, as shown in the service/process definitions
+  cited above
