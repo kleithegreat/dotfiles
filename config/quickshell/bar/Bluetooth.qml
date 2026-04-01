@@ -15,6 +15,11 @@ RowLayout {
     property bool _gotInfo: false
     property bool _gotShow: false
     property int _pendingSteps: 0
+    property string tooltipText: {
+        if (connected) return deviceName;
+        if (powered) return "Bluetooth on";
+        return "Bluetooth off";
+    }
 
     Text {
         id: btIcon
@@ -36,6 +41,14 @@ RowLayout {
         id: btArea; anchors.fill: parent
         cursorShape: Qt.PointingHandCursor; hoverEnabled: true
         onClicked: btRoot.clicked()
+        onContainsMouseChanged: {
+            if (containsMouse) {
+                let p = btRoot.mapToGlobal(Qt.point(btRoot.width / 2, btRoot.height));
+                TooltipService.show(btRoot.tooltipText, p.x, p.y);
+            } else {
+                TooltipService.hide();
+            }
+        }
     }
 
     // ── Poll: bluetoothctl show (adapter power) ──

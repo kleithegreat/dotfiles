@@ -5,6 +5,11 @@ Item {
     id: bellRoot
     implicitWidth: bellText.implicitWidth + 4; implicitHeight: bellText.implicitHeight
     property bool doNotDisturb: false; property int historyCount: 0; signal clicked()
+    property string tooltipText: {
+        if (doNotDisturb) return "Do Not Disturb";
+        if (historyCount > 0) return historyCount + " notification" + (historyCount !== 1 ? "s" : "");
+        return "Notifications";
+    }
 
     Text {
         id: bellText; anchors.centerIn: parent
@@ -17,5 +22,16 @@ Item {
         width: 5; height: 5; radius: 3; color: Theme.orangeBright
         anchors.top: bellText.top; anchors.right: bellText.right; anchors.topMargin: -1; anchors.rightMargin: -2
     }
-    MouseArea { id: bellArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: bellRoot.clicked() }
+    MouseArea {
+        id: bellArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+        onClicked: bellRoot.clicked()
+        onContainsMouseChanged: {
+            if (containsMouse) {
+                let p = bellRoot.mapToGlobal(Qt.point(bellRoot.width / 2, bellRoot.height));
+                TooltipService.show(bellRoot.tooltipText, p.x, p.y);
+            } else {
+                TooltipService.hide();
+            }
+        }
+    }
 }
