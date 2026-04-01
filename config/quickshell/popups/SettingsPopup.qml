@@ -92,6 +92,7 @@ FocusScope {
     property var hyprNotificationQueue: []
     property string presetCommandError: ""
     property int presetMutationToken: 0
+    property bool themeStateReloadPending: false
 
     function preparePanelForOpen() {
         let item = settingsContentLoader.item;
@@ -136,9 +137,20 @@ FocusScope {
         PowerProfileService.detectChargeLimit();
     }
 
-    function loadState() {
+    function loadThemeState() {
+        if (stateProc.running) {
+            themeStateReloadPending = true;
+            return;
+        }
+
+        themeStateReloadPending = false;
+        stateProc.buf = "";
         stateProc.running = true;
-        listColorsProc.running = true;
+    }
+
+    function loadState() {
+        loadThemeState();
+        refreshColorFamilies();
         refreshPresets();
         refreshWallpapers();
     }
@@ -153,6 +165,9 @@ FocusScope {
                 settingsPop.syncHyprDraftState();
             } catch(e) {}
             buf = "";
+
+            if (settingsPop.themeStateReloadPending)
+                settingsPop.loadThemeState();
         }
     }
 
@@ -233,7 +248,7 @@ FocusScope {
                 settingsPop.hyprRuntimeError = "";
                 if (pendingLabel !== "")
                     settingsPop.queueHyprNotification("Hyprland updated", pendingLabel);
-                settingsPop.loadState();
+                settingsPop.loadThemeState();
             }
 
             buf = "";
@@ -272,6 +287,11 @@ FocusScope {
     function refreshWallpapers() {
         listWallpapersProc.items = [];
         listWallpapersProc.running = true;
+    }
+
+    function refreshColorFamilies() {
+        listColorsProc.items = [];
+        listColorsProc.running = true;
     }
 
     function refreshPresets() {
@@ -615,20 +635,23 @@ FocusScope {
         id: applyProc; running: false
         stderr: SplitParser { onRead: (line) => { console.log("[apply-theme stderr]", line); } }
         onExited: (code, status) => {
-            if (code !== 0) console.log("[apply-theme] exit", code);
+            if (code !== 0) {
+                console.log("[apply-theme] exit", code);
+                return;
+            }
+
+            settingsPop.loadThemeState();
         }
     }
 
     function runSet(key, value) {
         applyProc.command = ["/home/kevin/repos/dotfiles/themes/apply-theme", "set", key, value];
         applyProc.running = true;
-        reloadTimer.restart();
     }
 
     function runPreset(name) {
         applyProc.command = ["/home/kevin/repos/dotfiles/themes/apply-theme", "preset", name];
         applyProc.running = true;
-        reloadTimer.restart();
     }
 
     Process {
@@ -657,8 +680,6 @@ FocusScope {
             targetName = "";
         }
     }
-
-    Timer { id: reloadTimer; interval: 1500; onTriggered: loadState() }
 
     // ── Backdrop ──
     Keys.onEscapePressed: settingsPop.close()
