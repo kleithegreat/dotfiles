@@ -73,6 +73,7 @@ class ThemeState:
         "alacritty": "alacritty_mono_font_size_offset",
         "ghostty": "ghostty_mono_font_size_offset",
         "gtk": "gtk_mono_font_size_offset",
+        "neovide": "neovide_mono_font_size_offset",
         "qt": "qt_mono_font_size_offset",
         "vscode": "vscode_mono_font_size_offset",
     }
@@ -90,6 +91,7 @@ class ThemeState:
     alacritty_mono_font_size_offset: int  # Per-target delta from mono_font_size
     ghostty_mono_font_size_offset: int
     gtk_mono_font_size_offset: int
+    neovide_mono_font_size_offset: int
     qt_mono_font_size_offset: int
     vscode_mono_font_size_offset: int
     dark_hint: bool        # True = prefer-dark, False = prefer-light

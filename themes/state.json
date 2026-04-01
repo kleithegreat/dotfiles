@@ -12,6 +12,7 @@
   "alacritty_mono_font_size_offset": 0,
   "ghostty_mono_font_size_offset": 0,
   "gtk_mono_font_size_offset": 0,
+  "neovide_mono_font_size_offset": 0,
   "qt_mono_font_size_offset": 0,
   "vscode_mono_font_size_offset": 3,
   "dark_hint": false,
