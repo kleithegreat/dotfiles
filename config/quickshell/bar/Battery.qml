@@ -10,6 +10,7 @@ RowLayout {
 
     property real rawPct: UPower.displayDevice.percentage
     property real pct: rawPct <= 1.0 && rawPct > 0 ? rawPct * 100 : rawPct
+    property string tooltipText: "Battery: " + Math.round(pct) + "%" + (charging ? " (Charging)" : "")
 
     // ── Debounced charging state ──
     // UPower can transiently report Discharging during AC state transitions.
@@ -64,5 +65,13 @@ RowLayout {
         id: batArea; anchors.fill: parent
         cursorShape: Qt.PointingHandCursor; hoverEnabled: true
         onClicked: batRoot.clicked()
+        onContainsMouseChanged: {
+            if (containsMouse) {
+                let p = batRoot.mapToGlobal(Qt.point(batRoot.width / 2, batRoot.height));
+                TooltipService.show(batRoot.tooltipText, p.x, p.y);
+            } else {
+                TooltipService.hide();
+            }
+        }
     }
 }

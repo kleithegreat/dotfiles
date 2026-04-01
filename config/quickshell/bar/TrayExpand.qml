@@ -11,5 +11,16 @@ Item {
         color: chevArea.containsMouse ? Theme.yellowBright : Theme.fg4
         font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
     }
-    MouseArea { id: chevArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: trayExpand.clicked() }
+    MouseArea {
+        id: chevArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+        onClicked: trayExpand.clicked()
+        onContainsMouseChanged: {
+            if (containsMouse) {
+                let p = trayExpand.mapToGlobal(Qt.point(trayExpand.width / 2, trayExpand.height));
+                TooltipService.show("System tray", p.x, p.y);
+            } else {
+                TooltipService.hide();
+            }
+        }
+    }
 }

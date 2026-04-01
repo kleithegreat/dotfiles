@@ -11,6 +11,7 @@ Item {
 
     property real volume: AudioService.volume
     property bool muted: AudioService.muted
+    property string tooltipText: muted ? "Muted" : "Volume: " + Math.round(volume * 100) + "%"
 
     RowLayout {
         id: volumeRow; anchors.fill: parent; spacing: 4
@@ -32,6 +33,14 @@ Item {
     MouseArea {
         id: hoverA; anchors.fill: parent
         acceptedButtons: Qt.LeftButton | Qt.MiddleButton; hoverEnabled: true
+        onContainsMouseChanged: {
+            if (containsMouse) {
+                let p = volumeRoot.mapToGlobal(Qt.point(volumeRoot.width / 2, volumeRoot.height));
+                TooltipService.show(volumeRoot.tooltipText, p.x, p.y);
+            } else {
+                TooltipService.hide();
+            }
+        }
         onClicked: (mouse) => {
             if (mouse.button === Qt.MiddleButton) {
                 AudioService.suppressOsd = true;

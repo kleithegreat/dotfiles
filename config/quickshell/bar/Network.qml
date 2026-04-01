@@ -15,6 +15,11 @@ RowLayout {
     property string _pendingName: ""
     property string _pendingType: ""
     property bool _gotResult: false
+    property string tooltipText: {
+        if (!connected) return "Not connected";
+        if (connectionType === "ethernet") return "Ethernet";
+        return networkName || "Wi-Fi connected";
+    }
 
     Text {
         id: netIcon
@@ -37,6 +42,14 @@ RowLayout {
         id: netArea; anchors.fill: parent
         cursorShape: Qt.PointingHandCursor; hoverEnabled: true
         onClicked: netRoot.clicked()
+        onContainsMouseChanged: {
+            if (containsMouse) {
+                let p = netRoot.mapToGlobal(Qt.point(netRoot.width / 2, netRoot.height));
+                TooltipService.show(netRoot.tooltipText, p.x, p.y);
+            } else {
+                TooltipService.hide();
+            }
+        }
     }
 
     // ── Polling process ──

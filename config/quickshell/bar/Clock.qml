@@ -11,6 +11,13 @@ Item {
     property string timeStr: ""
     property string prevTimeStr: ""
     property color textColor: clockArea.containsMouse ? Theme.yellowBright : Theme.fg
+    property string tooltipText: {
+        let _t = timeStr;
+        let d = new Date();
+        let days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+        let months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+        return days[d.getDay()] + ", " + months[d.getMonth()] + " " + d.getDate() + ", " + d.getFullYear();
+    }
 
     // Measure a single monospace cell for slot dimensions
     Text {
@@ -110,5 +117,13 @@ Item {
         cursorShape: Qt.PointingHandCursor
         hoverEnabled: true
         onClicked: clockRoot.clicked()
+        onContainsMouseChanged: {
+            if (containsMouse) {
+                let p = clockRoot.mapToGlobal(Qt.point(clockRoot.width / 2, clockRoot.height));
+                TooltipService.show(clockRoot.tooltipText, p.x, p.y);
+            } else {
+                TooltipService.hide();
+            }
+        }
     }
 }

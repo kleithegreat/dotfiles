@@ -19,6 +19,9 @@ Scope {
     readonly property bool doNotDisturb: NotificationService.doNotDisturb
     readonly property int historyCount: NotificationService.historyCount
 
+    // ── Tooltip ──
+    TooltipWindow {}
+
     // ── Bar ──
     Bar.Bar {
         popupVisibility: root.popupVisibility
