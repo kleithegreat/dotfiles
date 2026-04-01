@@ -12,7 +12,9 @@ FocusScope {
         if (BluetoothService.connectError !== "") return "error";
         return "list";
     }
-    property bool deviceListLoading: popupState === "list"
+    readonly property bool listStateResolved: popupState === "list" && BluetoothService.powerStateKnown
+    property bool deviceListLoading: root.listStateResolved
+        && BluetoothService.powered
         && BluetoothService.pairedModel.count === 0
         && BluetoothService.discoveredModel.count === 0
         && (BluetoothService.refreshing || BluetoothService.scanning)
@@ -57,7 +59,7 @@ FocusScope {
             // ── Scan button ──────────────────────────────────
 
             Rectangle {
-                visible: root.popupState === "list" && BluetoothService.powered
+                visible: root.listStateResolved && BluetoothService.powered
                 Layout.preferredWidth: scanLabel.implicitWidth + Theme.btnPaddingH * 2; height: Theme.btnHeight; radius: Theme.btnRadius
                 color: "transparent"
                 Components.HoverLayer {
@@ -76,7 +78,7 @@ FocusScope {
             // ── Powered off empty state ──────────────────────
 
             Item {
-                visible: !BluetoothService.powered && root.popupState === "list" && !root.deviceListLoading
+                visible: root.listStateResolved && !BluetoothService.powered
                 Layout.fillWidth: true; implicitHeight: 40
                 Text { anchors.centerIn: parent; text: "Bluetooth is off"; color: Theme.fg4
                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
@@ -85,7 +87,7 @@ FocusScope {
             // ── Connected device ─────────────────────────────
 
             Item {
-                visible: root.popupState === "list" && BluetoothService.powered && BluetoothService.connectedName !== ""
+                visible: root.listStateResolved && BluetoothService.powered && BluetoothService.connectedName !== ""
                 Layout.fillWidth: true; implicitHeight: 30
 
                 Rectangle { id: connAccent; width: 3; height: parent.height; radius: 1.5; color: Theme.greenBright
@@ -136,7 +138,7 @@ FocusScope {
             // ── Device list ──────────────────────────────────
 
             ColumnLayout {
-                visible: root.popupState === "list" && (BluetoothService.powered || root.deviceListLoading)
+                visible: root.listStateResolved && BluetoothService.powered
                 Layout.fillWidth: true
                 spacing: 4
 
@@ -236,7 +238,7 @@ FocusScope {
             // ── Scanning indicator ───────────────────────────
 
             Item {
-                visible: root.popupState === "list" && BluetoothService.powered && !root.deviceListLoading
+                visible: root.listStateResolved && BluetoothService.powered && !root.deviceListLoading
                     && BluetoothService.scanning && BluetoothService.pairedModel.count === 0 && BluetoothService.discoveredModel.count === 0
                 Layout.fillWidth: true; Layout.alignment: Qt.AlignHCenter
                 implicitHeight: scanningRow.implicitHeight

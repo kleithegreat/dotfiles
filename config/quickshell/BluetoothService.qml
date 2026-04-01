@@ -13,19 +13,24 @@ QtObject {
     property bool connecting: false
     property string connectingName: ""
     property string connectError: ""
+    property bool powerStateKnown: false
 
     readonly property bool refreshing: showProc.running || connInfoProc.running || pairedProc.running || allDevicesProc.running
 
     property ListModel pairedModel: ListModel { id: pairedModel }
     property ListModel discoveredModel: ListModel { id: discoveredModel }
 
-    function refresh() {
+    function refresh(preservePowerState) {
+        if (preservePowerState === undefined)
+            preservePowerState = false;
         connectedName = "";
         connectedMac = "";
         connectedBattery = -1;
         scanning = false;
         pairedModel.clear();
         discoveredModel.clear();
+        if (!preservePowerState)
+            powerStateKnown = false;
         showProc.running = true;
     }
 
@@ -69,6 +74,7 @@ QtObject {
         stdout: SplitParser { onRead: (line) => { showProc.buf += line + "\n"; } }
         onExited: {
             root.powered = showProc.buf.indexOf("Powered: yes") >= 0;
+            root.powerStateKnown = true;
             showProc.buf = "";
             if (root.powered) connInfoProc.running = true;
         }
@@ -146,7 +152,7 @@ QtObject {
             if (code === 0) {
                 root.connectingName = "";
                 root.connecting = false;
-                root.refresh();
+                root.refresh(true);
             } else {
                 root.connectError = "Connection failed";
                 root.connecting = false;
@@ -158,7 +164,7 @@ QtObject {
         id: disconnectProc
         command: ["bluetoothctl", "--timeout", "5", "disconnect"]
         running: false
-        onExited: { root.refresh(); }
+        onExited: { root.refresh(true); }
     }
 
     property Process powerProc: Process {
