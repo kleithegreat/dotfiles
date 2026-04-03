@@ -1,6 +1,18 @@
 {
   "family": "tokyonight",
   "variant": "night",
+  "appearance": "dark",
+  "app_themes": {
+    "bat": "base16",
+    "snappy_switcher": "tokyo-night.ini",
+    "vicinae": {
+      "name": "tokyo-night",
+      "light_name": "tokyo-night-light"
+    },
+    "vscode": {
+      "name": "tokyonight-night"
+    }
+  },
   "colors": {
     "bg":           "#1a1b26",
     "bg_dim":       "#16161e",

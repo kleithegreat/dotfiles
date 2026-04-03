@@ -19,38 +19,13 @@ pub const METADATA: TargetMetadata = TargetMetadata {
 
 const STATE_DB: &str = "~/.config/Code/User/globalStorage/state.vscdb";
 
-fn resolve_theme(family: &str, variant: &str) -> String {
-    match (family, variant) {
-        ("gruvbox", "dark") => "Gruvbox Dark Medium".to_owned(),
-        ("gruvbox", "light") => "Gruvbox Light Medium".to_owned(),
-        ("catppuccin", "mocha") => "Catppuccin Mocha".to_owned(),
-        ("catppuccin", "latte") => "Catppuccin Latte".to_owned(),
-        ("catppuccin", "frappe") => "Catppuccin Frapp\u{00e9}".to_owned(),
-        ("catppuccin", "macchiato") => "Catppuccin Macchiato".to_owned(),
-        ("solarized", "dark") => "Solarized Dark+".to_owned(),
-        ("solarized", "light") => "Solarized Light+".to_owned(),
-        ("rose-pine", "dark") => "Ros\u{00e9} Pine".to_owned(),
-        ("rose-pine", "light") => "Ros\u{00e9} Pine Dawn".to_owned(),
-        _ => format!("{family}-{variant}"),
-    }
-}
-
-fn extension_id(family: &str) -> Option<&'static str> {
-    match family {
-        "catppuccin" => Some("catppuccin.catppuccin-vsc"),
-        "gruvbox" => Some("jdinhlife.gruvbox"),
-        "rose-pine" => Some("mvllow.rose-pine"),
-        _ => None,
-    }
-}
-
 pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<GeneratedContent> {
     let font_size = state.mono_font_size_for(METADATA.name)?;
 
     let mut root = Map::new();
     root.insert(
         "workbench.colorTheme".to_owned(),
-        Value::String(resolve_theme(&colors.family, &colors.variant)),
+        Value::String(colors.vscode_theme_name()),
     );
     root.insert(
         "editor.fontFamily".to_owned(),
@@ -72,7 +47,7 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Gener
 }
 
 pub fn persist(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
-    let Some(extension_id) = extension_id(&colors.family) else {
+    let Some(extension_id) = colors.vscode_extension_id() else {
         return Ok(());
     };
 

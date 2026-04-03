@@ -1,6 +1,18 @@
 {
   "family": "nord",
   "variant": "light",
+  "appearance": "light",
+  "app_themes": {
+    "bat": "base16",
+    "snappy_switcher": "catppuccin-latte.ini",
+    "vicinae": {
+      "name": "nord-light",
+      "light_name": "nord-light"
+    },
+    "vscode": {
+      "name": "nord-light"
+    }
+  },
   "colors": {
     "bg":           "#eceff4",
     "bg_dim":       "#e5e9f0",

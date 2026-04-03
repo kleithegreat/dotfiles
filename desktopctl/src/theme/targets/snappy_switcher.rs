@@ -23,26 +23,6 @@ fn rgba(hex_color: &str, alpha: &str) -> String {
     format!("{hex_color}{alpha}")
 }
 
-fn theme_name(state: &ThemeState, colors: &ColorScheme) -> &'static str {
-    match state.color_scheme.as_str() {
-        "catppuccin-frappe" => "catppuccin-mocha.ini",
-        "catppuccin-latte" => "catppuccin-latte.ini",
-        "catppuccin-macchiato" => "catppuccin-mocha.ini",
-        "catppuccin-mocha" => "catppuccin-mocha.ini",
-        "gruvbox-dark" => "gruvbox-dark.ini",
-        "nord" => "nord.ini",
-        "nord-light" => "catppuccin-latte.ini",
-        "rose-pine" => "rose-pine.ini",
-        "rose-pine-dawn" => "catppuccin-latte.ini",
-        "solarized-dark" => "snappy-slate.ini",
-        "solarized-light" => "catppuccin-latte.ini",
-        "tokyo-night" => "tokyo-night.ini",
-        "tokyo-night-light" => "catppuccin-latte.ini",
-        _ if colors.variant == "light" => "catppuccin-latte.ini",
-        _ => "snappy-slate.ini",
-    }
-}
-
 pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<GeneratedContent> {
     let title_size = (state.font_size - 1).max(1);
     Ok(GeneratedContent::text(format!(
@@ -71,7 +51,7 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Gener
             "weight = Bold\n",
             "title_size = {}\n",
         ),
-        theme_name(state, colors),
+        colors.snappy_switcher_theme_name(),
         rgba(&colors.bg, "ff"),
         rgba(&colors.bg1, "ff"),
         rgba(&colors.bg2, "ff"),

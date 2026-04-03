@@ -118,10 +118,55 @@ pub const DEFAULT_HYPR_BLUR_SIZE: i64 = 3;
 pub const DEFAULT_HYPR_BLUR_PASSES: i64 = 4;
 pub const DEFAULT_HYPR_ANIMATIONS_ENABLED: bool = true;
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ColorSchemeAppearance {
+    #[default]
+    Light,
+    Dark,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ColorSchemeAppThemes {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bat: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub snappy_switcher: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vicinae: Option<VicinaeThemeNames>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vscode: Option<VscodeThemeNames>,
+}
+
+impl ColorSchemeAppThemes {
+    fn is_empty(&self) -> bool {
+        self.bat.is_none()
+            && self.snappy_switcher.is_none()
+            && self.vicinae.is_none()
+            && self.vscode.is_none()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VicinaeThemeNames {
+    pub name: String,
+    pub light_name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VscodeThemeNames {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extension_id: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ColorScheme {
     pub family: String,
     pub variant: String,
+    pub appearance: ColorSchemeAppearance,
+    pub app_themes: ColorSchemeAppThemes,
     pub bg: String,
     pub bg_dim: String,
     pub bg1: String,
@@ -181,6 +226,10 @@ struct NamedColors {
 struct ColorSchemeWire {
     family: String,
     variant: String,
+    #[serde(default)]
+    appearance: Option<ColorSchemeAppearance>,
+    #[serde(default, skip_serializing_if = "ColorSchemeAppThemes::is_empty")]
+    app_themes: ColorSchemeAppThemes,
     colors: NamedColors,
     palette: [String; 16],
 }
@@ -188,6 +237,60 @@ struct ColorSchemeWire {
 impl ColorScheme {
     pub fn known_color_fields() -> &'static [&'static str] {
         &COLOR_FIELD_NAMES
+    }
+
+    pub fn is_dark(&self) -> bool {
+        self.appearance == ColorSchemeAppearance::Dark
+    }
+
+    pub fn is_light(&self) -> bool {
+        self.appearance == ColorSchemeAppearance::Light
+    }
+
+    pub fn bat_theme_name(&self) -> &str {
+        self.app_themes.bat.as_deref().unwrap_or("base16")
+    }
+
+    pub fn snappy_switcher_theme_name(&self) -> &str {
+        self.app_themes
+            .snappy_switcher
+            .as_deref()
+            .unwrap_or(if self.is_light() {
+                "catppuccin-latte.ini"
+            } else {
+                "snappy-slate.ini"
+            })
+    }
+
+    pub fn vicinae_theme_name(&self) -> String {
+        self.app_themes
+            .vicinae
+            .as_ref()
+            .map(|themes| themes.name.clone())
+            .unwrap_or_else(|| format!("{}-{}", self.family, self.variant))
+    }
+
+    pub fn vicinae_light_theme_name(&self) -> String {
+        self.app_themes
+            .vicinae
+            .as_ref()
+            .map(|themes| themes.light_name.clone())
+            .unwrap_or_else(|| self.vicinae_theme_name())
+    }
+
+    pub fn vscode_theme_name(&self) -> String {
+        self.app_themes
+            .vscode
+            .as_ref()
+            .map(|themes| themes.name.clone())
+            .unwrap_or_else(|| format!("{}-{}", self.family, self.variant))
+    }
+
+    pub fn vscode_extension_id(&self) -> Option<&str> {
+        self.app_themes
+            .vscode
+            .as_ref()
+            .and_then(|themes| themes.extension_id.as_deref())
     }
 }
 
@@ -199,6 +302,8 @@ impl Serialize for ColorScheme {
         let wire = ColorSchemeWire {
             family: self.family.clone(),
             variant: self.variant.clone(),
+            appearance: Some(self.appearance),
+            app_themes: self.app_themes.clone(),
             colors: NamedColors {
                 bg: self.bg.clone(),
                 bg_dim: self.bg_dim.clone(),
@@ -237,9 +342,14 @@ impl<'de> Deserialize<'de> for ColorScheme {
         D: Deserializer<'de>,
     {
         let wire = ColorSchemeWire::deserialize(deserializer)?;
+        let appearance = wire
+            .appearance
+            .unwrap_or_else(|| infer_scheme_appearance(&wire.colors.bg, &wire.colors.fg));
         Ok(Self {
             family: wire.family,
             variant: wire.variant,
+            appearance,
+            app_themes: wire.app_themes,
             bg: wire.colors.bg,
             bg_dim: wire.colors.bg_dim,
             bg1: wire.colors.bg1,
@@ -266,6 +376,30 @@ impl<'de> Deserialize<'de> for ColorScheme {
             orange_bright: wire.colors.orange_bright,
             palette: wire.palette,
         })
+    }
+}
+
+fn infer_scheme_appearance(bg: &str, fg: &str) -> ColorSchemeAppearance {
+    if relative_luminance(bg) > relative_luminance(fg) {
+        ColorSchemeAppearance::Light
+    } else {
+        ColorSchemeAppearance::Dark
+    }
+}
+
+fn relative_luminance(hex_color: &str) -> f64 {
+    let red = srgb_channel_to_linear(u8::from_str_radix(&hex_color[1..3], 16).unwrap());
+    let green = srgb_channel_to_linear(u8::from_str_radix(&hex_color[3..5], 16).unwrap());
+    let blue = srgb_channel_to_linear(u8::from_str_radix(&hex_color[5..7], 16).unwrap());
+    0.2126 * red + 0.7152 * green + 0.0722 * blue
+}
+
+fn srgb_channel_to_linear(channel: u8) -> f64 {
+    let value = channel as f64 / 255.0;
+    if value <= 0.04045 {
+        value / 12.92
+    } else {
+        ((value + 0.055) / 1.055).powf(2.4)
     }
 }
 

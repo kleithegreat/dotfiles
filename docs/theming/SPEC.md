@@ -24,7 +24,7 @@ Non-goals:
 
 | Artifact | Role | Ownership |
 | --- | --- | --- |
-| `themes/colors/*.json` | Palette catalog | Version-controlled |
+| `themes/colors/*.json` | Palette catalog plus per-scheme metadata such as `appearance` and app theme names / IDs | Version-controlled |
 | `$XDG_DATA_HOME/desktopctl/desktopctl.db` `theme_state` table | Current live selection | Mutable runtime state |
 | `themes/presets/*.json` | Partial state patches | Version-controlled |
 | `desktopctl/src/theme/schema.rs` | Data contract for colors and state | Authoritative schema |
@@ -35,8 +35,11 @@ Constraints:
 - Targets consume resolved `ColorScheme` and `ThemeState`; they do not invent
   alternate state stores.
 - Presets are partial patches, not separate full-state documents.
-- Variant strings are not guaranteed to be binary `dark`/`light`; targets that
-  need polarity must normalize it explicitly.
+- Variant strings are not guaranteed to be binary `dark`/`light`; `appearance`
+  is the canonical scheme-side polarity classification for targets that need
+  dark/light behavior.
+- App-specific theme names and extension identifiers belong in scheme data, not
+  in target-local match arms.
 - Fresh installs seed `theme_state` from compiled defaults, and a leftover
   `themes/state.json` is a migration input only.
 
@@ -106,11 +109,12 @@ Constraints:
 
 ## Data Contract
 
-`ColorScheme` represents the resolved palette:
+`ColorScheme` represents the resolved palette and scheme metadata:
 
 | Group | Required fields |
 | --- | --- |
-| Identity | `family`, `variant` |
+| Identity | `family`, `variant`, `appearance` |
+| App metadata | `app_themes` entries for targets that need app-specific theme names or identifiers |
 | Backgrounds | `bg`, `bg_dim`, `bg1`, `bg2`, `bg3` |
 | Foregrounds | `fg`, `fg2`, `fg3`, `fg4` |
 | Semantic colors | `red`, `green`, `yellow`, `blue`, `purple`, `cyan`, `orange`, `accent` |
@@ -128,15 +132,18 @@ Constraints:
 
 Constraints:
 
-- Color JSON must satisfy the full `ColorScheme` field set and a 16-entry
-  palette.
+- Color JSON must satisfy the full `ColorScheme` field set, including explicit
+  `appearance`, and a 16-entry palette.
 - `ThemeState` is the only mutable theme selection schema.
 - Theme-state storage is row-oriented (`key` + JSON-encoded `value`), but
   `desktopctl theme status --json` must preserve the canonical field order from
   `THEME_STATE_FIELD_ORDER`.
-- Targets that need dark/light behavior must derive it from documented state or
-  a normalization rule, not from an undocumented assumption about variant
-  strings.
+- Targets that need dark/light behavior must use `ColorScheme.appearance`,
+  documented state, or another documented normalization rule; they must not
+  assume variant strings are binary.
+- Targets that need app-specific theme names or extension identifiers must read
+  them from `ColorScheme.app_themes`, not duplicate family/variant lookup
+  tables in target code.
 
 ## Target Inventory
 

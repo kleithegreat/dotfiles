@@ -443,7 +443,7 @@ fn write_hyprqt6engine_conf(_colors: &ColorScheme, state: &ThemeState) -> crate:
 }
 
 fn ktexteditor_color_theme(colors: &ColorScheme) -> &'static str {
-    if colors.variant == "dark" {
+    if colors.is_dark() {
         "Breeze Dark"
     } else {
         "Breeze Light"
@@ -581,15 +581,19 @@ fn find_kvantum_theme_assets(theme_name: &str) -> Option<(PathBuf, PathBuf)> {
     None
 }
 
+fn kvantum_base_theme(colors: &ColorScheme) -> &'static str {
+    if colors.is_dark() {
+        "KvGnomeDark"
+    } else {
+        "KvGnome"
+    }
+}
+
 fn setup_kvantum(colors: &ColorScheme) -> crate::Result<()> {
     let theme_dir = expand_user_path(KVANTUM_THEME_DIR)?;
     fs::create_dir_all(&theme_dir)?;
 
-    let base_theme = if colors.variant == "dark" {
-        "KvGnomeDark"
-    } else {
-        "KvGnome"
-    };
+    let base_theme = kvantum_base_theme(colors);
     let base_assets = find_kvantum_theme_assets(base_theme);
     let source_svg = base_assets.as_ref().map(|(svg, _)| svg);
     let source_kvconfig = base_assets.as_ref().map(|(_, kvconfig)| kvconfig.as_path());
@@ -958,5 +962,56 @@ impl IniFile {
         self.sections
             .iter_mut()
             .find(|section| section.name == name)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ktexteditor_color_theme, kvantum_base_theme};
+    use crate::theme::{resolve, schema::ColorScheme};
+    use std::path::{Path, PathBuf};
+
+    fn repo_root() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("desktopctl lives under the repo root")
+            .to_path_buf()
+    }
+
+    fn load_repo_colors(scheme_name: &str) -> ColorScheme {
+        resolve::load_colors(scheme_name, &repo_root().join("themes/colors"))
+            .expect("repo color scheme should deserialize")
+    }
+
+    #[test]
+    fn ktexteditor_theme_uses_declared_scheme_appearance() {
+        assert_eq!(
+            ktexteditor_color_theme(&load_repo_colors("tokyo-night")),
+            "Breeze Dark"
+        );
+        assert_eq!(
+            ktexteditor_color_theme(&load_repo_colors("tokyo-night-light")),
+            "Breeze Light"
+        );
+        assert_eq!(
+            ktexteditor_color_theme(&load_repo_colors("rose-pine-dawn")),
+            "Breeze Light"
+        );
+    }
+
+    #[test]
+    fn kvantum_base_theme_uses_declared_scheme_appearance() {
+        assert_eq!(
+            kvantum_base_theme(&load_repo_colors("tokyo-night")),
+            "KvGnomeDark"
+        );
+        assert_eq!(
+            kvantum_base_theme(&load_repo_colors("tokyo-night-light")),
+            "KvGnome"
+        );
+        assert_eq!(
+            kvantum_base_theme(&load_repo_colors("rose-pine-dawn")),
+            "KvGnome"
+        );
     }
 }

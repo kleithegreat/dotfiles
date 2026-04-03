@@ -1,6 +1,19 @@
 {
   "family": "rosepine",
   "variant": "dawn",
+  "appearance": "light",
+  "app_themes": {
+    "bat": "base16",
+    "snappy_switcher": "catppuccin-latte.ini",
+    "vicinae": {
+      "name": "rose-pine-dawn",
+      "light_name": "rose-pine-dawn"
+    },
+    "vscode": {
+      "name": "Rosé Pine Dawn",
+      "extension_id": "mvllow.rose-pine"
+    }
+  },
   "colors": {
     "bg":           "#faf4ed",
     "bg_dim":       "#f4ede8",

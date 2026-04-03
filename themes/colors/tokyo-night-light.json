@@ -1,6 +1,18 @@
 {
   "family": "tokyonight",
   "variant": "light",
+  "appearance": "light",
+  "app_themes": {
+    "bat": "base16",
+    "snappy_switcher": "catppuccin-latte.ini",
+    "vicinae": {
+      "name": "tokyo-night-light",
+      "light_name": "tokyo-night-light"
+    },
+    "vscode": {
+      "name": "tokyonight-light"
+    }
+  },
   "colors": {
     "bg":           "#e6e7ed",
     "bg_dim":       "#dcdee3",

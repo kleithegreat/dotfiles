@@ -1,6 +1,18 @@
 {
   "family": "solarized",
   "variant": "light",
+  "appearance": "light",
+  "app_themes": {
+    "bat": "Solarized (light)",
+    "snappy_switcher": "catppuccin-latte.ini",
+    "vicinae": {
+      "name": "solarized-light",
+      "light_name": "solarized-light"
+    },
+    "vscode": {
+      "name": "Solarized Light+"
+    }
+  },
   "colors": {
     "bg":           "#fdf6e3",
     "bg_dim":       "#f5efd8",

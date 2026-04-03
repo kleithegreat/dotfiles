@@ -1,6 +1,18 @@
 {
   "family": "solarized",
   "variant": "dark",
+  "appearance": "dark",
+  "app_themes": {
+    "bat": "Solarized (dark)",
+    "snappy_switcher": "snappy-slate.ini",
+    "vicinae": {
+      "name": "solarized-dark",
+      "light_name": "solarized-light"
+    },
+    "vscode": {
+      "name": "Solarized Dark+"
+    }
+  },
   "colors": {
     "bg":           "#002b36",
     "bg_dim":       "#00212b",
