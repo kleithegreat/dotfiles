@@ -137,7 +137,10 @@ FocusScope {
             ColumnLayout {
                 id: drawerCol; anchors.fill: parent; anchors.margins: Theme.notifPadding; spacing: 8
             RowLayout { Layout.fillWidth: true; spacing: 8
-                Text { text: "󰂚  Notifications"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true; Layout.fillWidth: true }
+                RowLayout { Layout.fillWidth: true; spacing: 6
+                    Text { text: "󰂚"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize }
+                    Text { text: "Notifications"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.headerFontSize; font.bold: true; Layout.fillWidth: true }
+                }
 
                 // DnD toggle using unified component
                 RowLayout { spacing: 4
@@ -169,7 +172,7 @@ FocusScope {
                     Text { id: clrLabel; anchors.centerIn: parent; text: "Clear"
                         color: clrLayer.containsMouse ? Theme.redBright : Theme.fg4
                         Behavior on color { Components.CAnim { duration: Theme.animHover } }
-                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+                        font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall }
                 }
             }
             Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
@@ -198,8 +201,8 @@ FocusScope {
                             ColumnLayout { id: hcC; spacing: 2
                                 anchors { left: parent.left; right: parent.right; top: parent.top; margins: Theme.notifPadding / 2 }
                                 RowLayout { Layout.fillWidth: true
-                                    Text { text: hc.appName; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1; elide: Text.ElideRight; Layout.fillWidth: true }
-                                    Text { text: hc.timeStr; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 2; visible: text !== "" }
+                                    Text { text: hc.appName; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall - 1; elide: Text.ElideRight; Layout.fillWidth: true }
+                                    Text { text: hc.timeStr; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall - 2; visible: text !== "" }
                                     Rectangle {
                                         width: 18; height: 18; radius: Theme.hoverRadius; color: "transparent"
                                         StateLayer {
@@ -218,8 +221,8 @@ FocusScope {
                                             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
                                     }
                                 }
-                                Text { text: hc.summary; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true; visible: text !== "" }
-                                Text { text: hc.body; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1; wrapMode: Text.WordWrap; maximumLineCount: 2; elide: Text.ElideRight; Layout.fillWidth: true; visible: text !== "" }
+                                Text { text: hc.summary; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true; visible: text !== "" }
+                                Text { text: hc.body; color: Theme.fg3; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall - 1; wrapMode: Text.WordWrap; maximumLineCount: 2; elide: Text.ElideRight; Layout.fillWidth: true; visible: text !== "" }
                             }
                         }
                     }
@@ -230,7 +233,7 @@ FocusScope {
                 visible: NotificationService.historyCount === 0; Layout.fillWidth: true; Layout.alignment: Qt.AlignHCenter; spacing: 4
                 Layout.topMargin: 20; Layout.bottomMargin: 20
                 Text { text: "󰂚"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: 24; Layout.alignment: Qt.AlignHCenter }
-                Text { text: "No notifications"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.alignment: Qt.AlignHCenter }
+                Text { text: "No notifications"; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; Layout.alignment: Qt.AlignHCenter }
             }
             }
         }

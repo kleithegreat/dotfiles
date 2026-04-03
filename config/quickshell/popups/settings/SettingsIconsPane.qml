@@ -19,7 +19,7 @@ Components.WheelFlickable {
         width: parent.width
         spacing: 16
 
-        Text { text: "ICON THEME"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+        Text { text: "ICON THEME"; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
 
         Flow {
             Layout.fillWidth: true
@@ -51,7 +51,7 @@ Components.WheelFlickable {
                         anchors.centerIn: parent
                         text: itBtn.modelData
                         color: itBtn.isCurrent ? Theme.bg : Theme.fg
-                        font.family: Theme.fontFamily
+                        font.family: Theme.systemFamily
                         font.pixelSize: Theme.fontSizeSmall
                         Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                     }
@@ -75,7 +75,7 @@ Components.WheelFlickable {
 
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
 
-        Text { text: "CURSOR THEME"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+        Text { text: "CURSOR THEME"; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
 
         Flow {
             Layout.fillWidth: true
@@ -107,7 +107,7 @@ Components.WheelFlickable {
                         anchors.centerIn: parent
                         text: ctBtn.modelData
                         color: ctBtn.isCurrent ? Theme.bg : Theme.fg
-                        font.family: Theme.fontFamily
+                        font.family: Theme.systemFamily
                         font.pixelSize: Theme.fontSizeSmall
                         Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                     }
@@ -134,7 +134,7 @@ Components.WheelFlickable {
         Row {
             spacing: 8
 
-            Text { text: "Cursor Size:"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; height: Theme.btnHeight; verticalAlignment: Text.AlignVCenter }
+            Text { text: "Cursor Size:"; color: Theme.fg3; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; height: Theme.btnHeight; verticalAlignment: Text.AlignVCenter }
 
             Rectangle {
                 width: 28
@@ -166,7 +166,7 @@ Components.WheelFlickable {
                 }
             }
 
-            Text { text: String(root.themeState.cursor_size || 24); color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; width: 28; horizontalAlignment: Text.AlignHCenter; height: Theme.btnHeight; verticalAlignment: Text.AlignVCenter }
+            Text { text: String(root.themeState.cursor_size || 24); color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize; width: 28; horizontalAlignment: Text.AlignHCenter; height: Theme.btnHeight; verticalAlignment: Text.AlignVCenter }
 
             Rectangle {
                 width: 28

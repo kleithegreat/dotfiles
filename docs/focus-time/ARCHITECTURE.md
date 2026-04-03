@@ -27,7 +27,7 @@ Current implementation map for the focus-time subsystem as of 2026-04-03.
 | `config/hypr/autostart.conf` | Starts `desktopctl daemon` during session startup | `config/hypr/autostart.conf:6-8` |
 | `desktopctl/src/daemon/mod.rs` | Builds the tokio runtime and starts focus, solar, and socket subsystems together | `desktopctl/src/daemon/mod.rs:19-100` |
 | `desktopctl/src/daemon/focus.rs` | Implements the full focus producer: shared-DB initialization, legacy focus-data migration, per-second accumulation, daily minute-table retention, reconnect seeding, desktop-file cache, summary building, and atomic JSON replacement | `desktopctl/src/daemon/focus.rs:20-577`, `desktopctl/src/daemon/focus.rs:617-800` |
-| `config/quickshell/popups/SettingsPopup.qml` | Still mounts the focus-time pane as settings category `5` | `config/quickshell/popups/SettingsPopup.qml:787-842` |
+| `config/quickshell/popups/SettingsPopup.qml` | Still mounts the focus-time pane as settings category `6`, after the new Notifications pane | `config/quickshell/popups/SettingsPopup.qml:59-63`, `config/quickshell/popups/SettingsPopup.qml:806-824`, `config/quickshell/popups/SettingsPopup.qml:864-866` |
 | `config/quickshell/popups/settings/SettingsFocusTimePane.qml` | Polls the JSON summary, classifies missing/stale/parse failures, and renders totals, charts, and app breakdowns only for fresh data | `config/quickshell/popups/settings/SettingsFocusTimePane.qml:16-90`, `config/quickshell/popups/settings/SettingsFocusTimePane.qml:132-418` |
 
 No other repo file reads `focustime_state.json` directly.

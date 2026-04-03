@@ -21,7 +21,7 @@ FocusScope {
     focus: active
     Keys.priority: Keys.BeforeItem
 
-    // Expand-to-full-page signals (wiring happens in a later prompt)
+    // Expand-to-full-page signals
     signal settingsRequested()
     signal wifiExpandRequested()
     signal bluetoothExpandRequested()
@@ -338,14 +338,14 @@ FocusScope {
                                     Text {
                                         text: tile.modelData.label
                                         color: tile.isActive ? Theme.fg : Theme.fg2
-                                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                                        font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
                                         font.bold: tile.isActive
                                         elide: Text.ElideRight; Layout.fillWidth: true
                                     }
                                     Text {
                                         text: tile.tileSublabel
                                         color: Theme.fg4
-                                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
+                                        font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall - 1
                                         elide: Text.ElideRight; Layout.fillWidth: true
                                     }
                                 }
@@ -436,7 +436,7 @@ FocusScope {
 
                     Text {
                         text: Math.round(AudioService.volume * 100) + "%"
-                        color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                        color: Theme.fg3; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
                         Layout.preferredWidth: 32; horizontalAlignment: Text.AlignRight
                     }
                 }
@@ -500,7 +500,7 @@ FocusScope {
 
                     Text {
                         text: BrightnessService.brightnessAvailable ? BrightnessService.brightnessPercent + "%" : ""
-                        color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                        color: Theme.fg3; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
                         Layout.preferredWidth: 32; horizontalAlignment: Text.AlignRight
                     }
                 }
@@ -524,13 +524,13 @@ FocusScope {
 
                     Text {
                         text: Math.round(qsPop.batPct) + "%"
-                        color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                        color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
                         font.bold: true
                     }
 
                     Text {
                         text: qsPop.batCharging ? "Charging" : "On Battery"
-                        color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                        color: Theme.fg3; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
                         Layout.fillWidth: true
                     }
                 }
@@ -563,7 +563,7 @@ FocusScope {
                             Text {
                                 text: "All Settings"
                                 color: settingsArea.containsMouse ? Theme.fg : Theme.fg2
-                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                                font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
                                 Layout.fillWidth: true
                                 Behavior on color { Components.CAnim { duration: Theme.animHover } }
                             }

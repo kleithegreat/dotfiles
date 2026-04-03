@@ -14,7 +14,7 @@ Current implementation map for the migrated Rust theming pipeline as of
 | Resolution | `desktopctl/src/theme/resolve.rs:11-500` resolves `themes/colors/`, persists theme state in the shared `desktopctl.db` `theme_state` table, imports legacy `themes/state.json` on first access, and serializes canonical JSON for CLI output. |
 | JSON compatibility | `desktopctl/src/theme/json.rs:4-142` preserves Python-compatible object ordering and ASCII escaping for generated JSON files and `--json` CLI output. |
 | Registry | `desktopctl/src/theme/targets/mod.rs:24-290` defines target metadata, hook surfaces, and the typed registry, and registers all migrated targets explicitly. |
-| Orchestrator | `desktopctl/src/theme/orchestrator.rs:47-228` and `desktopctl/src/theme/orchestrator.rs:230-383` handle dependency selection, target ordering, file assembly, concat merges, post-write hooks, reload hooks, and sync-safe filtering. |
+| Orchestrator | `desktopctl/src/theme/orchestrator.rs:47-228` and `desktopctl/src/theme/orchestrator.rs:230-383` handle dependency selection, target ordering, file assembly, concat merges, post-write hooks, reload hooks, and sync-safe filtering. The current dependency map now routes `font_size` changes back to `quickshell` through `desktopctl/src/theme/orchestrator.rs:28-44` and `desktopctl/src/theme/orchestrator.rs:181-206`. |
 
 ## CLI Surface
 
@@ -48,7 +48,7 @@ Targets with notable extra behavior:
 | `cursor` | `desktopctl/src/theme/targets/cursor.rs:153-221` writes cursor index files plus `~/.config/hypr/cursor.conf`, updates dconf, updates Hyprland cursor env, and imports cursor vars into the user environment. |
 | `gtk` | `desktopctl/src/theme/targets/gtk.rs:5-71` is command-only and does all real work in `on_apply()` through dconf writes. |
 | `qt` | `desktopctl/src/theme/targets/qt.rs:15-99` and `desktopctl/src/theme/targets/qt.rs:445-628` mirror the palette into qt5ct, qt6ct, KDE, hyprqt6engine, Kvantum, Kate, and KWrite, and use the centralized `ColorScheme.appearance` metadata when only dark/light asset selection is needed. |
-| `quickshell` | `desktopctl/src/theme/targets/quickshell.rs:8-85` writes `GeneratedTheme.json` for shell colors and fonts with Python-compatible JSON formatting. |
+| `quickshell` | `desktopctl/src/theme/targets/quickshell.rs:19-89` writes `GeneratedTheme.json` for shell colors and fonts with Python-compatible JSON formatting, emits both `family` and `systemFamily`, and derives `size`, `sizeSmall`, and `sizeLarge` from `ThemeState.font_size`. |
 | `spicetify` | `desktopctl/src/theme/targets/spicetify.rs` ensures theme scaffolding exists and runs `spicetify update` on apply. |
 | `wallpaper` | `desktopctl/src/theme/targets/wallpaper.rs:13-220` preserves the old `lutgen` cache-key behavior and `awww` runtime side effects while remaining `sync_safe = false`. |
 
@@ -57,8 +57,8 @@ Targets with notable extra behavior:
 | Consumer | Current integration |
 | --- | --- |
 | Home Manager | `home/default.nix:310-312` runs `desktopctl theme sync` after managed files are written so generated fragments exist before the next session. |
-| Hyprland | `config/hypr/hyprland.conf` and `config/hypr/appearance.conf` source generated `colors.conf`, `cursor.conf`, and `appearance-theme.conf`. |
-| Quickshell | `config/quickshell/Theme.qml:8-27` watches `~/.config/quickshell/GeneratedTheme.json`; `config/quickshell/popups/SettingsPopup.qml:158-223` and `config/quickshell/shell.qml:299-305` now call `desktopctl theme` instead of hardcoded repo scripts. |
+| Hyprland | `config/hypr/hyprland.conf` and `config/hypr/appearance.conf` source generated `colors.conf`, `cursor.conf`, and `appearance-theme.conf`. `config/hypr/autostart.conf:12-13` now re-applies the wallpaper target from persisted theme state once `awww-daemon` is ready. |
+| Quickshell | `config/quickshell/Theme.qml:8-27` watches `~/.config/quickshell/GeneratedTheme.json`; `config/quickshell/popups/SettingsPopup.qml:127-245` and `config/quickshell/shell.qml:24-108`, `config/quickshell/shell.qml:395-414` call `desktopctl theme` through argv-safe command construction instead of hardcoded repo scripts. |
 | Neovim / Neovide | Generated `theme-state.json` and `neovide-theme.lua` are still written inside the Home Manager-symlinked `~/.config/nvim` tree. |
 | Tool configs | Import or concat targets still write under `~/.config` or app-specific config paths, keeping repo-authored base files read-only. |
 

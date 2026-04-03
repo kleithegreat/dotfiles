@@ -142,7 +142,7 @@ FocusScope {
                                     }
                                 }
                                 font.family: Theme.fontFamily; font.pixelSize: Theme.powerIconSize; Layout.alignment: Qt.AlignHCenter }
-                            Text { text: pwrBtn.modelData.label; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.alignment: Qt.AlignHCenter }
+                            Text { text: pwrBtn.modelData.label; color: Theme.fg3; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; Layout.alignment: Qt.AlignHCenter }
                         }
                     }
                 }

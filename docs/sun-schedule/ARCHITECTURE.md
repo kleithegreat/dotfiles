@@ -25,10 +25,10 @@ cross-domain side effects as of 2026-04-03.
 | Path | Current role | Evidence |
 | --- | --- | --- |
 | `config/quickshell/DisplayService.qml` | Polls `desktopctl night-light status --json` and requests `desktopctl night-light on/off` instead of managing `hyprsunset` directly | `config/quickshell/DisplayService.qml:40-119`, `config/quickshell/DisplayService.qml:179-239` |
-| `config/quickshell/popups/SettingsPopup.qml` | Reads theme state and still exposes `dark_hint` controls through `desktopctl theme ...`, whose `dark_hint` path is now mediated by the daemon | `config/quickshell/popups/SettingsPopup.qml:158-223`, `config/quickshell/popups/SettingsPopup.qml:666-672` |
+| `config/quickshell/popups/SettingsPopup.qml` | Reads theme state and still exposes `dark_hint` controls through `desktopctl theme ...`, whose `dark_hint` path is now mediated by the daemon | `config/quickshell/popups/SettingsPopup.qml:140-171`, `config/quickshell/popups/SettingsPopup.qml:891-896` |
 | `config/quickshell/popups/settings/SettingsPresetEditor.qml` | Still allows presets to include `dark_hint`; preset application is delegated back through the daemon by `desktopctl theme preset` | `config/quickshell/popups/settings/SettingsPresetEditor.qml:396-485` |
-| `config/quickshell/shell.qml` | Exposes a generic `theme.apply` IPC entry point that can still reach `desktopctl theme ...`; `dark_hint` requests are delegated by the CLI layer | `config/quickshell/shell.qml:299-306` |
-| `config/hypr/keybinds.conf` | Requests daemon-owned override changes through `desktopctl night-light toggle` and `desktopctl night-light auto` | `config/hypr/keybinds.conf:73-75` |
+| `config/quickshell/shell.qml` | Exposes a generic `theme.apply` IPC entry point that can still reach `desktopctl theme ...`; `dark_hint` requests are delegated by the CLI layer | `config/quickshell/shell.qml:395-414` |
+| `config/hypr/keybinds.conf` | Requests daemon-owned override changes through `desktopctl night-light toggle` and `desktopctl night-light auto` | `config/hypr/keybinds.conf:74-75` |
 | `config/quickshell/Theme.qml` | Watches `GeneratedTheme.json`; `dark_hint` still does not flow through that file | `config/quickshell/Theme.qml:8-27` |
 
 ## Runtime Flow

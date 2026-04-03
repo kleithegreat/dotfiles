@@ -38,7 +38,7 @@ const MONO_FONT_TARGETS: [&str; 8] = [
 ];
 const ICON_THEME_TARGETS: [&str; 3] = ["gtk", "qt", "snappy_switcher"];
 const CURSOR_TARGETS: [&str; 1] = ["cursor"];
-const FONT_SIZE_TARGETS: [&str; 3] = ["gtk", "qt", "snappy_switcher"];
+const FONT_SIZE_TARGETS: [&str; 4] = ["gtk", "qt", "quickshell", "snappy_switcher"];
 const MONO_FONT_SIZE_TARGETS: [&str; 6] =
     ["alacritty", "ghostty", "gtk", "neovide", "qt", "vscode"];
 const DARK_HINT_TARGETS: [&str; 1] = ["gtk"];

@@ -10,6 +10,12 @@ PanelWindow {
     id: overlayHost
     required property QtObject popupVisibility
 
+    function openSettingsCategory(index) {
+        settingsPopup.selectedCategory = index;
+        overlayHost.popupVisibility.closeAll();
+        overlayHost.popupVisibility.settingsVisible = true;
+    }
+
     function popupList() {
         return [
             powerMenu,
@@ -159,6 +165,11 @@ PanelWindow {
         active: overlayHost.popupVisibility.quickSettingsVisible
         onClose: overlayHost.popupVisibility.quickSettingsVisible = false
         onSettingsRequested: overlayHost.popupVisibility.toggleSettings()
+        onWifiExpandRequested: overlayHost.openSettingsCategory(0)
+        onBluetoothExpandRequested: overlayHost.openSettingsCategory(1)
+        onVpnExpandRequested: overlayHost.openSettingsCategory(0)
+        onDndExpandRequested: overlayHost.openSettingsCategory(5)
+        onPowerProfileExpandRequested: overlayHost.openSettingsCategory(4)
     }
 
     NotifDrawer {

@@ -29,7 +29,7 @@ Managed popups mounted by the overlay host remain:
 | `BrightnessService.qml` | Backlight discovery, watch, and writes | Display pane; shell brightness OSD still enters through `/tmp/quickshell-brightness` |
 | `DisplayService.qml` | Monitor refresh/apply and daemon-backed night-light status / override requests | Display pane |
 | `NetworkService.qml` | Wi-Fi summary, scans, known networks, diagnostics, DNS, captive portal, reporting | Bar network, quick settings, network pane |
-| `NotificationService.qml` | Popup/history models, DND, dismissal, relative-time refresh | Root notifications, drawer, bar bell, IPC |
+| `NotificationService.qml` | Popup/history models, DND, dismissal, relative-time refresh | Root notifications, drawer, bar bell, Notifications settings pane, IPC |
 | `PowerProfileService.qml` | CPU profiles and supported battery controls | Power pane |
 | `Theme.qml` | Shell-facing facade over generated theme JSON | Imported throughout shell components |
 | `ToastService.qml` | Bounded toast queue | Shell toast window, IPC |
@@ -52,24 +52,32 @@ Direct-upstream or local exceptions:
 | --- | --- |
 | Host-owned data | Theme snapshot, colors, presets, wallpapers, directories, icon/font choices, and Hyprland appearance draft state |
 | Host loaders | `Process` helpers call `desktopctl theme status --json`, `desktopctl theme list-schemes --json`, `desktopctl theme list-presets --json`, and shell commands for wallpaper/directory browsing |
-| Service-driven panes | Network, Bluetooth, Audio, Display, Power, Focus Time |
+| Service-driven panes | Network, Bluetooth, Audio, Display, Power, Notifications, Focus Time |
 | Host-driven panes | Presets, Colors, Fonts, Wallpaper, Icons, Hyprland |
 | General theme writes | `desktopctl theme set` and `desktopctl theme preset` |
 | Preset writes | `desktopctl theme save-preset` and `desktopctl theme delete-preset` |
 | Hyprland appearance writes | Debounced queue of `desktopctl theme set hypr_* ...` writes with desktop-notification feedback |
 
 The main host wiring lives in
-`config/quickshell/popups/SettingsPopup.qml:140-223` and
-`config/quickshell/popups/SettingsPopup.qml:524-700`.
+`config/quickshell/popups/SettingsPopup.qml:127-245`,
+`config/quickshell/popups/SettingsPopup.qml:652-701`, and
+`config/quickshell/popups/SettingsPopup.qml:751-949`. The notification pane is
+mounted through `config/quickshell/popups/settings/SettingsNotificationsPane.qml:6-163`.
+
+Quick Settings expand affordances are now consumed by the overlay host:
+`config/quickshell/PopupOverlayHost.qml:13-17` closes the current popup,
+selects the target settings category, and opens the full Settings popup, while
+`config/quickshell/PopupOverlayHost.qml:167-172` maps Wi-Fi, Bluetooth, VPN,
+DND, and power-profile expand requests to concrete category indices.
 
 ## Theme Integration
 
 | Piece | Current role |
 | --- | --- |
 | `Theme.qml` | Watches `~/.config/quickshell/GeneratedTheme.json`, reparses on change, and exposes generated colors/fonts plus shell-owned layout constants |
-| `desktopctl/src/theme/targets/quickshell.rs` | Writes `GeneratedTheme.json` and maps theming names into Quickshell's `bg0_h` / `aqua` naming |
+| `desktopctl/src/theme/targets/quickshell.rs` | Writes `GeneratedTheme.json`, maps theming names into Quickshell's `bg0_h` / `aqua` naming, emits both mono and system font families, and derives shell font sizes from `ThemeState.font_size` |
 | Settings host | Runs `desktopctl theme ...`, then reloads its theme snapshot on success |
-| Shell IPC | Provides a second command path into `desktopctl theme ...` through `theme.apply` |
+| Shell IPC | Provides a second command path into `desktopctl theme ...` through `theme.apply`, with shell-style tokenization for string payloads and error toasts on failure |
 
 `Theme.qml` still keeps hardcoded Gruvbox Dark fallbacks for the generated JSON
 surface in `config/quickshell/Theme.qml:29-69`.

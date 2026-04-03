@@ -185,7 +185,7 @@ State changes fan out by ownership, not by CLI convenience.
 | `system_font` | `gtk`, `qt`, `quickshell`, `snappy_switcher`, `vicinae` |
 | `mono_font` | `alacritty`, `ghostty`, `gtk`, `neovide`, `qt`, `quickshell`, `tmux`, `vscode` |
 | `icon_theme` | `gtk`, `qt`, `snappy_switcher` |
-| `font_size` | `gtk`, `qt`, `snappy_switcher` |
+| `font_size` | `gtk`, `qt`, `quickshell`, `snappy_switcher` |
 | `mono_font_size` | `alacritty`, `ghostty`, `gtk`, `neovide`, `qt`, `vscode` |
 | Per-target `*_mono_font_size_offset` | The named target only |
 | `dark_hint` | `gtk` |
@@ -203,7 +203,7 @@ The dependency map in code must remain a direct encoding of this table.
 | `xdg.configFile` | May deploy base config and static trees, not mutable generated outputs |
 | Recursive trees | Allowed when generated sibling files remain writable, as with `quickshell/` and `nvim/` |
 | Activation hook | Rebuild-time sync writes only outputs safe to materialize during activation |
-| Quickshell | Reads `GeneratedTheme.json`; see `docs/quickshell/SPEC.md` for shell-side constraints |
+| Quickshell | Reads `GeneratedTheme.json`; `system_font` is for shell UI text, while `mono_font` remains for monospaced or glyph-oriented surfaces; see `docs/quickshell/SPEC.md` for shell-side constraints |
 | Hyprland | Reads `colors.conf` and `appearance-theme.conf` |
 | Neovim / Neovide | Read generated theme state files rather than embedding palette logic in Home Manager |
 

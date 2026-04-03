@@ -60,6 +60,8 @@
     };
   };
   services.xserver.videoDrivers = [ "modesetting" "nvidia" ];
+  environment.sessionVariables.__EGL_VENDOR_LIBRARY_FILENAMES =
+    "/run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json";
 
   # Laptop overrides — disable services enabled in shared configuration.nix
   hardware.bluetooth.powerOnBoot = lib.mkForce false;

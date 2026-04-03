@@ -11,19 +11,18 @@ embedded Home Manager layer as of 2026-04-03.
 | --- | --- |
 | Outputs | `flake.nix:23-101` exports `nixosConfigurations.vm`, `nixosConfigurations.laptop`, `nixosConfigurations.desktop`, plus `overlays.default` and `packages.x86_64-linux.desktopctl`. |
 | Host constructor | `mkHost` in `flake.nix:33-60` wraps `nixpkgs.lib.nixosSystem`. |
-| Shared system layer | `system/configuration.nix:1-220` |
-| Home Manager entry | `home/default.nix:1-328`, embedded through `home-manager.nixosModules.home-manager` in `flake.nix:44-58` |
-| Platform | `flake.nix:45` injects `nixpkgs.hostPlatform = "x86_64-linux"` via an inline module |
+| Shared system layer | `system/configuration.nix:1-223` |
+| Home Manager entry | `home/default.nix:1-328`, embedded through `home-manager.nixosModules.home-manager` in `flake.nix:45-58` |
+| Platform | `flake.nix:40` passes `system = "x86_64-linux"` directly to `nixosSystem` |
 
 `mkHost` currently assembles this module stack:
 
 | Order | Module |
 | --- | --- |
-| 1 | Inline host-platform module |
-| 2 | `./system/configuration.nix` |
-| 3 | Selected `./hosts/<name>/system.nix` |
-| 4 | `home-manager.nixosModules.home-manager` |
-| 5 | Inline Home Manager configuration block |
+| 1 | `./system/configuration.nix` |
+| 2 | Selected `./hosts/<name>/system.nix` |
+| 3 | `home-manager.nixosModules.home-manager` |
+| 4 | Inline Home Manager configuration block |
 
 ## Module Ownership
 
@@ -31,8 +30,8 @@ embedded Home Manager layer as of 2026-04-03.
 | --- | --- | --- |
 | `system/configuration.nix` | Shared system baseline | Nix settings, shared unfree allowlist, overlays, common users/groups, shared services, system packages, and Hyprland packaging |
 | `hosts/vm/system.nix` | VM overlay | VM boot, guest profile, and virtual disk layout |
-| `hosts/laptop/system.nix` | Laptop overlay | Hybrid GPU policy, laptop hardware/services, and laptop-only overrides |
-| `hosts/desktop/system.nix` | Desktop overlay | Dedicated NVIDIA policy, desktop-only packages/services, storage mounts, and desktop-only overlay imports |
+| `hosts/laptop/system.nix` | Laptop overlay | Hybrid GPU policy, laptop-only EGL vendor policy, laptop hardware/services, and laptop-only overrides |
+| `hosts/desktop/system.nix` | Desktop overlay | Dedicated NVIDIA policy, desktop-only EGL vendor policy, desktop-only packages/services, storage mounts, and desktop-only overlay imports |
 | `home/default.nix` | Shared user baseline | User packages, `xdg.configFile` mappings, host-specific Hyprland file selection, desktop entry overrides, and theme activation |
 | `home/shell.nix` | Shell submodule | Zsh, shell tools, Git, aliases, prompt/navigation tooling |
 | `home/gtk.nix` | GTK submodule | GTK packages and small dconf defaults |
@@ -47,7 +46,7 @@ lives inside `desktopctl daemon`.
 - `flake.nix:62-71` exports that overlay as `self.overlays.default` and also
   exposes `packages.x86_64-linux.desktopctl`.
 - `system/configuration.nix:5-8` imports both the `desktopctl` overlay and the
-  optional march-optimization overlay; `system/configuration.nix:159-162`
+  optional march-optimization overlay; `system/configuration.nix:160-163`
   applies them globally.
 - `overlays/march-optimized.nix:167-170` optionally rebuilds `desktopctl` with
   the repository's selective march tuning.

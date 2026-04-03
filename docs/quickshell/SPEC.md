@@ -72,4 +72,6 @@ Invariants:
   fixed timers.
 - Shell visuals refresh from the generated theme file; settings controls refresh
   from a reloaded theme snapshot.
+- `system_font` controls regular shell UI text, while `mono_font` remains for
+  monospaced or glyph-oriented surfaces such as the clock and icon fonts.
 - Shell font families are theme-managed; shell layout constants are not.

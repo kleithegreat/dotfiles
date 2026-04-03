@@ -18,8 +18,8 @@
 **Status:** Workaround in place
 **Resolution:** `hosts/desktop/system.nix` sets `SYSTEMD_SLEEP_FREEZE_USER_SESSIONS=false` on `systemd-suspend`.
 
-## Mesa-only EGL vendor selection breaks the dedicated NVIDIA desktop
+## EGL vendor policy must stay host-specific
 **Symptom:** EGL clients on the desktop can miss the NVIDIA EGL ICD.
-**Cause:** The shared NixOS config pins `__EGL_VENDOR_LIBRARY_FILENAMES` to Mesa for the hybrid laptop, which excludes NVIDIA on the dedicated-GPU host.
-**Status:** Workaround in place
-**Resolution:** `hosts/desktop/system.nix` overrides `__EGL_VENDOR_LIBRARY_FILENAMES` to include both `10_nvidia.json` and `50_mesa.json`.
+**Cause:** The laptop needs Mesa-only EGL vendor selection for the hybrid path, while the dedicated desktop needs both the NVIDIA and Mesa ICDs.
+**Status:** Host split in place
+**Resolution:** `system/configuration.nix` leaves `__EGL_VENDOR_LIBRARY_FILENAMES` unset. `hosts/laptop/system.nix:63-64` sets the laptop's Mesa-only value, and `hosts/desktop/system.nix:69-71` sets the desktop's dual-vendor list directly.

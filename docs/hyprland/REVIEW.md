@@ -5,8 +5,9 @@ Reviewed on 2026-04-03.
 ## Verdict
 
 The active config already uses current Hyprland concepts: sourced files, modern
-rule syntax, fallback monitor rules, and a solid `hypridle` / `hyprlock` flow.
-The main gap is a wallpaper ownership divergence with the theming spec.
+rule syntax, fallback monitor rules, descriptive keybinds, and a solid
+`hypridle` / `hyprlock` flow. The remaining issues are minor and mostly about
+match fragility in app-specific rules.
 
 ## Strengths
 
@@ -22,11 +23,9 @@ The main gap is a wallpaper ownership divergence with the theming spec.
 
 | Severity | Finding | Why it matters |
 | --- | --- | --- |
-| Medium | `autostart.conf` applies a hardcoded wallpaper via `awww img` at session start. | The theming spec assigns wallpaper ownership to the `wallpaper` target (`docs/theming/SPEC.md`). The hardcoded `exec-once` in `autostart.conf:13` is a parallel write path that can conflict with or override the theme-selected wallpaper. |
 | Low | Some rule matches depend on exact titles or classes that may drift. | Packaging or upstream naming changes can silently break float/placement rules. |
-| Low | The bind set does not use newer descriptive or repeat-oriented forms such as `bindd` or `binde`. | No correctness issue, but discoverability and hold-to-repeat ergonomics could improve. |
 
-Operational quirks (DRM device paths, `intel_backlight` assumptions, and
+Operational quirks (DRM device paths, brightness-device assumptions, and
 `env.conf` structure) are tracked in `docs/hyprland/QUIRKS.md`.
 
 Desktop-specific NVIDIA resume and EGL caveats are tracked in

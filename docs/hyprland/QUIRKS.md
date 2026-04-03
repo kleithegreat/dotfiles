@@ -20,24 +20,26 @@ compositor will either use the wrong GPU as primary or fail to start.
 paths. Unlike `by-path` or `by-id` symlinks used elsewhere in Linux, there is
 no stable-path alternative for DRM device selection in this variable.
 
-## intel_backlight assumptions in shared config
+## Shared brightness hooks assume a discoverable backlight device
 
-**Symptom:** Brightness controls fail silently on the desktop or a future host
-without an Intel backlight device.
+**Symptom:** Brightness controls do nothing useful on the desktop or a future
+host with no `/sys/class/backlight` device.
 
-**Cause:** Three shared config files hardcode `intel_backlight` as the
-backlight device:
+**Cause:** The shared Hyprland surfaces all route through `desktopctl
+brightness`, which auto-detects the first backlight under
+`/sys/class/backlight/` and errors when none exists:
 
 - `autostart.conf:6` — initial brightness snapshot for Quickshell
-- `hypridle.conf:10-11` — dim-screen timeout and resume handler
-- `keybinds.conf:62-63` — brightness step binds (via `desktopctl brightness`)
+- `hypridle.conf:10-11` — dim-screen timeout and restore handler
+- `keybinds.conf:62-63` — repeat-on-hold brightness step binds
 
-These work on the laptop (Intel Iris Xe iGPU) but are no-ops or errors on the
-desktop (dedicated NVIDIA, no Intel backlight).
+These work on the laptop (which has a discoverable backlight device) but fail
+on the desktop (dedicated NVIDIA, no backlight device).
 
 **Impact:** On the desktop, the brightness snapshot writes nothing useful, the
-dim-screen timeout fires but has no effect, and the brightness keybinds do
-nothing. No crashes, but the idle dim behavior is silently broken.
+dim-screen timeout has no visible effect, and the brightness keybinds do
+nothing. No crashes, but the brightness-related shared surfaces remain
+laptop-oriented.
 
 ## cursor.conf is generated, not committed
 
