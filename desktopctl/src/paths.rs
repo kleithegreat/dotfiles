@@ -1,8 +1,7 @@
 #![allow(dead_code)]
 
 use std::{
-    env,
-    io,
+    env, io,
     path::{Path, PathBuf},
 };
 
@@ -17,8 +16,7 @@ pub fn repo_root() -> io::Result<PathBuf> {
 
 /// Return the user's home directory.
 pub fn home_dir() -> io::Result<PathBuf> {
-    env_path("HOME")
-        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "HOME is not set"))
+    env_path("HOME").ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "HOME is not set"))
 }
 
 /// Return the XDG config home directory.

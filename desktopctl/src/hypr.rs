@@ -3,8 +3,7 @@
 use crate::paths;
 use serde::Deserialize;
 use std::{
-    env,
-    io,
+    env, io,
     path::PathBuf,
     process::{Command, Output},
 };
