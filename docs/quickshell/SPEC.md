@@ -24,8 +24,9 @@ Invariants:
   directly.
 - Transient feedback surfaces are independent; switching managed popups must
   not dismiss them.
-- Every managed popup exposes one host-facing shape: visibility state,
-  `close()`, overlay visibility, anchor item, and focus target.
+- Every managed popup exposes one host-facing shape: `active`,
+  `close()`, `overlayVisible`, `panelItem`, `focusTarget`, and scrim
+  properties (`scrimEnabled`, `scrimColor`, `scrimOpacity`).
 
 ## State Ownership
 
