@@ -161,14 +161,21 @@ Constraints:
 
 State changes fan out by ownership, not by CLI convenience.
 
-| State group | Must affect |
+| State key(s) | Affected targets |
 | --- | --- |
-| `color_scheme` | All color consumers; wallpaper only when filtered-wallpaper mode is enabled |
-| Wallpaper keys | Wallpaper target only |
-| System font keys | Shell, system UI, and launcher targets that render system text |
-| Mono font keys | Terminal and editor targets plus any consumer that explicitly uses the mono font |
-| Cursor keys | Cursor target only |
-| Hyprland appearance keys | `hypr_appearance` only |
+| `color_scheme` | `alacritty`, `bat`, `ghostty`, `gtk`, `hyprland`, `neovim`, `qt`, `quickshell`, `snappy_switcher`, `spicetify`, `starship`, `tmux`, `vicinae`, `vscode`, `wallpaper`\*, `zathura` |
+| `wallpaper`, `filter_wallpaper` | `wallpaper` |
+| `system_font` | `gtk`, `qt`, `quickshell`, `snappy_switcher`, `vicinae` |
+| `mono_font` | `alacritty`, `ghostty`, `gtk`, `neovide`, `qt`, `quickshell`, `tmux`, `vscode` |
+| `icon_theme` | `gtk`, `qt`, `snappy_switcher` |
+| `font_size` | `gtk`, `qt`, `snappy_switcher` |
+| `mono_font_size` | `alacritty`, `ghostty`, `gtk`, `neovide`, `qt`, `vscode` |
+| Per-target `*_mono_font_size_offset` | The named target only |
+| `dark_hint` | `gtk` |
+| `cursor_theme`, `cursor_size` | `cursor` |
+| Hyprland appearance keys | `hypr_appearance` |
+
+\* `wallpaper` is dropped from `color_scheme` when `filter_wallpaper` is false.
 
 The dependency map in code must remain a direct encoding of this table.
 
