@@ -23,9 +23,9 @@ pub const METADATA: TargetMetadata = TargetMetadata {
 
 const CACHE_VERSION: &str = "lutgen-apply-v1";
 
-fn swww_command(path: &str) -> Vec<String> {
+fn awww_command(path: &str) -> Vec<String> {
     vec![
-        "swww".to_owned(),
+        "awww".to_owned(),
         "img".to_owned(),
         path.to_owned(),
         "--transition-type".to_owned(),
@@ -130,7 +130,7 @@ fn warn(message: &str) {
 }
 
 fn apply_wallpaper(path: &Path) {
-    let (ok, message) = run_command(&swww_command(&path.display().to_string()));
+    let (ok, message) = run_command(&awww_command(&path.display().to_string()));
     if !ok {
         warn(&format!(
             "failed to apply wallpaper {}: {message}",
@@ -148,7 +148,7 @@ pub fn generate(_colors: &ColorScheme, state: &ThemeState) -> crate::Result<Gene
     let commands = if state.filter_wallpaper {
         Vec::new()
     } else {
-        vec![swww_command(&state.wallpaper)]
+        vec![awww_command(&state.wallpaper)]
     };
     Ok(GeneratedContent::commands(commands))
 }

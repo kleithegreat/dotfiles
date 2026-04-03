@@ -536,7 +536,7 @@ mod tests {
         assert_eq!(
             commands(wallpaper::generate(&dummy_colors(), &state)),
             vec![vec![
-                "swww".to_owned(),
+                "awww".to_owned(),
                 "img".to_owned(),
                 "/tmp/wallpaper.png".to_owned(),
                 "--transition-type".to_owned(),

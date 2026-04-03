@@ -36,7 +36,7 @@ and generated content relate:
 | `concat` | Pipeline reads the base file, appends the generated block, and writes the combined result to the output path. | Structural skeleton — layout, keybindings, non-theming settings. Must not contain theming values. |
 | `import` | Pipeline writes a standalone fragment to the output path. The base file contains an include/source directive that references the generated fragment. | Complete config that delegates theming to an external file via the application's native include mechanism. |
 | `standalone` | Pipeline generates the entire output from scratch. No base file is read. | No base file. The target module contains all the logic. |
-| `command` | Pipeline applies state through runtime commands (dconf, swww) with no persistent file output. | No base file. No output file. |
+| `command` | Pipeline applies state through runtime commands (dconf, awww) with no persistent file output. | No base file. No output file. |
 
 For `concat` and `import`, the base file lives at `config/<tool>/` and is the
 repo-authored source of truth for that tool's non-theming behavior. For

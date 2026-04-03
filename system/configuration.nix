@@ -2,6 +2,7 @@
 
 let
   system = pkgs.stdenv.hostPlatform.system;
+  claudeCodeOverlay = import ../overlays/claude-code.nix;
   desktopctlOverlay = import ../overlays/desktopctl.nix;
   optimizedPackages = import ../overlays/march-optimized.nix {
     inherit lib inputs march enableMarchOptimizations;
@@ -157,6 +158,7 @@ in
   nixpkgs.config.allowUnfreePredicate = pkg:
     builtins.elem (lib.getName pkg) allowedUnfreePackageNames;
   nixpkgs.overlays = [
+    claudeCodeOverlay
     desktopctlOverlay
     optimizedPackages.overlay
   ];

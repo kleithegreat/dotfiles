@@ -36,7 +36,7 @@ Theme-only targets with no `config/` subdirectory:
 | GTK | dconf live state only | `command` | Sets GTK theme, color-scheme, fonts, and icon theme via dconf |
 | Qt | `~/.config/qt6ct/colors/current.conf` and others | `standalone` | Multi-file: qt6ct, qt5ct, kdeglobals, kcolorscheme, hyprqt6engine, Kvantum, Kate, KWrite |
 | Spicetify | `~/.config/spicetify/Themes/ApplyTheme/color.ini` | `standalone` | Runs `spicetify update` on apply |
-| Wallpaper | `swww` live state plus cached filtered wallpapers | `command` | Optional `lutgen` palette filtering; no persistent primary config file |
+| Wallpaper | `awww` live state plus cached filtered wallpapers | `command` | Optional `lutgen` palette filtering; no persistent primary config file |
 
 ## Cross-Tool Relationships
 
