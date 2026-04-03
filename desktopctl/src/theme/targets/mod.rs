@@ -1,3 +1,23 @@
+mod alacritty;
+mod bat;
+mod cursor;
+mod ghostty;
+mod gtk;
+mod hypr_appearance;
+mod hyprland;
+mod neovide;
+mod neovim;
+mod qt;
+mod quickshell;
+mod snappy_switcher;
+mod spicetify;
+mod starship;
+mod tmux;
+mod vicinae;
+mod vscode;
+mod wallpaper;
+mod zathura;
+
 use crate::theme::schema::{ColorScheme, ThemeState};
 use std::{collections::BTreeMap, io};
 
@@ -229,6 +249,342 @@ fn validate_metadata(metadata: &TargetMetadata) -> crate::Result<()> {
 }
 
 pub fn build_registry() -> crate::Result<TargetRegistry> {
-    let registry = TargetRegistry::new();
+    let mut registry = TargetRegistry::new();
+
+    registry.register_function(alacritty::METADATA, alacritty::generate)?;
+    registry.register_function(bat::METADATA, bat::generate)?;
+    registry.register_function_with_hooks(
+        cursor::METADATA,
+        cursor::generate,
+        Some(cursor::persist),
+        Some(cursor::on_apply),
+    )?;
+    registry.register_function(ghostty::METADATA, ghostty::generate)?;
+    registry.register_function_with_hooks(
+        gtk::METADATA,
+        gtk::generate,
+        None,
+        Some(gtk::on_apply),
+    )?;
+    registry.register_function(hypr_appearance::METADATA, hypr_appearance::generate)?;
+    registry.register_function(hyprland::METADATA, hyprland::generate)?;
+    registry.register_function(neovide::METADATA, neovide::generate)?;
+    registry.register_function(neovim::METADATA, neovim::generate)?;
+    registry.register_function_with_hooks(qt::METADATA, qt::generate, Some(qt::persist), None)?;
+    registry.register_function(quickshell::METADATA, quickshell::generate)?;
+    registry.register_function_with_hooks(
+        snappy_switcher::METADATA,
+        snappy_switcher::generate,
+        None,
+        Some(snappy_switcher::on_apply),
+    )?;
+    registry.register_function_with_hooks(
+        spicetify::METADATA,
+        spicetify::generate,
+        Some(spicetify::persist),
+        Some(spicetify::on_apply),
+    )?;
+    registry.register_function(starship::METADATA, starship::generate)?;
+    registry.register_function_with_hooks(
+        tmux::METADATA,
+        tmux::generate,
+        None,
+        Some(tmux::on_apply),
+    )?;
+    registry.register_function(vicinae::METADATA, vicinae::generate)?;
+    registry.register_function_with_hooks(
+        vscode::METADATA,
+        vscode::generate,
+        Some(vscode::persist),
+        None,
+    )?;
+    registry.register_function_with_hooks(
+        wallpaper::METADATA,
+        wallpaper::generate,
+        None,
+        Some(wallpaper::on_apply),
+    )?;
+    registry.register_function(zathura::METADATA, zathura::generate)?;
+
     Ok(registry)
+}
+
+#[cfg(test)]
+pub(crate) mod testsupport {
+    use crate::theme::schema::{ColorScheme, ThemeState};
+
+    pub fn dummy_colors() -> ColorScheme {
+        serde_json::from_value(serde_json::json!({
+            "family": "gruvbox",
+            "variant": "dark",
+            "colors": {
+                "bg": "#000000",
+                "bg_dim": "#010101",
+                "bg1": "#020202",
+                "bg2": "#030303",
+                "bg3": "#040404",
+                "fg": "#f0f0f0",
+                "fg2": "#e0e0e0",
+                "fg3": "#d0d0d0",
+                "fg4": "#c0c0c0",
+                "red": "#ff0000",
+                "green": "#00ff00",
+                "yellow": "#ffff00",
+                "blue": "#0000ff",
+                "purple": "#ff00ff",
+                "cyan": "#00ffff",
+                "orange": "#ff8800",
+                "accent": "#3366ff",
+                "red_bright": "#ff1111",
+                "green_bright": "#11ff11",
+                "yellow_bright": "#ffff11",
+                "blue_bright": "#1111ff",
+                "purple_bright": "#ff11ff",
+                "cyan_bright": "#11ffff",
+                "orange_bright": "#ff9911"
+            },
+            "palette": [
+                "#000000", "#111111", "#222222", "#333333",
+                "#444444", "#555555", "#666666", "#777777",
+                "#888888", "#999999", "#aaaaaa", "#bbbbbb",
+                "#cccccc", "#dddddd", "#eeeeee", "#ffffff"
+            ]
+        }))
+        .expect("valid dummy colors")
+    }
+
+    pub fn dummy_state() -> ThemeState {
+        ThemeState {
+            color_scheme: "gruvbox-dark".to_owned(),
+            wallpaper: "/tmp/wallpaper.png".to_owned(),
+            filter_wallpaper: false,
+            system_font: "Overpass".to_owned(),
+            mono_font: "JetBrains Mono Nerd Font".to_owned(),
+            icon_theme: "Neuwaita".to_owned(),
+            cursor_theme: "BreezeX-RosePine-Linux".to_owned(),
+            cursor_size: 24,
+            font_size: 11,
+            mono_font_size: 11,
+            alacritty_mono_font_size_offset: 0,
+            ghostty_mono_font_size_offset: 0,
+            gtk_mono_font_size_offset: 0,
+            neovide_mono_font_size_offset: 0,
+            qt_mono_font_size_offset: 0,
+            vscode_mono_font_size_offset: 3,
+            dark_hint: false,
+            hypr_gaps_in: 4,
+            hypr_gaps_out: 6,
+            hypr_border_size: 2,
+            hypr_rounding: 8,
+            hypr_blur_enabled: true,
+            hypr_blur_size: 8,
+            hypr_blur_passes: 2,
+            hypr_animations_enabled: true,
+            extra: Default::default(),
+        }
+    }
+
+    pub fn rose_pine_light_colors() -> ColorScheme {
+        serde_json::from_value(serde_json::json!({
+            "family": "rose-pine",
+            "variant": "light",
+            "colors": {
+                "bg": "#faf4ed",
+                "bg_dim": "#f2e9de",
+                "bg1": "#fffaf3",
+                "bg2": "#f4ede8",
+                "bg3": "#dfdad9",
+                "fg": "#575279",
+                "fg2": "#6e6a86",
+                "fg3": "#797593",
+                "fg4": "#9893a5",
+                "red": "#b4637a",
+                "green": "#56949f",
+                "yellow": "#ea9d34",
+                "blue": "#286983",
+                "purple": "#907aa9",
+                "cyan": "#d7827e",
+                "orange": "#d7827e",
+                "accent": "#907aa9",
+                "red_bright": "#b4637a",
+                "green_bright": "#56949f",
+                "yellow_bright": "#ea9d34",
+                "blue_bright": "#286983",
+                "purple_bright": "#907aa9",
+                "cyan_bright": "#d7827e",
+                "orange_bright": "#d7827e"
+            },
+            "palette": [
+                "#575279", "#b4637a", "#56949f", "#ea9d34",
+                "#286983", "#907aa9", "#d7827e", "#e0def4",
+                "#797593", "#b4637a", "#56949f", "#ea9d34",
+                "#286983", "#907aa9", "#d7827e", "#faf4ed"
+            ]
+        }))
+        .expect("valid rose pine colors")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::theme::targets::testsupport::{dummy_colors, dummy_state, rose_pine_light_colors};
+
+    fn text(content: crate::Result<GeneratedContent>) -> String {
+        match content.expect("target generation succeeds") {
+            GeneratedContent::Text(value) => value,
+            GeneratedContent::Commands(_) => panic!("expected text output"),
+        }
+    }
+
+    fn commands(content: crate::Result<GeneratedContent>) -> CommandBatch {
+        match content.expect("target generation succeeds") {
+            GeneratedContent::Commands(value) => value,
+            GeneratedContent::Text(_) => panic!("expected command output"),
+        }
+    }
+
+    #[test]
+    fn registry_contains_all_python_targets() {
+        let registry = build_registry().expect("registry builds");
+        let names = registry.names().collect::<Vec<_>>();
+        assert_eq!(names.len(), 19);
+        assert!(names.contains(&"cursor"));
+        assert_eq!(
+            registry
+                .get("cursor")
+                .expect("cursor target")
+                .metadata()
+                .assembly,
+            Assembly::Standalone
+        );
+        assert!(
+            !registry
+                .get("gtk")
+                .expect("gtk target")
+                .metadata()
+                .sync_safe
+        );
+        assert!(
+            !registry
+                .get("wallpaper")
+                .expect("wallpaper target")
+                .metadata()
+                .sync_safe
+        );
+    }
+
+    #[test]
+    fn alacritty_output_matches_python_format() {
+        let output = text(alacritty::generate(&dummy_colors(), &dummy_state()));
+        assert_eq!(
+            output,
+            "[font]\nnormal = { family = \"JetBrains Mono Nerd Font\" }\nsize = 11\n\n[colors.primary]\nbackground = \"#000000\"\nforeground = \"#f0f0f0\"\n\n[colors.normal]\nblack   = \"#000000\"\nred     = \"#111111\"\ngreen   = \"#222222\"\nyellow  = \"#333333\"\nblue    = \"#444444\"\nmagenta = \"#555555\"\ncyan    = \"#666666\"\nwhite   = \"#777777\"\n\n[colors.bright]\nblack   = \"#888888\"\nred     = \"#999999\"\ngreen   = \"#aaaaaa\"\nyellow  = \"#bbbbbb\"\nblue    = \"#cccccc\"\nmagenta = \"#dddddd\"\ncyan    = \"#eeeeee\"\nwhite   = \"#ffffff\"\n"
+        );
+    }
+
+    #[test]
+    fn hyprland_output_matches_python_format() {
+        let output = text(hyprland::generate(&dummy_colors(), &dummy_state()));
+        assert_eq!(
+            output,
+            "$theme_bg       = rgb(000000)\n$theme_bg_rgba  = rgba(000000ff)\n$theme_bg_dim   = rgb(010101)\n$theme_bg_dim_rgba = rgba(010101ff)\n$theme_bg1      = rgb(020202)\n$theme_bg1_rgba = rgba(020202ff)\n$theme_bg2      = rgb(030303)\n$theme_bg2_rgba = rgba(030303ff)\n$theme_bg3      = rgb(040404)\n$theme_bg3_rgba = rgba(040404ff)\n$theme_fg       = rgb(f0f0f0)\n$theme_fg_rgba  = rgba(f0f0f0ff)\n$theme_accent   = rgb(3366ff)\n$theme_accent_rgba = rgba(3366ffff)\n$theme_red      = rgb(ff0000)\n$theme_red_rgba = rgba(ff0000ff)\n$theme_green    = rgb(00ff00)\n$theme_green_rgba = rgba(00ff00ff)\n$theme_yellow   = rgb(ffff00)\n$theme_yellow_rgba = rgba(ffff00ff)\n$theme_blue     = rgb(0000ff)\n$theme_blue_rgba = rgba(0000ffff)\n$theme_purple   = rgb(ff00ff)\n$theme_purple_rgba = rgba(ff00ffff)\n$theme_cyan     = rgb(00ffff)\n$theme_cyan_rgba = rgba(00ffffff)\n$theme_orange   = rgb(ff8800)\n$theme_orange_rgba = rgba(ff8800ff)\n$theme_font     = JetBrains Mono Nerd Font\n$theme_sys_font = Overpass\n$theme_font_size = 11\n"
+        );
+    }
+
+    #[test]
+    fn hypr_appearance_output_matches_python_format() {
+        let output = text(hypr_appearance::generate(&dummy_colors(), &dummy_state()));
+        assert_eq!(
+            output,
+            "general {\n    gaps_in = 4\n    gaps_out = 6\n    border_size = 2\n}\n\ndecoration {\n    rounding = 8\n\n    blur {\n        enabled = true\n        size = 8\n        passes = 2\n    }\n}\n\nanimations {\n    enabled = yes\n}\n"
+        );
+    }
+
+    #[test]
+    fn quickshell_output_matches_python_format() {
+        let output = text(quickshell::generate(&dummy_colors(), &dummy_state()));
+        assert_eq!(
+            output,
+            "{\n  \"colors\": {\n    \"bg\": \"#000000\",\n    \"bg0_h\": \"#010101\",\n    \"bg1\": \"#020202\",\n    \"bg2\": \"#030303\",\n    \"bg3\": \"#040404\",\n    \"fg\": \"#f0f0f0\",\n    \"fg2\": \"#e0e0e0\",\n    \"fg3\": \"#d0d0d0\",\n    \"fg4\": \"#c0c0c0\",\n    \"red\": \"#ff0000\",\n    \"green\": \"#00ff00\",\n    \"yellow\": \"#ffff00\",\n    \"blue\": \"#0000ff\",\n    \"purple\": \"#ff00ff\",\n    \"aqua\": \"#00ffff\",\n    \"orange\": \"#ff8800\",\n    \"redBright\": \"#ff1111\",\n    \"greenBright\": \"#11ff11\",\n    \"yellowBright\": \"#ffff11\",\n    \"blueBright\": \"#1111ff\",\n    \"purpleBright\": \"#ff11ff\",\n    \"aquaBright\": \"#11ffff\",\n    \"orangeBright\": \"#ff9911\",\n    \"accent\": \"#3366ff\"\n  },\n  \"fonts\": {\n    \"family\": \"JetBrains Mono Nerd Font\",\n    \"systemFamily\": \"Overpass\",\n    \"size\": 12,\n    \"sizeSmall\": 10,\n    \"sizeLarge\": 14\n  }\n}\n"
+        );
+    }
+
+    #[test]
+    fn neovim_output_matches_python_format() {
+        let output = text(neovim::generate(&dummy_colors(), &dummy_state()));
+        assert_eq!(
+            output,
+            "{\n  \"colorscheme\": \"gruvbox\",\n  \"background\": \"dark\"\n}\n"
+        );
+    }
+
+    #[test]
+    fn neovide_output_matches_python_format() {
+        let output = text(neovide::generate(&dummy_colors(), &dummy_state()));
+        assert_eq!(output, "vim.o.guifont = \"JetBrains Mono Nerd Font:h11\"\n");
+    }
+
+    #[test]
+    fn bat_output_matches_python_format() {
+        let output = text(bat::generate(&dummy_colors(), &dummy_state()));
+        assert_eq!(output, "--theme=gruvbox-dark\n");
+    }
+
+    #[test]
+    fn ghostty_output_matches_python_format() {
+        let output = text(ghostty::generate(&dummy_colors(), &dummy_state()));
+        assert_eq!(
+            output,
+            "font-family = JetBrains Mono Nerd Font\nfont-size = 11\nbackground = #000000\nforeground = #f0f0f0\nselection-background = #040404\nselection-foreground = #f0f0f0\ncursor-color = #f0f0f0\ncursor-text = #000000\npalette = 0=#000000\npalette = 1=#111111\npalette = 2=#222222\npalette = 3=#333333\npalette = 4=#444444\npalette = 5=#555555\npalette = 6=#666666\npalette = 7=#777777\npalette = 8=#888888\npalette = 9=#999999\npalette = 10=#aaaaaa\npalette = 11=#bbbbbb\npalette = 12=#cccccc\npalette = 13=#dddddd\npalette = 14=#eeeeee\npalette = 15=#ffffff\n"
+        );
+    }
+
+    #[test]
+    fn qt_output_matches_python_format() {
+        let output = text(qt::generate(&dummy_colors(), &dummy_state()));
+        assert_eq!(
+            output,
+            "[ColorScheme]\nactive_colors=#fff0f0f0, #ff020202, #ff040404, #ff030303, #ff010101, #ff040404, #fff0f0f0, #fff0f0f0, #fff0f0f0, #ff000000, #ff020202, #ff010101, #ff3366ff, #fff0f0f0, #ff0000ff, #ffff00ff, #ff000000, #ff020202, #fff0f0f0, #80c0c0c0, #ff3366ff\ndisabled_colors=#ffc0c0c0, #ff020202, #ff040404, #ff030303, #ff010101, #ff040404, #ffc0c0c0, #fff0f0f0, #ffc0c0c0, #ff000000, #ff020202, #ff010101, #ff3366ff, #ffc0c0c0, #ff0000ff, #ffff00ff, #ff000000, #ff020202, #fff0f0f0, #80c0c0c0, #ff3366ff\ninactive_colors=#fff0f0f0, #ff020202, #ff040404, #ff030303, #ff010101, #ff040404, #fff0f0f0, #fff0f0f0, #fff0f0f0, #ff000000, #ff020202, #ff010101, #ff3366ff, #fff0f0f0, #ff0000ff, #ffff00ff, #ff000000, #ff020202, #fff0f0f0, #80c0c0c0, #ff3366ff\n"
+        );
+    }
+
+    #[test]
+    fn wallpaper_generate_matches_python_behavior() {
+        let state = dummy_state();
+        assert_eq!(
+            commands(wallpaper::generate(&dummy_colors(), &state)),
+            vec![vec![
+                "swww".to_owned(),
+                "img".to_owned(),
+                "/tmp/wallpaper.png".to_owned(),
+                "--transition-type".to_owned(),
+                "fade".to_owned(),
+                "--transition-duration".to_owned(),
+                "1".to_owned()
+            ]]
+        );
+
+        let mut filtered_state = state.clone();
+        filtered_state.filter_wallpaper = true;
+        assert!(commands(wallpaper::generate(&dummy_colors(), &filtered_state)).is_empty());
+    }
+
+    #[test]
+    fn cursor_generate_matches_python_behavior() {
+        let output = text(cursor::generate(&dummy_colors(), &dummy_state()));
+        assert_eq!(
+            output,
+            "[Icon Theme]\nName=Default\nInherits=BreezeX-RosePine-Linux\n"
+        );
+    }
+
+    #[test]
+    fn vscode_json_uses_python_ascii_escaping() {
+        let output = text(vscode::generate(&rose_pine_light_colors(), &dummy_state()));
+        assert!(
+            output.contains("\"workbench.colorTheme\": \"Ros\\u00e9 Pine Dawn\""),
+            "{output}"
+        );
+    }
 }

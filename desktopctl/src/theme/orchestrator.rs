@@ -1,15 +1,10 @@
-use crate::paths;
 use crate::theme::{
+    self, json,
     schema::{ColorScheme, ThemeState},
     targets::{Assembly, GeneratedContent, Target, TargetRegistry},
 };
 use serde_json::{Map, Value};
-use std::{
-    collections::BTreeSet,
-    fs, io,
-    path::{Path, PathBuf},
-    process::Command,
-};
+use std::{collections::BTreeSet, fs, io, path::Path};
 
 const COLOR_SCHEME_TARGETS: [&str; 16] = [
     "alacritty",
@@ -221,7 +216,7 @@ fn assemble_concat(
     colors: &ColorScheme,
 ) -> crate::Result<()> {
     let output_path = output_path(metadata)?;
-    let base_path = expand_user_path(metadata.base_path.ok_or_else(|| {
+    let base_path = theme::expand_user_path(metadata.base_path.ok_or_else(|| {
         io::Error::new(
             io::ErrorKind::InvalidInput,
             format!("Target '{}' is missing BASE_PATH", metadata.name),
@@ -303,7 +298,7 @@ fn concat_json(base_path: &Path, generated: &str) -> crate::Result<String> {
     let merged = merge_json_objects(base_map, generated_map);
     Ok(format!(
         "{}\n",
-        serde_json::to_string_pretty(&Value::Object(merged))?
+        json::format_pretty_value(&Value::Object(merged))
     ))
 }
 
@@ -373,49 +368,11 @@ fn run_command_batch(content: GeneratedContent) -> crate::Result<()> {
 }
 
 fn run_command(command: &[&str]) -> crate::Result<()> {
-    if command.is_empty() {
-        return Err(io::Error::new(io::ErrorKind::InvalidInput, "Command cannot be empty").into());
-    }
-
-    let output = Command::new(command[0]).args(&command[1..]).output();
-    command_result(output, command[0])
+    theme::run_command(command)
 }
 
 fn run_owned_command(command: &[String]) -> crate::Result<()> {
-    if command.is_empty() {
-        return Err(io::Error::new(io::ErrorKind::InvalidInput, "Command cannot be empty").into());
-    }
-
-    let output = Command::new(&command[0]).args(&command[1..]).output();
-    command_result(output, &command[0])
-}
-
-fn command_result(output: io::Result<std::process::Output>, program: &str) -> crate::Result<()> {
-    let output = match output {
-        Ok(output) => output,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => {
-            return Err(
-                io::Error::new(io::ErrorKind::NotFound, format!("{program:?} not found")).into(),
-            );
-        }
-        Err(error) => return Err(error.into()),
-    };
-
-    if output.status.success() {
-        return Ok(());
-    }
-
-    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_owned();
-    let message = if !stderr.is_empty() {
-        stderr
-    } else if !stdout.is_empty() {
-        stdout
-    } else {
-        format!("command exited with status {}", output.status)
-    };
-
-    Err(io::Error::other(message).into())
+    theme::run_owned_command(command)
 }
 
 fn write_output(path: &Path, content: &str) -> crate::Result<()> {
@@ -431,32 +388,22 @@ fn write_extra_outputs(
     content: &str,
 ) -> crate::Result<()> {
     for extra in metadata.extra_outputs {
-        let path = expand_user_path(extra)?;
+        let path = theme::expand_user_path(extra)?;
         write_output(&path, content)?;
     }
     Ok(())
 }
 
-fn output_path(metadata: &crate::theme::targets::TargetMetadata) -> crate::Result<PathBuf> {
+fn output_path(
+    metadata: &crate::theme::targets::TargetMetadata,
+) -> crate::Result<std::path::PathBuf> {
     let path = metadata.output_path.ok_or_else(|| {
         io::Error::new(
             io::ErrorKind::InvalidInput,
             format!("Target '{}' is missing OUTPUT_PATH", metadata.name),
         )
     })?;
-    expand_user_path(path)
-}
-
-fn expand_user_path(path: &str) -> crate::Result<PathBuf> {
-    if path == "~" {
-        return Ok(paths::home_dir()?);
-    }
-
-    if let Some(rest) = path.strip_prefix("~/") {
-        return Ok(paths::home_dir()?.join(rest));
-    }
-
-    Ok(PathBuf::from(path))
+    theme::expand_user_path(path)
 }
 
 fn trim_trailing_newlines(text: &str) -> &str {
@@ -495,6 +442,7 @@ mod tests {
     use super::*;
     use crate::theme::targets::{GeneratedContent, TargetMetadata};
     use std::fs;
+    use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn dummy_colors() -> ColorScheme {
