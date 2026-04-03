@@ -40,7 +40,7 @@ The shell-level theme IPC target exposes:
 - `apply(args)`, which does `args.split(" ")` and spawns
   `/home/kevin/repos/dotfiles/themes/apply-theme`
 
-That implementation lives in `config/quickshell/shell.qml:244-256`.
+That implementation lives in `config/quickshell/shell.qml:294-306`.
 
 The problem is that `apply-theme` is an argv-based CLI whose `set` subcommand
 expects one `key` argument and one `value` argument
@@ -53,7 +53,7 @@ paths can also legally contain spaces
 
 The same IPC path also has no `onExited` handling, so failures do not refresh
 settings state, emit a toast, or otherwise report command failure back into the
-shell (`config/quickshell/shell.qml:244-247`).
+shell (`config/quickshell/shell.qml:294-306`).
 
 This makes shell IPC less reliable than the settings-host path for the same
 theme mutations.

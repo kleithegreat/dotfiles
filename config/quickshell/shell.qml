@@ -15,6 +15,41 @@ Scope {
     // ── Popup state ──
     property QtObject popupVisibility: PopupVisibility {}
 
+    // Drive bar lifetime from Hyprland's real monitor model; Qt keeps a
+    // placeholder screen alive when all outputs disappear.
+    function isRealMonitor(monitor) {
+        return monitor && monitor.id >= 0 && monitor.name !== "FALLBACK";
+    }
+
+    readonly property string barMonitorName: {
+        const monitors = Hyprland.monitors.values;
+        for (let i = 0; i < monitors.length; ++i) {
+            const monitor = monitors[i];
+            if (root.isRealMonitor(monitor)) {
+                return monitor.name;
+            }
+        }
+
+        return "";
+    }
+
+    readonly property var barScreen: {
+        if (root.barMonitorName === "") {
+            return null;
+        }
+
+        const screens = Quickshell.screens;
+        for (let i = 0; i < screens.length; ++i) {
+            const screen = screens[i];
+            const monitor = Hyprland.monitorFor(screen);
+            if (root.isRealMonitor(monitor) && monitor.name === root.barMonitorName) {
+                return screen;
+            }
+        }
+
+        return null;
+    }
+
     // ── Notification state (compat for existing popup/bar wiring) ──
     readonly property bool doNotDisturb: NotificationService.doNotDisturb
     readonly property int historyCount: NotificationService.historyCount
@@ -22,11 +57,26 @@ Scope {
     // ── Tooltip ──
     TooltipWindow {}
 
+    Connections {
+        target: Hyprland
+
+        function onRawEvent(event) {
+            if (event.name === "monitoradded" || event.name === "monitorremoved") {
+                Hyprland.refreshMonitors();
+            }
+        }
+    }
+
     // ── Bar ──
-    Bar.Bar {
-        popupVisibility: root.popupVisibility
-        doNotDisturb: root.doNotDisturb
-        historyCount: root.historyCount
+    Loader {
+        active: root.barMonitorName !== "" && root.barScreen !== null
+
+        sourceComponent: Bar.Bar {
+            screen: root.barScreen
+            popupVisibility: root.popupVisibility
+            doNotDisturb: root.doNotDisturb
+            historyCount: root.historyCount
+        }
     }
 
     // ── Notification Popups ──

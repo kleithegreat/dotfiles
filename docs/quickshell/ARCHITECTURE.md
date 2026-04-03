@@ -1,6 +1,6 @@
 # Quickshell Architecture
 
-The Quickshell config is centered on `config/quickshell/shell.qml:12-266`. The
+The Quickshell config is centered on `config/quickshell/shell.qml:12-316`. The
 root directory holds the shell entry point, the singleton runtime wrappers
 (`AudioService.qml`, `BluetoothService.qml`, `NetworkService.qml`, `Theme.qml`,
 and peers), popup coordination helpers (`PopupVisibility.qml`,
@@ -19,28 +19,34 @@ host and wallpaper pane instead (`config/quickshell/popups/SettingsPopup.qml:49-
 
 ## Shell Composition And IPC
 
-`config/quickshell/shell.qml:12-266` is the session root. The top-level `Scope`
-owns one `PopupVisibility` registry, forwards `doNotDisturb` and `historyCount`
-from `NotificationService`, mounts `TooltipWindow`, one `Bar.Bar`, the root
-notification popup stack, the shared audio and brightness OSD window, the toast
-window, and one shared `PopupOverlayHost`
-(`config/quickshell/shell.qml:16-185`).
+`config/quickshell/shell.qml:12-316` is the session root. The top-level `Scope`
+owns one `PopupVisibility` registry, defines `isRealMonitor()`, derives
+`barMonitorName` from `Hyprland.monitors.values`, maps that monitor back to a
+`barScreen` through `Hyprland.monitorFor(screen)`, listens to Hyprland raw
+monitor events to refresh monitor state, forwards `doNotDisturb` and
+`historyCount` from `NotificationService`, mounts `TooltipWindow`, one
+single-screen bar `Loader`, the root notification popup stack, the shared audio
+and brightness OSD window, the toast window, and one shared `PopupOverlayHost`
+(`config/quickshell/shell.qml:16-235`).
 
 Brightness OSD updates still enter through a side-channel rather than through
 `BrightnessService`: `shell.qml` tails `/tmp/quickshell-brightness`, converts
 the raw percentage to a gamma-corrected shell percentage, and forwards that to
-`AudioService.showOsdState()` (`config/quickshell/shell.qml:76-86`). The audio
+`AudioService.showOsdState()` (`config/quickshell/shell.qml:126-136`). The audio
 volume OSD and the brightness OSD therefore share the same OSD window and state
-machine (`config/quickshell/shell.qml:88-124`,
+machine (`config/quickshell/shell.qml:138-174`,
 `config/quickshell/AudioService.qml:17-22`,
 `config/quickshell/AudioService.qml:66-115`).
 
 There is still no explicit multi-output composition layer. Neither
-`config/quickshell/shell.qml:12-266` nor `config/quickshell/bar/Bar.qml:7-68`
-iterates over monitors or creates one bar per output. The current shell creates
-one set of layer-shell windows and anchors them to edges or center points.
+`config/quickshell/shell.qml:18-79` nor `config/quickshell/bar/Bar.qml:7-68`
+iterates over monitors or creates one bar per output. The current shell picks
+the first real Hyprland monitor, maps it back to a matching `ShellScreen`,
+refreshes monitor state on Hyprland `monitoradded`/`monitorremoved` events, and
+recreates the single bar window when the real-monitor set disappears or
+reappears.
 
-The shell-wide IPC surface also lives in `config/quickshell/shell.qml:187-265`.
+The shell-wide IPC surface also lives in `config/quickshell/shell.qml:237-315`.
 It exposes:
 
 - `popups` for exclusive popup toggles
@@ -104,7 +110,7 @@ actual layer-shell window and the exclusivity behavior. Current placements are:
 
 The notification popup stack, OSD, toast window, and tooltip window do not
 participate in popup exclusivity. They are independent `PanelWindow`s created by
-`config/quickshell/shell.qml:33-182` and `config/quickshell/TooltipWindow.qml:6-48`.
+`config/quickshell/shell.qml:82-232` and `config/quickshell/TooltipWindow.qml:6-48`.
 
 ## Service Layer
 
@@ -125,8 +131,8 @@ The root-level singleton set is:
 `config/quickshell/AudioService.qml:6-116` wraps PipeWire and owns the shared
 volume, mute, sink-description, and OSD state used by the shell OSD window, the
 bar volume module, the settings audio pane, and the `audio` IPC target
-(`config/quickshell/shell.qml:88-124`,
-`config/quickshell/shell.qml:213-223`,
+(`config/quickshell/shell.qml:138-174`,
+`config/quickshell/shell.qml:263-273`,
 `config/quickshell/bar/Volume.qml:12-57`,
 `config/quickshell/popups/settings/SettingsAudioPane.qml:14-201`).
 
@@ -135,11 +141,11 @@ bar volume module, the settings audio pane, and the `audio` IPC target
 tracked-notification dismissal, and one adaptive relative-time refresh timer.
 That state drives the root notification popup stack, the notification drawer,
 the bar bell via shell-level props, and the `notifications` IPC target
-(`config/quickshell/shell.qml:18-20`,
-`config/quickshell/shell.qml:32-74`,
+(`config/quickshell/shell.qml:53-55`,
+`config/quickshell/shell.qml:82-124`,
 `config/quickshell/NotifDrawer.qml:137-235`,
 `config/quickshell/bar/Bell.qml:7-24`,
-`config/quickshell/shell.qml:200-205`).
+`config/quickshell/shell.qml:250-255`).
 
 `config/quickshell/TooltipService.qml:4-53` and
 `config/quickshell/ToastService.qml:5-98` are lightweight in-memory UI-state
@@ -147,8 +153,8 @@ singletons. `TooltipService` controls delayed show and linger behavior for
 interactive modules, and `ToastService` owns a bounded toast queue with
 duplicate suppression and level-specific durations
 (`config/quickshell/TooltipWindow.qml:6-48`,
-`config/quickshell/shell.qml:126-182`,
-`config/quickshell/shell.qml:259-265`).
+`config/quickshell/shell.qml:176-232`,
+`config/quickshell/shell.qml:309-314`).
 
 `config/quickshell/BluetoothService.qml:5-290` now has two refresh modes. The
 full refresh path runs `show -> connected-device info -> paired devices -> all
@@ -243,10 +249,14 @@ local exceptions are:
 
 ## The Bar
 
-`config/quickshell/bar/Bar.qml:7-68` defines one top layer-shell bar. The left
-cluster mounts `Workspaces`, an optional divider, and `Mpris`; the center mounts
-`Clock`; and the right cluster mounts `TrayExpand`, a rounded status pill with
-`Network`, `Bluetooth`, `Volume`, and `Battery`, then `Bell`, then `Power`
+`config/quickshell/bar/Bar.qml:7-68` defines the layer-shell bar surface itself,
+and `config/quickshell/shell.qml:71-79` materializes it through a `Loader` that
+activates only when Hyprland reports a real monitor and that monitor can be
+mapped back to a `ShellScreen`. The loader forwards `screen`,
+`popupVisibility`, `doNotDisturb`, and `historyCount`. The left cluster mounts
+`Workspaces`, an optional divider, and `Mpris`; the center mounts `Clock`; and
+the right cluster mounts `TrayExpand`, a rounded status pill with `Network`,
+`Bluetooth`, `Volume`, and `Battery`, then `Bell`, then `Power`
 (`config/quickshell/bar/Bar.qml:20-67`).
 
 Bar clicks still route through the bar host rather than through a separate
@@ -280,7 +290,8 @@ The mounted modules now use a mix of shared services and direct upstream APIs:
   (`config/quickshell/bar/Battery.qml:11-35`)
 - `Bell` -> props passed in from `shell.qml`
   (`config/quickshell/bar/Bell.qml:7-24`,
-  `config/quickshell/shell.qml:18-20`)
+  `config/quickshell/shell.qml:53-55`,
+  `config/quickshell/shell.qml:76-78`)
 
 Two extra modules still exist on disk but are not mounted by `Bar.qml`:
 `config/quickshell/bar/Brightness.qml:6-62` and
@@ -376,7 +387,7 @@ Theme mutation currently enters Quickshell through two different code paths:
   (`config/quickshell/popups/SettingsPopup.qml:633-655`)
 - the shell IPC handler, which spawns `themes/apply-theme` through a separate
   root-level `Process`
-  (`config/quickshell/shell.qml:244-256`)
+  (`config/quickshell/shell.qml:294-306`)
 
 On the CLI side, `themes/apply-theme` writes `themes/state.json`, computes the
 affected target set through `targets_for_key()`, and applies either that subset
@@ -426,12 +437,12 @@ theme commands:
   `config/quickshell/popups/SettingsPopup.qml:608-629`,
   `config/quickshell/popups/SettingsPopup.qml:647-654`)
 - `shell.qml` uses the same absolute `apply-theme` path for the `theme` IPC
-  target (`config/quickshell/shell.qml:244-256`)
+  target (`config/quickshell/shell.qml:294-306`)
 
 The runtime environment also assumes:
 
 - `/tmp/quickshell-brightness` exists and is updated by an external producer
-  (`config/quickshell/shell.qml:76-86`)
+  (`config/quickshell/shell.qml:126-136`)
 - a backlight is discoverable under `/sys/class/backlight`
   (`config/quickshell/BrightnessService.qml:104-141`)
 - `$XDG_RUNTIME_DIR/focustime_state.json` exists when the focus-time daemon is
