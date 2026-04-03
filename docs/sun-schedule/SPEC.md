@@ -17,7 +17,7 @@ for the current implementation map.
 Non-goals:
 
 - Embedding solar scheduling inside Quickshell services
-- Letting callers edit `themes/state.json` or GTK dconf directly
+- Letting callers edit theme-state storage or GTK dconf directly
 - Treating duplicate `hyprsunset` writers as acceptable
 
 ## Ownership Boundaries
@@ -27,7 +27,7 @@ Non-goals:
 | Solar-time policy | `desktopctl daemon` solar subsystem | The scheduler decides when sunrise, sunset, and the nightly dark-hint threshold occur. |
 | Automated `hyprsunset` writes | `desktopctl daemon` solar subsystem | Scheduled start/stop of `hyprsunset` belongs to this domain. Other components may observe state, but parallel direct writers are out of spec and must be treated as conflicts. |
 | Scheduled `dark_hint` value | `desktopctl daemon` solar subsystem | The scheduler decides when the time-based value should be `true` or `false`. |
-| `dark_hint` persistence | The theming pipeline via `desktopctl theme` | `desktopctl theme` is the only supported writer of `themes/state.json`. Callers request a change; they do not edit the file directly. |
+| `dark_hint` persistence | The theming pipeline via `desktopctl theme` | `desktopctl theme` is the only supported writer of the persisted theme state in `desktopctl.db`. Callers request a change; they do not edit storage directly. |
 | GTK dark-preference side effects | The theming pipeline | The `gtk` target owns the resulting dconf writes for `gtk-theme` and `color-scheme`. |
 | Shell display UI | Quickshell | The shell may surface status or request supported mutations, but it is not the authoritative solar scheduler. |
 
@@ -36,7 +36,8 @@ Invariants:
 - Time-based `hyprsunset` automation must not depend on Quickshell process
   lifetime.
 - Time-based `dark_hint` automation must go through `desktopctl theme`; it must
-  not introduce a second direct write path to `themes/state.json` or GTK dconf.
+  not introduce a second direct write path to the persisted theme state or GTK
+  dconf.
 - A future manual override model must add explicit arbitration. It must not
   rely on two components writing `hyprsunset` independently.
 

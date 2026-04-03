@@ -1,6 +1,7 @@
+use crate::paths;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{Map, Value};
-use std::io;
+use std::{io, path::Path};
 
 pub const COLOR_FIELD_NAMES: [&str; 24] = [
     "bg",
@@ -90,6 +91,32 @@ pub const THEME_STATE_BOOL_FIELDS: [&str; 4] = [
     "hypr_blur_enabled",
     "hypr_animations_enabled",
 ];
+
+pub const DEFAULT_COLOR_SCHEME: &str = "gruvbox-dark";
+pub const DEFAULT_WALLPAPER_RELATIVE_PATH: &str = "wallpapers/lmao.png";
+pub const DEFAULT_FILTER_WALLPAPER: bool = false;
+pub const DEFAULT_SYSTEM_FONT: &str = "Overpass";
+pub const DEFAULT_MONO_FONT: &str = "JetBrains Mono Nerd Font";
+pub const DEFAULT_ICON_THEME: &str = "Neuwaita";
+pub const DEFAULT_CURSOR_THEME: &str = "BreezeX-RosePine-Linux";
+pub const DEFAULT_CURSOR_SIZE: i64 = 24;
+pub const DEFAULT_FONT_SIZE: i64 = 11;
+pub const DEFAULT_MONO_FONT_SIZE: i64 = 11;
+pub const DEFAULT_ALACRITTY_MONO_FONT_SIZE_OFFSET: i64 = 0;
+pub const DEFAULT_GHOSTTY_MONO_FONT_SIZE_OFFSET: i64 = 0;
+pub const DEFAULT_GTK_MONO_FONT_SIZE_OFFSET: i64 = 0;
+pub const DEFAULT_NEOVIDE_MONO_FONT_SIZE_OFFSET: i64 = 0;
+pub const DEFAULT_QT_MONO_FONT_SIZE_OFFSET: i64 = 0;
+pub const DEFAULT_VSCODE_MONO_FONT_SIZE_OFFSET: i64 = 3;
+pub const DEFAULT_DARK_HINT: bool = false;
+pub const DEFAULT_HYPR_GAPS_IN: i64 = 4;
+pub const DEFAULT_HYPR_GAPS_OUT: i64 = 6;
+pub const DEFAULT_HYPR_BORDER_SIZE: i64 = 0;
+pub const DEFAULT_HYPR_ROUNDING: i64 = 8;
+pub const DEFAULT_HYPR_BLUR_ENABLED: bool = false;
+pub const DEFAULT_HYPR_BLUR_SIZE: i64 = 3;
+pub const DEFAULT_HYPR_BLUR_PASSES: i64 = 4;
+pub const DEFAULT_HYPR_ANIMATIONS_ENABLED: bool = true;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ColorScheme {
@@ -274,6 +301,44 @@ pub struct ThemeState {
 }
 
 impl ThemeState {
+    pub fn default_state() -> crate::Result<Self> {
+        Ok(Self::default_state_for_repo_root(&paths::repo_root()?))
+    }
+
+    pub fn default_state_for_repo_root(repo_root: &Path) -> Self {
+        Self {
+            color_scheme: DEFAULT_COLOR_SCHEME.to_owned(),
+            wallpaper: repo_root
+                .join(DEFAULT_WALLPAPER_RELATIVE_PATH)
+                .display()
+                .to_string(),
+            filter_wallpaper: DEFAULT_FILTER_WALLPAPER,
+            system_font: DEFAULT_SYSTEM_FONT.to_owned(),
+            mono_font: DEFAULT_MONO_FONT.to_owned(),
+            icon_theme: DEFAULT_ICON_THEME.to_owned(),
+            cursor_theme: DEFAULT_CURSOR_THEME.to_owned(),
+            cursor_size: DEFAULT_CURSOR_SIZE,
+            font_size: DEFAULT_FONT_SIZE,
+            mono_font_size: DEFAULT_MONO_FONT_SIZE,
+            alacritty_mono_font_size_offset: DEFAULT_ALACRITTY_MONO_FONT_SIZE_OFFSET,
+            ghostty_mono_font_size_offset: DEFAULT_GHOSTTY_MONO_FONT_SIZE_OFFSET,
+            gtk_mono_font_size_offset: DEFAULT_GTK_MONO_FONT_SIZE_OFFSET,
+            neovide_mono_font_size_offset: DEFAULT_NEOVIDE_MONO_FONT_SIZE_OFFSET,
+            qt_mono_font_size_offset: DEFAULT_QT_MONO_FONT_SIZE_OFFSET,
+            vscode_mono_font_size_offset: DEFAULT_VSCODE_MONO_FONT_SIZE_OFFSET,
+            dark_hint: DEFAULT_DARK_HINT,
+            hypr_gaps_in: DEFAULT_HYPR_GAPS_IN,
+            hypr_gaps_out: DEFAULT_HYPR_GAPS_OUT,
+            hypr_border_size: DEFAULT_HYPR_BORDER_SIZE,
+            hypr_rounding: DEFAULT_HYPR_ROUNDING,
+            hypr_blur_enabled: DEFAULT_HYPR_BLUR_ENABLED,
+            hypr_blur_size: DEFAULT_HYPR_BLUR_SIZE,
+            hypr_blur_passes: DEFAULT_HYPR_BLUR_PASSES,
+            hypr_animations_enabled: DEFAULT_HYPR_ANIMATIONS_ENABLED,
+            extra: Map::new(),
+        }
+    }
+
     pub fn known_field_names() -> &'static [&'static str] {
         &THEME_STATE_FIELD_ORDER
     }

@@ -18,6 +18,7 @@ id_*
 *.pyc
 
 # Theming generated files
+themes/state.json
 config/alacritty/theme.toml
 config/bat/config
 config/hypr/colors.conf

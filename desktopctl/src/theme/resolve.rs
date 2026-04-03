@@ -1,5 +1,6 @@
 use crate::paths;
 use crate::theme::schema::{ColorScheme, ThemeState};
+use rusqlite::{Connection, params};
 use serde_json::{Map, Value};
 use std::{
     fs, io,
@@ -7,12 +8,18 @@ use std::{
 };
 
 const HEX_COLOR_LEN: usize = 7;
+const THEME_STATE_TABLE_SCHEMA: &str = "
+    CREATE TABLE IF NOT EXISTS theme_state (
+        key   TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+    );
+";
 
 pub fn colors_dir() -> io::Result<PathBuf> {
     Ok(paths::repo_root()?.join("themes/colors"))
 }
 
-pub fn state_path() -> io::Result<PathBuf> {
+pub fn legacy_state_path() -> io::Result<PathBuf> {
     Ok(paths::repo_root()?.join("themes/state.json"))
 }
 
@@ -60,17 +67,123 @@ pub fn load_colors(scheme_name: &str, colors_dir: &Path) -> crate::Result<ColorS
     })
 }
 
-pub fn load_state(state_path: &Path) -> crate::Result<ThemeState> {
-    if !state_path.is_file() {
-        return Err(io::Error::new(
-            io::ErrorKind::NotFound,
-            format!("Theme state file not found: {}", state_path.display()),
-        )
-        .into());
+pub fn load_state() -> crate::Result<ThemeState> {
+    let db_path = paths::db_path()?;
+    let legacy_path = legacy_state_path()?;
+    load_state_from_paths(&db_path, &legacy_path)
+}
+
+pub fn save_state(state: &ThemeState) -> crate::Result<()> {
+    let db_path = paths::db_path()?;
+    save_state_to_db_path(state, &db_path)
+}
+
+pub fn serialize_state(state: &ThemeState) -> crate::Result<String> {
+    Ok(format!(
+        "{}\n",
+        serde_json::to_string_pretty(&Value::Object(state.to_ordered_json_map()))?
+    ))
+}
+
+fn load_state_from_paths(db_path: &Path, legacy_state_path: &Path) -> crate::Result<ThemeState> {
+    let mut connection = open_state_db(db_path)?;
+    initialize_state_storage(&mut connection, db_path, legacy_state_path)?;
+    load_state_from_connection(&connection, db_path)
+}
+
+fn save_state_to_db_path(state: &ThemeState, db_path: &Path) -> crate::Result<()> {
+    let mut connection = open_state_db(db_path)?;
+    save_state_to_connection(state, &mut connection)
+}
+
+fn open_state_db(db_path: &Path) -> crate::Result<Connection> {
+    if let Some(parent) = db_path.parent() {
+        fs::create_dir_all(parent)?;
     }
 
+    let connection = Connection::open(db_path)?;
+    connection.execute_batch(THEME_STATE_TABLE_SCHEMA)?;
+    Ok(connection)
+}
+
+fn initialize_state_storage(
+    connection: &mut Connection,
+    db_path: &Path,
+    legacy_state_path: &Path,
+) -> crate::Result<()> {
+    if !theme_state_is_empty(connection)? {
+        return Ok(());
+    }
+
+    if legacy_state_path.is_file() {
+        let state = load_state_from_json_path(legacy_state_path)?;
+        save_state_to_connection(&state, connection)?;
+        eprintln!(
+            "Imported theme state from {} into {}. You can delete {}.",
+            legacy_state_path.display(),
+            db_path.display(),
+            legacy_state_path.display()
+        );
+        return Ok(());
+    }
+
+    save_state_to_connection(&ThemeState::default_state()?, connection)
+}
+
+fn theme_state_is_empty(connection: &Connection) -> crate::Result<bool> {
+    let count = connection.query_row("SELECT COUNT(*) FROM theme_state", [], |row| {
+        row.get::<_, i64>(0)
+    })?;
+    Ok(count == 0)
+}
+
+fn load_state_from_connection(
+    connection: &Connection,
+    db_path: &Path,
+) -> crate::Result<ThemeState> {
+    let mut statement = connection.prepare("SELECT key, value FROM theme_state ORDER BY key")?;
+    let rows = statement.query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    })?;
+
+    let mut map = Map::new();
+    for row in rows {
+        let (key, raw_value) = row?;
+        let value = serde_json::from_str(&raw_value).map_err(|error| {
+            invalid_data(format!(
+                "{}: invalid JSON for key '{}': {error}",
+                theme_state_label(db_path),
+                key
+            ))
+        })?;
+        map.insert(key, value);
+    }
+
+    let value = Value::Object(map);
+    let label = theme_state_label(db_path);
+    validate_theme_state(&value, &label)?;
+    serde_json::from_value(value)
+        .map_err(|error| invalid_data(format!("Invalid theme state in {label}: {error}")).into())
+}
+
+fn save_state_to_connection(state: &ThemeState, connection: &mut Connection) -> crate::Result<()> {
+    let transaction = connection.transaction()?;
+    transaction.execute("DELETE FROM theme_state", [])?;
+
+    let mut insert = transaction.prepare("INSERT INTO theme_state (key, value) VALUES (?, ?)")?;
+    for (key, value) in state.to_ordered_json_map() {
+        insert.execute(params![key, serde_json::to_string(&value)?])?;
+    }
+
+    drop(insert);
+    transaction.commit()?;
+    Ok(())
+}
+
+fn load_state_from_json_path(state_path: &Path) -> crate::Result<ThemeState> {
     let value = parse_json_file(state_path)?;
-    validate_theme_state(&value, state_path)?;
+    let label = state_path.display().to_string();
+    validate_theme_state(&value, &label)?;
     serde_json::from_value(value).map_err(|error| {
         invalid_data(format!(
             "Invalid theme state in {}: {error}",
@@ -80,16 +193,8 @@ pub fn load_state(state_path: &Path) -> crate::Result<ThemeState> {
     })
 }
 
-pub fn save_state(state: &ThemeState, state_path: &Path) -> crate::Result<()> {
-    fs::write(state_path, serialize_state(state)?)?;
-    Ok(())
-}
-
-pub fn serialize_state(state: &ThemeState) -> crate::Result<String> {
-    Ok(format!(
-        "{}\n",
-        serde_json::to_string_pretty(&Value::Object(state.to_ordered_json_map()))?
-    ))
+fn theme_state_label(db_path: &Path) -> String {
+    format!("theme_state table in {}", db_path.display())
 }
 
 fn parse_json_file(path: &Path) -> crate::Result<Value> {
@@ -167,8 +272,8 @@ fn validate_color_scheme(value: &Value, path: &Path) -> crate::Result<()> {
     Ok(())
 }
 
-fn validate_theme_state(value: &Value, path: &Path) -> crate::Result<()> {
-    let object = expect_object(value, path.display().to_string())?;
+fn validate_theme_state(value: &Value, label: &str) -> crate::Result<()> {
+    let object = expect_object(value, label.to_owned())?;
 
     let mut missing = ThemeState::known_field_names()
         .iter()
@@ -178,8 +283,7 @@ fn validate_theme_state(value: &Value, path: &Path) -> crate::Result<()> {
     missing.sort_unstable();
     if !missing.is_empty() {
         return Err(invalid_data(format!(
-            "{}: missing required keys: {}",
-            path.display(),
+            "{label}: missing required keys: {}",
             missing.join(", ")
         ))
         .into());
@@ -190,11 +294,9 @@ fn validate_theme_state(value: &Value, path: &Path) -> crate::Result<()> {
     for name in string_fields {
         let value = object.get(name).expect("validated string field exists");
         if !matches!(value, Value::String(text) if !text.is_empty()) {
-            return Err(invalid_data(format!(
-                "{}: '{name}' must be a non-empty string",
-                path.display()
-            ))
-            .into());
+            return Err(
+                invalid_data(format!("{label}: '{name}' must be a non-empty string")).into(),
+            );
         }
     }
 
@@ -203,9 +305,7 @@ fn validate_theme_state(value: &Value, path: &Path) -> crate::Result<()> {
     for name in int_fields {
         let value = object.get(name).expect("validated int field exists");
         if !matches!(value, Value::Number(number) if number.as_i64().is_some()) {
-            return Err(
-                invalid_data(format!("{}: '{name}' must be an integer", path.display())).into(),
-            );
+            return Err(invalid_data(format!("{label}: '{name}' must be an integer")).into());
         }
     }
 
@@ -214,9 +314,7 @@ fn validate_theme_state(value: &Value, path: &Path) -> crate::Result<()> {
     for name in bool_fields {
         let value = object.get(name).expect("validated bool field exists");
         if !matches!(value, Value::Bool(_)) {
-            return Err(
-                invalid_data(format!("{}: '{name}' must be a boolean", path.display())).into(),
-            );
+            return Err(invalid_data(format!("{label}: '{name}' must be a boolean")).into());
         }
     }
 
@@ -278,20 +376,58 @@ mod tests {
             .to_path_buf()
     }
 
-    fn temp_path(name: &str) -> PathBuf {
+    fn temp_path(name: &str, extension: &str) -> PathBuf {
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("time works")
             .as_nanos();
-        std::env::temp_dir().join(format!("desktopctl-{name}-{nanos}.json"))
+        std::env::temp_dir().join(format!("desktopctl-{name}-{nanos}.{extension}"))
+    }
+
+    fn expected_default_state_json() -> String {
+        format!(
+            concat!(
+                "{{\n",
+                "  \"color_scheme\": \"gruvbox-dark\",\n",
+                "  \"wallpaper\": \"{}\",\n",
+                "  \"filter_wallpaper\": false,\n",
+                "  \"system_font\": \"Overpass\",\n",
+                "  \"mono_font\": \"JetBrains Mono Nerd Font\",\n",
+                "  \"icon_theme\": \"Neuwaita\",\n",
+                "  \"cursor_theme\": \"BreezeX-RosePine-Linux\",\n",
+                "  \"cursor_size\": 24,\n",
+                "  \"font_size\": 11,\n",
+                "  \"mono_font_size\": 11,\n",
+                "  \"alacritty_mono_font_size_offset\": 0,\n",
+                "  \"ghostty_mono_font_size_offset\": 0,\n",
+                "  \"gtk_mono_font_size_offset\": 0,\n",
+                "  \"neovide_mono_font_size_offset\": 0,\n",
+                "  \"qt_mono_font_size_offset\": 0,\n",
+                "  \"vscode_mono_font_size_offset\": 3,\n",
+                "  \"dark_hint\": false,\n",
+                "  \"hypr_gaps_in\": 4,\n",
+                "  \"hypr_gaps_out\": 6,\n",
+                "  \"hypr_border_size\": 0,\n",
+                "  \"hypr_rounding\": 8,\n",
+                "  \"hypr_blur_enabled\": false,\n",
+                "  \"hypr_blur_size\": 3,\n",
+                "  \"hypr_blur_passes\": 4,\n",
+                "  \"hypr_animations_enabled\": true\n",
+                "}}\n"
+            ),
+            repo_root().join("wallpapers/lmao.png").display()
+        )
     }
 
     #[test]
-    fn current_state_json_deserializes() -> TestResult {
-        let path = repo_root().join("themes/state.json");
-        let state = load_state(&path)?;
-        assert_eq!(state.color_scheme, "gruvbox-dark");
-        assert!(state.extra.is_empty());
+    fn empty_theme_state_db_initializes_defaults() -> TestResult {
+        let db_path = temp_path("state-defaults", "db");
+        let legacy_state_path = temp_path("missing-state", "json");
+
+        let state = load_state_from_paths(&db_path, &legacy_state_path)?;
+        assert_eq!(state, ThemeState::default_state()?);
+
+        fs::remove_file(db_path)?;
         Ok(())
     }
 
@@ -305,19 +441,16 @@ mod tests {
     }
 
     #[test]
-    fn state_serialization_matches_python_output() -> TestResult {
-        let path = repo_root().join("themes/state.json");
-        let state = load_state(&path)?;
+    fn state_serialization_matches_legacy_output() -> TestResult {
+        let state = ThemeState::default_state_for_repo_root(&repo_root());
         let rendered = serialize_state(&state)?;
-        let existing = fs::read_to_string(path)?;
-        assert_eq!(rendered, existing);
+        assert_eq!(rendered, expected_default_state_json());
         Ok(())
     }
 
     #[test]
     fn state_round_trip_preserves_unknown_fields() -> TestResult {
-        let original = fs::read_to_string(repo_root().join("themes/state.json"))?;
-        let mut value: Value = serde_json::from_str(&original)?;
+        let mut value: Value = serde_json::from_str(&expected_default_state_json())?;
         let object = value
             .as_object_mut()
             .expect("state fixture should remain a JSON object");
@@ -330,16 +463,19 @@ mod tests {
             serde_json::json!({ "alpha": 1, "beta": true }),
         );
 
-        let source_path = temp_path("state-source");
-        let saved_path = temp_path("state-saved");
+        let legacy_path = temp_path("state-source", "json");
+        let db_path = temp_path("state-saved", "db");
         fs::write(
-            &source_path,
+            &legacy_path,
             format!("{}\n", serde_json::to_string_pretty(&value)?),
         )?;
 
-        let state = load_state(&source_path)?;
-        save_state(&state, &saved_path)?;
-        let saved: Value = serde_json::from_str(&fs::read_to_string(&saved_path)?)?;
+        let state = load_state_from_paths(&db_path, &legacy_path)?;
+        save_state_to_db_path(&state, &db_path)?;
+        let saved: Value = serde_json::from_str(&serialize_state(&load_state_from_paths(
+            &db_path,
+            &temp_path("missing-state", "json"),
+        )?)?)?;
 
         assert_eq!(saved["future_key"], Value::String("still here".to_owned()));
         assert_eq!(
@@ -347,8 +483,8 @@ mod tests {
             serde_json::json!({ "alpha": 1, "beta": true })
         );
 
-        fs::remove_file(source_path)?;
-        fs::remove_file(saved_path)?;
+        fs::remove_file(legacy_path)?;
+        fs::remove_file(db_path)?;
         Ok(())
     }
 

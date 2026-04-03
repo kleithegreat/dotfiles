@@ -14,7 +14,7 @@ cross-domain side effects as of 2026-04-03.
 | `desktopctl/src/daemon/mod.rs` | Starts the solar scheduler alongside the focus tracker and socket server | `desktopctl/src/daemon/mod.rs:19-100` |
 | `desktopctl/src/daemon/solar.rs` | Applies the current solar state, sleeps until the next solar event or 2-hour repair tick, drives `hyprsunset`, and updates `dark_hint` through the theme subsystem | `desktopctl/src/daemon/solar.rs:12-99` |
 | `desktopctl/src/solar.rs` | Resolves coordinates, computes sunrise/sunset, derives current state, and exposes `desktopctl sun status` | `desktopctl/src/solar.rs:48-160`, `desktopctl/src/solar.rs:215-259` |
-| `desktopctl/src/theme/mod.rs` | Handles `dark_hint` persistence through the normal theme-state validation and apply path | `desktopctl/src/theme/mod.rs:69-90`, `desktopctl/src/theme/mod.rs:252-353` |
+| `desktopctl/src/theme/mod.rs` | Handles `dark_hint` persistence through the normal theme-state validation and apply path | `desktopctl/src/theme/mod.rs:69-90`, `desktopctl/src/theme/mod.rs:252-518` |
 | `desktopctl/src/theme/targets/gtk.rs` | Applies GTK dark-preference side effects through dconf when `dark_hint` changes | `desktopctl/src/theme/targets/gtk.rs:44-71` |
 
 ## Neighbor And Competing Surfaces
@@ -54,6 +54,6 @@ cross-domain side effects as of 2026-04-03.
 | Resource | Current writer path | Current reader path |
 | --- | --- | --- |
 | `hyprsunset` process | `desktopctl/src/daemon/solar.rs`, `config/quickshell/DisplayService.qml`, `config/hypr/keybinds.conf` | `config/quickshell/DisplayService.qml` polls process status and arguments. |
-| `themes/state.json` `dark_hint` value | `desktopctl theme`, invoked by the solar scheduler, Quickshell settings, presets, or shell IPC | `desktopctl theme` reloads it for every mutation; Quickshell settings reads it through `desktopctl theme status --json`. |
+| `$XDG_DATA_HOME/desktopctl/desktopctl.db` `theme_state.dark_hint` row | `desktopctl theme`, invoked by the solar scheduler, Quickshell settings, presets, or shell IPC | `desktopctl theme` reloads it for every mutation; Quickshell settings reads it through `desktopctl theme status --json`. |
 | GTK dconf interface keys | `desktopctl/src/theme/targets/gtk.rs` via `on_apply()` | GTK apps and any consumer honoring the desktop color-scheme hint. |
 | `~/.config/quickshell/GeneratedTheme.json` | `desktopctl/src/theme/targets/quickshell.rs` | `config/quickshell/Theme.qml` watches the file. `dark_hint` does not flow through this file today. |

@@ -1,5 +1,5 @@
 use std::{
-    env, io,
+    env, fs, io,
     path::{Path, PathBuf},
 };
 
@@ -33,6 +33,13 @@ pub(crate) fn xdg_data_home() -> io::Result<PathBuf> {
     }
 
     Ok(home_dir()?.join(Path::new(".local/share")))
+}
+
+/// Return the shared desktopctl database path, creating its parent directory.
+pub(crate) fn db_path() -> io::Result<PathBuf> {
+    let data_dir = xdg_data_home()?.join("desktopctl");
+    fs::create_dir_all(&data_dir)?;
+    Ok(data_dir.join("desktopctl.db"))
 }
 
 /// Return the XDG cache home directory.

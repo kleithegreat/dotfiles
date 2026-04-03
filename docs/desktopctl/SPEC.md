@@ -170,8 +170,9 @@ timer/service pair.
 The daemon runs three concurrent subsystems under a single tokio runtime:
 
 1. **Focus tracker** — Connects to Hyprland's `.socket2.sock`, listens for
-   `activewindow>>` events, accumulates per-second focus data in SQLite, writes
-   the JSON summary to `$XDG_RUNTIME_DIR/focustime_state.json`. See
+   `activewindow>>` events, accumulates per-second focus data in the shared
+   SQLite database at `$XDG_DATA_HOME/desktopctl/desktopctl.db`, and writes the
+   JSON summary to `$XDG_RUNTIME_DIR/focustime_state.json`. See
    [Focus Tracking Port](#focus-tracking-port).
 
 2. **Solar scheduler** — Computes sunrise/sunset times at startup (and
@@ -218,9 +219,10 @@ home-manager config.
 ### `desktopctl theme`
 
 Direct port of the current `themes/apply-theme` CLI. Operates independently of
-the daemon — reads `themes/state.json` and `themes/colors/*.json` directly,
-generates and writes files, fires reload commands. No socket communication
-needed.
+the daemon — reads `themes/colors/*.json` plus the `theme_state` rows in the
+shared SQLite database at `$XDG_DATA_HOME/desktopctl/desktopctl.db`,
+generates and writes files, and fires reload commands. No socket
+communication needed.
 
 ```
 desktopctl theme all                       # Apply all targets
@@ -230,7 +232,7 @@ desktopctl theme wallpaper                 # Apply wallpaper target only
 desktopctl theme cursor                    # Apply cursor target only
 desktopctl theme fonts                     # Apply font-dependent targets
 desktopctl theme target <name>             # Apply a single target by name
-desktopctl theme set <key> <value>         # Update state.json and apply affected targets
+desktopctl theme set <key> <value>         # Update theme state and apply affected targets
 desktopctl theme preset <name>             # Load a preset and apply all targets
 desktopctl theme save-preset <name> <json> # Save a preset
 desktopctl theme delete-preset <name>      # Delete a preset
@@ -410,11 +412,18 @@ struct ThemeState {
 }
 ```
 
-The `ThemeState` struct must deserialize from the current `themes/state.json`
-format without changes. Unknown fields should be preserved on round-trip
-(use `serde_json::Value` for a `#[serde(flatten)] extra: Map<String, Value>`
-field, or read/write via `serde_json::Map` operations on the raw JSON to avoid
-losing fields added by future targets).
+The `ThemeState` struct must preserve the current JSON shape exposed by
+`desktopctl theme status --json`, and it must be able to import the legacy
+`themes/state.json` payload without changes. Unknown fields should survive a
+read-modify-write cycle through the SQLite backend (for example via
+`#[serde(flatten)] extra: Map<String, Value>` plus JSON-encoded row values).
+
+Theme state persistence uses a `theme_state(key TEXT PRIMARY KEY, value TEXT
+NOT NULL)` table inside `$XDG_DATA_HOME/desktopctl/desktopctl.db`. Each `value`
+cell stores one JSON-encoded field value so strings, integers, booleans, and
+future nested objects round-trip without schema changes. Fresh installs seed the
+table from compiled defaults, and first access imports `themes/state.json` when
+that legacy file still exists and the table is empty.
 
 `ThemeState` should provide a `mono_font_size_for(&self, target: &str) -> u32`
 method that returns `self.mono_font_size + offset` for the given target name,
@@ -490,8 +499,8 @@ to seed the initial state.
 
 ### SQLite schema
 
-Use the same database at `$XDG_DATA_HOME/focustime/focustime.db` with the same
-schema the Python daemon creates:
+Use the shared database at `$XDG_DATA_HOME/desktopctl/desktopctl.db`. The focus
+tables keep the same schema the Python daemon created:
 
 ```sql
 CREATE TABLE IF NOT EXISTS daily_totals (
@@ -522,6 +531,12 @@ Accumulation: every second, one transaction UPSERTs one second into all three
 tables. When the screen is locked (detected via `pgrep -x hyprlock`),
 accumulate under the `__locked__` class instead. When the screen is unlocked
 and the current class is empty, skip the SQLite write for that tick.
+
+Migration: if the legacy focus database at
+`$XDG_DATA_HOME/focustime/focustime.db` exists and the shared database's focus
+tables are empty, the daemon should copy the existing rows into
+`desktopctl.db`, then tell the user they can delete the old
+`$XDG_DATA_HOME/focustime/` directory.
 
 ### Desktop file resolution
 
@@ -773,8 +788,7 @@ the binary path:
 - `["/home/kevin/repos/dotfiles/themes/apply-theme", "set", key, value]`
   → `["desktopctl", "theme", "set", key, value]`
 - `["cat", "/home/kevin/repos/dotfiles/themes/state.json"]`
-  → `["desktopctl", "theme", "status", "--json"]` (or keep `cat` — the file still
-  exists)
+  → `["desktopctl", "theme", "status", "--json"]`
 - The `bash -c "for f in .../themes/colors/*.json..."` process
   → `["desktopctl", "theme", "list-schemes", "--json"]`
 - The `bash -c "for f in .../themes/presets/*.json..."` process
@@ -808,7 +822,8 @@ Similarly, `desktopctl theme list-presets --json` returns:
 ]
 ```
 
-And `desktopctl theme status --json` returns the raw `state.json` contents.
+And `desktopctl theme status --json` returns the raw theme-state JSON shape in
+the canonical field order.
 
 ### Phase 2 — Socket integration (future)
 
@@ -922,10 +937,13 @@ tagged with `requiredSystemFeatures`.
 ### Parallel operation
 
 During development, `desktopctl` and the Python scripts can coexist. The theming
-system reads and writes the same `themes/state.json` and `themes/colors/*.json`
-files, so either tool can be used interchangeably. The switch happens atomically
-when the home-manager config is updated to reference `desktopctl` instead of the
-Python scripts.
+system still reads the same `themes/colors/*.json` palette files, but mutable
+theme state now lives in `$XDG_DATA_HOME/desktopctl/desktopctl.db`. If a legacy
+`themes/state.json` file is present and the `theme_state` table is empty,
+`desktopctl` imports it on first access and tells the user they can delete the
+file. Focus-time data follows the same pattern: the daemon migrates rows from
+`$XDG_DATA_HOME/focustime/focustime.db` into `desktopctl.db` when the shared
+focus tables are empty.
 
 ### Validation
 
@@ -948,8 +966,9 @@ Once `desktopctl` is the sole implementation:
 - `config/quickshell/scripts/dir-picker.py`
 - `home/sun-schedule.nix`
 
-The `themes/colors/`, `themes/presets/`, and `themes/state.json` files remain —
-they are data, not code.
+The `themes/colors/` and `themes/presets/` files remain — they are data, not
+code. Mutable theme state now lives in
+`$XDG_DATA_HOME/desktopctl/desktopctl.db`.
 
 ---
 
@@ -987,7 +1006,7 @@ Phase 4: Theming — schema & orchestrator (sequential, after Phase 0)
 ├── theme/resolve.rs (load/validate colors and state)
 ├── theme/orchestrator.rs (dependency map, assembly strategies, dispatch)
 ├── theme/targets/mod.rs (registry)
-└── Verify: can load current state.json and color schemes without error
+└── Verify: can load current theme state and color schemes without error
 
 Phase 5: Theming — target generators (all parallel, after Phase 4)
 ├── Agent E: alacritty + bat + zathura (simple import/standalone targets)
@@ -1087,6 +1106,7 @@ When starting a task, read these sections:
   must work even if the daemon is not running. The socket is an optimization
   for Quickshell, not a dependency.
 - **Don't use nightly Rust.** Stable toolchain only.
-- **Preserve `serde` round-trip fidelity for `state.json`.** Unknown fields must
-  survive a read-modify-write cycle. Use `serde_json::Map<String, Value>` for
-  the internal representation if `#[serde(flatten)]` doesn't handle this cleanly.
+- **Preserve round-trip fidelity for theme state.** Unknown fields must survive
+  a read-modify-write cycle through `desktopctl.db`. Use JSON-encoded row values
+  and `serde_json::Map<String, Value>` for the internal representation if
+  `#[serde(flatten)]` doesn't handle this cleanly.

@@ -11,15 +11,15 @@ integration as of 2026-04-03.
 | --- | --- |
 | Crate manifest and packaging | `desktopctl/Cargo.toml:1-12` defines the binary crate; `desktopctl/default.nix:1-15`, `overlays/desktopctl.nix:1-3`, and `flake.nix:62-71` package it as a flake-exposed Nix derivation. |
 | CLI dispatch | `desktopctl/src/main.rs:13-255` defines the full clap tree for `daemon`, `theme`, `brightness`, `hypr`, `launch-quickshell`, `portal`, and `sun`, and routes each command to the live Rust implementation. |
-| Shared path helpers | `desktopctl/src/paths.rs:6-70` resolves the repo root from `DESKTOPCTL_REPO` or `~/repos/dotfiles` and provides shared XDG home/runtime fallbacks for every subsystem. |
-| Theme schema and validation | `desktopctl/src/theme/schema.rs:5-92`, `desktopctl/src/theme/schema.rs:94-245`, and `desktopctl/src/theme/resolve.rs:11-224` define the `ColorScheme` and `ThemeState` contract, preserve Python-compatible field ordering, validate `themes/colors/*.json` and `themes/state.json`, and rewrite `state.json` with stable formatting. |
+| Shared path helpers | `desktopctl/src/paths.rs:6-60` resolves the repo root from `DESKTOPCTL_REPO` or `~/repos/dotfiles`, provides shared XDG home/runtime fallbacks, and exposes the shared `desktopctl.db` path. |
+| Theme schema and validation | `desktopctl/src/theme/schema.rs:33-119`, `desktopctl/src/theme/schema.rs:272-474`, and `desktopctl/src/theme/resolve.rs:11-500` define the `ColorScheme` and `ThemeState` contract, compile in default theme-state values, preserve canonical field ordering, validate `themes/colors/*.json`, and persist theme state through the `theme_state` table in `desktopctl.db` with legacy `themes/state.json` import support. |
 | Theme JSON compatibility | `desktopctl/src/theme/json.rs:4-142` implements Python-style JSON rendering, including preserved object order, 2-space indentation, compact object spacing, and `ensure_ascii=True` escaping used by generated JSON targets and Quickshell-facing CLI output. |
-| Theme CLI surface | `desktopctl/src/theme/mod.rs:61-447` implements the migrated `desktopctl theme` command surface, including `all`, `sync`, scoped apply commands, `set`, `preset`, preset-file management, and `status` / `list-*` inspection output. `desktopctl/src/theme/mod.rs:752-908` adds the filename-ordered JSON list helpers, Python-compatible JSON parse error text, and shared state-update normalization used by the parity audit. |
+| Theme CLI surface | `desktopctl/src/theme/mod.rs:61-518` implements the migrated `desktopctl theme` command surface, including `all`, `sync`, scoped apply commands, `set`, `preset`, preset-file management, and `status` / `list-*` inspection output. `desktopctl/src/theme/mod.rs:537-1028` adds the filename-ordered JSON list helpers, Python-compatible JSON parse error text, and shared state-update normalization used by the parity audit. |
 | Theme orchestration | `desktopctl/src/theme/orchestrator.rs:47-228` and `desktopctl/src/theme/orchestrator.rs:230-383` own generated-file headers, assembly strategies, sync-safe filtering, dependency selection, ordered target application, concat merges, post-write hooks, and best-effort runtime reloads. |
 | Theme target registry | `desktopctl/src/theme/targets/mod.rs:24-230` and `desktopctl/src/theme/targets/mod.rs:232-315` replace Python auto-discovery with a typed registry and hand-registered target set for all 19 migrated theme targets. |
 | Theme targets | File-writing targets live under `desktopctl/src/theme/targets/*.rs`; notable runtime-heavy ports include `desktopctl/src/theme/targets/cursor.rs:11-221`, `desktopctl/src/theme/targets/gtk.rs:5-71`, `desktopctl/src/theme/targets/qt.rs:15-99`, `desktopctl/src/theme/targets/quickshell.rs:8-85`, and `desktopctl/src/theme/targets/wallpaper.rs:13-220`. |
 | Hyprland helpers | `desktopctl/src/hypr.rs:11-92` wraps `hyprctl activewindow -j`, `hyprctl dispatch`, `hyprctl --batch`, and `.socket2.sock` path discovery for both the Hypr CLI and the daemon. |
-| Focus tracker | `desktopctl/src/daemon/focus.rs:20-145`, `desktopctl/src/daemon/focus.rs:148-418`, and `desktopctl/src/daemon/focus.rs:455-768` implement the live focus subsystem: one-second SQLite accumulation, desktop-entry resolution, Hyprland socket listening, and atomic JSON summary writes. |
+| Focus tracker | `desktopctl/src/daemon/focus.rs:20-236`, `desktopctl/src/daemon/focus.rs:238-698`, and `desktopctl/src/daemon/focus.rs:700-902` implement the live focus subsystem: one-second SQLite accumulation, migration from the legacy `focustime.db`, desktop-entry resolution, Hyprland socket listening, and atomic JSON summary writes. |
 | Shared solar logic | `desktopctl/src/solar.rs:48-160` and `desktopctl/src/solar.rs:215-259` resolve cached or GeoClue coordinates, compute sunrise/sunset with the NOAA-derived port, and expose `sun status` plus next-event selection. |
 | Daemon supervisor | `desktopctl/src/daemon/mod.rs:19-100` starts the focus tracker, solar scheduler, and Unix-socket server under one tokio runtime and coordinates clean shutdown on `SIGTERM` / `SIGINT`. |
 | Solar scheduler | `desktopctl/src/daemon/solar.rs:12-99` replaces the old systemd timer script chain with an in-process scheduler that applies the current solar state immediately, sleeps until the next sunrise / sunset / 23:00 event or 2-hour repair tick, drives `hyprsunset`, and updates `dark_hint` through `theme::set_dark_hint()`. |
@@ -52,12 +52,13 @@ integration as of 2026-04-03.
 
 - A target-by-target audit compared `desktopctl theme target <name>` against the
   removed Python implementation for all 19 migrated theme targets using the same
-  `themes/state.json`; no byte-level output differences remain.
+  theme JSON payload; no byte-level output differences remain.
 - The CLI parity audit covered `theme set`, `preset`, `save-preset`, and
   `delete-preset`, including exit codes, stdout/stderr text, and resulting
-  `themes/state.json` / preset JSON content. The only mismatch found was the
+  theme-state JSON / preset JSON content. The only mismatch found was the
   invalid-JSON `save-preset` error string, which is now fixed in Rust.
 - The Quickshell-facing JSON modes now match the documented shapes and ordering:
-  `theme status --json` mirrors `themes/state.json`, `theme list-presets --json`
-  matches the preset-file inventory, and `theme list-schemes --json` matches the
-  filename-ordered scheme list that QML previously built manually.
+  `theme status --json` mirrors the canonical theme-state JSON shape,
+  `theme list-presets --json` matches the preset-file inventory, and
+  `theme list-schemes --json` matches the filename-ordered scheme list that QML
+  previously built manually.
