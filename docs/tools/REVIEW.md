@@ -1,19 +1,17 @@
 # Tools Configuration Review
 
-Reviewed on 2026-04-02.
+Reviewed on 2026-04-03.
 
 ## Verdict
 
 The repo has a clear split between Nix-owned package lifecycle and repo-owned
-runtime behavior. The biggest remaining issues are stale generated snapshots and
-tool-specific places where the implementation is narrower than the upstream tool
-surface.
+runtime behavior. The main remaining issues are tool-specific places where the
+implementation is narrower than the upstream tool surface.
 
 ## Cross-Cutting Findings
 
 | Severity | Finding | Why it matters |
 | --- | --- | --- |
-| Medium | The repo still contains committed generated snapshots for Ghostty, Starship, and Vicinae. | Those files are not the active inputs, so they make the source of truth harder to audit. |
 | Medium | Not every tool uses the application's own split-file mechanism even when one exists. | Ghostty and Vicinae could look more like Alacritty, tmux, and Zathura if their native include/import models were used. |
 
 ## Tool Findings
