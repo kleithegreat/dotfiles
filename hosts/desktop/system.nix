@@ -1,6 +1,12 @@
 { config, pkgs, lib, ... }:
 
 {
+  nixpkgs.overlays = [
+    # Temporary desktop-only NVIDIA open-kernel workaround for PR #996.
+    # Remove once a future driver release includes the resume-side reset.
+    (import ../../overlays/nvidia-open-pr996.nix)
+  ];
+
   boot.initrd.availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usbhid" "usb_storage" "sd_mod" ];
   boot.kernelModules = [ "kvm-intel" ];
   # Preserve VRAM across suspend/resume on this dedicated NVIDIA desktop.
@@ -52,6 +58,7 @@
     modesetting.enable = true;
     open = true;
     powerManagement.enable = true;
+    powerManagement.kernelSuspendNotifier = false; # Experiment: try legacy sleep units after GSP heartbeat timeout on resume.
   };
   services.xserver.videoDrivers = [ "nvidia" ];
 

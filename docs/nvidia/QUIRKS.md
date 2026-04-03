@@ -6,11 +6,11 @@
 **Status:** Workaround in place
 **Resolution:** `hosts/desktop/system.nix` sets `NVreg_TemporaryFilePath=/var/tmp` instead of leaving the driver on `/tmp`.
 
-## Resume is touchy with the kernel suspend notifier enabled
-**Symptom:** Resume can hit a GSP heartbeat timeout on the desktop.
-**Cause:** The current suspend path appears brittle with `hardware.nvidia.powerManagement.kernelSuspendNotifier = true`.
-**Status:** Open
-**Resolution:** `hosts/desktop/system.nix` currently forces `powerManagement.kernelSuspendNotifier = false` to try the legacy sleep-unit path; this still needs confirmation.
+## Slow resume from suspend can stall display recovery
+**Symptom:** Resume on the desktop can stall for about 31.4 seconds between `PM: suspend exit` and display output recovery, with `NVRM: _kgspRpcRecvPoll: GSP RM heartbeat timed out` in the journal on every resume.
+**Cause:** NVIDIA open-gpu-kernel-modules is still missing `drm_mode_config_reset(dev)` in the resume branch of `nv_drm_suspend_resume()` (PR `#996`), and the kernel suspend notifier path proved less reliable on this Ampere desktop than the legacy systemd sleep units.
+**Status:** Workaround in place
+**Resolution:** Two desktop-only changes applied together cut the post-resume gap to about 2.3 seconds: `hosts/desktop/system.nix` forces `hardware.nvidia.powerManagement.kernelSuspendNotifier = false` to use `nvidia-resume.service`, and `overlays/nvidia-open-pr996.nix` applies the local PR `#996` patch to `nvidia-open`. The GSP timeout still appears in the journal, but it no longer blocks display recovery. Remove the overlay once a future NVIDIA driver release includes PR `#996`.
 
 ## systemd session freezing can black-screen resume
 **Symptom:** The desktop can wake to a black screen after suspend.
