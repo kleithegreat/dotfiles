@@ -4,7 +4,7 @@ This document defines the intended Quickshell design. It is the contract for how
 the shell should be composed, how popup and service boundaries should work, and
 how shell-side theming should round-trip. The current implementation map lives in
 `docs/quickshell/ARCHITECTURE.md`, primarily the sections backed by
-`config/quickshell/shell.qml:12-266`, `config/quickshell/PopupVisibility.qml:3-39`,
+`config/quickshell/shell.qml:12-316`, `config/quickshell/PopupVisibility.qml:3-39`,
 `config/quickshell/PopupOverlayHost.qml:9-179`, `config/quickshell/bar/Bar.qml:7-68`,
 `config/quickshell/popups/SettingsPopup.qml:10-905`, and
 `config/quickshell/Theme.qml:5-167`.
@@ -14,8 +14,11 @@ how shell-side theming should round-trip. The current implementation map lives i
 The shell is intended to be one session-level composition with four surface
 classes:
 
-- Persistent chrome: the bar is always available and is the primary entry point
-  into popup surfaces (`config/quickshell/bar/Bar.qml:7-68`).
+- Persistent chrome: the bar is available whenever at least one real Hyprland
+  monitor exists, follows the first real monitor that can be mapped back to a
+  `ShellScreen`, and is the primary entry point into popup surfaces
+  (`config/quickshell/shell.qml:18-79`,
+  `config/quickshell/bar/Bar.qml:7-68`).
 - Managed overlay popups: calendar, tray, MPRIS, quick settings, settings,
   notification drawer, and power menu are all intended to live under one shared
   overlay host and one shared exclusivity registry
@@ -24,10 +27,11 @@ classes:
 - Transient feedback surfaces: the root notification popup stack, OSD, toast,
   and tooltip are intentionally outside popup exclusivity so they can appear
   while another popup is open and do not compete for overlay ownership
-  (`config/quickshell/shell.qml:33-185`, `config/quickshell/TooltipWindow.qml:6-48`).
+  (`config/quickshell/shell.qml:57-232`,
+  `config/quickshell/TooltipWindow.qml:6-48`).
 - Session IPC: shell-wide commands target existing shell surfaces and services
   rather than opening independent windows or bypassing service boundaries
-  (`config/quickshell/shell.qml:187-265`).
+  (`config/quickshell/shell.qml:237-315`).
 
 Each popup surface has a distinct role. `QuickSettingsPopup` is the bounded,
 high-frequency control surface for summary state and one-tap toggles.
@@ -170,7 +174,7 @@ The generated contract from the shell's perspective is:
 
 All shell-initiated theme mutations go through `themes/apply-theme`, either from
 the settings host or from shell IPC (`config/quickshell/popups/SettingsPopup.qml:613-661`,
-`config/quickshell/shell.qml:244-256`, `themes/apply-theme:228-297`). QML does
+`config/quickshell/shell.qml:299-306`, `themes/apply-theme:228-297`). QML does
 not own the theme state file format and does not edit generated outputs directly.
 
 Two feedback paths are intended:
