@@ -1,7 +1,11 @@
+mod brightness;
 mod hypr;
+mod launch;
 mod paths;
+mod portal;
 
 use clap::{Args, Parser, Subcommand};
+use std::{io, process::ExitCode};
 
 #[derive(Debug, Parser)]
 #[command(
@@ -127,7 +131,7 @@ enum BrightnessCommand {
     /// Gradually dim the screen for idle handling.
     Dim(BrightnessDeviceArgs),
     /// Restore the previously saved brightness level.
-    Restore,
+    Restore(BrightnessDeviceArgs),
     /// Write the current brightness state to the Quickshell cache file.
     Seed(BrightnessDeviceArgs),
 }
@@ -185,8 +189,63 @@ enum SunCommand {
     Status,
 }
 
-fn main() {
-    let _cli = Cli::parse();
-    eprintln!("desktopctl subcommand logic is not implemented yet in Phase 0");
-    std::process::exit(1);
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
+
+fn main() -> ExitCode {
+    match run() {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("{error}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+fn run() -> Result<()> {
+    let cli = Cli::parse();
+
+    match cli.command {
+        TopLevelCommand::Brightness(args) => run_brightness(args),
+        TopLevelCommand::Hypr(args) => run_hypr(args),
+        TopLevelCommand::LaunchQuickshell(args) => launch::run(args.print_env),
+        TopLevelCommand::Portal(args) => run_portal(args),
+        TopLevelCommand::Daemon => phase0_placeholder("daemon"),
+        TopLevelCommand::Theme(_) => phase0_placeholder("theme"),
+        TopLevelCommand::Sun(_) => phase0_placeholder("sun"),
+    }
+}
+
+fn run_brightness(args: BrightnessArgs) -> Result<()> {
+    match args.command {
+        BrightnessCommand::Up(args) => brightness::up(args.device.as_deref()),
+        BrightnessCommand::Down(args) => brightness::down(args.device.as_deref()),
+        BrightnessCommand::Dim(args) => brightness::dim(args.device.as_deref()),
+        BrightnessCommand::Restore(args) => brightness::restore(args.device.as_deref()),
+        BrightnessCommand::Seed(args) => brightness::seed(args.device.as_deref()),
+    }
+}
+
+fn run_hypr(args: HyprArgs) -> Result<()> {
+    match args.command {
+        HyprCommand::ToggleFloat => hypr::toggle_float(),
+    }
+}
+
+fn run_portal(args: PortalArgs) -> Result<()> {
+    match args.command {
+        PortalCommand::PickDirectory => {
+            if let Some(path) = portal::pick_directory()? {
+                println!("{path}");
+            }
+
+            Ok(())
+        }
+    }
+}
+
+fn phase0_placeholder(area: &str) -> Result<()> {
+    Err(io::Error::other(format!(
+        "desktopctl {area} is still a Phase 0 placeholder"
+    ))
+    .into())
 }
