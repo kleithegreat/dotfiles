@@ -156,7 +156,7 @@ FocusScope {
     }
 
     Process {
-        id: stateProc; command: ["cat", "/home/kevin/repos/dotfiles/themes/state.json"]; running: false
+        id: stateProc; command: ["desktopctl", "theme", "status", "--json"]; running: false
         property string buf: ""
         stdout: SplitParser { onRead: (line) => { stateProc.buf += line; } }
         onExited: {
@@ -173,10 +173,17 @@ FocusScope {
 
     Process {
         id: listColorsProc; running: false
-        command: ["bash", "-c", "for f in /home/kevin/repos/dotfiles/themes/colors/*.json; do name=$(basename \"$f\" .json); jq -c --arg name \"$name\" '{schemeName: $name, family: .family, variant: .variant, bg: .colors.bg, fg: .colors.fg, accent: .colors.accent, red: .colors.red, green: .colors.green, blue: .colors.blue, yellow: .colors.yellow, purple: .colors.purple}' \"$f\"; done"]
-        property var items: []
-        stdout: SplitParser { onRead: (line) => { try { listColorsProc.items.push(JSON.parse(line.trim())); } catch(e) {} } }
+        command: ["desktopctl", "theme", "list-schemes", "--json"]
+        property string buf: ""
+        stdout: SplitParser { onRead: (line) => { listColorsProc.buf += line; } }
         onExited: {
+            let items = [];
+            try {
+                let parsed = JSON.parse(buf);
+                if (Array.isArray(parsed))
+                    items = parsed;
+            } catch(e) {}
+
             let schemes = [];
             let result = [];
             for (let i = 0; i < items.length; i++) {
@@ -194,16 +201,25 @@ FocusScope {
             }
             settingsPop.colorSchemes = schemes;
             settingsPop.colorFamilies = result;
-            items = [];
+            buf = "";
         }
     }
 
     Process {
         id: listPresetsProc; running: false
-        command: ["bash", "-c", "for f in /home/kevin/repos/dotfiles/themes/presets/*.json; do name=$(basename \"$f\" .json); jq -c --arg name \"$name\" '{name: $name} + .' \"$f\"; done"]
-        property var items: []
-        stdout: SplitParser { onRead: (line) => { try { listPresetsProc.items.push(JSON.parse(line.trim())); } catch(e) {} } }
-        onExited: { settingsPop.presets = items; items = []; }
+        command: ["desktopctl", "theme", "list-presets", "--json"]
+        property string buf: ""
+        stdout: SplitParser { onRead: (line) => { listPresetsProc.buf += line; } }
+        onExited: {
+            let items = [];
+            try {
+                let parsed = JSON.parse(buf);
+                if (Array.isArray(parsed))
+                    items = parsed;
+            } catch(e) {}
+            settingsPop.presets = items;
+            buf = "";
+        }
     }
 
     Process {
@@ -290,12 +306,12 @@ FocusScope {
     }
 
     function refreshColorFamilies() {
-        listColorsProc.items = [];
+        listColorsProc.buf = "";
         listColorsProc.running = true;
     }
 
     function refreshPresets() {
-        listPresetsProc.items = [];
+        listPresetsProc.buf = "";
         listPresetsProc.running = true;
     }
 
@@ -535,7 +551,8 @@ FocusScope {
             hyprApplyProc.pendingLabel = settingsPop.hyprLabelForStateKey(stateKey);
             settingsPop.removeHyprDirtyKey(stateKey);
             hyprApplyProc.command = [
-                "/home/kevin/repos/dotfiles/themes/apply-theme",
+                "desktopctl",
+                "theme",
                 "set",
                 stateKey,
                 hyprApplyProc.pendingValue
@@ -606,7 +623,8 @@ FocusScope {
         presetCommandProc.action = "save";
         presetCommandProc.targetName = name;
         presetCommandProc.command = [
-            "/home/kevin/repos/dotfiles/themes/apply-theme",
+            "desktopctl",
+            "theme",
             "save-preset",
             name,
             JSON.stringify(presetData)
@@ -623,7 +641,8 @@ FocusScope {
         presetCommandProc.action = "delete";
         presetCommandProc.targetName = name;
         presetCommandProc.command = [
-            "/home/kevin/repos/dotfiles/themes/apply-theme",
+            "desktopctl",
+            "theme",
             "delete-preset",
             name
         ];
@@ -633,10 +652,10 @@ FocusScope {
     // ── Apply commands ──
     Process {
         id: applyProc; running: false
-        stderr: SplitParser { onRead: (line) => { console.log("[apply-theme stderr]", line); } }
+        stderr: SplitParser { onRead: (line) => { console.log("[desktopctl theme stderr]", line); } }
         onExited: (code, status) => {
             if (code !== 0) {
-                console.log("[apply-theme] exit", code);
+                console.log("[desktopctl theme] exit", code);
                 return;
             }
 
@@ -645,12 +664,12 @@ FocusScope {
     }
 
     function runSet(key, value) {
-        applyProc.command = ["/home/kevin/repos/dotfiles/themes/apply-theme", "set", key, value];
+        applyProc.command = ["desktopctl", "theme", "set", key, value];
         applyProc.running = true;
     }
 
     function runPreset(name) {
-        applyProc.command = ["/home/kevin/repos/dotfiles/themes/apply-theme", "preset", name];
+        applyProc.command = ["desktopctl", "theme", "preset", name];
         applyProc.running = true;
     }
 

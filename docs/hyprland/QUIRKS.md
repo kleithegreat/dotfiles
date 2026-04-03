@@ -30,7 +30,7 @@ backlight device:
 
 - `autostart.conf:6` — initial brightness snapshot for Quickshell
 - `hypridle.conf:10-11` — dim-screen timeout and resume handler
-- `keybinds.conf:62-63` — brightness step binds (via `brightness-step.sh`)
+- `keybinds.conf:62-63` — brightness step binds (via `desktopctl brightness`)
 
 These work on the laptop (Intel Iris Xe iGPU) but are no-ops or errors on the
 desktop (dedicated NVIDIA, no Intel backlight).
@@ -68,9 +68,9 @@ Home Manager's `xdg.configFile` declarations.
 
 **Impact:** Hyprland logs a source-file-not-found warning on first boot before
 the theming pipeline runs. The `home.activation.applyTheme` hook runs
-`apply-theme sync` during Home Manager activation, which generates the file
-before the first Hyprland session in normal use. A manual `apply-theme` run is
-needed if the activation hook is skipped.
+`desktopctl theme sync` during Home Manager activation, which generates the
+file before the first Hyprland session in normal use. A manual
+`desktopctl theme` run is needed if the activation hook is skipped.
 
 ## Desktop env.conf mixes environment and autostart
 

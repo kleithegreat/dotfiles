@@ -301,7 +301,7 @@ Scope {
 
         function open(): void { root.popupVisibility.toggleSettings(); }
         function apply(args): void {
-            themeApplyProc.command = ["/home/kevin/repos/dotfiles/themes/apply-theme"].concat(args.split(" "));
+            themeApplyProc.command = ["desktopctl", "theme"].concat(args.split(" "));
             themeApplyProc.running = true;
         }
     }

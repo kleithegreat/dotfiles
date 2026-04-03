@@ -21,10 +21,7 @@ fn dconf_set(key: &str, value: &str) -> crate::Result<()> {
             value,
         ])
         .output();
-    let output = match output {
-        Ok(output) => output,
-        Err(error) => return Err(error.into()),
-    };
+    let output = output?;
     if output.status.success() {
         return Ok(());
     }

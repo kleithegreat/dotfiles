@@ -27,8 +27,8 @@ Non-goals:
 | `themes/colors/*.json` | Palette catalog | Version-controlled |
 | `themes/state.json` | Current live selection | Mutable runtime state |
 | `themes/presets/*.json` | Partial state patches | Version-controlled |
-| `themes/lib/schema.py` | Data contract for colors and state | Authoritative schema |
-| `themes/lib/targets/*.py` | Per-consumer theme adapters | Authoritative target registry |
+| `desktopctl/src/theme/schema.rs` | Data contract for colors and state | Authoritative schema |
+| `desktopctl/src/theme/targets/*.rs` | Per-consumer theme adapters | Authoritative target registry |
 
 Constraints:
 
@@ -67,7 +67,7 @@ Invariants:
 Constraints:
 
 - Every target declares exactly one assembly strategy.
-- `BASE_PATH` inputs are read-only to the orchestrator.
+- `base_path` inputs are read-only to the orchestrator.
 - JSON `concat` targets must preserve base data and overlay only theme-managed
   keys.
 - Rebuild-time sync may skip runtime-only targets.
@@ -78,20 +78,20 @@ Required surface:
 
 | Attribute / hook | Purpose |
 | --- | --- |
-| `TARGET_NAME` | Stable CLI and registry identifier |
-| `ASSEMBLY` | Write strategy |
+| `TargetMetadata.name` | Stable CLI and registry identifier |
+| `TargetMetadata.assembly` | Write strategy |
 | `generate(colors, state)` | Produce theme content or commands for the target |
-| `OUTPUT_PATH` | Required for file-writing targets |
-| `BASE_PATH` | Required for `concat` targets |
+| `TargetMetadata.output_path` | Required for file-writing targets |
+| `TargetMetadata.base_path` | Required for `concat` targets |
 
 Optional surface:
 
 | Attribute / hook | Purpose |
 | --- | --- |
-| `RELOAD_CMD` | Best-effort live reload after writes |
-| `COMMENT` | Generated-file header prefix |
-| `EXTRA_OUTPUTS` | Mirror one generated output to additional paths |
-| `SYNC_SAFE` | Allow or forbid rebuild-time `sync` application |
+| `TargetMetadata.reload_cmd` | Best-effort live reload after writes |
+| `TargetMetadata.comment` | Generated-file header prefix |
+| `TargetMetadata.extra_outputs` | Mirror one generated output to additional paths |
+| `TargetMetadata.sync_safe` | Allow or forbid rebuild-time `sync` application |
 | `persist(colors, state)` | Required post-write persistence work |
 | `on_apply(colors, state)` | Runtime-only follow-up actions |
 

@@ -2,7 +2,7 @@
 
 ## The Hyprland socket path is instance-specific and fixed for the lifetime of the listener thread
 **Symptom:** Focus tracking can stop following the real active window after a compositor restart or if the daemon starts without a valid `HYPRLAND_INSTANCE_SIGNATURE`.
-**Cause:** `scripts/focus-daemon.py` resolves `$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock` once before entering the reconnect loop, and the reconnect loop keeps trying that same path.
+**Cause:** `desktopctl/src/hypr.rs` resolves `$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock` once before the listener thread starts, and `desktopctl/src/daemon/focus.rs` keeps reconnecting to that same path for the lifetime of the daemon.
 **Status:** Open
 **Resolution:** The current setup assumes the daemon is started by Hyprland autostart and restarted with the session. If focus tracking stops after Hyprland churn, restart the daemon with the compositor session.
 

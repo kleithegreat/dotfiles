@@ -26,10 +26,9 @@ pub fn load_colors(scheme_name: &str, colors_dir: &Path) -> crate::Result<ColorS
             if entry_path
                 .extension()
                 .is_some_and(|extension| extension == "json")
+                && let Some(stem) = entry_path.file_stem().and_then(|stem| stem.to_str())
             {
-                if let Some(stem) = entry_path.file_stem().and_then(|stem| stem.to_str()) {
-                    available.push(stem.to_owned());
-                }
+                available.push(stem.to_owned());
             }
         }
         available.sort();
@@ -224,7 +223,7 @@ fn validate_theme_state(value: &Value, path: &Path) -> crate::Result<()> {
     Ok(())
 }
 
-fn expect_object<'a>(value: &'a Value, label: String) -> crate::Result<&'a Map<String, Value>> {
+fn expect_object(value: &Value, label: String) -> crate::Result<&Map<String, Value>> {
     value
         .as_object()
         .ok_or_else(|| invalid_data(format!("{label}: expected top-level JSON object")).into())

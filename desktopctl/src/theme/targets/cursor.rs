@@ -135,9 +135,8 @@ fn replace_with_symlink(
 
     #[cfg(unix)]
     {
-        match symlink(target, link_path) {
-            Ok(()) => return Ok(()),
-            Err(_) => {}
+        if let Ok(()) = symlink(target, link_path) {
+            return Ok(());
         }
     }
 

@@ -2,15 +2,6 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{Map, Value};
 use std::io;
 
-const MONO_FONT_SIZE_TARGETS: [(&str, &str); 6] = [
-    ("alacritty", "alacritty_mono_font_size_offset"),
-    ("ghostty", "ghostty_mono_font_size_offset"),
-    ("gtk", "gtk_mono_font_size_offset"),
-    ("neovide", "neovide_mono_font_size_offset"),
-    ("qt", "qt_mono_font_size_offset"),
-    ("vscode", "vscode_mono_font_size_offset"),
-];
-
 pub const COLOR_FIELD_NAMES: [&str; 24] = [
     "bg",
     "bg_dim",
@@ -414,9 +405,5 @@ impl ThemeState {
         }
 
         map
-    }
-
-    pub fn mono_font_size_targets() -> &'static [(&'static str, &'static str)] {
-        &MONO_FONT_SIZE_TARGETS
     }
 }

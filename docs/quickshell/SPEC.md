@@ -61,9 +61,9 @@ Constraints:
 | Concern | Owner |
 | --- | --- |
 | Generated palette/font data | The theming pipeline via `GeneratedTheme.json` |
-| Theme file format and writes | `themes/apply-theme` and theming targets |
+| Theme file format and writes | `desktopctl theme` and the theming targets |
 | Layout geometry, popup sizing, and animation constants | Quickshell code |
-| Theme mutation commands | Settings host and shell IPC, both through `themes/apply-theme` |
+| Theme mutation commands | Settings host and shell IPC, both through `desktopctl theme` |
 
 Invariants:
 

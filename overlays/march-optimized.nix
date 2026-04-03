@@ -166,6 +166,7 @@ in
 
         ripgrep = optimizeRustPackageRunningTargetBinaries prev.ripgrep;
         fd = optimizeRustPackageRunningTargetBinaries prev.fd;
+        desktopctl = optimizeRustPackage prev.desktopctl;
 
         # `texlive.combined.scheme-medium` is a buildEnv wrapper, so re-import
         # the texlive package set with a selective C/C++-flagged stdenv in

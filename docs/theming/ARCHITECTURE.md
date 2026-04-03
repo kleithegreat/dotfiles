@@ -2,26 +2,27 @@
 
 ## Scope
 
-Current implementation map for `themes/apply-theme`, `themes/lib/`, and the
-consumer entry points as of 2026-04-02.
+Current implementation map for the migrated Rust theming pipeline as of
+2026-04-03.
 
 ## Runtime Surface
 
 | Piece | Current implementation |
 | --- | --- |
-| CLI | `themes/apply-theme` bootstraps repo paths, coerces CLI values, loads colors/state, and dispatches to the orchestrator |
-| Schema | `themes/lib/schema.py` defines `ColorScheme`, `ThemeState`, and the shared mono-font-offset helpers |
-| Resolution | `themes/lib/resolve.py` validates color JSON, validates `state.json`, and persists state updates |
-| Registry | `themes/lib/targets/__init__.py` auto-discovers target modules by `TARGET_NAME` |
-| Orchestrator | `themes/lib/orchestrator.py` handles dependency selection, assembly, post-write hooks, reload hooks, and `SYNC_SAFE` filtering |
+| CLI entry point | `desktopctl/src/main.rs:46-83` and `desktopctl/src/theme/mod.rs:61-447` implement the full `desktopctl theme` surface. |
+| Schema | `desktopctl/src/theme/schema.rs:5-92` and `desktopctl/src/theme/schema.rs:245-422` define `ColorScheme`, `ThemeState`, field ordering, and the shared mono-font-size helpers. |
+| Resolution | `desktopctl/src/theme/resolve.rs:11-224` resolves `themes/colors/` and `themes/state.json`, validates both JSON surfaces, and writes `state.json` back with stable pretty formatting. |
+| JSON compatibility | `desktopctl/src/theme/json.rs:4-142` preserves Python-compatible object ordering and ASCII escaping for generated JSON files and `--json` CLI output. |
+| Registry | `desktopctl/src/theme/targets/mod.rs:24-230` defines target metadata, hook surfaces, and the typed registry; `desktopctl/src/theme/targets/mod.rs:232-315` registers all migrated targets explicitly. |
+| Orchestrator | `desktopctl/src/theme/orchestrator.rs:47-228` and `desktopctl/src/theme/orchestrator.rs:230-383` handle dependency selection, target ordering, file assembly, concat merges, post-write hooks, reload hooks, and sync-safe filtering. |
 
 ## CLI Surface
 
 | Command group | Commands | Current behavior |
 | --- | --- | --- |
-| Apply scopes | `all`, `colors`, `fonts`, `wallpaper`, `cursor`, `sync`, `target` | `sync` disables runtime hooks and filters to `SYNC_SAFE` targets |
-| State mutation | `set`, `preset`, `save-preset`, `delete-preset` | `set` rewrites one key and applies affected targets only; `preset` merges a partial patch into state |
-| Inspection | `list-schemes`, `list-presets`, `status` | No writes |
+| Apply scopes | `all`, `colors`, `fonts`, `wallpaper`, `cursor`, `sync`, `target` | `sync` limits execution to `sync_safe` targets and skips runtime-only hooks. |
+| State mutation | `set`, `preset`, `save-preset`, `delete-preset` | `set` rewrites one key and applies only affected targets; `preset` merges a preset patch and applies all targets; preset files preserve ordered JSON formatting. |
+| Inspection | `list-schemes`, `list-presets`, `status` | Human-readable text by default, with Quickshell-facing `--json` modes that return deterministic array/object shapes. |
 
 ## Registered Targets
 
@@ -34,36 +35,29 @@ consumer entry points as of 2026-04-02.
 
 Targets with notable extra behavior:
 
-| Target | Extra behavior beyond a single generated file |
+| Target | Extra behavior beyond one generated file |
 | --- | --- |
-| `cursor` | Persists cursor index files and Hyprland cursor env, then pushes runtime cursor state |
-| `gtk` | Performs all real work in `on_apply()` via dconf and is `SYNC_SAFE = False` |
-| `qt` | Mirrors the palette to Qt5, writes qtct/KDE/Kvantum/Kate/KWrite files in `persist()`, and has no live reload hook |
-| `spicetify` | Ensures theme scaffolding exists, then runs `spicetify update` at apply time |
-| `vscode` | JSON-merges settings and adjusts VS Code's SQLite state DB in `persist()` |
-| `wallpaper` | Optionally builds cached filtered wallpapers and is `SYNC_SAFE = False` |
-
-## Assembly And Selection
-
-| Concern | Current implementation |
-| --- | --- |
-| File writes | `import` and `standalone` write one output; `concat` reads `BASE_PATH` and either appends text or depth-1 merges JSON |
-| Generated headers | Added for non-JSON targets when a target exports `COMMENT` |
-| Extra outputs | `EXTRA_OUTPUTS` mirrors the already-written primary output to additional paths |
-| Post-write hooks | `persist()` runs before runtime reloads and must succeed |
-| Runtime hooks | `RELOAD_CMD` and `on_apply()` run only when `runtime=True` |
-| Target ordering | Command targets run after file-writing targets so side effects see fresh files |
-| `color_scheme` special case | `targets_for_key()` drops `wallpaper` when `filter_wallpaper` is false |
+| `cursor` | `desktopctl/src/theme/targets/cursor.rs:153-221` writes cursor index files plus `~/.config/hypr/cursor.conf`, updates dconf, updates Hyprland cursor env, and imports cursor vars into the user environment. |
+| `gtk` | `desktopctl/src/theme/targets/gtk.rs:5-71` is command-only and does all real work in `on_apply()` through dconf writes. |
+| `qt` | `desktopctl/src/theme/targets/qt.rs:15-99` and the rest of the module mirror the palette into qt5ct, qt6ct, KDE, hyprqt6engine, Kvantum, Kate, and KWrite. |
+| `quickshell` | `desktopctl/src/theme/targets/quickshell.rs:8-85` writes `GeneratedTheme.json` for shell colors and fonts with Python-compatible JSON formatting. |
+| `spicetify` | `desktopctl/src/theme/targets/spicetify.rs` ensures theme scaffolding exists and runs `spicetify update` on apply. |
+| `wallpaper` | `desktopctl/src/theme/targets/wallpaper.rs:13-220` preserves the old `lutgen` cache-key behavior and `swww` runtime side effects while remaining `sync_safe = false`. |
 
 ## Consumer Integration
 
 | Consumer | Current integration |
 | --- | --- |
-| Home Manager | Deploys base config and runs `themes/apply-theme sync` after managed files are written |
-| Hyprland | Reads generated `colors.conf` and `appearance-theme.conf` |
-| Quickshell | Watches generated `GeneratedTheme.json` |
-| Neovim / Neovide | Read generated `theme-state.json` and `neovide-theme.lua` |
-| Tool configs | Import or concatenate generated fragments under `~/.config` |
+| Home Manager | `home/default.nix:310-312` runs `desktopctl theme sync` after managed files are written so generated fragments exist before the next session. |
+| Hyprland | `config/hypr/hyprland.conf` and `config/hypr/appearance.conf` source generated `colors.conf`, `cursor.conf`, and `appearance-theme.conf`. |
+| Quickshell | `config/quickshell/Theme.qml:8-27` watches `~/.config/quickshell/GeneratedTheme.json`; `config/quickshell/popups/SettingsPopup.qml:158-223` and `config/quickshell/shell.qml:299-305` now call `desktopctl theme` instead of hardcoded repo scripts. |
+| Neovim / Neovide | Generated `theme-state.json` and `neovide-theme.lua` are still written inside the Home Manager-symlinked `~/.config/nvim` tree. |
+| Tool configs | Import or concat targets still write under `~/.config` or app-specific config paths, keeping repo-authored base files read-only. |
 
-The Qt stack is intentionally multi-layered because KDE/Kirigami consumers need
-more than a plain palette. See `docs/theming/QUIRKS.md`.
+## Validation Notes
+
+- The migration audit compared every target's generated output with the removed
+  Python implementation and fixed the only observed mismatches in JSON ordering
+  and CLI error text.
+- `desktopctl theme list-schemes --json`, `list-presets --json`, and
+  `status --json` now match the shapes consumed by Quickshell.

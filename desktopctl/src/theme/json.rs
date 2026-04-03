@@ -1,14 +1,6 @@
 use serde::Serialize;
 use serde_json::Value;
 
-pub fn to_python_pretty_string<T>(value: &T) -> crate::Result<String>
-where
-    T: Serialize,
-{
-    let value = serde_json::to_value(value)?;
-    Ok(format_pretty_value(&value))
-}
-
 pub fn to_python_string<T>(value: &T) -> crate::Result<String>
 where
     T: Serialize,
@@ -133,7 +125,7 @@ fn write_json_string(value: &str, output: &mut String) {
             character if character.is_ascii() => output.push(character),
             character => {
                 let mut buffer = [0u16; 2];
-                for unit in character.encode_utf16(&mut buffer).iter().copied() {
+                for unit in character.encode_utf16(&mut buffer).iter() {
                     output.push_str(&format!("\\u{:04x}", unit));
                 }
             }
