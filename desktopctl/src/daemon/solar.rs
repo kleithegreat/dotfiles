@@ -1,8 +1,9 @@
 use crate::{
-    hypr, paths,
+    hypr,
     solar::{self, SolarEventKind},
+    theme,
 };
-use std::{io, process::Command, time::Duration as StdDuration};
+use std::{process::Command, time::Duration as StdDuration};
 use tokio::{
     signal::unix::{SignalKind, signal},
     sync::watch,
@@ -84,24 +85,7 @@ fn stop_hyprsunset() -> crate::Result<()> {
 }
 
 fn set_dark_hint(enabled: bool) -> crate::Result<()> {
-    let script = paths::repo_root()?.join("themes/apply-theme");
-    let value = if enabled { "true" } else { "false" };
-    let output = Command::new(&script)
-        .args(["set", "dark_hint", value])
-        .output()?;
-
-    if output.status.success() {
-        return Ok(());
-    }
-
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    Err(io::Error::other(format!(
-        "{} set dark_hint {} failed: {}",
-        script.display(),
-        value,
-        stderr.trim()
-    ))
-    .into())
+    theme::set_dark_hint(enabled)
 }
 
 fn duration_until(when: chrono::DateTime<chrono::Local>) -> StdDuration {

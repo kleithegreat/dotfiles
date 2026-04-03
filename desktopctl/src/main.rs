@@ -8,7 +8,7 @@ mod solar;
 mod theme;
 
 use clap::{Args, Parser, Subcommand};
-use std::{io, process::ExitCode};
+use std::process::ExitCode;
 
 #[derive(Debug, Parser)]
 #[command(
@@ -198,7 +198,10 @@ fn main() -> ExitCode {
     match run() {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
-            eprintln!("{error}");
+            let message = error.to_string();
+            if !message.is_empty() {
+                eprintln!("{message}");
+            }
             ExitCode::FAILURE
         }
     }
@@ -213,7 +216,7 @@ fn run() -> Result<()> {
         TopLevelCommand::LaunchQuickshell(args) => launch::run(args.print_env),
         TopLevelCommand::Portal(args) => run_portal(args),
         TopLevelCommand::Daemon => daemon::run(),
-        TopLevelCommand::Theme(_) => phase0_placeholder("theme"),
+        TopLevelCommand::Theme(args) => theme::run(args),
         TopLevelCommand::Sun(args) => run_sun(args),
     }
 }
@@ -250,8 +253,4 @@ fn run_sun(args: SunArgs) -> Result<()> {
     match args.command {
         SunCommand::Status => solar::print_status(),
     }
-}
-
-fn phase0_placeholder(area: &str) -> Result<()> {
-    Err(io::Error::other(format!("desktopctl {area} is still a Phase 0 placeholder")).into())
 }
