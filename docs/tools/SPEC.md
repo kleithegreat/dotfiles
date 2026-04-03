@@ -23,8 +23,8 @@ Every tool config managed by this repo falls into one of two ownership classes:
 A base file and its generated output must never be the same path. The pipeline
 reads from `config/<tool>/` and writes to `~/.config/<tool>/` (or the
 application's settings path). This separation is enforced by the target modules
-in `themes/lib/targets/`, where `BASE_PATH` and `OUTPUT_PATH` are always
-distinct.
+in `desktopctl/src/theme/targets/`, where base inputs and output paths are
+always distinct.
 
 ## Assembly Methods
 

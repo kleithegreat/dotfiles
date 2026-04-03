@@ -3,7 +3,7 @@
 ## Scope
 
 Current implementation map for `config/quickshell/` and its theme/runtime
-integration as of 2026-04-02.
+integration as of 2026-04-03.
 
 ## Shell Topology
 
@@ -15,17 +15,10 @@ integration as of 2026-04-02.
 | `bar/Bar.qml` | Persistent chrome and popup toggles | Materialized through a loader only when a real monitor is available |
 | Root transient windows | Notification popup stack, OSD, toast window, tooltip window | Outside managed-popup exclusivity |
 
-Managed popups mounted by the overlay host:
+Managed popups mounted by the overlay host remain:
 
-| Popup | Role |
-| --- | --- |
-| `CalendarPopup` | Calendar surface |
-| `TrayPopup` | System tray details |
-| `MprisPopup` | Media control surface |
-| `QuickSettingsPopup` | Shallow toggle and summary surface |
-| `SettingsPopup` | Full settings host |
-| `NotifDrawer` | Retained notification history |
-| `PowerMenu` | Modal-like power surface with optional scrim |
+`CalendarPopup`, `TrayPopup`, `MprisPopup`, `QuickSettingsPopup`,
+`SettingsPopup`, `NotifDrawer`, and `PowerMenu`.
 
 ## Service Layer
 
@@ -34,7 +27,7 @@ Managed popups mounted by the overlay host:
 | `AudioService.qml` | Volume, mute, sink summary, shared OSD state | Bar volume, audio pane, shell OSD, IPC |
 | `BluetoothService.qml` | Powered state, summary device data, full device/pairing flows | Bar Bluetooth, quick settings, Bluetooth pane |
 | `BrightnessService.qml` | Backlight discovery, watch, and writes | Display pane; shell brightness OSD still enters through `/tmp/quickshell-brightness` |
-| `DisplayService.qml` | Monitor refresh/apply and Hyprsunset state | Display pane |
+| `DisplayService.qml` | Monitor refresh/apply and direct `hyprsunset` state | Display pane |
 | `NetworkService.qml` | Wi-Fi summary, scans, known networks, diagnostics, DNS, captive portal, reporting | Bar network, quick settings, network pane |
 | `NotificationService.qml` | Popup/history models, DND, dismissal, relative-time refresh | Root notifications, drawer, bar bell, IPC |
 | `PowerProfileService.qml` | CPU profiles and supported battery controls | Power pane |
@@ -43,51 +36,51 @@ Managed popups mounted by the overlay host:
 | `TooltipService.qml` | Hover/linger tooltip state | Tooltip window and interactive modules |
 | `VpnService.qml` | Mullvad and Tailscale status plus relay selection | Optional bar VPN, quick settings tile, network pane |
 
-Direct-upstream or local exceptions still bypass repo-specific services:
+Direct-upstream or local exceptions:
 
-- Battery state comes from `Quickshell.Services.UPower`.
-- MPRIS, system tray, and workspace state use upstream Quickshell services
-  directly.
-- Focus Time polls `$XDG_RUNTIME_DIR/focustime_state.json` inside its pane;
-  see `docs/focus-time/SPEC.md` for the JSON summary contract and runtime
-  paths.
-- The shell brightness OSD reads `/tmp/quickshell-brightness` via a long-lived
-  `tail -F` process in `shell.qml`; that file is written by external producers
-  (`autostart.conf`, `brightness-step.sh`, `hypridle.conf`) and is separate
-  from `BrightnessService.qml`, which reads sysfs directly.
+- Battery state still comes from `Quickshell.Services.UPower`.
+- MPRIS, system tray, and workspace state still use upstream Quickshell
+  services directly.
+- Focus Time still polls `$XDG_RUNTIME_DIR/focustime_state.json` inside its
+  pane; see `docs/focus-time/SPEC.md`.
+- The shell brightness OSD still reads `/tmp/quickshell-brightness`, which is
+  written by `desktopctl brightness` helpers launched from Hyprland config.
 
 ## Settings System
 
 | Area | Current implementation |
 | --- | --- |
-| Host-owned data | Theme snapshot, colors, presets, wallpapers, directories, icon/font choices, Hyprland appearance draft state |
-| Host loaders | `Process` helpers read `themes/state.json`, enumerate palettes/presets, and list wallpaper directories |
+| Host-owned data | Theme snapshot, colors, presets, wallpapers, directories, icon/font choices, and Hyprland appearance draft state |
+| Host loaders | `Process` helpers call `desktopctl theme status --json`, `desktopctl theme list-schemes --json`, `desktopctl theme list-presets --json`, and shell commands for wallpaper/directory browsing |
 | Service-driven panes | Network, Bluetooth, Audio, Display, Power, Focus Time |
 | Host-driven panes | Presets, Colors, Fonts, Wallpaper, Icons, Hyprland |
-| General theme writes | `apply-theme set` and `apply-theme preset` |
-| Preset writes | `apply-theme save-preset` and `apply-theme delete-preset` |
-| Hyprland appearance writes | Debounced queue of `hypr_*` state updates with desktop-notification feedback |
+| General theme writes | `desktopctl theme set` and `desktopctl theme preset` |
+| Preset writes | `desktopctl theme save-preset` and `desktopctl theme delete-preset` |
+| Hyprland appearance writes | Debounced queue of `desktopctl theme set hypr_* ...` writes with desktop-notification feedback |
 
-The popup itself remains a fixed-size host with a scrollable sidebar and one
-detail loader.
+The main host wiring lives in
+`config/quickshell/popups/SettingsPopup.qml:140-223` and
+`config/quickshell/popups/SettingsPopup.qml:524-700`.
 
 ## Theme Integration
 
 | Piece | Current role |
 | --- | --- |
 | `Theme.qml` | Watches `~/.config/quickshell/GeneratedTheme.json`, reparses on change, and exposes generated colors/fonts plus shell-owned layout constants |
-| `themes/lib/targets/quickshell.py` | Writes `GeneratedTheme.json` and maps theming names into Quickshell's `bg0_h`/`aqua` naming |
-| Settings host | Runs `themes/apply-theme`, then reloads its theme snapshot on success |
-| Shell IPC | Provides a second command path into `themes/apply-theme` |
+| `desktopctl/src/theme/targets/quickshell.rs` | Writes `GeneratedTheme.json` and maps theming names into Quickshell's `bg0_h` / `aqua` naming |
+| Settings host | Runs `desktopctl theme ...`, then reloads its theme snapshot on success |
+| Shell IPC | Provides a second command path into `desktopctl theme ...` through `theme.apply` |
 
-Theme-related path handling is intentionally absolute in the current shell setup;
-see `docs/quickshell/QUIRKS.md`.
+`Theme.qml` still keeps hardcoded Gruvbox Dark fallbacks for the generated JSON
+surface in `config/quickshell/Theme.qml:29-69`.
 
 ## Runtime Assumptions
 
+- `desktopctl` is on `PATH` for every Quickshell `Process` that invokes theme
+  commands.
 - `/tmp/quickshell-brightness` exists and is updated by an external producer.
-- A writable generated theme file exists beside the Home Manager-managed
-  Quickshell tree.
+- A writable `~/.config/quickshell/GeneratedTheme.json` exists beside the
+  Home Manager-managed Quickshell tree.
 - A backlight is discoverable under `/sys/class/backlight`.
 - `$XDG_RUNTIME_DIR/focustime_state.json` exists when the focus-time daemon is
   running.

@@ -61,21 +61,6 @@ pub struct TargetMetadata {
     pub sync_safe: bool,
 }
 
-impl TargetMetadata {
-    pub const fn new(name: &'static str, assembly: Assembly) -> Self {
-        Self {
-            name,
-            assembly,
-            output_path: None,
-            base_path: None,
-            extra_outputs: &[],
-            reload_cmd: None,
-            comment: None,
-            sync_safe: true,
-        }
-    }
-}
-
 pub trait Target: Send + Sync {
     fn metadata(&self) -> &TargetMetadata;
     fn generate(&self, colors: &ColorScheme, state: &ThemeState)
@@ -209,10 +194,6 @@ impl TargetRegistry {
         self.targets
             .iter()
             .map(|(name, target)| (*name, target.as_ref()))
-    }
-
-    pub fn names(&self) -> impl Iterator<Item = &'static str> + '_ {
-        self.targets.keys().copied()
     }
 }
 
@@ -447,7 +428,7 @@ mod tests {
     #[test]
     fn registry_contains_all_python_targets() {
         let registry = build_registry().expect("registry builds");
-        let names = registry.names().collect::<Vec<_>>();
+        let names = registry.iter().map(|(name, _)| name).collect::<Vec<_>>();
         assert_eq!(names.len(), 19);
         assert!(names.contains(&"cursor"));
         assert_eq!(

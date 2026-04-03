@@ -295,11 +295,7 @@ fn assemble_concat(
                     .comment
                     .map(|comment| format!("{}\n", header(colors, comment)))
                     .unwrap_or_default();
-                format!(
-                    "{}{}",
-                    trim_trailing_newlines(&base),
-                    format!("\n{header}{content}")
-                )
+                format!("{}\n{header}{content}", trim_trailing_newlines(&base))
             }
         }
         GeneratedContent::Commands(_) => {
@@ -387,10 +383,10 @@ fn persist(target: &dyn Target, colors: &ColorScheme, state: &ThemeState) -> cra
 fn reload(target: &dyn Target, colors: &ColorScheme, state: &ThemeState) {
     let metadata = target.metadata();
 
-    if let Some(command) = metadata.reload_cmd {
-        if let Err(error) = run_command(command) {
-            eprintln!("  reload warning ({}): {}", metadata.name, error);
-        }
+    if let Some(command) = metadata.reload_cmd
+        && let Err(error) = run_command(command)
+    {
+        eprintln!("  reload warning ({}): {}", metadata.name, error);
     }
 
     if let Err(error) = target.on_apply(colors, state) {

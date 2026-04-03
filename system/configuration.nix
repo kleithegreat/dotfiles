@@ -2,6 +2,7 @@
 
 let
   system = pkgs.stdenv.hostPlatform.system;
+  desktopctlOverlay = import ../overlays/desktopctl.nix;
   optimizedPackages = import ../overlays/march-optimized.nix {
     inherit lib inputs march enableMarchOptimizations;
   };
@@ -155,7 +156,10 @@ in
   # in multiple module layers.
   nixpkgs.config.allowUnfreePredicate = pkg:
     builtins.elem (lib.getName pkg) allowedUnfreePackageNames;
-  nixpkgs.overlays = [ optimizedPackages.overlay ];
+  nixpkgs.overlays = [
+    desktopctlOverlay
+    optimizedPackages.overlay
+  ];
 
   # ── Networking ───────────────────────────────────────────────
   networking.hostName = hostName;

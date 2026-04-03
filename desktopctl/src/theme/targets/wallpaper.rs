@@ -270,7 +270,7 @@ impl Sha256 {
     fn finish_hex(mut self) -> String {
         let bit_length = self.length_bits;
         self.buffer.push(0x80);
-        while (self.buffer.len() + 8) % 64 != 0 {
+        while !(self.buffer.len() + 8).is_multiple_of(64) {
             self.buffer.push(0);
         }
         self.buffer.extend_from_slice(&bit_length.to_be_bytes());

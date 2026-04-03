@@ -199,9 +199,7 @@ fn build_summary(
     let apps = load_apps(connection, resolver, &today_string, total)?;
     let current = if locked {
         "Locked".to_owned()
-    } else if excluded_classes().contains(current_class) {
-        String::new()
-    } else if current_class.is_empty() {
+    } else if current_class.is_empty() || excluded_classes().contains(current_class) {
         String::new()
     } else {
         resolver.resolve(current_class).0
@@ -370,30 +368,27 @@ fn listen_for_focus(
     shutdown: Arc<AtomicBool>,
 ) {
     while !shutdown.load(Ordering::SeqCst) {
-        match UnixStream::connect(&socket_path) {
-            Ok(mut socket) => {
-                let _ = socket.set_read_timeout(Some(StdDuration::from_secs(5)));
-                let mut buffer = Vec::new();
-                let mut chunk = [0_u8; 4096];
+        if let Ok(mut socket) = UnixStream::connect(&socket_path) {
+            let _ = socket.set_read_timeout(Some(StdDuration::from_secs(5)));
+            let mut buffer = Vec::new();
+            let mut chunk = [0_u8; 4096];
 
-                while !shutdown.load(Ordering::SeqCst) {
-                    match socket.read(&mut chunk) {
-                        Ok(0) => break,
-                        Ok(bytes_read) => {
-                            buffer.extend_from_slice(&chunk[..bytes_read]);
-                            consume_socket_lines(&mut buffer, &current_class);
-                        }
-                        Err(error)
-                            if error.kind() == io::ErrorKind::WouldBlock
-                                || error.kind() == io::ErrorKind::TimedOut =>
-                        {
-                            continue;
-                        }
-                        Err(_) => break,
+            while !shutdown.load(Ordering::SeqCst) {
+                match socket.read(&mut chunk) {
+                    Ok(0) => break,
+                    Ok(bytes_read) => {
+                        buffer.extend_from_slice(&chunk[..bytes_read]);
+                        consume_socket_lines(&mut buffer, &current_class);
                     }
+                    Err(error)
+                        if error.kind() == io::ErrorKind::WouldBlock
+                            || error.kind() == io::ErrorKind::TimedOut =>
+                    {
+                        continue;
+                    }
+                    Err(_) => break,
                 }
             }
-            Err(_) => {}
         }
 
         if !shutdown.load(Ordering::SeqCst) {

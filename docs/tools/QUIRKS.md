@@ -31,16 +31,16 @@ after a theme apply.
 
 | Generated file | Written by | Sourced by |
 | --- | --- | --- |
-| `~/.config/hypr/colors.conf` | `hyprland.py` | `config/hypr/hyprland.conf` line 9 |
-| `~/.config/hypr/appearance-theme.conf` | `hypr_appearance.py` | `config/hypr/appearance.conf` line 3 |
-| `~/.config/hypr/cursor.conf` | `cursor.py` (via `persist()`) | `config/hypr/hyprland.conf` line 6 |
-| `~/.config/nvim/lua/theme-state.json` | `neovim.py` | `config/nvim/lua/plugins/colors.lua` |
-| `~/.config/nvim/lua/neovide-theme.lua` | `neovide.py` | Neovide reads it on startup |
-| `~/.config/quickshell/GeneratedTheme.json` | `quickshell.py` | `config/quickshell/Theme.qml` |
+| `~/.config/hypr/colors.conf` | `desktopctl` target `hyprland` | `config/hypr/hyprland.conf` line 9 |
+| `~/.config/hypr/appearance-theme.conf` | `desktopctl` target `hypr_appearance` | `config/hypr/appearance.conf` line 3 |
+| `~/.config/hypr/cursor.conf` | `desktopctl` target `cursor` (via `persist()`) | `config/hypr/hyprland.conf` line 6 |
+| `~/.config/nvim/lua/theme-state.json` | `desktopctl` target `neovim` | `config/nvim/lua/plugins/colors.lua` |
+| `~/.config/nvim/lua/neovide-theme.lua` | `desktopctl` target `neovide` | Neovide reads it on startup |
+| `~/.config/quickshell/GeneratedTheme.json` | `desktopctl` target `quickshell` | `config/quickshell/Theme.qml` |
 
 If these generated files are missing (e.g., on a fresh clone before the first
 theme apply), the tools that source them will error or fall back to defaults.
-Home Manager activation runs `themes/apply-theme sync` to ensure they exist.
+Home Manager activation runs `desktopctl theme sync` to ensure they exist.
 
 ## Hyprland Source Files Not in the Repo
 
@@ -50,9 +50,9 @@ Home Manager with host-specific content:
 
 | Sourced path | Origin |
 | --- | --- |
-| `~/.config/hypr/colors.conf` | Theme target `hyprland.py` |
-| `~/.config/hypr/cursor.conf` | Theme target `cursor.py` |
-| `~/.config/hypr/appearance-theme.conf` | Theme target `hypr_appearance.py` (sourced via `appearance.conf`) |
+| `~/.config/hypr/colors.conf` | Theme target `hyprland` |
+| `~/.config/hypr/cursor.conf` | Theme target `cursor` |
+| `~/.config/hypr/appearance-theme.conf` | Theme target `hypr_appearance` (sourced via `appearance.conf`) |
 | `~/.config/hypr/input-devices.conf` | Home Manager, host-specific (laptop vs desktop) |
 
 These are not missing — they are intentionally generated at activation or

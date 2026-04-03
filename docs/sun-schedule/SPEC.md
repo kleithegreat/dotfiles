@@ -2,7 +2,7 @@
 
 This spec defines the intended contract for solar-time automation: which
 component owns scheduled night-light transitions, which component owns
-`dark_hint` mutation, how the timer stack behaves, and how coordinates are
+`dark_hint` mutation, how the scheduler behaves, and how coordinates are
 resolved. It is the intent document; see `docs/sun-schedule/ARCHITECTURE.md`
 for the current implementation map.
 
@@ -12,7 +12,7 @@ for the current implementation map.
 - Drive `hyprsunset` from sunrise and sunset in local time.
 - Drive the scheduled `dark_hint` value without creating a second theme-state
   store.
-- Keep timer repair and coordinate fallback deterministic.
+- Keep schedule repair and coordinate fallback deterministic.
 
 Non-goals:
 
@@ -24,10 +24,10 @@ Non-goals:
 
 | Concern | Owner | Contract |
 | --- | --- | --- |
-| Solar-time policy | `sun-schedule` | The scheduler decides when sunrise, sunset, and the nightly dark-hint threshold occur. |
-| Automated `hyprsunset` writes | `sun-schedule` | Scheduled start/stop of `hyprsunset` belongs to this domain. Other components may observe state, but parallel direct writers are out of spec and must be treated as conflicts. |
-| Scheduled `dark_hint` value | `sun-schedule` | The scheduler decides when the time-based value should be `true` or `false`. |
-| `dark_hint` persistence | The theming pipeline | `themes/apply-theme` is the only supported writer of `themes/state.json`. Callers request a change; they do not edit the file themselves. |
+| Solar-time policy | `desktopctl daemon` solar subsystem | The scheduler decides when sunrise, sunset, and the nightly dark-hint threshold occur. |
+| Automated `hyprsunset` writes | `desktopctl daemon` solar subsystem | Scheduled start/stop of `hyprsunset` belongs to this domain. Other components may observe state, but parallel direct writers are out of spec and must be treated as conflicts. |
+| Scheduled `dark_hint` value | `desktopctl daemon` solar subsystem | The scheduler decides when the time-based value should be `true` or `false`. |
+| `dark_hint` persistence | The theming pipeline via `desktopctl theme` | `desktopctl theme` is the only supported writer of `themes/state.json`. Callers request a change; they do not edit the file directly. |
 | GTK dark-preference side effects | The theming pipeline | The `gtk` target owns the resulting dconf writes for `gtk-theme` and `color-scheme`. |
 | Shell display UI | Quickshell | The shell may surface status or request supported mutations, but it is not the authoritative solar scheduler. |
 
@@ -35,9 +35,8 @@ Invariants:
 
 - Time-based `hyprsunset` automation must not depend on Quickshell process
   lifetime.
-- Time-based `dark_hint` automation must go through `themes/apply-theme`; it
-  must not introduce a second direct write path to `themes/state.json` or GTK
-  dconf.
+- Time-based `dark_hint` automation must go through `desktopctl theme`; it must
+  not introduce a second direct write path to `themes/state.json` or GTK dconf.
 - A future manual override model must add explicit arbitration. It must not
   rely on two components writing `hyprsunset` independently.
 
@@ -54,31 +53,31 @@ values.
 
 Rules:
 
-- A `schedule` run must apply the current state immediately before it creates
-  future timers.
-- `sunset-action` only starts `hyprsunset`.
-- `sunrise-action` stops `hyprsunset` and clears `dark_hint`.
+- The scheduler must apply the current state immediately before waiting for the
+  next event.
+- `sunset` only starts `hyprsunset`.
+- `sunrise` stops `hyprsunset` and clears `dark_hint`.
 - `dark-on` only enables `dark_hint`.
 
-## Timer Lifecycle
+## Scheduler Lifecycle
 
-The timer stack has one long-lived repair timer and three short-lived event
-timers.
+The active implementation uses one long-lived in-process scheduler inside
+`desktopctl daemon`, not systemd timers.
 
-| Unit class | Owner | Contract |
+| Trigger | Owner | Contract |
 | --- | --- | --- |
-| `sun-scheduler.timer` / `sun-scheduler.service` | Home Manager module | Periodically reruns the scheduler after startup and every two hours. |
-| `sun-event-sunrise.timer` / `.service` | `sun-schedule` runtime | Single next sunrise only. Replaced on every `schedule` pass. |
-| `sun-event-sunset.timer` / `.service` | `sun-schedule` runtime | Single next sunset only. Replaced on every `schedule` pass. |
-| `sun-event-dark-on.timer` / `.service` | `sun-schedule` runtime | Single next 23:00 local event only. Replaced on every `schedule` pass. |
+| Initial reconcile | `desktopctl daemon` solar subsystem | Applies the correct current state immediately when the daemon starts. |
+| Next solar event sleep | `desktopctl daemon` solar subsystem | Waits until the next sunrise, sunset, or 23:00 dark-on event and applies it directly. |
+| Periodic repair tick | `desktopctl daemon` solar subsystem | Recomputes state every 2 hours to repair missed time or external drift. |
+| `SIGUSR1` recompute | `desktopctl daemon` solar subsystem | Forces an early recompute without restarting the daemon. |
 
 Invariants:
 
-- There must be at most one active timer per `sun-event-*` basename.
-- The three event timers are disposable transient user units, not declarative
-  Home Manager units.
-- Missed time while the session was away is repaired by the next `schedule`
-  run's immediate reconcile, not by Quickshell.
+- There is exactly one scheduler loop per running `desktopctl daemon` process.
+- Missed time while the session was away is repaired by the next daemon start
+  or repair tick, not by Quickshell.
+- The scheduler does not depend on transient user units or Home Manager timer
+  declarations.
 
 ## Coordinate Resolution
 

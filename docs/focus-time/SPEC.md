@@ -1,8 +1,8 @@
 # Focus Time Specification
 
-This spec documents the runtime contract currently implemented by
-`scripts/focus-daemon.py` and consumed by Quickshell. It is intentionally
-descriptive: when the code is ambiguous or weak at a boundary,
+This spec documents the runtime contract currently implemented by the focus
+subsystem inside `desktopctl daemon` and consumed by Quickshell. It is
+intentionally descriptive: when the code is ambiguous or weak at a boundary,
 `docs/focus-time/REVIEW.md` calls that out instead of normalizing it away.
 
 ## Scope
@@ -18,7 +18,7 @@ descriptive: when the code is ambiguous or weak at a boundary,
 
 | Path | Owner | Purpose |
 | --- | --- | --- |
-| `~/.local/bin/focus-daemon.py` | Home Manager install step | Executable launched by Hyprland autostart |
+| `desktopctl daemon` | Hyprland session autostart | Foreground entry point that owns focus tracking alongside the solar scheduler |
 | `~/.config/hypr/autostart.conf` | Repo-managed Hyprland config | Starts the daemon with `exec-once` |
 | `$XDG_DATA_HOME/focustime/focustime.db` | Focus daemon | Persistent SQLite database |
 | `~/.local/share/focustime/focustime.db` | Focus daemon | Database fallback when `XDG_DATA_HOME` is unset |
@@ -40,7 +40,7 @@ Additional read-only runtime inputs:
 
 | Concern | Writer | Reader |
 | --- | --- | --- |
-| Session installation | Home Manager (`home/default.nix`) | Hyprland session startup |
+| Session installation | Home Manager (`home/default.nix`) plus Hyprland autostart | Hyprland session startup |
 | Hyprland socket | Hyprland | Focus daemon listener thread |
 | SQLite tables | Focus daemon only | No repo consumer reads them directly today |
 | JSON summary file | Focus daemon only | `SettingsFocusTimePane.qml` |

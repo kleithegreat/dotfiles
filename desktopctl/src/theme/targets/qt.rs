@@ -196,35 +196,43 @@ fn kde_color_group(
     }
 }
 
-fn write_kde_color_states(
-    config: &mut IniFile,
-    section: &str,
+#[derive(Clone)]
+struct KdeColorState {
     bg: String,
     bg_alt: String,
     fg: String,
     fg_inactive: String,
+}
+
+fn write_kde_color_states(
+    config: &mut IniFile,
+    section: &str,
     colors: &ColorScheme,
-    inactive_bg: Option<String>,
-    inactive_bg_alt: Option<String>,
-    inactive_fg: Option<String>,
-    inactive_fg_inactive: Option<String>,
+    active: KdeColorState,
+    inactive: Option<KdeColorState>,
 ) {
     kde_color_group(
         config,
         section,
-        bg.clone(),
-        bg_alt.clone(),
-        fg.clone(),
-        fg_inactive.clone(),
+        active.bg.clone(),
+        active.bg_alt.clone(),
+        active.fg.clone(),
+        active.fg_inactive.clone(),
         colors,
     );
+    let inactive = inactive.unwrap_or_else(|| KdeColorState {
+        bg: active.bg,
+        bg_alt: active.bg_alt,
+        fg: rgb(&colors.fg2),
+        fg_inactive: rgb(&colors.fg3),
+    });
     kde_color_group(
         config,
         &kde_state_section(section, "Inactive"),
-        inactive_bg.unwrap_or(bg),
-        inactive_bg_alt.unwrap_or(bg_alt),
-        inactive_fg.unwrap_or_else(|| rgb(&colors.fg2)),
-        inactive_fg_inactive.unwrap_or_else(|| rgb(&colors.fg3)),
+        inactive.bg,
+        inactive.bg_alt,
+        inactive.fg,
+        inactive.fg_inactive,
         colors,
     );
 }
@@ -238,92 +246,90 @@ fn apply_kde_colors(config: &mut IniFile, colors: &ColorScheme) {
     write_kde_color_states(
         config,
         "Colors:Window",
-        rgb(&colors.bg1),
-        rgb(&colors.bg2),
-        fg.clone(),
-        fg_dim.clone(),
         colors,
-        None,
-        None,
-        None,
+        KdeColorState {
+            bg: rgb(&colors.bg1),
+            bg_alt: rgb(&colors.bg2),
+            fg: fg.clone(),
+            fg_inactive: fg_dim.clone(),
+        },
         None,
     );
     write_kde_color_states(
         config,
         "Colors:View",
-        rgb(&colors.bg),
-        rgb(&colors.bg),
-        fg.clone(),
-        fg_dim.clone(),
         colors,
-        None,
-        None,
-        None,
+        KdeColorState {
+            bg: rgb(&colors.bg),
+            bg_alt: rgb(&colors.bg),
+            fg: fg.clone(),
+            fg_inactive: fg_dim.clone(),
+        },
         None,
     );
     write_kde_color_states(
         config,
         "Colors:Button",
-        rgb(&colors.bg1),
-        rgb(&colors.bg2),
-        fg.clone(),
-        fg_dim.clone(),
         colors,
-        None,
-        None,
-        None,
+        KdeColorState {
+            bg: rgb(&colors.bg1),
+            bg_alt: rgb(&colors.bg2),
+            fg: fg.clone(),
+            fg_inactive: fg_dim.clone(),
+        },
         None,
     );
     write_kde_color_states(
         config,
         "Colors:Selection",
-        rgb(&colors.accent),
-        rgb(&colors.accent),
-        fg.clone(),
-        rgb(&colors.fg2),
         colors,
-        Some(rgb(&colors.bg2)),
-        Some(rgb(&colors.bg2)),
-        Some(fg.clone()),
-        Some(rgb(&colors.fg3)),
+        KdeColorState {
+            bg: rgb(&colors.accent),
+            bg_alt: rgb(&colors.accent),
+            fg: fg.clone(),
+            fg_inactive: rgb(&colors.fg2),
+        },
+        Some(KdeColorState {
+            bg: rgb(&colors.bg2),
+            bg_alt: rgb(&colors.bg2),
+            fg: fg.clone(),
+            fg_inactive: rgb(&colors.fg3),
+        }),
     );
     write_kde_color_states(
         config,
         "Colors:Tooltip",
-        rgb(&colors.bg1),
-        rgb(&colors.bg),
-        fg.clone(),
-        fg_dim.clone(),
         colors,
-        None,
-        None,
-        None,
+        KdeColorState {
+            bg: rgb(&colors.bg1),
+            bg_alt: rgb(&colors.bg),
+            fg: fg.clone(),
+            fg_inactive: fg_dim.clone(),
+        },
         None,
     );
     write_kde_color_states(
         config,
         "Colors:Complementary",
-        rgb(&colors.bg_dim),
-        rgb(&colors.bg),
-        fg.clone(),
-        fg_dim.clone(),
         colors,
-        None,
-        None,
-        None,
+        KdeColorState {
+            bg: rgb(&colors.bg_dim),
+            bg_alt: rgb(&colors.bg),
+            fg: fg.clone(),
+            fg_inactive: fg_dim.clone(),
+        },
         None,
     );
     write_kde_color_states(
         config,
         "Colors:Header",
-        rgb(&colors.bg1),
-        rgb(&colors.bg2),
-        fg.clone(),
-        fg_dim.clone(),
         colors,
-        None,
-        None,
-        None,
+        KdeColorState {
+            bg: rgb(&colors.bg1),
+            bg_alt: rgb(&colors.bg2),
+            fg: fg.clone(),
+            fg_inactive: fg_dim.clone(),
+        },
         None,
     );
 

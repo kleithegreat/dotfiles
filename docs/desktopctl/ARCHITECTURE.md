@@ -2,47 +2,62 @@
 
 ## Scope
 
-Current implementation state for the Phase 6 theme-CLI wiring on top of the
-Phase 5 theming target ports, plus the Phase 3 daemon, focus, and solar work
-as of 2026-04-03.
+Current implementation state for the unified `desktopctl` binary and its repo
+integration as of 2026-04-03.
 
 ## Current Crate Layout
 
 | Piece | Current implementation |
 | --- | --- |
-| Crate manifest | `desktopctl/Cargo.toml:1-12` defines the binary crate, keeps the Rust 2024 edition, and now enables `serde_json`'s `preserve_order` feature alongside `chrono`, `clap`, `tokio`, `serde`, and `rusqlite` so theme-state saves and JSON concat targets can keep Python-compatible key ordering. |
-| CLI dispatch | `desktopctl/src/main.rs:13-255` defines the full clap tree for `daemon`, `theme`, `brightness`, `hypr`, `launch-quickshell`, `portal`, and `sun`; `desktopctl/src/main.rs:197-220` now suppresses intentionally-empty reported errors and dispatches `theme` to the new Rust theme runner instead of the placeholder. |
-| Path helpers | `desktopctl/src/paths.rs:9-75` resolves the repo root from `DESKTOPCTL_REPO` or `$HOME/repos/dotfiles`, and provides the shared XDG path fallbacks used by the daemon, theme CLI, solar code, and launch helper. |
-| Theme schema | `desktopctl/src/theme/schema.rs:14-422` ports the Python theme dataclasses: `ColorScheme` keeps the nested `colors` JSON wire format through custom serde while exposing flat fields to Rust code, and `ThemeState` now preserves unknown keys via `#[serde(flatten)]`, exposes the mono-font-offset helper methods, and can rebuild `state.json` in Python field order. |
-| Theme resolution | `desktopctl/src/theme/resolve.rs:11-365` resolves `themes/colors/` and `themes/state.json` under the repo root, validates color JSON and state JSON with the same required-key and type checks as the Python resolver, and writes `state.json` with stable 2-space pretty-printing plus a trailing newline. |
-| Theme CLI entry layer | `desktopctl/src/theme/mod.rs:60-829` now ports the `themes/apply-theme` command surface into Rust: it dispatches every theme subcommand, mirrors Python-style success/error messages, loads and validates `themes/state.json`, normalizes `set` / `preset` payloads against the schema, saves ordered preset/state JSON, and emits the new `--json` array/object shapes for Quickshell's list and status processes. `desktopctl/src/theme/mod.rs:68-89` also exposes `set_dark_hint()` for the daemon. |
-| Theme shared helpers | `desktopctl/src/theme/mod.rs:92-132` still centralizes `~` expansion, command execution, and PATH lookup for target hooks, while `desktopctl/src/theme/json.rs:1-182` adds Python-compatible JSON serialization with preserved object order, 2-space pretty printing, and `ensure_ascii=True` escaping for JSON targets and concat merges. |
-| Theme orchestrator | `desktopctl/src/theme/orchestrator.rs:54-228` ports the dependency map, generated-file header, all four assembly strategies (`import`, `standalone`, `concat`, `command`), Python-compatible JSON concat merges, post-write `persist()` hooks, best-effort runtime reload hooks, `targets_for_key()`'s wallpaper special case, `SYNC_SAFE` filtering, the Python target ordering that runs file writers before command targets, and now a quiet apply path for daemon-owned state changes. |
-| Theme target registry | `desktopctl/src/theme/targets/mod.rs:1-309` replaces Python auto-discovery with a typed registry API, metadata validation, a function-pointer-backed `FunctionTarget`, and a hand-written `build_registry()` that registers all 19 ported targets with their `persist()` / `on_apply()` hooks. |
-| Theme target generators | Import targets live in `desktopctl/src/theme/targets/alacritty.rs:1-67`, `desktopctl/src/theme/targets/tmux.rs:1-50`, and `desktopctl/src/theme/targets/zathura.rs:1-62`; standalone targets live in `desktopctl/src/theme/targets/bat.rs:1-34`, `desktopctl/src/theme/targets/cursor.rs:1-222`, `desktopctl/src/theme/targets/hypr_appearance.rs:1-57`, `desktopctl/src/theme/targets/hyprland.rs:1-92`, `desktopctl/src/theme/targets/neovide.rs:1-21`, `desktopctl/src/theme/targets/neovim.rs:1-34`, `desktopctl/src/theme/targets/qt.rs:1-956`, `desktopctl/src/theme/targets/quickshell.rs:1-86`, and `desktopctl/src/theme/targets/spicetify.rs:1-146`; concat targets live in `desktopctl/src/theme/targets/ghostty.rs:1-30`, `desktopctl/src/theme/targets/snappy_switcher.rs:1-114`, `desktopctl/src/theme/targets/starship.rs:1-102`, `desktopctl/src/theme/targets/vicinae.rs:1-69`, and `desktopctl/src/theme/targets/vscode.rs:1-126`; command targets live in `desktopctl/src/theme/targets/gtk.rs:1-75` and `desktopctl/src/theme/targets/wallpaper.rs:1-363`. The ports keep the Python output formatting, path ownership, runtime hooks, cache-key logic, VS Code SQLite repair, and Qt/KDE/Kvantum side-file generation behavior. |
-| Hyprland helpers | `desktopctl/src/hypr.rs:27-88` keeps the shared `hyprctl` wrappers (`active_window()`, `dispatch()`, `batch()`, `keyword()`, `socket2_path()`) used by both `hypr toggle-float` and the daemon subsystems. |
-| Focus tracker | `desktopctl/src/daemon/focus.rs:20-145`, `desktopctl/src/daemon/focus.rs:148-418`, `desktopctl/src/daemon/focus.rs:422-773` port `scripts/focus-daemon.py`: a one-second accumulator loop writes `daily_totals`, `hourly_totals`, and `minute_totals` in SQLite, a background listener follows `activewindow>>` events on Hyprland's `.socket2.sock`, desktop entries are indexed by `StartupWMClass` and file stem, and the summary is serialized to Python-compatible JSON before an atomic temp-file rename to `focustime_state.json`. |
-| Shared solar module | `desktopctl/src/solar.rs:48-259` provides the NOAA `sun_times()` port, cached-location / `where-am-i` / hardcoded fallback resolution, current-state computation, next-event selection, and the human-readable `sun status` report used by the CLI. |
-| Daemon supervisor | `desktopctl/src/daemon/mod.rs:19-100` builds a tokio runtime on demand for `desktopctl daemon`, spawns the focus tracker, solar scheduler, and socket server concurrently, and converts `SIGTERM` / `SIGINT` into a coordinated shutdown signal for all three tasks. |
-| Solar scheduler | `desktopctl/src/daemon/solar.rs:12-99` recomputes solar status on a two-hour cadence or `SIGUSR1`, sleeps until the next sunrise / sunset / 23:00 dark-on event, starts or stops `hyprsunset`, and now updates `dark_hint` through `theme::set_dark_hint()` instead of shelling out to `themes/apply-theme`. |
-| Socket server | `desktopctl/src/daemon/server.rs:16-94` binds `$XDG_RUNTIME_DIR/desktopctl.sock`, removes stale socket files on startup, accepts newline-delimited JSON requests, answers `ping` with `{"ok":true,"data":{"pong":true}}`, and returns structured errors for unsupported or invalid requests. |
-| Existing Phase 1 ports | `desktopctl/src/brightness.rs:37-218`, `desktopctl/src/launch.rs:13-108`, and `desktopctl/src/portal.rs:14-195` remain the active ports for the shell-script and Python helpers completed before the daemon work. |
+| Crate manifest and packaging | `desktopctl/Cargo.toml:1-12` defines the binary crate; `desktopctl/default.nix:1-15`, `overlays/desktopctl.nix:1-3`, and `flake.nix:62-71` package it as a flake-exposed Nix derivation. |
+| CLI dispatch | `desktopctl/src/main.rs:13-255` defines the full clap tree for `daemon`, `theme`, `brightness`, `hypr`, `launch-quickshell`, `portal`, and `sun`, and routes each command to the live Rust implementation. |
+| Shared path helpers | `desktopctl/src/paths.rs:6-70` resolves the repo root from `DESKTOPCTL_REPO` or `~/repos/dotfiles` and provides shared XDG home/runtime fallbacks for every subsystem. |
+| Theme schema and validation | `desktopctl/src/theme/schema.rs:5-92`, `desktopctl/src/theme/schema.rs:94-245`, and `desktopctl/src/theme/resolve.rs:11-224` define the `ColorScheme` and `ThemeState` contract, preserve Python-compatible field ordering, validate `themes/colors/*.json` and `themes/state.json`, and rewrite `state.json` with stable formatting. |
+| Theme JSON compatibility | `desktopctl/src/theme/json.rs:4-142` implements Python-style JSON rendering, including preserved object order, 2-space indentation, compact object spacing, and `ensure_ascii=True` escaping used by generated JSON targets and Quickshell-facing CLI output. |
+| Theme CLI surface | `desktopctl/src/theme/mod.rs:61-447` implements the migrated `desktopctl theme` command surface, including `all`, `sync`, scoped apply commands, `set`, `preset`, preset-file management, and `status` / `list-*` inspection output. `desktopctl/src/theme/mod.rs:752-908` adds the filename-ordered JSON list helpers, Python-compatible JSON parse error text, and shared state-update normalization used by the parity audit. |
+| Theme orchestration | `desktopctl/src/theme/orchestrator.rs:47-228` and `desktopctl/src/theme/orchestrator.rs:230-383` own generated-file headers, assembly strategies, sync-safe filtering, dependency selection, ordered target application, concat merges, post-write hooks, and best-effort runtime reloads. |
+| Theme target registry | `desktopctl/src/theme/targets/mod.rs:24-230` and `desktopctl/src/theme/targets/mod.rs:232-315` replace Python auto-discovery with a typed registry and hand-registered target set for all 19 migrated theme targets. |
+| Theme targets | File-writing targets live under `desktopctl/src/theme/targets/*.rs`; notable runtime-heavy ports include `desktopctl/src/theme/targets/cursor.rs:11-221`, `desktopctl/src/theme/targets/gtk.rs:5-71`, `desktopctl/src/theme/targets/qt.rs:15-99`, `desktopctl/src/theme/targets/quickshell.rs:8-85`, and `desktopctl/src/theme/targets/wallpaper.rs:13-220`. |
+| Hyprland helpers | `desktopctl/src/hypr.rs:11-92` wraps `hyprctl activewindow -j`, `hyprctl dispatch`, `hyprctl --batch`, and `.socket2.sock` path discovery for both the Hypr CLI and the daemon. |
+| Focus tracker | `desktopctl/src/daemon/focus.rs:20-145`, `desktopctl/src/daemon/focus.rs:148-418`, and `desktopctl/src/daemon/focus.rs:455-768` implement the live focus subsystem: one-second SQLite accumulation, desktop-entry resolution, Hyprland socket listening, and atomic JSON summary writes. |
+| Shared solar logic | `desktopctl/src/solar.rs:48-160` and `desktopctl/src/solar.rs:215-259` resolve cached or GeoClue coordinates, compute sunrise/sunset with the NOAA-derived port, and expose `sun status` plus next-event selection. |
+| Daemon supervisor | `desktopctl/src/daemon/mod.rs:19-100` starts the focus tracker, solar scheduler, and Unix-socket server under one tokio runtime and coordinates clean shutdown on `SIGTERM` / `SIGINT`. |
+| Solar scheduler | `desktopctl/src/daemon/solar.rs:12-99` replaces the old systemd timer script chain with an in-process scheduler that applies the current solar state immediately, sleeps until the next sunrise / sunset / 23:00 event or 2-hour repair tick, drives `hyprsunset`, and updates `dark_hint` through `theme::set_dark_hint()`. |
+| Existing helper ports | `desktopctl/src/brightness.rs`, `desktopctl/src/launch.rs`, and `desktopctl/src/portal.rs` remain the active ports for brightness stepping/dimming, Quickshell launch env export, and the directory picker helper. |
 
-## CLI Surface
+## Repo Integration
 
-| Area | Current implementation |
+| Surface | Current implementation |
 | --- | --- |
-| Theme CLI | `desktopctl/src/main.rs:46-118`, `desktopctl/src/main.rs:197-220`, and `desktopctl/src/theme/mod.rs:134-829` now implement the full `desktopctl theme` surface: apply scopes, single-target dispatch, schema-aware `set` / `preset` / preset-file management, human-readable status/list output, and the new Quickshell-facing `--json` modes for `list-schemes`, `list-presets`, and `status`. |
-| Daemon CLI | `desktopctl/src/main.rs:28-43`, `desktopctl/src/main.rs:210-220`, and `desktopctl/src/daemon/mod.rs:19-100` make `desktopctl daemon` the foreground entry point for the new tokio-based daemon. |
-| Sun CLI | `desktopctl/src/main.rs:182-192`, `desktopctl/src/main.rs:252-255`, and `desktopctl/src/solar.rs:48-72` implement `desktopctl sun status` as an independent status computation path; it does not query the placeholder socket server yet. |
-| Brightness CLI | `desktopctl/src/main.rs:120-146` plus `desktopctl/src/brightness.rs:37-218` still implement `up`, `down`, `dim`, `restore`, and `seed`, with optional `--device <DEVICE>` overrides. |
-| Hypr CLI | `desktopctl/src/main.rs:149-159`, `desktopctl/src/main.rs:234-237`, and `desktopctl/src/hypr.rs:59-72` still dispatch `hypr toggle-float` to the shared Hyprland helpers. |
-| Launch CLI | `desktopctl/src/main.rs:162-166`, `desktopctl/src/main.rs:213-220`, and `desktopctl/src/launch.rs:13-38` still implement `launch-quickshell --print-env` and the final `exec quickshell -p ...` handoff. |
-| Portal CLI | `desktopctl/src/main.rs:169-179`, `desktopctl/src/main.rs:240-249`, and `desktopctl/src/portal.rs:14-195` still implement `portal pick-directory` with the `dbus-monitor` plus `busctl` subprocess strategy. |
+| Nix overlay and package wiring | `system/configuration.nix:5-8` imports the `desktopctl` overlay, `system/configuration.nix:159-162` applies it globally, and `overlays/march-optimized.nix:167-170` optionally rebuilds `desktopctl` with march tuning. |
+| Home Manager install and activation | `home/default.nix:33-45` adds `desktopctl` to `home.packages`, and `home/default.nix:310-312` now runs `desktopctl theme sync` during Home Manager activation. |
+| Quickshell settings host | `config/quickshell/popups/SettingsPopup.qml:158-223` reads theme state, scheme lists, and presets through `desktopctl theme ... --json`; `config/quickshell/popups/SettingsPopup.qml:553-672` sends all theme mutations through `desktopctl theme set`, `preset`, `save-preset`, and `delete-preset`. |
+| Quickshell shell IPC | `config/quickshell/shell.qml:294-306` rewires the shell-level `theme.apply` IPC path to `desktopctl theme ...`. |
+| Hyprland autostart | `config/hypr/autostart.conf:4-8` now seeds the brightness cache, launches `desktopctl daemon`, and launches Quickshell through `desktopctl launch-quickshell`. |
+| Hyprland keybinds and idle hooks | `config/hypr/keybinds.conf:12-13`, `config/hypr/keybinds.conf:62-63`, and `config/hypr/keybinds.conf:90-91` use `desktopctl hypr toggle-float`, `desktopctl brightness`, and `desktopctl launch-quickshell`; `config/hypr/hypridle.conf:7-12` uses `desktopctl brightness dim` / `restore`. |
+
+## Migration Status
+
+- The Python theming entry point and package are gone: `themes/apply-theme` and
+  `themes/lib/` have been removed.
+- The legacy session scripts have been removed: `scripts/focus-daemon.py`,
+  `scripts/sun-schedule`, `scripts/brightness-step.sh`,
+  `scripts/dim-screen.sh`, `scripts/toggle-float.sh`, and
+  `scripts/launch-quickshell.sh` are no longer part of the repo.
+- The Quickshell directory picker helper and the Home Manager
+  `sun-schedule` module are gone: `config/quickshell/scripts/dir-picker.py`
+  and `home/sun-schedule.nix` were removed after the migration completed.
 
 ## Verification
 
-- `XDG_CACHE_HOME=/tmp nix develop -c cargo test` succeeds from `desktopctl/`; the suite now covers dependency-map filtering, sync-safe target filtering, live deserialization of `themes/state.json` and `themes/colors/gruvbox-dark.json`, Python-matching `state.json` serialization, Python-compatible JSON escaping, the new CLI normalization helpers in `desktopctl/src/theme/mod.rs`, full registry coverage for all 19 targets, and deterministic generator output checks for representative import, standalone, concat, and command targets.
-- `./target/debug/desktopctl theme status` and `./target/debug/desktopctl theme status --json` both exit successfully from `desktopctl/` and load the live `themes/state.json` contents; `./target/debug/desktopctl theme list-schemes --json` and `./target/debug/desktopctl theme list-presets --json` produce the array shapes expected by the Phase 1 Quickshell replacement.
-- `./target/debug/desktopctl sun status` runs successfully and prints location, sunrise/sunset, current dark state, and next events using the shared Rust solar module.
-- The full daemon was not exercised against a live Hyprland session in this update, so the focus socket listener, `hyprlock` detection, `hyprsunset` control, and the new in-process `dark_hint` integration were verified by code inspection and compilation, not by an end-to-end session run.
+- A target-by-target audit compared `desktopctl theme target <name>` against the
+  removed Python implementation for all 19 migrated theme targets using the same
+  `themes/state.json`; no byte-level output differences remain.
+- The CLI parity audit covered `theme set`, `preset`, `save-preset`, and
+  `delete-preset`, including exit codes, stdout/stderr text, and resulting
+  `themes/state.json` / preset JSON content. The only mismatch found was the
+  invalid-JSON `save-preset` error string, which is now fixed in Rust.
+- The Quickshell-facing JSON modes now match the documented shapes and ordering:
+  `theme status --json` mirrors `themes/state.json`, `theme list-presets --json`
+  matches the preset-file inventory, and `theme list-schemes --json` matches the
+  filename-ordered scheme list that QML previously built manually.

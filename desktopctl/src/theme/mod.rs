@@ -1,4 +1,5 @@
 use crate::paths;
+use serde_json::error::Category as JsonErrorCategory;
 use serde_json::{Map, Value};
 use std::{
     env, fs, io,
@@ -300,7 +301,7 @@ fn cmd_preset(args: crate::NamedArg) -> CliResult<()> {
 
 fn cmd_save_preset(args: crate::SavePresetArgs) -> CliResult<()> {
     let (preset_name, preset_path) = map_user_err(preset_path(&args.name))?;
-    let payload: Value = serde_json::from_str(&args.payload).map_err(CliFailure::from_error)?;
+    let payload = map_user_err(parse_json_value(&args.payload))?;
     let preset = map_user_err(normalize_theme_patch(
         payload,
         &format!("preset '{}'", preset_name),
@@ -339,7 +340,11 @@ fn cmd_delete_preset(args: crate::NamedArg) -> CliResult<()> {
 
 fn cmd_list_schemes(json_output: bool) -> CliResult<()> {
     let colors_dir = map_user_err(resolve::colors_dir())?;
-    let schemes = map_user_err(json_file_stems(&colors_dir))?;
+    let schemes = if json_output {
+        map_user_err(json_file_stems_by_filename(&colors_dir))?
+    } else {
+        map_user_err(json_file_stems(&colors_dir))?
+    };
 
     if !json_output {
         if schemes.is_empty() {
@@ -377,7 +382,11 @@ fn cmd_list_schemes(json_output: bool) -> CliResult<()> {
 
 fn cmd_list_presets(json_output: bool) -> CliResult<()> {
     let presets_dir = map_user_err(presets_dir())?;
-    let presets = map_user_err(json_file_stems(&presets_dir))?;
+    let presets = if json_output {
+        map_user_err(json_file_stems_by_filename(&presets_dir))?
+    } else {
+        map_user_err(json_file_stems(&presets_dir))?
+    };
 
     if !json_output {
         if presets.is_empty() {
@@ -732,10 +741,31 @@ fn available_presets() -> crate::Result<Vec<String>> {
 }
 
 fn json_file_stems(dir: &Path) -> io::Result<Vec<String>> {
-    let mut stems = Vec::new();
+    json_file_stems_with(dir, |path| {
+        path.file_stem()
+            .and_then(|stem| stem.to_str())
+            .unwrap_or_default()
+            .to_owned()
+    })
+}
+
+fn json_file_stems_by_filename(dir: &Path) -> io::Result<Vec<String>> {
+    json_file_stems_with(dir, |path| {
+        path.file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or_default()
+            .to_owned()
+    })
+}
+
+fn json_file_stems_with<F>(dir: &Path, sort_key: F) -> io::Result<Vec<String>>
+where
+    F: Fn(&Path) -> String,
+{
+    let mut stems: Vec<(String, String)> = Vec::new();
     let entries = match fs::read_dir(dir) {
         Ok(entries) => entries,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(stems),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
         Err(error) => return Err(error),
     };
 
@@ -744,26 +774,19 @@ fn json_file_stems(dir: &Path) -> io::Result<Vec<String>> {
         if path
             .extension()
             .is_some_and(|extension| extension == "json")
+            && let Some(stem) = path.file_stem().and_then(|stem| stem.to_str())
         {
-            if let Some(stem) = path.file_stem().and_then(|stem| stem.to_str()) {
-                stems.push(stem.to_owned());
-            }
+            stems.push((sort_key(&path), stem.to_owned()));
         }
     }
 
-    stems.sort();
-    Ok(stems)
+    stems.sort_by(|left, right| left.0.cmp(&right.0));
+    Ok(stems.into_iter().map(|(_, stem)| stem).collect())
 }
 
 fn read_json_file(path: &Path) -> crate::Result<Value> {
     let text = fs::read_to_string(path)?;
-    serde_json::from_str(&text).map_err(|error| {
-        io::Error::new(
-            io::ErrorKind::InvalidData,
-            format!("Invalid JSON in {}: {error}", path.display()),
-        )
-        .into()
-    })
+    parse_json_value(&text)
 }
 
 fn print_json_value(value: &Value) {
@@ -813,6 +836,96 @@ fn python_string_repr(value: &str) -> String {
 
 fn python_bool(value: bool) -> &'static str {
     if value { "True" } else { "False" }
+}
+
+fn parse_json_value(text: &str) -> crate::Result<Value> {
+    serde_json::from_str(text).map_err(|error| {
+        io::Error::new(io::ErrorKind::InvalidData, python_json_error(text, &error)).into()
+    })
+}
+
+fn python_json_error(text: &str, error: &serde_json::Error) -> String {
+    if let Some(message) = leading_value_error(text) {
+        return message;
+    }
+
+    let line = error.line();
+    let column = error.column();
+    let offset = json_char_offset(text, line, column);
+
+    let message = match error.classify() {
+        JsonErrorCategory::Syntax | JsonErrorCategory::Eof => {
+            if error.to_string().starts_with("expected value") {
+                "Expecting value".to_owned()
+            } else {
+                error.to_string()
+            }
+        }
+        _ => error.to_string(),
+    };
+
+    format!("{message}: line {line} column {column} (char {offset})")
+}
+
+fn leading_value_error(text: &str) -> Option<String> {
+    let (offset, first) = text
+        .char_indices()
+        .find(|(_, character)| !character.is_whitespace())?;
+    let invalid = match first {
+        't' => !text[offset..].starts_with("true"),
+        'f' => !text[offset..].starts_with("false"),
+        'n' => !text[offset..].starts_with("null"),
+        _ => false,
+    };
+
+    if !invalid {
+        return None;
+    }
+
+    let (line, column) = line_column_for_offset(text, offset);
+    Some(format!(
+        "Expecting value: line {line} column {column} (char {offset})"
+    ))
+}
+
+fn json_char_offset(text: &str, line: usize, column: usize) -> usize {
+    if line == 0 || column == 0 {
+        return 0;
+    }
+
+    let mut current_line = 1;
+    let mut current_column = 1;
+
+    for (offset, character) in text.char_indices() {
+        if current_line == line && current_column == column {
+            return offset;
+        }
+
+        if character == '\n' {
+            current_line += 1;
+            current_column = 1;
+        } else {
+            current_column += 1;
+        }
+    }
+
+    text.len()
+}
+
+fn line_column_for_offset(text: &str, offset: usize) -> (usize, usize) {
+    let mut line = 1;
+    let mut column = 1;
+
+    for character in text[..offset].chars() {
+        if character == '\n' {
+            line += 1;
+            column = 1;
+        } else {
+            column += 1;
+        }
+    }
+
+    (line, column)
 }
 
 fn map_user_err<T, E>(result: Result<T, E>) -> CliResult<T>

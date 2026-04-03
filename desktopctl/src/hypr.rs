@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use crate::paths;
 use serde::Deserialize;
 use std::{
@@ -8,30 +6,26 @@ use std::{
     process::{Command, Output},
 };
 
-pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct WindowInfo {
+pub(crate) struct WindowInfo {
     #[serde(default)]
-    pub class: String,
+    pub(crate) class: String,
     #[serde(rename = "initialClass", default)]
-    pub initial_class: String,
+    pub(crate) initial_class: String,
     #[serde(default)]
-    pub title: String,
-    #[serde(rename = "initialTitle", default)]
-    pub initial_title: String,
-    #[serde(default)]
-    pub floating: bool,
+    floating: bool,
 }
 
 /// Query Hyprland for the currently active window.
-pub fn active_window() -> Result<WindowInfo> {
+pub(crate) fn active_window() -> Result<WindowInfo> {
     let output = hyprctl_output(&["activewindow", "-j"])?;
     Ok(serde_json::from_slice(&output.stdout)?)
 }
 
 /// Run `hyprctl dispatch ...`.
-pub fn dispatch(args: &[&str]) -> Result<()> {
+pub(crate) fn dispatch(args: &[&str]) -> Result<()> {
     let mut command_args = Vec::with_capacity(args.len() + 1);
     command_args.push("dispatch");
     command_args.extend(args.iter().copied());
@@ -40,7 +34,7 @@ pub fn dispatch(args: &[&str]) -> Result<()> {
 }
 
 /// Run `hyprctl --batch ...`.
-pub fn batch(commands: &[&str]) -> Result<()> {
+fn batch(commands: &[&str]) -> Result<()> {
     if commands.is_empty() {
         return Ok(());
     }
@@ -50,14 +44,8 @@ pub fn batch(commands: &[&str]) -> Result<()> {
     Ok(())
 }
 
-/// Run `hyprctl keyword <key> <value>`.
-pub fn keyword(key: &str, value: &str) -> Result<()> {
-    hyprctl_output(&["keyword", key, value])?;
-    Ok(())
-}
-
 /// Toggle floating and resize/center windows when promoting from tiled mode.
-pub fn toggle_float() -> Result<()> {
+pub(crate) fn toggle_float() -> Result<()> {
     let window = active_window()?;
     if window.floating {
         dispatch(&["togglefloating"])?;
@@ -73,7 +61,7 @@ pub fn toggle_float() -> Result<()> {
 }
 
 /// Return the Hyprland event-socket path used by the focus daemon.
-pub fn socket2_path() -> Result<PathBuf> {
+pub(crate) fn socket2_path() -> Result<PathBuf> {
     let signature = env::var("HYPRLAND_INSTANCE_SIGNATURE").map_err(|_| {
         io::Error::new(
             io::ErrorKind::NotFound,
