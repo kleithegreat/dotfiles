@@ -26,6 +26,6 @@
 
 ## The scheduler still depends on helper tools being on `PATH`
 **Symptom:** Solar state recomputes, but location lookup or night-light application silently falls back or does nothing.
-**Cause:** The daemon invokes `timeout`, `where-am-i`, `hyprctl`, `hyprsunset`, `pgrep`, and `pkill` by name.
+**Cause:** The daemon invokes `timeout`, `where-am-i`, `hyprctl`, `hyprsunset`, `ps`, and `pkill` by name.
 **Status:** Current behavior
 **Resolution:** Keep the required tools in the user environment and debug the daemon under the same session `PATH` that Hyprland uses.

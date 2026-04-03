@@ -12,6 +12,7 @@ for the current implementation map.
 - Drive `hyprsunset` from sunrise and sunset in local time.
 - Drive the scheduled `dark_hint` value without creating a second theme-state
   store.
+- Support a non-persistent manual override with explicit arbitration.
 - Keep schedule repair and coordinate fallback deterministic.
 
 Non-goals:
@@ -24,27 +25,47 @@ Non-goals:
 
 | Concern | Owner | Contract |
 | --- | --- | --- |
-| Solar-time policy | `desktopctl daemon` solar subsystem | The scheduler decides when sunrise, sunset, and the nightly dark-hint threshold occur. |
-| Automated `hyprsunset` writes | `desktopctl daemon` solar subsystem | Scheduled start/stop of `hyprsunset` belongs to this domain. Other components may observe state, but parallel direct writers are out of spec and must be treated as conflicts. |
-| Scheduled `dark_hint` value | `desktopctl daemon` solar subsystem | The scheduler decides when the time-based value should be `true` or `false`. |
-| `dark_hint` persistence | The theming pipeline via `desktopctl theme` | `desktopctl theme` is the only supported writer of the persisted theme state in `desktopctl.db`. Callers request a change; they do not edit storage directly. |
+| Solar-time policy | `desktopctl daemon` solar subsystem | The scheduler decides when sunrise, sunset, and the nightly dark-hint threshold occur, and keeps that schedule current even while an override is active. |
+| Night-light override policy | `desktopctl daemon` night-light controller | The daemon owns the live override mode (`auto`, `on`, `off`) plus the in-session manual temperature. The override resets to `auto` on daemon restart. |
+| Live `hyprsunset` lifecycle | `desktopctl daemon` night-light controller | The daemon is the only supported live writer of the `hyprsunset` process. Other components issue requests through `desktopctl`; they do not start, stop, or restart `hyprsunset` directly. |
+| Live `dark_hint` policy | `desktopctl daemon` night-light controller | In `auto`, the daemon applies the solar schedule's `dark_hint`. In `on`/`off`, the daemon applies the user's override. |
+| `dark_hint` persistence | The theming pipeline via `desktopctl theme` | `desktopctl theme` remains the only supported writer of the persisted `theme_state.dark_hint` row in `desktopctl.db`, but direct `dark_hint` requests may be mediated by the daemon before persistence occurs. |
 | GTK dark-preference side effects | The theming pipeline | The `gtk` target owns the resulting dconf writes for `gtk-theme` and `color-scheme`. |
-| Shell display UI | Quickshell | The shell may surface status or request supported mutations, but it is not the authoritative solar scheduler. |
+| Shell and keybind surfaces | Quickshell and Hyprland config | The shell and keybinds may surface status or request supported mutations, but they are not authoritative state owners. |
 
 Invariants:
 
 - Time-based `hyprsunset` automation must not depend on Quickshell process
   lifetime.
-- Time-based `dark_hint` automation must go through `desktopctl theme`; it must
-  not introduce a second direct write path to the persisted theme state or GTK
-  dconf.
-- A future manual override model must add explicit arbitration. It must not
-  rely on two components writing `hyprsunset` independently.
+- Live `hyprsunset` and `dark_hint` state must have exactly one arbiter inside
+  `desktopctl daemon`.
+- Time-based `dark_hint` automation must still go through `desktopctl theme`;
+  it must not introduce a second direct write path to the persisted theme state
+  or GTK dconf.
+- Manual override state is intentionally non-persistent. A daemon restart
+  returns the mode to `auto`.
 
 ## Scheduled State Contract
 
 Solar automation uses local wall-clock time and timezone-aware sunrise/sunset
 values.
+
+### Effective mode contract
+
+| Mode | `hyprsunset` | `dark_hint` |
+| --- | --- | --- |
+| `auto` | Follows the scheduled time window below | Follows the scheduled time window below |
+| `on` | On at the current manual target temperature | `true` |
+| `off` | Off | `false` |
+
+Rules:
+
+- `toggle` switches between `on` and `off` based on the current `hyprsunset`
+  process state.
+- Switching to `auto` applies the current scheduled state immediately.
+- The override mode is not written to disk and does not survive daemon restarts.
+
+### `auto` schedule contract
 
 | Time window | `hyprsunset` | `dark_hint` |
 | --- | --- | --- |
@@ -54,8 +75,8 @@ values.
 
 Rules:
 
-- The scheduler must apply the current state immediately before waiting for the
-  next event.
+- The scheduler must compute the current scheduled state immediately before
+  waiting for the next event.
 - `sunset` only starts `hyprsunset`.
 - `sunrise` stops `hyprsunset` and clears `dark_hint`.
 - `dark-on` only enables `dark_hint`.
@@ -67,9 +88,9 @@ The active implementation uses one long-lived in-process scheduler inside
 
 | Trigger | Owner | Contract |
 | --- | --- | --- |
-| Initial reconcile | `desktopctl daemon` solar subsystem | Applies the correct current state immediately when the daemon starts. |
-| Next solar event sleep | `desktopctl daemon` solar subsystem | Waits until the next sunrise, sunset, or 23:00 dark-on event and applies it directly. |
-| Periodic repair tick | `desktopctl daemon` solar subsystem | Recomputes state every 2 hours to repair missed time or external drift. |
+| Initial reconcile | `desktopctl daemon` solar subsystem + night-light controller | Computes the current solar status immediately when the daemon starts, stores it, and reconciles the effective mode. |
+| Next solar event sleep | `desktopctl daemon` solar subsystem | Waits until the next sunrise, sunset, or 23:00 dark-on event, then recomputes solar status and lets the controller reconcile the effective mode. |
+| Periodic repair tick | `desktopctl daemon` solar subsystem + night-light controller | Recomputes solar status every 2 hours to repair missed time or external drift, then reapplies the effective mode. |
 | `SIGUSR1` recompute | `desktopctl daemon` solar subsystem | Forces an early recompute without restarting the daemon. |
 
 Invariants:
@@ -79,6 +100,8 @@ Invariants:
   or repair tick, not by Quickshell.
 - The scheduler does not depend on transient user units or Home Manager timer
   declarations.
+- Solar recomputation continues while the mode is `on` or `off` so status stays
+  current and returning to `auto` can apply immediately.
 
 ## Coordinate Resolution
 

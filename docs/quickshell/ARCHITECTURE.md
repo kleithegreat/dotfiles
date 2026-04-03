@@ -27,7 +27,7 @@ Managed popups mounted by the overlay host remain:
 | `AudioService.qml` | Volume, mute, sink summary, shared OSD state | Bar volume, audio pane, shell OSD, IPC |
 | `BluetoothService.qml` | Powered state, summary device data, full device/pairing flows | Bar Bluetooth, quick settings, Bluetooth pane |
 | `BrightnessService.qml` | Backlight discovery, watch, and writes | Display pane; shell brightness OSD still enters through `/tmp/quickshell-brightness` |
-| `DisplayService.qml` | Monitor refresh/apply and direct `hyprsunset` state | Display pane |
+| `DisplayService.qml` | Monitor refresh/apply and daemon-backed night-light status / override requests | Display pane |
 | `NetworkService.qml` | Wi-Fi summary, scans, known networks, diagnostics, DNS, captive portal, reporting | Bar network, quick settings, network pane |
 | `NotificationService.qml` | Popup/history models, DND, dismissal, relative-time refresh | Root notifications, drawer, bar bell, IPC |
 | `PowerProfileService.qml` | CPU profiles and supported battery controls | Power pane |
@@ -84,6 +84,5 @@ surface in `config/quickshell/Theme.qml:29-69`.
 - A backlight is discoverable under `/sys/class/backlight`.
 - `$XDG_RUNTIME_DIR/focustime_state.json` exists when the focus-time daemon is
   running.
-- CLI tools such as `nmcli`, `bluetoothctl`, `hyprctl`, `hyprsunset`,
-  `brightnessctl`, `mullvad`, `tailscale`, `busctl`, and related helpers are on
-  `PATH`.
+- CLI tools such as `nmcli`, `bluetoothctl`, `hyprctl`, `brightnessctl`,
+  `mullvad`, `tailscale`, `busctl`, and related helpers are on `PATH`.

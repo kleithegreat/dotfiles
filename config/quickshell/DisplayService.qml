@@ -9,26 +9,32 @@ QtObject {
     readonly property int nightLightMaxTemperature: 6500
     readonly property int nightLightDefaultTemperature: 4500
 
+    property string nightLightMode: "auto"
     property bool nightLightEnabled: false
-    property string nightLightArgs: ""
     property int nightLightTemperature: 0
     property int nightLightTargetTemperature: nightLightDefaultTemperature
     property string pendingNightLightAction: ""
-    property bool nightLightRestartPending: false
 
-    readonly property bool nightLightBusy: pendingNightLightAction !== "" || nightLightToggleProc.running
+    readonly property bool nightLightBusy: pendingNightLightAction !== "" || nightLightCommandProc.running
     readonly property real nightLightTemperatureFraction: (nightLightTargetTemperature - nightLightMinTemperature) / (nightLightMaxTemperature - nightLightMinTemperature)
     readonly property string nightLightTemperatureLabel: nightLightTargetTemperature + "K"
     readonly property string nightLightSubtitle: {
-        if (pendingNightLightAction === "enable")
-            return "Starting…";
-        if (pendingNightLightAction === "disable")
-            return "Stopping…";
+        if (pendingNightLightAction === "on")
+            return "Applying...";
+        if (pendingNightLightAction === "off")
+            return "Turning off...";
+        if (pendingNightLightAction === "auto")
+            return "Returning to schedule...";
+        if (nightLightMode === "auto") {
+            if (nightLightEnabled && nightLightTemperature > 0)
+                return "Auto " + nightLightTemperature + "K";
+            return "Auto";
+        }
         if (!nightLightEnabled)
             return "Off";
         if (nightLightTemperature > 0)
             return nightLightTemperature + "K";
-        return "Auto";
+        return "On";
     }
 
     function refresh() {
@@ -37,27 +43,23 @@ QtObject {
     }
 
     function refreshNightLight() {
-        if (!nightLightStatusProc.running)
-            nightLightStatusProc.running = true;
+        if (nightLightStatusProc.running)
+            return;
+
+        nightLightStatusProc.buf = "";
+        nightLightStatusProc.running = true;
     }
 
-    function updateNightLightState(args) {
-        let normalizedArgs = (args || "").trim();
-        nightLightEnabled = normalizedArgs !== "";
-        nightLightArgs = normalizedArgs;
-        nightLightTemperature = 0;
+    function updateNightLightState(data) {
+        let next = data || ({});
+        nightLightMode = next.mode || "auto";
+        nightLightEnabled = !!next.running;
+        nightLightTemperature = next.temperature || 0;
+        nightLightTargetTemperature = clampNightLightTemperature(next.target_temperature || nightLightDefaultTemperature);
 
-        if (nightLightEnabled) {
-            let match = normalizedArgs.match(/(?:^|\s)(?:-t|--temperature)\s+(\d+)/);
-            if (match) {
-                nightLightTemperature = parseInt(match[1], 10) || 0;
-                if (nightLightTemperature > 0)
-                    nightLightTargetTemperature = clampNightLightTemperature(nightLightTemperature);
-            }
-        }
-
-        if ((pendingNightLightAction === "enable" && nightLightEnabled)
-                || (pendingNightLightAction === "disable" && !nightLightEnabled)) {
+        if ((pendingNightLightAction === "on" && nightLightMode === "on")
+                || (pendingNightLightAction === "auto" && nightLightMode === "auto")
+                || (pendingNightLightAction === "off" && !nightLightEnabled)) {
             clearPendingNightLightAction();
         }
     }
@@ -72,33 +74,16 @@ QtObject {
         return Math.max(nightLightMinTemperature, Math.min(nightLightMaxTemperature, rounded));
     }
 
-    function queueNightLightApply() {
-        if (!nightLightEnabled)
-            return;
-
-        pendingNightLightAction = "enable";
-        nightLightPendingTimer.interval = 12000;
-        nightLightPendingTimer.restart();
-        nightLightApplyTimer.restart();
-    }
-
-    function startNightLightProcess() {
-        nightLightRunProc.command = [
-            "hyprsunset",
-            "-t",
-            nightLightTargetTemperature.toString()
-        ];
-        nightLightRunProc.running = true;
-        nightLightRefreshTimer.restart();
-    }
-
     function applyNightLightTemperature(value) {
         let clamped = clampNightLightTemperature(value);
-        if (clamped === nightLightTargetTemperature)
+        if (clamped === nightLightTargetTemperature && nightLightMode === "on")
             return;
 
         nightLightTargetTemperature = clamped;
-        queueNightLightApply();
+        pendingNightLightAction = "on";
+        nightLightPendingTimer.interval = 6000;
+        nightLightPendingTimer.restart();
+        nightLightApplyTimer.restart();
     }
 
     function setNightLightTemperatureFromFraction(value) {
@@ -108,32 +93,29 @@ QtObject {
     }
 
     function toggleNightLight(enabled) {
-        if (nightLightToggleProc.running)
+        if (nightLightCommandProc.running)
             return;
 
-        if (enabled === nightLightEnabled && pendingNightLightAction === "")
-            return;
+        nightLightApplyTimer.stop();
+        requestNightLightMode(enabled ? "on" : "off", enabled ? nightLightTargetTemperature : undefined);
+    }
 
-        pendingNightLightAction = enabled ? "enable" : "disable";
-        nightLightPendingTimer.interval = enabled ? 12000 : 3000;
+    function requestNightLightMode(mode, temperature) {
+        if (nightLightCommandProc.running)
+            return false;
+
+        pendingNightLightAction = mode;
+        nightLightPendingTimer.interval = mode === "off" ? 3000 : 6000;
         nightLightPendingTimer.restart();
 
-        if (enabled) {
-            if (nightLightRunProc.running)
-                return;
+        let command = ["desktopctl", "night-light", mode];
+        if (mode === "on" && temperature !== undefined && temperature !== null)
+            command = command.concat(["--temp", temperature.toString()]);
 
-            startNightLightProcess();
-            return;
-        }
-
-        nightLightRestartPending = false;
-        nightLightApplyTimer.stop();
-        if (nightLightRunProc.running)
-            nightLightRunProc.running = false;
-
-        nightLightToggleProc.command = ["pkill", "-x", "hyprsunset"];
-        nightLightToggleProc.running = true;
+        nightLightCommandProc.command = command;
+        nightLightCommandProc.running = true;
         nightLightRefreshTimer.restart();
+        return true;
     }
 
     // Monitor configuration
@@ -207,7 +189,7 @@ QtObject {
     }
 
     property Timer nightLightPendingTimer: Timer {
-        interval: 12000
+        interval: 6000
         onTriggered: {
             display.clearPendingNightLightAction();
             display.refreshNightLight();
@@ -217,71 +199,42 @@ QtObject {
     property Timer nightLightApplyTimer: Timer {
         interval: 120
         onTriggered: {
-            if (!display.nightLightEnabled)
-                return;
-
-            if (display.nightLightRunProc.running) {
-                display.nightLightRestartPending = true;
-                display.nightLightRunProc.running = false;
-            } else {
-                display.startNightLightProcess();
-            }
+            if (!display.requestNightLightMode("on", display.nightLightTargetTemperature))
+                display.nightLightApplyTimer.restart();
         }
     }
 
     property Process nightLightStatusProc: Process {
-        command: [
-            "sh",
-            "-lc",
-            "if pgrep -x hyprsunset >/dev/null 2>&1; then " +
-            "args=$(ps -C hyprsunset -o args= 2>/dev/null | head -n 1); " +
-            "printf 'ON|%s\\n' \"$args\"; " +
-            "else printf 'OFF\\n'; fi"
-        ]
+        command: ["desktopctl", "night-light", "status", "--json"]
         running: false
+        property string buf: ""
         stdout: SplitParser {
-            onRead: (line) => {
-                if (line.startsWith("ON|"))
-                    display.updateNightLightState(line.substring(3) || "hyprsunset");
-                else
-                    display.updateNightLightState("");
-            }
+            onRead: (line) => { nightLightStatusProc.buf += line; }
+        }
+        stderr: SplitParser {
+            onRead: (line) => { console.log("[desktopctl night-light status stderr]", line); }
         }
         onExited: (code) => {
-            if (code !== 0)
-                display.updateNightLightState("");
+            if (code === 0 && buf.trim() !== "") {
+                try {
+                    display.updateNightLightState(JSON.parse(buf));
+                } catch (e) {
+                    console.log("[DisplayService] night-light parse error:", e);
+                }
+            }
+            buf = "";
         }
     }
 
-    property Process nightLightToggleProc: Process {
+    property Process nightLightCommandProc: Process {
         running: false
+        stderr: SplitParser {
+            onRead: (line) => { console.log("[desktopctl night-light stderr]", line); }
+        }
         onExited: (code) => {
             if (code !== 0)
                 display.clearPendingNightLightAction();
             display.nightLightRefreshTimer.restart();
-        }
-    }
-
-    property Process nightLightRunProc: Process {
-        running: false
-        stdout: SplitParser {
-            onRead: (line) => { console.log("[hyprsunset stdout]", line); }
-        }
-        stderr: SplitParser {
-            onRead: (line) => { console.log("[hyprsunset stderr]", line); }
-        }
-        onExited: (code, status) => {
-            console.log("[hyprsunset exited]", code, status);
-            if (display.nightLightRestartPending) {
-                display.nightLightRestartPending = false;
-                display.startNightLightProcess();
-                return;
-            }
-
-            display.clearPendingNightLightAction();
-            display.nightLightRefreshTimer.restart();
-            if (code !== 0)
-                display.updateNightLightState("");
         }
     }
 }

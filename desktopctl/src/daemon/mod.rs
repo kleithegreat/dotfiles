@@ -1,4 +1,5 @@
 pub mod focus;
+pub mod night_light;
 pub mod server;
 pub mod solar;
 
@@ -26,6 +27,7 @@ pub fn run() -> crate::Result<()> {
 async fn run_async() -> crate::Result<()> {
     let shutdown = Arc::new(AtomicBool::new(false));
     let (shutdown_tx, shutdown_rx) = watch::channel(false);
+    let night_light = night_light::Controller::new();
     let mut tasks = JoinSet::new();
 
     {
@@ -33,12 +35,19 @@ async fn run_async() -> crate::Result<()> {
         tasks.spawn_blocking(move || ("focus tracker", focus::run(shutdown)));
     }
     tasks.spawn({
+        let night_light = night_light.clone();
         let shutdown_rx = shutdown_rx.clone();
-        async move { ("solar scheduler", solar::run(shutdown_rx).await) }
+        async move {
+            (
+                "solar scheduler",
+                solar::run(night_light, shutdown_rx).await,
+            )
+        }
     });
     tasks.spawn({
+        let night_light = night_light.clone();
         let shutdown_rx = shutdown_rx.clone();
-        async move { ("socket server", server::run(shutdown_rx).await) }
+        async move { ("socket server", server::run(night_light, shutdown_rx).await) }
     });
 
     let mut sigterm = signal(SignalKind::terminate())?;
