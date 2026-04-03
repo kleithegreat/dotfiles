@@ -456,7 +456,7 @@ The orchestrator calls `generate()` → writes via assembly strategy → calls
 
 The wallpaper target has special behavior:
 
-- When `filter_wallpaper` is false, `generate()` returns a direct `swww img`
+- When `filter_wallpaper` is false, `generate()` returns a direct `awww img`
   command.
 - When `filter_wallpaper` is true, `on_apply()` computes a cache key from the
   wallpaper path and active palette, optionally runs `lutgen apply --cache`,
@@ -1071,7 +1071,7 @@ When starting a task, read these sections:
 ### Common mistakes to avoid
 
 - **Don't use external crates where subprocesses suffice.** `brightnessctl`,
-  `hyprctl`, `busctl`, `dbus-monitor`, `swww`, `gsettings`, `lutgen`,
+  `hyprctl`, `busctl`, `dbus-monitor`, `awww`, `gsettings`, `lutgen`,
   `hyprsunset`, `pgrep`, and `pkill` are all called as subprocesses. Do not
   replace them with native Rust reimplementations.
 - **Don't change output formats.** Every file the theming system writes, every

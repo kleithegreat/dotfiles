@@ -141,7 +141,7 @@ in
     geoclue2-with-demo-agent
 
     # Desktop utilities
-    swww
+    awww
     lutgen
     brightnessctl
     grim

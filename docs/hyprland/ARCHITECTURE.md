@@ -67,7 +67,7 @@ active source graph.
 | File | Owns |
 | --- | --- |
 | `input.conf` | Shared keyboard, pointer, cursor, and gesture defaults |
-| `autostart.conf` | Session bootstrap: `swww-daemon` lifecycle, Quickshell, `hypridle`, Vicinae, Snappy Switcher, focus-time, Easy Effects, and related session helpers. Wallpaper application is owned by the theming pipeline's `wallpaper` target (`docs/theming/SPEC.md`). |
+| `autostart.conf` | Session bootstrap: `awww-daemon` lifecycle, Quickshell, `hypridle`, Vicinae, Snappy Switcher, focus-time, Easy Effects, and related session helpers. Wallpaper application is owned by the theming pipeline's `wallpaper` target (`docs/theming/SPEC.md`). |
 | `keybinds.conf` | Primary modifier scheme, workspace binds, media/brightness binds, Quickshell IPC binds, and external launcher/switcher actions |
 | `rules.conf` | Floating/dialog rules, app-specific geometry, layer rules, and plugin rule glue |
 | `plugins.conf` | Loading `hyprbars` and `hyprexpo` from `HYPR_PLUGIN_DIR` plus their theme-facing settings |

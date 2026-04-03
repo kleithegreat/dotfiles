@@ -42,7 +42,7 @@ Targets with notable extra behavior:
 | `qt` | `desktopctl/src/theme/targets/qt.rs:15-99` and the rest of the module mirror the palette into qt5ct, qt6ct, KDE, hyprqt6engine, Kvantum, Kate, and KWrite. |
 | `quickshell` | `desktopctl/src/theme/targets/quickshell.rs:8-85` writes `GeneratedTheme.json` for shell colors and fonts with Python-compatible JSON formatting. |
 | `spicetify` | `desktopctl/src/theme/targets/spicetify.rs` ensures theme scaffolding exists and runs `spicetify update` on apply. |
-| `wallpaper` | `desktopctl/src/theme/targets/wallpaper.rs:13-220` preserves the old `lutgen` cache-key behavior and `swww` runtime side effects while remaining `sync_safe = false`. |
+| `wallpaper` | `desktopctl/src/theme/targets/wallpaper.rs:13-220` preserves the old `lutgen` cache-key behavior and `awww` runtime side effects while remaining `sync_safe = false`. |
 
 ## Consumer Integration
 

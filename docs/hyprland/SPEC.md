@@ -132,7 +132,7 @@ Invariants:
 | --- | --- | --- |
 | Source graph and compositor behavior | Hyprland config (`config/hypr/`) | Static base files define the session's behavior, bindings, rules, and idle policy. |
 | Theme-derived appearance | The theming pipeline | Generated `colors.conf`, `appearance-theme.conf`, and `cursor.conf` are the only theme write surfaces within the Hyprland config directory. |
-| Wallpaper application | The theming pipeline | The `wallpaper` target owns `swww img` invocations. `autostart.conf` owns `swww-daemon` lifecycle only. |
+| Wallpaper application | The theming pipeline | The `wallpaper` target owns `awww img` invocations. `autostart.conf` owns `awww-daemon` lifecycle only. |
 | Night-light automation | `desktopctl daemon` solar subsystem | `hyprsunset` start/stop belongs to the solar-scheduling domain. Keybinds offer manual toggle but do not claim scheduling ownership. |
 | Shell UI and IPC | Quickshell | Keybinds trigger Quickshell via `qs ipc call`; Quickshell does not write Hyprland config files. |
 | Plugin loading | `plugins.conf` | Plugins are loaded from `HYPR_PLUGIN_DIR` (set in NixOS `system/configuration.nix`). Plugin visual settings consume theme variables but are declared in the static config. |

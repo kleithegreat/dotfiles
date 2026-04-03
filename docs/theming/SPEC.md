@@ -154,7 +154,7 @@ Constraints:
 | `tmux` | `import` | `~/.config/tmux/colors.conf` |
 | `vicinae` | `concat` | `~/.config/vicinae/settings.json` |
 | `vscode` | `concat` | `~/.config/Code/User/settings.json` plus state DB adjustments |
-| `wallpaper` | `command` | `swww` apply and optional filtered wallpaper cache |
+| `wallpaper` | `command` | `awww` apply and optional filtered wallpaper cache |
 | `zathura` | `import` | `~/.config/zathura/colors` |
 
 ## Target Selection
