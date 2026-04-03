@@ -74,5 +74,18 @@
       march = "rocketlake";
       hostModule = ./hosts/desktop/system.nix;
     };
+    devShells.x86_64-linux.default = let
+      pkgs = import nixpkgs { system = "x86_64-linux"; };
+    in pkgs.mkShell {
+      nativeBuildInputs = with pkgs; [
+        cargo
+        rustc
+        rust-analyzer
+        clippy
+        rustfmt
+        pkg-config
+        sqlite
+      ];
+    };
   };
 }
