@@ -1,6 +1,19 @@
 {
   "family": "catppuccin",
   "variant": "latte",
+  "appearance": "light",
+  "app_themes": {
+    "bat": "Catppuccin Latte",
+    "snappy_switcher": "catppuccin-latte.ini",
+    "vicinae": {
+      "name": "catppuccin-latte",
+      "light_name": "catppuccin-latte"
+    },
+    "vscode": {
+      "name": "Catppuccin Latte",
+      "extension_id": "catppuccin.catppuccin-vsc"
+    }
+  },
   "colors": {
     "bg":           "#eff1f5",
     "bg_dim":       "#e6e9ef",

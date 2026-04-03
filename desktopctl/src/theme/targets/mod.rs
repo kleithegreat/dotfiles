@@ -293,6 +293,19 @@ pub fn build_registry() -> crate::Result<TargetRegistry> {
 #[cfg(test)]
 pub(crate) mod testsupport {
     use crate::theme::schema::{ColorScheme, ThemeState};
+    use std::path::{Path, PathBuf};
+
+    fn repo_root() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("desktopctl lives under the repo root")
+            .to_path_buf()
+    }
+
+    pub fn load_repo_colors(scheme_name: &str) -> ColorScheme {
+        crate::theme::resolve::load_colors(scheme_name, &repo_root().join("themes/colors"))
+            .expect("repo color scheme should deserialize")
+    }
 
     pub fn dummy_colors() -> ColorScheme {
         serde_json::from_value(serde_json::json!({
@@ -365,51 +378,18 @@ pub(crate) mod testsupport {
         }
     }
 
-    pub fn rose_pine_light_colors() -> ColorScheme {
-        serde_json::from_value(serde_json::json!({
-            "family": "rose-pine",
-            "variant": "light",
-            "colors": {
-                "bg": "#faf4ed",
-                "bg_dim": "#f2e9de",
-                "bg1": "#fffaf3",
-                "bg2": "#f4ede8",
-                "bg3": "#dfdad9",
-                "fg": "#575279",
-                "fg2": "#6e6a86",
-                "fg3": "#797593",
-                "fg4": "#9893a5",
-                "red": "#b4637a",
-                "green": "#56949f",
-                "yellow": "#ea9d34",
-                "blue": "#286983",
-                "purple": "#907aa9",
-                "cyan": "#d7827e",
-                "orange": "#d7827e",
-                "accent": "#907aa9",
-                "red_bright": "#b4637a",
-                "green_bright": "#56949f",
-                "yellow_bright": "#ea9d34",
-                "blue_bright": "#286983",
-                "purple_bright": "#907aa9",
-                "cyan_bright": "#d7827e",
-                "orange_bright": "#d7827e"
-            },
-            "palette": [
-                "#575279", "#b4637a", "#56949f", "#ea9d34",
-                "#286983", "#907aa9", "#d7827e", "#e0def4",
-                "#797593", "#b4637a", "#56949f", "#ea9d34",
-                "#286983", "#907aa9", "#d7827e", "#faf4ed"
-            ]
-        }))
-        .expect("valid rose pine colors")
+    pub fn rose_pine_dawn_colors() -> ColorScheme {
+        load_repo_colors("rose-pine-dawn")
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::theme::targets::testsupport::{dummy_colors, dummy_state, rose_pine_light_colors};
+    use crate::theme::schema::ColorSchemeAppearance;
+    use crate::theme::targets::testsupport::{
+        dummy_colors, dummy_state, load_repo_colors, rose_pine_dawn_colors,
+    };
 
     fn text(content: crate::Result<GeneratedContent>) -> String {
         match content.expect("target generation succeeds") {
@@ -562,10 +542,189 @@ mod tests {
 
     #[test]
     fn vscode_json_uses_python_ascii_escaping() {
-        let output = text(vscode::generate(&rose_pine_light_colors(), &dummy_state()));
+        let output = text(vscode::generate(&rose_pine_dawn_colors(), &dummy_state()));
         assert!(
             output.contains("\"workbench.colorTheme\": \"Ros\\u00e9 Pine Dawn\""),
             "{output}"
         );
+    }
+
+    #[test]
+    fn scheme_metadata_matches_expected_app_theme_outputs() {
+        let cases = [
+            (
+                "catppuccin-frappe",
+                ColorSchemeAppearance::Dark,
+                "Catppuccin Frappe",
+                "catppuccin-mocha.ini",
+                "catppuccin-frappe",
+                "catppuccin-latte",
+                "Catppuccin Frapp\u{00e9}",
+                Some("catppuccin.catppuccin-vsc"),
+            ),
+            (
+                "catppuccin-latte",
+                ColorSchemeAppearance::Light,
+                "Catppuccin Latte",
+                "catppuccin-latte.ini",
+                "catppuccin-latte",
+                "catppuccin-latte",
+                "Catppuccin Latte",
+                Some("catppuccin.catppuccin-vsc"),
+            ),
+            (
+                "catppuccin-macchiato",
+                ColorSchemeAppearance::Dark,
+                "Catppuccin Macchiato",
+                "catppuccin-mocha.ini",
+                "catppuccin-macchiato",
+                "catppuccin-latte",
+                "Catppuccin Macchiato",
+                Some("catppuccin.catppuccin-vsc"),
+            ),
+            (
+                "catppuccin-mocha",
+                ColorSchemeAppearance::Dark,
+                "Catppuccin Mocha",
+                "catppuccin-mocha.ini",
+                "catppuccin-mocha",
+                "catppuccin-latte",
+                "Catppuccin Mocha",
+                Some("catppuccin.catppuccin-vsc"),
+            ),
+            (
+                "gruvbox-dark",
+                ColorSchemeAppearance::Dark,
+                "gruvbox-dark",
+                "gruvbox-dark.ini",
+                "gruvbox-dark",
+                "gruvbox-light",
+                "Gruvbox Dark Medium",
+                Some("jdinhlife.gruvbox"),
+            ),
+            (
+                "gruvbox-light",
+                ColorSchemeAppearance::Light,
+                "gruvbox-light",
+                "catppuccin-latte.ini",
+                "gruvbox-light",
+                "gruvbox-light",
+                "Gruvbox Light Medium",
+                Some("jdinhlife.gruvbox"),
+            ),
+            (
+                "nord",
+                ColorSchemeAppearance::Dark,
+                "base16",
+                "nord.ini",
+                "nord",
+                "nord-light",
+                "nord-dark",
+                None,
+            ),
+            (
+                "nord-light",
+                ColorSchemeAppearance::Light,
+                "base16",
+                "catppuccin-latte.ini",
+                "nord-light",
+                "nord-light",
+                "nord-light",
+                None,
+            ),
+            (
+                "rose-pine",
+                ColorSchemeAppearance::Dark,
+                "base16",
+                "rose-pine.ini",
+                "rose-pine",
+                "rose-pine-dawn",
+                "Ros\u{00e9} Pine",
+                Some("mvllow.rose-pine"),
+            ),
+            (
+                "rose-pine-dawn",
+                ColorSchemeAppearance::Light,
+                "base16",
+                "catppuccin-latte.ini",
+                "rose-pine-dawn",
+                "rose-pine-dawn",
+                "Ros\u{00e9} Pine Dawn",
+                Some("mvllow.rose-pine"),
+            ),
+            (
+                "solarized-dark",
+                ColorSchemeAppearance::Dark,
+                "Solarized (dark)",
+                "snappy-slate.ini",
+                "solarized-dark",
+                "solarized-light",
+                "Solarized Dark+",
+                None,
+            ),
+            (
+                "solarized-light",
+                ColorSchemeAppearance::Light,
+                "Solarized (light)",
+                "catppuccin-latte.ini",
+                "solarized-light",
+                "solarized-light",
+                "Solarized Light+",
+                None,
+            ),
+            (
+                "tokyo-night",
+                ColorSchemeAppearance::Dark,
+                "base16",
+                "tokyo-night.ini",
+                "tokyo-night",
+                "tokyo-night-light",
+                "tokyonight-night",
+                None,
+            ),
+            (
+                "tokyo-night-light",
+                ColorSchemeAppearance::Light,
+                "base16",
+                "catppuccin-latte.ini",
+                "tokyo-night-light",
+                "tokyo-night-light",
+                "tokyonight-light",
+                None,
+            ),
+        ];
+
+        for (
+            scheme_name,
+            appearance,
+            bat_name,
+            snappy_name,
+            vicinae_name,
+            vicinae_light_name,
+            vscode_name,
+            vscode_extension_id,
+        ) in cases
+        {
+            let colors = load_repo_colors(scheme_name);
+            assert_eq!(colors.appearance, appearance, "{scheme_name}");
+            assert_eq!(colors.bat_theme_name(), bat_name, "{scheme_name}");
+            assert_eq!(
+                colors.snappy_switcher_theme_name(),
+                snappy_name,
+                "{scheme_name}"
+            );
+            assert_eq!(colors.vicinae_theme_name(), vicinae_name, "{scheme_name}");
+            assert_eq!(
+                colors.vicinae_light_theme_name(),
+                vicinae_light_name,
+                "{scheme_name}"
+            );
+            assert_eq!(colors.vscode_theme_name(), vscode_name, "{scheme_name}");
+            assert_eq!(
+                colors.vscode_extension_id(),
+                vscode_extension_id,
+                "{scheme_name}"
+            );
+        }
     }
 }

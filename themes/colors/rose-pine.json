@@ -1,6 +1,19 @@
 {
   "family": "rosepine",
   "variant": "dark",
+  "appearance": "dark",
+  "app_themes": {
+    "bat": "base16",
+    "snappy_switcher": "rose-pine.ini",
+    "vicinae": {
+      "name": "rose-pine",
+      "light_name": "rose-pine-dawn"
+    },
+    "vscode": {
+      "name": "Rosé Pine",
+      "extension_id": "mvllow.rose-pine"
+    }
+  },
   "colors": {
     "bg":           "#191724",
     "bg_dim":       "#13111e",

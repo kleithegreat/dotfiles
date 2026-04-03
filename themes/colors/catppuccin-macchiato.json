@@ -1,6 +1,19 @@
 {
   "family": "catppuccin",
   "variant": "macchiato",
+  "appearance": "dark",
+  "app_themes": {
+    "bat": "Catppuccin Macchiato",
+    "snappy_switcher": "catppuccin-mocha.ini",
+    "vicinae": {
+      "name": "catppuccin-macchiato",
+      "light_name": "catppuccin-latte"
+    },
+    "vscode": {
+      "name": "Catppuccin Macchiato",
+      "extension_id": "catppuccin.catppuccin-vsc"
+    }
+  },
   "colors": {
     "bg":           "#24273a",
     "bg_dim":       "#1e2030",

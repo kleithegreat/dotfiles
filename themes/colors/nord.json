@@ -1,6 +1,18 @@
 {
   "family": "nord",
   "variant": "dark",
+  "appearance": "dark",
+  "app_themes": {
+    "bat": "base16",
+    "snappy_switcher": "nord.ini",
+    "vicinae": {
+      "name": "nord",
+      "light_name": "nord-light"
+    },
+    "vscode": {
+      "name": "nord-dark"
+    }
+  },
   "colors": {
     "bg":           "#2e3440",
     "bg_dim":       "#242933",

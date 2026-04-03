@@ -1,6 +1,19 @@
 {
   "family": "catppuccin",
   "variant": "frappe",
+  "appearance": "dark",
+  "app_themes": {
+    "bat": "Catppuccin Frappe",
+    "snappy_switcher": "catppuccin-mocha.ini",
+    "vicinae": {
+      "name": "catppuccin-frappe",
+      "light_name": "catppuccin-latte"
+    },
+    "vscode": {
+      "name": "Catppuccin Frappé",
+      "extension_id": "catppuccin.catppuccin-vsc"
+    }
+  },
   "colors": {
     "bg":           "#303446",
     "bg_dim":       "#292c3c",

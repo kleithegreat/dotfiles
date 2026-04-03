@@ -1,6 +1,19 @@
 {
   "family": "gruvbox",
   "variant": "light",
+  "appearance": "light",
+  "app_themes": {
+    "bat": "gruvbox-light",
+    "snappy_switcher": "catppuccin-latte.ini",
+    "vicinae": {
+      "name": "gruvbox-light",
+      "light_name": "gruvbox-light"
+    },
+    "vscode": {
+      "name": "Gruvbox Light Medium",
+      "extension_id": "jdinhlife.gruvbox"
+    }
+  },
   "colors": {
     "bg":           "#fbf1c7",
     "bg_dim":       "#f9f5d7",

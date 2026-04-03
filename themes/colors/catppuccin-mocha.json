@@ -1,6 +1,19 @@
 {
   "family": "catppuccin",
   "variant": "mocha",
+  "appearance": "dark",
+  "app_themes": {
+    "bat": "Catppuccin Mocha",
+    "snappy_switcher": "catppuccin-mocha.ini",
+    "vicinae": {
+      "name": "catppuccin-mocha",
+      "light_name": "catppuccin-latte"
+    },
+    "vscode": {
+      "name": "Catppuccin Mocha",
+      "extension_id": "catppuccin.catppuccin-vsc"
+    }
+  },
   "colors": {
     "bg":           "#1e1e2e",
     "bg_dim":       "#181825",

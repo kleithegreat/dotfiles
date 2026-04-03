@@ -10,10 +10,10 @@ Current implementation map for the migrated Rust theming pipeline as of
 | Piece | Current implementation |
 | --- | --- |
 | CLI entry point | `desktopctl/src/main.rs:46-83` and `desktopctl/src/theme/mod.rs:61-447` implement the full `desktopctl theme` surface. |
-| Schema | `desktopctl/src/theme/schema.rs:33-119` and `desktopctl/src/theme/schema.rs:272-474` define `ColorScheme`, `ThemeState`, canonical field ordering, compiled default theme-state values, and the shared mono-font-size helpers. |
+| Schema | `desktopctl/src/theme/schema.rs:121-404` and `desktopctl/src/theme/schema.rs:406-608` define `ColorScheme`, explicit `appearance`, centralized per-target app-theme metadata, `ThemeState`, canonical field ordering, compiled default theme-state values, and the shared mono-font-size helpers. |
 | Resolution | `desktopctl/src/theme/resolve.rs:11-500` resolves `themes/colors/`, persists theme state in the shared `desktopctl.db` `theme_state` table, imports legacy `themes/state.json` on first access, and serializes canonical JSON for CLI output. |
 | JSON compatibility | `desktopctl/src/theme/json.rs:4-142` preserves Python-compatible object ordering and ASCII escaping for generated JSON files and `--json` CLI output. |
-| Registry | `desktopctl/src/theme/targets/mod.rs:24-230` defines target metadata, hook surfaces, and the typed registry; `desktopctl/src/theme/targets/mod.rs:232-315` registers all migrated targets explicitly. |
+| Registry | `desktopctl/src/theme/targets/mod.rs:24-290` defines target metadata, hook surfaces, and the typed registry, and registers all migrated targets explicitly. |
 | Orchestrator | `desktopctl/src/theme/orchestrator.rs:47-228` and `desktopctl/src/theme/orchestrator.rs:230-383` handle dependency selection, target ordering, file assembly, concat merges, post-write hooks, reload hooks, and sync-safe filtering. |
 
 ## CLI Surface
@@ -33,13 +33,21 @@ Current implementation map for the migrated Rust theming pipeline as of
 | `concat` | `ghostty`, `snappy_switcher`, `starship`, `vicinae`, `vscode` |
 | `command` | `gtk`, `wallpaper` |
 
+Per-scheme theme-name translation now lives in `themes/colors/*.json` and is
+surfaced through `ColorScheme` helpers in `desktopctl/src/theme/schema.rs:237-294`.
+`desktopctl/src/theme/targets/bat.rs:1-20`,
+`desktopctl/src/theme/targets/snappy_switcher.rs:1-94`,
+`desktopctl/src/theme/targets/vicinae.rs:1-51`, and
+`desktopctl/src/theme/targets/vscode.rs:1-101` now consume that shared metadata
+instead of re-encoding family/variant match tables locally.
+
 Targets with notable extra behavior:
 
 | Target | Extra behavior beyond one generated file |
 | --- | --- |
 | `cursor` | `desktopctl/src/theme/targets/cursor.rs:153-221` writes cursor index files plus `~/.config/hypr/cursor.conf`, updates dconf, updates Hyprland cursor env, and imports cursor vars into the user environment. |
 | `gtk` | `desktopctl/src/theme/targets/gtk.rs:5-71` is command-only and does all real work in `on_apply()` through dconf writes. |
-| `qt` | `desktopctl/src/theme/targets/qt.rs:15-99` and the rest of the module mirror the palette into qt5ct, qt6ct, KDE, hyprqt6engine, Kvantum, Kate, and KWrite. |
+| `qt` | `desktopctl/src/theme/targets/qt.rs:15-99` and `desktopctl/src/theme/targets/qt.rs:445-628` mirror the palette into qt5ct, qt6ct, KDE, hyprqt6engine, Kvantum, Kate, and KWrite, and use the centralized `ColorScheme.appearance` metadata when only dark/light asset selection is needed. |
 | `quickshell` | `desktopctl/src/theme/targets/quickshell.rs:8-85` writes `GeneratedTheme.json` for shell colors and fonts with Python-compatible JSON formatting. |
 | `spicetify` | `desktopctl/src/theme/targets/spicetify.rs` ensures theme scaffolding exists and runs `spicetify update` on apply. |
 | `wallpaper` | `desktopctl/src/theme/targets/wallpaper.rs:13-220` preserves the old `lutgen` cache-key behavior and `awww` runtime side effects while remaining `sync_safe = false`. |
@@ -59,5 +67,10 @@ Targets with notable extra behavior:
 - The migration audit compared every target's generated output with the removed
   Python implementation and fixed the only observed mismatches in JSON ordering
   and CLI error text.
+- `desktopctl/src/theme/targets/mod.rs:293-730` now loads the real
+  `themes/colors/*.json` files in tests and asserts the centralized bat,
+  snappy-switcher, Vicinae, and VS Code mappings across the full scheme catalog.
+- `desktopctl/src/theme/targets/qt.rs:968-1017` covers the declared
+  `appearance` behavior for KTextEditor and Kvantum dark/light asset selection.
 - `desktopctl theme list-schemes --json`, `list-presets --json`, and
   `status --json` now match the shapes consumed by Quickshell.
