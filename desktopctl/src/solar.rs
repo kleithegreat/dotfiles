@@ -14,16 +14,8 @@ pub struct Coordinates {
     pub longitude: f64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SolarEventKind {
-    Sunrise,
-    Sunset,
-    DarkOn,
-}
-
 #[derive(Debug, Clone)]
 pub struct SolarEvent {
-    pub kind: SolarEventKind,
     pub when: DateTime<Local>,
 }
 
@@ -139,19 +131,16 @@ pub fn status_for_now(now: DateTime<Local>, location: Coordinates) -> SolarStatu
 
 pub fn next_event(status: &SolarStatus) -> SolarEvent {
     let mut next = SolarEvent {
-        kind: SolarEventKind::Sunrise,
         when: status.next_sunrise,
     };
 
     if status.next_sunset < next.when {
         next = SolarEvent {
-            kind: SolarEventKind::Sunset,
             when: status.next_sunset,
         };
     }
     if status.next_dark_on < next.when {
         next = SolarEvent {
-            kind: SolarEventKind::DarkOn,
             when: status.next_dark_on,
         };
     }

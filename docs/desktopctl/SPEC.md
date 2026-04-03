@@ -117,8 +117,10 @@ src/
 ├── daemon/
 │   ├── mod.rs               # daemon entry point, subsystem orchestration
 │   ├── focus.rs             # focus tracking (Hyprland IPC + SQLite)
+│   ├── night_light.rs       # daemon-owned override controller
 │   ├── solar.rs             # sunrise/sunset scheduling
 │   └── server.rs            # Unix domain socket listener
+├── night_light.rs           # night-light CLI + socket client helpers
 ├── theme/
 │   ├── mod.rs               # theme subcommand dispatch
 │   ├── schema.rs            # ColorScheme, ThemeState structs
@@ -176,20 +178,21 @@ The daemon runs three concurrent subsystems under a single tokio runtime:
    [Focus Tracking Port](#focus-tracking-port).
 
 2. **Solar scheduler** — Computes sunrise/sunset times at startup (and
-   recomputes every few hours or on wake-from-sleep), sleeps until the next
-   solar event, then fires the appropriate action (start/stop hyprsunset, set
-   dark_hint via the theming system). See
+   recomputes every few hours or on wake-from-sleep), updates the shared
+   daemon-owned night-light controller with the current scheduled state, and
+   lets that controller reconcile the effective mode. See
    [Solar Scheduling Port](#solar-scheduling-port).
 
 3. **Socket server** — Listens on
    `$XDG_RUNTIME_DIR/desktopctl.sock` for JSON-framed requests from CLI subcommands
-   and (eventually) Quickshell. See [Socket Protocol](#socket-protocol).
+   and Quickshell-facing request surfaces such as `desktopctl night-light`.
+   See [Socket Protocol](#socket-protocol).
 
 ### Lifecycle
 
 - **Startup:** Open Hyprland IPC socket, initialize SQLite, compute solar times,
-  apply current solar state (start/stop hyprsunset, set dark_hint), begin
-  listening on the Unix socket.
+  initialize the daemon-owned night-light controller in `auto`, reconcile the
+  current effective night-light state, and begin listening on the Unix socket.
 
 - **Shutdown:** On SIGTERM or SIGINT, close the SQLite connection, remove the
   Unix socket file, and exit cleanly. No graceful drain needed — all state is
@@ -218,11 +221,12 @@ home-manager config.
 
 ### `desktopctl theme`
 
-Direct port of the current `themes/apply-theme` CLI. Operates independently of
-the daemon — reads `themes/colors/*.json` plus the `theme_state` rows in the
-shared SQLite database at `$XDG_DATA_HOME/desktopctl/desktopctl.db`,
-generates and writes files, and fires reload commands. No socket
-communication needed.
+Direct port of the current `themes/apply-theme` CLI. It still reads
+`themes/colors/*.json` plus the `theme_state` rows in the shared SQLite
+database at `$XDG_DATA_HOME/desktopctl/desktopctl.db`, generates and writes
+files, and fires reload commands directly. The special case is `dark_hint`:
+theme-surface `dark_hint` writes are delegated through the daemon-owned
+night-light controller so live policy stays centralized.
 
 ```
 desktopctl theme all                       # Apply all targets
@@ -316,6 +320,26 @@ desktopctl portal pick-directory            # Open xdg-desktop-portal directory 
 
 Uses `busctl` and `dbus-monitor` as subprocesses (same approach as the current
 Python script). Prints the selected directory path to stdout and exits.
+
+### `desktopctl night-light`
+
+Daemon-backed manual override surface for night light and the live `dark_hint`
+policy:
+
+```
+desktopctl night-light status             # Show mode, running state, and temperatures
+desktopctl night-light status --json      # Machine-readable status for Quickshell
+desktopctl night-light on                 # Force night light on at the stored/manual temp
+desktopctl night-light on --temp 4300     # Force night light on and update the manual temp
+desktopctl night-light off                # Force night light off
+desktopctl night-light auto               # Return control to the solar schedule
+desktopctl night-light toggle             # Switch between on/off based on current hyprsunset state
+```
+
+This subcommand talks to the daemon over `$XDG_RUNTIME_DIR/desktopctl.sock`.
+`status` falls back to direct inspection when the daemon is not running, but
+live mutations require the daemon because the override state is intentionally
+in-memory and non-persistent.
 
 ### `desktopctl sun`
 
@@ -613,33 +637,37 @@ location. This is pure math — no external dependencies.
 
 ### Event loop
 
-Instead of transient systemd timers, the daemon computes the next solar event
-and sleeps until it arrives:
+Instead of transient systemd timers, the daemon computes the next solar event,
+stores the resulting scheduled state, and lets the shared night-light
+controller decide the live outcome:
 
 ```
 loop {
     compute sunrise, sunset for today and tomorrow
     compute dark_on (23:00 local)
     determine next event = min(next_sunrise, next_sunset, next_dark_on)
-    apply current state (start/stop hyprsunset, set dark_hint)
+    update shared scheduled solar status
+    reconcile effective mode (auto/on/off)
     sleep until next event
-    fire event action
 }
 ```
 
-Events:
+The controller applies the live state with this contract:
 
-- **Sunrise:** Stop hyprsunset (`pkill -x hyprsunset`), set `dark_hint` to
-  false via `desktopctl theme set dark_hint false`.
-- **Sunset:** Start hyprsunset (`hyprsunset -t 4500`).
-- **Dark-on (23:00):** Set `dark_hint` to true via
-  `desktopctl theme set dark_hint true`.
+- **`auto`:** `hyprsunset` follows the solar night window, and `dark_hint`
+  follows the solar dark window.
+- **`on`:** `hyprsunset` stays on at the stored manual temperature, and
+  `dark_hint` is forced to `true`.
+- **`off`:** `hyprsunset` stays off, and `dark_hint` is forced to `false`.
 
-The theme set operations can call the theming module directly (in-process) rather
-than spawning a subprocess, since both live in the same binary.
+The daemon persists `dark_hint` in-process through the theming module rather
+than spawning a subprocess, so the live policy owner stays inside the daemon
+while the GTK write path remains unchanged.
 
-Recompute solar times every 2 hours (to handle location/timezone drift) and also
-on `SIGUSR1`.
+Recompute solar times every 2 hours (to handle location/timezone drift) and
+also on `SIGUSR1`. The solar scheduler keeps recomputing while the mode is
+`on` or `off`, so `status` stays current and returning to `auto` can apply the
+right state immediately.
 
 ---
 
@@ -747,34 +775,17 @@ newline-delimited JSON (one JSON object per line, `\n`-terminated).
 {"ok": false, "error": "message"}
 ```
 
-### Initial methods
-
-Phase 1 (daemon launch):
+### Current methods
 
 | Method | Params | Response | Description |
 |--------|--------|----------|-------------|
-| `focus.summary` | none | The focustime JSON summary | Current focus state |
-| `sun.status` | none | Sunrise/sunset times, current state | Solar status |
 | `ping` | none | `{"pong": true}` | Health check |
+| `night_light.status` | none | `{mode, running, temperature, target_temperature, dark_hint, scheduled_running, scheduled_dark_hint}` | Current daemon-owned night-light state |
+| `night_light.set` | `{mode, temperature?}` | Same as `night_light.status` | Update the daemon-owned mode and optional manual temperature |
+| `night_light.toggle` | none | Same as `night_light.status` | Switch between `on` and `off` based on the current `hyprsunset` state |
 
-Phase 2 (after Quickshell migration — see [Quickshell Integration](#quickshell-integration)):
-
-| Method | Params | Response | Description |
-|--------|--------|----------|-------------|
-| `theme.set` | `{key, value}` | `{ok, affected}` | Set theme state key |
-| `theme.preset` | `{name}` | `{ok}` | Apply a preset |
-| `theme.state` | none | Current ThemeState JSON | Query theme state |
-| `theme.schemes` | none | Array of scheme summaries | List color schemes |
-| `theme.presets` | none | Array of preset summaries | List presets |
-| `theme.save-preset` | `{name, data}` | `{ok}` | Save a preset |
-| `theme.delete-preset` | `{name}` | `{ok}` | Delete a preset |
-| `focus.subscribe` | none | Stream of summary updates | Live focus updates |
-| `brightness.get` | none | `{raw, max, percent}` | Current brightness |
-
-The Phase 2 socket methods allow Quickshell to replace its `Process`-based
-interactions with a persistent socket connection. This is an optimization — the
-CLI subcommands continue to work independently of the daemon, so the system
-functions correctly even if the daemon is not running.
+Additional theme, focus, and subscription methods can still be added later if
+Quickshell moves more domains onto a persistent socket connection.
 
 ---
 
@@ -793,6 +804,11 @@ the binary path:
   → `["desktopctl", "theme", "list-schemes", "--json"]`
 - The `bash -c "for f in .../themes/presets/*.json..."` process
   → `["desktopctl", "theme", "list-presets", "--json"]`
+
+Night light is the first domain that moved beyond a drop-in replacement:
+`DisplayService.qml` now polls `desktopctl night-light status --json` and sends
+`desktopctl night-light on/off` requests instead of managing `hyprsunset`
+directly.
 
 The existing `jq`-based color scheme listing in `SettingsPopup.qml` is replaced
 by a dedicated JSON output from `desktopctl theme list-schemes --json` that returns
@@ -998,7 +1014,8 @@ Phase 2: Focus tracking (sequential, after Phase 0)
 
 Phase 3: Solar scheduling (parallel with Phase 2, after Phase 0)
 ├── solar.rs (NOAA algorithm port)
-├── daemon/solar.rs (event loop, hyprsunset management, dark_hint calls)
+├── daemon/night_light.rs (override controller, hyprsunset lifecycle, dark_hint arbitration)
+├── daemon/solar.rs (event loop, solar recomputation, controller reconciliation)
 └── Verify: sunrise/sunset times match the Python implementation
 
 Phase 4: Theming — schema & orchestrator (sequential, after Phase 0)
@@ -1091,7 +1108,7 @@ When starting a task, read these sections:
 
 - **Don't use external crates where subprocesses suffice.** `brightnessctl`,
   `hyprctl`, `busctl`, `dbus-monitor`, `awww`, `gsettings`, `lutgen`,
-  `hyprsunset`, `pgrep`, and `pkill` are all called as subprocesses. Do not
+  `hyprsunset`, `ps`, and `pkill` are all called as subprocesses. Do not
   replace them with native Rust reimplementations.
 - **Don't change output formats.** Every file the theming system writes, every
   JSON summary the focus daemon produces, and every path must exactly match the

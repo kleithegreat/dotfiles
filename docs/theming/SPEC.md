@@ -35,6 +35,9 @@ Constraints:
 - Targets consume resolved `ColorScheme` and `ThemeState`; they do not invent
   alternate state stores.
 - Presets are partial patches, not separate full-state documents.
+- `dark_hint` remains part of `ThemeState`, but another domain may own the live
+  policy for that key as long as persistence still flows through the theming
+  pipeline.
 - Variant strings are not guaranteed to be binary `dark`/`light`; `appearance`
   is the canonical scheme-side polarity classification for targets that need
   dark/light behavior.
@@ -59,6 +62,8 @@ Invariants:
   become the home of unrelated behavior.
 - Consumers may read generated files, but they do not define the schema or edit
   outputs directly.
+- Persisting `dark_hint` belongs to the theming pipeline, even when another
+  runtime controller decides the current desired value.
 
 ## Assembly Model
 

@@ -251,6 +251,21 @@ fn cmd_target(args: crate::TargetArgs) -> CliResult<()> {
 
 fn cmd_set(args: crate::SetArgs) -> CliResult<()> {
     let crate::SetArgs { key, value } = args;
+    if key == "dark_hint" {
+        let enabled = match map_user_err(coerce_theme_value(&key, Value::String(value.clone())))? {
+            Value::Bool(enabled) => enabled,
+            _ => unreachable!("dark_hint is validated as a bool"),
+        };
+        let mode = if enabled {
+            crate::night_light::NightLightMode::On
+        } else {
+            crate::night_light::NightLightMode::Off
+        };
+        map_user_err(crate::night_light::request_mode(mode, None))?;
+        println!("Set {} = {}", key, python_repr_value(&Value::Bool(enabled)));
+        return Ok(());
+    }
+
     let outcome = map_user_err(set_state_key_internal(&key, Value::String(value)))?;
 
     if !outcome.changed {
@@ -273,29 +288,46 @@ fn cmd_preset(args: crate::NamedArg) -> CliResult<()> {
     }
 
     let preset_value = map_user_err(read_json_file(&preset_path))?;
-    let preset = map_user_err(normalize_theme_patch(
+    let mut preset = map_user_err(normalize_theme_patch(
         preset_value,
         &format!("preset '{}'", preset_name),
     ))?;
+    let requested_dark_hint = preset.remove("dark_hint").and_then(|value| value.as_bool());
 
-    let state = map_user_err(resolve::load_state())?;
-    let mut state_map = state.to_ordered_json_map();
-    for (key, value) in preset {
-        state_map.insert(key, value);
+    let has_theme_changes = !preset.is_empty();
+
+    if has_theme_changes {
+        let state = map_user_err(resolve::load_state())?;
+        let mut state_map = state.to_ordered_json_map();
+        for (key, value) in &preset {
+            state_map.insert(key.clone(), value.clone());
+        }
+
+        let new_state = map_user_err(validated_theme_state(state_map, "theme state"))?;
+        map_user_err(resolve::save_state(&new_state))?;
+
+        println!("Loaded preset '{}', applying all targets...", preset_name);
+        let colors_dir = map_user_err(resolve::colors_dir())?;
+        let colors = map_user_err(resolve::load_colors(&new_state.color_scheme, &colors_dir))?;
+        let registry = map_user_err(targets::build_registry())?;
+        if !orchestrator::apply_all(&registry, &colors, &new_state, true, false) {
+            return Err(CliFailure::Reported);
+        }
     }
 
-    let new_state = map_user_err(validated_theme_state(state_map, "theme state"))?;
-    map_user_err(resolve::save_state(&new_state))?;
-
-    println!("Loaded preset '{}', applying all targets...", preset_name);
-    let colors_dir = map_user_err(resolve::colors_dir())?;
-    let colors = map_user_err(resolve::load_colors(&new_state.color_scheme, &colors_dir))?;
-    let registry = map_user_err(targets::build_registry())?;
-    if orchestrator::apply_all(&registry, &colors, &new_state, true, false) {
-        Ok(())
-    } else {
-        Err(CliFailure::Reported)
+    if let Some(enabled) = requested_dark_hint {
+        let mode = if enabled {
+            crate::night_light::NightLightMode::On
+        } else {
+            crate::night_light::NightLightMode::Off
+        };
+        map_user_err(crate::night_light::request_mode(mode, None))?;
+        if !has_theme_changes {
+            println!("Loaded preset '{}'.", preset_name);
+        }
     }
+
+    Ok(())
 }
 
 fn cmd_save_preset(args: crate::SavePresetArgs) -> CliResult<()> {

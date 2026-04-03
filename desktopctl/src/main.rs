@@ -2,6 +2,7 @@ mod brightness;
 mod daemon;
 mod hypr;
 mod launch;
+mod night_light;
 mod paths;
 mod portal;
 mod solar;
@@ -39,6 +40,8 @@ enum TopLevelCommand {
     LaunchQuickshell(LaunchQuickshellArgs),
     /// Run xdg-desktop-portal helper commands.
     Portal(PortalArgs),
+    /// Inspect and control night-light override state.
+    NightLight(NightLightArgs),
     /// Inspect solar scheduling state.
     Sun(SunArgs),
 }
@@ -181,6 +184,34 @@ enum PortalCommand {
 
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true, subcommand_required = true)]
+struct NightLightArgs {
+    #[command(subcommand)]
+    command: NightLightCommand,
+}
+
+#[derive(Debug, Subcommand)]
+enum NightLightCommand {
+    /// Show daemon-controlled night-light status.
+    Status(JsonOutputArgs),
+    /// Force night light on until reset to auto.
+    On(NightLightOnArgs),
+    /// Force night light off until reset to auto.
+    Off,
+    /// Hand control back to the solar schedule.
+    Auto,
+    /// Switch between on and off based on the current hyprsunset state.
+    Toggle,
+}
+
+#[derive(Debug, Args)]
+struct NightLightOnArgs {
+    /// Override the target temperature in Kelvin.
+    #[arg(long, value_name = "K")]
+    temp: Option<i32>,
+}
+
+#[derive(Debug, Args)]
+#[command(arg_required_else_help = true, subcommand_required = true)]
 struct SunArgs {
     #[command(subcommand)]
     command: SunCommand,
@@ -214,6 +245,7 @@ fn run() -> Result<()> {
         TopLevelCommand::Brightness(args) => run_brightness(args),
         TopLevelCommand::Hypr(args) => run_hypr(args),
         TopLevelCommand::LaunchQuickshell(args) => launch::run(args.print_env),
+        TopLevelCommand::NightLight(args) => night_light::run(args),
         TopLevelCommand::Portal(args) => run_portal(args),
         TopLevelCommand::Daemon => daemon::run(),
         TopLevelCommand::Theme(args) => theme::run(args),
