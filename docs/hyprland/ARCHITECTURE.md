@@ -26,17 +26,28 @@ order:
 
 ## Host Selection
 
-Home Manager keeps the include graph stable and swaps a small set of target
-files per host:
+`flake.nix` defines three hosts — `vm`, `laptop`, and `desktop` — each passing
+its `hostName` through `specialArgs` to Home Manager (`flake.nix:54-56`).
+`home/default.nix` uses `if hostName == "laptop" ... else if hostName ==
+"desktop" ... else` conditionals to select host-specific fragments
+(`home/default.nix:188-215`). The `else` branch provides safe minimal defaults,
+which is what the `vm` host and any future host without explicit handling
+receives.
 
-| Target path | Laptop source | Desktop source |
-| --- | --- | --- |
-| `~/.config/hypr/input-devices.conf` | `hosts/laptop/input-devices.conf` | `hosts/desktop/input-devices.conf` |
-| `~/.config/hypr/monitors.conf` | `hosts/laptop/monitors.conf` | `hosts/desktop/monitors.conf` |
-| `~/.config/hypr/env.conf` | `config/hypr/env.conf` | `hosts/desktop/env.conf` |
+| Target path | Laptop | Desktop | Fallback (VM and others) |
+| --- | --- | --- | --- |
+| `~/.config/hypr/input-devices.conf` | `hosts/laptop/input-devices.conf` | `hosts/desktop/input-devices.conf` | Empty file |
+| `~/.config/hypr/monitors.conf` | `hosts/laptop/monitors.conf` | `hosts/desktop/monitors.conf` | `monitor = ,preferred,auto,1` |
+| `~/.config/hypr/env.conf` | `config/hypr/env.conf` | `hosts/desktop/env.conf` | Empty file |
 
-`config/hypr/monitors.conf` exists in the repo, but the known hosts currently
-use host-specific monitor files instead of that base file.
+The remaining source-graph files — `hyprland.conf`, `appearance.conf`,
+`input.conf`, `keybinds.conf`, `rules.conf`, `plugins.conf`, `autostart.conf`,
+`hypridle.conf`, and `hyprlock.conf` — are deployed identically on all hosts
+from `config/hypr/` (`home/default.nix:184-199`).
+
+`config/hypr/monitors.conf` exists in the repo as a template, but all known
+physical hosts use host-specific monitor files. The fallback branch inlines the
+generic monitor rule rather than sourcing this file.
 
 ## Theme Integration
 
@@ -56,7 +67,7 @@ active source graph.
 | File | Owns |
 | --- | --- |
 | `input.conf` | Shared keyboard, pointer, cursor, and gesture defaults |
-| `autostart.conf` | Session bootstrap for Quickshell, wallpaper, `hypridle`, Vicinae, Snappy Switcher, focus-time, Easy Effects, and related session helpers |
+| `autostart.conf` | Session bootstrap: `swww-daemon` lifecycle, Quickshell, `hypridle`, Vicinae, Snappy Switcher, focus-time, Easy Effects, and related session helpers. Wallpaper application is owned by the theming pipeline's `wallpaper` target (`docs/theming/SPEC.md`). |
 | `keybinds.conf` | Primary modifier scheme, workspace binds, media/brightness binds, Quickshell IPC binds, and external launcher/switcher actions |
 | `rules.conf` | Floating/dialog rules, app-specific geometry, layer rules, and plugin rule glue |
 | `plugins.conf` | Loading `hyprbars` and `hyprexpo` from `HYPR_PLUGIN_DIR` plus their theme-facing settings |
