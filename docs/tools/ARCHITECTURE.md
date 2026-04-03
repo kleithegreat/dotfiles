@@ -15,12 +15,12 @@ Manager deploys.
 | --- | --- | --- | --- | --- |
 | Neovim | `config/nvim/**/*` | `~/.config/nvim/lua/theme-state.json`, `~/.config/nvim/lua/neovide-theme.lua` | `standalone` | Home Manager symlinks the full tree; theming writes only state files |
 | Alacritty | `config/alacritty/alacritty.toml` | `~/.config/alacritty/theme.toml` | `import` | Base config imports the generated fragment |
-| Ghostty | `config/ghostty/base` | `~/.config/ghostty/config` | `concat` | The committed `config/ghostty/config` is a stale snapshot, not the active base |
+| Ghostty | `config/ghostty/base` | `~/.config/ghostty/config` | `concat` | Base file plus generated theme block written at apply time |
 | tmux | `config/tmux/tmux.conf` | `~/.config/tmux/colors.conf` | `import` | Base config sources the generated colors file |
 | Zsh | `home/shell.nix` | Home Manager-managed shell init | none | Shell behavior is Nix-authored; no direct theme target |
-| Starship | `config/starship/base.toml` | `~/.config/starship.toml` | `concat` | The committed `config/starship/starship.toml` is a stale snapshot of pipeline output |
+| Starship | `config/starship/base.toml` | `~/.config/starship.toml` | `concat` | Base prompt config plus generated palette block written at apply time |
 | Zathura | `config/zathura/zathurarc` | `~/.config/zathura/colors` | `import` | Base config includes the generated colors file |
-| Vicinae | `config/vicinae/base.json` | `~/.config/vicinae/settings.json` | `concat` | `config/vicinae/settings.json` is a stale snapshot; `config/vicinae/vicinae.json` is an inert old config |
+| Vicinae | `config/vicinae/base.json` | `~/.config/vicinae/settings.json` | `concat` | Base settings plus generated theme block written at apply time |
 | VS Code | `config/vscode/base.json` | `~/.config/Code/User/settings.json` | `concat` | Base JSON merged with generated theme/font block; `persist()` also syncs extension state in `state.vscdb` |
 | Snappy Switcher | `config/snappy-switcher/base.ini` | `~/.config/snappy-switcher/config.ini` | `concat` | Base INI plus generated theme/icon/font section; daemon restarts on apply |
 | Hyprland | `config/hypr/*.conf` | `~/.config/hypr/colors.conf`, `~/.config/hypr/appearance-theme.conf`, `~/.config/hypr/cursor.conf` | `standalone` | Modular repo configs deployed by Home Manager; three theme targets write standalone files into the same `~/.config/hypr/` tree |

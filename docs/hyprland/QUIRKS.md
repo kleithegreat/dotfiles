@@ -39,24 +39,6 @@ desktop (dedicated NVIDIA, no Intel backlight).
 dim-screen timeout fires but has no effect, and the brightness keybinds do
 nothing. No crashes, but the idle dim behavior is silently broken.
 
-## Inactive config fragments in the source tree
-
-**Symptom:** Reading the `config/hypr/` directory suggests more active files
-than the compositor actually loads.
-
-**Fragments:**
-
-- `pluginsettings.conf` — superseded by `plugins.conf`, which now contains both
-  plugin loading and plugin settings. Not sourced by `hyprland.conf`.
-- `config/hypr/monitors.conf` — exists as a template with laptop-oriented
-  defaults, but all known hosts use host-specific monitor files instead. The
-  fallback branch in `home/default.nix` inlines the generic monitor rule rather
-  than sourcing this file.
-
-**Why it matters:** When modifying plugin settings, editing `pluginsettings.conf`
-instead of `plugins.conf` will have no effect. Similarly, editing
-`config/hypr/monitors.conf` will not change monitor behavior on any known host.
-
 ## cursor.conf is generated, not committed
 
 **Symptom:** After a fresh clone or before the theming pipeline has run,

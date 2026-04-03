@@ -24,5 +24,4 @@ config/hypr/colors.conf
 config/nvim/lua/theme-state.json
 config/quickshell/GeneratedTheme.json
 config/tmux/colors.conf
-config/vicinae/settings.json
 config/zathura/colors

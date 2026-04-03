@@ -3,7 +3,7 @@
 ## Scope
 
 Current implementation map for `config/hypr/`, the host-selected Hyprland
-fragments, and the generated theme inputs as of 2026-04-02.
+fragments, and the generated theme inputs as of 2026-04-03.
 
 ## Source Graph
 
@@ -45,10 +45,6 @@ The remaining source-graph files — `hyprland.conf`, `appearance.conf`,
 `hypridle.conf`, and `hyprlock.conf` — are deployed identically on all hosts
 from `config/hypr/` (`home/default.nix:184-199`).
 
-`config/hypr/monitors.conf` exists in the repo as a template, but all known
-physical hosts use host-specific monitor files. The fallback branch inlines the
-generic monitor rule rather than sourcing this file.
-
 ## Theme Integration
 
 | File | Current role |
@@ -58,9 +54,6 @@ generic monitor rule rather than sourcing this file.
 | `appearance.conf` | Stable compositor defaults that source `appearance-theme.conf` |
 | `hyprlock.conf` | Sources `colors.conf` so the lock screen shares the compositor palette |
 | `plugins.conf` | Consumes the same theme variables for `hyprbars` and `hyprexpo` |
-
-`plugins.conf` is the live plugin file. `pluginsettings.conf` is not part of the
-active source graph.
 
 ## Subsystem Ownership
 

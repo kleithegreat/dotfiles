@@ -1,27 +1,5 @@
 # Tools Configuration Quirks
 
-## Stale Generated Snapshots
-
-These files in `config/` look like active source but are pipeline output
-snapshots. They are not read by any build, deployment, or theme-apply step.
-Editing them has no effect.
-
-| File | What it actually is |
-| --- | --- |
-| `config/ghostty/config` | Snapshot of `concat(config/ghostty/base, generated theme)`. The active output lives at `~/.config/ghostty/config`. |
-| `config/starship/starship.toml` | Snapshot of `concat(config/starship/base.toml, generated palette)`. The active output lives at `~/.config/starship.toml`. |
-| `config/vicinae/settings.json` | Snapshot of `concat(config/vicinae/base.json, generated theme)`. The active output lives at `~/.config/vicinae/settings.json`. |
-
-The active base files for these tools are `config/ghostty/base`,
-`config/starship/base.toml`, and `config/vicinae/base.json` respectively.
-
-## Inert Configuration Files
-
-| File | What it actually is |
-| --- | --- |
-| `config/vicinae/vicinae.json` | Older UI preferences snapshot (different theme, window settings). Not consumed by any pipeline, not deployed by Home Manager. The three files in `config/vicinae/` serve different roles: `base.json` is the active base, `settings.json` is a stale snapshot, and `vicinae.json` is an inert alternative config. |
-| `config/hypr/pluginsettings.conf` | Superseded plugin config. Not sourced by `hyprland.conf`, not deployed by Home Manager. The active equivalent is `config/hypr/plugins.conf`, which uses `$theme_*_rgba` variables instead of `$theme_*` and different property names (`col.text` vs `bar_text_color`, `bar_text_font` vs `bar_font_family`). |
-
 ## Generated Files Inside Symlinked Trees
 
 Several theme targets write generated files into `~/.config/` directories that

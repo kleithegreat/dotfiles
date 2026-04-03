@@ -1,6 +1,6 @@
 # Hyprland Review
 
-Reviewed on 2026-04-02.
+Reviewed on 2026-04-03.
 
 ## Verdict
 
@@ -26,8 +26,8 @@ The main gap is a wallpaper ownership divergence with the theming spec.
 | Low | Some rule matches depend on exact titles or classes that may drift. | Packaging or upstream naming changes can silently break float/placement rules. |
 | Low | The bind set does not use newer descriptive or repeat-oriented forms such as `bindd` or `binde`. | No correctness issue, but discoverability and hold-to-repeat ergonomics could improve. |
 
-Operational quirks (DRM device paths, inactive fragments, `intel_backlight`
-assumptions, and `env.conf` structure) are tracked in `docs/hyprland/QUIRKS.md`.
+Operational quirks (DRM device paths, `intel_backlight` assumptions, and
+`env.conf` structure) are tracked in `docs/hyprland/QUIRKS.md`.
 
 Desktop-specific NVIDIA resume and EGL caveats are tracked in
 `docs/nvidia/QUIRKS.md`.

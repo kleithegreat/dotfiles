@@ -78,12 +78,7 @@ Generated output files should not be committed to the repository. The canonical
 outputs live at their `OUTPUT_PATH` locations and are recreated on every theme
 apply.
 
-Where historical snapshots exist in `config/` (e.g., `config/ghostty/config`,
-`config/starship/starship.toml`, `config/vicinae/settings.json`), they are
-stale artifacts. They are not read by any pipeline or deployment step. New
-snapshots should not be added, and existing ones should be treated as
-documentation of a past state rather than as active config.
-
-Inert files that represent alternative or previous configurations (e.g.,
-`config/vicinae/vicinae.json`) are similarly not consumed by any pipeline.
-They should be removed when they no longer serve as useful reference.
+Historical repo-local snapshots of generated outputs have been removed. Do not
+reintroduce committed concat outputs or inert alternative configs under
+`config/`; keep the source of truth in the repo-authored base file and
+regenerate the runtime output at apply time.
