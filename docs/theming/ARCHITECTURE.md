@@ -10,8 +10,8 @@ Current implementation map for the migrated Rust theming pipeline as of
 | Piece | Current implementation |
 | --- | --- |
 | CLI entry point | `desktopctl/src/main.rs:46-83` and `desktopctl/src/theme/mod.rs:61-447` implement the full `desktopctl theme` surface. |
-| Schema | `desktopctl/src/theme/schema.rs:5-92` and `desktopctl/src/theme/schema.rs:245-422` define `ColorScheme`, `ThemeState`, field ordering, and the shared mono-font-size helpers. |
-| Resolution | `desktopctl/src/theme/resolve.rs:11-224` resolves `themes/colors/` and `themes/state.json`, validates both JSON surfaces, and writes `state.json` back with stable pretty formatting. |
+| Schema | `desktopctl/src/theme/schema.rs:33-119` and `desktopctl/src/theme/schema.rs:272-474` define `ColorScheme`, `ThemeState`, canonical field ordering, compiled default theme-state values, and the shared mono-font-size helpers. |
+| Resolution | `desktopctl/src/theme/resolve.rs:11-500` resolves `themes/colors/`, persists theme state in the shared `desktopctl.db` `theme_state` table, imports legacy `themes/state.json` on first access, and serializes canonical JSON for CLI output. |
 | JSON compatibility | `desktopctl/src/theme/json.rs:4-142` preserves Python-compatible object ordering and ASCII escaping for generated JSON files and `--json` CLI output. |
 | Registry | `desktopctl/src/theme/targets/mod.rs:24-230` defines target metadata, hook surfaces, and the typed registry; `desktopctl/src/theme/targets/mod.rs:232-315` registers all migrated targets explicitly. |
 | Orchestrator | `desktopctl/src/theme/orchestrator.rs:47-228` and `desktopctl/src/theme/orchestrator.rs:230-383` handle dependency selection, target ordering, file assembly, concat merges, post-write hooks, reload hooks, and sync-safe filtering. |
@@ -22,7 +22,7 @@ Current implementation map for the migrated Rust theming pipeline as of
 | --- | --- | --- |
 | Apply scopes | `all`, `colors`, `fonts`, `wallpaper`, `cursor`, `sync`, `target` | `sync` limits execution to `sync_safe` targets and skips runtime-only hooks. |
 | State mutation | `set`, `preset`, `save-preset`, `delete-preset` | `set` rewrites one key and applies only affected targets; `preset` merges a preset patch and applies all targets; preset files preserve ordered JSON formatting. |
-| Inspection | `list-schemes`, `list-presets`, `status` | Human-readable text by default, with Quickshell-facing `--json` modes that return deterministic array/object shapes. |
+| Inspection | `list-schemes`, `list-presets`, `status` | Human-readable text by default, with Quickshell-facing `--json` modes that return deterministic array/object shapes and the canonical theme-state JSON order from SQLite-backed storage. |
 
 ## Registered Targets
 

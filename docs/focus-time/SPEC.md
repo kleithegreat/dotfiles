@@ -10,7 +10,7 @@ intentionally descriptive: when the code is ambiguous or weak at a boundary,
 | Surface | Current contract |
 | --- | --- |
 | Focus daemon | Tracks the active Hyprland window class, writes per-second aggregates into SQLite, and rewrites a JSON summary for Quickshell |
-| SQLite store | Persistent per-day, per-hour, and per-minute counters keyed by window class |
+| SQLite store | Persistent per-day, per-hour, and per-minute counters keyed by window class inside the shared `desktopctl.db` database |
 | Runtime JSON | Single summary document at `$XDG_RUNTIME_DIR/focustime_state.json` |
 | Quickshell consumer | `SettingsFocusTimePane.qml` polls and renders that JSON; it does not touch SQLite |
 
@@ -20,8 +20,9 @@ intentionally descriptive: when the code is ambiguous or weak at a boundary,
 | --- | --- | --- |
 | `desktopctl daemon` | Hyprland session autostart | Foreground entry point that owns focus tracking alongside the solar scheduler |
 | `~/.config/hypr/autostart.conf` | Repo-managed Hyprland config | Starts the daemon with `exec-once` |
-| `$XDG_DATA_HOME/focustime/focustime.db` | Focus daemon | Persistent SQLite database |
-| `~/.local/share/focustime/focustime.db` | Focus daemon | Database fallback when `XDG_DATA_HOME` is unset |
+| `$XDG_DATA_HOME/desktopctl/desktopctl.db` | Focus daemon | Shared persistent SQLite database for focus tracking and theme state |
+| `~/.local/share/desktopctl/desktopctl.db` | Focus daemon | Database fallback when `XDG_DATA_HOME` is unset |
+| `$XDG_DATA_HOME/focustime/focustime.db` | Focus daemon | Legacy focus database imported on first access when the shared focus tables are empty |
 | `$XDG_RUNTIME_DIR/focustime_state.json` | Focus daemon | Current JSON summary consumed by Quickshell |
 | `/run/user/$UID/focustime_state.json` | Focus daemon | State-file fallback when `XDG_RUNTIME_DIR` is unset |
 | `$XDG_RUNTIME_DIR/focustime_state.tmp` | Focus daemon | Sibling temp file used for atomic JSON replacement |
@@ -58,10 +59,11 @@ Connection behavior:
 
 | Property | Current behavior |
 | --- | --- |
-| File creation | `DATA_DIR.mkdir(parents=True, exist_ok=True)` before connect |
+| File creation | `paths::db_path()` creates `$XDG_DATA_HOME/desktopctl/` before connect |
 | Connection mode | `sqlite3.connect(..., isolation_level=None)` |
 | Journal mode | `PRAGMA journal_mode=WAL` |
 | Migrations | `CREATE TABLE IF NOT EXISTS` only |
+| Legacy import | Copy rows from `$XDG_DATA_HOME/focustime/focustime.db` when the shared focus tables are empty |
 | Retention | None; rows accumulate indefinitely |
 
 Schema:
@@ -109,6 +111,7 @@ Write rules:
   SQLite write for that tick.
 - Each tick uses a single explicit transaction: `BEGIN`, three UPSERTs, then
   `COMMIT`.
+- Only the focus tables move; the runtime JSON path and payload stay unchanged.
 
 ## JSON Summary Contract
 

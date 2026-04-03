@@ -25,7 +25,7 @@ Non-goals:
 | Artifact | Role | Ownership |
 | --- | --- | --- |
 | `themes/colors/*.json` | Palette catalog | Version-controlled |
-| `themes/state.json` | Current live selection | Mutable runtime state |
+| `$XDG_DATA_HOME/desktopctl/desktopctl.db` `theme_state` table | Current live selection | Mutable runtime state |
 | `themes/presets/*.json` | Partial state patches | Version-controlled |
 | `desktopctl/src/theme/schema.rs` | Data contract for colors and state | Authoritative schema |
 | `desktopctl/src/theme/targets/*.rs` | Per-consumer theme adapters | Authoritative target registry |
@@ -37,6 +37,8 @@ Constraints:
 - Presets are partial patches, not separate full-state documents.
 - Variant strings are not guaranteed to be binary `dark`/`light`; targets that
   need polarity must normalize it explicitly.
+- Fresh installs seed `theme_state` from compiled defaults, and a leftover
+  `themes/state.json` is a migration input only.
 
 ## Ownership Boundaries
 
@@ -129,6 +131,9 @@ Constraints:
 - Color JSON must satisfy the full `ColorScheme` field set and a 16-entry
   palette.
 - `ThemeState` is the only mutable theme selection schema.
+- Theme-state storage is row-oriented (`key` + JSON-encoded `value`), but
+  `desktopctl theme status --json` must preserve the canonical field order from
+  `THEME_STATE_FIELD_ORDER`.
 - Targets that need dark/light behavior must derive it from documented state or
   a normalization rule, not from an undocumented assumption about variant
   strings.

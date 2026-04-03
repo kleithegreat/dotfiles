@@ -278,15 +278,14 @@ fn cmd_preset(args: crate::NamedArg) -> CliResult<()> {
         &format!("preset '{}'", preset_name),
     ))?;
 
-    let state_path = map_user_err(resolve::state_path())?;
-    let state = map_user_err(resolve::load_state(&state_path))?;
+    let state = map_user_err(resolve::load_state())?;
     let mut state_map = state.to_ordered_json_map();
     for (key, value) in preset {
         state_map.insert(key, value);
     }
 
     let new_state = map_user_err(validated_theme_state(state_map, "theme state"))?;
-    map_user_err(resolve::save_state(&new_state, &state_path))?;
+    map_user_err(resolve::save_state(&new_state))?;
 
     println!("Loaded preset '{}', applying all targets...", preset_name);
     let colors_dir = map_user_err(resolve::colors_dir())?;
@@ -425,15 +424,10 @@ fn cmd_list_presets(json_output: bool) -> CliResult<()> {
 }
 
 fn cmd_status(json_output: bool) -> CliResult<()> {
-    let state_path = map_user_err(resolve::state_path())?;
-    let state = map_user_err(resolve::load_state(&state_path))?;
+    let state = map_user_err(resolve::load_state())?;
 
     if json_output {
-        let raw = map_user_err(fs::read_to_string(&state_path))?;
-        print!("{raw}");
-        if !raw.ends_with('\n') {
-            println!();
-        }
+        print!("{}", map_user_err(resolve::serialize_state(&state))?);
         return Ok(());
     }
 
@@ -447,9 +441,8 @@ fn cmd_status(json_output: bool) -> CliResult<()> {
 }
 
 fn load_state_and_colors() -> CliResult<(schema::ThemeState, schema::ColorScheme)> {
-    let state_path = map_user_err(resolve::state_path())?;
     let colors_dir = map_user_err(resolve::colors_dir())?;
-    let state = map_user_err(resolve::load_state(&state_path))?;
+    let state = map_user_err(resolve::load_state())?;
     let colors = map_user_err(resolve::load_colors(&state.color_scheme, &colors_dir))?;
     Ok((state, colors))
 }
@@ -487,8 +480,7 @@ fn color_targets_for_state(state: &schema::ThemeState) -> std::collections::BTre
 }
 
 fn set_state_key_internal(key: &str, raw_value: Value) -> crate::Result<StateUpdateOutcome> {
-    let state_path = resolve::state_path()?;
-    let state = resolve::load_state(&state_path)?;
+    let state = resolve::load_state()?;
     let mut state_map = state.to_ordered_json_map();
     let value = coerce_theme_value(key, raw_value)?;
 
@@ -515,7 +507,7 @@ fn set_state_key_internal(key: &str, raw_value: Value) -> crate::Result<StateUpd
 
     state_map.insert(key.to_owned(), value.clone());
     let new_state = validated_theme_state(state_map, "theme state")?;
-    resolve::save_state(&new_state, &state_path)?;
+    resolve::save_state(&new_state)?;
     let affected_targets = orchestrator::targets_for_key(key, Some(&new_state));
 
     Ok(StateUpdateOutcome {

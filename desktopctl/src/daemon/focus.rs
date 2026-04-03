@@ -1,6 +1,6 @@
 use crate::{hypr, paths};
 use chrono::{Datelike, Duration, Local, NaiveDate, Timelike};
-use rusqlite::{Connection, params};
+use rusqlite::{Connection, Transaction, params};
 use std::{
     collections::{HashMap, HashSet},
     fs,
@@ -68,10 +68,8 @@ pub fn run(shutdown: Arc<AtomicBool>) -> crate::Result<()> {
 }
 
 fn init_db() -> crate::Result<Connection> {
-    let data_dir = paths::xdg_data_home()?.join("focustime");
-    fs::create_dir_all(&data_dir)?;
-
-    let connection = Connection::open(data_dir.join("focustime.db"))?;
+    let db_path = paths::db_path()?;
+    let mut connection = Connection::open(&db_path)?;
     connection.execute_batch(
         "
         PRAGMA journal_mode=WAL;
@@ -98,7 +96,143 @@ fn init_db() -> crate::Result<Connection> {
         ",
     )?;
 
+    if focus_tables_are_empty(&connection)? {
+        migrate_legacy_focus_data(&mut connection, &db_path)?;
+    }
+
     Ok(connection)
+}
+
+fn legacy_db_path() -> io::Result<PathBuf> {
+    Ok(paths::xdg_data_home()?.join("focustime/focustime.db"))
+}
+
+fn focus_tables_are_empty(connection: &Connection) -> crate::Result<bool> {
+    let row_count = connection.query_row(
+        "
+        SELECT
+            (SELECT COUNT(*) FROM daily_totals) +
+            (SELECT COUNT(*) FROM hourly_totals) +
+            (SELECT COUNT(*) FROM minute_totals)
+        ",
+        [],
+        |row| row.get::<_, i64>(0),
+    )?;
+    Ok(row_count == 0)
+}
+
+fn migrate_legacy_focus_data(connection: &mut Connection, db_path: &Path) -> crate::Result<()> {
+    let legacy_db_path = legacy_db_path()?;
+    if !legacy_db_path.is_file() {
+        return Ok(());
+    }
+
+    let legacy = Connection::open(&legacy_db_path)?;
+    if !legacy_focus_has_rows(&legacy)? {
+        return Ok(());
+    }
+
+    let transaction = connection.transaction()?;
+    copy_daily_totals(&legacy, &transaction)?;
+    copy_hourly_totals(&legacy, &transaction)?;
+    copy_minute_totals(&legacy, &transaction)?;
+    transaction.commit()?;
+
+    let legacy_dir = legacy_db_path
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .display()
+        .to_string();
+    eprintln!(
+        "Imported focus tracking data from {} into {}. You can delete {}.",
+        legacy_db_path.display(),
+        db_path.display(),
+        legacy_dir
+    );
+
+    Ok(())
+}
+
+fn legacy_focus_has_rows(connection: &Connection) -> crate::Result<bool> {
+    let table_count = connection.query_row(
+        "
+        SELECT COUNT(*)
+        FROM sqlite_master
+        WHERE type = 'table' AND name IN ('daily_totals', 'hourly_totals', 'minute_totals')
+        ",
+        [],
+        |row| row.get::<_, i64>(0),
+    )?;
+    if table_count != 3 {
+        return Ok(false);
+    }
+
+    focus_tables_are_empty(connection).map(|empty| !empty)
+}
+
+fn copy_daily_totals(legacy: &Connection, transaction: &Transaction<'_>) -> crate::Result<()> {
+    let mut select = legacy.prepare("SELECT date, app_class, seconds FROM daily_totals")?;
+    let rows = select.query_map([], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, i64>(2)?,
+        ))
+    })?;
+
+    let mut insert = transaction
+        .prepare("INSERT INTO daily_totals (date, app_class, seconds) VALUES (?, ?, ?)")?;
+    for row in rows {
+        let (date, app_class, seconds) = row?;
+        insert.execute(params![date, app_class, seconds])?;
+    }
+
+    Ok(())
+}
+
+fn copy_hourly_totals(legacy: &Connection, transaction: &Transaction<'_>) -> crate::Result<()> {
+    let mut select = legacy.prepare("SELECT date, hour, app_class, seconds FROM hourly_totals")?;
+    let rows = select.query_map([], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, i64>(1)?,
+            row.get::<_, String>(2)?,
+            row.get::<_, i64>(3)?,
+        ))
+    })?;
+
+    let mut insert = transaction.prepare(
+        "INSERT INTO hourly_totals (date, hour, app_class, seconds) VALUES (?, ?, ?, ?)",
+    )?;
+    for row in rows {
+        let (date, hour, app_class, seconds) = row?;
+        insert.execute(params![date, hour, app_class, seconds])?;
+    }
+
+    Ok(())
+}
+
+fn copy_minute_totals(legacy: &Connection, transaction: &Transaction<'_>) -> crate::Result<()> {
+    let mut select =
+        legacy.prepare("SELECT date, minute_index, app_class, seconds FROM minute_totals")?;
+    let rows = select.query_map([], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, i64>(1)?,
+            row.get::<_, String>(2)?,
+            row.get::<_, i64>(3)?,
+        ))
+    })?;
+
+    let mut insert = transaction.prepare(
+        "INSERT INTO minute_totals (date, minute_index, app_class, seconds) VALUES (?, ?, ?, ?)",
+    )?;
+    for row in rows {
+        let (date, minute_index, app_class, seconds) = row?;
+        insert.execute(params![date, minute_index, app_class, seconds])?;
+    }
+
+    Ok(())
 }
 
 fn accumulate(

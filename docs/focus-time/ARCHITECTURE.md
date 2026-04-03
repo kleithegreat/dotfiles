@@ -13,7 +13,7 @@ Current implementation map for the focus-time subsystem as of 2026-04-03.
 3. `desktopctl/src/daemon/mod.rs:19-100` starts the focus tracker alongside the
    solar scheduler and socket server under one tokio runtime.
 4. The focus tracker owns both runtime artifacts:
-   `$XDG_DATA_HOME/focustime/focustime.db` and
+   `$XDG_DATA_HOME/desktopctl/desktopctl.db` and
    `$XDG_RUNTIME_DIR/focustime_state.json`.
 5. `SettingsFocusTimePane.qml` still polls the JSON summary every 3 seconds and
    does not talk to SQLite or the daemon socket directly.
@@ -25,7 +25,7 @@ Current implementation map for the focus-time subsystem as of 2026-04-03.
 | `home/default.nix` | Installs `desktopctl` and the Hyprland config fragments that source `autostart.conf` | `home/default.nix:33-45`, `home/default.nix:182-199` |
 | `config/hypr/autostart.conf` | Starts `desktopctl daemon` during session startup | `config/hypr/autostart.conf:6-8` |
 | `desktopctl/src/daemon/mod.rs` | Builds the tokio runtime and starts focus, solar, and socket subsystems together | `desktopctl/src/daemon/mod.rs:19-100` |
-| `desktopctl/src/daemon/focus.rs` | Implements the full focus producer: Hyprland socket listener, SQLite writes, desktop-file cache, summary building, and atomic JSON replacement | `desktopctl/src/daemon/focus.rs:20-145`, `desktopctl/src/daemon/focus.rs:148-418`, `desktopctl/src/daemon/focus.rs:455-768` |
+| `desktopctl/src/daemon/focus.rs` | Implements the full focus producer: shared-DB initialization, legacy focus-data migration, Hyprland socket listener, SQLite writes, desktop-file cache, summary building, and atomic JSON replacement | `desktopctl/src/daemon/focus.rs:20-236`, `desktopctl/src/daemon/focus.rs:238-698`, `desktopctl/src/daemon/focus.rs:700-902` |
 | `config/quickshell/popups/SettingsPopup.qml` | Still mounts the focus-time pane as settings category `5` | `config/quickshell/popups/SettingsPopup.qml:787-842` |
 | `config/quickshell/popups/settings/SettingsFocusTimePane.qml` | Polls the JSON summary, derives UI state, and renders totals, charts, and app breakdowns | `config/quickshell/popups/settings/SettingsFocusTimePane.qml:16-72`, `config/quickshell/popups/settings/SettingsFocusTimePane.qml:113-220` |
 
@@ -35,14 +35,15 @@ No other repo file reads `focustime_state.json` directly.
 
 | Responsibility | Current implementation | Evidence |
 | --- | --- | --- |
-| Runtime path selection | The daemon uses the shared XDG helpers and falls back to `~/.local/share` and `/run/user/$UID` when needed | `desktopctl/src/paths.rs:20-54`, `desktopctl/src/daemon/focus.rs:70-74`, `desktopctl/src/daemon/focus.rs:335-342` |
-| SQLite initialization | WAL mode plus `CREATE TABLE IF NOT EXISTS` for `daily_totals`, `hourly_totals`, and `minute_totals` | `desktopctl/src/daemon/focus.rs:70-101` |
-| Per-second accumulation | One transaction increments the current class or `__locked__` in all three tables once per second | `desktopctl/src/daemon/focus.rs:34-67`, `desktopctl/src/daemon/focus.rs:104-131` |
-| Summary building | The daemon computes today's totals, yesterday, the Monday-Sunday week, the current-month heatmap, and today's app list from SQLite | `desktopctl/src/daemon/focus.rs:148-333` |
-| JSON output | The summary is serialized to Python-compatible JSON and atomically renamed into place via `focustime_state.tmp` | `desktopctl/src/daemon/focus.rs:134-145`, `desktopctl/src/daemon/focus.rs:571-768` |
-| Lock detection | `pgrep -x hyprlock` still defines the locked state | `desktopctl/src/daemon/focus.rs:345-350` |
-| Focus updates | The daemon seeds from `hyprctl activewindow -j` and then listens for `activewindow>>` lines on Hyprland's `.socket2.sock` with a fixed reconnect sleep | `desktopctl/src/hypr.rs:21-25`, `desktopctl/src/hypr.rs:63-76`, `desktopctl/src/daemon/focus.rs:353-418` |
-| App metadata cache | `.desktop` files are indexed by `StartupWMClass` and file stem under XDG data dirs plus the common Nix application directories | `desktopctl/src/daemon/focus.rs:455-568` |
+| Runtime path selection | The daemon uses the shared XDG helpers, including `paths::db_path()` for the unified SQLite file, and still falls back to `/run/user/$UID` for the JSON summary when needed | `desktopctl/src/paths.rs:29-60`, `desktopctl/src/daemon/focus.rs:70-108`, `desktopctl/src/daemon/focus.rs:469-476` |
+| SQLite initialization | WAL mode plus `CREATE TABLE IF NOT EXISTS` for `daily_totals`, `hourly_totals`, and `minute_totals`, all inside `desktopctl.db` | `desktopctl/src/daemon/focus.rs:70-103` |
+| Legacy data migration | On first access, the daemon imports rows from the legacy `focustime.db` when the shared focus tables are empty and then prints a cleanup hint | `desktopctl/src/daemon/focus.rs:106-236` |
+| Per-second accumulation | One transaction increments the current class or `__locked__` in all three tables once per second | `desktopctl/src/daemon/focus.rs:20-67`, `desktopctl/src/daemon/focus.rs:238-266` |
+| Summary building | The daemon computes today's totals, yesterday, the Monday-Sunday week, the current-month heatmap, and today's app list from SQLite | `desktopctl/src/daemon/focus.rs:268-467` |
+| JSON output | The summary is serialized to Python-compatible JSON and atomically renamed into place via `focustime_state.tmp` | `desktopctl/src/daemon/focus.rs:268-279`, `desktopctl/src/daemon/focus.rs:700-902` |
+| Lock detection | `pgrep -x hyprlock` still defines the locked state | `desktopctl/src/daemon/focus.rs:479-485` |
+| Focus updates | The daemon seeds from `hyprctl activewindow -j` and then listens for `activewindow>>` lines on Hyprland's `.socket2.sock` with a fixed reconnect sleep | `desktopctl/src/hypr.rs:21-25`, `desktopctl/src/hypr.rs:63-76`, `desktopctl/src/daemon/focus.rs:487-549` |
+| App metadata cache | `.desktop` files are indexed by `StartupWMClass` and file stem under XDG data dirs plus the common Nix application directories | `desktopctl/src/daemon/focus.rs:584-698` |
 
 ## Consumer Internals
 
