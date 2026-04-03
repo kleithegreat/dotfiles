@@ -61,11 +61,23 @@ Low-level `-march` and distributed-build caveats live in `docs/nix/QUIRKS.md`.
 | `system/configuration.nix` | Shared system baseline | Nix settings, the shared unfree package allowlist predicate (`system/configuration.nix:83-156`), common users/groups, shared services, system packages, Hyprland packaging, and the distributed-builds import |
 | `hosts/vm/system.nix` | VM overlay | VM boot, guest profile, and virtual disk layout |
 | `hosts/laptop/system.nix` | Laptop overlay | Hybrid GPU policy, laptop hardware/services, and laptop-only overrides |
-| `hosts/desktop/system.nix` | Desktop overlay | Dedicated NVIDIA policy, desktop-only packages/services, and storage mounts |
+| `hosts/desktop/system.nix` | Desktop overlay | Dedicated NVIDIA policy, desktop-only packages/services, storage mounts, and a desktop-only NVIDIA workaround overlay import |
 | `home/default.nix` | Shared user baseline | User packages including LM Studio (`home/default.nix:33-180`), most `xdg.configFile` mappings, `home.file` scripts, MIME defaults, host-specific Hyprland file selection, and theme activation |
 | `home/shell.nix` | Shell submodule | Zsh, shell tools, Git, aliases, prompt/navigation tooling |
 | `home/gtk.nix` | GTK submodule | GTK packages and small dconf defaults |
 | `home/sun-schedule.nix` | User service submodule | Sunrise/sunset timer and service |
+
+## Overlay Usage
+
+- `system/configuration.nix` always adds `overlays/march-optimized.nix` as the
+  shared nixpkgs overlay.
+- `hosts/desktop/system.nix` additionally appends
+  `overlays/nvidia-open-pr996.nix`, a temporary desktop-only workaround for
+  NVIDIA open-gpu-kernel-modules PR #996.
+- `overlays/nvidia-open-pr996.nix` rebuilds
+  `linuxPackages.nvidiaPackages.{production,stable}` through `mkDriver` with
+  `patches/nvidia/nvidia-open-pr996.patch`, because the open kernel module is
+  exposed through `passthru.open` and only picks up patches from `patchesOpen`.
 
 ## Home Manager Deployment Model
 

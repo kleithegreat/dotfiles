@@ -1,10 +1,10 @@
 # Quickshell Quirks
 
-## The single bar is recreated when outputs churn
-**Symptom:** The bar can disappear or stay attached to a dead output during monitor hotplug, output disable, or output cycling.
-**Cause:** The shell binds one bar to the first `Quickshell.screens` entry, and that list can go empty before a new screen becomes valid again.
-**Status:** Workaround in place
-**Resolution:** `config/quickshell/shell.qml` unloads the bar when `barScreen` is `null`, recreates it through a `Loader` when a screen returns, and refreshes Hyprland monitors on `monitoradded` and `monitorremoved`.
+## The single bar is recreated after suspend or output loss
+**Symptom:** The bar can disappear after suspend/resume, DPMS, hotplug, or other output loss even though the Quickshell process stays alive.
+**Cause:** Hyprland tears down the layer-shell surface when outputs churn, while Qt keeps a placeholder `QScreen` alive; `Quickshell.screens` therefore does not become a reliable signal that all real outputs are gone.
+**Status:** Fixed
+**Resolution:** `config/quickshell/shell.qml` now drives bar lifetime from Hyprland's real monitor model instead of `Quickshell.screens`, filtering out `FALLBACK` monitors and recreating the bar through a `Loader` with an explicit `screen` binding. `monitoradded` and `monitorremoved` events refresh the Hyprland monitor model so the stale `PanelWindow` is unloaded and a fresh one is created when a real output returns.
 
 ## Theme commands cannot rely on `$DOTFILES`
 **Symptom:** Theme reads or writes from Quickshell fail if they try to discover the repo root from `$DOTFILES`.
