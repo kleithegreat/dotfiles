@@ -44,7 +44,7 @@ FocusScope {
             trayPanel.scale = 0.92;
             trayOpenAnim.start();
         }
-        else if (!closing) { closing = true; trayCloseAnim.start(); }
+        else if (!closing) { closing = true; TooltipService.hide(); trayCloseAnim.start(); }
     }
     Keys.onEscapePressed: trayPop.close()
 
@@ -166,6 +166,17 @@ FocusScope {
                         onClicked: (mouse) => {
                             if (mouse.button === Qt.LeftButton) trayItem.modelData.activate();
                             else trayItem.modelData.secondaryActivate();
+                        }
+                        onContainsMouseChanged: {
+                            if (containsMouse) {
+                                let text = trayItem.modelData.tooltipTitle || trayItem.modelData.title || trayItem.modelData.id || "";
+                                if (text) {
+                                    let p = trayItem.mapToGlobal(Qt.point(trayItem.width / 2, trayItem.height));
+                                    TooltipService.show(text, p.x, p.y);
+                                }
+                            } else {
+                                TooltipService.hide();
+                            }
                         }
 
                         Image {
