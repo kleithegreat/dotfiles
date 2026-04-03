@@ -26,6 +26,11 @@ and embedded Home Manager layer as of 2026-04-02.
 | 4 | `home-manager.nixosModules.home-manager` |
 | 5 | Inline Home Manager configuration block |
 
+Because `flake.nix:48-57` sets `home-manager.useGlobalPkgs = true`, nixpkgs
+policy from the shared system layer, including the unfree allowlist predicate in
+`system/configuration.nix:83-156`, applies to both system packages and
+`home.packages`.
+
 ## Inputs And Feature Flags
 
 Direct flake inputs:
@@ -53,11 +58,11 @@ Low-level `-march` and distributed-build caveats live in `docs/nix/QUIRKS.md`.
 
 | Path | Role | Current responsibilities |
 | --- | --- | --- |
-| `system/configuration.nix` | Shared system baseline | Nix settings, common users/groups, shared services, system packages, Hyprland packaging, and the distributed-builds import |
+| `system/configuration.nix` | Shared system baseline | Nix settings, the shared unfree package allowlist predicate (`system/configuration.nix:83-156`), common users/groups, shared services, system packages, Hyprland packaging, and the distributed-builds import |
 | `hosts/vm/system.nix` | VM overlay | VM boot, guest profile, and virtual disk layout |
 | `hosts/laptop/system.nix` | Laptop overlay | Hybrid GPU policy, laptop hardware/services, and laptop-only overrides |
 | `hosts/desktop/system.nix` | Desktop overlay | Dedicated NVIDIA policy, desktop-only packages/services, and storage mounts |
-| `home/default.nix` | Shared user baseline | User packages, most `xdg.configFile` mappings, `home.file` scripts, MIME defaults, host-specific Hyprland file selection, and theme activation |
+| `home/default.nix` | Shared user baseline | User packages including LM Studio (`home/default.nix:33-180`), most `xdg.configFile` mappings, `home.file` scripts, MIME defaults, host-specific Hyprland file selection, and theme activation |
 | `home/shell.nix` | Shell submodule | Zsh, shell tools, Git, aliases, prompt/navigation tooling |
 | `home/gtk.nix` | GTK submodule | GTK packages and small dconf defaults |
 | `home/sun-schedule.nix` | User service submodule | Sunrise/sunset timer and service |

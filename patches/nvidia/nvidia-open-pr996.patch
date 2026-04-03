@@ -1,0 +1,11 @@
+diff --git a/kernel-open/nvidia-drm/nvidia-drm-drv.c b/kernel-open/nvidia-drm/nvidia-drm-drv.c
+--- a/kernel-open/nvidia-drm/nvidia-drm-drv.c
++++ b/kernel-open/nvidia-drm/nvidia-drm-drv.c
+@@ -2271,6 +2271,7 @@ void nv_drm_suspend_resume(NvBool suspend)
+ #if defined(NV_DRM_FBDEV_AVAILABLE)
+             drm_fb_helper_set_suspend_unlocked(dev->fb_helper, 0);
+ #endif
+             drm_kms_helper_poll_enable(dev);
++            drm_mode_config_reset(dev);
+         }
+     }
