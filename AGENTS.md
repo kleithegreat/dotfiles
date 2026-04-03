@@ -26,6 +26,10 @@ multiple domains, read all relevant docs.
 For quickshell work, also read `docs/theming/SPEC.md` — the shell is tightly
 coupled to the theming pipeline.
 
+For focus-time work, read `docs/focus-time/SPEC.md` first, then check the other
+documents in that domain. The daemon, SQLite store, runtime JSON, and
+Quickshell pane share one contract.
+
 ## After Making Changes
 
 Update any documentation affected by your changes. This is not optional.
