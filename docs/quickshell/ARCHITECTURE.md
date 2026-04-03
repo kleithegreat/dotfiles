@@ -48,7 +48,13 @@ Direct-upstream or local exceptions still bypass repo-specific services:
 - Battery state comes from `Quickshell.Services.UPower`.
 - MPRIS, system tray, and workspace state use upstream Quickshell services
   directly.
-- Focus Time polls `$XDG_RUNTIME_DIR/focustime_state.json` inside its pane.
+- Focus Time polls `$XDG_RUNTIME_DIR/focustime_state.json` inside its pane;
+  see `docs/focus-time/SPEC.md` for the JSON summary contract and runtime
+  paths.
+- The shell brightness OSD reads `/tmp/quickshell-brightness` via a long-lived
+  `tail -F` process in `shell.qml`; that file is written by external producers
+  (`autostart.conf`, `brightness-step.sh`, `hypridle.conf`) and is separate
+  from `BrightnessService.qml`, which reads sysfs directly.
 
 ## Settings System
 
