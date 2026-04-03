@@ -120,6 +120,40 @@ where
     ok
 }
 
+pub fn apply_targets_quiet<I, S>(
+    registry: &TargetRegistry,
+    names: I,
+    colors: &ColorScheme,
+    state: &ThemeState,
+    runtime: bool,
+) -> crate::Result<()>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    let mut available = Vec::new();
+
+    for name in names {
+        let name = name.as_ref();
+        if registry.get(name).is_some() {
+            available.push(name.to_owned());
+        }
+    }
+
+    let mut failures = Vec::new();
+    for name in sorted_targets(registry, available) {
+        if let Err(error) = apply_target_quiet(registry, &name, colors, state, runtime) {
+            failures.push(format!("{name}: {error}"));
+        }
+    }
+
+    if failures.is_empty() {
+        Ok(())
+    } else {
+        Err(io::Error::other(failures.join("; ")).into())
+    }
+}
+
 pub fn apply_all(
     registry: &TargetRegistry,
     colors: &ColorScheme,
@@ -171,6 +205,26 @@ fn dependency_targets(state_key: &str) -> &'static [&'static str] {
         | "hypr_animations_enabled" => &HYPR_APPEARANCE_TARGETS,
         _ => &[],
     }
+}
+
+fn apply_target_quiet(
+    registry: &TargetRegistry,
+    name: &str,
+    colors: &ColorScheme,
+    state: &ThemeState,
+    runtime: bool,
+) -> crate::Result<()> {
+    let target = registry.get(name).ok_or_else(|| {
+        io::Error::new(io::ErrorKind::NotFound, format!("unknown target '{name}'"))
+    })?;
+
+    let content = target.generate(colors, state)?;
+    assemble(target, content, colors)?;
+    persist(target, colors, state)?;
+    if runtime {
+        reload_quiet(target, colors, state);
+    }
+    Ok(())
 }
 
 fn assemble(
@@ -342,6 +396,16 @@ fn reload(target: &dyn Target, colors: &ColorScheme, state: &ThemeState) {
     if let Err(error) = target.on_apply(colors, state) {
         eprintln!("  reload warning ({}): {}", metadata.name, error);
     }
+}
+
+fn reload_quiet(target: &dyn Target, colors: &ColorScheme, state: &ThemeState) {
+    let metadata = target.metadata();
+
+    if let Some(command) = metadata.reload_cmd {
+        let _ = run_command(command);
+    }
+
+    let _ = target.on_apply(colors, state);
 }
 
 fn run_command_batch(content: GeneratedContent) -> crate::Result<()> {
