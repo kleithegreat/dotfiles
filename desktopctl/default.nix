@@ -7,6 +7,10 @@ rustPlatform.buildRustPackage {
   src = ./.;
   cargoLock.lockFile = ./Cargo.lock;
 
+  postUnpack = ''
+    cp -r ${../themes} $sourceRoot/../themes
+  '';
+
   meta = with lib; {
     description = "Unified desktop daemon and CLI for the dotfiles desktop stack";
     mainProgram = "desktopctl";
