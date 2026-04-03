@@ -64,7 +64,7 @@ Connection behavior:
 | Journal mode | `PRAGMA journal_mode=WAL` |
 | Migrations | `CREATE TABLE IF NOT EXISTS` only |
 | Legacy import | Copy rows from `$XDG_DATA_HOME/focustime/focustime.db` when the shared focus tables are empty |
-| Retention | None; rows accumulate indefinitely |
+| Retention | At each local day rollover, delete `minute_totals` rows with `date < today - 90 days`; `daily_totals` and `hourly_totals` are kept indefinitely |
 
 Schema:
 
@@ -124,10 +124,11 @@ Root object:
 | Key | Type | Current meaning |
 | --- | --- | --- |
 | `selected_date` | string | Today's local date as `YYYY-MM-DD` |
-| `total` | integer | Sum of today's `daily_totals.seconds`, excluding `__locked__` only |
-| `average` | integer | Rounded average of non-zero daily totals in the current Monday-Sunday week, excluding `__locked__` only |
+| `last_updated` | integer | Unix epoch seconds from `chrono::Local::now().timestamp()` for the summary rewrite that produced this file |
+| `total` | integer | Sum of today's `daily_totals.seconds`, excluding `__locked__`, `Desktop`, and `Quickshell` |
+| `average` | integer | Rounded average of non-zero daily totals in the current Monday-Sunday week, excluding `__locked__`, `Desktop`, and `Quickshell` |
 | `week_range` | string | Current Monday-Sunday range formatted like `Apr 1 - Apr 7` |
-| `yesterday` | integer | Yesterday's total seconds, excluding `__locked__` only |
+| `yesterday` | integer | Yesterday's total seconds, excluding `__locked__`, `Desktop`, and `Quickshell` |
 | `current` | string | `"Locked"` while locked; otherwise the resolved app name for the current class unless that class is `""`, `Desktop`, or `Quickshell`; otherwise `""` |
 | `apps` | array | Per-app breakdown for today |
 | `week` | array | Seven daily totals for the current Monday-Sunday week |
@@ -155,7 +156,7 @@ Root object:
 | --- | --- | --- |
 | `date` | string | Calendar date as `YYYY-MM-DD` |
 | `day` | string | Three-letter local day label from `%a` |
-| `total` | integer | Whole seconds for that date, excluding `__locked__` only |
+| `total` | integer | Whole seconds for that date, excluding `__locked__`, `Desktop`, and `Quickshell` |
 | `is_target` | boolean | `true` on today's entry |
 
 `week` constraints:
@@ -169,14 +170,15 @@ Root object:
 | Shape | Meaning |
 | --- | --- |
 | `null` | Leading padding cell before day 1 so the month grid aligns to Monday-first headers |
-| object with `date`, `total`, `is_target` | Real day entry for the current month; `total` excludes `__locked__` only |
+| object with `date`, `total`, `is_target` | Real day entry for the current month; `total` excludes `__locked__`, `Desktop`, and `Quickshell` |
 
 Important current behavior:
 
-- `total`, `yesterday`, `week[*].total`, and `month[*].total` exclude
-  `__locked__`, but they do not exclude `Desktop` or `Quickshell`.
+- `total`, `average`, `yesterday`, `week[*].total`, and `month[*].total`
+  exclude `__locked__`, `Desktop`, and `Quickshell`.
 - The `apps` list and `current` string do hide `Desktop` and `Quickshell`.
-- The JSON has no schema version, timestamp, or explicit liveness field.
+- The JSON has no schema version; `last_updated` is the only explicit liveness
+  field.
 
 ## App Name And Icon Resolution
 
@@ -194,14 +196,21 @@ This resolution affects `apps[*].name`, `apps[*].icon`, and the unlocked
 
 `SettingsFocusTimePane.qml` currently depends on these behaviors:
 
-- The pane reads the state file by spawning `bash -c 'cat -- "$XDG_RUNTIME_DIR/focustime_state.json" 2>/dev/null || true'`.
+- The pane reads the state file by spawning `bash -c 'state_path="$XDG_RUNTIME_DIR/focustime_state.json"; [ -f "$state_path" ] || exit 3; cat -- "$state_path"'`.
 - It polls every `3000` milliseconds and only starts another read when the prior
   `Process` is idle.
-- Empty stdout or JSON parse failure means `hasData = false`.
+- Exit code `3` means the file is missing and maps to "The focus time daemon is
+  not running".
+- Any other non-zero exit, empty stdout, or JSON parse failure means
+  `hasData = false` and maps to "Unable to read focus time data".
+- Parsed JSON with `last_updated` more than `10` seconds away from
+  `Date.now() / 1000` means `hasData = false` and maps to
+  "Focus daemon is not responding".
 - Missing keys fall back to `0`, `""`, or `[]` in QML because the pane reads
   with `stateData.foo || defaultValue`.
 - The pane renders from `total`, `yesterday`, `average`, `current`, `apps`,
-  `week`, `month`, and `week_range`.
+  `week`, `month`, and `week_range`, and it uses `last_updated` only for the
+  freshness check.
 - `selected_date` is currently parsed but not rendered.
 - `month` must permit `null` entries because the heatmap grid uses them as blank
   leading cells.

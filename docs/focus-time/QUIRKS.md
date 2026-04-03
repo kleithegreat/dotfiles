@@ -12,11 +12,11 @@
 **Status:** Current behavior
 **Resolution:** Short-lived mismatches between the real active app and the rendered charts are expected. The pane is not subscribed to socket events or file-change notifications.
 
-## Atomic JSON replacement prevents torn reads but not stale reads
-**Symptom:** Quickshell almost never sees half-written JSON, yet it can keep showing the last good state after the daemon exits.
-**Cause:** The daemon writes `focustime_state.tmp` and renames it over `focustime_state.json`, but the JSON payload has no timestamp or heartbeat field for freshness checks.
-**Status:** Partial mitigation in place
-**Resolution:** Treat the file as an atomic snapshot, not as proof that the daemon is still alive. Use process-level checks if you need liveness.
+## Atomic JSON replacement prevents torn reads, but stale detection is still poll-driven
+**Symptom:** Quickshell almost never sees half-written JSON, but it can take roughly one polling interval plus the 10-second freshness window before the pane switches to "Focus daemon is not responding" after the daemon stops writing.
+**Cause:** The daemon writes `focustime_state.tmp`, renames it over `focustime_state.json`, and updates `last_updated` once per second, while `SettingsFocusTimePane.qml` only polls every `3000` ms and treats summaries older than `10` seconds as stale.
+**Status:** Current behavior
+**Resolution:** Treat the file as an atomic heartbeat snapshot rather than an event stream. A short delay before the UI flips to the stale-state message is expected.
 
 ## Locked time is stored in SQLite but filtered out of the JSON totals
 **Symptom:** The database contains `__locked__` rows even though the pane never shows lock time in totals, charts, or app rows.

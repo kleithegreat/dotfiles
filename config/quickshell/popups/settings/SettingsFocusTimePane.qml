@@ -14,7 +14,8 @@ Components.WheelFlickable {
     // ── Data ──────────────────────────────────────────────
 
     property var stateData: ({})
-    property bool hasData: false
+    property string loadState: "loading"
+    property bool hasData: loadState === "ready"
     property bool firstLoadDone: false
     property int totalSeconds: hasData ? (stateData.total || 0) : 0
     property int yesterdaySeconds: hasData ? (stateData.yesterday || 0) : 0
@@ -24,6 +25,13 @@ Components.WheelFlickable {
     property var weekData: hasData ? (stateData.week || []) : []
     property var monthData: hasData ? (stateData.month || []) : []
     property string weekRange: hasData ? (stateData.week_range || "") : ""
+    property string emptyStateMessage: {
+        if (loadState === "missing")
+            return "The focus time daemon is not running";
+        if (loadState === "stale")
+            return "Focus daemon is not responding";
+        return "Unable to read focus time data";
+    }
 
     property int weekMax: {
         let max = 1;
@@ -43,21 +51,32 @@ Components.WheelFlickable {
 
     Process {
         id: stateProc
-        command: ["bash", "-c", "cat -- \"$XDG_RUNTIME_DIR/focustime_state.json\" 2>/dev/null || true"]
+        command: ["bash", "-c", "state_path=\"$XDG_RUNTIME_DIR/focustime_state.json\"; [ -f \"$state_path\" ] || exit 3; cat -- \"$state_path\""]
         running: false
         property string buf: ""
         stdout: SplitParser { onRead: (line) => { stateProc.buf += line; } }
-        onExited: {
+        onExited: (code) => {
             let trimmed = buf.trim();
-            if (trimmed !== "") {
-                try {
-                    root.stateData = JSON.parse(trimmed);
-                    root.hasData = true;
-                } catch (e) {
-                    root.hasData = false;
-                }
+            root.stateData = ({});
+
+            if (code === 3) {
+                root.loadState = "missing";
+            } else if (code !== 0 || trimmed === "") {
+                root.loadState = "parse_error";
             } else {
-                root.hasData = false;
+                try {
+                    let parsed = JSON.parse(trimmed);
+                    let lastUpdated = Number(parsed.last_updated);
+                    let now = Math.floor(Date.now() / 1000);
+                    if (isFinite(lastUpdated) && lastUpdated > 0 && Math.abs(now - lastUpdated) <= 10) {
+                        root.stateData = parsed;
+                        root.loadState = "ready";
+                    } else {
+                        root.loadState = "stale";
+                    }
+                } catch (e) {
+                    root.loadState = "parse_error";
+                }
             }
             root.firstLoadDone = true;
             buf = "";
@@ -131,7 +150,7 @@ Components.WheelFlickable {
             }
 
             Text {
-                text: "The focus time daemon is not running"
+                text: root.emptyStateMessage
                 color: Theme.fg4
                 font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                 Layout.alignment: Qt.AlignHCenter

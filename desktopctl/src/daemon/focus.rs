@@ -30,6 +30,7 @@ pub fn run(shutdown: Arc<AtomicBool>) -> crate::Result<()> {
     let resolver = DesktopResolver::load();
     let mut connection = init_db()?;
     let mut next_tick = Instant::now() + StdDuration::from_secs(1);
+    let mut cleanup_date = Local::now().format("%Y-%m-%d").to_string();
 
     while !shutdown.load(Ordering::SeqCst) {
         let sleep_for = next_tick.saturating_duration_since(Instant::now());
@@ -41,6 +42,12 @@ pub fn run(shutdown: Arc<AtomicBool>) -> crate::Result<()> {
         }
 
         let now = Local::now();
+        let today = now.format("%Y-%m-%d").to_string();
+        if today != cleanup_date {
+            prune_minute_totals(&connection, now.date_naive())?;
+            cleanup_date = today;
+        }
+
         let class_name = current_class
             .lock()
             .map(|class_name| class_name.clone())
@@ -48,12 +55,12 @@ pub fn run(shutdown: Arc<AtomicBool>) -> crate::Result<()> {
         let locked = is_screen_locked();
 
         if locked {
-            accumulate(&mut connection, LOCKED_CLASS, now)?;
+            accumulate(&mut connection, LOCKED_CLASS, &now)?;
         } else if !class_name.is_empty() {
-            accumulate(&mut connection, &class_name, now)?;
+            accumulate(&mut connection, &class_name, &now)?;
         }
 
-        write_summary(&connection, &resolver, &class_name, locked)?;
+        write_summary(&connection, &resolver, &class_name, locked, &now)?;
 
         next_tick += StdDuration::from_secs(1);
         if next_tick <= Instant::now() {
@@ -238,7 +245,7 @@ fn copy_minute_totals(legacy: &Connection, transaction: &Transaction<'_>) -> cra
 fn accumulate(
     connection: &mut Connection,
     app_class: &str,
-    now: chrono::DateTime<Local>,
+    now: &chrono::DateTime<Local>,
 ) -> crate::Result<()> {
     let date = now.format("%Y-%m-%d").to_string();
     let hour = i64::from(now.hour());
@@ -270,8 +277,9 @@ fn write_summary(
     resolver: &DesktopResolver,
     current_class: &str,
     locked: bool,
+    now: &chrono::DateTime<Local>,
 ) -> crate::Result<()> {
-    let summary = build_summary(connection, resolver, current_class, locked)?;
+    let summary = build_summary(connection, resolver, current_class, locked, now)?;
     let state_path = state_path()?;
     let temp_path = tmp_state_path(&state_path);
     fs::write(&temp_path, summary.to_python_json())?;
@@ -284,8 +292,9 @@ fn build_summary(
     resolver: &DesktopResolver,
     current_class: &str,
     locked: bool,
+    now: &chrono::DateTime<Local>,
 ) -> crate::Result<Summary> {
-    let today = Local::now().date_naive();
+    let today = now.date_naive();
     let today_string = today.format("%Y-%m-%d").to_string();
     let weekday = i64::from(today.weekday().num_days_from_monday());
     let week_start = today - Duration::days(weekday);
@@ -343,6 +352,7 @@ fn build_summary(
 
     Ok(Summary {
         selected_date: today_string,
+        last_updated: now.timestamp(),
         total,
         average,
         week_range,
@@ -362,14 +372,16 @@ fn load_daily_sums(
     let mut statement = connection.prepare(
         "SELECT date, SUM(seconds)
          FROM daily_totals
-         WHERE date BETWEEN ? AND ? AND app_class != ?
+         WHERE date BETWEEN ? AND ? AND app_class NOT IN (?, ?, ?)
          GROUP BY date",
     )?;
     let rows = statement.query_map(
         params![
             range_start.format("%Y-%m-%d").to_string(),
             range_end.format("%Y-%m-%d").to_string(),
-            LOCKED_CLASS
+            LOCKED_CLASS,
+            "Desktop",
+            "Quickshell",
         ],
         |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)),
     )?;
@@ -430,12 +442,18 @@ fn load_month(connection: &Connection, today: NaiveDate) -> crate::Result<Vec<Op
     let mut statement = connection.prepare(
         "SELECT date, SUM(seconds)
          FROM daily_totals
-         WHERE date LIKE ? AND app_class != ?
+         WHERE date LIKE ? AND app_class NOT IN (?, ?, ?)
          GROUP BY date",
     )?;
-    let rows = statement.query_map(params![format!("{month_prefix}%"), LOCKED_CLASS], |row| {
-        Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
-    })?;
+    let rows = statement.query_map(
+        params![
+            format!("{month_prefix}%"),
+            LOCKED_CLASS,
+            "Desktop",
+            "Quickshell"
+        ],
+        |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)),
+    )?;
 
     let mut month_sums = HashMap::new();
     for row in rows {
@@ -484,6 +502,12 @@ fn is_screen_locked() -> bool {
         .unwrap_or(false)
 }
 
+fn prune_minute_totals(connection: &Connection, today: NaiveDate) -> crate::Result<()> {
+    let cutoff = (today - Duration::days(90)).format("%Y-%m-%d").to_string();
+    connection.execute("DELETE FROM minute_totals WHERE date < ?", params![cutoff])?;
+    Ok(())
+}
+
 fn get_active_class() -> String {
     hypr::active_window()
         .map(|window| {
@@ -503,6 +527,7 @@ fn listen_for_focus(
 ) {
     while !shutdown.load(Ordering::SeqCst) {
         if let Ok(mut socket) = UnixStream::connect(&socket_path) {
+            set_current_class(&current_class, get_active_class());
             let _ = socket.set_read_timeout(Some(StdDuration::from_secs(5)));
             let mut buffer = Vec::new();
             let mut chunk = [0_u8; 4096];
@@ -541,10 +566,14 @@ fn consume_socket_lines(buffer: &mut Vec<u8>, current_class: &Arc<Mutex<String>>
                 .split_once(',')
                 .map(|(class_name, _)| class_name)
                 .unwrap_or(rest);
-            if let Ok(mut shared) = current_class.lock() {
-                *shared = class_name.to_owned();
-            }
+            set_current_class(current_class, class_name.to_owned());
         }
+    }
+}
+
+fn set_current_class(current_class: &Arc<Mutex<String>>, class_name: String) {
+    if let Ok(mut shared) = current_class.lock() {
+        *shared = class_name;
     }
 }
 
@@ -699,6 +728,7 @@ fn parse_desktop_file(path: &Path, entries: &mut HashMap<String, (String, String
 
 struct Summary {
     selected_date: String,
+    last_updated: i64,
     total: i64,
     average: i64,
     week_range: String,
@@ -715,6 +745,9 @@ impl Summary {
         out.push('{');
         push_json_key(&mut out, "selected_date");
         push_json_string(&mut out, &self.selected_date);
+        out.push_str(", ");
+        push_json_key(&mut out, "last_updated");
+        out.push_str(&self.last_updated.to_string());
         out.push_str(", ");
         push_json_key(&mut out, "total");
         out.push_str(&self.total.to_string());
