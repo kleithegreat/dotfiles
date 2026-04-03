@@ -50,6 +50,9 @@ Constraints:
 - Generated theme outputs must remain writable outside the Nix store.
 - Recursive Home Manager trees may coexist with generated sibling files when
   the runtime output is not itself store-managed.
+- Generated snapshots accidentally committed under `config/` are still forbidden
+  outputs even if no current module deploys them; remove or relocate them
+  instead of treating them as owned base config.
 
 ## Packages Versus Repo Config
 
