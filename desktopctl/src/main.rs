@@ -5,6 +5,7 @@ mod launch;
 mod paths;
 mod portal;
 mod solar;
+mod theme;
 
 use clap::{Args, Parser, Subcommand};
 use std::{io, process::ExitCode};
