@@ -57,6 +57,22 @@ pub fn keyword(key: &str, value: &str) -> Result<()> {
     Ok(())
 }
 
+/// Toggle floating and resize/center windows when promoting from tiled mode.
+pub fn toggle_float() -> Result<()> {
+    let window = active_window()?;
+    if window.floating {
+        dispatch(&["togglefloating"])?;
+    } else {
+        batch(&[
+            "dispatch togglefloating",
+            "dispatch resizeactive exact 75% 75%",
+            "dispatch centerwindow 1",
+        ])?;
+    }
+
+    Ok(())
+}
+
 /// Return the Hyprland event-socket path used by the focus daemon.
 pub fn socket2_path() -> Result<PathBuf> {
     let signature = env::var("HYPRLAND_INSTANCE_SIGNATURE").map_err(|_| {

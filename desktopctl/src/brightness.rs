@@ -1,0 +1,218 @@
+use std::{
+    fs,
+    io,
+    path::{Path, PathBuf},
+    process::{self, Command, Output},
+    sync::atomic::{AtomicBool, Ordering},
+    thread,
+    time::Duration,
+};
+
+pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
+
+const GAMMA: f64 = 2.2;
+const STEP: f64 = 0.05;
+const DIM_STEPS: u32 = 20;
+const DIM_DELAY: Duration = Duration::from_millis(50);
+const BACKLIGHT_ROOT: &str = "/sys/class/backlight";
+const QUICKSHELL_BRIGHTNESS_PATH: &str = "/tmp/quickshell-brightness";
+const DIM_PID_PATH: &str = "/tmp/dim-screen.pid";
+
+const SIGHUP: i32 = 1;
+const SIGINT: i32 = 2;
+const SIGQUIT: i32 = 3;
+const SIGTERM: i32 = 15;
+const SIG_ERR: usize = usize::MAX;
+
+static DIM_ABORTED: AtomicBool = AtomicBool::new(false);
+
+unsafe extern "C" {
+    fn signal(sig: i32, handler: usize) -> usize;
+}
+
+extern "C" fn handle_dim_signal(_signal: i32) {
+    DIM_ABORTED.store(true, Ordering::Relaxed);
+}
+
+pub fn up(device: Option<&str>) -> Result<()> {
+    step(device, 1.0)
+}
+
+pub fn down(device: Option<&str>) -> Result<()> {
+    step(device, -1.0)
+}
+
+pub fn dim(device: Option<&str>) -> Result<()> {
+    let device = resolve_device(device)?;
+    let _pid_file = DimPidFile::create(Path::new(DIM_PID_PATH))?;
+    install_dim_signal_handlers()?;
+
+    brightnessctl(&device, &["-s"])?;
+
+    let current = brightness_value(&device, "g")?;
+    let max = brightness_value(&device, "m")?;
+    ensure_nonzero_max(max)?;
+
+    if current == 0 {
+        write_quickshell_state(&device)?;
+        return Ok(());
+    }
+
+    let current_perceived = raw_to_perceived(current, max);
+    let target = ((current as f64) * 0.3).floor() as u64;
+    let target_perceived = raw_to_perceived(target, max);
+
+    for index in 0..DIM_STEPS {
+        if DIM_ABORTED.load(Ordering::Relaxed) {
+            break;
+        }
+
+        let progress = (index + 1) as f64 / DIM_STEPS as f64;
+        let perceived = current_perceived + (target_perceived - current_perceived) * progress;
+        let raw = perceived_to_raw(perceived, max);
+
+        brightnessctl(&device, &["s", &raw.to_string()])?;
+
+        if DIM_ABORTED.load(Ordering::Relaxed) {
+            break;
+        }
+
+        thread::sleep(DIM_DELAY);
+    }
+
+    write_quickshell_state(&device)?;
+    Ok(())
+}
+
+pub fn restore(device: Option<&str>) -> Result<()> {
+    let device = resolve_device(device)?;
+    brightnessctl(&device, &["-r"])?;
+    write_quickshell_state(&device)?;
+    Ok(())
+}
+
+pub fn seed(device: Option<&str>) -> Result<()> {
+    let device = resolve_device(device)?;
+    write_quickshell_state(&device)?;
+    Ok(())
+}
+
+fn step(device: Option<&str>, direction: f64) -> Result<()> {
+    let device = resolve_device(device)?;
+    let current = brightness_value(&device, "g")?;
+    let max = brightness_value(&device, "m")?;
+    ensure_nonzero_max(max)?;
+
+    let perceived = raw_to_perceived(current, max);
+    let next = (perceived + (direction * STEP)).clamp(0.0, 1.0);
+    let raw = perceived_to_raw(next, max);
+
+    brightnessctl(&device, &["s", &raw.to_string()])?;
+    write_quickshell_state(&device)?;
+    Ok(())
+}
+
+fn resolve_device(device: Option<&str>) -> Result<String> {
+    if let Some(device) = device {
+        return Ok(device.to_owned());
+    }
+
+    let entry = fs::read_dir(BACKLIGHT_ROOT)?
+        .find_map(|entry| entry.ok())
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no backlight devices found"))?;
+
+    let name = entry.file_name();
+    let device = name.into_string().map_err(|_| {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            "backlight device name is not valid UTF-8",
+        )
+    })?;
+
+    Ok(device)
+}
+
+fn brightness_value(device: &str, arg: &str) -> Result<u64> {
+    let output = brightnessctl(device, &[arg])?;
+    let value = String::from_utf8(output.stdout)?;
+    Ok(value.trim().parse()?)
+}
+
+fn brightnessctl(device: &str, args: &[&str]) -> Result<Output> {
+    let mut command_args = Vec::with_capacity(args.len() + 2);
+    command_args.extend(["-d", device]);
+    command_args.extend(args.iter().copied());
+
+    let output = Command::new("brightnessctl").args(&command_args).output()?;
+    if output.status.success() {
+        return Ok(output);
+    }
+
+    Err(command_error("brightnessctl", &command_args, &output).into())
+}
+
+fn write_quickshell_state(device: &str) -> Result<()> {
+    let output = brightnessctl(device, &["-m"])?;
+    fs::write(PathBuf::from(QUICKSHELL_BRIGHTNESS_PATH), output.stdout)?;
+    Ok(())
+}
+
+fn ensure_nonzero_max(max: u64) -> Result<()> {
+    if max == 0 {
+        return Err(io::Error::other("brightness maximum is zero").into());
+    }
+
+    Ok(())
+}
+
+fn raw_to_perceived(raw: u64, max: u64) -> f64 {
+    (raw as f64 / max as f64).powf(1.0 / GAMMA)
+}
+
+fn perceived_to_raw(perceived: f64, max: u64) -> u64 {
+    let raw = (max as f64 * perceived.clamp(0.0, 1.0).powf(GAMMA)).floor();
+    raw.clamp(0.0, max as f64) as u64
+}
+
+fn install_dim_signal_handlers() -> io::Result<()> {
+    DIM_ABORTED.store(false, Ordering::Relaxed);
+
+    for signal_number in [SIGHUP, SIGINT, SIGQUIT, SIGTERM] {
+        let previous = unsafe { signal(signal_number, handle_dim_signal as *const () as usize) };
+        if previous == SIG_ERR {
+            return Err(io::Error::last_os_error());
+        }
+    }
+
+    Ok(())
+}
+
+fn command_error(binary: &str, args: &[&str], output: &Output) -> io::Error {
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let detail = if stderr.trim().is_empty() {
+        "(no stderr)".to_owned()
+    } else {
+        stderr.trim().to_owned()
+    };
+
+    io::Error::other(format!("{binary} {} failed: {detail}", args.join(" ")))
+}
+
+struct DimPidFile {
+    path: PathBuf,
+}
+
+impl DimPidFile {
+    fn create(path: &Path) -> io::Result<Self> {
+        fs::write(path, format!("{}\n", process::id()))?;
+        Ok(Self {
+            path: path.to_path_buf(),
+        })
+    }
+}
+
+impl Drop for DimPidFile {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.path);
+    }
+}
