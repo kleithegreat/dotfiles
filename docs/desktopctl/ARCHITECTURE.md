@@ -2,37 +2,38 @@
 
 ## Scope
 
-Current implementation state for the Phase 1 shell-script port work as of
-2026-04-03.
+Current implementation state for the Phase 3 daemon, focus, and solar work as
+of 2026-04-03.
 
 ## Current Crate Layout
 
 | Piece | Current implementation |
 | --- | --- |
-| Crate manifest | `desktopctl/Cargo.toml:1-11` defines the binary crate, pins the Rust 2024 edition, and carries the initial dependency set: `clap`, `tokio`, `serde`, `serde_json`, and `rusqlite` with bundled SQLite. |
-| CLI dispatch | `desktopctl/src/main.rs:1-251` defines the full clap command tree for `daemon`, `theme`, `brightness`, `hypr`, `launch-quickshell`, `portal`, and `sun`, and now dispatches the Phase 1 `brightness`, `hypr`, `launch-quickshell`, and `portal` subcommands to real module logic while leaving `daemon`, `theme`, and `sun` as placeholders. |
-| Path helpers | `desktopctl/src/paths.rs:9-75` resolves the repo root from `DESKTOPCTL_REPO` (with a compatibility fallback to `desktopctl_REPO`) or `$HOME/repos/dotfiles`, and provides helpers for `HOME`, `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_CACHE_HOME`, and `XDG_RUNTIME_DIR`. |
-| Brightness helpers | `desktopctl/src/brightness.rs:13-218` ports `brightness-step.sh` and `dim-screen.sh`: it auto-detects the backlight device from `/sys/class/backlight`, applies gamma-2.2 perceptual steps, saves dim PIDs to `/tmp/dim-screen.pid`, preserves restore state with `brightnessctl -s/-r`, and rewrites `/tmp/quickshell-brightness` after every brightness subcommand. |
-| Hyprland helpers | `desktopctl/src/hypr.rs:14-119` keeps the shared `hyprctl` subprocess wrappers (`active_window()`, `dispatch()`, `batch()`, `keyword()`, `socket2_path()`) and now adds `toggle_float()` for the `hypr toggle-float` CLI. |
-| Quickshell launch helper | `desktopctl/src/launch.rs:13-107` ports `launch-quickshell.sh`: it reads `cursor.conf`, clears `HYPRCURSOR_THEME` unless the file sets it, supports `--print-env`, resolves the repo root through `paths::repo_root()`, and `exec`s `quickshell -p <repo>/config/quickshell`. |
-| Portal helper | `desktopctl/src/portal.rs:14-195` ports the directory picker by spawning `dbus-monitor` and `busctl`, applying the same 5-second call timeout and 120-second response wait as the Python script, then percent-decoding the returned `file://` URI before printing it. |
+| Crate manifest | `desktopctl/Cargo.toml:1-12` defines the binary crate, keeps the Rust 2024 edition, and now adds `chrono` alongside `clap`, `tokio`, `serde`, `serde_json`, and `rusqlite` with bundled SQLite. |
+| CLI dispatch | `desktopctl/src/main.rs:1-256` defines the full clap tree for `daemon`, `theme`, `brightness`, `hypr`, `launch-quickshell`, `portal`, and `sun`, dispatches `daemon` to the new runtime supervisor, dispatches `sun status` to the shared solar module, and still leaves `theme` on the Phase 0 placeholder. |
+| Path helpers | `desktopctl/src/paths.rs:9-75` resolves the repo root from `DESKTOPCTL_REPO` or `$HOME/repos/dotfiles`, and provides the shared XDG path fallbacks used by the daemon, solar code, launch helper, and legacy-theme compatibility call. |
+| Hyprland helpers | `desktopctl/src/hypr.rs:27-88` keeps the shared `hyprctl` wrappers (`active_window()`, `dispatch()`, `batch()`, `keyword()`, `socket2_path()`) used by both `hypr toggle-float` and the daemon subsystems. |
+| Focus tracker | `desktopctl/src/daemon/focus.rs:20-145`, `desktopctl/src/daemon/focus.rs:148-418`, `desktopctl/src/daemon/focus.rs:422-773` port `scripts/focus-daemon.py`: a one-second accumulator loop writes `daily_totals`, `hourly_totals`, and `minute_totals` in SQLite, a background listener follows `activewindow>>` events on Hyprland's `.socket2.sock`, desktop entries are indexed by `StartupWMClass` and file stem, and the summary is serialized to Python-compatible JSON before an atomic temp-file rename to `focustime_state.json`. |
+| Shared solar module | `desktopctl/src/solar.rs:48-259` provides the NOAA `sun_times()` port, cached-location / `where-am-i` / hardcoded fallback resolution, current-state computation, next-event selection, and the human-readable `sun status` report used by the CLI. |
+| Daemon supervisor | `desktopctl/src/daemon/mod.rs:19-100` builds a tokio runtime on demand for `desktopctl daemon`, spawns the focus tracker, solar scheduler, and socket server concurrently, and converts `SIGTERM` / `SIGINT` into a coordinated shutdown signal for all three tasks. |
+| Solar scheduler | `desktopctl/src/daemon/solar.rs:11-115` recomputes solar status on a two-hour cadence or `SIGUSR1`, sleeps until the next sunrise / sunset / 23:00 dark-on event, starts or stops `hyprsunset`, and currently shells out to the legacy `themes/apply-theme set dark_hint ...` path because the Rust `theme` CLI is still a placeholder. |
+| Socket server | `desktopctl/src/daemon/server.rs:16-94` binds `$XDG_RUNTIME_DIR/desktopctl.sock`, removes stale socket files on startup, accepts newline-delimited JSON requests, answers `ping` with `{"ok":true,"data":{"pong":true}}`, and returns structured errors for unsupported or invalid requests. |
+| Existing Phase 1 ports | `desktopctl/src/brightness.rs:37-218`, `desktopctl/src/launch.rs:13-108`, and `desktopctl/src/portal.rs:14-195` remain the active ports for the shell-script and Python helpers completed before the daemon work. |
 
 ## CLI Surface
 
 | Area | Current implementation |
 | --- | --- |
-| Theme CLI | `desktopctl/src/main.rs:43-116` still mirrors the `themes/apply-theme` surface: `all`, `sync`, `colors`, `wallpaper`, `cursor`, `fonts`, `target`, `set`, `preset`, `save-preset`, `delete-preset`, `list-schemes`, `list-presets`, and `status`. The parser is present, but execution still returns the Phase 0 placeholder error. |
-| Brightness CLI | `desktopctl/src/main.rs:118-144` plus `desktopctl/src/brightness.rs:37-218` implement `up`, `down`, `dim`, `restore`, and `seed`. All five subcommands accept `--device <DEVICE>` overrides; otherwise the first `/sys/class/backlight` entry is used. |
-| Hypr CLI | `desktopctl/src/main.rs:146-157` and `desktopctl/src/main.rs:228-231` dispatch `hypr toggle-float` to `desktopctl/src/hypr.rs:60-74`, which preserves the shell script's float-or-batch behavior. |
-| Launch CLI | `desktopctl/src/main.rs:159-164` and `desktopctl/src/main.rs:207-214` dispatch `launch-quickshell` to `desktopctl/src/launch.rs:13-38`, including the `--print-env` mode. |
-| Portal CLI | `desktopctl/src/main.rs:166-177` and `desktopctl/src/main.rs:234-243` dispatch `portal pick-directory` to `desktopctl/src/portal.rs:14-195`, which prints the selected directory path when the portal returns one. |
-| Placeholder commands | `desktopctl/src/main.rs:212-214` still returns the shared placeholder error for `daemon`, `theme`, and `sun` execution paths. |
+| Theme CLI | `desktopctl/src/main.rs:45-81`, `desktopctl/src/main.rs:214-215` still mirror the `themes/apply-theme` surface, but execution returns the shared placeholder error. |
+| Daemon CLI | `desktopctl/src/main.rs:27-42`, `desktopctl/src/main.rs:206-217`, and `desktopctl/src/daemon/mod.rs:19-100` make `desktopctl daemon` the foreground entry point for the new tokio-based daemon. |
+| Sun CLI | `desktopctl/src/main.rs:181-191`, `desktopctl/src/main.rs:248-251`, and `desktopctl/src/solar.rs:48-72` implement `desktopctl sun status` as an independent status computation path; it does not query the placeholder socket server yet. |
+| Brightness CLI | `desktopctl/src/main.rs:120-146` plus `desktopctl/src/brightness.rs:37-218` still implement `up`, `down`, `dim`, `restore`, and `seed`, with optional `--device <DEVICE>` overrides. |
+| Hypr CLI | `desktopctl/src/main.rs:148-159`, `desktopctl/src/main.rs:230-233`, and `desktopctl/src/hypr.rs:59-72` still dispatch `hypr toggle-float` to the shared Hyprland helpers. |
+| Launch CLI | `desktopctl/src/main.rs:161-166`, `desktopctl/src/main.rs:212-213`, and `desktopctl/src/launch.rs:13-38` still implement `launch-quickshell --print-env` and the final `exec quickshell -p ...` handoff. |
+| Portal CLI | `desktopctl/src/main.rs:168-179`, `desktopctl/src/main.rs:236-245`, and `desktopctl/src/portal.rs:14-195` still implement `portal pick-directory` with the `dbus-monitor` plus `busctl` subprocess strategy. |
 
 ## Verification
 
 - `XDG_CACHE_HOME=/tmp nix develop -c cargo build` succeeds from `desktopctl/`.
-- The resulting binary links the new Phase 1 modules for `brightness`, `hypr`,
-  `launch-quickshell`, and `portal`.
-- Runtime integration against live Hyprland, brightnessctl hardware, and the
-  desktop portal was not exercised in this architecture update because those
-  paths require the user session services and devices to be present.
+- `./target/debug/desktopctl sun status` runs successfully and prints location, sunrise/sunset, current dark state, and next events using the shared Rust solar module.
+- The full daemon was not exercised against a live Hyprland session in this update, so the focus socket listener, `hyprlock` detection, `hyprsunset` control, and legacy `apply-theme` compatibility path were verified by code inspection and compilation, not by an end-to-end session run.
