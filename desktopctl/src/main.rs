@@ -1,8 +1,10 @@
 mod brightness;
+mod daemon;
 mod hypr;
 mod launch;
 mod paths;
 mod portal;
+mod solar;
 
 use clap::{Args, Parser, Subcommand};
 use std::{io, process::ExitCode};
@@ -209,9 +211,9 @@ fn run() -> Result<()> {
         TopLevelCommand::Hypr(args) => run_hypr(args),
         TopLevelCommand::LaunchQuickshell(args) => launch::run(args.print_env),
         TopLevelCommand::Portal(args) => run_portal(args),
-        TopLevelCommand::Daemon => phase0_placeholder("daemon"),
+        TopLevelCommand::Daemon => daemon::run(),
         TopLevelCommand::Theme(_) => phase0_placeholder("theme"),
-        TopLevelCommand::Sun(_) => phase0_placeholder("sun"),
+        TopLevelCommand::Sun(args) => run_sun(args),
     }
 }
 
@@ -243,9 +245,12 @@ fn run_portal(args: PortalArgs) -> Result<()> {
     }
 }
 
+fn run_sun(args: SunArgs) -> Result<()> {
+    match args.command {
+        SunCommand::Status => solar::print_status(),
+    }
+}
+
 fn phase0_placeholder(area: &str) -> Result<()> {
-    Err(io::Error::other(format!(
-        "desktopctl {area} is still a Phase 0 placeholder"
-    ))
-    .into())
+    Err(io::Error::other(format!("desktopctl {area} is still a Phase 0 placeholder")).into())
 }

@@ -494,18 +494,34 @@ Use the same database at `$XDG_DATA_HOME/focustime/focustime.db` with the same
 schema the Python daemon creates:
 
 ```sql
-CREATE TABLE IF NOT EXISTS focus_seconds (
+CREATE TABLE IF NOT EXISTS daily_totals (
     date TEXT NOT NULL,
     app_class TEXT NOT NULL,
     seconds INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (date, app_class)
 );
+
+CREATE TABLE IF NOT EXISTS hourly_totals (
+    date TEXT NOT NULL,
+    hour INTEGER NOT NULL,
+    app_class TEXT NOT NULL,
+    seconds INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (date, hour, app_class)
+);
+
+CREATE TABLE IF NOT EXISTS minute_totals (
+    date TEXT NOT NULL,
+    minute_index INTEGER NOT NULL,
+    app_class TEXT NOT NULL,
+    seconds INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (date, minute_index, app_class)
+);
 ```
 
-Accumulation: every second, `INSERT OR REPLACE` incrementing the `seconds`
-column for the current `(date, app_class)` pair. When the screen is locked
-(detected via `pgrep -x hyprlock`), accumulate under the `__locked__` class
-instead.
+Accumulation: every second, one transaction UPSERTs one second into all three
+tables. When the screen is locked (detected via `pgrep -x hyprlock`),
+accumulate under the `__locked__` class instead. When the screen is unlocked
+and the current class is empty, skip the SQLite write for that tick.
 
 ### Desktop file resolution
 
@@ -532,15 +548,15 @@ rename). The JSON format must exactly match the current output so the Quickshell
   "selected_date": "2026-04-02",
   "total": 14523,
   "average": 12800,
-  "week_range": "Mar 27 – Apr 2",
+  "week_range": "Mar 31 - Apr 6",
   "yesterday": 11200,
   "current": "Alacritty",
   "apps": [
-    {"class": "Alacritty", "name": "Alacritty", "icon": "Alacritty", "seconds": 5400},
+    {"class": "Alacritty", "name": "Alacritty", "icon": "Alacritty", "seconds": 5400, "percent": 37.2},
     ...
   ],
   "week": [
-    {"date": "2026-03-27", "total": 12000, "is_target": false},
+    {"date": "2026-03-31", "day": "Mon", "total": 12000, "is_target": false},
     ...
   ],
   "month": [
@@ -553,9 +569,12 @@ rename). The JSON format must exactly match the current output so the Quickshell
 ```
 
 The `month` array is prefixed with `null` entries for the weekday offset of the
-first day of the month (Monday = 0). The `week` array covers Monday through the
-current day. `apps` is sorted descending by seconds, excluding `__locked__` and
-classes in `EXCLUDED_CLASSES` (`""`, `"Desktop"`, `"Quickshell"`).
+first day of the month (Monday = 0). The `week` array always contains all seven
+days from Monday through Sunday, with `0` totals for missing days. `apps` is
+sorted descending by seconds, excluding `__locked__` and classes in
+`EXCLUDED_CLASSES` (`""`, `"Desktop"`, `"Quickshell"`). `total`, `yesterday`,
+`week[*].total`, and `month[*].total` exclude `__locked__` only; they do not
+hide `Desktop` or `Quickshell`.
 
 ---
 
