@@ -1,6 +1,5 @@
 use std::{
-    fs,
-    io,
+    fs, io,
     path::{Path, PathBuf},
     process::{self, Command, Output},
     sync::atomic::{AtomicBool, Ordering},

@@ -99,7 +99,10 @@ pub fn pick_directory() -> Result<Option<String>> {
 }
 
 fn run_with_timeout(mut command: Command, timeout: Duration) -> Result<Output> {
-    let mut child = command.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
+    let mut child = command
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
     let start = Instant::now();
 
     loop {
