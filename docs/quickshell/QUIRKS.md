@@ -12,8 +12,8 @@
 **Status:** By design
 **Resolution:** Keep `desktopctl` installed through Home Manager so every Quickshell `Process` can resolve it from the user session `PATH`.
 
-## `theme.apply` IPC breaks on values with spaces
-**Symptom:** Shell IPC cannot safely set fonts like `IBM Plex Sans` or wallpaper paths containing spaces.
-**Cause:** `config/quickshell/shell.qml` still splits the payload with `args.split(" ")` before spawning `desktopctl theme`.
-**Status:** Open
-**Resolution:** The settings popup write path is safe today; the shell IPC path still needs argv-safe argument passing plus completion and error reporting.
+## `theme.apply` string payloads use shell-style quoting
+**Symptom:** Shell IPC string payloads still split on unquoted whitespace, so multi-word fonts or wallpaper paths need quoting.
+**Cause:** `config/quickshell/shell.qml:24-108` tokenizes string payloads into argv using shell-style quote and backslash rules before spawning `desktopctl theme`.
+**Status:** By design
+**Resolution:** Quote arguments such as `"IBM Plex Sans"` or pass an array payload when the caller already has structured argv pieces. Failures now surface through the shell toast path (`config/quickshell/shell.qml:380-415`).

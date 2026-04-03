@@ -66,12 +66,8 @@
   # which can cause a black screen on resume (nixpkgs #371058).
   systemd.services.systemd-suspend.environment.SYSTEMD_SLEEP_FREEZE_USER_SESSIONS = "false";
 
-  # The shared config forces __EGL_VENDOR_LIBRARY_FILENAMES to Mesa-only,
-  # which is correct for the laptop (Intel iGPU) but excludes the NVIDIA
-  # EGL ICD on this dedicated-GPU desktop. Override to load both vendors.
-  # TODO: move the shared setting to hosts/laptop/system.nix instead —
-  # auto-discovery (unsetting this var entirely) is the correct default.
-  environment.sessionVariables.__EGL_VENDOR_LIBRARY_FILENAMES = lib.mkForce
+  # Load both the NVIDIA and Mesa EGL ICDs on this dedicated-GPU desktop.
+  environment.sessionVariables.__EGL_VENDOR_LIBRARY_FILENAMES =
     "/run/opengl-driver/share/glvnd/egl_vendor.d/10_nvidia.json:/run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json";
 
   networking.useDHCP = lib.mkDefault true;

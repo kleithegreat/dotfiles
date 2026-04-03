@@ -37,12 +37,12 @@
         hostModule,
       }:
       nixpkgs.lib.nixosSystem {
+        system = "x86_64-linux";
         specialArgs = {
           inherit hyprland hostName march enableMarchOptimizations enableDistributedBuilds;
           inputs = { inherit nixpkgs hyprland hyprland-plugins hyprqt6engine vicinae snappy-switcher home-manager; };
         };
         modules = [
-          { nixpkgs.hostPlatform = "x86_64-linux"; }
           ./system/configuration.nix
           hostModule
           home-manager.nixosModules.home-manager

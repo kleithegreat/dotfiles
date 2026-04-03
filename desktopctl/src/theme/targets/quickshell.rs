@@ -17,6 +17,10 @@ pub const METADATA: TargetMetadata = TargetMetadata {
 };
 
 pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<GeneratedContent> {
+    let font_size = state.font_size.max(1);
+    let font_size_small = (font_size - 2).max(1);
+    let font_size_large = font_size + 2;
+
     let mut theme = Map::new();
 
     let mut color_map = Map::new();
@@ -72,9 +76,9 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Gener
         "systemFamily".to_owned(),
         Value::String(state.system_font.clone()),
     );
-    font_map.insert("size".to_owned(), Value::from(12));
-    font_map.insert("sizeSmall".to_owned(), Value::from(10));
-    font_map.insert("sizeLarge".to_owned(), Value::from(14));
+    font_map.insert("size".to_owned(), Value::from(font_size));
+    font_map.insert("sizeSmall".to_owned(), Value::from(font_size_small));
+    font_map.insert("sizeLarge".to_owned(), Value::from(font_size_large));
 
     theme.insert("colors".to_owned(), Value::Object(color_map));
     theme.insert("fonts".to_owned(), Value::Object(font_map));

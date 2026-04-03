@@ -55,7 +55,7 @@ Rectangle {
                             verticalCenter: parent.verticalCenter
                         }
                         color: Theme.fg
-                        font.family: Theme.fontFamily
+                        font.family: Theme.systemFamily
                         font.pixelSize: Theme.fontSizeLarge
                         font.bold: true
                     }
@@ -122,7 +122,7 @@ Rectangle {
                                 text: root.categoryNames[sysCatItem.categoryIndex]
                                 color: sysCatItem.isSelected ? Theme.fg : Theme.fg3
                                 Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                                font.family: Theme.fontFamily
+                                font.family: Theme.systemFamily
                                 font.pixelSize: Theme.fontSize
                                 Layout.alignment: Qt.AlignVCenter
                                 Layout.fillWidth: true
@@ -163,7 +163,7 @@ Rectangle {
                             verticalCenter: parent.verticalCenter
                         }
                         color: Theme.fg
-                        font.family: Theme.fontFamily
+                        font.family: Theme.systemFamily
                         font.pixelSize: Theme.fontSizeLarge
                         font.bold: true
                     }
@@ -228,7 +228,7 @@ Rectangle {
                                 text: root.categoryNames[appCatItem.categoryIndex]
                                 color: appCatItem.isSelected ? Theme.fg : Theme.fg3
                                 Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                                font.family: Theme.fontFamily
+                                font.family: Theme.systemFamily
                                 font.pixelSize: Theme.fontSize
                                 Layout.alignment: Qt.AlignVCenter
                                 Layout.fillWidth: true

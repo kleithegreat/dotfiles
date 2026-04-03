@@ -172,7 +172,7 @@ FocusScope {
                 }
                 Text {
                     text: ["January","February","March","April","May","June","July","August","September","October","November","December"][cal.viewMonth] + " " + cal.viewYear
-                    color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true
+                    color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.headerFontSize; font.bold: true
                     Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter
                 }
                 Rectangle {
@@ -206,7 +206,7 @@ FocusScope {
             RowLayout { spacing: 0; Layout.fillWidth: true
                 Repeater { model: ["Su","Mo","Tu","We","Th","Fr","Sa"]
                     Text { required property string modelData; text: modelData; color: Theme.fg4
-                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                        font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
                         Layout.preferredWidth: Theme.calCellSize; horizontalAlignment: Text.AlignHCenter }
                 }
             }
@@ -258,7 +258,7 @@ FocusScope {
                         Text {
                             anchors.centerIn: parent; text: isCur ? dayNum : ""
                             color: isToday ? Theme.bg : (((index % 7) === 0 || (index % 7) === 6) ? Theme.fg4 : Theme.fg)
-                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: isToday
+                            font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: isToday
                         }
                         MouseArea {
                             id: dayCellMouse; anchors.fill: parent; hoverEnabled: isCur
@@ -270,7 +270,7 @@ FocusScope {
 
             Text {
                 text: Qt.formatDateTime(new Date(), "dddd, MMMM d, yyyy  h:mm AP")
-                color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                color: Theme.fg3; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
                 Layout.alignment: Qt.AlignHCenter
             }
             }

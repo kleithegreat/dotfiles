@@ -200,17 +200,17 @@ FocusScope {
                         id: trackInfoCol; width: parent.width; spacing: 4
                         Text {
                             text: mprisPop.player?.trackTitle ?? "Unknown"; color: Theme.fg
-                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; font.bold: true
+                            font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize; font.bold: true
                             elide: Text.ElideRight; Layout.fillWidth: true
                         }
                         Text {
                             text: mprisPop.player?.trackArtist ?? ""; color: Theme.fg3
-                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                            font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
                             elide: Text.ElideRight; Layout.fillWidth: true; visible: text !== ""
                         }
                         Text {
                             text: mprisPop.player?.trackAlbum ?? ""; color: Theme.fg4
-                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                            font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
                             elide: Text.ElideRight; Layout.fillWidth: true; visible: text !== ""
                         }
                     }
@@ -294,9 +294,9 @@ FocusScope {
                     }
                 }
                 RowLayout { Layout.fillWidth: true
-                    Text { text: mprisPop.fmtTime(mprisPop.pos); color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
+                    Text { text: mprisPop.fmtTime(mprisPop.pos); color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
                     Item { Layout.fillWidth: true }
-                    Text { text: mprisPop.fmtTime(mprisPop.len); color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
+                    Text { text: mprisPop.fmtTime(mprisPop.len); color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
                 }
             }
 

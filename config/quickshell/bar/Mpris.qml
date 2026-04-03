@@ -33,7 +33,7 @@ Item {
                 return a ? a + " \u2014 " + t : t;
             }
             color: labelArea.containsMouse ? Theme.yellowBright : Theme.fg2
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+            font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
             elide: Text.ElideRight; Layout.maximumWidth: 220
             MouseArea { id: labelArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: mprisRoot.labelClicked() }
         }

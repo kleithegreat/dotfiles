@@ -64,7 +64,7 @@ ColumnLayout {
                             Text {
                                 text: root.familyDisplayName(famCard.variant ? famCard.variant.family : "")
                                 color: famCard.variant ? famCard.variant.fg : Theme.fg
-                                font.family: Theme.fontFamily
+                                font.family: Theme.systemFamily
                                 font.pixelSize: Theme.fontSize
                                 font.bold: true
                             }
@@ -73,7 +73,7 @@ ColumnLayout {
                                 text: famCard.variant ? famCard.variant.variant : ""
                                 color: famCard.variant ? famCard.variant.fg : Theme.fg4
                                 opacity: 0.6
-                                font.family: Theme.fontFamily
+                                font.family: Theme.systemFamily
                                 font.pixelSize: Theme.fontSizeSmall
                                 Layout.fillWidth: true
                             }
@@ -130,7 +130,7 @@ ColumnLayout {
         Text {
             text: "ELECTRON / BROWSER HINT"
             color: Theme.fg4
-            font.family: Theme.fontFamily
+            font.family: Theme.systemFamily
             font.pixelSize: Theme.fontSizeSmall
             font.bold: true
         }
@@ -160,7 +160,7 @@ ColumnLayout {
                     text: "Light"
                     color: lightHintBtn.isActive ? Theme.bg : Theme.fg
                     Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    font.family: Theme.fontFamily
+                    font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
                 }
 
@@ -201,7 +201,7 @@ ColumnLayout {
                     text: "Dark"
                     color: darkHintBtn.isActive ? Theme.bg : Theme.fg
                     Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    font.family: Theme.fontFamily
+                    font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
                 }
 

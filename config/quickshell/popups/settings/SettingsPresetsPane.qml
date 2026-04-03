@@ -252,7 +252,7 @@ Components.WheelFlickable {
                 Text {
                     text: "PRESETS"
                     color: Theme.fg4
-                    font.family: Theme.fontFamily
+                    font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
                     font.bold: true
                 }

@@ -46,7 +46,7 @@ Item {
         Text {
             text: displayRoot.labelText
             color: displayArea.containsMouse ? Theme.yellowBright : (BrightnessService.hasBacklight ? Theme.fg : (DisplayService.nightLightEnabled ? Theme.orangeBright : Theme.fg3))
-            font.family: Theme.fontFamily
+            font.family: Theme.systemFamily
             font.pixelSize: Theme.fontSizeSmall
             Behavior on color { Components.CAnim { duration: 150 } }
         }
