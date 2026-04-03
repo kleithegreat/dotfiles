@@ -79,6 +79,45 @@ let
       sessionsFontSize = 16;
     };
   };
+
+  allowedUnfreePackageNames = [
+    "claude-code"
+    "cuda_cccl"
+    "cuda_cudart"
+    "cuda_cuobjdump"
+    "cuda_cupti"
+    "cuda_cuxxfilt"
+    "cuda_gdb"
+    "cuda-merged"
+    "cuda_nvcc"
+    "cuda_nvdisasm"
+    "cuda_nvml_dev"
+    "cuda_nvprune"
+    "cuda_nvrtc"
+    "cuda_nvtx"
+    "cuda_profiler_api"
+    "cuda_sanitizer_api"
+    "discord"
+    "libcublas"
+    "libcufft"
+    "libcurand"
+    "libcusolver"
+    "libcusparse"
+    "libnpp"
+    "libnvjitlink"
+    "lmstudio"
+    "nvidia-settings"
+    "nvidia-x11"
+    "obsidian"
+    "slack"
+    "spotify"
+    "steam"
+    "steam-unwrapped"
+    "symbola"
+    "unrar"
+    "vscode"
+    "zoom"
+  ];
 in
 {
   imports = [
@@ -111,7 +150,11 @@ in
     hyprland.flake = inputs.hyprland;
     vicinae.flake = inputs.vicinae;
   };
-  nixpkgs.config.allowUnfree = true;
+  # Home Manager reuses the system package set in this flake, so keep the
+  # unfree allowlist on the shared `pkgs` instance rather than duplicating it
+  # in multiple module layers.
+  nixpkgs.config.allowUnfreePredicate = pkg:
+    builtins.elem (lib.getName pkg) allowedUnfreePackageNames;
   nixpkgs.overlays = [ optimizedPackages.overlay ];
 
   # ── Networking ───────────────────────────────────────────────

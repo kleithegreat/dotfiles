@@ -23,3 +23,9 @@
 **Cause:** Builder capability leakage changes scheduling and cacheability even when the optimization overlay is off.
 **Status:** Workaround in place
 **Resolution:** `system/distributed-builds.nix` appends the host `march-*` feature only while `enableMarchOptimizations` is enabled.
+
+## Narrow unfree predicates must cover transitive module closures, not just package lists
+**Symptom:** Replacing `allowUnfree = true` with a small name allowlist still fails evaluation on packages that are not listed directly in `home.packages` or `environment.systemPackages`.
+**Cause:** NixOS and Home Manager evaluate the full module graph. Unfree packages can enter indirectly through options such as `fonts.packages`, `programs.steam.*`, or CUDA-enabled dependency closures.
+**Status:** Workaround in place
+**Resolution:** `system/configuration.nix` now uses `allowUnfreePredicate`, but its allowlist must include both the directly selected apps and the extra unfree package names already required by the current system closure, such as `symbola`, `steam-unwrapped`, and the CUDA userspace packages pulled in by existing desktop packages.

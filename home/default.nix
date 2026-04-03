@@ -91,6 +91,7 @@ in
     spotify
     zathura
     vscode
+    lmstudio
     imv            # Wayland image viewer
     nautilus
     kdePackages.dolphin
