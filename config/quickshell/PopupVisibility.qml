@@ -9,6 +9,8 @@ QtObject {
     property bool settingsVisible: false
     property bool quickSettingsVisible: false
 
+    property real _lastToggleTime: 0
+
     function closeAll() {
         powerMenuVisible = false
         drawerVisible = false
@@ -20,6 +22,10 @@ QtObject {
     }
 
     function toggleExclusive(isVisible, showPopup) {
+        var now = Date.now();
+        if (now - _lastToggleTime < 100) return;
+        _lastToggleTime = now;
+
         if (isVisible) {
             closeAll()
             return

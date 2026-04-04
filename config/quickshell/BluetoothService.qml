@@ -30,7 +30,12 @@ QtObject {
         discoveredModel.clear();
         if (!preservePowerState)
             powerStateKnown = false;
-        showProc.running = true;
+        if (showProc.running) {
+            _refreshPending = true;
+        } else {
+            showProc.buf = "";
+            showProc.running = true;
+        }
     }
 
     function refreshSummary() {
@@ -94,6 +99,7 @@ QtObject {
         _summaryConnDone = false;
     }
 
+    property bool _refreshPending: false
     property bool _summaryPendingPowered: false
     property bool _summaryShowDone: false
     property bool _summaryConnDone: false
@@ -110,6 +116,11 @@ QtObject {
             root.powered = showProc.buf.indexOf("Powered: yes") >= 0;
             root.powerStateKnown = true;
             showProc.buf = "";
+            if (root._refreshPending) {
+                root._refreshPending = false;
+                showProc.running = true;
+                return;
+            }
             if (root.powered) {
                 connInfoProc.running = true;
             } else {

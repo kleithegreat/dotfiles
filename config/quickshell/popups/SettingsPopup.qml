@@ -58,6 +58,11 @@ FocusScope {
     ]
     property int selectedCategory: 0
     property int systemCategoryCount: 7
+    property var hiddenCategories: {
+        var h = [];
+        if (!HostCapabilities.hasBattery) h.push(4);
+        return h;
+    }
     property string wallpaperDir: "/home/kevin/repos/dotfiles/wallpapers"
     property var categoryNames: ["Network", "Bluetooth", "Audio", "Display", "Power", "Notifications", "Screen Time", "Presets", "Colors", "Fonts", "Wallpaper", "Icons & Cursors", "Hyprland"]
     property var categoryIcons: ["󰖩", "󰂯", "󰕾", "󰍹", "⚡", "󰂚", "󱑎", "󰒓", "󰏘", "󰛖", "󰋩", "󰍽", "󰖯"]
@@ -790,6 +795,7 @@ FocusScope {
                     categoryNames: settingsPop.categoryNames
                     categoryIcons: settingsPop.categoryIcons
                     systemCategoryCount: settingsPop.systemCategoryCount
+                    hiddenCategories: settingsPop.hiddenCategories
                     onCategorySelected: (index) => settingsPop.selectedCategory = index
                 }
 

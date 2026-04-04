@@ -27,9 +27,9 @@ Components.WheelFlickable {
     property string weekRange: hasData ? (stateData.week_range || "") : ""
     property string emptyStateMessage: {
         if (loadState === "missing")
-            return "The focus time daemon is not running";
+            return "The focus time daemon is not running.\nStart it with: desktopctl daemon";
         if (loadState === "stale")
-            return "Focus daemon is not responding";
+            return "Focus daemon has not updated recently.\nRestart it if Hyprland was restarted.";
         return "Unable to read focus time data";
     }
 
@@ -68,7 +68,7 @@ Components.WheelFlickable {
                     let parsed = JSON.parse(trimmed);
                     let lastUpdated = Number(parsed.last_updated);
                     let now = Math.floor(Date.now() / 1000);
-                    if (isFinite(lastUpdated) && lastUpdated > 0 && Math.abs(now - lastUpdated) <= 10) {
+                    if (isFinite(lastUpdated) && lastUpdated > 0 && Math.abs(now - lastUpdated) <= 30) {
                         root.stateData = parsed;
                         root.loadState = "ready";
                     } else {
@@ -152,16 +152,28 @@ Components.WheelFlickable {
             Text {
                 text: root.emptyStateMessage
                 color: Theme.fg4
-                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
                 Layout.alignment: Qt.AlignHCenter
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
             }
         }
+
+        // ── Header ───────────────────────────────────────
+
+        Text {
+            text: "󱑎  Screen Time"
+            color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true
+        }
+
+        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
 
         // ── Screen Time ──────────────────────────────────
 
         Text {
             visible: root.hasData
-            text: "SCREEN TIME"
+            text: "TODAY"
             color: Theme.fg4
             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
         }

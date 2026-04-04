@@ -9,8 +9,15 @@ Rectangle {
     required property var categoryNames
     required property var categoryIcons
     required property int systemCategoryCount
+    property var hiddenCategories: []
 
     signal categorySelected(int index)
+
+    function isCategoryHidden(index) {
+        for (var i = 0; i < hiddenCategories.length; i++)
+            if (hiddenCategories[i] === index) return true;
+        return false;
+    }
 
     readonly property int contentPadding: 8
 
@@ -82,8 +89,9 @@ Rectangle {
                         property int categoryIndex: index
                         property bool isSelected: root.selectedCategory === categoryIndex
 
+                        visible: !root.isCategoryHidden(categoryIndex)
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 32
+                        Layout.preferredHeight: visible ? 32 : 0
                         radius: Theme.hoverRadius
                         color: isSelected ? Theme.bg2 : (sysCatArea.containsMouse ? Theme.bg1 : "transparent")
                         Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }

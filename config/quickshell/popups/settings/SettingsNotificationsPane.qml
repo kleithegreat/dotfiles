@@ -16,7 +16,14 @@ Components.WheelFlickable {
         spacing: 16
 
         Text {
-            text: "NOTIFICATIONS"
+            text: "󰂚  Notifications"
+            color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true
+        }
+
+        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+
+        Text {
+            text: "DO NOT DISTURB"
             color: Theme.fg4
             font.family: Theme.systemFamily
             font.pixelSize: Theme.fontSizeSmall
