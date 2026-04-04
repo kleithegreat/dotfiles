@@ -43,6 +43,12 @@ PanelWindow {
             implicitHeight: statusRow.implicitHeight + Theme.barSpacing
             Layout.alignment: Qt.AlignVCenter
 
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleQuickSettings(); }
+            }
+
             RowLayout {
                 id: statusRow
                 anchors.centerIn: parent
