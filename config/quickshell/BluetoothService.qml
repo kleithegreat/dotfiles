@@ -236,7 +236,10 @@ QtObject {
     property Process powerProc: Process {
         id: powerProc
         running: false
-        onExited: { root.refresh(); }
+        onExited: (code, status) => {
+            if (code === 0)
+                root.refresh(true);
+        }
     }
 
     property Process summaryShowProc: Process {
