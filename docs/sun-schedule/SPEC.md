@@ -28,7 +28,7 @@ Non-goals:
 | Solar-time policy | `desktopctl daemon` solar subsystem | The scheduler decides when sunrise, sunset, and the nightly dark-hint threshold occur, and keeps that schedule current even while an override is active. |
 | Night-light override policy | `desktopctl daemon` night-light controller | The daemon owns the live override mode (`auto`, `on`, `off`) plus the in-session manual temperature. The override resets to `auto` on daemon restart. |
 | Live `hyprsunset` lifecycle | `desktopctl daemon` night-light controller | The daemon is the only supported live writer of the `hyprsunset` process. Other components issue requests through `desktopctl`; they do not start, stop, or restart `hyprsunset` directly. |
-| Live `dark_hint` policy | `desktopctl daemon` night-light controller | In `auto`, the daemon applies the solar schedule's `dark_hint`. In `on`/`off`, the daemon applies the user's override. |
+| Live `dark_hint` policy | `desktopctl daemon` night-light controller | In `auto`, the daemon applies the solar schedule's `dark_hint`. In `on`/`off`, the daemon does not touch `dark_hint`; it is controlled independently via `desktopctl theme`. |
 | `dark_hint` persistence | The theming pipeline via `desktopctl theme` | `desktopctl theme` remains the only supported writer of the persisted `theme_state.dark_hint` row in `desktopctl.db`, but direct `dark_hint` requests may be mediated by the daemon before persistence occurs. |
 | GTK dark-preference side effects | The theming pipeline | The `gtk` target owns the resulting dconf writes for `gtk-theme` and `color-scheme`. |
 | Shell and keybind surfaces | Quickshell and Hyprland config | The shell and keybinds may surface status or request supported mutations, but they are not authoritative state owners. |
@@ -55,8 +55,8 @@ values.
 | Mode | `hyprsunset` | `dark_hint` |
 | --- | --- | --- |
 | `auto` | Follows the scheduled time window below | Follows the scheduled time window below |
-| `on` | On at the current manual target temperature | `true` |
-| `off` | Off | `false` |
+| `on` | On at the current manual target temperature | Unchanged (controlled separately via `desktopctl theme`) |
+| `off` | Off | Unchanged (controlled separately via `desktopctl theme`) |
 
 Rules:
 
