@@ -392,7 +392,7 @@ mod tests {
                 "  \"wallpaper\": \"{}\",\n",
                 "  \"filter_wallpaper\": false,\n",
                 "  \"system_font\": \"Overpass\",\n",
-                "  \"mono_font\": \"JetBrains Mono Nerd Font\",\n",
+                "  \"mono_font\": \"JetBrainsMono Nerd Font\",\n",
                 "  \"icon_theme\": \"Neuwaita\",\n",
                 "  \"cursor_theme\": \"BreezeX-RosePine-Linux\",\n",
                 "  \"cursor_size\": 24,\n",
