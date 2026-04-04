@@ -72,8 +72,8 @@ pub fn run(args: crate::NightLightArgs) -> crate::Result<()> {
     match args.command {
         crate::NightLightCommand::Status(args) => cmd_status(args.json),
         crate::NightLightCommand::On(args) => cmd_set_mode(NightLightMode::On, args.temp),
-        crate::NightLightCommand::Off => cmd_set_mode(NightLightMode::Off, None),
-        crate::NightLightCommand::Auto => cmd_set_mode(NightLightMode::Auto, None),
+        crate::NightLightCommand::Off(args) => cmd_set_mode(NightLightMode::Off, args.temp),
+        crate::NightLightCommand::Auto(args) => cmd_set_mode(NightLightMode::Auto, args.temp),
         crate::NightLightCommand::Toggle => cmd_toggle(),
     }
 }

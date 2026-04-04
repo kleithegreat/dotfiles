@@ -76,13 +76,10 @@ QtObject {
 
     function applyNightLightTemperature(value) {
         let clamped = clampNightLightTemperature(value);
-        if (clamped === nightLightTargetTemperature && nightLightMode === "on")
+        if (clamped === nightLightTargetTemperature)
             return;
 
         nightLightTargetTemperature = clamped;
-        pendingNightLightAction = "on";
-        nightLightPendingTimer.interval = 6000;
-        nightLightPendingTimer.restart();
         nightLightApplyTimer.restart();
     }
 
@@ -113,6 +110,16 @@ QtObject {
             command = command.concat(["--temp", temperature.toString()]);
 
         nightLightCommandProc.command = command;
+        nightLightCommandProc.running = true;
+        nightLightRefreshTimer.restart();
+        return true;
+    }
+
+    function requestNightLightTemperature(temperature) {
+        if (nightLightCommandProc.running)
+            return false;
+
+        nightLightCommandProc.command = ["desktopctl", "night-light", nightLightMode || "auto", "--temp", temperature.toString()];
         nightLightCommandProc.running = true;
         nightLightRefreshTimer.restart();
         return true;
@@ -199,7 +206,7 @@ QtObject {
     property Timer nightLightApplyTimer: Timer {
         interval: 120
         onTriggered: {
-            if (!display.requestNightLightMode("on", display.nightLightTargetTemperature))
+            if (!display.requestNightLightTemperature(display.nightLightTargetTemperature))
                 display.nightLightApplyTimer.restart();
         }
     }
