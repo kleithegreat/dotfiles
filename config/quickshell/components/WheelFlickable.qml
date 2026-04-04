@@ -5,7 +5,11 @@ Flickable {
     id: root
 
     property real wheelStep: Root.Theme.flickableWheelStep
-    property real wheelOvershoot: Math.max(24, Math.min(48, wheelStep / 2))
+
+    // Rubber-band overscroll tuning.
+    property real _maxOvershoot: 56
+    property real _dampFactor: 120
+    property real _rawOverscroll: 0
 
     maximumFlickVelocity: 3000
 
@@ -13,6 +17,22 @@ Flickable {
         Anim {
             properties: "x,y"
         }
+    }
+
+    Timer {
+        id: _returnTimer
+        interval: 120
+        onTriggered: {
+            root._rawOverscroll = 0;
+            root.returnToBounds();
+        }
+    }
+
+    function _rubberBand(raw) {
+        let absRaw = Math.abs(raw);
+        if (absRaw < 0.5)
+            return 0;
+        return root._maxOvershoot * raw / (absRaw + root._dampFactor);
     }
 
     function applyWheelDelta(deltaY) {
@@ -24,26 +44,42 @@ Flickable {
         if (maxY <= minY)
             return false;
 
-        let nextY = root.contentY - deltaY;
-        let overshooting = false;
+        // Reconstruct the virtual (unbounded) scroll position.
+        let virtualY;
+        if (root._rawOverscroll > 0)
+            virtualY = maxY + root._rawOverscroll;
+        else if (root._rawOverscroll < 0)
+            virtualY = minY + root._rawOverscroll;
+        else
+            virtualY = root.contentY;
 
-        // Allow a small wheel overshoot so Flickable.rebound can animate the snap-back.
-        if (nextY < minY) {
-            nextY = Math.max(minY - root.wheelOvershoot, nextY);
-            overshooting = true;
-        } else if (nextY > maxY) {
-            nextY = Math.min(maxY + root.wheelOvershoot, nextY);
-            overshooting = true;
+        let nextY = virtualY - deltaY;
+
+        // Within bounds — normal 1:1 scroll.
+        if (nextY >= minY && nextY <= maxY) {
+            if (root._rawOverscroll !== 0) {
+                root._rawOverscroll = 0;
+                _returnTimer.stop();
+            }
+            if (Math.abs(nextY - root.contentY) < 0.01)
+                return false;
+            root.cancelFlick();
+            root.contentY = nextY;
+            return true;
         }
 
-        if (Math.abs(nextY - root.contentY) < 0.01)
+        // Past bounds — accumulate raw overscroll and apply rubber-band.
+        root._rawOverscroll = nextY < minY ? nextY - minY : nextY - maxY;
+
+        let bound = root._rawOverscroll < 0 ? minY : maxY;
+        let visual = bound + root._rubberBand(root._rawOverscroll);
+
+        if (Math.abs(visual - root.contentY) < 0.01)
             return false;
 
         root.cancelFlick();
-        root.contentY = nextY;
-
-        if (overshooting)
-            root.returnToBounds();
+        root.contentY = visual;
+        _returnTimer.restart();
 
         return true;
     }
