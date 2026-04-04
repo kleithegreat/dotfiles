@@ -25,7 +25,7 @@ struct State {
 struct DesiredState {
     running: bool,
     temperature: i32,
-    dark_hint: bool,
+    dark_hint: Option<bool>,
 }
 
 impl Controller {
@@ -129,17 +129,17 @@ fn desired_state(
         NightLightMode::Auto => DesiredState {
             running: solar_status.is_night,
             temperature: solar::HYPRSUNSET_TEMP,
-            dark_hint: solar_status.is_dark,
+            dark_hint: Some(solar_status.is_dark),
         },
         NightLightMode::On => DesiredState {
             running: true,
             temperature: manual_temperature,
-            dark_hint: true,
+            dark_hint: None,
         },
         NightLightMode::Off => DesiredState {
             running: false,
             temperature: manual_temperature,
-            dark_hint: false,
+            dark_hint: None,
         },
     }
 }
@@ -158,5 +158,9 @@ fn apply_desired_state(desired: &DesiredState) -> crate::Result<()> {
         stop_hyprsunset()?;
     }
 
-    apply_dark_hint_if_needed(desired.dark_hint)
+    if let Some(dark_hint) = desired.dark_hint {
+        apply_dark_hint_if_needed(dark_hint)?;
+    }
+
+    Ok(())
 }
