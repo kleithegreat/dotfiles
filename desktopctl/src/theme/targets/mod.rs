@@ -311,6 +311,19 @@ pub(crate) mod testsupport {
         serde_json::from_value(serde_json::json!({
             "family": "gruvbox",
             "variant": "dark",
+            "appearance": "dark",
+            "app_themes": {
+                "bat": "gruvbox-dark",
+                "snappy_switcher": "gruvbox-dark.ini",
+                "vicinae": {
+                    "name": "gruvbox-dark",
+                    "light_name": "gruvbox-light"
+                },
+                "vscode": {
+                    "name": "Gruvbox Dark Medium",
+                    "extension_id": "jdinhlife.gruvbox"
+                }
+            },
             "colors": {
                 "bg": "#000000",
                 "bg_dim": "#010101",

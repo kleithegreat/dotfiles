@@ -56,9 +56,12 @@ integration as of 2026-04-03.
 - A target-by-target audit compared `desktopctl theme target <name>` against the
   removed Python implementation for all 19 migrated theme targets using the same
   theme JSON payload; no byte-level output differences remain.
-- `desktopctl/src/theme/targets/mod.rs:293-730` now contains regression tests
-  that load the real `themes/colors/*.json` files and assert the centralized
-  app-theme metadata used by `bat`, `snappy_switcher`, `vicinae`, and `vscode`.
+- `desktopctl/src/theme/targets/mod.rs:293-743` now contains regression tests
+  that cover both metadata paths: loading the real `themes/colors/*.json` files
+  to assert the centralized app-theme metadata used by `bat`,
+  `snappy_switcher`, `vicinae`, and `vscode`, and a shared synthetic
+  `gruvbox-dark` fixture that carries the same metadata for Python-format
+  output assertions.
 - `desktopctl/src/theme/targets/qt.rs:968-1017` adds scheme-appearance coverage
   for the `qt` target's KTextEditor and Kvantum dark/light asset selection.
 - The CLI parity audit covered `theme set`, `preset`, `save-preset`, and
