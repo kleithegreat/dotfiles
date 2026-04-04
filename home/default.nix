@@ -97,6 +97,7 @@ in
     kdePackages.dolphin
     kdePackages.ark
     kdePackages.plasma-systemmonitor
+    gedit
     kdePackages.kate
     kdePackages.gwenview
     kdePackages.filelight
@@ -285,8 +286,8 @@ in
       "text/html" = "chromium.desktop";
       "x-scheme-handler/http" = "chromium.desktop";
       "x-scheme-handler/https" = "chromium.desktop";
-      "application/pdf" = "org.pwmt.zathura.desktop";
-      "inode/directory" = "org.kde.dolphin.desktop";
+      "application/pdf" = "chromium.desktop";
+      "inode/directory" = "org.gnome.Nautilus.desktop";
       "image/png" = "imv.desktop";
       "image/jpeg" = "imv.desktop";
       "image/jpg" = "imv.desktop";
@@ -297,7 +298,7 @@ in
       "video/x-matroska" = "vlc.desktop";
       "video/x-msvideo" = "vlc.desktop";
       "video/webm" = "vlc.desktop";
-      "text/plain" = "neovide.desktop";
+      "text/plain" = "org.gnome.gedit.desktop";
       "x-scheme-handler/mailto" = "thunderbird.desktop";
       "x-scheme-handler/terminal" = "Alacritty.desktop";
     };
