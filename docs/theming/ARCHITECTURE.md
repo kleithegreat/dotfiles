@@ -67,9 +67,12 @@ Targets with notable extra behavior:
 - The migration audit compared every target's generated output with the removed
   Python implementation and fixed the only observed mismatches in JSON ordering
   and CLI error text.
-- `desktopctl/src/theme/targets/mod.rs:293-730` now loads the real
-  `themes/colors/*.json` files in tests and asserts the centralized bat,
-  snappy-switcher, Vicinae, and VS Code mappings across the full scheme catalog.
+- `desktopctl/src/theme/targets/mod.rs:293-743` now covers both regression-test
+  paths: it loads the real `themes/colors/*.json` files to assert the
+  centralized bat, snappy-switcher, Vicinae, and VS Code mappings across the
+  full scheme catalog, and its shared synthetic `gruvbox-dark` fixture includes
+  the same app-theme metadata so Python-format target tests exercise the
+  centralized lookup path instead of falling back to defaults.
 - `desktopctl/src/theme/targets/qt.rs:968-1017` covers the declared
   `appearance` behavior for KTextEditor and Kvantum dark/light asset selection.
 - `desktopctl theme list-schemes --json`, `list-presets --json`, and
