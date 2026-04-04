@@ -62,6 +62,13 @@ Components.WheelFlickable {
         spacing: 16
 
         Text {
+            text: "󰖯  Hyprland"
+            color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true
+        }
+
+        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+
+        Text {
             visible: root.hyprRuntimeError !== ""
             text: root.hyprRuntimeError
             color: Theme.redBright

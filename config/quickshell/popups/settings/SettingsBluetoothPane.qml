@@ -21,7 +21,7 @@ FocusScope {
 
     Component.onCompleted: {
         BluetoothService.clearConnectError();
-        BluetoothService.refresh();
+        BluetoothService.refresh(true);
     }
 
     onPopupStateChanged: {
@@ -45,7 +45,32 @@ FocusScope {
             width: parent.width
             spacing: 12
 
-            // ── Power toggle ─────────────────────────────────
+            // ── Header ───────────────────────────────────────
+
+            RowLayout {
+                Layout.fillWidth: true
+
+                Text {
+                    text: "󰂯  Bluetooth"
+                    color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true
+                    Layout.fillWidth: true; elide: Text.ElideRight
+                }
+
+                Rectangle {
+                    visible: root.listStateResolved && BluetoothService.powered
+                    width: scanLabel.implicitWidth + Theme.btnPaddingH * 2; height: Theme.btnHeight; radius: Theme.btnRadius
+                    color: "transparent"
+                    Components.HoverLayer {
+                        id: scanA; color: Theme.bg2; hoverOpacity: 0.6; pressedOpacity: 0.9; pressedScale: 0.98
+                        onClicked: { if (!BluetoothService.scanning) BluetoothService.startScan(); }
+                        Text { id: scanLabel; anchors.centerIn: parent
+                            text: BluetoothService.scanning ? "Scanning…" : "Scan"
+                            color: scanA.containsMouse ? Theme.blueBright : Theme.fg4
+                            Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+                    }
+                }
+            }
 
             RowLayout {
                 Layout.fillWidth: true; spacing: 8
@@ -53,23 +78,6 @@ FocusScope {
                 Components.ToggleSwitch {
                     checked: BluetoothService.powered
                     onToggled: BluetoothService.togglePower()
-                }
-            }
-
-            // ── Scan button ──────────────────────────────────
-
-            Rectangle {
-                visible: root.listStateResolved && BluetoothService.powered
-                Layout.preferredWidth: scanLabel.implicitWidth + Theme.btnPaddingH * 2; height: Theme.btnHeight; radius: Theme.btnRadius
-                color: "transparent"
-                Components.HoverLayer {
-                    id: scanA; color: Theme.bg2; hoverOpacity: 0.6; pressedOpacity: 0.9; pressedScale: 0.98
-                    onClicked: { if (!BluetoothService.scanning) BluetoothService.startScan(); }
-                    Text { id: scanLabel; anchors.centerIn: parent
-                        text: BluetoothService.scanning ? "Scanning…" : "Scan"
-                        color: scanA.containsMouse ? Theme.blueBright : Theme.fg4
-                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
                 }
             }
 

@@ -27,6 +27,15 @@ Components.WheelFlickable {
         width: parent.width
         spacing: 16
 
+        // ── Header ───────────────────────────────────────────
+
+        Text {
+            text: "⚡  Power"
+            color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true
+        }
+
+        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+
         // ── Power Profile ────────────────────────────────────
 
         Text { text: "POWER PROFILE"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
@@ -79,8 +88,8 @@ Components.WheelFlickable {
                             Behavior on color { Components.CAnim { duration: Theme.animSpring; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                             font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize }
                         ColumnLayout { spacing: 0; Layout.fillWidth: true
-                            Text { text: ppBtn.modelData.label; color: (ppBtn.isCur || ppBtn.isPending) ? Theme.fg : Theme.fg2; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: ppBtn.isCur }
-                            Text { text: ppBtn.modelData.desc; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
+                            Text { text: ppBtn.modelData.label; color: (ppBtn.isCur || ppBtn.isPending) ? Theme.fg : Theme.fg2; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: ppBtn.isCur }
+                            Text { text: ppBtn.modelData.desc; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
                         }
                     }
                 }
@@ -95,13 +104,13 @@ Components.WheelFlickable {
 
         Text {
             text: "Battery: " + Math.round(root.batPct) + "%" + (root.charging ? " (Charging)" : " (Discharging)")
-            color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+            color: Theme.fg3; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
         }
 
         Text {
             visible: PowerProfileService.backend === "autocpufreq"
             text: "Using auto-cpufreq (pkexec for changes)"
-            color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
+            color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall - 1
         }
 
         // ── Charge Limit ─────────────────────────────────────
@@ -120,14 +129,14 @@ Components.WheelFlickable {
 
                 Text {
                     text: "Battery Charge Cap"
-                    color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                    color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true; Layout.alignment: Qt.AlignVCenter
                 }
 
                 Text {
                     text: PowerProfileService.chargeLimitStateText
                     color: PowerProfileService.chargeLimitError !== "" ? Theme.redBright : (PowerProfileService.chargeLimitEnabled ? Theme.fg3 : Theme.fg4)
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                    font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
                     Layout.alignment: Qt.AlignVCenter
                 }
 
@@ -141,7 +150,7 @@ Components.WheelFlickable {
             Text {
                 text: PowerProfileService.chargeLimitDetailText
                 color: PowerProfileService.chargeLimitError !== "" ? Theme.redBright : Theme.fg4
-                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
+                font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall - 1
                 wrapMode: Text.WordWrap; Layout.fillWidth: true
             }
         }

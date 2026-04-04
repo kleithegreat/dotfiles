@@ -20,6 +20,15 @@ Components.WheelFlickable {
         width: parent.width
         spacing: 16
 
+        // ── Header ───────────────────────────────────────────
+
+        Text {
+            text: "󰕾  Audio"
+            color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true
+        }
+
+        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+
         // ── Output ───────────────────────────────────────────
 
         Text { text: "OUTPUT"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }

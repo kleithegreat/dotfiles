@@ -262,6 +262,7 @@ FocusScope {
         }
 
         RowLayout {
+            visible: HostCapabilities.hasWifi
             Layout.fillWidth: true
             spacing: 8
 

@@ -28,6 +28,13 @@ Components.WheelFlickable {
         width: parent.width
         spacing: 8
 
+        Text {
+            text: "󰋩  Wallpaper"
+            color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true
+        }
+
+        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+
         RowLayout {
             Layout.fillWidth: true
             spacing: 12

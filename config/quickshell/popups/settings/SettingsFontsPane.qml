@@ -82,6 +82,13 @@ Components.WheelFlickable {
         width: parent.width
         spacing: 16
 
+        Text {
+            text: "󰛖  Fonts"
+            color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true
+        }
+
+        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+
         Text { text: "CODING FONT"; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
 
         Components.InlineSelect {

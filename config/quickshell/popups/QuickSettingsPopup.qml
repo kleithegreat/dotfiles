@@ -173,13 +173,15 @@ FocusScope {
                     columns: 2; rowSpacing: 8; columnSpacing: 8
 
                     Repeater {
-                        model: [
-                            { key: "wifi",      label: "Wi-Fi" },
-                            { key: "bluetooth", label: "Bluetooth" },
-                            { key: "vpn",       label: "VPN" },
-                            { key: "dnd",       label: "Do Not Disturb" },
-                            { key: "power",     label: "Power Profile" }
-                        ]
+                        model: {
+                            var tiles = [];
+                            if (HostCapabilities.hasWifi) tiles.push({ key: "wifi", label: "Wi-Fi" });
+                            tiles.push({ key: "bluetooth", label: "Bluetooth" });
+                            tiles.push({ key: "vpn", label: "VPN" });
+                            tiles.push({ key: "dnd", label: "Do Not Disturb" });
+                            tiles.push({ key: "power", label: "Power Profile" });
+                            return tiles;
+                        }
 
                         Rectangle {
                             id: tile

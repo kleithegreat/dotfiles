@@ -240,31 +240,24 @@ Components.WheelFlickable {
         width: root.width
         spacing: 12
 
+        Text {
+            text: "󰒓  Presets"
+            color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true
+        }
+
+        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+
         RowLayout {
             Layout.fillWidth: true
             spacing: 8
 
-            ColumnLayout {
-                spacing: 2
+            Text {
+                text: "Click a preset card to apply it. Edit and delete are inline."
+                color: Theme.fg4
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSizeSmall
                 Layout.fillWidth: true
-                Layout.minimumWidth: 0
-
-                Text {
-                    text: "PRESETS"
-                    color: Theme.fg4
-                    font.family: Theme.systemFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                    font.bold: true
-                }
-
-                Text {
-                    text: "Click a preset card to apply it. Edit and delete are inline."
-                    color: Theme.fg4
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                    Layout.fillWidth: true
-                    wrapMode: Text.WordWrap
-                }
+                wrapMode: Text.WordWrap
             }
 
             Rectangle {

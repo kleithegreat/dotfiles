@@ -132,6 +132,15 @@ Components.WheelFlickable {
         width: parent.width
         spacing: 16
 
+        // ── Header ───────────────────────────────────────────
+
+        Text {
+            text: "󰍹  Display"
+            color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true
+        }
+
+        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+
         // ── Monitors ─────────────────────────────────────────
 
         Text {
