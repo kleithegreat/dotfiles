@@ -194,17 +194,17 @@ enum NightLightCommand {
     /// Show daemon-controlled night-light status.
     Status(JsonOutputArgs),
     /// Force night light on until reset to auto.
-    On(NightLightOnArgs),
+    On(NightLightTempArgs),
     /// Force night light off until reset to auto.
-    Off,
+    Off(NightLightTempArgs),
     /// Hand control back to the solar schedule.
-    Auto,
+    Auto(NightLightTempArgs),
     /// Switch between on and off based on the current hyprsunset state.
     Toggle,
 }
 
 #[derive(Debug, Args)]
-struct NightLightOnArgs {
+struct NightLightTempArgs {
     /// Override the target temperature in Kelvin.
     #[arg(long, value_name = "K")]
     temp: Option<i32>,
