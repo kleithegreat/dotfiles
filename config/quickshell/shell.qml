@@ -198,7 +198,7 @@ Scope {
                         anchors { left: parent.left; right: parent.right; top: parent.top; margins: Theme.notifPadding }
                         RowLayout { Layout.fillWidth: true
                             Text { text: card.appName; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; elide: Text.ElideRight; Layout.fillWidth: true }
-                            Text { text: "󰅖"; color: pcA.containsMouse ? Theme.redBright : Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                            Components.Icon { source: "../icons/close.svg"; color: pcA.containsMouse ? Theme.redBright : Theme.fg4; iconSize: Theme.fontSizeSmall
                                 MouseArea { id: pcA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: NotificationService.removeNotifPopup(card.nid) } }
                         }
                         Text { text: card.summary; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true; visible: text !== "" }
@@ -219,7 +219,7 @@ Scope {
             if (pct !== root.lastBrightness) { root.lastBrightness = pct; root.showBrightnessOsd(pct); }
         } }
     }
-    function showBrightnessOsd(pct) { AudioService.showOsdState(pct, pct + "%", "󰃟"); }
+    function showBrightnessOsd(pct) { AudioService.showOsdState(pct, pct + "%", "../icons/brightness-medium.svg"); }
 
     PanelWindow {
         visible: AudioService.showOsd || osdPanel.opacity > 0.001
@@ -246,7 +246,7 @@ Scope {
                 }
             }
             Row { anchors.centerIn: parent; spacing: 10
-                Text { text: AudioService.osdIcon; font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize; color: Theme.fg; anchors.verticalCenter: parent.verticalCenter }
+                Components.Icon { source: AudioService.osdIcon; color: Theme.fg; anchors.verticalCenter: parent.verticalCenter }
                 Rectangle { width: Theme.osdWidth - 100; height: Theme.osdBarHeight; radius: Theme.osdBarRadius; color: Theme.bg3; anchors.verticalCenter: parent.verticalCenter
                     Rectangle {
                         width: parent.width * (AudioService.osdValue / 100); radius: parent.radius; color: Theme.greenBright
@@ -298,10 +298,9 @@ Scope {
                 anchors.centerIn: parent
                 spacing: 8
 
-                Text {
-                    text: ToastService.currentLevel === "error" ? "󰅚" :
-                          ToastService.currentLevel === "warning" ? "󰀪" : "󰋽"
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
+                Components.Icon {
+                    source: ToastService.currentLevel === "error" ? "../icons/circle-x.svg" :
+                            ToastService.currentLevel === "warning" ? "../icons/alert-triangle.svg" : "../icons/info-circle.svg"
                     color: ToastService.currentLevel === "error"   ? Theme.redBright :
                            ToastService.currentLevel === "warning" ? Theme.yellowBright : Theme.fg
                     anchors.verticalCenter: parent.verticalCenter

@@ -55,12 +55,10 @@ QtObject {
 
     function volumeIconFor(percent, isMuted) {
         if (isMuted || percent === 0)
-            return "󰝟";
-        if (percent > 66)
-            return "󰕾";
-        if (percent > 33)
-            return "󰖀";
-        return "󰕿";
+            return "../icons/volume-mute.svg";
+        if (percent > 50)
+            return "../icons/volume-high.svg";
+        return "../icons/volume-low.svg";
     }
 
     function showOsdState(value, label, icon) {

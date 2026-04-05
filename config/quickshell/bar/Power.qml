@@ -1,12 +1,12 @@
 import qs
 import QtQuick
+import "../components" as Components
 
 Item {
-    id: powerRoot; implicitWidth: powerText.implicitWidth + 2; implicitHeight: powerText.implicitHeight; signal clicked()
-    Text {
-        id: powerText; anchors.centerIn: parent; text: "󰐥"
+    id: powerRoot; implicitWidth: powerIcon.implicitWidth + 2; implicitHeight: powerIcon.implicitHeight; signal clicked()
+    Components.Icon {
+        id: powerIcon; anchors.centerIn: parent; source: "../icons/power.svg"
         color: powerArea.containsMouse ? Theme.redBright : Theme.fg
-        font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
     }
     MouseArea {
         id: powerArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true

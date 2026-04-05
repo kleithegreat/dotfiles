@@ -14,10 +14,10 @@ Item {
     signal captiveLoginRequested()
 
     function signalIcon(sig) {
-        if (sig > 75) return "󰤨";
-        if (sig > 50) return "󰤥";
-        if (sig > 25) return "󰤢";
-        return "󰤟";
+        if (sig > 75) return "../icons/wifi.svg";
+        if (sig > 50) return "../icons/wifi-good.svg";
+        if (sig > 25) return "../icons/wifi-fair.svg";
+        return "../icons/wifi-poor.svg";
     }
 
     function isEnterprise(sec) { return sec.indexOf("802.1X") >= 0; }
@@ -104,8 +104,8 @@ Item {
                         anchors.fill: parent; anchors.leftMargin: Theme.listItemPadding; anchors.rightMargin: 4; spacing: 6
 
                         // Checkmark for connected, signal-strength icon otherwise
-                        Text {
-                            text: netItem.active ? "󰄬" : root.signalIcon(netItem.signal)
+                        Components.Icon {
+                            source: netItem.active ? "../icons/circle-check.svg" : root.signalIcon(netItem.signal)
                             color: {
                                 if (netItem.active) return Theme.greenBright;
                                 if (netItem.signal > 60) return Theme.fg;
@@ -113,18 +113,15 @@ Item {
                                 return Theme.fg4;
                             }
                             Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                            font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
                         }
                         // SSID
                         Text { text: netItem.ssid; color: netItem.active ? Theme.greenBright : Theme.fg
                             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                             Layout.fillWidth: true; elide: Text.ElideRight }
                         // Enterprise badge
-                        Text { visible: root.isEnterprise(netItem.security); text: "󱄤"; color: Theme.yellowBright
-                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
+                        Components.Icon { visible: root.isEnterprise(netItem.security); source: "../icons/certificate.svg"; color: Theme.yellowBright }
                         // Lock icon
-                        Text { visible: netItem.security !== "" && !root.isEnterprise(netItem.security); text: "󰌾"; color: Theme.fg4
-                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
+                        Components.Icon { visible: netItem.security !== "" && !root.isEnterprise(netItem.security); source: "../icons/lock.svg"; color: Theme.fg4 }
                         // Signal %
                         Text { text: netItem.signal + "%"; color: Theme.fg4
                             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
@@ -139,7 +136,7 @@ Item {
                                     pressedOpacity: 0.9
                                     onClicked: root.detailRequested(netItem.ssid, netItem.security, netItem.signal, netItem.active)
 
-                                    Text { anchors.centerIn: parent; text: "󰋼"; color: infoA.containsMouse ? Theme.blueBright : Theme.fg4
+                                    Components.Icon { anchors.centerIn: parent; source: "../icons/info-circle.svg"; color: infoA.containsMouse ? Theme.blueBright : Theme.fg4
                                         Behavior on color {
                                             Components.CAnim {
                                                 duration: Theme.animHover
@@ -147,7 +144,7 @@ Item {
                                                 easing.bezierCurve: Theme.animCurveStandard
                                             }
                                         }
-                                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
+                                    }
                                 }
                             }
                     }

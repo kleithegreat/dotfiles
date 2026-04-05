@@ -135,10 +135,10 @@ Components.WheelFlickable {
             Layout.topMargin: 80
             spacing: 12
 
-            Text {
-                text: "󱑎"
+            Components.Icon {
+                source: "../icons/hourglass.svg"
                 color: Theme.fg4
-                font.family: Theme.fontFamily; font.pixelSize: 48
+                iconSize: 48
                 Layout.alignment: Qt.AlignHCenter
             }
 
@@ -162,9 +162,9 @@ Components.WheelFlickable {
 
         // ── Header ───────────────────────────────────────
 
-        Text {
-            text: "󱑎  Screen Time"
-            color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true
+        RowLayout { Layout.fillWidth: true; spacing: 8
+            Components.Icon { source: "../icons/hourglass.svg"; color: Theme.fg }
+            Text { text: "Screen Time"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true; Layout.fillWidth: true }
         }
 
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }

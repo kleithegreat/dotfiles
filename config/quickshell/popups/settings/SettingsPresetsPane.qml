@@ -240,9 +240,9 @@ Components.WheelFlickable {
         width: root.width
         spacing: 12
 
-        Text {
-            text: "󰒓  Presets"
-            color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true
+        RowLayout { Layout.fillWidth: true; spacing: 8
+            Components.Icon { source: "../icons/adjustments.svg"; color: Theme.fg }
+            Text { text: "Presets"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true; Layout.fillWidth: true }
         }
 
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }

@@ -183,9 +183,9 @@ FocusScope {
                         }
                     }
 
-                    Text {
+                    Components.Icon {
                         anchors.centerIn: parent; visible: artImg.status !== Image.Ready && artImgOld.opacity === 0
-                        text: "󰀥"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: 32
+                        source: "../icons/album.svg"; color: Theme.fg4; iconSize: 32
                     }
                 }
                 Item {
@@ -313,8 +313,8 @@ FocusScope {
                         pressedScale: 0.85
                         onClicked: { if (mprisPop.player?.canGoPrevious) mprisPop.player.previous(); }
 
-                        Text {
-                            anchors.centerIn: parent; text: "󰒮"
+                        Components.Icon {
+                            anchors.centerIn: parent; source: "../icons/player-prev.svg"
                             color: pA.containsMouse ? Theme.fg : Theme.fg3
                             Behavior on color {
                                 Components.CAnim {
@@ -323,7 +323,7 @@ FocusScope {
                                     easing.bezierCurve: Theme.animCurveStandard
                                 }
                             }
-                            font.family: Theme.fontFamily; font.pixelSize: 18
+                            iconSize: 18
                         }
                     }
                 }
@@ -338,9 +338,9 @@ FocusScope {
                         pressedScale: 0.85
                         onClicked: { if (mprisPop.player?.canTogglePlaying ?? false) mprisPop.player.isPlaying = !mprisPop.player.isPlaying; }
 
-                        Text {
+                        Components.Icon {
                             anchors.centerIn: parent
-                            text: (mprisPop.player?.isPlaying ?? false) ? "󰏤" : "󰐊"
+                            source: (mprisPop.player?.isPlaying ?? false) ? "../icons/player-pause.svg" : "../icons/player-play.svg"
                             color: ppA.containsMouse ? Theme.yellowBright : Theme.fg
                             Behavior on color {
                                 Components.CAnim {
@@ -349,7 +349,7 @@ FocusScope {
                                     easing.bezierCurve: Theme.animCurveStandard
                                 }
                             }
-                            font.family: Theme.fontFamily; font.pixelSize: 22
+                            iconSize: 22
                         }
                     }
                 }
@@ -364,8 +364,8 @@ FocusScope {
                         pressedScale: 0.85
                         onClicked: { if (mprisPop.player?.canGoNext) mprisPop.player.next(); }
 
-                        Text {
-                            anchors.centerIn: parent; text: "󰒭"
+                        Components.Icon {
+                            anchors.centerIn: parent; source: "../icons/player-next.svg"
                             color: nA.containsMouse ? Theme.fg : Theme.fg3
                             Behavior on color {
                                 Components.CAnim {
@@ -374,7 +374,7 @@ FocusScope {
                                     easing.bezierCurve: Theme.animCurveStandard
                                 }
                             }
-                            font.family: Theme.fontFamily; font.pixelSize: 18
+                            iconSize: 18
                         }
                     }
                 }

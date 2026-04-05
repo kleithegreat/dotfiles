@@ -34,20 +34,19 @@ RowLayout {
         onTriggered: batRoot.charging = batRoot._rawCharging
     }
 
-    Components.StyledText {
+    Components.StyledIcon {
         id: batIcon
         animate: true
         swapOpacityOutDuration: 100
         swapScaleOutDuration: 100
         swapOpacityInDuration: 250
         swapScaleInDuration: 300
-        text: {
-            if (charging) return "󰂄";
-            if (pct > 90) return "󰁹";
-            if (pct > 70) return "󰂂";
-            if (pct > 50) return "󰁿";
-            if (pct > 30) return "󰁽";
-            return "󰁺";
+        source: {
+            if (charging) return "../icons/battery-charging.svg";
+            if (pct > 90) return "../icons/battery-full.svg";
+            if (pct > 70) return "../icons/battery-high.svg";
+            if (pct > 50) return "../icons/battery-medium.svg";
+            return "../icons/battery-low.svg";
         }
         color: {
             if (batArea.containsMouse) return Theme.yellowBright;
@@ -56,7 +55,6 @@ RowLayout {
             if (pct < 30) return Theme.yellowBright;
             return Theme.fg;
         }
-        font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
 
         Behavior on color { Components.CAnim { duration: 200 } }
     }

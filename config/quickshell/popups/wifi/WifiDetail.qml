@@ -22,10 +22,10 @@ ColumnLayout {
     signal diagnosticsRequested()
 
     function signalIcon(sig) {
-        if (sig > 75) return "󰤨";
-        if (sig > 50) return "󰤥";
-        if (sig > 25) return "󰤢";
-        return "󰤟";
+        if (sig > 75) return "../icons/wifi.svg";
+        if (sig > 50) return "../icons/wifi-good.svg";
+        if (sig > 25) return "../icons/wifi-fair.svg";
+        return "../icons/wifi-poor.svg";
     }
 
     spacing: 10
@@ -33,8 +33,8 @@ ColumnLayout {
     // Status row
     RowLayout {
         Layout.fillWidth: true; spacing: 8
-        Text { text: root.signalIcon(root.targetSignal); color: root.targetIsConnected ? Theme.greenBright : Theme.fg
-            font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize + 4 }
+        Components.Icon { source: root.signalIcon(root.targetSignal); color: root.targetIsConnected ? Theme.greenBright : Theme.fg
+            iconSize: Theme.iconSize + 4 }
         ColumnLayout {
             spacing: 2; Layout.fillWidth: true
             Text { text: root.targetIsConnected ? "Connected" : (root.targetIsKnown ? "Known Network" : "Not Connected")
@@ -173,15 +173,26 @@ ColumnLayout {
                 pressedScale: 0.98
                 onClicked: root.diagnosticsRequested()
 
-                Text { anchors.centerIn: parent; text: "󱍸  Run Diagnostics"; color: detailDiagA.containsMouse ? Theme.blueBright : Theme.fg4
-                    Behavior on color {
-                        Components.CAnim {
-                            duration: Theme.animHover
-                            easing.type: Easing.BezierSpline
-                            easing.bezierCurve: Theme.animCurveStandard
+                Row { anchors.centerIn: parent; spacing: 6
+                    Components.Icon { source: "../icons/stethoscope.svg"; color: detailDiagA.containsMouse ? Theme.blueBright : Theme.fg4; anchors.verticalCenter: parent.verticalCenter
+                        Behavior on color {
+                            Components.CAnim {
+                                duration: Theme.animHover
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveStandard
+                            }
                         }
                     }
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+                    Text { text: "Run Diagnostics"; color: detailDiagA.containsMouse ? Theme.blueBright : Theme.fg4; anchors.verticalCenter: parent.verticalCenter
+                        Behavior on color {
+                            Components.CAnim {
+                                duration: Theme.animHover
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveStandard
+                            }
+                        }
+                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+                }
             }
         }
     }

@@ -138,16 +138,16 @@ FocusScope {
                 id: drawerCol; anchors.fill: parent; anchors.margins: Theme.notifPadding; spacing: 8
             RowLayout { Layout.fillWidth: true; spacing: 8
                 RowLayout { Layout.fillWidth: true; spacing: 6
-                    Text { text: "󰂚"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize }
+                    Components.Icon { source: "../icons/bell.svg"; color: Theme.fg }
                     Text { text: "Notifications"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.headerFontSize; font.bold: true; Layout.fillWidth: true }
                 }
 
                 // DnD toggle using unified component
                 RowLayout { spacing: 4
-                    Text { text: NotificationService.doNotDisturb ? "󰂛" : "󰂚"
+                    Components.Icon { source: NotificationService.doNotDisturb ? "../icons/bell-off.svg" : "../icons/bell.svg"
                         color: NotificationService.doNotDisturb ? Theme.orangeBright : Theme.fg4
                         Behavior on color { Components.CAnim { duration: Theme.animHover } }
-                        font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize }
+                    }
                     Components.ToggleSwitch {
                         checked: NotificationService.doNotDisturb
                         onToggled: NotificationService.toggleDnd()
@@ -215,10 +215,10 @@ FocusScope {
                                         scale: hxLayer.pressed ? 0.9 : 1.0
                                         Behavior on scale { Components.Anim { duration: Theme.animMicro } }
                                         transformOrigin: Item.Center
-                                        Text { anchors.centerIn: parent; text: "󰅖"
+                                        Components.Icon { anchors.centerIn: parent; source: "../icons/close.svg"
                                             color: hxLayer.containsMouse ? Theme.redBright : Theme.fg4
                                             Behavior on color { Components.CAnim { duration: Theme.animHover } }
-                                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+                                            iconSize: Theme.fontSizeSmall }
                                     }
                                 }
                                 Text { text: hc.summary; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true; visible: text !== "" }
@@ -232,7 +232,7 @@ FocusScope {
             ColumnLayout {
                 visible: NotificationService.historyCount === 0; Layout.fillWidth: true; Layout.alignment: Qt.AlignHCenter; spacing: 4
                 Layout.topMargin: 20; Layout.bottomMargin: 20
-                Text { text: "󰂚"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: 24; Layout.alignment: Qt.AlignHCenter }
+                Components.Icon { source: "../icons/bell.svg"; color: Theme.fg4; iconSize: 24; Layout.alignment: Qt.AlignHCenter }
                 Text { text: "No notifications"; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; Layout.alignment: Qt.AlignHCenter }
             }
             }

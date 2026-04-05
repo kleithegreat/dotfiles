@@ -66,10 +66,10 @@ FocusScope {
             anchors.fill: parent; spacing: Theme.powerBtnSpacing
             Repeater {
                 model: [
-                    { icon: "󰌾",    label: "Lock",     cmd: "loginctl lock-session" },
-                    { icon: "󰒲",   label: "Suspend",  cmd: "systemctl suspend" },
-                    { icon: "󰑓", label: "Reboot",   cmd: "systemctl reboot" },
-                    { icon: "󰐥",   label: "Shutdown", cmd: "systemctl poweroff" }
+                    { icon: "../icons/lock.svg",    label: "Lock",     cmd: "loginctl lock-session" },
+                    { icon: "../icons/zzz.svg",     label: "Suspend",  cmd: "systemctl suspend" },
+                    { icon: "../icons/refresh.svg", label: "Reboot",   cmd: "systemctl reboot" },
+                    { icon: "../icons/power.svg",   label: "Shutdown", cmd: "systemctl poweroff" }
                 ]
                 Rectangle {
                     id: pwrBtn; required property var modelData; required property int index
@@ -127,7 +127,7 @@ FocusScope {
                         }
 
                         ColumnLayout { anchors.centerIn: parent; spacing: 8
-                            Text { text: pwrBtn.modelData.icon
+                            Components.Icon { source: pwrBtn.modelData.icon
                                 color: {
                                     if (!pwrA.containsMouse) return Theme.fg;
                                     if (pwrBtn.index === 3) return Theme.redBright;
@@ -141,7 +141,7 @@ FocusScope {
                                         easing.bezierCurve: Theme.animCurveStandard
                                     }
                                 }
-                                font.family: Theme.fontFamily; font.pixelSize: Theme.powerIconSize; Layout.alignment: Qt.AlignHCenter }
+                                iconSize: Theme.powerIconSize; Layout.alignment: Qt.AlignHCenter }
                             Text { text: pwrBtn.modelData.label; color: Theme.fg3; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; Layout.alignment: Qt.AlignHCenter }
                         }
                     }

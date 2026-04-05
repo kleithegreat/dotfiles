@@ -17,29 +17,27 @@ Item {
         anchors.fill: parent
         spacing: 4
 
-        Components.StyledText {
+        Components.StyledIcon {
             id: displayIcon
             animate: true
             swapOpacityOutDuration: 100
             swapScaleOutDuration: 100
             swapOpacityInDuration: 250
             swapScaleInDuration: 300
-            text: {
+            source: {
                 if (DisplayService.nightLightEnabled)
-                    return "󰖔";
+                    return "../icons/night-light.svg";
                 if (!BrightnessService.hasBacklight)
-                    return "󰍹";
+                    return "../icons/monitor.svg";
                 if (displayRoot.brightnessPercent < 25)
-                    return "󰃞";
+                    return "../icons/brightness-low.svg";
                 if (displayRoot.brightnessPercent < 60)
-                    return "󰃟";
+                    return "../icons/brightness-medium.svg";
                 if (displayRoot.brightnessPercent < 85)
-                    return "󰃠";
-                return "󰃡";
+                    return "../icons/brightness-high.svg";
+                return "../icons/brightness-max.svg";
             }
             color: displayArea.containsMouse ? Theme.yellowBright : (DisplayService.nightLightEnabled ? Theme.orangeBright : Theme.fg)
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.iconSize
             Behavior on color { Components.CAnim { duration: 150 } }
         }
 

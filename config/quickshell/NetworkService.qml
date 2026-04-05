@@ -437,10 +437,10 @@ QtObject {
     function isEnterprise(sec) { return sec.indexOf("802.1X") >= 0; }
 
     function signalIcon(sig) {
-        if (sig > 75) return "󰤨";
-        if (sig > 50) return "󰤥";
-        if (sig > 25) return "󰤢";
-        return "󰤟";
+        if (sig > 75) return "../icons/wifi.svg";
+        if (sig > 50) return "../icons/wifi-good.svg";
+        if (sig > 25) return "../icons/wifi-fair.svg";
+        return "../icons/wifi-poor.svg";
     }
 
     function knownConnection(ssid) {
