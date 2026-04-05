@@ -200,17 +200,27 @@ FocusScope {
         RowLayout {
             Layout.fillWidth: true
 
+            Components.Icon {
+                source: {
+                    if (root.paneState === "password")    return "../icons/lock.svg";
+                    if (root.paneState === "enterprise")  return "../icons/certificate.svg";
+                    if (root.paneState === "channels")    return "../icons/radar.svg";
+                    if (root.paneState === "vpnCountries" || root.paneState === "vpnCities") return "../icons/shield-lock.svg";
+                    return "../icons/wifi.svg";
+                }
+                color: Theme.fg
+            }
             Text {
                 text: {
-                    if (root.paneState === "detail")      return "󰖩  " + NetworkService.targetSsid;
-                    if (root.paneState === "password")    return "󰌾  Password";
-                    if (root.paneState === "enterprise")  return "󱄤  Sign In";
-                    if (root.paneState === "connecting")  return "󰖩  Connecting…";
-                    if (root.paneState === "diagnostics") return "󰖩  Diagnostics";
-                    if (root.paneState === "channels")    return "󰐻  Channels";
-                    if (root.paneState === "vpnCountries") return "󰒃  Mullvad Locations";
-                    if (root.paneState === "vpnCities")    return "󰒃  " + root.mullvadBrowseCountryName;
-                    return "󰖩  Wi-Fi";
+                    if (root.paneState === "detail")      return NetworkService.targetSsid;
+                    if (root.paneState === "password")    return "Password";
+                    if (root.paneState === "enterprise")  return "Sign In";
+                    if (root.paneState === "connecting")  return "Connecting…";
+                    if (root.paneState === "diagnostics") return "Diagnostics";
+                    if (root.paneState === "channels")    return "Channels";
+                    if (root.paneState === "vpnCountries") return "Mullvad Locations";
+                    if (root.paneState === "vpnCities")    return root.mullvadBrowseCountryName;
+                    return "Wi-Fi";
                 }
                 color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true
                 Layout.fillWidth: true; elide: Text.ElideRight
@@ -393,7 +403,8 @@ FocusScope {
                     spacing: 6
 
                     RowLayout { Layout.fillWidth: true; spacing: 8
-                        Text { text: "󰒃  Mullvad"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; font.bold: true; Layout.fillWidth: true }
+                        Components.Icon { source: "../icons/shield-lock.svg"; color: Theme.fg }
+                        Text { text: "Mullvad"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; font.bold: true; Layout.fillWidth: true }
                         Text {
                             text: root.mullvadStatus
                             color: VpnService.mullvadState === "connected" ? Theme.fg3
@@ -462,7 +473,8 @@ FocusScope {
                     Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
 
                     RowLayout { Layout.fillWidth: true; spacing: 8
-                        Text { text: "󰛳  Tailscale"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; font.bold: true; Layout.fillWidth: true }
+                        Components.Icon { source: "../icons/tailscale.svg"; color: Theme.fg }
+                        Text { text: "Tailscale"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; font.bold: true; Layout.fillWidth: true }
                         Text {
                             text: root.tailscaleStatus
                             color: VpnService.tailscaleState === "running" ? Theme.fg3
@@ -683,11 +695,10 @@ FocusScope {
                                             Layout.fillWidth: true
                                             elide: Text.ElideRight
                                         }
-                                        Text {
-                                            text: VpnService.mullvadSelectedCountryCode === "any" && !VpnService.mullvadSelectedCityCode && !VpnService.mullvadSelectedHostname ? "󰄬" : ""
+                                        Components.Icon {
+                                            visible: VpnService.mullvadSelectedCountryCode === "any" && !VpnService.mullvadSelectedCityCode && !VpnService.mullvadSelectedHostname
+                                            source: "../icons/circle-check.svg"
                                             color: Theme.blueBright
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: Theme.fontSizeSmall
                                         }
                                     }
 
@@ -765,11 +776,10 @@ FocusScope {
                                             Layout.fillWidth: true
                                             elide: Text.ElideRight
                                         }
-                                        Text {
-                                            text: VpnService.mullvadSelectedCountryCode === root.mullvadBrowseCountryCode && !VpnService.mullvadSelectedCityCode && !VpnService.mullvadSelectedHostname ? "󰄬" : ""
+                                        Components.Icon {
+                                            visible: VpnService.mullvadSelectedCountryCode === root.mullvadBrowseCountryCode && !VpnService.mullvadSelectedCityCode && !VpnService.mullvadSelectedHostname
+                                            source: "../icons/circle-check.svg"
                                             color: Theme.blueBright
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: Theme.fontSizeSmall
                                         }
                                     }
 
@@ -859,10 +869,16 @@ FocusScope {
                                             }
 
                                             Text {
-                                                text: countryMode ? "→" : (selected ? "󰄬" : "")
+                                                visible: countryMode
+                                                text: "→"
                                                 color: selected ? Theme.blueBright : Theme.fg4
                                                 font.family: Theme.fontFamily
                                                 font.pixelSize: Theme.fontSizeSmall
+                                            }
+                                            Components.Icon {
+                                                visible: !countryMode && selected
+                                                source: "../icons/circle-check.svg"
+                                                color: Theme.blueBright
                                             }
                                         }
 

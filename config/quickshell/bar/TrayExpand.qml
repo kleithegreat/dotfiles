@@ -1,15 +1,16 @@
 import qs
 import QtQuick
+import "../components" as Components
 
 Item {
     id: trayExpand
-    implicitWidth: chevText.implicitWidth + 4; implicitHeight: chevText.implicitHeight
+    implicitWidth: chevIcon.implicitWidth + 4; implicitHeight: chevIcon.implicitHeight
     signal clicked()
 
-    Text {
-        id: chevText; anchors.centerIn: parent; text: "󰅃"
+    Components.Icon {
+        id: chevIcon; anchors.centerIn: parent; source: "../icons/chevron-up.svg"
         color: chevArea.containsMouse ? Theme.yellowBright : Theme.fg4
-        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+        iconSize: Theme.fontSizeSmall
     }
     MouseArea {
         id: chevArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true

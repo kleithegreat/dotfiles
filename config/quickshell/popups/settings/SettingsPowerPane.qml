@@ -29,9 +29,9 @@ Components.WheelFlickable {
 
         // ── Header ───────────────────────────────────────────
 
-        Text {
-            text: "⚡  Power"
-            color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true
+        RowLayout { Layout.fillWidth: true; spacing: 8
+            Components.Icon { source: "../icons/bolt.svg"; color: Theme.fg }
+            Text { text: "Power"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true; Layout.fillWidth: true }
         }
 
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
@@ -42,9 +42,9 @@ Components.WheelFlickable {
 
         Repeater {
             model: [
-                { name: "performance", label: "Performance", icon: "󰵣", desc: "Max speed, more heat" },
-                { name: "balanced",    label: "Balanced",    icon: "󰓅", desc: "Auto / default" },
-                { name: "power-saver", label: "Power Saver", icon: "󰸲",  desc: "Extend battery life" }
+                { name: "performance", label: "Performance", icon: "../icons/flame.svg", desc: "Max speed, more heat" },
+                { name: "balanced",    label: "Balanced",    icon: "../icons/speed.svg", desc: "Auto / default" },
+                { name: "power-saver", label: "Power Saver", icon: "../icons/leaf.svg",  desc: "Extend battery life" }
             ]
             Rectangle {
                 id: ppBtn; required property var modelData; required property int index
@@ -83,10 +83,10 @@ Components.WheelFlickable {
                     onClicked: PowerProfileService.setProfile(ppBtn.modelData.name)
 
                     RowLayout { anchors.fill: parent; anchors.leftMargin: Theme.listItemPadding; anchors.rightMargin: Theme.listItemPadding; spacing: 8
-                        Text { text: ppBtn.modelData.icon
+                        Components.Icon { source: ppBtn.modelData.icon
                             color: (ppBtn.isCur || ppBtn.isPending) ? Theme.blueBright : Theme.fg
                             Behavior on color { Components.CAnim { duration: Theme.animSpring; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                            font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize }
+                        }
                         ColumnLayout { spacing: 0; Layout.fillWidth: true
                             Text { text: ppBtn.modelData.label; color: (ppBtn.isCur || ppBtn.isPending) ? Theme.fg : Theme.fg2; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: ppBtn.isCur }
                             Text { text: ppBtn.modelData.desc; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall - 1 }

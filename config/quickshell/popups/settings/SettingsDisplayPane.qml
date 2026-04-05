@@ -134,9 +134,9 @@ Components.WheelFlickable {
 
         // ── Header ───────────────────────────────────────────
 
-        Text {
-            text: "󰍹  Display"
-            color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true
+        RowLayout { Layout.fillWidth: true; spacing: 8
+            Components.Icon { source: "../icons/monitor.svg"; color: Theme.fg }
+            Text { text: "Display"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true; Layout.fillWidth: true }
         }
 
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
@@ -206,10 +206,9 @@ Components.WheelFlickable {
             Layout.fillWidth: true
             spacing: 8
 
-            Text {
-                text: "󰍹"
+            Components.Icon {
+                source: "../icons/monitor.svg"
                 color: Theme.blueBright
-                font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
                 Layout.alignment: Qt.AlignVCenter
             }
 
@@ -319,10 +318,9 @@ Components.WheelFlickable {
             Layout.fillWidth: true
             spacing: 8
 
-            Text {
-                text: "󰖔"
+            Components.Icon {
+                source: "../icons/night-light.svg"
                 color: DisplayService.nightLightEnabled ? Theme.orangeBright : Theme.fg4
-                font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
                 Layout.alignment: Qt.AlignVCenter
             }
 
@@ -353,11 +351,10 @@ Components.WheelFlickable {
             Layout.fillWidth: true
             spacing: 8
 
-            Text {
-                text: "󰌵"
+            Components.Icon {
+                source: "../icons/temperature.svg"
                 color: Theme.fg4
-                font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
-                Layout.preferredWidth: 16; horizontalAlignment: Text.AlignHCenter
+                Layout.preferredWidth: 16
             }
 
             Rectangle {
@@ -409,10 +406,9 @@ Components.WheelFlickable {
             Layout.fillWidth: true
             spacing: 8
 
-            Text {
-                text: "󰃠"
+            Components.Icon {
+                source: "../icons/brightness-high.svg"
                 color: Theme.yellowBright
-                font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
                 Layout.alignment: Qt.AlignVCenter
             }
 
@@ -444,11 +440,10 @@ Components.WheelFlickable {
             Layout.fillWidth: true
             spacing: 8
 
-            Text {
-                text: BrightnessService.brightnessPercent < 25 ? "󰃞" : (BrightnessService.brightnessPercent < 70 ? "󰃟" : "󰃠")
+            Components.Icon {
+                source: BrightnessService.brightnessPercent < 25 ? "../icons/brightness-low.svg" : (BrightnessService.brightnessPercent < 70 ? "../icons/brightness-medium.svg" : "../icons/brightness-high.svg")
                 color: Theme.fg4
-                font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
-                Layout.preferredWidth: 16; horizontalAlignment: Text.AlignHCenter
+                Layout.preferredWidth: 16
             }
 
             Rectangle {

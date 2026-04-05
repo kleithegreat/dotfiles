@@ -65,7 +65,7 @@ FocusScope {
     }
     property string wallpaperDir: "/home/kevin/repos/dotfiles/wallpapers"
     property var categoryNames: ["Network", "Bluetooth", "Audio", "Display", "Power", "Notifications", "Screen Time", "Presets", "Colors", "Fonts", "Wallpaper", "Icons & Cursors", "Hyprland"]
-    property var categoryIcons: ["󰖩", "󰂯", "󰕾", "󰍹", "⚡", "󰂚", "󱑎", "󰒓", "󰏘", "󰛖", "󰋩", "󰍽", "󰖯"]
+    property var categoryIcons: ["../icons/wifi.svg", "../icons/bluetooth-on.svg", "../icons/volume-high.svg", "../icons/monitor.svg", "../icons/bolt.svg", "../icons/bell.svg", "../icons/hourglass.svg", "../icons/adjustments.svg", "../icons/palette.svg", "../icons/typography.svg", "../icons/photo.svg", "../icons/cursor.svg", "../icons/layout.svg"]
     property var hyprOptionInfo: ({
         "general:gaps_in": { label: "Inner gaps", type: "int", fallback: 4, minimum: 0, step: 1, stateKey: "hypr_gaps_in" },
         "general:gaps_out": { label: "Outer gaps", type: "int", fallback: 6, minimum: 0, step: 1, stateKey: "hypr_gaps_out" },

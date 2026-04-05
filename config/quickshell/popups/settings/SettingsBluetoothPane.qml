@@ -50,8 +50,9 @@ FocusScope {
             RowLayout {
                 Layout.fillWidth: true
 
+                Components.Icon { source: "../icons/bluetooth-on.svg"; color: Theme.fg }
                 Text {
-                    text: "󰂯  Bluetooth"
+                    text: "Bluetooth"
                     color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true
                     Layout.fillWidth: true; elide: Text.ElideRight
                 }
@@ -173,10 +174,10 @@ FocusScope {
                         Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                         transformOrigin: Item.Center
 
-                        Text {
-                            id: pIcon; text: "󰂯"
+                        Components.Icon {
+                            id: pIcon
                             anchors.left: parent.left; anchors.leftMargin: Theme.listItemPadding; anchors.verticalCenter: parent.verticalCenter
-                            color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
+                            source: "../icons/bluetooth-on.svg"; color: Theme.fg
                         }
                         Text {
                             anchors.left: pIcon.right; anchors.leftMargin: 6
@@ -219,10 +220,10 @@ FocusScope {
                         Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                         transformOrigin: Item.Center
 
-                        Text {
-                            id: dIcon; text: "󰂯"
+                        Components.Icon {
+                            id: dIcon
                             anchors.left: parent.left; anchors.leftMargin: Theme.listItemPadding; anchors.verticalCenter: parent.verticalCenter
-                            color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
+                            source: "../icons/bluetooth-on.svg"; color: Theme.fg4
                         }
                         Text {
                             anchors.left: dIcon.right; anchors.leftMargin: 6
@@ -252,7 +253,7 @@ FocusScope {
                 implicitHeight: scanningRow.implicitHeight
                 RowLayout {
                     id: scanningRow; anchors.centerIn: parent; spacing: 6
-                    Text { text: "󰂯"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
+                    Components.Icon { source: "../icons/bluetooth-on.svg"; color: Theme.fg4
                         SequentialAnimation on opacity {
                             loops: Animation.Infinite
                             NumberAnimation { from: 1; to: 0.3; duration: 800; easing.type: Easing.InOutQuad }

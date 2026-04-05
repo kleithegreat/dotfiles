@@ -117,12 +117,10 @@ Rectangle {
                             }
                             spacing: 10
 
-                            Text {
-                                text: root.categoryIcons[sysCatItem.categoryIndex]
+                            Components.Icon {
+                                source: root.categoryIcons[sysCatItem.categoryIndex]
                                 color: sysCatItem.isSelected ? Theme.accent : Theme.fg4
                                 Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.iconSize
                                 Layout.alignment: Qt.AlignVCenter
                             }
 
@@ -223,12 +221,10 @@ Rectangle {
                             }
                             spacing: 10
 
-                            Text {
-                                text: root.categoryIcons[appCatItem.categoryIndex]
+                            Components.Icon {
+                                source: root.categoryIcons[appCatItem.categoryIndex]
                                 color: appCatItem.isSelected ? Theme.accent : Theme.fg4
                                 Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.iconSize
                                 Layout.alignment: Qt.AlignVCenter
                             }
 

@@ -189,11 +189,17 @@ FocusScope {
                             visible: status === Image.Ready
                         }
 
+                        Components.Icon {
+                            anchors.centerIn: parent
+                            visible: !trayImg.visible && (trayItem.modelData.id ?? trayItem.modelData.title ?? "").toLowerCase().includes("spotify")
+                            source: "../icons/brand-spotify.svg"
+                            color: Theme.fg3
+                        }
                         Text {
-                            anchors.centerIn: parent; visible: !trayImg.visible
+                            anchors.centerIn: parent
+                            visible: !trayImg.visible && !(trayItem.modelData.id ?? trayItem.modelData.title ?? "").toLowerCase().includes("spotify")
                             text: {
                                 let id = (trayItem.modelData.id ?? trayItem.modelData.title ?? "").toLowerCase();
-                                if (id.includes("spotify")) return "󰓇";
                                 return id.length > 0 ? id.charAt(0).toUpperCase() : "?";
                             }
                             color: Theme.fg3

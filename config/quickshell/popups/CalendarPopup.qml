@@ -156,8 +156,8 @@ FocusScope {
                         pressedScale: 0.98
                         onClicked: cal.prevMonth()
 
-                        Text {
-                            anchors.centerIn: parent; text: "󰅁"
+                        Components.Icon {
+                            anchors.centerIn: parent; source: "../icons/chevron-left.svg"
                             color: navL.containsMouse ? Theme.fg : Theme.fg4
                             Behavior on color {
                                 Components.CAnim {
@@ -166,7 +166,6 @@ FocusScope {
                                     easing.bezierCurve: Theme.animCurveStandard
                                 }
                             }
-                            font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
                         }
                     }
                 }
@@ -185,8 +184,8 @@ FocusScope {
                         pressedScale: 0.98
                         onClicked: cal.nextMonth()
 
-                        Text {
-                            anchors.centerIn: parent; text: "󰅂"
+                        Components.Icon {
+                            anchors.centerIn: parent; source: "../icons/chevron-right.svg"
                             color: navR.containsMouse ? Theme.fg : Theme.fg4
                             Behavior on color {
                                 Components.CAnim {
@@ -195,7 +194,6 @@ FocusScope {
                                     easing.bezierCurve: Theme.animCurveStandard
                                 }
                             }
-                            font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
                         }
                     }
                 }
@@ -440,8 +438,8 @@ PanelWindow {
                         pressedScale: 0.98
                         onClicked: cal.prevMonth()
 
-                        Text {
-                            anchors.centerIn: parent; text: "󰅁"
+                        Components.Icon {
+                            anchors.centerIn: parent; source: "../icons/chevron-left.svg"
                             color: navL.containsMouse ? Theme.fg : Theme.fg4
                             Behavior on color {
                                 Components.CAnim {
@@ -450,7 +448,6 @@ PanelWindow {
                                     easing.bezierCurve: Theme.animCurveStandard
                                 }
                             }
-                            font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
                         }
                     }
                 }
@@ -469,8 +466,8 @@ PanelWindow {
                         pressedScale: 0.98
                         onClicked: cal.nextMonth()
 
-                        Text {
-                            anchors.centerIn: parent; text: "󰅂"
+                        Components.Icon {
+                            anchors.centerIn: parent; source: "../icons/chevron-right.svg"
                             color: navR.containsMouse ? Theme.fg : Theme.fg4
                             Behavior on color {
                                 Components.CAnim {
@@ -479,7 +476,6 @@ PanelWindow {
                                     easing.bezierCurve: Theme.animCurveStandard
                                 }
                             }
-                            font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
                         }
                     }
                 }

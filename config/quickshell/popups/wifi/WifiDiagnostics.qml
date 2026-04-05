@@ -345,7 +345,10 @@ Item {
 
             // ── Router section ──────────────────
             Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3; Layout.topMargin: 4 }
-            Text { text: "󰑩  Router" + (root.diagGateway && root.diagGateway !== "--" ? " \u00b7 " + root.diagGateway : ""); color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+            RowLayout { spacing: 6
+                Components.Icon { source: "../icons/router.svg"; color: Theme.fg }
+                Text { text: "Router" + (root.diagGateway && root.diagGateway !== "--" ? " \u00b7 " + root.diagGateway : ""); color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+            }
 
             RowLayout { Layout.fillWidth: true; spacing: 6
                 Text { text: "Ping"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 50 }
@@ -377,7 +380,10 @@ Item {
 
             // ── Internet section ────────────────
             Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3; Layout.topMargin: 4 }
-            Text { text: "󰖩  Internet \u00b7 1.1.1.1"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+            RowLayout { spacing: 6
+                Components.Icon { source: "../icons/wifi.svg"; color: Theme.fg }
+                Text { text: "Internet \u00b7 1.1.1.1"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+            }
 
             RowLayout { Layout.fillWidth: true; spacing: 6
                 Text { text: "Ping"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 50 }
@@ -409,7 +415,10 @@ Item {
 
             // ── DNS section ─────────────────────
             Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3; Layout.topMargin: 4 }
-            Text { text: "󰇖  DNS" + (root.diagDnsServer && root.diagDnsServer !== "--" ? " \u00b7 " + root.diagDnsServer : ""); color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+            RowLayout { spacing: 6
+                Components.Icon { source: "../icons/world.svg"; color: Theme.fg }
+                Text { text: "DNS" + (root.diagDnsServer && root.diagDnsServer !== "--" ? " \u00b7 " + root.diagDnsServer : ""); color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+            }
 
             RowLayout { Layout.fillWidth: true; spacing: 6
                 Text { text: "Lookup"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 50 }
@@ -534,22 +543,37 @@ Item {
                         }
                     }
                 }
-                Text { anchors.centerIn: parent; text: "󰐻  Scan Channels"; color: chanScanA.containsMouse ? Theme.blueBright : Theme.fg4
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                    Behavior on color {
-                        Components.CAnim {
-                            duration: Theme.animHover
-                            easing.type: Easing.BezierSpline
-                            easing.bezierCurve: Theme.animCurveStandard
+                Row { anchors.centerIn: parent; spacing: 6
+                    Components.Icon { source: "../icons/radar.svg"; color: chanScanA.containsMouse ? Theme.blueBright : Theme.fg4; anchors.verticalCenter: parent.verticalCenter
+                        Behavior on color {
+                            Components.CAnim {
+                                duration: Theme.animHover
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveStandard
+                            }
                         }
-                    } }
+                    }
+                    Text { text: "Scan Channels"; color: chanScanA.containsMouse ? Theme.blueBright : Theme.fg4; anchors.verticalCenter: parent.verticalCenter
+                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                        Behavior on color {
+                            Components.CAnim {
+                                duration: Theme.animHover
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveStandard
+                            }
+                        }
+                    }
+                }
                 Components.HoverLayer { id: chanScanA; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 0.98
                     onClicked: root.channelScanRequested() }
             }
 
             // ── Speed Test section ──────────────
             Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3; Layout.topMargin: 4 }
-            Text { text: "󰓅  Speed Test"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+            RowLayout { spacing: 6
+                Components.Icon { source: "../icons/speed.svg"; color: Theme.fg }
+                Text { text: "Speed Test"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+            }
 
             RowLayout {
                 visible: root.diagDownload !== "" && !root.speedTestRunning
@@ -661,16 +685,29 @@ Item {
                             }
                         }
                     }
-                    Text { anchors.centerIn: parent; text: root.exportCopied ? "\u2713 Copied" : "󰋼  Export Report"
-                        color: root.exportCopied ? Theme.greenBright : (exportA.containsMouse ? Theme.blueBright : Theme.fg4)
-                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                        Behavior on color {
-                            Components.CAnim {
-                                duration: Theme.animHover
-                                easing.type: Easing.BezierSpline
-                                easing.bezierCurve: Theme.animCurveStandard
+                    Row { anchors.centerIn: parent; spacing: 6
+                        Components.Icon { source: root.exportCopied ? "../icons/circle-check.svg" : "../icons/info-circle.svg"; anchors.verticalCenter: parent.verticalCenter
+                            color: root.exportCopied ? Theme.greenBright : (exportA.containsMouse ? Theme.blueBright : Theme.fg4)
+                            Behavior on color {
+                                Components.CAnim {
+                                    duration: Theme.animHover
+                                    easing.type: Easing.BezierSpline
+                                    easing.bezierCurve: Theme.animCurveStandard
+                                }
                             }
-                        } }
+                        }
+                        Text { text: root.exportCopied ? "Copied" : "Export Report"; anchors.verticalCenter: parent.verticalCenter
+                            color: root.exportCopied ? Theme.greenBright : (exportA.containsMouse ? Theme.blueBright : Theme.fg4)
+                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                            Behavior on color {
+                                Components.CAnim {
+                                    duration: Theme.animHover
+                                    easing.type: Easing.BezierSpline
+                                    easing.bezierCurve: Theme.animCurveStandard
+                                }
+                            }
+                        }
+                    }
                     Components.HoverLayer { id: exportA; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 0.98
                         onClicked: root.exportRequested() }
                 }

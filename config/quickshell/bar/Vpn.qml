@@ -19,11 +19,10 @@ RowLayout {
         return parts.length > 0 ? parts.join(" · ") : "VPN off";
     }
 
-    Text {
+    Components.Icon {
         id: vpnIcon
-        text: "󰒃"
+        source: "../icons/shield-lock.svg"
         color: vpnArea.containsMouse ? Theme.yellowBright : (vpnRoot.anyActive ? Theme.greenBright : Theme.fg4)
-        font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
 
         Behavior on color { Components.CAnim { duration: 150 } }
     }

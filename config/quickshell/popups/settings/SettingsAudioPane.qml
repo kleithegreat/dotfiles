@@ -22,9 +22,9 @@ Components.WheelFlickable {
 
         // ── Header ───────────────────────────────────────────
 
-        Text {
-            text: "󰕾  Audio"
-            color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true
+        RowLayout { Layout.fillWidth: true; spacing: 8
+            Components.Icon { source: "../icons/volume-high.svg"; color: Theme.fg }
+            Text { text: "Audio"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true; Layout.fillWidth: true }
         }
 
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
@@ -34,7 +34,8 @@ Components.WheelFlickable {
         Text { text: "OUTPUT"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
 
         RowLayout { Layout.fillWidth: true; spacing: 8
-            Text { text: "󰕾  Output"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; font.bold: true; Layout.fillWidth: true }
+            Components.Icon { source: "../icons/volume-high.svg"; color: Theme.fg }
+            Text { text: "Output"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; font.bold: true; Layout.fillWidth: true }
             Text {
                 text: (root.sink?.audio?.muted ?? false) ? "Muted" : "On"
                 color: (root.sink?.audio?.muted ?? false) ? Theme.fg4 : Theme.fg3
@@ -53,10 +54,10 @@ Components.WheelFlickable {
         Text { text: root.sink?.description ?? "No output"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; elide: Text.ElideRight; Layout.fillWidth: true }
 
         RowLayout { Layout.fillWidth: true; spacing: 8
-            Text {
-                text: (root.sink?.audio?.muted ?? false) ? "󰝟" : "󰕾"
-                color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
-                Layout.preferredWidth: 16; horizontalAlignment: Text.AlignHCenter
+            Components.Icon {
+                source: (root.sink?.audio?.muted ?? false) ? "../icons/volume-mute.svg" : "../icons/volume-high.svg"
+                color: Theme.fg4
+                Layout.preferredWidth: 16
             }
             Rectangle {
                 Layout.fillWidth: true; height: Theme.sliderHeight; radius: Theme.sliderHeight / 2; color: Theme.bg3
@@ -92,7 +93,8 @@ Components.WheelFlickable {
         Text { text: "INPUT"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
 
         RowLayout { Layout.fillWidth: true; spacing: 8
-            Text { text: "󰍬  Input"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; font.bold: true; Layout.fillWidth: true }
+            Components.Icon { source: "../icons/microphone.svg"; color: Theme.fg }
+            Text { text: "Input"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; font.bold: true; Layout.fillWidth: true }
             Text {
                 text: (root.source?.audio?.muted ?? true) ? "Muted" : "On"
                 color: (root.source?.audio?.muted ?? true) ? Theme.fg4 : Theme.fg3
@@ -111,10 +113,10 @@ Components.WheelFlickable {
         Text { text: root.source?.description ?? "No input"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; elide: Text.ElideRight; Layout.fillWidth: true }
 
         RowLayout { Layout.fillWidth: true; spacing: 8
-            Text {
-                text: (root.source?.audio?.muted ?? true) ? "󰍭" : "󰍬"
-                color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
-                Layout.preferredWidth: 16; horizontalAlignment: Text.AlignHCenter
+            Components.Icon {
+                source: (root.source?.audio?.muted ?? true) ? "../icons/microphone-off.svg" : "../icons/microphone.svg"
+                color: Theme.fg4
+                Layout.preferredWidth: 16
             }
             Rectangle {
                 Layout.fillWidth: true; height: Theme.sliderHeight; radius: Theme.sliderHeight / 2; color: Theme.bg3

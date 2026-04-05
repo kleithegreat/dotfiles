@@ -42,12 +42,11 @@ FocusScope {
     property bool batPresent: UPower.displayDevice.isPresent
 
     function batIcon() {
-        if (batCharging) return "󰂄";
-        if (batPct > 90) return "󰁹";
-        if (batPct > 70) return "󰂂";
-        if (batPct > 50) return "󰁿";
-        if (batPct > 30) return "󰁽";
-        return "󰁺";
+        if (batCharging) return "../icons/battery-charging.svg";
+        if (batPct > 90) return "../icons/battery-full.svg";
+        if (batPct > 70) return "../icons/battery-high.svg";
+        if (batPct > 50) return "../icons/battery-medium.svg";
+        return "../icons/battery-low.svg";
     }
 
     // ── Power profile cycling ──
@@ -205,16 +204,16 @@ FocusScope {
 
                             property string tileIcon: {
                                 switch (modelData.key) {
-                                case "wifi": return qsPop.wifiConnected ? "󰖩" : "󰖪";
+                                case "wifi": return qsPop.wifiConnected ? "../icons/wifi.svg" : "../icons/wifi-off.svg";
                                 case "bluetooth":
-                                    if (!BluetoothService.powered) return "󰂲";
-                                    return BluetoothService.connectedName !== "" ? "󰂱" : "󰂯";
-                                case "vpn": return "󰖂";
-                                case "dnd": return NotificationService.doNotDisturb ? "󰂛" : "󰂚";
+                                    if (!BluetoothService.powered) return "../icons/bluetooth-off.svg";
+                                    return BluetoothService.connectedName !== "" ? "../icons/bluetooth-connected.svg" : "../icons/bluetooth-on.svg";
+                                case "vpn": return "../icons/shield-lock.svg";
+                                case "dnd": return NotificationService.doNotDisturb ? "../icons/bell-off.svg" : "../icons/bell.svg";
                                 case "power":
-                                    if (PowerProfileService.currentProfile === "performance") return "󰵣";
-                                    if (PowerProfileService.currentProfile === "power-saver") return "󰸲";
-                                    return "󰓅";
+                                    if (PowerProfileService.currentProfile === "performance") return "../icons/flame.svg";
+                                    if (PowerProfileService.currentProfile === "power-saver") return "../icons/leaf.svg";
+                                    return "../icons/speed.svg";
                                 default: return "";
                                 }
                             }
@@ -328,10 +327,9 @@ FocusScope {
                             RowLayout {
                                 anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 4; spacing: 6
 
-                                Text {
-                                    text: tile.tileIcon
+                                Components.Icon {
+                                    source: tile.tileIcon
                                     color: tile.isActive ? tile.tileActiveColor : Theme.fg4
-                                    font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
                                     Behavior on color { Components.CAnim { duration: Theme.animHover } }
                                 }
 
@@ -386,10 +384,10 @@ FocusScope {
                 RowLayout {
                     Layout.fillWidth: true; spacing: 8
 
-                    Text {
-                        text: AudioService.muted ? "󰝟" : "󰕾"
-                        color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
-                        Layout.preferredWidth: 16; horizontalAlignment: Text.AlignHCenter
+                    Components.Icon {
+                        source: AudioService.muted ? "../icons/volume-mute.svg" : "../icons/volume-high.svg"
+                        color: Theme.fg4
+                        Layout.preferredWidth: 16; Layout.alignment: Qt.AlignHCenter
                     }
 
                     Rectangle {
@@ -449,10 +447,10 @@ FocusScope {
                     visible: BrightnessService.hasBacklight
                     Layout.fillWidth: true; spacing: 8
 
-                    Text {
-                        text: BrightnessService.brightnessPercent < 25 ? "󰃞" : (BrightnessService.brightnessPercent < 70 ? "󰃟" : "󰃠")
-                        color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
-                        Layout.preferredWidth: 16; horizontalAlignment: Text.AlignHCenter
+                    Components.Icon {
+                        source: BrightnessService.brightnessPercent < 25 ? "../icons/brightness-low.svg" : (BrightnessService.brightnessPercent < 70 ? "../icons/brightness-medium.svg" : "../icons/brightness-high.svg")
+                        color: Theme.fg4
+                        Layout.preferredWidth: 16; Layout.alignment: Qt.AlignHCenter
                     }
 
                     Rectangle {
@@ -513,15 +511,14 @@ FocusScope {
                     visible: qsPop.batPresent
                     Layout.fillWidth: true; spacing: 8
 
-                    Text {
-                        text: qsPop.batIcon()
+                    Components.Icon {
+                        source: qsPop.batIcon()
                         color: {
                             if (qsPop.batCharging) return Theme.greenBright;
                             if (qsPop.batPct < 15) return Theme.redBright;
                             if (qsPop.batPct < 30) return Theme.yellowBright;
                             return Theme.fg;
                         }
-                        font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
                     }
 
                     Text {
@@ -556,10 +553,9 @@ FocusScope {
                             anchors.leftMargin: Theme.listItemPadding; anchors.rightMargin: Theme.listItemPadding
                             spacing: 8
 
-                            Text {
-                                text: "󰒓"
+                            Components.Icon {
+                                source: "../icons/adjustments.svg"
                                 color: settingsArea.containsMouse ? Theme.fg : Theme.fg4
-                                font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
                                 Behavior on color { Components.CAnim { duration: Theme.animHover } }
                             }
                             Text {

@@ -14,17 +14,16 @@ RowLayout {
         return networkName || "Wi-Fi connected";
     }
 
-    Text {
+    Components.Icon {
         id: netIcon
-        text: !connected ? "󰖪" : (connectionType === "ethernet" ? "󰈀" : "󰖩")
+        source: !connected ? "../icons/wifi-off.svg" : (connectionType === "ethernet" ? "../icons/ethernet.svg" : "../icons/wifi.svg")
         color: netArea.containsMouse ? Theme.yellowBright : (connected ? Theme.fg : Theme.fg4)
-        font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize
 
-        // Smooth icon swap: crossfade + subtle vertical slide
-        Behavior on text {
+        // Smooth icon swap: crossfade
+        Behavior on source {
             SequentialAnimation {
                 Components.Anim { target: netIcon; property: "opacity"; to: 0; duration: 120; easing.type: Easing.InQuad }
-                PropertyAction { target: netIcon; property: "text" }
+                PropertyAction { target: netIcon; property: "source" }
                 Components.Anim { target: netIcon; property: "opacity"; to: 1; duration: 200; easing.type: Easing.OutCubic }
             }
         }
