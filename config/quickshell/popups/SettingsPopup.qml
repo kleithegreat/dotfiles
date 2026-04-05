@@ -60,7 +60,7 @@ FocusScope {
     property int systemCategoryCount: 7
     property var hiddenCategories: {
         var h = [];
-        if (!HostCapabilities.hasBattery) h.push(4);
+        if (!HostCapabilities.hasBattery && !HostCapabilities.hasPowerProfiles) h.push(4);
         return h;
     }
     property string wallpaperDir: "/home/kevin/repos/dotfiles/wallpapers"

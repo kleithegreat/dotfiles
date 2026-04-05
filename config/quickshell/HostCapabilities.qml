@@ -8,10 +8,15 @@ QtObject {
 
     readonly property bool hasWifi: _hasWifi
     readonly property bool hasBattery: UPower.displayDevice.isPresent
+    readonly property bool hasPowerProfiles: _hasPowerProfiles
 
     property bool _hasWifi: false
+    property bool _hasPowerProfiles: false
 
-    Component.onCompleted: wifiCheckProc.running = true
+    Component.onCompleted: {
+        wifiCheckProc.running = true;
+        ppCheckProc.running = true;
+    }
 
     property Process wifiCheckProc: Process {
         id: wifiCheckProc
@@ -26,5 +31,11 @@ QtObject {
             root._hasWifi = wifiCheckProc.found;
             wifiCheckProc.found = false;
         }
+    }
+
+    property Process ppCheckProc: Process {
+        command: ["powerprofilesctl", "get"]
+        running: false
+        onExited: (code) => { root._hasPowerProfiles = (code === 0); }
     }
 }

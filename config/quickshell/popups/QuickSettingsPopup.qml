@@ -178,7 +178,7 @@ FocusScope {
                             tiles.push({ key: "bluetooth", label: "Bluetooth" });
                             tiles.push({ key: "vpn", label: "VPN" });
                             tiles.push({ key: "dnd", label: "Do Not Disturb" });
-                            tiles.push({ key: "power", label: "Power Profile" });
+                            if (HostCapabilities.hasPowerProfiles) tiles.push({ key: "power", label: "Power Profile" });
                             return tiles;
                         }
 
