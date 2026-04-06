@@ -10,6 +10,7 @@ Flickable {
     property real _maxOvershoot: 56
     property real _dampFactor: 120
     property real _rawOverscroll: 0
+    property bool _isTrackpad: false
 
     maximumFlickVelocity: 3000
 
@@ -21,7 +22,9 @@ Flickable {
 
     Timer {
         id: _returnTimer
-        interval: 120
+        // Trackpad events come in rapid bursts; use a longer idle timeout
+        // to avoid firing mid-gesture and starting a rebound too early.
+        interval: root._isTrackpad ? 200 : 120
         onTriggered: {
             root._rawOverscroll = 0;
             root.returnToBounds();
@@ -35,6 +38,16 @@ Flickable {
         return root._maxOvershoot * raw / (absRaw + root._dampFactor);
     }
 
+    // Invert the rubber-band function: given a visual displacement,
+    // recover the unbounded (raw) overscroll distance.
+    function _invertRubberBand(visual) {
+        let absV = Math.abs(visual);
+        if (absV < 0.5)
+            return 0;
+        let absRaw = absV * root._dampFactor / (root._maxOvershoot - absV);
+        return visual < 0 ? -absRaw : absRaw;
+    }
+
     function applyWheelDelta(deltaY) {
         if (deltaY === 0)
             return false;
@@ -43,6 +56,18 @@ Flickable {
         let maxY = Math.max(minY, root.originY + root.contentHeight - root.height);
         if (maxY <= minY)
             return false;
+
+        // If the return timer already fired and a rebound animation is in
+        // progress, _rawOverscroll was reset to 0 but contentY is still
+        // out of bounds (mid-animation).  Recover the true overscroll state
+        // from the current visual position so we can continue smoothly.
+        if (root._rawOverscroll === 0) {
+            let cY = root.contentY;
+            if (cY < minY)
+                root._rawOverscroll = root._invertRubberBand(cY - minY);
+            else if (cY > maxY)
+                root._rawOverscroll = root._invertRubberBand(cY - maxY);
+        }
 
         // Reconstruct the virtual (unbounded) scroll position.
         let virtualY;
@@ -91,6 +116,8 @@ Flickable {
         blocking: false
 
         onWheel: function(event) {
+            root._isTrackpad = event.pixelDelta.y !== 0;
+
             // Touchpads already report pixel distances; notch wheels need a theme-tuned step.
             let deltaY = event.pixelDelta.y;
             if (deltaY === 0)
