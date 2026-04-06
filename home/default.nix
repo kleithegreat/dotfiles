@@ -132,6 +132,12 @@ in
       scheme-small
       latexmk
       tikz-cd
+      titlesec
+      tocloft
+      enumitem
+      mdframed
+      needspace
+      zref
     ]))
 
     # Hyprland ecosystem
