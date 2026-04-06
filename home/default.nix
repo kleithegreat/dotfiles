@@ -119,6 +119,7 @@ in
     telegram-desktop
     pavucontrol    # PulseAudio/PipeWire volume control GUI
     pkgs.gnome-secrets
+    bitwarden-desktop  # desktop app for biometric unlock bridge to Chromium extension
 
     # 3D printing
     orca-slicer
