@@ -272,7 +272,7 @@ FocusScope {
         }
 
         RowLayout {
-            visible: HostCapabilities.hasWifi
+            visible: HostCapabilities.hasWifi && root.paneState === "list"
             Layout.fillWidth: true
             spacing: 8
 
