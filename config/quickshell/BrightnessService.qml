@@ -120,7 +120,7 @@ QtObject {
     property Process detectBacklightProc: Process {
         command: [
             "sh",
-            "-lc",
+            "-c",
             "for dev in /sys/class/backlight/*; do [ -d \"$dev\" ] || continue; basename \"$dev\"; exit 0; done; exit 1"
         ]
         running: false
