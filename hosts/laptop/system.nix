@@ -95,6 +95,22 @@
     hyprlock.fprintAuth = false;
   };
 
+  # ── Polkit — password-free read of Dell battery charge config ─
+  # smbios-battery-ctl needs root to read SMBIOS tables (WMI/dcdbas), but
+  # --get-charging-cfg is read-only.  Auto-approve it so the Quickshell
+  # power-profile popup doesn't trigger an auth dialog on every open.
+  # --set-* operations are unaffected and still require authentication.
+  security.polkit.extraConfig = ''
+    polkit.addRule(function(action, subject) {
+      if (action.id === "org.freedesktop.policykit.exec" &&
+          /\/smbios-battery-ctl$/.test(action.lookup("program")) &&
+          /\bsmbios-battery-ctl\s+--get-charging-cfg\s*$/.test(action.lookup("command_line")) &&
+          subject.isInGroup("users")) {
+        return polkit.Result.YES;
+      }
+    });
+  '';
+
   # ── Captive Portal Browser ──────────────────────────────────
   # Dedicated Chromium instance for logging into captive portals
   # (hotel/airport WiFi) without messing with your DNS settings.
