@@ -2,10 +2,13 @@
 
 ## Changes Made
 
-### 1. Installed bitwarden-desktop (`home/default.nix`)
-Added `bitwarden-desktop` to home-manager packages. The nixpkgs package is built
-from the upstream AppImage (not Snap/Flatpak), so it includes the `desktop_proxy`
-native messaging binary required for browser integration.
+### 1. Installed bitwarden-desktop (`system/configuration.nix`)
+Added `bitwarden-desktop` to `environment.systemPackages` (not home-manager).
+This is required because the nixpkgs package ships a polkit policy file at
+`share/polkit-1/actions/com.bitwarden.Bitwarden.policy`, and only system-level
+packages get their polkit policies linked into the system-wide actions directory.
+Home Manager does not do this (see nixpkgs#344073). The package also includes
+the `desktop_proxy` native messaging binary required for browser integration.
 
 ### 2. Auto-start on Hyprland login (`config/hypr/autostart.conf`)
 Added `exec-once = bitwarden`. The app will open a window on first launch until
@@ -16,9 +19,11 @@ Added `float on, center on` for class `Bitwarden`. If the class doesn't match
 after installation, run `hyprctl clients` while the window is open and adjust the
 class in the rule.
 
-### 4. Polkit / fingerprint path (no changes needed)
-The existing config in `hosts/laptop/system.nix` already sets
-`polkit-1.fprintAuth = true`. When Bitwarden's "Unlock with system
+### 4. Polkit policy and fingerprint authentication
+The `bitwarden-desktop` package includes the polkit action
+`com.bitwarden.Bitwarden.unlock` (policy file installed via
+`environment.systemPackages`). The existing config in `hosts/laptop/system.nix`
+already sets `polkit-1.fprintAuth = true`. When Bitwarden's "Unlock with system
 authentication" triggers a polkit prompt, hyprpolkitagent will present the
 fingerprint dialog via fprintd. No PAM changes required.
 

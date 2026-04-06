@@ -395,6 +395,7 @@ in
     qt6Packages.qt6ct  # Qt5 configuration tool (kept for qt5ct backward compat)
     hyprqt6engine  # Hyprland-native Qt6 theme engine (with KF6 for full KDE app theming)
     sddm-theme
+    bitwarden-desktop  # must be system-level so polkit policy file is linked (nixpkgs#344073)
   ];
 
   system.stateVersion = "25.05";
