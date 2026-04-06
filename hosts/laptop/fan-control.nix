@@ -17,6 +17,7 @@ let
 
     mesonFlags = [
       "-Dmoduledir=${placeholder "out"}/lib/tcl8/8.6"
+      "-Ddefault_config=disabled"
       "-Dsystemd_support=disabled"
       "-Dsysvinit_support=disabled"
     ];
