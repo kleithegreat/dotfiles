@@ -639,11 +639,11 @@
         "nixpkgs": "nixpkgs_3"
       },
       "locked": {
-        "lastModified": 1775067494,
-        "narHash": "sha256-Vk1r4HVQ83d+ZvaWY0colM1uZNIkbNqmI6xgD9zGC5Y=",
+        "lastModified": 1775510399,
+        "narHash": "sha256-GFcvTpteT2woEC8+t6J3wy/Dl2IWYjfPZDEVRlgAUsg=",
         "owner": "OpalAayan",
         "repo": "snappy-switcher",
-        "rev": "5deec9a2aad9ecf9b312fda2be160acbb45b8276",
+        "rev": "a7fbb77a28c22ee90ae6f87c73a6805a45b57245",
         "type": "github"
       },
       "original": {
@@ -718,11 +718,11 @@
         "systems": "systems_4"
       },
       "locked": {
-        "lastModified": 1775484587,
-        "narHash": "sha256-lDP39xtq0a5IbI3NlyFkHaQpBcqkLaGRb3j2BPTg60I=",
+        "lastModified": 1775501472,
+        "narHash": "sha256-Dk9vlzgAYty1AIgGzQPzLIvVD74J2R2qR1vVZJZVWiU=",
         "owner": "vicinaehq",
         "repo": "vicinae",
-        "rev": "3fa1530249fc7c334083d471285b9cb62e7f9eab",
+        "rev": "83be620db38a8b5146e80b3724399d65a626bacb",
         "type": "github"
       },
       "original": {
