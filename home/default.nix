@@ -1,7 +1,11 @@
 { config, pkgs, lib, dotfilesPath, hostName, hyprland, hyprland-plugins, vicinae, snappy-switcher, ... }:
 
 let
-  snappy-switcher-pkg = snappy-switcher.packages.${pkgs.stdenv.hostPlatform.system}.default;
+  snappy-switcher-pkg = snappy-switcher.packages.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs (old: {
+    patches = (old.patches or []) ++ [
+      ../patches/snappy-switcher/workspace-scope-filter.patch
+    ];
+  });
 in
 {
   imports = [
