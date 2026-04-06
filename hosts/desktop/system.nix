@@ -31,7 +31,8 @@
     fsType = "ext4";
   };
 
-  swapDevices = [{ device = "/swapfile"; size = 16384; }];
+  zramSwap.enable = true;
+  zramSwap.memoryPercent = 50;
 
   hardware.enableRedistributableFirmware = true;
   hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
