@@ -256,12 +256,7 @@ fn cmd_set(args: crate::SetArgs) -> CliResult<()> {
             Value::Bool(enabled) => enabled,
             _ => unreachable!("dark_hint is validated as a bool"),
         };
-        let mode = if enabled {
-            crate::night_light::NightLightMode::On
-        } else {
-            crate::night_light::NightLightMode::Off
-        };
-        map_user_err(crate::night_light::request_mode(mode, None))?;
+        map_user_err(set_dark_hint(enabled))?;
         println!("Set {} = {}", key, python_repr_value(&Value::Bool(enabled)));
         return Ok(());
     }
@@ -316,12 +311,7 @@ fn cmd_preset(args: crate::NamedArg) -> CliResult<()> {
     }
 
     if let Some(enabled) = requested_dark_hint {
-        let mode = if enabled {
-            crate::night_light::NightLightMode::On
-        } else {
-            crate::night_light::NightLightMode::Off
-        };
-        map_user_err(crate::night_light::request_mode(mode, None))?;
+        map_user_err(set_dark_hint(enabled))?;
         if !has_theme_changes {
             println!("Loaded preset '{}'.", preset_name);
         }
