@@ -7,6 +7,8 @@ use std::{
     time::Duration,
 };
 
+use crate::paths;
+
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 const GAMMA: f64 = 2.2;
@@ -14,7 +16,6 @@ const STEP: f64 = 0.05;
 const DIM_STEPS: u32 = 20;
 const DIM_DELAY: Duration = Duration::from_millis(50);
 const BACKLIGHT_ROOT: &str = "/sys/class/backlight";
-const QUICKSHELL_BRIGHTNESS_PATH: &str = "/tmp/quickshell-brightness";
 const DIM_PID_PATH: &str = "/tmp/dim-screen.pid";
 
 const SIGHUP: i32 = 1;
@@ -53,7 +54,6 @@ pub fn dim(device: Option<&str>) -> Result<()> {
     ensure_nonzero_max(max)?;
 
     if current == 0 {
-        write_quickshell_state(&device)?;
         return Ok(());
     }
 
@@ -79,20 +79,16 @@ pub fn dim(device: Option<&str>) -> Result<()> {
         thread::sleep(DIM_DELAY);
     }
 
-    write_quickshell_state(&device)?;
     Ok(())
 }
 
 pub fn restore(device: Option<&str>) -> Result<()> {
     let device = resolve_device(device)?;
     brightnessctl(&device, &["-r"])?;
-    write_quickshell_state(&device)?;
     Ok(())
 }
 
-pub fn seed(device: Option<&str>) -> Result<()> {
-    let device = resolve_device(device)?;
-    write_quickshell_state(&device)?;
+pub fn seed(_device: Option<&str>) -> Result<()> {
     Ok(())
 }
 
@@ -107,7 +103,7 @@ fn step(device: Option<&str>, direction: f64) -> Result<()> {
     let raw = perceived_to_raw(next, max);
 
     brightnessctl(&device, &["s", &raw.to_string()])?;
-    write_quickshell_state(&device)?;
+    notify_quickshell_osd(next);
     Ok(())
 }
 
@@ -150,10 +146,18 @@ fn brightnessctl(device: &str, args: &[&str]) -> Result<Output> {
     Err(command_error("brightnessctl", &command_args, &output).into())
 }
 
-fn write_quickshell_state(device: &str) -> Result<()> {
-    let output = brightnessctl(device, &["-m"])?;
-    fs::write(PathBuf::from(QUICKSHELL_BRIGHTNESS_PATH), output.stdout)?;
-    Ok(())
+fn notify_quickshell_osd(perceived_fraction: f64) {
+    let percent = (perceived_fraction * 100.0).round() as i32;
+    let qs_path = match paths::repo_root() {
+        Ok(root) => root.join("config/quickshell"),
+        Err(_) => return,
+    };
+
+    let _ = Command::new("qs")
+        .args(["-p"])
+        .arg(qs_path)
+        .args(["ipc", "call", "brightness", "osd", &percent.to_string()])
+        .output();
 }
 
 fn ensure_nonzero_max(max: u64) -> Result<()> {

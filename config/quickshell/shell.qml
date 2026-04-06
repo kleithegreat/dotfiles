@@ -209,17 +209,14 @@ Scope {
         }
     }
 
-    property real lastBrightness: -1; property bool brightnessInit: false
-    Process { id: brightnessProc; command: ["tail", "-F", "/tmp/quickshell-brightness"]; running: true
-        stdout: SplitParser { onRead: data => {
-            let p = data.trim().split(","); if (p.length < 4) return;
-            let rawPct = parseInt(p[3]); if (isNaN(rawPct)) return;
-            let pct = Math.round(Math.pow(rawPct / 100, 1.0 / 2.2) * 100);
-            if (!root.brightnessInit) { root.lastBrightness = pct; root.brightnessInit = true; return; }
-            if (pct !== root.lastBrightness) { root.lastBrightness = pct; root.showBrightnessOsd(pct); }
-        } }
+    IpcHandler {
+        target: "brightness"
+        function osd(percent: string): void {
+            let pct = parseInt(percent);
+            if (!isNaN(pct))
+                AudioService.showOsdState(pct, pct + "%", "../icons/brightness-medium.svg");
+        }
     }
-    function showBrightnessOsd(pct) { AudioService.showOsdState(pct, pct + "%", "../icons/brightness-medium.svg"); }
 
     PanelWindow {
         visible: AudioService.showOsd || osdPanel.opacity > 0.001
@@ -395,7 +392,7 @@ Scope {
         target: "theme"
 
         function open(): void { root.popupVisibility.toggleSettings(); }
-        function apply(args): void {
+        function apply(args: string): void {
             let parsed = root.tokenizeThemeArgs(args);
             if (parsed.error !== "") {
                 ToastService.showError(parsed.error);
@@ -416,8 +413,8 @@ Scope {
     IpcHandler {
         target: "toast"
 
-        function info(message): void { ToastService.showInfo(message); }
-        function warning(message): void { ToastService.showWarning(message); }
-        function error(message): void { ToastService.showError(message); }
+        function info(message: string): void { ToastService.showInfo(message); }
+        function warning(message: string): void { ToastService.showWarning(message); }
+        function error(message: string): void { ToastService.showError(message); }
     }
 }
