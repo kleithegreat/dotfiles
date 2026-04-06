@@ -119,7 +119,9 @@ in
     telegram-desktop
     pavucontrol    # PulseAudio/PipeWire volume control GUI
     pkgs.gnome-secrets
-    bitwarden-desktop  # desktop app for biometric unlock bridge to Chromium extension
+    # bitwarden-desktop is in environment.systemPackages (system/configuration.nix)
+    # so its polkit policy file gets linked into the system-wide polkit actions dir.
+    # Home Manager doesn't do this, which breaks "Unlock with system authentication".
 
     # 3D printing
     orca-slicer
