@@ -9,6 +9,7 @@ Item {
     implicitHeight: displayRow.implicitHeight
     signal clicked()
 
+    property bool showLabel: true
     readonly property int brightnessPercent: BrightnessService.brightnessPercent
     readonly property string labelText: BrightnessService.hasBacklight ? (BrightnessService.brightnessAvailable ? brightnessPercent + "%" : "") : DisplayService.nightLightSubtitle
 
@@ -42,6 +43,7 @@ Item {
         }
 
         Text {
+            visible: displayRoot.showLabel
             text: displayRoot.labelText
             color: displayArea.containsMouse ? Theme.yellowBright : (BrightnessService.hasBacklight ? Theme.fg : (DisplayService.nightLightEnabled ? Theme.orangeBright : Theme.fg3))
             font.family: Theme.systemFamily
