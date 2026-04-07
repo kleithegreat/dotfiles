@@ -109,6 +109,7 @@ FocusScope {
     }
 
     Keys.onEscapePressed: cal.close()
+    readonly property int gridCellCount: Math.ceil((firstDow(viewYear, viewMonth) + daysInMonth(viewYear, viewMonth)) / 7) * 7
 
     Loader {
         id: calContentLoader
@@ -221,7 +222,7 @@ FocusScope {
                 }
 
                 Repeater {
-                    model: 42
+                    model: cal.gridCellCount
                     Item {
                         required property int index
                         property int dayNum: index - cal.firstDow(cal.viewYear, cal.viewMonth) + 1
@@ -266,11 +267,7 @@ FocusScope {
                 }
             }
 
-            Text {
-                text: Qt.formatDateTime(new Date(), "dddd, MMMM d, yyyy  h:mm AP")
-                color: Theme.fg3; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
-                Layout.alignment: Qt.AlignHCenter
-            }
+
             }
         }
     }
