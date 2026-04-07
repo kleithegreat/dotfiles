@@ -128,7 +128,7 @@ FocusScope {
         Rectangle {
             id: drawerPanel
             anchors.fill: parent
-            implicitHeight: drawerCol.implicitHeight + Theme.notifPadding * 2
+            implicitHeight: Math.max(drawerCol.implicitHeight + Theme.notifPadding * 2, 200)
             radius: Theme.notifRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
             opacity: 0; scale: 0.92
             transformOrigin: Item.TopRight
@@ -165,7 +165,7 @@ FocusScope {
             }
             Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
             Components.WheelFlickable {
-                Layout.fillWidth: true; Layout.fillHeight: true; Layout.minimumHeight: 40; Layout.maximumHeight: 400
+                visible: NotificationService.historyCount > 0; Layout.fillWidth: true; Layout.fillHeight: true; Layout.minimumHeight: 40; Layout.maximumHeight: 400
                 contentHeight: histCol.implicitHeight; clip: true; boundsBehavior: Flickable.StopAtBounds
                 Column { id: histCol; width: parent.width; spacing: Theme.notifSpacing
                     Repeater { id: historyList
@@ -217,11 +217,14 @@ FocusScope {
                 }
             }
             // Empty state with icon
-            ColumnLayout {
-                visible: NotificationService.historyCount === 0; Layout.fillWidth: true; Layout.alignment: Qt.AlignHCenter; spacing: 4
-                Layout.topMargin: 20; Layout.bottomMargin: 20
-                Components.Icon { source: "../icons/bell.svg"; color: Theme.fg4; iconSize: 24; Layout.alignment: Qt.AlignHCenter }
-                Text { text: "No notifications"; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; Layout.alignment: Qt.AlignHCenter }
+            Item {
+                visible: NotificationService.historyCount === 0
+                Layout.fillWidth: true; Layout.fillHeight: true
+                ColumnLayout {
+                    anchors.centerIn: parent; spacing: 4
+                    Components.Icon { source: "../icons/bell.svg"; color: Theme.fg4; iconSize: 24; Layout.alignment: Qt.AlignHCenter }
+                    Text { text: "No notifications"; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; Layout.alignment: Qt.AlignHCenter }
+                }
             }
             }
         }
