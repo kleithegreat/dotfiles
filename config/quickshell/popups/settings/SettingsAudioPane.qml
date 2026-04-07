@@ -73,7 +73,7 @@ Components.WheelFlickable {
                     x: Math.max(0, Math.min(parent.width - width, parent.width * Math.min(1.0, root.sink?.audio?.volume ?? 0) - width / 2))
                     scale: outSlider.pressed ? 1.2 : (outSlider.containsMouse ? 1.1 : 1.0)
                     Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    Behavior on x { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                    Behavior on x { SpringAnimation { spring: 4; damping: 0.4 } }
                 }
                 Components.HoverLayer {
                     id: outSlider; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
@@ -132,7 +132,7 @@ Components.WheelFlickable {
                     x: Math.max(0, Math.min(parent.width - width, parent.width * Math.min(1.0, root.source?.audio?.volume ?? 0) - width / 2))
                     scale: inSlider.pressed ? 1.2 : (inSlider.containsMouse ? 1.1 : 1.0)
                     Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    Behavior on x { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                    Behavior on x { SpringAnimation { spring: 4; damping: 0.4 } }
                 }
                 Components.HoverLayer {
                     id: inSlider; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
@@ -184,7 +184,7 @@ Components.WheelFlickable {
                             x: Math.max(0, Math.min(parent.width - width, parent.width * Math.min(1.0, appRow.modelData.audio?.volume ?? 0) - width / 2))
                             scale: appSlider.pressed ? 1.2 : (appSlider.containsMouse ? 1.1 : 1.0)
                             Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                            Behavior on x { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                            Behavior on x { SpringAnimation { spring: 4; damping: 0.4 } }
                         }
                         Components.HoverLayer {
                             id: appSlider; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0

@@ -26,7 +26,7 @@ Item {
                     Components.Anim { target: volIcon; property: "opacity"; to: 1; duration: Theme.animNormal; easing.type: Easing.OutCubic }
                 }
             }
-            Behavior on color { Components.CAnim { duration: 150 } }
+            Behavior on color { Components.CAnim { duration: Theme.animHover } }
         }
     }
     MouseArea {

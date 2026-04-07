@@ -89,15 +89,18 @@ FocusScope {
     SequentialAnimation {
         id: drawerOpenAnim
         ParallelAnimation {
-            Components.Anim { target: drawerContentLoader.item; property: "opacity"; to: 1; duration: Theme.animPopupIn; easing.type: Easing.OutCubic }
-            Components.Anim { target: drawerContentLoader.item; property: "scale"; to: 1.0; duration: Theme.animPopupIn; easing.type: Easing.OutCubic }
+            Components.Anim { target: drawerContentLoader.item; property: "opacity"; to: 1; duration: Theme.animPopupIn; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveEmphasizedEnter }
+            SequentialAnimation {
+                PauseAnimation { duration: 40 }
+                Components.Anim { target: drawerContentLoader.item; property: "scale"; to: 1.0; duration: Theme.animPopupIn - 40; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveEmphasizedEnter }
+            }
         }
     }
     SequentialAnimation {
         id: drawerCloseAnim
         ParallelAnimation {
-            Components.Anim { target: drawerContentLoader.item; property: "opacity"; to: 0; duration: Theme.animPopupOut; easing.type: Easing.InCubic }
-            Components.Anim { target: drawerContentLoader.item; property: "scale"; to: 0.92; duration: Theme.animPopupOut; easing.type: Easing.InCubic }
+            Components.Anim { target: drawerContentLoader.item; property: "opacity"; to: 0; duration: Theme.animPopupOut; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveExit }
+            Components.Anim { target: drawerContentLoader.item; property: "scale"; to: 0.92; duration: Theme.animPopupOut; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveExit }
         }
         ScriptAction { script: { drawer.closing = false; } }
     }
@@ -175,7 +178,7 @@ FocusScope {
                             width: histCol.width; height: hcC.implicitHeight + Theme.notifPadding; radius: Theme.btnRadius; color: Theme.bg2
 
                             // Staggered fade+slide entrance
-                            opacity: 0; y: 8
+                            opacity: 0; y: 8; scale: 0.92
                             Component.onCompleted: { hcEnterAnim.delay = index * Theme.animStagger; hcEnterAnim.start(); }
                             SequentialAnimation {
                                 id: hcEnterAnim; property int delay: 0
@@ -183,6 +186,7 @@ FocusScope {
                                 ParallelAnimation {
                                     Components.Anim { target: hc; property: "opacity"; to: 1; duration: Theme.animContentSwap; easing.type: Easing.OutCubic }
                                     Components.Anim { target: hc; property: "y"; to: 0; duration: Theme.animContentSwap; easing.type: Easing.OutCubic }
+                                    Components.Anim { target: hc; property: "scale"; to: 1.0; duration: Theme.animContentSwap; easing.type: Easing.OutBack; easing.overshoot: 1.07 }
                                 }
                             }
 

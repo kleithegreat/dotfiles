@@ -105,37 +105,37 @@ QtObject {
     // ── Animation constants ──
     // Shell chrome should feel instant/reactive, not floaty.
     // Opens are slightly slower (ease-in to land), close/nav are fast (get out of the way).
-    readonly property real animScale: 1.6
+    readonly property real animScale: 1.0
 
     // Micro-interactions (press scale, icon color, hover bg)
-    readonly property int animMicro:       60
-    readonly property int animFast:        80
-    readonly property int animHover:       120
+    readonly property int animMicro:       Math.round(60  * animScale)
+    readonly property int animFast:        Math.round(80  * animScale)
+    readonly property int animHover:       Math.round(120 * animScale)
 
     // Content transitions (state swaps, cross-fades, text changes)
-    readonly property int animContentSwap: 150
-    readonly property int animNormal:      180
-    readonly property int animSpring:      220
+    readonly property int animContentSwap: Math.round(150 * animScale)
+    readonly property int animNormal:      Math.round(180 * animScale)
+    readonly property int animSpring:      Math.round(220 * animScale)
 
     // Popup open — keep a bit of weight so it feels intentional
-    readonly property int animPopupIn:     280
+    readonly property int animPopupIn:     Math.round(280 * animScale)
     // Popup close / navigation — snappy, get out of the way
-    readonly property int animPopupOut:    150
-    readonly property int animMedium:      250
+    readonly property int animPopupOut:    Math.round(150 * animScale)
+    readonly property int animMedium:      Math.round(250 * animScale)
 
     // Popup height resize
-    readonly property int animHeightResize: 200
+    readonly property int animHeightResize: Math.round(200 * animScale)
 
     // Notification slide
-    readonly property int animNotifIn:     280
-    readonly property int animNotifOut:    180
+    readonly property int animNotifIn:     Math.round(280 * animScale)
+    readonly property int animNotifOut:    Math.round(180 * animScale)
 
     // Stagger delay per item in lists/grids
-    readonly property int animStagger:     30
+    readonly property int animStagger:     Math.round(30  * animScale)
 
     // OSD pop
-    readonly property int animOsdIn:       200
-    readonly property int animOsdOut:      140
+    readonly property int animOsdIn:       Math.round(200 * animScale)
+    readonly property int animOsdOut:      Math.round(140 * animScale)
 
     // QML Easing.BezierSpline format: [cx1, cy1, cx2, cy2, 1.0, 1.0]
     // Default for opens/enters: quick response up front, then a soft landing.

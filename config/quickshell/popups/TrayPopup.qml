@@ -59,13 +59,16 @@ FocusScope {
                 easing.type: Easing.BezierSpline
                 easing.bezierCurve: Theme.animCurveEmphasizedEnter
             }
-            Components.Anim {
-                target: trayPanel
-                property: "scale"
-                to: 1.0
-                duration: Theme.animPopupIn
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: Theme.animCurveEmphasizedEnter
+            SequentialAnimation {
+                PauseAnimation { duration: 40 }
+                Components.Anim {
+                    target: trayPanel
+                    property: "scale"
+                    to: 1.0
+                    duration: Theme.animPopupIn - 40
+                    easing.type: Easing.BezierSpline
+                    easing.bezierCurve: Theme.animCurveEmphasizedEnter
+                }
             }
         }
     }
@@ -145,8 +148,8 @@ FocusScope {
                                 property: "scale"
                                 to: 1.0
                                 duration: 250
-                                easing.type: Easing.BezierSpline
-                                easing.bezierCurve: Theme.animCurveEmphasizedEnter
+                                easing.type: Easing.OutBack
+                                easing.overshoot: 1.07
                             }
                         }
                     }

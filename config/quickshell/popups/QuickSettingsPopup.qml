@@ -96,10 +96,13 @@ FocusScope {
                 duration: Theme.animPopupIn
                 easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveEmphasizedEnter
             }
-            Components.Anim {
-                target: qsContentLoader.item; property: "scale"; to: 1.0
-                duration: Theme.animPopupIn
-                easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveEmphasizedEnter
+            SequentialAnimation {
+                PauseAnimation { duration: 40 }
+                Components.Anim {
+                    target: qsContentLoader.item; property: "scale"; to: 1.0
+                    duration: Theme.animPopupIn - 40
+                    easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveEmphasizedEnter
+                }
             }
         }
     }
@@ -417,10 +420,7 @@ FocusScope {
                                 }
                             }
                             Behavior on x {
-                                Components.Anim {
-                                    duration: Theme.animMicro
-                                    easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
-                                }
+                                SpringAnimation { spring: 4; damping: 0.4 }
                             }
                         }
 
@@ -480,10 +480,7 @@ FocusScope {
                                 }
                             }
                             Behavior on x {
-                                Components.Anim {
-                                    duration: Theme.animMicro
-                                    easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
-                                }
+                                SpringAnimation { spring: 4; damping: 0.4 }
                             }
                         }
 

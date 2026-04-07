@@ -720,13 +720,16 @@ FocusScope {
                 easing.type: Easing.BezierSpline
                 easing.bezierCurve: Theme.animCurveEmphasizedEnter
             }
-            Components.Anim {
-                target: settingsContentLoader.item
-                property: "scale"
-                to: 1.0
-                duration: Theme.animPopupIn
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: Theme.animCurveEmphasizedEnter
+            SequentialAnimation {
+                PauseAnimation { duration: 40 }
+                Components.Anim {
+                    target: settingsContentLoader.item
+                    property: "scale"
+                    to: 1.0
+                    duration: Theme.animPopupIn - 40
+                    easing.type: Easing.BezierSpline
+                    easing.bezierCurve: Theme.animCurveEmphasizedEnter
+                }
             }
         }
     }
@@ -806,15 +809,47 @@ FocusScope {
                 }
 
                 Item {
+                    id: paneContainer
                     width: parent.width - 191
                     height: parent.height
+
+                    property int _activePane: settingsPop.selectedCategory
+
+                    Connections {
+                        target: settingsPop
+                        function onSelectedCategoryChanged() {
+                            if (detailLoader.item) {
+                                paneSwapAnim.stop();
+                                paneSwapAnim.start();
+                            } else {
+                                paneContainer._activePane = settingsPop.selectedCategory;
+                            }
+                        }
+                    }
+
+                    SequentialAnimation {
+                        id: paneSwapAnim
+                        Components.Anim {
+                            target: detailLoader; property: "opacity"; to: 0
+                            duration: Math.round(Theme.animContentSwap / 2)
+                            easing.type: Easing.InQuad
+                        }
+                        ScriptAction {
+                            script: { paneContainer._activePane = settingsPop.selectedCategory; }
+                        }
+                        Components.Anim {
+                            target: detailLoader; property: "opacity"; to: 1
+                            duration: Math.round(Theme.animContentSwap / 2)
+                            easing.type: Easing.OutCubic
+                        }
+                    }
 
                     Loader {
                         id: detailLoader
                         anchors.fill: parent
                         anchors.margins: Theme.popupPadding
                         sourceComponent: {
-                            switch (settingsPop.selectedCategory) {
+                            switch (paneContainer._activePane) {
                                 case 0: return networkPane;
                                 case 1: return bluetoothPane;
                                 case 2: return audioPane;

@@ -108,8 +108,8 @@ FocusScope {
                                 property: "scale"
                                 to: 1.0
                                 duration: 400
-                                easing.type: Easing.BezierSpline
-                                easing.bezierCurve: Theme.animCurveEmphasizedEnter
+                                easing.type: Easing.OutBack
+                                easing.overshoot: 1.07
                             }
                         }
                     }

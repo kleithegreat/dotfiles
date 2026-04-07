@@ -24,7 +24,7 @@ RowLayout {
         source: "../icons/shield-lock.svg"
         color: vpnArea.containsMouse ? Theme.yellowBright : (vpnRoot.anyActive ? Theme.greenBright : Theme.fg4)
 
-        Behavior on color { Components.CAnim { duration: 150 } }
+        Behavior on color { Components.CAnim { duration: Theme.animHover } }
     }
 
     MouseArea {
