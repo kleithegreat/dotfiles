@@ -373,7 +373,7 @@ Components.WheelFlickable {
                     x: Math.max(0, Math.min(parent.width - width, parent.width * BrightnessService.brightnessFraction - width / 2))
                     scale: brSlider.pressed ? 1.2 : (brSlider.containsMouse ? 1.1 : 1.0)
                     Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    Behavior on x { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                    Behavior on x { SpringAnimation { spring: 4; damping: 0.4 } }
                 }
 
                 Components.HoverLayer {
@@ -460,7 +460,7 @@ Components.WheelFlickable {
                     x: Math.max(0, Math.min(parent.width - width, parent.width * DisplayService.nightLightTemperatureFraction - width / 2))
                     scale: nlSlider.pressed ? 1.2 : (nlSlider.containsMouse ? 1.1 : 1.0)
                     Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    Behavior on x { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                    Behavior on x { SpringAnimation { spring: 4; damping: 0.4 } }
                 }
 
                 Components.HoverLayer {

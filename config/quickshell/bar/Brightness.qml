@@ -39,7 +39,7 @@ Item {
                 return "../icons/brightness-max.svg";
             }
             color: displayArea.containsMouse ? Theme.yellowBright : (DisplayService.nightLightEnabled ? Theme.orangeBright : Theme.fg)
-            Behavior on color { Components.CAnim { duration: 150 } }
+            Behavior on color { Components.CAnim { duration: Theme.animHover } }
         }
 
         Text {
@@ -48,7 +48,7 @@ Item {
             color: displayArea.containsMouse ? Theme.yellowBright : (BrightnessService.hasBacklight ? Theme.fg : (DisplayService.nightLightEnabled ? Theme.orangeBright : Theme.fg3))
             font.family: Theme.systemFamily
             font.pixelSize: Theme.fontSizeSmall
-            Behavior on color { Components.CAnim { duration: 150 } }
+            Behavior on color { Components.CAnim { duration: Theme.animHover } }
         }
     }
 

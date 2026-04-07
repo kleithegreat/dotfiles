@@ -27,7 +27,7 @@ RowLayout {
                 Components.Anim { target: netIcon; property: "opacity"; to: 1; duration: 200; easing.type: Easing.OutCubic }
             }
         }
-        Behavior on color { Components.CAnim { duration: 150 } }
+        Behavior on color { Components.CAnim { duration: Theme.animHover } }
     }
 
     MouseArea {

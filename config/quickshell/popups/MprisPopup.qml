@@ -93,13 +93,16 @@ FocusScope {
                 easing.type: Easing.BezierSpline
                 easing.bezierCurve: Theme.animCurveEmphasizedEnter
             }
-            Components.Anim {
-                target: mprisPanel
-                property: "scale"
-                to: 1.0
-                duration: Theme.animPopupIn
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: Theme.animCurveEmphasizedEnter
+            SequentialAnimation {
+                PauseAnimation { duration: 40 }
+                Components.Anim {
+                    target: mprisPanel
+                    property: "scale"
+                    to: 1.0
+                    duration: Theme.animPopupIn - 40
+                    easing.type: Easing.BezierSpline
+                    easing.bezierCurve: Theme.animCurveEmphasizedEnter
+                }
             }
         }
     }
