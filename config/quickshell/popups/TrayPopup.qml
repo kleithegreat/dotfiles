@@ -119,11 +119,6 @@ FocusScope {
                 Item {
                     id: trayItem; required property var modelData; required property int index
                     width: Theme.iconSize + 4; height: Theme.iconSize + 4
-                    Rectangle {
-                        anchors.fill: parent; radius: 4
-                        color: "transparent"
-                        border.width: 1; border.color: Theme.bg3
-                    }
 
                     // ── Staggered entrance animation ──
                     opacity: 0

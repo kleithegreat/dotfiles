@@ -142,18 +142,6 @@ FocusScope {
                     Text { text: "Notifications"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.headerFontSize; font.bold: true; Layout.fillWidth: true }
                 }
 
-                // DnD toggle using unified component
-                RowLayout { spacing: 4
-                    Components.Icon { source: NotificationService.doNotDisturb ? "../icons/bell-off.svg" : "../icons/bell.svg"
-                        color: NotificationService.doNotDisturb ? Theme.orangeBright : Theme.fg4
-                        Behavior on color { Components.CAnim { duration: Theme.animHover } }
-                    }
-                    Components.ToggleSwitch {
-                        checked: NotificationService.doNotDisturb
-                        onToggled: NotificationService.toggleDnd()
-                    }
-                }
-
                 // Clear button
                 Rectangle {
                     visible: NotificationService.historyCount > 0

@@ -119,7 +119,7 @@ Components.WheelFlickable {
     }
 
     function formatResolution(res) {
-        return res.replace("x", " × ");
+        return res.replace("x", " \u00d7 ");
     }
 
     Component.onCompleted: {
@@ -230,7 +230,7 @@ Components.WheelFlickable {
             }
 
             Text {
-                text: root.currentMonitor ? (root.currentMonitor.width + " × " + root.currentMonitor.height + " @ " + Math.round(root.currentMonitor.refreshRate) + "Hz") : ""
+                text: root.currentMonitor ? (root.currentMonitor.width + " \u00d7 " + root.currentMonitor.height + " @ " + Math.round(root.currentMonitor.refreshRate) + "Hz") : ""
                 color: Theme.fg3
                 font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
             }
@@ -245,15 +245,12 @@ Components.WheelFlickable {
             font.bold: true
         }
 
-        Components.InlineSelect {
+        Components.InlineDropdown {
             visible: root.resolutions.length > 0
             Layout.fillWidth: true
             id: resolutionSelect
             model: root.resolutions
             currentValue: root.selectedResolution
-            currentText: root.selectedResolution ? root.formatResolution(root.selectedResolution) : ""
-            secondaryText: root.resolutions.length === 1 ? "1 mode" : root.resolutions.length + " modes"
-            disabled: root.resolutions.length < 2
             textForValue: function(resolution) { return root.formatResolution(resolution); }
             maxVisibleItems: 7
             onExpandedChanged: {
@@ -272,17 +269,13 @@ Components.WheelFlickable {
             font.bold: true
         }
 
-        Components.InlineSelect {
+        Components.InlineDropdown {
             visible: root.currentRates.length > 0
             Layout.fillWidth: true
             id: rateSelect
             model: root.currentRates
             currentValue: root.selectedRate
-            currentText: root.selectedRate >= 0 ? root.formatRate(root.selectedRate, root.currentRates) : ""
-            secondaryText: root.currentRates.length === 1 ? "1 rate" : root.currentRates.length + " rates"
-            disabled: root.currentRates.length < 2
             textForValue: function(rate) { return root.formatRate(rate, root.currentRates); }
-            matchesCurrent: function(rate, currentValue) { return Math.abs(rate - currentValue) < 0.05; }
             maxVisibleItems: 6
             onExpandedChanged: {
                 if (expanded)
@@ -293,7 +286,7 @@ Components.WheelFlickable {
 
         Text {
             visible: DisplayService.monitorApplyStatus !== ""
-            text: DisplayService.monitorApplyStatus === "applying" ? "Applying…"
+            text: DisplayService.monitorApplyStatus === "applying" ? "Applying\u2026"
                 : DisplayService.monitorApplyStatus === "applied" ? "Applied"
                 : "Failed to apply"
             color: DisplayService.monitorApplyStatus === "error" ? Theme.redBright
@@ -310,94 +303,7 @@ Components.WheelFlickable {
             color: Theme.bg3
         }
 
-        // ── Night Light ──────────────────────────────────────
-
-        Text { text: "NIGHT LIGHT"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
-
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 8
-
-            Components.Icon {
-                source: "../icons/night-light.svg"
-                color: DisplayService.nightLightEnabled ? Theme.orangeBright : Theme.fg4
-                Layout.alignment: Qt.AlignVCenter
-            }
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 2
-
-                Text {
-                    text: "Night Light"
-                    color: Theme.fg
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; font.bold: true
-                }
-
-                Text {
-                    text: DisplayService.nightLightSubtitle
-                    color: DisplayService.nightLightEnabled ? Theme.orangeBright : Theme.fg3
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                }
-            }
-
-            Components.ToggleSwitch {
-                checked: DisplayService.nightLightEnabled
-                onToggled: DisplayService.toggleNightLight(!DisplayService.nightLightEnabled)
-            }
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 8
-
-            Components.Icon {
-                source: "../icons/temperature.svg"
-                color: Theme.fg4
-                Layout.preferredWidth: 16
-            }
-
-            Rectangle {
-                Layout.fillWidth: true; height: Theme.sliderHeight; radius: Theme.sliderHeight / 2; color: Theme.bg3
-
-                Rectangle {
-                    anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
-                    width: parent.width * DisplayService.nightLightTemperatureFraction
-                    radius: parent.radius; color: Theme.orangeBright
-                    Behavior on width {
-                        Components.Anim {
-                            duration: Theme.animMicro
-                            easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
-                        }
-                    }
-                }
-
-                Rectangle {
-                    width: 12; height: 12; radius: 6; color: Theme.fg
-                    y: (parent.height - height) / 2
-                    x: Math.max(0, Math.min(parent.width - width, parent.width * DisplayService.nightLightTemperatureFraction - width / 2))
-                    scale: nlSlider.pressed ? 1.2 : (nlSlider.containsMouse ? 1.1 : 1.0)
-                    Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    Behavior on x { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                }
-
-                Components.HoverLayer {
-                    id: nlSlider; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
-                    onClicked: (mouse) => { DisplayService.setNightLightTemperatureFromFraction(mouse.x / parent.width); }
-                    onPositionChanged: (mouse) => { if (pressed) DisplayService.setNightLightTemperatureFromFraction(mouse.x / parent.width); }
-                }
-            }
-
-            Text {
-                text: DisplayService.nightLightTemperatureLabel
-                color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                Layout.preferredWidth: 40; horizontalAlignment: Text.AlignRight
-            }
-        }
-
         // ── Brightness ───────────────────────────────────────
-
-        Rectangle { visible: BrightnessService.hasBacklight; Layout.fillWidth: true; height: 1; color: Theme.bg3 }
 
         Text { visible: BrightnessService.hasBacklight; text: "BRIGHTNESS"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
 
@@ -481,6 +387,93 @@ Components.WheelFlickable {
                 text: BrightnessService.brightnessAvailable ? BrightnessService.brightnessPercent + "%" : ""
                 color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                 Layout.preferredWidth: 32; horizontalAlignment: Text.AlignRight
+            }
+        }
+
+        Rectangle { visible: BrightnessService.hasBacklight; Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+
+        // ── Night Light ──────────────────────────────────────
+
+        Text { text: "NIGHT LIGHT"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+
+            Components.Icon {
+                source: "../icons/night-light.svg"
+                color: DisplayService.nightLightEnabled ? Theme.orangeBright : Theme.fg4
+                Layout.alignment: Qt.AlignVCenter
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 2
+
+                Text {
+                    text: "Night Light"
+                    color: Theme.fg
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; font.bold: true
+                }
+
+                Text {
+                    text: DisplayService.nightLightSubtitle
+                    color: DisplayService.nightLightEnabled ? Theme.orangeBright : Theme.fg3
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                }
+            }
+
+            Components.ToggleSwitch {
+                checked: DisplayService.nightLightEnabled
+                onToggled: DisplayService.toggleNightLight(!DisplayService.nightLightEnabled)
+            }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+
+            Components.Icon {
+                source: "../icons/temperature.svg"
+                color: Theme.fg4
+                Layout.preferredWidth: 16
+            }
+
+            Rectangle {
+                Layout.fillWidth: true; height: Theme.sliderHeight; radius: Theme.sliderHeight / 2; color: Theme.bg3
+
+                Rectangle {
+                    anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
+                    width: parent.width * DisplayService.nightLightTemperatureFraction
+                    radius: parent.radius; color: Theme.orangeBright
+                    Behavior on width {
+                        Components.Anim {
+                            duration: Theme.animMicro
+                            easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
+                        }
+                    }
+                }
+
+                Rectangle {
+                    width: 12; height: 12; radius: 6; color: Theme.fg
+                    y: (parent.height - height) / 2
+                    x: Math.max(0, Math.min(parent.width - width, parent.width * DisplayService.nightLightTemperatureFraction - width / 2))
+                    scale: nlSlider.pressed ? 1.2 : (nlSlider.containsMouse ? 1.1 : 1.0)
+                    Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                    Behavior on x { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                }
+
+                Components.HoverLayer {
+                    id: nlSlider; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
+                    onClicked: (mouse) => { DisplayService.setNightLightTemperatureFromFraction(mouse.x / parent.width); }
+                    onPositionChanged: (mouse) => { if (pressed) DisplayService.setNightLightTemperatureFromFraction(mouse.x / parent.width); }
+                }
+            }
+
+            Text {
+                text: DisplayService.nightLightTemperatureLabel
+                color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                Layout.preferredWidth: 40; horizontalAlignment: Text.AlignRight
             }
         }
     }
