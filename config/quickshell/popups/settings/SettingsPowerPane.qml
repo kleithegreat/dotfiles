@@ -40,57 +40,73 @@ Components.WheelFlickable {
 
         Text { text: "POWER PROFILE"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
 
-        Repeater {
-            model: [
-                { name: "performance", label: "Performance", icon: "../icons/flame.svg", desc: "Max speed, more heat" },
-                { name: "balanced",    label: "Balanced",    icon: "../icons/speed.svg", desc: "Auto / default" },
-                { name: "power-saver", label: "Power Saver", icon: "../icons/leaf.svg",  desc: "Extend battery life" }
-            ]
-            Rectangle {
-                id: ppBtn; required property var modelData; required property int index
-                Layout.fillWidth: true; height: 38; radius: Theme.hoverRadius
-                property bool isCur: PowerProfileService.currentProfile === modelData.name
-                property bool isPending: PowerProfileService.pendingProfile === modelData.name && !isCur
-                color: "transparent"
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 6
 
+            Repeater {
+                model: [
+                    { name: "performance", label: "Performance", icon: "../icons/flame.svg" },
+                    { name: "balanced",    label: "Balanced",    icon: "../icons/speed.svg" },
+                    { name: "power-saver", label: "Power Saver", icon: "../icons/leaf.svg" }
+                ]
                 Rectangle {
-                    anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                    opacity: ppBtn.isCur ? 0.8 : (ppBtn.isPending ? 0.5 : (ppBtnA.pressed ? 0.9 : (ppBtnA.containsMouse ? 0.6 : 0)))
-                    Behavior on opacity {
-                        Components.Anim { duration: Theme.animSpring; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard }
+                    id: ppBtn
+                    required property var modelData
+                    required property int index
+                    property bool isCur: PowerProfileService.currentProfile === modelData.name
+                    property bool isPending: PowerProfileService.pendingProfile === modelData.name && !isCur
+
+                    Layout.fillWidth: true
+                    height: 48
+                    radius: Theme.hoverRadius
+                    color: isCur ? Theme.blueBright : (ppArea.containsMouse ? Theme.bg2 : Theme.bg1)
+                    border.width: 1
+                    border.color: isCur ? Theme.blueBright : Theme.bg3
+                    Behavior on color { Components.CAnim { duration: Theme.animSpring; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                    Behavior on border.color { Components.CAnim { duration: Theme.animSpring; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                    scale: ppArea.pressed ? 0.95 : 1.0
+                    Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                    transformOrigin: Item.Center
+
+                    Rectangle {
+                        id: pendingGlow
+                        anchors.fill: parent; radius: parent.radius
+                        color: "transparent"; border.width: 1; border.color: Theme.blueBright
+                        visible: ppBtn.isPending; opacity: 0
+                        SequentialAnimation {
+                            running: ppBtn.isPending; loops: Animation.Infinite
+                            NumberAnimation { target: pendingGlow; property: "opacity"; to: 1.0; duration: 600; easing.type: Easing.InOutCubic }
+                            NumberAnimation { target: pendingGlow; property: "opacity"; to: 0.3; duration: 600; easing.type: Easing.InOutCubic }
+                        }
                     }
-                }
 
-                Rectangle {
-                    id: pendingIndicator
-                    anchors.fill: parent; radius: parent.radius
-                    color: "transparent"; border.width: 1; border.color: Theme.blueBright
-                    visible: ppBtn.isPending; opacity: 0
-                    SequentialAnimation {
-                        running: ppBtn.isPending; loops: Animation.Infinite
-                        NumberAnimation { target: pendingIndicator; property: "opacity"; to: 1.0; duration: 600; easing.type: Easing.InOutCubic }
-                        NumberAnimation { target: pendingIndicator; property: "opacity"; to: 0.3; duration: 600; easing.type: Easing.InOutCubic }
-                    }
-                }
+                    ColumnLayout {
+                        anchors.centerIn: parent
+                        spacing: 2
 
-                border.width: ppBtn.isCur ? 1 : 0; border.color: Theme.blueBright
-                Behavior on border.width {
-                    Components.Anim { duration: Theme.animSpring; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard }
-                }
-
-                Components.HoverLayer {
-                    id: ppBtnA; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 0.98
-                    onClicked: PowerProfileService.setProfile(ppBtn.modelData.name)
-
-                    RowLayout { anchors.fill: parent; anchors.leftMargin: Theme.listItemPadding; anchors.rightMargin: Theme.listItemPadding; spacing: 8
-                        Components.Icon { source: ppBtn.modelData.icon
-                            color: (ppBtn.isCur || ppBtn.isPending) ? Theme.blueBright : Theme.fg
+                        Components.Icon {
+                            source: ppBtn.modelData.icon
+                            color: ppBtn.isCur ? Theme.bg : (ppBtn.isPending ? Theme.blueBright : Theme.fg3)
+                            Layout.alignment: Qt.AlignHCenter
                             Behavior on color { Components.CAnim { duration: Theme.animSpring; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                         }
-                        ColumnLayout { spacing: 0; Layout.fillWidth: true
-                            Text { text: ppBtn.modelData.label; color: (ppBtn.isCur || ppBtn.isPending) ? Theme.fg : Theme.fg2; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: ppBtn.isCur }
-                            Text { text: ppBtn.modelData.desc; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
+
+                        Text {
+                            text: ppBtn.modelData.label
+                            color: ppBtn.isCur ? Theme.bg : (ppBtn.isPending ? Theme.fg : Theme.fg3)
+                            font.family: Theme.systemFamily
+                            font.pixelSize: Theme.fontSizeSmall - 1
+                            font.bold: ppBtn.isCur
+                            Layout.alignment: Qt.AlignHCenter
+                            Behavior on color { Components.CAnim { duration: Theme.animSpring; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                         }
+                    }
+
+                    Components.HoverLayer {
+                        id: ppArea
+                        hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
+                        onClicked: PowerProfileService.setProfile(ppBtn.modelData.name)
                     }
                 }
             }
