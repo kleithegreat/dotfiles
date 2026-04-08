@@ -30,6 +30,9 @@ document; see `docs/nix/ARCHITECTURE.md` for the current implementation map.
   hardware class.
 - Put it in Home Manager when it produces user-home state or user-session
   behavior.
+- User-facing desktop apps that also need system D-Bus service or polkit action
+  registration still belong in the NixOS layer that owns that privileged
+  registration; Home Manager alone is not sufficient for those helpers.
 - Put it under `config/` when it is the repo-authored base file that Home
   Manager should deploy.
 - Keep host-specific user config under `hosts/<name>/` only when the file

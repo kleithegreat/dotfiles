@@ -331,6 +331,10 @@ in
   # ── dconf (required for GTK settings to persist) ─────────────
   programs.dconf.enable = true;
 
+  # KDE Partition Manager needs kpmcore's system D-Bus service and polkit
+  # action registered outside Home Manager so the privileged helper can start.
+  programs.partition-manager.enable = true;
+
   # ── Qt theming ───────────────────────────────────────────────
   # hyprqt6engine replaces qt6ct as the primary Qt6 platform theme (QT_QPA_PLATFORMTHEME=hyprqt6engine)
   # qt6ct is kept for qt5ct backward compatibility (Qt5 apps like VLC still use it)
