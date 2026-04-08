@@ -3,8 +3,6 @@
   "providers": {
     "applications": {
       "preferences": {
-        // Vicinae documents relative-path support for top-level imports only.
-        // Provider search paths remain literal strings here for now.
         "paths": [
           "/home/kevin/.local/share/applications",
           "/home/kevin/.nix-profile/share/applications",
