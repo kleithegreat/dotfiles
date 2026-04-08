@@ -8,11 +8,11 @@ Components.WheelFlickable {
     anchors.fill: parent
     contentHeight: displayCol.implicitHeight
     clip: true
-    boundsBehavior: Flickable.StopAtBounds
 
     property int selectedMonitorIdx: 0
     property string selectedResolution: ""
     property real selectedRate: -1
+    readonly property int sliderValueWidth: Math.max(Theme.fontSize * 4, 40)
 
     readonly property var enabledMonitors: {
         let m = DisplayService.monitors;
@@ -59,6 +59,14 @@ Components.WheelFlickable {
 
     readonly property var resolutions: root.parsedModes.resolutions
     readonly property var currentRates: root.parsedModes.ratesByRes[root.selectedResolution] || []
+
+    Connections {
+        target: DisplayService
+        function onMonitorsChanged() {
+            if (!DisplayService.monitorApplyBusy && root.currentMonitor)
+                root.syncSelectionFromMonitor();
+        }
+    }
 
     onCurrentMonitorChanged: {
         if (resolutionSelect)
@@ -190,6 +198,7 @@ Components.WheelFlickable {
                     Components.HoverLayer {
                         id: monArea
                         anchors.fill: parent
+                        disabled: DisplayService.monitorApplyBusy
                         cursorShape: Qt.PointingHandCursor
                         hoverEnabled: true
                         hoverOpacity: 0
@@ -249,6 +258,8 @@ Components.WheelFlickable {
             visible: root.resolutions.length > 0
             Layout.fillWidth: true
             id: resolutionSelect
+            disabled: DisplayService.monitorApplyBusy
+            pending: DisplayService.monitorApplyBusy
             model: root.resolutions
             currentValue: root.selectedResolution
             textForValue: function(resolution) { return root.formatResolution(resolution); }
@@ -273,6 +284,8 @@ Components.WheelFlickable {
             visible: root.currentRates.length > 0
             Layout.fillWidth: true
             id: rateSelect
+            disabled: DisplayService.monitorApplyBusy
+            pending: DisplayService.monitorApplyBusy
             model: root.currentRates
             currentValue: root.selectedRate
             textForValue: function(rate) { return root.formatRate(rate, root.currentRates); }
@@ -386,7 +399,7 @@ Components.WheelFlickable {
             Text {
                 text: BrightnessService.brightnessAvailable ? BrightnessService.brightnessPercent + "%" : ""
                 color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                Layout.preferredWidth: 32; horizontalAlignment: Text.AlignRight
+                Layout.preferredWidth: root.sliderValueWidth; horizontalAlignment: Text.AlignRight
             }
         }
 
@@ -420,11 +433,15 @@ Components.WheelFlickable {
                     text: DisplayService.nightLightSubtitle
                     color: DisplayService.nightLightEnabled ? Theme.orangeBright : Theme.fg3
                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                    Layout.fillWidth: true
+                    elide: Text.ElideRight
                 }
             }
 
             Components.ToggleSwitch {
                 checked: DisplayService.nightLightEnabled
+                disabled: DisplayService.nightLightBusy
+                pending: DisplayService.nightLightBusy
                 onToggled: DisplayService.toggleNightLight(!DisplayService.nightLightEnabled)
             }
         }
@@ -432,6 +449,8 @@ Components.WheelFlickable {
         RowLayout {
             Layout.fillWidth: true
             spacing: 8
+            opacity: DisplayService.nightLightBusy ? 0.72 : 1
+            Behavior on opacity { Components.Anim { duration: Theme.animHover } }
 
             Components.Icon {
                 source: "../icons/temperature.svg"
@@ -465,6 +484,7 @@ Components.WheelFlickable {
 
                 Components.HoverLayer {
                     id: nlSlider; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
+                    disabled: DisplayService.nightLightBusy
                     onClicked: (mouse) => { DisplayService.setNightLightTemperatureFromFraction(mouse.x / parent.width); }
                     onPositionChanged: (mouse) => { if (pressed) DisplayService.setNightLightTemperatureFromFraction(mouse.x / parent.width); }
                 }
@@ -473,7 +493,8 @@ Components.WheelFlickable {
             Text {
                 text: DisplayService.nightLightTemperatureLabel
                 color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                Layout.preferredWidth: 40; horizontalAlignment: Text.AlignRight
+                Layout.preferredWidth: root.sliderValueWidth; horizontalAlignment: Text.AlignRight
+                elide: Text.ElideRight
             }
         }
     }

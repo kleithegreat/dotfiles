@@ -9,10 +9,11 @@ Components.WheelFlickable {
     anchors.fill: parent
     contentHeight: audioCol.implicitHeight
     clip: true
-    boundsBehavior: Flickable.StopAtBounds
 
     property var sink: AudioService.sink
     property var source: Pipewire.defaultAudioSource
+    readonly property int valueLabelWidth: Math.max(Theme.fontSize * 3, 32)
+    readonly property int appLabelPreferredWidth: Math.max(Theme.fontSize * 9, 120)
     PwObjectTracker { objects: [root.sink, root.source] }
 
     ColumnLayout {
@@ -83,7 +84,7 @@ Components.WheelFlickable {
                     onPositionChanged: (mouse) => { if (pressed) AudioService.setVolume(mouse.x / parent.width); }
                 }
             }
-            Text { text: Math.round((root.sink?.audio?.volume ?? 0) * 100) + "%"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 32; horizontalAlignment: Text.AlignRight }
+            Text { text: Math.round((root.sink?.audio?.volume ?? 0) * 100) + "%"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: root.valueLabelWidth; horizontalAlignment: Text.AlignRight }
         }
 
         // ── Input ────────────────────────────────────────────
@@ -142,7 +143,7 @@ Components.WheelFlickable {
                     onPositionChanged: (mouse) => { if (pressed && root.source?.audio) root.source.audio.volume = Math.max(0, Math.min(1, mouse.x / parent.width)); }
                 }
             }
-            Text { text: Math.round((root.source?.audio?.volume ?? 0) * 100) + "%"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 32; horizontalAlignment: Text.AlignRight }
+            Text { text: Math.round((root.source?.audio?.volume ?? 0) * 100) + "%"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: root.valueLabelWidth; horizontalAlignment: Text.AlignRight }
         }
 
         // ── Applications ─────────────────────────────────────
@@ -168,7 +169,9 @@ Components.WheelFlickable {
                     Text {
                         text: appRow.modelData.properties["application.name"] ?? appRow.modelData.description ?? "App"
                         color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                        elide: Text.ElideRight; Layout.preferredWidth: 100
+                        elide: Text.ElideRight
+                        Layout.preferredWidth: root.appLabelPreferredWidth
+                        Layout.maximumWidth: Math.max(root.appLabelPreferredWidth, Math.round(audioCol.width * 0.35))
                     }
                     Rectangle {
                         Layout.fillWidth: true; height: Theme.sliderHeight; radius: Theme.sliderHeight / 2; color: Theme.bg3
@@ -194,7 +197,7 @@ Components.WheelFlickable {
                             onPositionChanged: (mouse) => { if (pressed && appRow.modelData.audio) appRow.modelData.audio.volume = Math.max(0, Math.min(1, mouse.x / parent.width)); }
                         }
                     }
-                    Text { text: Math.round((appRow.modelData.audio?.volume ?? 0) * 100) + "%"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 32; horizontalAlignment: Text.AlignRight }
+                    Text { text: Math.round((appRow.modelData.audio?.volume ?? 0) * 100) + "%"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: root.valueLabelWidth; horizontalAlignment: Text.AlignRight }
                 }
             }
 

@@ -14,6 +14,7 @@ QtObject {
     property int nightLightTemperature: 0
     property int nightLightTargetTemperature: nightLightDefaultTemperature
     property string pendingNightLightAction: ""
+    property var _nightLightRollbackState: ({})
 
     readonly property bool nightLightBusy: pendingNightLightAction !== "" || nightLightCommandProc.running
     readonly property real nightLightTemperatureFraction: (nightLightTargetTemperature - nightLightMinTemperature) / (nightLightMaxTemperature - nightLightMinTemperature)
@@ -66,7 +67,23 @@ QtObject {
 
     function clearPendingNightLightAction() {
         pendingNightLightAction = "";
-        nightLightPendingTimer.stop();
+    }
+
+    function snapshotNightLightState() {
+        return {
+            mode: nightLightMode,
+            enabled: nightLightEnabled,
+            temperature: nightLightTemperature,
+            targetTemperature: nightLightTargetTemperature
+        };
+    }
+
+    function restoreNightLightState(snapshot) {
+        let state = snapshot || ({});
+        nightLightMode = state.mode || "auto";
+        nightLightEnabled = state.enabled === true;
+        nightLightTemperature = state.temperature || 0;
+        nightLightTargetTemperature = clampNightLightTemperature(state.targetTemperature || nightLightDefaultTemperature);
     }
 
     function clampNightLightTemperature(value) {
@@ -101,9 +118,21 @@ QtObject {
         if (nightLightCommandProc.running)
             return false;
 
+        _nightLightRollbackState = snapshotNightLightState();
         pendingNightLightAction = mode;
-        nightLightPendingTimer.interval = mode === "off" ? 3000 : 6000;
-        nightLightPendingTimer.restart();
+        if (mode === "off") {
+            nightLightMode = "off";
+            nightLightEnabled = false;
+        } else {
+            nightLightMode = mode;
+            if (temperature !== undefined && temperature !== null) {
+                let clamped = clampNightLightTemperature(temperature);
+                nightLightTargetTemperature = clamped;
+                nightLightTemperature = clamped;
+            }
+            if (mode === "on")
+                nightLightEnabled = true;
+        }
 
         let command = ["desktopctl", "night-light", mode];
         if (mode === "on" && temperature !== undefined && temperature !== null)
@@ -111,7 +140,6 @@ QtObject {
 
         nightLightCommandProc.command = command;
         nightLightCommandProc.running = true;
-        nightLightRefreshTimer.restart();
         return true;
     }
 
@@ -119,9 +147,10 @@ QtObject {
         if (nightLightCommandProc.running)
             return false;
 
+        _nightLightRollbackState = snapshotNightLightState();
+        nightLightTargetTemperature = clampNightLightTemperature(temperature);
         nightLightCommandProc.command = ["desktopctl", "night-light", nightLightMode || "auto", "--temp", temperature.toString()];
         nightLightCommandProc.running = true;
-        nightLightRefreshTimer.restart();
         return true;
     }
 
@@ -190,19 +219,6 @@ QtObject {
         onTriggered: display.refreshNightLight()
     }
 
-    property Timer nightLightRefreshTimer: Timer {
-        interval: 300
-        onTriggered: display.refreshNightLight()
-    }
-
-    property Timer nightLightPendingTimer: Timer {
-        interval: 6000
-        onTriggered: {
-            display.clearPendingNightLightAction();
-            display.refreshNightLight();
-        }
-    }
-
     property Timer nightLightApplyTimer: Timer {
         interval: 120
         onTriggered: {
@@ -239,9 +255,13 @@ QtObject {
             onRead: (line) => { console.log("[desktopctl night-light stderr]", line); }
         }
         onExited: (code) => {
-            if (code !== 0)
+            if (code !== 0) {
+                display.restoreNightLightState(display._nightLightRollbackState);
                 display.clearPendingNightLightAction();
-            display.nightLightRefreshTimer.restart();
+            } else {
+                display.clearPendingNightLightAction();
+            }
+            display.refreshNightLight();
         }
     }
 }

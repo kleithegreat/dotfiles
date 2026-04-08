@@ -24,7 +24,7 @@ Item {
 
     Components.WheelFlickable {
         anchors.fill: parent
-        contentHeight: netCol.implicitHeight; clip: true; boundsBehavior: Flickable.StopAtBounds
+        contentHeight: netCol.implicitHeight; clip: true
 
         Column {
             id: netCol; width: parent.width; spacing: 2

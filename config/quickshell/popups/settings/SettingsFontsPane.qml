@@ -6,9 +6,15 @@ import "../../components" as Components
 Components.WheelFlickable {
     id: root
     required property var themeState
+    required property bool writePending
+    required property string pendingKey
     required property var monoFontSizeOffsetTargets
 
     signal setRequested(string key, string value)
+
+    function isPending(key) {
+        return root.writePending && root.pendingKey === key;
+    }
 
     readonly property var monoFontOptions: [
         "JetBrains Mono Nerd Font",
@@ -75,7 +81,6 @@ Components.WheelFlickable {
     anchors.fill: parent
     contentHeight: fontsCol.implicitHeight
     clip: true
-    boundsBehavior: Flickable.StopAtBounds
 
     ColumnLayout {
         id: fontsCol
@@ -94,6 +99,8 @@ Components.WheelFlickable {
         Components.InlineSelect {
             id: monoFontSelect
             Layout.fillWidth: true
+            disabled: root.writePending
+            pending: root.isPending("mono_font")
             model: root.monoFontOptions
             currentValue: root.themeState.mono_font
             currentText: root.themeState.mono_font ? root.monoFontLabel(root.themeState.mono_font) : ""
@@ -110,6 +117,8 @@ Components.WheelFlickable {
 
         Row {
             spacing: 8
+            opacity: root.isPending("mono_font_size") ? 0.72 : 1
+            Behavior on opacity { Components.Anim { duration: Theme.animHover } }
 
             Text { text: "Size:"; color: Theme.fg3; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; height: Theme.btnHeight; verticalAlignment: Text.AlignVCenter }
 
@@ -127,6 +136,7 @@ Components.WheelFlickable {
                 Components.HoverLayer {
                     id: mfMinus
                     anchors.fill: parent
+                    disabled: root.writePending
                     cursorShape: Qt.PointingHandCursor
                     hoverEnabled: true
 
@@ -159,6 +169,7 @@ Components.WheelFlickable {
                 Components.HoverLayer {
                     id: mfPlus
                     anchors.fill: parent
+                    disabled: root.writePending
                     cursorShape: Qt.PointingHandCursor
                     hoverEnabled: true
 
@@ -196,6 +207,8 @@ Components.WheelFlickable {
 
                     Layout.fillWidth: true
                     spacing: 8
+                    opacity: root.isPending(modelData.key) ? 0.72 : 1
+                    Behavior on opacity { Components.Anim { duration: Theme.animHover } }
 
                     Text {
                         text: modelData.label
@@ -220,6 +233,7 @@ Components.WheelFlickable {
                         Components.HoverLayer {
                             id: offsetMinus
                             anchors.fill: parent
+                            disabled: root.writePending
                             cursorShape: Qt.PointingHandCursor
                             hoverEnabled: true
 
@@ -257,6 +271,7 @@ Components.WheelFlickable {
                         Components.HoverLayer {
                             id: offsetPlus
                             anchors.fill: parent
+                            disabled: root.writePending
                             cursorShape: Qt.PointingHandCursor
                             hoverEnabled: true
 
@@ -287,6 +302,8 @@ Components.WheelFlickable {
         Components.InlineSelect {
             id: systemFontSelect
             Layout.fillWidth: true
+            disabled: root.writePending
+            pending: root.isPending("system_font")
             model: root.systemFontOptions
             currentValue: root.themeState.system_font
             currentText: root.themeState.system_font || ""
@@ -302,6 +319,8 @@ Components.WheelFlickable {
 
         Row {
             spacing: 8
+            opacity: root.isPending("font_size") ? 0.72 : 1
+            Behavior on opacity { Components.Anim { duration: Theme.animHover } }
 
             Text { text: "Size:"; color: Theme.fg3; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; height: Theme.btnHeight; verticalAlignment: Text.AlignVCenter }
 
@@ -319,6 +338,7 @@ Components.WheelFlickable {
                 Components.HoverLayer {
                     id: sfMinus
                     anchors.fill: parent
+                    disabled: root.writePending
                     cursorShape: Qt.PointingHandCursor
                     hoverEnabled: true
 
@@ -351,6 +371,7 @@ Components.WheelFlickable {
                 Components.HoverLayer {
                     id: sfPlus
                     anchors.fill: parent
+                    disabled: root.writePending
                     cursorShape: Qt.PointingHandCursor
                     hoverEnabled: true
 

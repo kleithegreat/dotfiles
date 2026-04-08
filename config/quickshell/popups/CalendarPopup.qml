@@ -15,6 +15,7 @@ FocusScope {
     readonly property bool scrimEnabled: false
     readonly property color scrimColor: "transparent"
     readonly property real scrimOpacity: 0
+    property real panelHeightHint: Theme.calCellSize * 8 + Theme.popupPadding * 2 + 48
     visible: overlayVisible
     anchors.fill: parent
     focus: active
@@ -114,22 +115,58 @@ FocusScope {
     Keys.onEscapePressed: cal.close()
     readonly property int gridCellCount: Math.ceil((firstDow(viewYear, viewMonth) + daysInMonth(viewYear, viewMonth)) / 7) * 7
 
+    Rectangle {
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.top: parent.top
+        anchors.topMargin: Theme.popupTopMargin
+        width: calContentLoader.width
+        height: calContentLoader.height
+        visible: cal.overlayVisible && !cal.closing && height > 0 && (!calContentLoader.item || calContentLoader.item.opacity < 1)
+        opacity: calContentLoader.item ? Math.max(0, 1 - calContentLoader.item.opacity) : 1
+        radius: Theme.popupRadius
+        color: Theme.bg1
+        border.width: 1
+        border.color: Theme.bg3
+        Behavior on opacity { Components.Anim { duration: Theme.animHover } }
+
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.AllButtons
+        }
+    }
+
     Loader {
         id: calContentLoader
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
         anchors.topMargin: Theme.popupTopMargin
         width: Theme.calWidth
-        height: item ? item.implicitHeight : 0
+        height: cal.overlayVisible ? (item ? item.implicitHeight : cal.panelHeightHint) : 0
         active: cal.contentLoaded || cal.active || cal.closing
         asynchronous: true
         sourceComponent: calPanelComponent
+        Behavior on height {
+            Components.Anim {
+                duration: Theme.animHeightResize
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveStandard
+            }
+        }
 
         onLoaded: {
+            cal.panelHeightHint = item.implicitHeight;
             item.opacity = 0;
             item.scale = 0.92;
             if (cal.active)
                 calOpenAnim.start();
+        }
+    }
+
+    Connections {
+        target: calContentLoader.item
+
+        function onImplicitHeightChanged() {
+            cal.panelHeightHint = calContentLoader.item.implicitHeight;
         }
     }
 

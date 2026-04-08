@@ -54,7 +54,6 @@ Components.WheelFlickable {
     anchors.fill: parent
     contentHeight: hyprCol.implicitHeight
     clip: true
-    boundsBehavior: Flickable.StopAtBounds
 
     ColumnLayout {
         id: hyprCol

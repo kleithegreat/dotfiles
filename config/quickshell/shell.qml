@@ -242,16 +242,40 @@ Scope {
                     easing.type: AudioService.showOsd ? Easing.OutCubic : Easing.InCubic
                 }
             }
-            Row { anchors.centerIn: parent; spacing: 10
-                Components.Icon { source: AudioService.osdIcon; color: Theme.fg; anchors.verticalCenter: parent.verticalCenter }
-                Rectangle { width: Theme.osdWidth - 100; height: Theme.osdBarHeight; radius: Theme.osdBarRadius; color: Theme.bg3; anchors.verticalCenter: parent.verticalCenter
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: Theme.popupPadding
+                anchors.rightMargin: Theme.popupPadding
+                spacing: 10
+
+                Components.Icon {
+                    source: AudioService.osdIcon
+                    color: Theme.fg
+                    Layout.alignment: Qt.AlignVCenter
+                }
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: Math.max(Theme.fontSize * 8, 72)
+                    height: Theme.osdBarHeight
+                    radius: Theme.osdBarRadius
+                    color: Theme.bg3
+                    Layout.alignment: Qt.AlignVCenter
                     Rectangle {
                         width: parent.width * (AudioService.osdValue / 100); radius: parent.radius; color: Theme.greenBright
                         anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
                         Behavior on width { Components.Anim { duration: 80; easing.type: Easing.OutCubic } }
                     }
                 }
-                Text { text: AudioService.osdLabel; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; color: Theme.fg3; width: 38; horizontalAlignment: Text.AlignRight; anchors.verticalCenter: parent.verticalCenter }
+                Text {
+                    text: AudioService.osdLabel
+                    font.family: Theme.systemFamily
+                    font.pixelSize: Theme.fontSizeSmall
+                    color: Theme.fg3
+                    elide: Text.ElideRight
+                    Layout.preferredWidth: Math.min(implicitWidth, Math.max(Theme.fontSize * 5, 56))
+                    Layout.maximumWidth: Math.round(osdPanel.width * 0.3)
+                    Layout.alignment: Qt.AlignVCenter
+                }
             }
         }
     }

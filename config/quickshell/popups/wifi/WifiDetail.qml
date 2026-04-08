@@ -169,9 +169,10 @@ ColumnLayout {
             Components.HoverLayer {
                 id: disconnectArea
                 color: Theme.bg2; hoverOpacity: 0.6; pressedOpacity: 0.9; pressedScale: 0.98
+                disabled: NetworkService.disconnectPending
                 onClicked: root.disconnectRequested()
 
-                Text { anchors.centerIn: parent; text: "Disconnect"; color: disconnectArea.containsMouse ? Theme.fg : Theme.fg4
+                Text { anchors.centerIn: parent; text: NetworkService.disconnectPending ? "Disconnecting…" : "Disconnect"; color: disconnectArea.containsMouse ? Theme.fg : Theme.fg4
                     Behavior on color {
                         Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard }
                     }
@@ -187,9 +188,10 @@ ColumnLayout {
             Components.HoverLayer {
                 id: forgetArea
                 color: Theme.bg2; hoverOpacity: 0.6; pressedOpacity: 0.9; pressedScale: 0.98
+                disabled: NetworkService.forgetPending
                 onClicked: root.forgetRequested()
 
-                Text { anchors.centerIn: parent; text: "Forget This Network"; color: forgetArea.containsMouse ? Theme.redBright : Theme.fg4
+                Text { anchors.centerIn: parent; text: NetworkService.forgetPending ? "Forgetting…" : "Forget This Network"; color: forgetArea.containsMouse ? Theme.redBright : Theme.fg4
                     Behavior on color {
                         Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard }
                     }

@@ -24,7 +24,9 @@ FocusScope {
         : mullvadBrowseCities.length === 0
 
     readonly property bool mullvadOn: VpnService.mullvadState === "connected" || VpnService.mullvadState === "connecting"
-    readonly property bool tailscaleOn: VpnService.tailscaleState === "running" || VpnService.tailscaleState === "starting"
+    readonly property bool tailscaleOn: VpnService.tailscalePendingAction === "down"
+        ? false
+        : (VpnService.tailscaleState === "running" || VpnService.tailscaleState === "starting")
     readonly property string mullvadSelectedLocation: {
         let label = VpnService.mullvadSelectedLocationLabel;
         if (label)
@@ -48,6 +50,7 @@ FocusScope {
 
     readonly property string tailscaleStatus: {
         let s = VpnService.tailscaleState;
+        if (VpnService.tailscalePendingAction === "down") return "Stopping…";
         if (s === "running") return "Running";
         if (s === "starting") return "Starting…";
         if (s === "needs-login") return "Needs Login";
@@ -286,6 +289,8 @@ FocusScope {
 
             Components.ToggleSwitch {
                 checked: NetworkService.wifiEnabled
+                disabled: NetworkService.wifiRadioBusy
+                pending: NetworkService.wifiRadioBusy
                 onToggled: NetworkService.toggleWifiRadio()
             }
         }
@@ -415,6 +420,8 @@ FocusScope {
                         }
                         Components.ToggleSwitch {
                             checked: root.mullvadOn
+                            disabled: VpnService.mullvadBusy
+                            pending: VpnService.mullvadBusy
                             onToggled: root.mullvadOn ? VpnService.mullvadDisconnect() : VpnService.mullvadConnect()
                         }
                     }
@@ -485,6 +492,8 @@ FocusScope {
                         }
                         Components.ToggleSwitch {
                             checked: root.tailscaleOn
+                            disabled: VpnService.tailscaleBusy
+                            pending: VpnService.tailscaleBusy
                             onToggled: root.tailscaleOn ? VpnService.tailscaleDown() : VpnService.tailscaleUp()
                         }
                     }
@@ -633,7 +642,6 @@ FocusScope {
                         visible: !root.mullvadLocationLoading && !root.mullvadLocationEmpty
                         contentHeight: locationCol.implicitHeight
                         clip: true
-                        boundsBehavior: Flickable.StopAtBounds
 
                         Column {
                             id: locationCol

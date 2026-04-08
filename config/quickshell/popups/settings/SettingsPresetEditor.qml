@@ -1,6 +1,7 @@
 import qs
 import QtQuick
 import QtQuick.Layouts
+import Quickshell.Io
 import "../../components" as Components
 
 Rectangle {
@@ -11,11 +12,58 @@ Rectangle {
     required property int revision
     required property var themeState
     required property var colorFamilies
+    required property var wallpapers
+    required property string wallpaperDir
     required property var monoFontSizeOffsetTargets
     required property bool busy
     required property string busyAction
     required property string busyTargetName
     required property string errorMessage
+
+    readonly property var systemFontOptions: [
+        "Overpass",
+        "Inter",
+        "Geist",
+        "IBM Plex Sans",
+        "Rubik",
+        "Noto Sans",
+        "Cantarell",
+        "Source Sans 3",
+        "Outfit",
+        "SF Pro"
+    ]
+    readonly property var monoFontOptions: [
+        "JetBrains Mono Nerd Font",
+        "Berkeley Mono",
+        "Commit Mono",
+        "Recursive Mono",
+        "Fira Code Nerd Font",
+        "Iosevka Nerd Font"
+    ]
+    readonly property var iconThemeOptions: [
+        "Neuwaita",
+        "Colloid",
+        "Colloid-Dark",
+        "Colloid-Light",
+        "Papirus-Dark",
+        "Papirus",
+        "Papirus-Light",
+        "Adwaita",
+        "hicolor"
+    ]
+    readonly property var cursorThemeOptions: [
+        "Adwaita",
+        "BreezeX-RosePine-Linux",
+        "BreezeX-RosePineDawn-Linux",
+        "Bibata-Modern-Classic",
+        "Bibata-Modern-Ice",
+        "Bibata-Original-Classic",
+        "Bibata-Original-Ice"
+    ]
+    property string wallpaperDraftPath: ""
+    property string wallpaperValidationRequestedPath: ""
+    property string wallpaperValidationRunningPath: ""
+    property string wallpaperPathStatus: "empty"
 
     signal saveRequested(string name, var presetData)
     signal cancelRequested()
@@ -39,6 +87,111 @@ Rectangle {
         if (name === "tokyonight")
             return "Tokyo Night";
         return name.charAt(0).toUpperCase() + name.slice(1);
+    }
+
+    function colorSchemeLabel(option) {
+        if (!option)
+            return "";
+
+        return root.familyDisplayName(option.family) + " " + option.variant;
+    }
+
+    function colorSchemeLabelForName(schemeName) {
+        for (let i = 0; i < root.colorFamilies.length; i++) {
+            let option = root.colorFamilies[i];
+            if (option && option.schemeName === schemeName)
+                return root.colorSchemeLabel(option);
+        }
+
+        return "";
+    }
+
+    function inclusionStateLabel(key) {
+        return root.hasField(key) ? "Included" : "Ignored";
+    }
+
+    function wallpaperFileName(path) {
+        let value = String(path || "");
+        let parts = value.split("/");
+
+        if (!parts.length)
+            return value;
+        return parts[parts.length - 1] || value;
+    }
+
+    function wallpaperPickerValue() {
+        let value = root.wallpaperDraftPath.trim();
+        let prefix = root.wallpaperDir + "/";
+
+        if (!value || value.indexOf(prefix) !== 0)
+            return null;
+
+        return value.slice(prefix.length);
+    }
+
+    function wallpaperStatusText() {
+        if (!root.hasField("wallpaper"))
+            return "";
+        if (root.wallpaperPathStatus === "checking")
+            return "Checking path...";
+        if (root.wallpaperPathStatus === "relative")
+            return "Use an absolute path.";
+        if (root.wallpaperPathStatus === "invalid")
+            return "Path not found.";
+        if (root.wallpaperPathStatus === "valid" && root.wallpaperDraftPath.trim() !== String(root.currentValue("wallpaper") || ""))
+            return "Path found. Click Apply to include it.";
+        if (root.wallpaperPathStatus === "valid")
+            return "Path found.";
+        return "";
+    }
+
+    function wallpaperStatusColor() {
+        if (root.wallpaperPathStatus === "valid")
+            return Theme.greenBright;
+        if (root.wallpaperPathStatus === "invalid" || root.wallpaperPathStatus === "relative")
+            return Theme.redBright;
+        return Theme.fg4;
+    }
+
+    function requestWallpaperValidation(value) {
+        let candidate = String(value || "").trim();
+        root.wallpaperValidationRequestedPath = candidate;
+        wallpaperValidationTimer.stop();
+
+        if (candidate === "") {
+            root.wallpaperValidationRunningPath = "";
+            root.wallpaperPathStatus = "empty";
+            return;
+        }
+
+        if (candidate.charAt(0) !== "/") {
+            root.wallpaperValidationRunningPath = "";
+            root.wallpaperPathStatus = "relative";
+            return;
+        }
+
+        root.wallpaperPathStatus = "checking";
+        wallpaperValidationTimer.start();
+    }
+
+    function syncWallpaperDraft(value) {
+        let next = String(value || "");
+        root.wallpaperDraftPath = next;
+        if (wallpaperInput.text !== next)
+            wallpaperInput.text = next;
+        root.requestWallpaperValidation(next);
+    }
+
+    function commitWallpaperDraft() {
+        let candidate = root.wallpaperDraftPath.trim();
+        if (candidate === "" || root.wallpaperPathStatus !== "valid")
+            return;
+
+        root.setField("wallpaper", candidate);
+    }
+
+    function chooseWallpaperOption(name) {
+        root.setField("wallpaper", root.wallpaperDir + "/" + name);
     }
 
     function initialValue(key) {
@@ -68,7 +221,7 @@ Rectangle {
 
     function syncTextInputs() {
         nameInput.text = root.draftName;
-        wallpaperInput.text = root.hasField("wallpaper") ? String(root.currentValue("wallpaper") || "") : "";
+        root.syncWallpaperDraft(root.hasField("wallpaper") ? String(root.currentValue("wallpaper") || "") : "");
     }
 
     function resetFromInitial() {
@@ -83,7 +236,7 @@ Rectangle {
         root.draftPreset = next;
 
         if (key === "wallpaper")
-            wallpaperInput.text = String(value || "");
+            root.syncWallpaperDraft(value);
     }
 
     function includeField(key, fallbackValue) {
@@ -99,7 +252,7 @@ Rectangle {
         root.draftPreset = next;
 
         if (key === "wallpaper")
-            wallpaperInput.text = "";
+            root.syncWallpaperDraft("");
     }
 
     function toggleFieldInclusion(key, fallbackValue) {
@@ -131,6 +284,40 @@ Rectangle {
 
     Component.onCompleted: root.resetFromInitial()
     onRevisionChanged: root.resetFromInitial()
+
+    Timer {
+        id: wallpaperValidationTimer
+        interval: 120
+        repeat: false
+        onTriggered: {
+            if (root.wallpaperValidationRequestedPath === "" || wallpaperValidationProc.running)
+                return;
+
+            root.wallpaperValidationRunningPath = root.wallpaperValidationRequestedPath;
+            wallpaperValidationProc.running = true;
+        }
+    }
+
+    Process {
+        id: wallpaperValidationProc
+        command: ["bash", "-lc", "test -e \"$1\"", "_", root.wallpaperValidationRunningPath]
+        running: false
+
+        onExited: (code) => {
+            let checkedPath = root.wallpaperValidationRunningPath;
+
+            if (checkedPath === "")
+                return;
+
+            if (root.wallpaperValidationRequestedPath !== checkedPath) {
+                if (root.wallpaperValidationRequestedPath !== "")
+                    wallpaperValidationTimer.restart();
+                return;
+            }
+
+            root.wallpaperPathStatus = code === 0 ? "valid" : "invalid";
+        }
+    }
 
     radius: Theme.btnRadius + 2
     color: Theme.bg1
@@ -323,57 +510,19 @@ Rectangle {
                 }
             }
 
-            Flow {
+            Components.InlineSelect {
+                id: presetColorSchemeSelect
                 visible: root.hasField("color_scheme")
                 Layout.fillWidth: true
-                spacing: 6
-
-                Repeater {
-                    model: root.colorFamilies
-
-                    delegate: Rectangle {
-                        id: colorChip
-                        required property var modelData
-                        required property int index
-                        property bool isActive: root.currentValue("color_scheme") === modelData.schemeName
-
-                        width: chipLabel.implicitWidth + 18
-                        height: Theme.btnHeight
-                        radius: Theme.btnRadius
-                        color: isActive ? Theme.accent : (chipArea.containsMouse ? Theme.bg2 : Theme.bg)
-                        border.width: 1
-                        border.color: isActive ? Theme.accent : Theme.bg3
-                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        Behavior on border.color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        scale: chipArea.pressed ? 0.95 : 1.0
-                        Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        transformOrigin: Item.Center
-
-                        Text {
-                            id: chipLabel
-                            anchors.centerIn: parent
-                            text: root.familyDisplayName(modelData.family) + " " + modelData.variant
-                            color: colorChip.isActive ? Theme.bg : Theme.fg
-                            font.family: Theme.systemFamily
-                            font.pixelSize: Theme.fontSizeSmall
-                            Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        }
-
-                        Components.HoverLayer {
-                            id: chipArea
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            hoverEnabled: true
-
-                            hoverOpacity: 0
-
-                            pressedOpacity: 0
-
-                            pressedScale: 1.0
-                            onClicked: root.setField("color_scheme", modelData.schemeName)
-                        }
-                    }
-                }
+                model: root.colorFamilies
+                currentValue: root.currentValue("color_scheme")
+                currentText: root.colorSchemeLabelForName(root.currentValue("color_scheme"))
+                secondaryText: root.colorFamilies.length + " schemes"
+                fontFamily: Theme.systemFamily
+                maxVisibleItems: 7
+                textForValue: function(option) { return root.colorSchemeLabel(option); }
+                matchesCurrent: function(option, currentValue) { return option && option.schemeName === currentValue; }
+                onActivated: (option) => root.setField("color_scheme", option.schemeName)
             }
         }
 
@@ -393,96 +542,42 @@ Rectangle {
                     Layout.fillWidth: true
                 }
 
+                Text {
+                    text: root.inclusionStateLabel("dark_hint")
+                    color: Theme.fg4
+                    font.family: Theme.systemFamily
+                    font.pixelSize: Theme.fontSizeSmall
+                }
+
                 Components.ToggleSwitch {
                     checked: root.hasField("dark_hint")
                     onToggled: root.toggleFieldInclusion("dark_hint", root.themeState.dark_hint !== false)
                 }
             }
 
-            Row {
+            RowLayout {
                 visible: root.hasField("dark_hint")
-                spacing: 6
+                Layout.fillWidth: true
+                spacing: 8
 
-                Rectangle {
-                    id: lightHintBtn
-                    property bool isActive: root.currentBoolValue("dark_hint", true) === false
-
-                    width: lightHintLabel.implicitWidth + 20
-                    height: Theme.btnHeight
-                    radius: Theme.btnRadius
-                    color: isActive ? Theme.accent : (lightHintArea.containsMouse ? Theme.bg2 : Theme.bg)
-                    border.width: 1
-                    border.color: isActive ? Theme.accent : Theme.bg3
-                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    Behavior on border.color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    scale: lightHintArea.pressed ? 0.95 : 1.0
-                    Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    transformOrigin: Item.Center
-
-                    Text {
-                        id: lightHintLabel
-                        anchors.centerIn: parent
-                        text: "Light"
-                        color: lightHintBtn.isActive ? Theme.bg : Theme.fg
-                        font.family: Theme.systemFamily
-                        font.pixelSize: Theme.fontSizeSmall
-                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    }
-
-                    Components.HoverLayer {
-                        id: lightHintArea
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        hoverEnabled: true
-
-                        hoverOpacity: 0
-
-                        pressedOpacity: 0
-
-                        pressedScale: 1.0
-                        onClicked: root.setField("dark_hint", false)
-                    }
+                Text {
+                    text: root.currentBoolValue("dark_hint", true) ? "Prefer dark browser theme" : "Prefer light browser theme"
+                    color: Theme.fg
+                    font.family: Theme.systemFamily
+                    font.pixelSize: Theme.fontSizeSmall
+                    Layout.fillWidth: true
                 }
 
-                Rectangle {
-                    id: darkHintBtn
-                    property bool isActive: root.currentBoolValue("dark_hint", true) === true
+                Text {
+                    text: root.currentBoolValue("dark_hint", true) ? "Dark" : "Light"
+                    color: root.currentBoolValue("dark_hint", true) ? Theme.fg3 : Theme.fg4
+                    font.family: Theme.systemFamily
+                    font.pixelSize: Theme.fontSizeSmall
+                }
 
-                    width: darkHintLabel.implicitWidth + 20
-                    height: Theme.btnHeight
-                    radius: Theme.btnRadius
-                    color: isActive ? Theme.accent : (darkHintArea.containsMouse ? Theme.bg2 : Theme.bg)
-                    border.width: 1
-                    border.color: isActive ? Theme.accent : Theme.bg3
-                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    Behavior on border.color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    scale: darkHintArea.pressed ? 0.95 : 1.0
-                    Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    transformOrigin: Item.Center
-
-                    Text {
-                        id: darkHintLabel
-                        anchors.centerIn: parent
-                        text: "Dark"
-                        color: darkHintBtn.isActive ? Theme.bg : Theme.fg
-                        font.family: Theme.systemFamily
-                        font.pixelSize: Theme.fontSizeSmall
-                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    }
-
-                    Components.HoverLayer {
-                        id: darkHintArea
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        hoverEnabled: true
-
-                        hoverOpacity: 0
-
-                        pressedOpacity: 0
-
-                        pressedScale: 1.0
-                        onClicked: root.setField("dark_hint", true)
-                    }
+                Components.ToggleSwitch {
+                    checked: root.currentBoolValue("dark_hint", true)
+                    onToggled: root.setField("dark_hint", !root.currentBoolValue("dark_hint", true))
                 }
             }
         }
@@ -516,11 +611,13 @@ Rectangle {
             Rectangle {
                 visible: root.hasField("wallpaper")
                 Layout.fillWidth: true
-                height: 32
+                height: 36
                 radius: Theme.btnRadius
                 color: Theme.bg2
                 border.width: 1
-                border.color: wallpaperInput.activeFocus ? Theme.blueBright : Theme.bg3
+                border.color: root.wallpaperPathStatus === "invalid" || root.wallpaperPathStatus === "relative"
+                    ? Theme.redBright
+                    : (wallpaperInput.activeFocus ? Theme.blueBright : Theme.bg3)
                 Behavior on border.color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
 
                 TextInput {
@@ -533,7 +630,11 @@ Rectangle {
                     font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
                     clip: true
-                    onTextEdited: root.setField("wallpaper", text)
+                    onTextEdited: {
+                        root.wallpaperDraftPath = text;
+                        root.requestWallpaperValidation(text);
+                    }
+                    Keys.onReturnPressed: root.commitWallpaperDraft()
                 }
 
                 Text {
@@ -546,6 +647,111 @@ Rectangle {
                     font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
                 }
+            }
+
+            RowLayout {
+                visible: root.hasField("wallpaper")
+                Layout.fillWidth: true
+                spacing: 8
+
+                Rectangle {
+                    Layout.preferredWidth: applyWallpaperLabel.implicitWidth + 18
+                    height: Theme.btnHeight
+                    radius: Theme.btnRadius
+                    color: root.wallpaperPathStatus === "valid" && root.wallpaperDraftPath.trim() !== String(root.currentValue("wallpaper") || "")
+                        ? (applyWallpaperArea.containsMouse ? Theme.greenBright : Theme.accent)
+                        : Theme.bg
+                    border.width: 1
+                    border.color: root.wallpaperPathStatus === "valid" && root.wallpaperDraftPath.trim() !== String(root.currentValue("wallpaper") || "")
+                        ? Theme.accent
+                        : Theme.bg3
+                    opacity: root.wallpaperPathStatus === "valid" && root.wallpaperDraftPath.trim() !== String(root.currentValue("wallpaper") || "") ? 1 : 0.6
+                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                    Behavior on border.color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+
+                    Text {
+                        id: applyWallpaperLabel
+                        anchors.centerIn: parent
+                        text: "Apply"
+                        color: root.wallpaperPathStatus === "valid" && root.wallpaperDraftPath.trim() !== String(root.currentValue("wallpaper") || "") ? Theme.bg : Theme.fg4
+                        font.family: Theme.systemFamily
+                        font.pixelSize: Theme.fontSizeSmall
+                        font.bold: root.wallpaperPathStatus === "valid" && root.wallpaperDraftPath.trim() !== String(root.currentValue("wallpaper") || "")
+                    }
+
+                    Components.HoverLayer {
+                        id: applyWallpaperArea
+                        anchors.fill: parent
+                        disabled: !(root.wallpaperPathStatus === "valid" && root.wallpaperDraftPath.trim() !== String(root.currentValue("wallpaper") || ""))
+                        hoverOpacity: 0
+                        pressedOpacity: 0
+                        pressedScale: 1.0
+                        onClicked: root.commitWallpaperDraft()
+                    }
+                }
+
+                Rectangle {
+                    Layout.preferredWidth: clearWallpaperLabel.implicitWidth + 18
+                    height: Theme.btnHeight
+                    radius: Theme.btnRadius
+                    color: clearWallpaperArea.containsMouse ? Theme.bg2 : Theme.bg
+                    border.width: 1
+                    border.color: Theme.bg3
+                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+
+                    Text {
+                        id: clearWallpaperLabel
+                        anchors.centerIn: parent
+                        text: "Clear"
+                        color: Theme.fg
+                        font.family: Theme.systemFamily
+                        font.pixelSize: Theme.fontSizeSmall
+                    }
+
+                    Components.HoverLayer {
+                        id: clearWallpaperArea
+                        anchors.fill: parent
+                        hoverOpacity: 0
+                        pressedOpacity: 0
+                        pressedScale: 1.0
+                        onClicked: root.excludeField("wallpaper")
+                    }
+                }
+
+                Item { Layout.fillWidth: true }
+            }
+
+            Text {
+                visible: root.hasField("wallpaper") && root.wallpaperStatusText() !== ""
+                text: root.wallpaperStatusText()
+                color: root.wallpaperStatusColor()
+                font.family: Theme.systemFamily
+                font.pixelSize: Theme.fontSizeSmall - 1
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+            }
+
+            Text {
+                visible: root.hasField("wallpaper") && root.wallpapers.length > 0
+                text: "Pick from current wallpaper directory"
+                color: Theme.fg4
+                font.family: Theme.systemFamily
+                font.pixelSize: Theme.fontSizeSmall - 1
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+            }
+
+            Components.InlineSelect {
+                visible: root.hasField("wallpaper") && root.wallpapers.length > 0
+                Layout.fillWidth: true
+                model: root.wallpapers
+                currentValue: root.wallpaperPickerValue()
+                currentText: root.wallpaperPickerValue() || ""
+                placeholderText: "Pick a wallpaper file"
+                secondaryText: root.wallpapers.length + " files"
+                fontFamily: Theme.systemFamily
+                maxVisibleItems: 6
+                onActivated: (name) => root.chooseWallpaperOption(name)
             }
         }
 
@@ -565,6 +771,13 @@ Rectangle {
                     Layout.fillWidth: true
                 }
 
+                Text {
+                    text: root.inclusionStateLabel("filter_wallpaper")
+                    color: Theme.fg4
+                    font.family: Theme.systemFamily
+                    font.pixelSize: Theme.fontSizeSmall
+                }
+
                 Components.ToggleSwitch {
                     checked: root.hasField("filter_wallpaper")
                     onToggled: root.toggleFieldInclusion("filter_wallpaper", root.themeState.filter_wallpaper === true)
@@ -577,11 +790,18 @@ Rectangle {
                 spacing: 8
 
                 Text {
+                    text: root.currentBoolValue("filter_wallpaper", false) ? "Filter wallpaper when applied" : "Do not filter wallpaper when applied"
+                    color: Theme.fg
+                    font.family: Theme.systemFamily
+                    font.pixelSize: Theme.fontSizeSmall
+                    Layout.fillWidth: true
+                }
+
+                Text {
                     text: root.currentBoolValue("filter_wallpaper", false) ? "On" : "Off"
                     color: root.currentBoolValue("filter_wallpaper", false) ? Theme.fg3 : Theme.fg4
                     font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
-                    Layout.fillWidth: true
                 }
 
                 Components.ToggleSwitch {
@@ -617,57 +837,21 @@ Rectangle {
                 }
             }
 
-            Flow {
+            Components.InlineSelect {
+                id: presetSystemFontSelect
                 visible: root.hasField("system_font")
                 Layout.fillWidth: true
-                spacing: 6
-
-                Repeater {
-                    model: ["Overpass", "Inter", "Geist", "IBM Plex Sans", "Rubik", "Noto Sans", "Cantarell", "Source Sans 3", "Outfit", "SF Pro"]
-
-                    delegate: Rectangle {
-                        id: systemFontChip
-                        required property string modelData
-                        required property int index
-                        property bool isActive: root.currentValue("system_font") === modelData
-
-                        width: label.implicitWidth + 18
-                        height: Theme.btnHeight
-                        radius: Theme.btnRadius
-                        color: isActive ? Theme.accent : (area.containsMouse ? Theme.bg2 : Theme.bg)
-                        border.width: 1
-                        border.color: isActive ? Theme.accent : Theme.bg3
-                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        Behavior on border.color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        scale: area.pressed ? 0.95 : 1.0
-                        Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        transformOrigin: Item.Center
-
-                        Text {
-                            id: label
-                            anchors.centerIn: parent
-                            text: modelData
-                            color: systemFontChip.isActive ? Theme.bg : Theme.fg
-                            font.family: Theme.systemFamily
-                            font.pixelSize: Theme.fontSizeSmall
-                            Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        }
-
-                        Components.HoverLayer {
-                            id: area
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            hoverEnabled: true
-
-                            hoverOpacity: 0
-
-                            pressedOpacity: 0
-
-                            pressedScale: 1.0
-                            onClicked: root.setField("system_font", modelData)
-                        }
-                    }
+                model: root.systemFontOptions
+                currentValue: root.currentValue("system_font")
+                currentText: root.currentValue("system_font") || ""
+                secondaryText: root.systemFontOptions.length + " fonts"
+                fontFamily: Theme.systemFamily
+                maxVisibleItems: 7
+                onExpandedChanged: {
+                    if (expanded)
+                        presetMonoFontSelect.expanded = false;
                 }
+                onActivated: (fontName) => root.setField("system_font", fontName)
             }
         }
 
@@ -784,57 +968,22 @@ Rectangle {
                 }
             }
 
-            Flow {
+            Components.InlineSelect {
+                id: presetMonoFontSelect
                 visible: root.hasField("mono_font")
                 Layout.fillWidth: true
-                spacing: 6
-
-                Repeater {
-                    model: ["JetBrains Mono Nerd Font", "Berkeley Mono", "Commit Mono", "Recursive Mono", "Fira Code Nerd Font", "Iosevka Nerd Font"]
-
-                    delegate: Rectangle {
-                        id: monoFontChip
-                        required property string modelData
-                        required property int index
-                        property bool isActive: root.currentValue("mono_font") === modelData
-
-                        width: label.implicitWidth + 18
-                        height: Theme.btnHeight
-                        radius: Theme.btnRadius
-                        color: isActive ? Theme.accent : (area.containsMouse ? Theme.bg2 : Theme.bg)
-                        border.width: 1
-                        border.color: isActive ? Theme.accent : Theme.bg3
-                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        Behavior on border.color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        scale: area.pressed ? 0.95 : 1.0
-                        Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        transformOrigin: Item.Center
-
-                        Text {
-                            id: label
-                            anchors.centerIn: parent
-                            text: modelData.replace(" Nerd Font", "")
-                            color: monoFontChip.isActive ? Theme.bg : Theme.fg
-                            font.family: Theme.systemFamily
-                            font.pixelSize: Theme.fontSizeSmall
-                            Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        }
-
-                        Components.HoverLayer {
-                            id: area
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            hoverEnabled: true
-
-                            hoverOpacity: 0
-
-                            pressedOpacity: 0
-
-                            pressedScale: 1.0
-                            onClicked: root.setField("mono_font", modelData)
-                        }
-                    }
+                model: root.monoFontOptions
+                currentValue: root.currentValue("mono_font")
+                currentText: root.currentValue("mono_font") ? root.currentValue("mono_font").replace(" Nerd Font", "") : ""
+                secondaryText: root.monoFontOptions.length + " fonts"
+                fontFamily: Theme.systemFamily
+                maxVisibleItems: 6
+                textForValue: function(fontName) { return fontName.replace(" Nerd Font", ""); }
+                onExpandedChanged: {
+                    if (expanded)
+                        presetSystemFontSelect.expanded = false;
                 }
+                onActivated: (fontName) => root.setField("mono_font", fontName)
             }
         }
 
@@ -1054,57 +1203,21 @@ Rectangle {
                 }
             }
 
-            Flow {
+            Components.InlineSelect {
+                id: presetIconThemeSelect
                 visible: root.hasField("icon_theme")
                 Layout.fillWidth: true
-                spacing: 6
-
-                Repeater {
-                    model: ["Neuwaita", "Colloid", "Colloid-Dark", "Colloid-Light", "Papirus-Dark", "Papirus", "Papirus-Light", "Adwaita", "hicolor"]
-
-                    delegate: Rectangle {
-                        id: iconThemeChip
-                        required property string modelData
-                        required property int index
-                        property bool isActive: root.currentValue("icon_theme") === modelData
-
-                        width: label.implicitWidth + 18
-                        height: Theme.btnHeight
-                        radius: Theme.btnRadius
-                        color: isActive ? Theme.accent : (area.containsMouse ? Theme.bg2 : Theme.bg)
-                        border.width: 1
-                        border.color: isActive ? Theme.accent : Theme.bg3
-                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        Behavior on border.color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        scale: area.pressed ? 0.95 : 1.0
-                        Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        transformOrigin: Item.Center
-
-                        Text {
-                            id: label
-                            anchors.centerIn: parent
-                            text: modelData
-                            color: iconThemeChip.isActive ? Theme.bg : Theme.fg
-                            font.family: Theme.systemFamily
-                            font.pixelSize: Theme.fontSizeSmall
-                            Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        }
-
-                        Components.HoverLayer {
-                            id: area
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            hoverEnabled: true
-
-                            hoverOpacity: 0
-
-                            pressedOpacity: 0
-
-                            pressedScale: 1.0
-                            onClicked: root.setField("icon_theme", modelData)
-                        }
-                    }
+                model: root.iconThemeOptions
+                currentValue: root.currentValue("icon_theme")
+                currentText: root.currentValue("icon_theme") || ""
+                secondaryText: root.iconThemeOptions.length + " themes"
+                fontFamily: Theme.systemFamily
+                maxVisibleItems: 7
+                onExpandedChanged: {
+                    if (expanded)
+                        presetCursorThemeSelect.expanded = false;
                 }
+                onActivated: (value) => root.setField("icon_theme", value)
             }
         }
 
@@ -1130,57 +1243,21 @@ Rectangle {
                 }
             }
 
-            Flow {
+            Components.InlineSelect {
+                id: presetCursorThemeSelect
                 visible: root.hasField("cursor_theme")
                 Layout.fillWidth: true
-                spacing: 6
-
-                Repeater {
-                    model: ["Adwaita", "BreezeX-RosePine-Linux", "BreezeX-RosePineDawn-Linux", "Bibata-Modern-Classic", "Bibata-Modern-Ice", "Bibata-Original-Classic", "Bibata-Original-Ice"]
-
-                    delegate: Rectangle {
-                        id: cursorThemeChip
-                        required property string modelData
-                        required property int index
-                        property bool isActive: root.currentValue("cursor_theme") === modelData
-
-                        width: label.implicitWidth + 18
-                        height: Theme.btnHeight
-                        radius: Theme.btnRadius
-                        color: isActive ? Theme.accent : (area.containsMouse ? Theme.bg2 : Theme.bg)
-                        border.width: 1
-                        border.color: isActive ? Theme.accent : Theme.bg3
-                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        Behavior on border.color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        scale: area.pressed ? 0.95 : 1.0
-                        Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        transformOrigin: Item.Center
-
-                        Text {
-                            id: label
-                            anchors.centerIn: parent
-                            text: modelData
-                            color: cursorThemeChip.isActive ? Theme.bg : Theme.fg
-                            font.family: Theme.systemFamily
-                            font.pixelSize: Theme.fontSizeSmall
-                            Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        }
-
-                        Components.HoverLayer {
-                            id: area
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            hoverEnabled: true
-
-                            hoverOpacity: 0
-
-                            pressedOpacity: 0
-
-                            pressedScale: 1.0
-                            onClicked: root.setField("cursor_theme", modelData)
-                        }
-                    }
+                model: root.cursorThemeOptions
+                currentValue: root.currentValue("cursor_theme")
+                currentText: root.currentValue("cursor_theme") || ""
+                secondaryText: root.cursorThemeOptions.length + " themes"
+                fontFamily: Theme.systemFamily
+                maxVisibleItems: 7
+                onExpandedChanged: {
+                    if (expanded)
+                        presetIconThemeSelect.expanded = false;
                 }
+                onActivated: (value) => root.setField("cursor_theme", value)
             }
         }
 
@@ -1403,6 +1480,13 @@ Rectangle {
                     Layout.fillWidth: true
                 }
 
+                Text {
+                    text: root.inclusionStateLabel("hypr_blur_enabled")
+                    color: Theme.fg4
+                    font.family: Theme.systemFamily
+                    font.pixelSize: Theme.fontSizeSmall
+                }
+
                 Components.ToggleSwitch {
                     checked: root.hasField("hypr_blur_enabled")
                     onToggled: root.toggleFieldInclusion("hypr_blur_enabled", root.themeState.hypr_blur_enabled === true)
@@ -1415,11 +1499,18 @@ Rectangle {
                 spacing: 8
 
                 Text {
+                    text: root.currentBoolValue("hypr_blur_enabled", false) ? "Enable blur when applied" : "Disable blur when applied"
+                    color: Theme.fg
+                    font.family: Theme.systemFamily
+                    font.pixelSize: Theme.fontSizeSmall
+                    Layout.fillWidth: true
+                }
+
+                Text {
                     text: root.currentBoolValue("hypr_blur_enabled", false) ? "On" : "Off"
                     color: root.currentBoolValue("hypr_blur_enabled", false) ? Theme.fg3 : Theme.fg4
                     font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
-                    Layout.fillWidth: true
                 }
 
                 Components.ToggleSwitch {
@@ -1445,6 +1536,13 @@ Rectangle {
                     Layout.fillWidth: true
                 }
 
+                Text {
+                    text: root.inclusionStateLabel("hypr_animations_enabled")
+                    color: Theme.fg4
+                    font.family: Theme.systemFamily
+                    font.pixelSize: Theme.fontSizeSmall
+                }
+
                 Components.ToggleSwitch {
                     checked: root.hasField("hypr_animations_enabled")
                     onToggled: root.toggleFieldInclusion("hypr_animations_enabled", root.themeState.hypr_animations_enabled !== false)
@@ -1457,11 +1555,18 @@ Rectangle {
                 spacing: 8
 
                 Text {
+                    text: root.currentBoolValue("hypr_animations_enabled", true) ? "Enable animations when applied" : "Disable animations when applied"
+                    color: Theme.fg
+                    font.family: Theme.systemFamily
+                    font.pixelSize: Theme.fontSizeSmall
+                    Layout.fillWidth: true
+                }
+
+                Text {
                     text: root.currentBoolValue("hypr_animations_enabled", true) ? "On" : "Off"
                     color: root.currentBoolValue("hypr_animations_enabled", true) ? Theme.fg3 : Theme.fg4
                     font.family: Theme.systemFamily
                     font.pixelSize: Theme.fontSizeSmall
-                    Layout.fillWidth: true
                 }
 
                 Components.ToggleSwitch {

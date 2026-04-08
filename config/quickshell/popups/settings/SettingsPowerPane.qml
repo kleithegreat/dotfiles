@@ -9,7 +9,6 @@ Components.WheelFlickable {
     anchors.fill: parent
     contentHeight: powerCol.implicitHeight
     clip: true
-    boundsBehavior: Flickable.StopAtBounds
 
     Component.onCompleted: {
         PowerProfileService.detect();

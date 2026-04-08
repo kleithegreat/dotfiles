@@ -67,7 +67,7 @@ ColumnLayout {
         visible: !root.scanning
         Layout.fillWidth: true; Layout.preferredHeight: Math.min(channelCol.implicitHeight, 300)
         Layout.maximumHeight: 300
-        contentHeight: channelCol.implicitHeight; clip: true; boundsBehavior: Flickable.StopAtBounds
+        contentHeight: channelCol.implicitHeight; clip: true
 
         ColumnLayout {
             id: channelCol; width: parent.width; spacing: 8

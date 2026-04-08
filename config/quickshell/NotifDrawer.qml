@@ -41,6 +41,8 @@ FocusScope {
     readonly property bool scrimEnabled: false
     readonly property color scrimColor: "transparent"
     readonly property real scrimOpacity: 0
+    property real panelHeightHint: 240
+    property int historyAnimationThreshold: 0
     visible: overlayVisible
     anchors.fill: parent
     focus: active
@@ -59,6 +61,18 @@ FocusScope {
         MouseArea { anchors.fill: parent; onClicked: drawer.close() }
     }
     */
+
+    function currentHistoryMaxEntryId() {
+        if (NotificationService.historyCount === 0)
+            return 0;
+
+        let newest = NotificationService.historyModel.get(0);
+        return newest && newest.entryId !== undefined ? newest.entryId : 0;
+    }
+
+    Component.onCompleted: {
+        historyAnimationThreshold = currentHistoryMaxEntryId();
+    }
 
     function preparePanelForOpen() {
         let item = drawerContentLoader.item;
@@ -107,21 +121,60 @@ FocusScope {
 
     Keys.onEscapePressed: drawer.close()
 
+    Rectangle {
+        anchors.top: parent.top
+        anchors.right: parent.right
+        anchors.topMargin: Theme.popupTopMargin
+        anchors.rightMargin: Theme.gapOut
+        width: drawerContentLoader.width
+        height: drawerContentLoader.height
+        visible: drawer.overlayVisible && !drawer.closing && height > 0 && (!drawerContentLoader.item || drawerContentLoader.item.opacity < 1)
+        opacity: drawerContentLoader.item ? Math.max(0, 1 - drawerContentLoader.item.opacity) : 1
+        radius: Theme.notifRadius
+        color: Theme.bg1
+        border.width: 1
+        border.color: Theme.bg3
+        Behavior on opacity { Components.Anim { duration: Theme.animHover } }
+
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.AllButtons
+        }
+    }
+
     Loader {
         id: drawerContentLoader
         anchors.top: parent.top; anchors.right: parent.right
         anchors.topMargin: Theme.popupTopMargin; anchors.rightMargin: Theme.gapOut
         width: Theme.drawerWidth
-        height: item ? Math.min(item.implicitHeight, parent.height - Theme.popupTopMargin - Theme.gapOut) : 0
+        height: drawer.overlayVisible
+            ? Math.min(item ? item.implicitHeight : drawer.panelHeightHint, parent.height - Theme.popupTopMargin - Theme.gapOut)
+            : 0
         active: drawer.contentLoaded || drawer.active || drawer.closing
         asynchronous: true
         sourceComponent: drawerPanelComponent
+        Behavior on height {
+            Components.Anim {
+                duration: Theme.animHeightResize
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveStandard
+            }
+        }
 
         onLoaded: {
+            drawer.panelHeightHint = Math.min(item.implicitHeight, drawer.height - Theme.popupTopMargin - Theme.gapOut);
             item.opacity = 0;
             item.scale = 0.92;
             if (drawer.active)
                 drawerOpenAnim.start();
+        }
+    }
+
+    Connections {
+        target: drawerContentLoader.item
+
+        function onImplicitHeightChanged() {
+            drawer.panelHeightHint = Math.min(drawerContentLoader.item.implicitHeight, drawer.height - Theme.popupTopMargin - Theme.gapOut);
         }
     }
 
@@ -169,17 +222,27 @@ FocusScope {
             Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
             Components.WheelFlickable {
                 visible: NotificationService.historyCount > 0; Layout.fillWidth: true; Layout.fillHeight: true; Layout.minimumHeight: 40; Layout.maximumHeight: 400
-                contentHeight: histCol.implicitHeight; clip: true; boundsBehavior: Flickable.StopAtBounds
+                contentHeight: histCol.implicitHeight; clip: true
                 Column { id: histCol; width: parent.width; spacing: Theme.notifSpacing
                     Repeater { id: historyList
                         model: NotificationService.historyModel
                         Rectangle {
-                            id: hc; required property string appName; required property string summary; required property string body; required property int nid; required property int index; required property string timeStr
+                            id: hc; required property string appName; required property string summary; required property string body; required property int nid; required property int entryId; required property int index; required property string timeStr
                             width: histCol.width; height: hcC.implicitHeight + Theme.notifPadding; radius: Theme.btnRadius; color: Theme.bg2
 
-                            // Staggered fade+slide entrance
-                            opacity: 0; y: 8; scale: 0.92
-                            Component.onCompleted: { hcEnterAnim.delay = index * Theme.animStagger; hcEnterAnim.start(); }
+                            property bool shouldAnimateEntry: hc.entryId > drawer.historyAnimationThreshold
+
+                            opacity: shouldAnimateEntry ? 0 : 1
+                            y: shouldAnimateEntry ? 8 : 0
+                            scale: shouldAnimateEntry ? 0.92 : 1.0
+                            Component.onCompleted: {
+                                if (!shouldAnimateEntry)
+                                    return;
+
+                                drawer.historyAnimationThreshold = Math.max(drawer.historyAnimationThreshold, hc.entryId);
+                                hcEnterAnim.delay = index * Theme.animStagger;
+                                hcEnterAnim.start();
+                            }
                             SequentialAnimation {
                                 id: hcEnterAnim; property int delay: 0
                                 PauseAnimation { duration: hcEnterAnim.delay }
