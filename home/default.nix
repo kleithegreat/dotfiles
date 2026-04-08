@@ -108,7 +108,6 @@ in
     kdePackages.gwenview
     kdePackages.filelight
     kdePackages.kdeconnect-kde
-    kdePackages.partitionmanager
     kdePackages.kcharselect
     kdePackages.isoimagewriter
     kdePackages.kompare
@@ -125,6 +124,9 @@ in
     telegram-desktop
     pavucontrol    # PulseAudio/PipeWire volume control GUI
     pkgs.gnome-secrets
+    # KDE Partition Manager is enabled in system/configuration.nix via
+    # programs.partition-manager so kpmcore's D-Bus service and polkit action
+    # are registered system-wide.
     # bitwarden-desktop is in environment.systemPackages (system/configuration.nix)
     # so its polkit policy file gets linked into the system-wide polkit actions dir.
     # Home Manager doesn't do this, which breaks "Unlock with system authentication".
