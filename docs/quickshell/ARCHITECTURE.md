@@ -27,6 +27,7 @@ Managed popups mounted by the overlay host remain:
 | `components/WheelFlickable.qml` | Shared wheel + drag scroll surface for settings panes, dropdown option lists, notification history, Wi-Fi lists, and Quick Settings overflow. It now uses one elastic overscroll model (`FollowBoundsBehavior` + `DragAndOvershootBounds`) and lets `returnToBounds()` handle rebound instead of timer-driven snap-back bookkeeping. | `config/quickshell/components/WheelFlickable.qml:4-72`, `config/quickshell/popups/QuickSettingsPopup.qml:189-215`, `config/quickshell/NotifDrawer.qml:223-226`, `config/quickshell/popups/settings/SettingsSidebar.qml:130-140` |
 | `components/HoverLayer.qml` | Shared pressed/hover visual layer for shell buttons and tile hit areas. It stays pointer-only and does not introduce an extra keyboard interaction contract on top of each caller. | `config/quickshell/components/HoverLayer.qml:4-68`, `config/quickshell/popups/QuickSettingsPopup.qml:418-440`, `config/quickshell/PowerMenu.qml:112-134` |
 | `components/ToggleSwitch.qml` | Shared boolean control with mouse-driven activation plus disabled/pending opacity states. | `config/quickshell/components/ToggleSwitch.qml:4-42` |
+| `components/ColorSchemeCard.qml` and `components/ColorSchemeCards.qml` | Shared responsive scheme-preview cards for the Colors pane and preset editor. They consume `colorFamilies`, adapt the column count to available width, and highlight the active scheme without falling back to dropdown-only selection. | `config/quickshell/components/ColorSchemeCard.qml:5-227`, `config/quickshell/components/ColorSchemeCards.qml:4-78`, `config/quickshell/popups/settings/SettingsColorsPane.qml:37-66`, `config/quickshell/popups/settings/SettingsPresetEditor.qml:472-497` |
 | `components/InlineDropdown.qml` | Compact one-of-many selector with pointer-driven expansion, animated dropdown height, and `WheelFlickable`-backed option scrolling. | `config/quickshell/components/InlineDropdown.qml:4-188` |
 | `components/InlineSelect.qml` | Card-style one-of-many selector with the same pointer-first contract as `InlineDropdown`, plus current-option auto-scroll inside the shared flickable list. | `config/quickshell/components/InlineSelect.qml:4-251` |
 
@@ -77,7 +78,7 @@ preserving a rollback snapshot for failures.
 | Host loaders | `Process` helpers call `desktopctl theme status --json`, `desktopctl theme list-schemes --json`, `desktopctl theme list-presets --json`, and shell commands for wallpaper/directory browsing |
 | Service-driven panes | Network, Bluetooth, Audio, Display, Power, Notifications, Focus Time |
 | Host-driven panes | Presets, Colors, Fonts, Wallpaper, Icons, Hyprland |
-| Category gating | `HostCapabilities.qml:1-40` plus `config/quickshell/popups/SettingsPopup.qml:61-68` and `config/quickshell/popups/SettingsPopup.qml:936-943` hide the Power category when neither battery nor power-profile support is present |
+| Category gating | `HostCapabilities.qml:1-40` plus `config/quickshell/popups/SettingsPopup.qml:61-68` and `config/quickshell/popups/SettingsPopup.qml:951-958` hide the Power category when neither battery nor power-profile support is present |
 | General theme writes | Serialized `desktopctl theme set` and `desktopctl theme preset` requests, with host-local staging for individual `set` writes before process exit and toast-visible backend errors |
 | Preset writes | `desktopctl theme save-preset` and `desktopctl theme delete-preset` |
 | Hyprland appearance writes | Debounced queue of `desktopctl theme set hypr_* ...` writes with desktop-notification feedback |
@@ -88,26 +89,35 @@ selects the target settings category, and opens the full Settings popup, while
 `config/quickshell/PopupOverlayHost.qml:167-172` maps Wi-Fi, Bluetooth, VPN,
 DND, and power-profile expand requests to concrete category indices.
 
-`SettingsPopup.qml` is now responsible for three additional shell-side polish
+`SettingsPopup.qml` is now responsible for four additional shell-side polish
 behaviors:
 
 - Responsive panel sizing instead of the old fixed `700x500` shell:
-  `config/quickshell/popups/SettingsPopup.qml:105-115`, `config/quickshell/popups/SettingsPopup.qml:900-1013`.
+  `config/quickshell/popups/SettingsPopup.qml:105-115`, `config/quickshell/popups/SettingsPopup.qml:930-1025`.
 - Optimistic theme-state staging and rollback for `desktopctl theme set`
   writes, plus serialized `set` / `preset` draining between backend reloads:
   `config/quickshell/popups/SettingsPopup.qml:178-245`,
-  `config/quickshell/popups/SettingsPopup.qml:726-800`.
+  `config/quickshell/popups/SettingsPopup.qml:741-800`.
+- Normalizing `desktopctl theme list-schemes --json` into richer `colorFamilies`
+  preview objects, then feeding the shared responsive card selector used by
+  both the Colors pane and the preset editor:
+  `config/quickshell/popups/SettingsPopup.qml:248-292`,
+  `config/quickshell/popups/SettingsPopup.qml:397-400`,
+  `config/quickshell/components/ColorSchemeCards.qml:4-78`,
+  `config/quickshell/components/ColorSchemeCard.qml:5-227`,
+  `config/quickshell/popups/settings/SettingsColorsPane.qml:37-66`,
+  `config/quickshell/popups/settings/SettingsPresetEditor.qml:472-497`.
 - Passing wallpaper-directory metadata into the preset editor so wallpaper
   fields can validate and commit separately from freeform typing:
-  `config/quickshell/popups/SettingsPopup.qml:958-1087`,
+  `config/quickshell/popups/SettingsPopup.qml:1067-1083`,
   `config/quickshell/popups/settings/SettingsPresetsPane.qml:6-38`,
   `config/quickshell/popups/settings/SettingsPresetsPane.qml:312-330`,
-  `config/quickshell/popups/settings/SettingsPresetEditor.qml:589-755`.
+  `config/quickshell/popups/settings/SettingsPresetEditor.qml:560-726`.
 
 The Power pane remains lazy-loaded through the settings detail loader, so the
 privileged charge-limit probe is now deferred until `SettingsPowerPane.qml`
 mounts instead of firing on every Settings popup open. Evidence:
-`config/quickshell/popups/SettingsPopup.qml:988-1038`,
+`config/quickshell/popups/SettingsPopup.qml:1003-1053`,
 `config/quickshell/popups/settings/SettingsPowerPane.qml:13-16`.
 
 The settings sidebar remains click-driven. It uses the shared `WheelFlickable`
@@ -159,7 +169,7 @@ Calendar:
 
 - `config/quickshell/popups/QuickSettingsPopup.qml:32-35`,
   `config/quickshell/popups/QuickSettingsPopup.qml:152-210`
-- `config/quickshell/popups/SettingsPopup.qml:900-1013`
+- `config/quickshell/popups/SettingsPopup.qml:930-1025`
 - `config/quickshell/NotifDrawer.qml:44-45`,
   `config/quickshell/NotifDrawer.qml:145-190`
 - `config/quickshell/popups/CalendarPopup.qml:18-19`,

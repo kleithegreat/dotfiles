@@ -267,10 +267,25 @@ FocusScope {
                     schemeName: d.schemeName,
                     family: d.family || d.schemeName,
                     variant: d.variant || "dark",
-                    bg: d.bg || "#282828", fg: d.fg || "#ebdbb2",
-                    accent: d.accent || "#458588", red: d.red || "#cc241d",
-                    green: d.green || "#98971a", blue: d.blue || "#458588",
-                    yellow: d.yellow || "#d79921", purple: d.purple || "#b16286"
+                    appearance: d.appearance || (String(d.variant || "").toLowerCase().indexOf("light") >= 0 ? "light" : "dark"),
+                    bg: d.bg || "#282828",
+                    bg_dim: d.bg_dim || d.bg || "#1d2021",
+                    bg1: d.bg1 || d.bg || "#3c3836",
+                    bg2: d.bg2 || d.bg1 || d.bg || "#504945",
+                    bg3: d.bg3 || d.bg2 || d.bg1 || d.bg || "#665c54",
+                    fg: d.fg || "#ebdbb2",
+                    fg2: d.fg2 || d.fg || "#d5c4a1",
+                    fg3: d.fg3 || d.fg2 || d.fg || "#bdae93",
+                    fg4: d.fg4 || d.fg3 || d.fg2 || d.fg || "#a89984",
+                    accent: d.accent || d.blue || "#458588",
+                    red: d.red || "#cc241d",
+                    orange: d.orange || d.yellow || "#d65d0e",
+                    green: d.green || "#98971a",
+                    blue: d.blue || "#458588",
+                    yellow: d.yellow || "#d79921",
+                    purple: d.purple || "#b16286",
+                    cyan: d.cyan || d.blue || "#689d6a",
+                    palette: Array.isArray(d.palette) ? d.palette : []
                 });
             }
             settingsPop.colorSchemes = schemes;

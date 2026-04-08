@@ -95,13 +95,15 @@ Inspection:
 | Command | Current behavior |
 | --- | --- |
 | `theme status [--json]` | Prints the current canonical theme state |
-| `theme list-schemes [--json]` | Lists color-scheme files |
+| `theme list-schemes [--json]` | Lists color-scheme files; `--json` returns filename-ordered scheme preview objects with identity, appearance, named colors, and terminal palette entries for UI consumers |
 | `theme list-presets [--json]` | Lists preset files |
 
 Theming invariants:
 
 - `theme status --json` is the authoritative machine-readable view of persisted
   theme state.
+- `theme list-schemes --json` is the machine-readable scheme-preview inventory
+  consumed by Quickshell theme selectors.
 - Presets are partial patches, not full-state snapshots.
 - `theme sync` is the activation-time safe subset; it is intentionally narrower
   than `theme all`.
