@@ -61,8 +61,10 @@ variable expansion for `providers.*.preferences.paths`.
 **Status:** Limitation documented
 
 **Resolution:** Keep the provider search paths as literal strings in
-`config/vicinae/base.json` and annotate the file rather than guessing at an
-unsupported expansion rule.
+`config/vicinae/base.json` rather than guessing at an unsupported expansion
+rule. Keep the explanation in repo docs, not as inline comments in the JSON
+file, because the Vicinae concat target parses that base file as strict JSON
+during `desktopctl theme sync`.
 
 ## Snappy Switcher Theme Assets
 
