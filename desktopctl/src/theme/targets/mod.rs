@@ -3,6 +3,7 @@ mod bat;
 mod cursor;
 mod ghostty;
 mod gtk;
+mod gtksourceview;
 mod hypr_appearance;
 mod hyprland;
 mod neovide;
@@ -247,6 +248,12 @@ pub fn build_registry() -> crate::Result<TargetRegistry> {
         None,
         Some(gtk::on_apply),
     )?;
+    registry.register_function_with_hooks(
+        gtksourceview::METADATA,
+        gtksourceview::generate,
+        Some(gtksourceview::persist),
+        Some(gtksourceview::on_apply),
+    )?;
     registry.register_function(hypr_appearance::METADATA, hypr_appearance::generate)?;
     registry.register_function(hyprland::METADATA, hyprland::generate)?;
     registry.register_function(neovide::METADATA, neovide::generate)?;
@@ -422,8 +429,9 @@ mod tests {
     fn registry_contains_all_python_targets() {
         let registry = build_registry().expect("registry builds");
         let names = registry.iter().map(|(name, _)| name).collect::<Vec<_>>();
-        assert_eq!(names.len(), 19);
+        assert_eq!(names.len(), 20);
         assert!(names.contains(&"cursor"));
+        assert!(names.contains(&"gtksourceview"));
         assert_eq!(
             registry
                 .get("cursor")
@@ -436,6 +444,13 @@ mod tests {
             !registry
                 .get("gtk")
                 .expect("gtk target")
+                .metadata()
+                .sync_safe
+        );
+        assert!(
+            registry
+                .get("gtksourceview")
+                .expect("gtksourceview target")
                 .metadata()
                 .sync_safe
         );
