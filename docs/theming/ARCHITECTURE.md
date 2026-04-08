@@ -47,7 +47,7 @@ Targets with notable extra behavior:
 | --- | --- |
 | `cursor` | `desktopctl/src/theme/targets/cursor.rs:153-221` writes cursor index files plus `~/.config/hypr/cursor.conf`, updates dconf, updates Hyprland cursor env, and imports cursor vars into the user environment. |
 | `gtk` | `desktopctl/src/theme/targets/gtk.rs:5-72` is command-only and does all real work in `on_apply()` through dconf writes. |
-| `gtksourceview` | `desktopctl/src/theme/targets/gtksourceview.rs:13-311` writes the current GtkSourceView scheme to `desktopctl-current.xml`, mirrors the rest of the repo scheme catalog into `~/.local/share/libgedit-gtksourceview-300/styles/desktopctl-*.xml`, and updates gedit's dark/light source-style dconf keys at runtime. |
+| `gtksourceview` | `desktopctl/src/theme/targets/gtksourceview.rs:13-360` writes the current GtkSourceView scheme to `desktopctl-current.xml`, mirrors the rest of the repo scheme catalog into `~/.local/share/libgedit-gtksourceview-300/styles/desktopctl-*.xml`, and updates gedit's dark/light source-style dconf keys at runtime. |
 | `qt` | `desktopctl/src/theme/targets/qt.rs:15-99` and `desktopctl/src/theme/targets/qt.rs:445-628` mirror the palette into qt5ct, qt6ct, KDE, hyprqt6engine, Kvantum, Kate, and KWrite, and use the centralized `ColorScheme.appearance` metadata when only dark/light asset selection is needed. |
 | `quickshell` | `desktopctl/src/theme/targets/quickshell.rs:19-89` writes `GeneratedTheme.json` for shell colors and fonts with Python-compatible JSON formatting, emits both `family` and `systemFamily`, and derives `size`, `sizeSmall`, and `sizeLarge` from `ThemeState.font_size`. |
 | `spicetify` | `desktopctl/src/theme/targets/spicetify.rs` ensures theme scaffolding exists and runs `spicetify update` on apply. |
@@ -75,7 +75,7 @@ Targets with notable extra behavior:
   full scheme catalog, and its shared synthetic `gruvbox-dark` fixture includes
   the same app-theme metadata so Python-format target tests exercise the
   centralized lookup path instead of falling back to defaults.
-- `desktopctl/src/theme/targets/gtksourceview.rs:314-362` covers the generated
+- `desktopctl/src/theme/targets/gtksourceview.rs:363-454` covers the generated
   GtkSourceView XML shape and the current family-pairing policy for gedit's
   dark/light source-style keys.
 - `desktopctl/src/theme/targets/qt.rs:968-1017` covers the declared
