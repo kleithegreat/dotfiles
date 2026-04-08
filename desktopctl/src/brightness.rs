@@ -88,10 +88,6 @@ pub fn restore(device: Option<&str>) -> Result<()> {
     Ok(())
 }
 
-pub fn seed(_device: Option<&str>) -> Result<()> {
-    Ok(())
-}
-
 fn step(device: Option<&str>, direction: f64) -> Result<()> {
     let device = resolve_device(device)?;
     let current = brightness_value(&device, "g")?;

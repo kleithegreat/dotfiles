@@ -67,6 +67,10 @@ Invariants:
   become the home of unrelated behavior.
 - Consumers may read generated files, but they do not define the schema or edit
   outputs directly.
+- File-writing targets and preset JSON saves must replace outputs atomically so
+  live consumers do not observe truncated writes.
+- State mutations that require target application must only persist the new
+  theme state after the required target apply succeeds.
 - Persisting `dark_hint` belongs to the theming pipeline, even when another
   runtime controller decides the current desired value.
 
@@ -83,8 +87,12 @@ Constraints:
 
 - Every target declares exactly one assembly strategy.
 - `base_path` inputs are read-only to the orchestrator.
+- `concat` target `base_path` may be absolute, `~/...`, or repo-relative; a
+  repo-relative path is resolved from `paths::repo_root()`.
 - JSON `concat` targets must preserve base data and overlay only theme-managed
   keys.
+- Missing `base_path` inputs are hard failures; the orchestrator must not treat
+  them as silent skips.
 - Rebuild-time sync may skip runtime-only targets.
 
 ## Target Contract
@@ -164,6 +172,7 @@ Constraints:
 | `cursor` | `standalone` | Cursor indexes, Hyprland cursor env, runtime cursor apply |
 | `ghostty` | `concat` | `~/.config/ghostty/config` |
 | `gtk` | `command` | GTK interface settings |
+| `gtksourceview` | `standalone` | GtkSourceView style files under `~/.local/share/libgedit-gtksourceview-300/styles/` plus gedit source-style dconf keys |
 | `hypr_appearance` | `standalone` | `~/.config/hypr/appearance-theme.conf` |
 | `hyprland` | `standalone` | `~/.config/hypr/colors.conf` |
 | `neovide` | `standalone` | `~/.config/nvim/lua/neovide-theme.lua` |
@@ -185,7 +194,7 @@ State changes fan out by ownership, not by CLI convenience.
 
 | State key(s) | Affected targets |
 | --- | --- |
-| `color_scheme` | `alacritty`, `bat`, `ghostty`, `gtk`, `hyprland`, `neovim`, `qt`, `quickshell`, `snappy_switcher`, `spicetify`, `starship`, `tmux`, `vicinae`, `vscode`, `wallpaper`\*, `zathura` |
+| `color_scheme` | `alacritty`, `bat`, `ghostty`, `gtk`, `gtksourceview`, `hyprland`, `neovim`, `qt`, `quickshell`, `snappy_switcher`, `spicetify`, `starship`, `tmux`, `vicinae`, `vscode`, `wallpaper`\*, `zathura` |
 | `wallpaper`, `filter_wallpaper` | `wallpaper` |
 | `system_font` | `gtk`, `qt`, `quickshell`, `snappy_switcher`, `vicinae` |
 | `mono_font` | `alacritty`, `ghostty`, `gtk`, `neovide`, `qt`, `quickshell`, `tmux`, `vscode` |
@@ -209,6 +218,7 @@ The dependency map in code must remain a direct encoding of this table.
 | Recursive trees | Allowed when generated sibling files remain writable, as with `quickshell/` and `nvim/` |
 | Activation hook | Rebuild-time sync writes only outputs safe to materialize during activation |
 | Quickshell | Reads `GeneratedTheme.json`; `system_font` is for shell UI text, while `mono_font` remains for monospaced or glyph-oriented surfaces; see `docs/quickshell/SPEC.md` for shell-side constraints |
+| Gedit / GtkSourceView | Reads generated styles from `~/.local/share/libgedit-gtksourceview-300/styles/`; gedit's light/dark source-style selection is theme-owned |
 | Hyprland | Reads `colors.conf` and `appearance-theme.conf` |
 | Neovim / Neovide | Read generated theme state files rather than embedding palette logic in Home Manager |
 

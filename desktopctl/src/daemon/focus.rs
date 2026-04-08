@@ -21,11 +21,10 @@ pub fn run(shutdown: Arc<AtomicBool>) -> crate::Result<()> {
     let current_class = Arc::new(Mutex::new(get_active_class()));
     let listener_class = Arc::clone(&current_class);
     let listener_shutdown = Arc::clone(&shutdown);
-    let socket_path = hypr::socket2_path()?;
 
     let listener = thread::Builder::new()
         .name("desktopctl-focus-socket".to_owned())
-        .spawn(move || listen_for_focus(socket_path, listener_class, listener_shutdown))?;
+        .spawn(move || listen_for_focus(listener_class, listener_shutdown))?;
 
     let resolver = DesktopResolver::load();
     let mut connection = init_db()?;
@@ -520,12 +519,18 @@ fn get_active_class() -> String {
         .unwrap_or_default()
 }
 
-fn listen_for_focus(
-    socket_path: PathBuf,
-    current_class: Arc<Mutex<String>>,
-    shutdown: Arc<AtomicBool>,
-) {
+fn listen_for_focus(current_class: Arc<Mutex<String>>, shutdown: Arc<AtomicBool>) {
     while !shutdown.load(Ordering::SeqCst) {
+        let socket_path = match hypr::socket2_path() {
+            Ok(path) => path,
+            Err(_) => {
+                if !shutdown.load(Ordering::SeqCst) {
+                    thread::sleep(StdDuration::from_secs(2));
+                }
+                continue;
+            }
+        };
+
         if let Ok(mut socket) = UnixStream::connect(&socket_path) {
             set_current_class(&current_class, get_active_class());
             let _ = socket.set_read_timeout(Some(StdDuration::from_secs(5)));

@@ -1,9 +1,10 @@
 use crate::paths;
 use serde::Deserialize;
 use std::{
-    env, io,
+    env, fs, io,
     path::PathBuf,
     process::{Command, Output},
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
@@ -62,17 +63,86 @@ pub(crate) fn toggle_float() -> Result<()> {
 
 /// Return the Hyprland event-socket path used by the focus daemon.
 pub(crate) fn socket2_path() -> Result<PathBuf> {
-    let signature = env::var("HYPRLAND_INSTANCE_SIGNATURE").map_err(|_| {
-        io::Error::new(
-            io::ErrorKind::NotFound,
-            "HYPRLAND_INSTANCE_SIGNATURE is not set",
-        )
-    })?;
+    let signature = hyprland_signature();
+    if let Some(signature) = signature.as_deref() {
+        let runtime_path = runtime_socket2_path(signature)?;
+        if runtime_path.exists() {
+            return Ok(runtime_path);
+        }
 
+        let tmp_path = tmp_socket2_path(signature);
+        if tmp_path.exists() {
+            return Ok(tmp_path);
+        }
+    }
+
+    if let Some(path) = discover_socket2_path()? {
+        return Ok(path);
+    }
+
+    if let Some(signature) = signature {
+        return Ok(runtime_socket2_path(&signature)?);
+    }
+
+    Err(io::Error::new(
+        io::ErrorKind::NotFound,
+        "unable to resolve Hyprland event socket path",
+    )
+    .into())
+}
+
+fn hyprland_signature() -> Option<String> {
+    env::var("HYPRLAND_INSTANCE_SIGNATURE")
+        .ok()
+        .filter(|value| !value.is_empty())
+}
+
+fn runtime_socket2_path(signature: &str) -> io::Result<PathBuf> {
     Ok(paths::xdg_runtime_dir()?
         .join("hypr")
         .join(signature)
         .join(".socket2.sock"))
+}
+
+fn tmp_socket2_path(signature: &str) -> PathBuf {
+    PathBuf::from("/tmp/hypr")
+        .join(signature)
+        .join(".socket2.sock")
+}
+
+fn discover_socket2_path() -> Result<Option<PathBuf>> {
+    let mut candidates = Vec::new();
+    candidates.extend(find_socket2_candidates(&paths::xdg_runtime_dir()?.join("hypr"))?);
+    candidates.extend(find_socket2_candidates(&PathBuf::from("/tmp/hypr"))?);
+
+    Ok(candidates
+        .into_iter()
+        .max_by_key(|(modified, _)| *modified)
+        .map(|(_, path)| path))
+}
+
+fn find_socket2_candidates(root: &PathBuf) -> io::Result<Vec<(SystemTime, PathBuf)>> {
+    let entries = match fs::read_dir(root) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => return Err(error),
+    };
+
+    let mut candidates = Vec::new();
+    for entry in entries {
+        let entry = entry?;
+        let path = entry.path().join(".socket2.sock");
+        if !path.exists() {
+            continue;
+        }
+
+        let modified = fs::metadata(&path)
+            .and_then(|metadata| metadata.modified())
+            .unwrap_or(UNIX_EPOCH);
+        candidates.push((modified, path));
+    }
+
+    Ok(candidates)
 }
 
 fn hyprctl_output(args: &[&str]) -> Result<Output> {

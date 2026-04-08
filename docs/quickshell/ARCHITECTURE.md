@@ -39,7 +39,7 @@ Managed popups mounted by the overlay host remain:
 | `BrightnessService.qml` | Backlight discovery, file watching, and direct `brightnessctl` writes for the Display pane | Display pane and any brightness slider UI |
 | `DisplayService.qml` | Monitor refresh/apply and daemon-backed night-light status / override requests | Display pane |
 | `HostCapabilities.qml` | Detects Wi-Fi, battery, and power-profile capabilities | Settings host category visibility and power-pane availability |
-| `NetworkService.qml` | Wi-Fi summary, scans, known networks, diagnostics, DNS, captive portal, reporting | Bar network, quick settings, network pane |
+| `NetworkService.qml` | Wi-Fi summary, scans, known networks, active SSID plus connection-profile tracking, diagnostics, DNS, captive portal, reporting | Bar network, quick settings, network pane |
 | `NotificationService.qml` | Popup/history models, DND, dismissal, relative-time refresh | Root notifications, drawer, bar bell, Notifications settings pane, IPC |
 | `PowerProfileService.qml` | CPU profiles and supported battery controls | Power pane |
 | `Theme.qml` | Shell-facing facade over generated theme JSON | Imported throughout shell components |
@@ -52,11 +52,12 @@ Direct-upstream or local exceptions:
 - Battery state still comes from `Quickshell.Services.UPower`.
 - MPRIS, system tray, and workspace state still use upstream Quickshell
   services directly.
-- Focus Time still polls `$XDG_RUNTIME_DIR/focustime_state.json` inside its
-  pane; see `docs/focus-time/SPEC.md`.
+- Focus Time still polls `${XDG_RUNTIME_DIR:-/run/user/$UID}/focustime_state.json`
+  inside its pane and treats payloads older than 5 seconds as stale; see
+  `docs/focus-time/SPEC.md`.
 - The shell brightness OSD no longer reads `/tmp/quickshell-brightness`.
   `config/quickshell/shell.qml:212-219` exposes an IPC handler for brightness
-  OSD events, and `desktopctl/src/brightness.rs:149-160` drives it with
+  OSD events, and `desktopctl/src/brightness.rs:145-156` drives it with
   `qs -p <repo>/config/quickshell ipc call brightness osd ...`.
 
 Write-oriented services now also own their optimistic/pending state locally
@@ -76,8 +77,8 @@ preserving a rollback snapshot for failures.
 | Host loaders | `Process` helpers call `desktopctl theme status --json`, `desktopctl theme list-schemes --json`, `desktopctl theme list-presets --json`, and shell commands for wallpaper/directory browsing |
 | Service-driven panes | Network, Bluetooth, Audio, Display, Power, Notifications, Focus Time |
 | Host-driven panes | Presets, Colors, Fonts, Wallpaper, Icons, Hyprland |
-| Category gating | `HostCapabilities.qml:1-40` plus `config/quickshell/popups/SettingsPopup.qml:61-68`, `config/quickshell/popups/SettingsPopup.qml:796-859` hide the Power category when neither battery nor power-profile support is present |
-| General theme writes | `desktopctl theme set` and `desktopctl theme preset`, with host-local staging for individual `set` writes before process exit |
+| Category gating | `HostCapabilities.qml:1-40` plus `config/quickshell/popups/SettingsPopup.qml:61-68` and `config/quickshell/popups/SettingsPopup.qml:936-943` hide the Power category when neither battery nor power-profile support is present |
+| General theme writes | Serialized `desktopctl theme set` and `desktopctl theme preset` requests, with host-local staging for individual `set` writes before process exit and toast-visible backend errors |
 | Preset writes | `desktopctl theme save-preset` and `desktopctl theme delete-preset` |
 | Hyprland appearance writes | Debounced queue of `desktopctl theme set hypr_* ...` writes with desktop-notification feedback |
 
@@ -91,10 +92,11 @@ DND, and power-profile expand requests to concrete category indices.
 behaviors:
 
 - Responsive panel sizing instead of the old fixed `700x500` shell:
-  `config/quickshell/popups/SettingsPopup.qml:103-114`, `config/quickshell/popups/SettingsPopup.qml:841-955`.
+  `config/quickshell/popups/SettingsPopup.qml:105-115`, `config/quickshell/popups/SettingsPopup.qml:900-1013`.
 - Optimistic theme-state staging and rollback for `desktopctl theme set`
-  writes: `config/quickshell/popups/SettingsPopup.qml:177-205`,
-  `config/quickshell/popups/SettingsPopup.qml:703-743`.
+  writes, plus serialized `set` / `preset` draining between backend reloads:
+  `config/quickshell/popups/SettingsPopup.qml:178-245`,
+  `config/quickshell/popups/SettingsPopup.qml:726-800`.
 - Passing wallpaper-directory metadata into the preset editor so wallpaper
   fields can validate and commit separately from freeform typing:
   `config/quickshell/popups/SettingsPopup.qml:958-1087`,
@@ -102,15 +104,23 @@ behaviors:
   `config/quickshell/popups/settings/SettingsPresetsPane.qml:312-330`,
   `config/quickshell/popups/settings/SettingsPresetEditor.qml:589-755`.
 
+The Power pane remains lazy-loaded through the settings detail loader, so the
+privileged charge-limit probe is now deferred until `SettingsPowerPane.qml`
+mounts instead of firing on every Settings popup open. Evidence:
+`config/quickshell/popups/SettingsPopup.qml:988-1038`,
+`config/quickshell/popups/settings/SettingsPowerPane.qml:13-16`.
+
 The settings sidebar remains click-driven. It uses the shared `WheelFlickable`
 for scrolling and `HoverLayer` for category hit targets, but it does not add a
 custom tab-order or focused-outline layer on top of the popup shell. Evidence:
 `config/quickshell/popups/settings/SettingsSidebar.qml:1-247`.
 
 `SettingsFocusTimePane.qml` still consumes the JSON summary directly, but it no
-longer paints charts from placeholder geometry on first load. The pane waits for
-the first fresh payload, then enables bar/heatmap/app-width animations only
-after `chartVisualsReady` has been primed. Evidence:
+longer paints charts from placeholder geometry on first load. The pane now reads
+from the daemon's XDG-runtime fallback path, treats payloads older than 5
+seconds as stale, waits for the first fresh payload, and only then enables
+bar/heatmap/app-width animations after `chartVisualsReady` has been primed.
+Evidence:
 `config/quickshell/popups/settings/SettingsFocusTimePane.qml:15-32`,
 `config/quickshell/popups/settings/SettingsFocusTimePane.qml:63-94`,
 `config/quickshell/popups/settings/SettingsFocusTimePane.qml:218-434`.
@@ -130,10 +140,10 @@ tab stops or focus outlines layered onto those surfaces. Evidence:
 
 | Piece | Current role |
 | --- | --- |
-| `Theme.qml` | Watches `~/.config/quickshell/GeneratedTheme.json`, reparses on change, and exposes generated colors/fonts plus shell-owned layout constants |
+| `Theme.qml` | Watches the XDG-config-derived `GeneratedTheme.json` path, reparses on change, and exposes generated colors/fonts plus shell-owned layout constants |
 | `desktopctl/src/theme/targets/quickshell.rs` | Writes `GeneratedTheme.json`, maps theming names into Quickshell's `bg0_h` / `aqua` naming, emits both mono and system font families, and derives shell font sizes from `ThemeState.font_size` |
-| Recursive tree exception | `config/quickshell/GeneratedTheme.json` is committed in the repo as a bootstrap snapshot because Home Manager deploys the whole `config/quickshell/` tree recursively; activation/runtime theme applies still overwrite the live `~/.config/quickshell/GeneratedTheme.json` path |
-| Settings host | Runs `desktopctl theme ...`, stages optimistic `themeState` updates for individual `set` writes, then reloads or rolls back its local snapshot when the process exits |
+| Recursive tree exception | `config/quickshell/GeneratedTheme.json` is committed in the repo as a bootstrap snapshot because Home Manager deploys the whole `config/quickshell/` tree recursively; activation/runtime theme applies still overwrite the live `${XDG_CONFIG_HOME:-~/.config}/quickshell/GeneratedTheme.json` path |
+| Settings host | Runs `desktopctl theme ...`, stages optimistic `themeState` updates for individual `set` writes, serializes general theme writes, shows toast-visible backend failures, then reloads or rolls back its local snapshot when the process exits |
 | Shell IPC | Provides a second command path into `desktopctl theme ...` through `theme.apply`, with shell-style tokenization and error toasts on failure |
 
 `Theme.qml` still keeps hardcoded Gruvbox Dark fallbacks for the generated JSON
@@ -149,7 +159,7 @@ Calendar:
 
 - `config/quickshell/popups/QuickSettingsPopup.qml:32-35`,
   `config/quickshell/popups/QuickSettingsPopup.qml:152-210`
-- `config/quickshell/popups/SettingsPopup.qml:841-955`
+- `config/quickshell/popups/SettingsPopup.qml:900-1013`
 - `config/quickshell/NotifDrawer.qml:44-45`,
   `config/quickshell/NotifDrawer.qml:145-190`
 - `config/quickshell/popups/CalendarPopup.qml:18-19`,
@@ -165,14 +175,14 @@ avoiding the old “history settles again on every open” behavior:
 
 - `desktopctl` is on `PATH` for every Quickshell `Process` that invokes theme
   commands.
-- A writable `~/.config/quickshell/GeneratedTheme.json` exists beside the
-  Home Manager-managed Quickshell tree; it may begin as the committed repo
-  snapshot and then be overwritten by `desktopctl theme sync`.
+- A writable `${XDG_CONFIG_HOME:-~/.config}/quickshell/GeneratedTheme.json`
+  exists beside the Home Manager-managed Quickshell tree; it may begin as the
+  committed repo snapshot and then be overwritten by `desktopctl theme sync`.
 - Keyboard-driven brightness OSD updates depend on `qs` plus repo-root
   resolution in `desktopctl`, not on a temp file.
 - A backlight is discoverable under `/sys/class/backlight` for the brightness
   slider path to be usable.
-- `$XDG_RUNTIME_DIR/focustime_state.json` exists when the focus-time daemon is
-  running.
+- `${XDG_RUNTIME_DIR:-/run/user/$UID}/focustime_state.json` exists when the
+  focus-time daemon is running.
 - CLI tools such as `nmcli`, `bluetoothctl`, `hyprctl`, `brightnessctl`,
   `mullvad`, `tailscale`, `busctl`, and related helpers are on `PATH`.

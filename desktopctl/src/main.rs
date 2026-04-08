@@ -138,8 +138,6 @@ enum BrightnessCommand {
     Dim(BrightnessDeviceArgs),
     /// Restore the previously saved brightness level.
     Restore(BrightnessDeviceArgs),
-    /// Write the current brightness state to the Quickshell cache file.
-    Seed(BrightnessDeviceArgs),
 }
 
 #[derive(Debug, Args)]
@@ -259,7 +257,6 @@ fn run_brightness(args: BrightnessArgs) -> Result<()> {
         BrightnessCommand::Down(args) => brightness::down(args.device.as_deref()),
         BrightnessCommand::Dim(args) => brightness::dim(args.device.as_deref()),
         BrightnessCommand::Restore(args) => brightness::restore(args.device.as_deref()),
-        BrightnessCommand::Seed(args) => brightness::seed(args.device.as_deref()),
     }
 }
 

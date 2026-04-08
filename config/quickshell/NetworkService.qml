@@ -194,8 +194,32 @@ QtObject {
     function refreshConnection() {
         if (!activeProc.running)
             activeProc.running = true;
+        if (!activeWifiSsidProc.running)
+            activeWifiSsidProc.running = true;
         if (!connectivityProc.running)
             connectivityProc.running = true;
+    }
+
+    function commitActiveConnectionState() {
+        if (activeProc.running || activeWifiSsidProc.running)
+            return;
+
+        let connectionId = activeProc.sawWifi ? activeProc.pendingWifiId : "";
+        let connectionUuid = activeProc.sawWifi ? activeProc.pendingWifiUuid : "";
+        let activeSsid = activeWifiSsidProc.pendingWifiSsid;
+        if (activeSsid === "")
+            activeSsid = fallbackSsidForConnection(connectionUuid, connectionId);
+
+        _connectedSsid = activeProc.sawWifi ? activeSsid : "";
+        _connectedConnectionId = connectionId;
+        _connectedConnectionUuid = connectionUuid;
+        _primaryConnectionType = activeProc.pendingPrimaryType;
+        _primaryConnectionLabel = activeProc.pendingPrimaryLabel;
+        if (_primaryConnectionType === "wifi")
+            _primaryConnectionLabel = activeSsid !== "" ? activeSsid : (connectionId !== "" ? connectionId : "Wi-Fi");
+
+        for (let i = 0; i < netModel.count; i++)
+            netModel.setProperty(i, "active", activeSsid !== "" && netModel.get(i).ssid === activeSsid);
     }
 
     function setWifiEnabled(enabled) {
@@ -533,6 +557,20 @@ QtObject {
         return null;
     }
 
+    function knownConnectionByIdentity(uuid, id) {
+        for (let i = 0; i < knownModel.count; i++) {
+            let entry = knownModel.get(i);
+            if (uuid !== "" && entry.uuid === uuid) return entry;
+            if (id !== "" && entry.id === id) return entry;
+        }
+        return null;
+    }
+
+    function fallbackSsidForConnection(uuid, id) {
+        let entry = knownConnectionByIdentity(uuid, id);
+        return entry ? (entry.ssid || "") : "";
+    }
+
     function isKnown(ssid) {
         return knownConnection(ssid) !== null;
     }
@@ -704,7 +742,7 @@ QtObject {
             }
             root.netModel.append({ ssid: p[0], signal: sig, security: p[2] || "", active: isActive });
         } }
-        onExited: (code, status) => { root.activeProc.running = true; }
+        onExited: (code, status) => { root.refreshConnection(); }
     }
 
     property Process knownProc: Process {
@@ -736,7 +774,6 @@ QtObject {
         id: activeProc
         command: ["nmcli", "-t", "-f", "NAME,UUID,TYPE,DEVICE", "con", "show", "--active"]
         running: false
-        property string pendingWifiSsid: ""
         property string pendingWifiId: ""
         property string pendingWifiUuid: ""
         property bool sawWifi: false
@@ -744,7 +781,6 @@ QtObject {
         property string pendingPrimaryLabel: ""
         onRunningChanged: {
             if (running) {
-                pendingWifiSsid = "";
                 pendingWifiId = "";
                 pendingWifiUuid = "";
                 sawWifi = false;
@@ -766,28 +802,39 @@ QtObject {
             if (parts[2] !== "802-11-wireless")
                 return;
 
-            let ssid = parts[0] || "";
+            let connectionId = parts[0] || "";
             activeProc.sawWifi = true;
-            activeProc.pendingWifiSsid = ssid;
-            activeProc.pendingWifiId = parts[0] || "";
+            activeProc.pendingWifiId = connectionId;
             activeProc.pendingWifiUuid = parts[1] || "";
             if (activeProc.pendingPrimaryType !== "ethernet") {
                 activeProc.pendingPrimaryType = "wifi";
-                activeProc.pendingPrimaryLabel = ssid;
-            }
-            for (let i = 0; i < root.netModel.count; i++) {
-                if (root.netModel.get(i).ssid === ssid) {
-                    root.netModel.setProperty(i, "active", true);
-                    return;
-                }
+                activeProc.pendingPrimaryLabel = connectionId !== "" ? connectionId : "Wi-Fi";
             }
         } }
         onExited: {
-            root._connectedSsid = activeProc.sawWifi ? activeProc.pendingWifiSsid : "";
-            root._connectedConnectionId = activeProc.sawWifi ? activeProc.pendingWifiId : "";
-            root._connectedConnectionUuid = activeProc.sawWifi ? activeProc.pendingWifiUuid : "";
-            root._primaryConnectionType = activeProc.pendingPrimaryType;
-            root._primaryConnectionLabel = activeProc.pendingPrimaryLabel;
+            root.commitActiveConnectionState();
+        }
+    }
+
+    property Process activeWifiSsidProc: Process {
+        id: activeWifiSsidProc
+        command: ["nmcli", "-t", "-f", "ACTIVE,SSID", "dev", "wifi"]
+        running: false
+        property string pendingWifiSsid: ""
+        onRunningChanged: {
+            if (running)
+                pendingWifiSsid = "";
+        }
+        stdout: SplitParser { onRead: (line) => {
+            let parts = root.parseNmcli(line);
+            if (parts.length < 2)
+                return;
+            if (parts[0] !== "yes" && parts[0] !== "*")
+                return;
+            activeWifiSsidProc.pendingWifiSsid = parts[1] || "";
+        } }
+        onExited: {
+            root.commitActiveConnectionState();
         }
     }
 

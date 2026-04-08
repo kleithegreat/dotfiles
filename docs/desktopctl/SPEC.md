@@ -34,8 +34,9 @@ Additional path rules:
 
 - `paths::repo_root()` first honors `DESKTOPCTL_REPO`, then the legacy
   lowercase `desktopctl_REPO`, then falls back to `~/repos/dotfiles`.
-- `launch-quickshell` and brightness OSD notifications both depend on that
-  repo-root resolution when they need the repo's `config/quickshell/` tree.
+- `launch-quickshell`, brightness OSD notifications, and repo-relative concat
+  target base paths all depend on that repo-root resolution when they need the
+  repo's `config/` tree.
 
 ## Ownership Boundaries
 
@@ -54,8 +55,6 @@ Important current behavior:
 - `hyprsunset` has a single live arbiter in the daemon.
 - `dark_hint` does not: the daemon writes it for solar `auto` mode, but manual
   theme surfaces can also write it directly.
-- `desktopctl brightness seed` remains part of the public CLI, but it is
-  currently a no-op compatibility shim.
 
 ## Command Surface
 
@@ -86,9 +85,9 @@ State mutation:
 
 | Command | Current behavior |
 | --- | --- |
-| `theme set <key> <value>` | Validates one state key, persists it, then applies only the affected targets |
-| `theme preset <name>` | Loads one preset patch, merges it into current state, applies all targets, then applies any preset-supplied `dark_hint` directly |
-| `theme save-preset <name> <json>` | Writes one preset JSON object with canonical key ordering |
+| `theme set <key> <value>` | Validates one state key, applies only the affected targets, and persists the new state only if that apply succeeds |
+| `theme preset <name>` | Loads one preset patch, merges it into current state, applies all targets, persists the merged state only if that apply succeeds, then applies any preset-supplied `dark_hint` directly |
+| `theme save-preset <name> <json>` | Writes one preset JSON object with canonical key ordering via atomic replacement |
 | `theme delete-preset <name>` | Removes one preset file |
 
 Inspection:
@@ -106,6 +105,11 @@ Theming invariants:
 - Presets are partial patches, not full-state snapshots.
 - `theme sync` is the activation-time safe subset; it is intentionally narrower
   than `theme all`.
+- `theme set`, `theme preset`, and `theme::set_dark_hint()` only persist state
+  after the required target application succeeds; failed applies leave the
+  stored state unchanged.
+- Generated theme files and preset JSON are replaced atomically so consumers do
+  not observe truncated writes.
 - `dark_hint` persists through the theme pipeline even when the daemon is the
   caller.
 
@@ -117,7 +121,6 @@ Theming invariants:
 | `brightness down [--device <name>]` | Same, but one perceptual -5% step |
 | `brightness dim [--device <name>]` | Saves state with `brightnessctl -s`, dims toward 30% of the current raw brightness over 20 steps, and writes `/tmp/dim-screen.pid` while running |
 | `brightness restore [--device <name>]` | Calls `brightnessctl -r` |
-| `brightness seed [--device <name>]` | Returns success without writing any state or notifying Quickshell |
 
 Brightness rules:
 
@@ -143,7 +146,7 @@ Brightness rules:
 
 | Command | Current behavior |
 | --- | --- |
-| `portal pick-directory` | Opens the XDG file chooser through `busctl`, watches the portal response through `dbus-monitor`, and prints the selected directory path when one is returned |
+| `portal pick-directory` | Opens the XDG file chooser through `busctl`, captures the returned request handle, watches `dbus-monitor` for the matching portal `Response` signal only, and prints the selected directory path when one is returned |
 
 ### `desktopctl night-light`
 

@@ -28,15 +28,26 @@ pub fn pick_directory() -> Result<Option<String>> {
 
     let (sender, receiver) = mpsc::channel();
     let reader_handle = thread::spawn(move || {
+        let mut message = String::new();
         for line in BufReader::new(stdout).lines() {
             match line {
                 Ok(line) => {
-                    if sender.send(line).is_err() {
-                        break;
+                    if line.is_empty() {
+                        if !message.trim().is_empty() && sender.send(message.clone()).is_err() {
+                            break;
+                        }
+                        message.clear();
+                    } else {
+                        message.push_str(&line);
+                        message.push('\n');
                     }
                 }
                 Err(_) => break,
             }
+        }
+
+        if !message.trim().is_empty() {
+            let _ = sender.send(message);
         }
     });
 
@@ -66,24 +77,25 @@ pub fn pick_directory() -> Result<Option<String>> {
         let _ = reader_handle.join();
         return Err(command_error("busctl", &output).into());
     }
+    let request_handle = extract_request_handle(&output)?;
 
     let start = Instant::now();
-    let mut buffer = String::new();
     let mut selected = None;
 
     while start.elapsed() < PORTAL_TIMEOUT {
         let remaining = PORTAL_TIMEOUT.saturating_sub(start.elapsed());
         match receiver.recv_timeout(remaining) {
-            Ok(line) => {
-                buffer.push_str(&line);
-                buffer.push('\n');
+            Ok(message) => {
+                if !response_matches_handle(&message, &request_handle) {
+                    continue;
+                }
 
-                if let Some(path) = extract_selected_path(&buffer)? {
+                if let Some(path) = extract_selected_path(&message)? {
                     selected = Some(path);
                     break;
                 }
 
-                if buffer.contains("uint32 1") || buffer.contains("uint32 2") {
+                if response_finished(&message) {
                     break;
                 }
             }
@@ -123,6 +135,35 @@ fn run_with_timeout(mut command: Command, timeout: Duration) -> Result<Output> {
 fn cleanup_monitor(monitor: &mut Child) {
     let _ = monitor.kill();
     let _ = monitor.wait();
+}
+
+fn extract_request_handle(output: &Output) -> Result<String> {
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let marker = "/org/freedesktop/portal/desktop/request/";
+    let start = stdout.find(marker).ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("busctl did not return a portal request handle: {}", stdout.trim()),
+        )
+    })?;
+    let tail = &stdout[start..];
+    let end = tail
+        .find(|ch: char| ch.is_whitespace() || ch == '"')
+        .unwrap_or(tail.len());
+    Ok(tail[..end].to_owned())
+}
+
+fn response_matches_handle(message: &str, request_handle: &str) -> bool {
+    message
+        .lines()
+        .next()
+        .is_some_and(|header| header.contains(request_handle))
+}
+
+fn response_finished(message: &str) -> bool {
+    ["uint32 0", "uint32 1", "uint32 2"]
+        .iter()
+        .any(|marker| message.contains(marker))
 }
 
 fn extract_selected_path(buffer: &str) -> Result<Option<String>> {

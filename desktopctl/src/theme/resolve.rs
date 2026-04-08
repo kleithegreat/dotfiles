@@ -207,7 +207,7 @@ fn parse_json_file(path: &Path) -> crate::Result<Value> {
 fn validate_color_scheme(value: &Value, path: &Path) -> crate::Result<()> {
     let object = expect_object(value, path.display().to_string())?;
 
-    for key in ["family", "variant", "colors", "palette"] {
+    for key in ["family", "variant", "appearance", "colors", "palette"] {
         if !object.contains_key(key) {
             return Err(invalid_data(format!(
                 "{}: missing required top-level key '{key}'",

@@ -25,6 +25,7 @@ Components.WheelFlickable {
     property var monthData: hasData ? (stateData.month || []) : []
     property string weekRange: hasData ? (stateData.week_range || "") : ""
     property bool chartVisualsReady: false
+    readonly property int staleAfterSeconds: 5
     readonly property real weekChartHeight: Math.max(Theme.fontSize * 8, 96)
     readonly property real weekValueFontSize: Math.max(Theme.fontSizeSmall - 2, 8)
     readonly property real monthCellSize: Math.max(Theme.fontSize + 8, 20)
@@ -56,7 +57,7 @@ Components.WheelFlickable {
 
     Process {
         id: stateProc
-        command: ["bash", "-c", "state_path=\"$XDG_RUNTIME_DIR/focustime_state.json\"; [ -f \"$state_path\" ] || exit 3; cat -- \"$state_path\""]
+        command: ["bash", "-c", "state_root=\"${XDG_RUNTIME_DIR:-/run/user/$(id -u)}\"; state_path=\"$state_root/focustime_state.json\"; [ -f \"$state_path\" ] || exit 3; cat -- \"$state_path\""]
         running: false
         property string buf: ""
         stdout: SplitParser { onRead: (line) => { stateProc.buf += line; } }
@@ -73,7 +74,7 @@ Components.WheelFlickable {
                     let parsed = JSON.parse(trimmed);
                     let lastUpdated = Number(parsed.last_updated);
                     let now = Math.floor(Date.now() / 1000);
-                    if (isFinite(lastUpdated) && lastUpdated > 0 && Math.abs(now - lastUpdated) <= 30) {
+                    if (isFinite(lastUpdated) && lastUpdated > 0 && Math.abs(now - lastUpdated) <= root.staleAfterSeconds) {
                         root.stateData = parsed;
                         root.loadState = "ready";
                     } else {
