@@ -3,7 +3,7 @@
 ## Scope
 
 Current implementation map for the flake, shared NixOS modules, optional
-distributed-build wiring, and embedded Home Manager layer as of 2026-04-07.
+distributed-build wiring, and embedded Home Manager layer as of 2026-04-08.
 
 ## Flake Topology
 
@@ -12,8 +12,8 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-07.
 | Outputs | `flake.nix:23-101` exports `nixosConfigurations.vm`, `nixosConfigurations.laptop`, `nixosConfigurations.desktop`, plus `overlays.default` and `packages.x86_64-linux.desktopctl` |
 | Host constructor | `mkHost` in `flake.nix:33-60` wraps `nixpkgs.lib.nixosSystem` |
 | Feature flags | `flake.nix:25-31` keeps both `enableMarchOptimizations` and `enableDistributedBuilds` in the shared host constructor, with distributed builds currently disabled by default |
-| Shared system layer | `system/configuration.nix:1-402` |
-| Home Manager entry | `home/default.nix:1-342`, embedded through `home-manager.nixosModules.home-manager` in `flake.nix:45-58` |
+| Shared system layer | `system/configuration.nix:1-400` |
+| Home Manager entry | `home/default.nix:1-347`, embedded through `home-manager.nixosModules.home-manager` in `flake.nix:49-58` |
 | Platform | `flake.nix:39-40` passes `system = "x86_64-linux"` directly to `nixosSystem` |
 
 `mkHost` currently assembles this module stack:
@@ -72,7 +72,7 @@ though the repo currently ships with it disabled.
 | Pattern | Current use |
 | --- | --- |
 | Base files via `xdg.configFile` | Hyprland base files, Alacritty, tmux, Zathura, recursive `quickshell/`, recursive `nvim/`, Git ignore, and packaged Snappy Switcher themes |
-| Host-selected symlinks | `hypr/monitors.conf`, `hypr/input-devices.conf`, and `hypr/env.conf` vary by `hostName` |
+| Host-selected symlinks | `hypr/autostart-host.conf`, `hypr/monitors.conf`, `hypr/input-devices.conf`, and `hypr/env.conf` vary by `hostName` |
 | Generated theme outputs | Written at activation/runtime by `desktopctl theme`, not by store symlinks |
 | Runtime executables | `desktopctl` is installed as a Nix package; the old `home.file`-managed session scripts are gone |
 
@@ -93,7 +93,7 @@ This is the current base/generated split:
    the selected `nixosConfigurations.<host>`.
 2. The embedded Home Manager module writes managed user files.
 3. `home.activation.applyTheme` prepends `pkgs.desktopctl` to `PATH` and runs
-   `desktopctl theme sync` through `home/default.nix:324-326`.
+   `desktopctl theme sync` through `home/default.nix:329-332`.
 4. `sync` materializes only `sync_safe` targets and skips runtime reload hooks.
 
 The `nrs` alias in `home/shell.nix` remains the preferred wrapper for this

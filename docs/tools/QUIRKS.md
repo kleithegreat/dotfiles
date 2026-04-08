@@ -48,6 +48,22 @@ XDG-compliant path. This is dictated by VS Code's hardcoded settings location.
 The base file is at `config/vscode/base.json` and is not deployed by Home
 Manager — it is consumed only by the theme pipeline's concat step.
 
+## Vicinae provider search paths stay literal
+
+**Symptom:** `config/vicinae/base.json` still contains `/home/kevin/...` and
+`/etc/profiles/per-user/kevin/...` entries instead of `~`, `$XDG_*`, or other
+derived paths.
+
+**Cause:** Vicinae's own `vicinae config default` output documents relative-path
+support for top-level `imports`, but it does not document `~` or environment
+variable expansion for `providers.*.preferences.paths`.
+
+**Status:** Limitation documented
+
+**Resolution:** Keep the provider search paths as literal strings in
+`config/vicinae/base.json` and annotate the file rather than guessing at an
+unsupported expansion rule.
+
 ## Snappy Switcher Theme Assets
 
 Home Manager deploys `snappy-switcher/themes` from the snappy-switcher

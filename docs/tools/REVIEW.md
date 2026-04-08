@@ -1,6 +1,6 @@
 # Tools Configuration Review
 
-Reviewed on 2026-04-07.
+Reviewed on 2026-04-08.
 
 ## Verdict
 
@@ -18,11 +18,9 @@ implementation is narrower than the upstream tool surface.
 
 | Severity | Tool | Finding |
 | --- | --- | --- |
-| High | Neovim | The generated theme state is wider than the installed theme surface: raw `variant` values do not always map to valid `background` values, and only `gruvbox` is guaranteed to exist locally. |
-| Medium | Neovim | `vimtex` is lazy-loaded even though upstream recommends loading it eagerly under `lazy.nvim`. |
 | Medium | Neovim | The Neovim 0.12 Treesitter path is much thinner than the 0.11 path and would change behavior materially if activated. |
+| Low | Neovim | The editor remains intentionally single-scheme: non-`gruvbox` theme state now falls back silently to `gruvbox` instead of trying to load arbitrary scheme names. |
 | Medium | Ghostty | The current design is close to full-file generation even though Ghostty supports split config through `config-file`. |
-| Medium | tmux | Current tmux versions prefer `terminal-features` over `terminal-overrides` for RGB capability declarations. |
 | Medium | Zsh | `compinit -C` trades startup speed for skipping the new-functions and security checks once the dump exists. |
 | Medium | Vicinae | Vicinae supports imported fragments, but the repo still uses merge-based generation. |
 | Low | Zathura | Recolor is always enabled, which is coherent for dark-mode PDF reading but stronger than upstream defaults. |

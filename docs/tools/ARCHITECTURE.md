@@ -4,7 +4,7 @@
 
 Current map for the repo-managed tool configs under `config/`, the shell-side
 tooling in `home/shell.nix`, and the matching `desktopctl` theme targets as of
-2026-04-07.
+2026-04-08.
 
 ## Source Of Truth
 
@@ -13,14 +13,14 @@ Manager deploys.
 
 | Tool | Repo-authored source | Live theme-owned output | Assembly | Notes |
 | --- | --- | --- | --- | --- |
-| Neovim | `config/nvim/**/*` | `~/.config/nvim/lua/theme-state.json`, `~/.config/nvim/lua/neovide-theme.lua` | `standalone` | Home Manager symlinks the full tree; theming writes only state files |
+| Neovim | `config/nvim/**/*` | `~/.config/nvim/lua/theme-state.json`, `~/.config/nvim/lua/neovide-theme.lua` | `standalone` | Home Manager symlinks the full tree; theming writes only state files; the runtime config sanitizes `background` to `dark`/`light` and otherwise falls back silently to the installed `gruvbox` scheme |
 | Alacritty | `config/alacritty/alacritty.toml` | `~/.config/alacritty/theme.toml` | `import` | Base config imports the generated fragment |
 | Ghostty | `config/ghostty/base` | `~/.config/ghostty/config` | `concat` | Base file plus generated theme block written at apply time |
 | tmux | `config/tmux/tmux.conf` | `~/.config/tmux/colors.conf` | `import` | Base config sources the generated colors file |
 | Zsh | `home/shell.nix` | Home Manager-managed shell init | none | Shell behavior is Nix-authored; no direct theme target |
 | Starship | `config/starship/base.toml` | `~/.config/starship.toml` | `concat` | Base prompt config plus generated palette block written at apply time |
 | Zathura | `config/zathura/zathurarc` | `~/.config/zathura/colors` | `import` | Base config includes the generated colors file |
-| Vicinae | `config/vicinae/base.json` | `~/.config/vicinae/settings.json` | `concat` | Base settings plus generated theme block written at apply time |
+| Vicinae | `config/vicinae/base.json` | `~/.config/vicinae/settings.json` | `concat` | Base settings plus generated theme block written at apply time; provider search paths remain literal because Vicinae only documents relative-path support for top-level `imports` |
 | VS Code | `config/vscode/base.json` | `~/.config/Code/User/settings.json` | `concat` | Base JSON merged with generated theme/font block; `persist()` also syncs extension state in `state.vscdb` |
 | Snappy Switcher | `config/snappy-switcher/base.ini` | `~/.config/snappy-switcher/config.ini` | `concat` | Base INI plus generated theme/icon/font section; daemon restarts on apply |
 | Hyprland | `config/hypr/*.conf` | `~/.config/hypr/colors.conf`, `~/.config/hypr/appearance-theme.conf`, `~/.config/hypr/cursor.conf` | `standalone` | Modular repo configs deployed by Home Manager; three theme targets write standalone files into the same `~/.config/hypr/` tree |

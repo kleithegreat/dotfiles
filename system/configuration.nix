@@ -386,7 +386,6 @@ in
   # ── System packages (bare minimum — user tools go in home-manager) ──
   environment.systemPackages = with pkgs; [
     vim
-    gitFull
     wget
     curl
     cifs-utils       # SMB/CIFS mount support

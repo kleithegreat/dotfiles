@@ -1,25 +1,5 @@
 # Hyprland Quirks
 
-## Unstable /dev/dri/cardN paths in AQ_DRM_DEVICES
-
-**Symptom:** After a kernel update or driver change on the laptop, Hyprland can
-start on the wrong GPU or fail to initialize the intended Intel-primary
-ordering.
-
-**Cause:** `config/hypr/env.conf:15` sets
-`AQ_DRM_DEVICES=/dev/dri/card2:/dev/dri/card1` using hardcoded card numbers.
-The Linux kernel does not guarantee stable `/dev/dri/cardN` assignment across
-boots — the numbering depends on driver probe order, which can shift with
-kernel updates, module load ordering, or hardware changes.
-
-**Current behavior:** The laptop depends on Intel Iris Xe probing as `card2`
-and the NVIDIA dGPU probing as `card1`. If this ordering changes, the
-compositor will either use the wrong GPU as primary or fail to start.
-
-**Why it persists:** Hyprland's `AQ_DRM_DEVICES` only accepts `/dev/dri/cardN`
-paths. Unlike `by-path` or `by-id` symlinks used elsewhere in Linux, there is
-no stable-path alternative for DRM device selection in this variable.
-
 ## Shared brightness hooks assume a discoverable backlight device
 
 **Symptom:** Brightness controls do nothing useful on the desktop or a future
@@ -72,17 +52,3 @@ workspace overview, keep the binding on the core `gesture` keyword and use the
 `dispatcher` action to call `hyprexpo:expo toggle`
 (`hosts/laptop/input-devices.conf:10-11`). Reserve `hyprexpo-gesture` for files
 sourced after `plugins.conf`, or guard it with `hyprlang noerror`.
-
-## Desktop env.conf mixes environment and autostart
-
-**Symptom:** `hosts/desktop/env.conf` contains an `exec-once` directive
-alongside environment variables.
-
-**Cause:** `hosts/desktop/env.conf:24` runs
-`exec-once = solaar config "MX Master 2S" smart-shift 50` to configure the
-Logitech mouse at session start. This is a host-specific autostart concern
-placed in an environment fragment.
-
-**Impact:** No functional issue — Hyprland processes both `env` and `exec-once`
-regardless of file name. The concern is semantic: someone looking for autostart
-commands might miss this one because it lives in the env fragment.
