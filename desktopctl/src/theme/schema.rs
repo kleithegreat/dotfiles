@@ -226,8 +226,7 @@ struct NamedColors {
 struct ColorSchemeWire {
     family: String,
     variant: String,
-    #[serde(default)]
-    appearance: Option<ColorSchemeAppearance>,
+    appearance: ColorSchemeAppearance,
     #[serde(default, skip_serializing_if = "ColorSchemeAppThemes::is_empty")]
     app_themes: ColorSchemeAppThemes,
     colors: NamedColors,
@@ -302,7 +301,7 @@ impl Serialize for ColorScheme {
         let wire = ColorSchemeWire {
             family: self.family.clone(),
             variant: self.variant.clone(),
-            appearance: Some(self.appearance),
+            appearance: self.appearance,
             app_themes: self.app_themes.clone(),
             colors: NamedColors {
                 bg: self.bg.clone(),
@@ -342,13 +341,10 @@ impl<'de> Deserialize<'de> for ColorScheme {
         D: Deserializer<'de>,
     {
         let wire = ColorSchemeWire::deserialize(deserializer)?;
-        let appearance = wire
-            .appearance
-            .unwrap_or_else(|| infer_scheme_appearance(&wire.colors.bg, &wire.colors.fg));
         Ok(Self {
             family: wire.family,
             variant: wire.variant,
-            appearance,
+            appearance: wire.appearance,
             app_themes: wire.app_themes,
             bg: wire.colors.bg,
             bg_dim: wire.colors.bg_dim,
@@ -376,30 +372,6 @@ impl<'de> Deserialize<'de> for ColorScheme {
             orange_bright: wire.colors.orange_bright,
             palette: wire.palette,
         })
-    }
-}
-
-fn infer_scheme_appearance(bg: &str, fg: &str) -> ColorSchemeAppearance {
-    if relative_luminance(bg) > relative_luminance(fg) {
-        ColorSchemeAppearance::Light
-    } else {
-        ColorSchemeAppearance::Dark
-    }
-}
-
-fn relative_luminance(hex_color: &str) -> f64 {
-    let red = srgb_channel_to_linear(u8::from_str_radix(&hex_color[1..3], 16).unwrap());
-    let green = srgb_channel_to_linear(u8::from_str_radix(&hex_color[3..5], 16).unwrap());
-    let blue = srgb_channel_to_linear(u8::from_str_radix(&hex_color[5..7], 16).unwrap());
-    0.2126 * red + 0.7152 * green + 0.0722 * blue
-}
-
-fn srgb_channel_to_linear(channel: u8) -> f64 {
-    let value = channel as f64 / 255.0;
-    if value <= 0.04045 {
-        value / 12.92
-    } else {
-        ((value + 0.055) / 1.055).powf(2.4)
     }
 }
 

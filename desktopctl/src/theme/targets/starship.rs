@@ -5,7 +5,7 @@ pub const METADATA: TargetMetadata = TargetMetadata {
     name: "starship",
     assembly: Assembly::Concat,
     output_path: Some("~/.config/starship.toml"),
-    base_path: Some("~/repos/dotfiles/config/starship/base.toml"),
+    base_path: Some("config/starship/base.toml"),
     extra_outputs: &[],
     reload_cmd: None,
     comment: Some("#"),

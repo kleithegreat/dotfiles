@@ -5,7 +5,7 @@ pub const METADATA: TargetMetadata = TargetMetadata {
     name: "ghostty",
     assembly: Assembly::Concat,
     output_path: Some("~/.config/ghostty/config"),
-    base_path: Some("~/repos/dotfiles/config/ghostty/base"),
+    base_path: Some("config/ghostty/base"),
     extra_outputs: &[],
     reload_cmd: None,
     comment: Some("#"),

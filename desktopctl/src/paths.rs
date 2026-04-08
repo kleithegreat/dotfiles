@@ -12,6 +12,11 @@ pub(crate) fn repo_root() -> io::Result<PathBuf> {
     Ok(home_dir()?.join(Path::new("repos/dotfiles")))
 }
 
+/// Return a path rooted at the dotfiles checkout.
+pub(crate) fn repo_path(relative: impl AsRef<Path>) -> io::Result<PathBuf> {
+    Ok(repo_root()?.join(relative))
+}
+
 /// Return the user's home directory.
 pub(crate) fn home_dir() -> io::Result<PathBuf> {
     env_path("HOME").ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "HOME is not set"))

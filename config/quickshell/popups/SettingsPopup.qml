@@ -98,6 +98,8 @@ FocusScope {
     property string presetCommandError: ""
     property int presetMutationToken: 0
     property bool themeStateReloadPending: false
+    property var themeWriteQueue: []
+    property bool themeWriteDrainAfterReload: false
     readonly property bool themeWritePending: applyProc.running && applyProc.mode === "set" && applyProc.pendingKey !== ""
     readonly property string pendingThemeKey: applyProc.pendingKey
     readonly property int panelWidth: {
@@ -153,7 +155,6 @@ FocusScope {
         BrightnessService.refresh();
         DisplayService.refresh();
         PowerProfileService.detect();
-        PowerProfileService.detectChargeLimit();
     }
 
     function loadThemeState() {
@@ -209,15 +210,38 @@ FocusScope {
         id: stateProc; command: ["desktopctl", "theme", "status", "--json"]; running: false
         property string buf: ""
         stdout: SplitParser { onRead: (line) => { stateProc.buf += line; } }
-        onExited: {
+        onExited: (code) => {
+            let parsed = false;
+            let trimmed = buf.trim();
             try {
-                settingsPop.themeState = JSON.parse(buf);
-                settingsPop.syncHyprDraftState();
-            } catch(e) {}
+                if (code === 0 && trimmed !== "") {
+                    settingsPop.themeState = JSON.parse(buf);
+                    settingsPop.syncHyprDraftState();
+                    parsed = true;
+                }
+            } catch(e) {
+                ToastService.showError("Failed to parse theme state");
+            }
+
+            if (code !== 0)
+                ToastService.showError("Failed to load theme state");
+            else if (!parsed && trimmed === "")
+                ToastService.showError("Theme state is empty");
+
             buf = "";
 
-            if (settingsPop.themeStateReloadPending)
+            if (settingsPop.themeStateReloadPending) {
                 settingsPop.loadThemeState();
+                return;
+            }
+
+            if (settingsPop.themeWriteDrainAfterReload) {
+                settingsPop.themeWriteDrainAfterReload = false;
+                settingsPop.startNextThemeWrite();
+                return;
+            }
+
+            settingsPop.startNextThemeWrite();
         }
     }
 
@@ -699,47 +723,81 @@ FocusScope {
         presetCommandProc.running = true;
     }
 
+    function queueThemeWrite(request) {
+        let nextQueue = themeWriteQueue.slice(0);
+        nextQueue.push(request);
+        themeWriteQueue = nextQueue;
+        startNextThemeWrite();
+    }
+
+    function startNextThemeWrite() {
+        if (applyProc.running || stateProc.running || themeWriteDrainAfterReload || themeWriteQueue.length === 0)
+            return;
+
+        let nextQueue = themeWriteQueue.slice(0);
+        let request = nextQueue.shift();
+        themeWriteQueue = nextQueue;
+
+        applyProc.mode = request.mode;
+        applyProc.pendingKey = request.key || "";
+        applyProc.rollbackState = request.mode === "set" ? cloneThemeState(themeState) : ({});
+        applyProc.errorBuf = "";
+        if (request.mode === "set")
+            stageThemeValue(request.key, request.value);
+        applyProc.command = request.command;
+        applyProc.running = true;
+    }
+
     // ── Apply commands ──
     Process {
         id: applyProc; running: false
         property string mode: ""
         property string pendingKey: ""
         property var rollbackState: ({})
-        stderr: SplitParser { onRead: (line) => { console.log("[desktopctl theme stderr]", line); } }
+        property string errorBuf: ""
+        stderr: SplitParser {
+            onRead: (line) => {
+                applyProc.errorBuf += line + "\n";
+                console.log("[desktopctl theme stderr]", line);
+            }
+        }
         onExited: (code, status) => {
+            let errorMessage = applyProc.errorBuf.trim();
             if (code !== 0) {
                 if (mode === "set")
                     settingsPop.themeState = rollbackState;
-                console.log("[desktopctl theme] exit", code);
+                ToastService.showError(errorMessage !== "" ? errorMessage : "Theme command failed");
             } else {
+                settingsPop.themeWriteDrainAfterReload = true;
                 settingsPop.loadThemeState();
             }
 
             mode = "";
             pendingKey = "";
             rollbackState = ({});
+            errorBuf = "";
+
+            if (code !== 0)
+                settingsPop.startNextThemeWrite();
         }
     }
 
     function runSet(key, value) {
-        if (applyProc.running)
-            return;
-        applyProc.mode = "set";
-        applyProc.pendingKey = key;
-        applyProc.rollbackState = cloneThemeState(themeState);
-        stageThemeValue(key, value);
-        applyProc.command = ["desktopctl", "theme", "set", key, value];
-        applyProc.running = true;
+        let commandValue = String(value);
+        queueThemeWrite({
+            mode: "set",
+            key: key,
+            value: value,
+            command: ["desktopctl", "theme", "set", key, commandValue]
+        });
     }
 
     function runPreset(name) {
-        if (applyProc.running)
-            return;
-        applyProc.mode = "preset";
-        applyProc.pendingKey = "";
-        applyProc.rollbackState = ({});
-        applyProc.command = ["desktopctl", "theme", "preset", name];
-        applyProc.running = true;
+        queueThemeWrite({
+            mode: "preset",
+            key: "",
+            command: ["desktopctl", "theme", "preset", name]
+        });
     }
 
     Process {

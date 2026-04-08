@@ -1,14 +1,22 @@
-use crate::theme::{
-    self, json,
-    schema::{ColorScheme, ThemeState},
-    targets::{Assembly, GeneratedContent, Target, TargetRegistry},
+use crate::{
+    paths,
+    theme::{
+        self, json,
+        schema::{ColorScheme, ThemeState},
+        targets::{Assembly, GeneratedContent, Target, TargetRegistry},
+    },
 };
 use serde_json::{Map, Value};
-use std::{collections::BTreeSet, fs, io, path::Path};
+use std::{
+    collections::BTreeSet,
+    fs, io,
+    path::{Path, PathBuf},
+};
 
-const COLOR_SCHEME_TARGETS: [&str; 16] = [
+const COLOR_SCHEME_TARGETS: [&str; 17] = [
     "alacritty",
     "ghostty",
+    "gtksourceview",
     "hyprland",
     "zathura",
     "quickshell",
@@ -270,16 +278,18 @@ fn assemble_concat(
     colors: &ColorScheme,
 ) -> crate::Result<()> {
     let output_path = output_path(metadata)?;
-    let base_path = theme::expand_user_path(metadata.base_path.ok_or_else(|| {
-        io::Error::new(
-            io::ErrorKind::InvalidInput,
-            format!("Target '{}' is missing BASE_PATH", metadata.name),
-        )
-    })?)?;
+    let base_path = base_path(metadata)?;
 
-    if !base_path.is_file() {
-        eprintln!("  skip: base file missing: {}", base_path.display());
-        return Ok(());
+    if !base_path.exists() {
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!(
+                "base file missing for target '{}': {}",
+                metadata.name,
+                base_path.display()
+            ),
+        )
+        .into());
     }
 
     let rendered = match content {
@@ -436,11 +446,7 @@ fn run_owned_command(command: &[String]) -> crate::Result<()> {
 }
 
 fn write_output(path: &Path, content: &str) -> crate::Result<()> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    fs::write(path, content)?;
-    Ok(())
+    theme::atomic_write(path, content.as_bytes())
 }
 
 fn write_extra_outputs(
@@ -464,6 +470,25 @@ fn output_path(
         )
     })?;
     theme::expand_user_path(path)
+}
+
+fn base_path(metadata: &crate::theme::targets::TargetMetadata) -> crate::Result<PathBuf> {
+    let path = metadata.base_path.ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("Target '{}' is missing BASE_PATH", metadata.name),
+        )
+    })?;
+    resolve_base_path(path)
+}
+
+fn resolve_base_path(path: &str) -> crate::Result<PathBuf> {
+    let candidate = Path::new(path);
+    if path.starts_with('~') || candidate.is_absolute() {
+        return theme::expand_user_path(path);
+    }
+
+    Ok(paths::repo_path(candidate)?)
 }
 
 fn trim_trailing_newlines(text: &str) -> &str {
@@ -509,6 +534,7 @@ mod tests {
         serde_json::from_value(serde_json::json!({
             "family": "gruvbox",
             "variant": "dark",
+            "appearance": "dark",
             "colors": {
                 "bg": "#000000",
                 "bg_dim": "#010101",

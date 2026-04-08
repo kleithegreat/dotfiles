@@ -2,10 +2,13 @@ use crate::paths;
 use serde_json::error::Category as JsonErrorCategory;
 use serde_json::{Map, Value};
 use std::{
-    env, fs, io,
+    env, io,
+    fs::{self, OpenOptions},
     path::{Path, PathBuf},
-    process::Command,
+    process::{self, Command},
+    time::{SystemTime, UNIX_EPOCH},
 };
+use std::io::Write;
 
 pub mod json;
 pub mod orchestrator;
@@ -13,9 +16,10 @@ pub mod resolve;
 pub mod schema;
 pub mod targets;
 
-const BASE_COLOR_TARGETS: [&str; 15] = [
+const BASE_COLOR_TARGETS: [&str; 16] = [
     "alacritty",
     "ghostty",
+    "gtksourceview",
     "hyprland",
     "zathura",
     "quickshell",
@@ -87,6 +91,7 @@ pub fn set_dark_hint(enabled: bool) -> crate::Result<()> {
             "failed to apply affected theme targets for dark_hint: {error}"
         ))
     })?;
+    resolve::save_state(&outcome.new_state)?;
     Ok(())
 }
 
@@ -100,6 +105,67 @@ pub(crate) fn expand_user_path(path: &str) -> crate::Result<PathBuf> {
     }
 
     Ok(PathBuf::from(path))
+}
+
+pub(crate) fn atomic_write(path: &Path, content: &[u8]) -> crate::Result<()> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+
+    let existing_permissions = fs::metadata(path).ok().map(|metadata| metadata.permissions());
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("output");
+    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    let mut last_exists_error = None;
+
+    for attempt in 0..16 {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+        let temp_path = parent.join(format!(
+            ".{file_name}.desktopctl-{}-{nanos}-{attempt}.tmp",
+            process::id()
+        ));
+
+        match OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temp_path)
+        {
+            Ok(mut file) => {
+                if let Some(permissions) = &existing_permissions {
+                    file.set_permissions(permissions.clone())?;
+                }
+
+                if let Err(error) = (|| -> io::Result<()> {
+                    file.write_all(content)?;
+                    file.sync_all()?;
+                    Ok(())
+                })() {
+                    let _ = fs::remove_file(&temp_path);
+                    return Err(error.into());
+                }
+
+                if let Err(error) = fs::rename(&temp_path, path) {
+                    let _ = fs::remove_file(&temp_path);
+                    return Err(error.into());
+                }
+
+                return Ok(());
+            }
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
+                last_exists_error = Some(error);
+            }
+            Err(error) => return Err(error.into()),
+        }
+    }
+
+    Err(last_exists_error
+        .unwrap_or_else(|| io::Error::other("failed to allocate a temporary file"))
+        .into())
 }
 
 pub(crate) fn run_command(command: &[&str]) -> crate::Result<()> {
@@ -273,7 +339,9 @@ fn cmd_set(args: crate::SetArgs) -> CliResult<()> {
     }
 
     println!("Set {} = {}", key, python_repr_value(&outcome.value));
-    apply_affected_targets(&outcome.new_state, &outcome.affected_targets)
+    apply_affected_targets(&outcome.new_state, &outcome.affected_targets)?;
+    map_user_err(resolve::save_state(&outcome.new_state))?;
+    Ok(())
 }
 
 fn cmd_preset(args: crate::NamedArg) -> CliResult<()> {
@@ -299,7 +367,6 @@ fn cmd_preset(args: crate::NamedArg) -> CliResult<()> {
         }
 
         let new_state = map_user_err(validated_theme_state(state_map, "theme state"))?;
-        map_user_err(resolve::save_state(&new_state))?;
 
         println!("Loaded preset '{}', applying all targets...", preset_name);
         let colors_dir = map_user_err(resolve::colors_dir())?;
@@ -308,6 +375,7 @@ fn cmd_preset(args: crate::NamedArg) -> CliResult<()> {
         if !orchestrator::apply_all(&registry, &colors, &new_state, true, false) {
             return Err(CliFailure::Reported);
         }
+        map_user_err(resolve::save_state(&new_state))?;
     }
 
     if let Some(enabled) = requested_dark_hint {
@@ -340,7 +408,7 @@ fn cmd_save_preset(args: crate::SavePresetArgs) -> CliResult<()> {
 
     let ordered = ordered_theme_mapping(&preset);
     let rendered = format!("{}\n", json::format_pretty_value(&Value::Object(ordered)));
-    map_user_err(fs::write(&preset_path, rendered))?;
+    map_user_err(atomic_write(&preset_path, rendered.as_bytes()))?;
 
     let count = preset.len();
     let noun = if count == 1 { "field" } else { "fields" };
@@ -529,7 +597,6 @@ fn set_state_key_internal(key: &str, raw_value: Value) -> crate::Result<StateUpd
 
     state_map.insert(key.to_owned(), value.clone());
     let new_state = validated_theme_state(state_map, "theme state")?;
-    resolve::save_state(&new_state)?;
     let affected_targets = orchestrator::targets_for_key(key, Some(&new_state));
 
     Ok(StateUpdateOutcome {

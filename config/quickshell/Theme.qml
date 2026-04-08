@@ -1,13 +1,21 @@
 pragma Singleton
 import QtQuick
+import QtCore
 import Quickshell.Io
 
 QtObject {
     id: root
 
+    readonly property string generatedThemePath: {
+        let configHome = StandardPaths.writableLocation(StandardPaths.ConfigLocation);
+        if (configHome !== "")
+            return configHome + "/quickshell/GeneratedTheme.json";
+        return StandardPaths.writableLocation(StandardPaths.HomeLocation) + "/.config/quickshell/GeneratedTheme.json";
+    }
+
     // ── Load from generated JSON (auto-reloads on file change) ──
     property FileView _themeFile: FileView {
-        path: "/home/kevin/.config/quickshell/GeneratedTheme.json"
+        path: root.generatedThemePath
         watchChanges: true
         blockLoading: true
         onFileChanged: reload()

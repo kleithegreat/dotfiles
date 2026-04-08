@@ -11,7 +11,7 @@ intentionally descriptive: when the code is ambiguous or weak at a boundary,
 | --- | --- |
 | Focus daemon | Tracks the active Hyprland window class, writes per-second aggregates into SQLite, and rewrites a JSON summary for Quickshell |
 | SQLite store | Persistent per-day, per-hour, and per-minute counters keyed by window class inside the shared `desktopctl.db` database |
-| Runtime JSON | Single summary document at `$XDG_RUNTIME_DIR/focustime_state.json` |
+| Runtime JSON | Single summary document at `${XDG_RUNTIME_DIR:-/run/user/$UID}/focustime_state.json` |
 | Quickshell consumer | `SettingsFocusTimePane.qml` polls and renders that JSON; it does not touch SQLite |
 
 ## Runtime Paths
@@ -27,11 +27,15 @@ intentionally descriptive: when the code is ambiguous or weak at a boundary,
 | `/run/user/$UID/focustime_state.json` | Focus daemon | State-file fallback when `XDG_RUNTIME_DIR` is unset |
 | `$XDG_RUNTIME_DIR/focustime_state.tmp` | Focus daemon | Sibling temp file used for atomic JSON replacement |
 | `$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock` | Hyprland | Event socket the daemon listens to for `activewindow>>` updates |
+| `/tmp/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock` | Hyprland | Fallback event socket when the compositor socket is not available under the runtime dir |
 
 Additional read-only runtime inputs:
 
 - `hyprctl activewindow -j` seeds the initial focused class before the socket
   listener starts.
+- Socket reconnects re-resolve the Hyprland event socket from the current
+  `HYPRLAND_INSTANCE_SIGNATURE`, then `/tmp/hypr`, then the newest discovered
+  candidate under the runtime and `/tmp/hypr` trees.
 - `.desktop` files are scanned under `XDG_DATA_HOME/applications`,
   `XDG_DATA_DIRS/*/applications`, `/run/current-system/sw/share/applications`,
   and `~/.nix-profile/share/applications` to resolve app display names and
@@ -196,14 +200,14 @@ This resolution affects `apps[*].name`, `apps[*].icon`, and the unlocked
 
 `SettingsFocusTimePane.qml` currently depends on these behaviors:
 
-- The pane reads the state file by spawning `bash -c 'state_path="$XDG_RUNTIME_DIR/focustime_state.json"; [ -f "$state_path" ] || exit 3; cat -- "$state_path"'`.
+- The pane reads the state file by spawning `bash -c 'state_root="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"; state_path="$state_root/focustime_state.json"; [ -f "$state_path" ] || exit 3; cat -- "$state_path"'`.
 - It polls every `3000` milliseconds and only starts another read when the prior
   `Process` is idle.
 - Exit code `3` means the file is missing and maps to "The focus time daemon is
   not running".
 - Any other non-zero exit, empty stdout, or JSON parse failure means
   `hasData = false` and maps to "Unable to read focus time data".
-- Parsed JSON with `last_updated` more than `30` seconds away from
+- Parsed JSON with `last_updated` more than `5` seconds away from
   `Date.now() / 1000` means `hasData = false` and maps to
   "Focus daemon has not updated recently".
 - Missing keys fall back to `0`, `""`, or `[]` in QML because the pane reads

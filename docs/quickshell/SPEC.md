@@ -83,8 +83,12 @@ Invariants:
 - QML never edits generated theme files directly.
 - Theme changes propagate through real completion of the apply command, not
   fixed timers.
+- Settings-host theme mutations serialize one backend write at a time and do
+  not replace an in-flight command with a newer request.
 - Shell visuals refresh from the generated theme file; settings controls refresh
   from a reloaded theme snapshot.
+- Backend theme-write failures are surfaced to the user instead of being
+  console-only.
 - `system_font` controls regular shell UI text, while `mono_font` remains for
   monospaced or glyph-oriented surfaces such as the clock and icon fonts.
 - Shell font families are theme-managed; shell layout constants are not.

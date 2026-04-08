@@ -10,7 +10,7 @@ pub const METADATA: TargetMetadata = TargetMetadata {
     name: "vscode",
     assembly: Assembly::Concat,
     output_path: Some("~/.config/Code/User/settings.json"),
-    base_path: Some("~/repos/dotfiles/config/vscode/base.json"),
+    base_path: Some("config/vscode/base.json"),
     extra_outputs: &[],
     reload_cmd: None,
     comment: None,

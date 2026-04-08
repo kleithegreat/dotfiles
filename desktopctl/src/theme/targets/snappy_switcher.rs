@@ -12,7 +12,7 @@ pub const METADATA: TargetMetadata = TargetMetadata {
     name: "snappy_switcher",
     assembly: Assembly::Concat,
     output_path: Some("~/.config/snappy-switcher/config.ini"),
-    base_path: Some("~/repos/dotfiles/config/snappy-switcher/base.ini"),
+    base_path: Some("config/snappy-switcher/base.ini"),
     extra_outputs: &[],
     reload_cmd: None,
     comment: Some("#"),

@@ -9,7 +9,7 @@ pub const METADATA: TargetMetadata = TargetMetadata {
     name: "vicinae",
     assembly: Assembly::Concat,
     output_path: Some("~/.config/vicinae/settings.json"),
-    base_path: Some("~/repos/dotfiles/config/vicinae/base.json"),
+    base_path: Some("config/vicinae/base.json"),
     extra_outputs: &[],
     reload_cmd: None,
     comment: None,

@@ -1,11 +1,5 @@
 # Focus Time Quirks
 
-## The Hyprland socket path is instance-specific and fixed for the lifetime of the listener thread
-**Symptom:** Focus tracking can stop following the real active window after a compositor restart or if the daemon starts without a valid `HYPRLAND_INSTANCE_SIGNATURE`.
-**Cause:** `desktopctl/src/hypr.rs` resolves `$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock` once before the listener thread starts, and `desktopctl/src/daemon/focus.rs` keeps reconnecting to that same path for the lifetime of the daemon.
-**Status:** Open
-**Resolution:** The current setup assumes the daemon is started by Hyprland autostart and restarted with the session. If focus tracking stops after Hyprland churn, restart the daemon with the compositor session.
-
 ## The UI is sampled, not event-driven
 **Symptom:** The settings pane can lag behind the actual focused app by a few seconds.
 **Cause:** The daemon rewrites the JSON summary once per second, but `SettingsFocusTimePane.qml` only polls it every `3000` ms.
@@ -13,8 +7,8 @@
 **Resolution:** Short-lived mismatches between the real active app and the rendered charts are expected. The pane is not subscribed to socket events or file-change notifications.
 
 ## Atomic JSON replacement prevents torn reads, but stale detection is still poll-driven
-**Symptom:** Quickshell almost never sees half-written JSON, but it can take roughly one polling interval plus the 30-second freshness window before the pane switches to "Focus daemon has not updated recently" after the daemon stops writing.
-**Cause:** The daemon writes `focustime_state.tmp`, renames it over `focustime_state.json`, and updates `last_updated` once per second, while `SettingsFocusTimePane.qml` only polls every `3000` ms and treats summaries older than `30` seconds as stale.
+**Symptom:** Quickshell almost never sees half-written JSON, but it can still take roughly one polling interval plus the 5-second freshness window before the pane switches to "Focus daemon has not updated recently" after the daemon stops writing.
+**Cause:** The daemon writes `focustime_state.tmp`, renames it over `focustime_state.json`, and updates `last_updated` once per second, while `SettingsFocusTimePane.qml` only polls every `3000` ms and treats summaries older than `5` seconds as stale.
 **Status:** Current behavior
 **Resolution:** Treat the file as an atomic heartbeat snapshot rather than an event stream. A short delay before the UI flips to the stale-state message is expected.
 
