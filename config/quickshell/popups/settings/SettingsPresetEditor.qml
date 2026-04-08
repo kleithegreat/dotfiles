@@ -83,29 +83,6 @@ Rectangle {
         return next;
     }
 
-    function familyDisplayName(name) {
-        if (name === "tokyonight")
-            return "Tokyo Night";
-        return name.charAt(0).toUpperCase() + name.slice(1);
-    }
-
-    function colorSchemeLabel(option) {
-        if (!option)
-            return "";
-
-        return root.familyDisplayName(option.family) + " " + option.variant;
-    }
-
-    function colorSchemeLabelForName(schemeName) {
-        for (let i = 0; i < root.colorFamilies.length; i++) {
-            let option = root.colorFamilies[i];
-            if (option && option.schemeName === schemeName)
-                return root.colorSchemeLabel(option);
-        }
-
-        return "";
-    }
-
     function inclusionStateLabel(key) {
         return root.hasField(key) ? "Included" : "Ignored";
     }
@@ -510,19 +487,13 @@ Rectangle {
                 }
             }
 
-            Components.InlineSelect {
-                id: presetColorSchemeSelect
+            Components.ColorSchemeCards {
                 visible: root.hasField("color_scheme")
                 Layout.fillWidth: true
+                Layout.preferredHeight: visible ? implicitHeight : 0
                 model: root.colorFamilies
-                currentValue: root.currentValue("color_scheme")
-                currentText: root.colorSchemeLabelForName(root.currentValue("color_scheme"))
-                secondaryText: root.colorFamilies.length + " schemes"
-                fontFamily: Theme.systemFamily
-                maxVisibleItems: 7
-                textForValue: function(option) { return root.colorSchemeLabel(option); }
-                matchesCurrent: function(option, currentValue) { return option && option.schemeName === currentValue; }
-                onActivated: (option) => root.setField("color_scheme", option.schemeName)
+                currentValue: root.currentValue("color_scheme") || ""
+                onActivated: (schemeName) => root.setField("color_scheme", schemeName)
             }
         }
 

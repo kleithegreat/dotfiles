@@ -1,14 +1,15 @@
 use crate::paths;
 use serde_json::error::Category as JsonErrorCategory;
 use serde_json::{Map, Value};
+use std::io::Write;
 use std::{
-    env, io,
+    env,
     fs::{self, OpenOptions},
+    io,
     path::{Path, PathBuf},
     process::{self, Command},
     time::{SystemTime, UNIX_EPOCH},
 };
-use std::io::Write;
 
 pub mod json;
 pub mod orchestrator;
@@ -112,7 +113,9 @@ pub(crate) fn atomic_write(path: &Path, content: &[u8]) -> crate::Result<()> {
         fs::create_dir_all(parent)?;
     }
 
-    let existing_permissions = fs::metadata(path).ok().map(|metadata| metadata.permissions());
+    let existing_permissions = fs::metadata(path)
+        .ok()
+        .map(|metadata| metadata.permissions());
     let file_name = path
         .file_name()
         .and_then(|name| name.to_str())
@@ -450,18 +453,52 @@ fn cmd_list_schemes(json_output: bool) -> CliResult<()> {
     let mut items = Vec::new();
     for scheme_name in schemes {
         let colors = map_user_err(resolve::load_colors(&scheme_name, &colors_dir))?;
+        let appearance = if colors.is_light() { "light" } else { "dark" }.to_owned();
         let mut item = Map::new();
         item.insert("schemeName".to_owned(), Value::String(scheme_name));
         item.insert("family".to_owned(), Value::String(colors.family));
         item.insert("variant".to_owned(), Value::String(colors.variant));
+        item.insert("appearance".to_owned(), Value::String(appearance));
         item.insert("bg".to_owned(), Value::String(colors.bg));
+        item.insert("bg_dim".to_owned(), Value::String(colors.bg_dim));
+        item.insert("bg1".to_owned(), Value::String(colors.bg1));
+        item.insert("bg2".to_owned(), Value::String(colors.bg2));
+        item.insert("bg3".to_owned(), Value::String(colors.bg3));
         item.insert("fg".to_owned(), Value::String(colors.fg));
+        item.insert("fg2".to_owned(), Value::String(colors.fg2));
+        item.insert("fg3".to_owned(), Value::String(colors.fg3));
+        item.insert("fg4".to_owned(), Value::String(colors.fg4));
         item.insert("accent".to_owned(), Value::String(colors.accent));
         item.insert("red".to_owned(), Value::String(colors.red));
         item.insert("green".to_owned(), Value::String(colors.green));
+        item.insert("orange".to_owned(), Value::String(colors.orange));
         item.insert("blue".to_owned(), Value::String(colors.blue));
         item.insert("yellow".to_owned(), Value::String(colors.yellow));
         item.insert("purple".to_owned(), Value::String(colors.purple));
+        item.insert("cyan".to_owned(), Value::String(colors.cyan));
+        item.insert("red_bright".to_owned(), Value::String(colors.red_bright));
+        item.insert(
+            "green_bright".to_owned(),
+            Value::String(colors.green_bright),
+        );
+        item.insert(
+            "yellow_bright".to_owned(),
+            Value::String(colors.yellow_bright),
+        );
+        item.insert("blue_bright".to_owned(), Value::String(colors.blue_bright));
+        item.insert(
+            "purple_bright".to_owned(),
+            Value::String(colors.purple_bright),
+        );
+        item.insert("cyan_bright".to_owned(), Value::String(colors.cyan_bright));
+        item.insert(
+            "orange_bright".to_owned(),
+            Value::String(colors.orange_bright),
+        );
+        item.insert(
+            "palette".to_owned(),
+            Value::Array(colors.palette.into_iter().map(Value::String).collect()),
+        );
         items.push(Value::Object(item));
     }
 
