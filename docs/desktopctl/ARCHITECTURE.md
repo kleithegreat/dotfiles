@@ -3,7 +3,7 @@
 ## Scope
 
 Current implementation state for the unified `desktopctl` binary and its repo
-integration as of 2026-04-03.
+integration as of 2026-04-07.
 
 ## Current Crate Layout
 
@@ -14,7 +14,7 @@ integration as of 2026-04-03.
 | Shared path helpers | `desktopctl/src/paths.rs:6-60` resolves the repo root from `DESKTOPCTL_REPO` or `~/repos/dotfiles`, provides shared XDG home/runtime fallbacks, and exposes the shared `desktopctl.db` path. |
 | Theme schema and validation | `desktopctl/src/theme/schema.rs:121-404`, `desktopctl/src/theme/schema.rs:406-608`, and `desktopctl/src/theme/resolve.rs:11-500` define the `ColorScheme` and `ThemeState` contract, including explicit scheme `appearance`, centralized app-theme metadata, compiled default theme-state values, canonical field ordering, color-scheme loading, and `theme_state` persistence with legacy `themes/state.json` import support. |
 | Theme JSON compatibility | `desktopctl/src/theme/json.rs:4-142` implements Python-style JSON rendering, including preserved object order, 2-space indentation, compact object spacing, and `ensure_ascii=True` escaping used by generated JSON targets and Quickshell-facing CLI output. |
-| Theme CLI surface | `desktopctl/src/theme/mod.rs:61-518` implements the migrated `desktopctl theme` command surface, including `all`, `sync`, scoped apply commands, `set`, `preset`, preset-file management, and `status` / `list-*` inspection output. `desktopctl/src/theme/mod.rs:252-330` now routes `dark_hint` writes back through the daemon-owned night-light API, and `desktopctl/src/theme/mod.rs:537-1028` keeps the filename-ordered JSON list helpers, Python-compatible JSON parse error text, and shared state-update normalization used by the parity audit. |
+| Theme CLI surface | `desktopctl/src/theme/mod.rs:61-518` implements the current `desktopctl theme` command surface, including `all`, `sync`, scoped apply commands, `set`, `preset`, preset-file management, and `status` / `list-*` inspection output. `desktopctl/src/theme/mod.rs:69-90` still persists and applies `dark_hint` directly through the theming module, and `desktopctl/src/theme/mod.rs:252-320` lets `theme set dark_hint ...` and preset-supplied `dark_hint` values take that same direct path without routing through the daemon. |
 | Theme orchestration | `desktopctl/src/theme/orchestrator.rs:47-228` and `desktopctl/src/theme/orchestrator.rs:230-383` own generated-file headers, assembly strategies, sync-safe filtering, dependency selection, ordered target application, concat merges, post-write hooks, and best-effort runtime reloads. The current dependency map includes `quickshell` for `font_size` changes (`desktopctl/src/theme/orchestrator.rs:41-43`, `desktopctl/src/theme/orchestrator.rs:189-190`). |
 | Theme target registry | `desktopctl/src/theme/targets/mod.rs:24-290` replaces Python auto-discovery with a typed registry and hand-registered target set for all 19 migrated theme targets. |
 | Theme targets | File-writing targets live under `desktopctl/src/theme/targets/*.rs`; `desktopctl/src/theme/targets/bat.rs:1-20`, `desktopctl/src/theme/targets/snappy_switcher.rs:1-94`, `desktopctl/src/theme/targets/vicinae.rs:1-51`, and `desktopctl/src/theme/targets/vscode.rs:1-101` now read per-scheme app metadata from `ColorScheme`, while `desktopctl/src/theme/targets/qt.rs:445-628` uses declared `appearance` for light/dark-only asset selection alongside its broader qt5ct/qt6ct/KDE/Kvantum writes. Other notable runtime-heavy ports include `desktopctl/src/theme/targets/cursor.rs:11-221`, `desktopctl/src/theme/targets/gtk.rs:5-71`, `desktopctl/src/theme/targets/quickshell.rs:19-89`, and `desktopctl/src/theme/targets/wallpaper.rs:13-220`. |
@@ -23,33 +23,33 @@ integration as of 2026-04-03.
 | Shared solar logic | `desktopctl/src/solar.rs:40-202` resolves cached or GeoClue coordinates, compute sunrise/sunset with the NOAA-derived port, and expose `sun status` plus next-event selection. |
 | Night-light CLI and helpers | `desktopctl/src/night_light.rs:15-318` adds the daemon-backed `desktopctl night-light {status,on,off,auto,toggle}` surface, the Unix-socket client helpers, fallback status reporting, and `hyprsunset` process inspection / start / stop helpers. |
 | Daemon supervisor | `desktopctl/src/daemon/mod.rs:27-95` starts the focus tracker, solar scheduler, and Unix-socket server under one tokio runtime, sharing one night-light controller between the solar and socket tasks and coordinating clean shutdown on `SIGTERM` / `SIGINT`. |
-| Night-light controller | `desktopctl/src/daemon/night_light.rs:14-162` stores the live `auto` / `on` / `off` mode, keeps the in-session manual temperature, derives the effective state from solar status, and applies `hyprsunset` plus `dark_hint` as one arbiter. |
+| Night-light controller | `desktopctl/src/daemon/night_light.rs:14-165` stores the live `auto` / `on` / `off` mode, keeps the in-session manual temperature, derives the effective state from solar status, and remains the only live writer of `hyprsunset`. In `auto`, it also persists the scheduled `dark_hint` by calling `desktopctl/src/night_light.rs:169-175`, which in turn delegates to `desktopctl/src/theme/mod.rs:69-90`. |
 | Solar scheduler | `desktopctl/src/daemon/solar.rs:8-49` replaces the old systemd timer script chain with an in-process scheduler that recomputes solar status immediately, sleeps until the next sunrise / sunset / 23:00 event or 2-hour repair tick, and asks the shared controller to reconcile the effective mode. |
 | Socket server | `desktopctl/src/daemon/server.rs:18-147` serves newline-delimited JSON requests on `$XDG_RUNTIME_DIR/desktopctl.sock`, including the daemon-owned `night_light.status`, `night_light.set`, and `night_light.toggle` methods. |
-| Existing helper ports | `desktopctl/src/brightness.rs`, `desktopctl/src/launch.rs`, and `desktopctl/src/portal.rs` remain the active ports for brightness stepping/dimming, Quickshell launch env export, and the directory picker helper. |
+| Existing helper ports | `desktopctl/src/brightness.rs`, `desktopctl/src/launch.rs`, and `desktopctl/src/portal.rs` remain the active ports for brightness stepping/dimming, Quickshell launch env export, and the directory picker helper. The brightness helpers now notify Quickshell through `qs ipc` (`desktopctl/src/brightness.rs:149-160`); `desktopctl/src/brightness.rs:91-93` keeps `seed()` as a no-op compatibility shim. |
 
 ## Repo Integration
 
 | Surface | Current implementation |
 | --- | --- |
 | Nix overlay and package wiring | `system/configuration.nix:5-8` imports the `desktopctl` overlay, `system/configuration.nix:159-162` applies it globally, and `overlays/march-optimized.nix:167-170` optionally rebuilds `desktopctl` with march tuning. |
-| Home Manager install and activation | `home/default.nix:33-45` adds `desktopctl` to `home.packages`, and `home/default.nix:310-312` now runs `desktopctl theme sync` during Home Manager activation. |
+| Home Manager install and activation | `home/default.nix:37-49` adds `desktopctl` to `home.packages`, and `home/default.nix:323-327` runs `desktopctl theme sync` during Home Manager activation. |
 | Quickshell settings host | `config/quickshell/popups/SettingsPopup.qml:127-245` reads theme state, scheme lists, and presets through `desktopctl theme ... --json`; `config/quickshell/DisplayService.qml:40-239` now reads daemon-owned night-light status and sends `desktopctl night-light ...` requests, while `config/quickshell/popups/SettingsPopup.qml:652-701` continues to send theme mutations through `desktopctl theme set`, `preset`, `save-preset`, and `delete-preset`. |
 | Quickshell shell IPC | `config/quickshell/shell.qml:24-108` and `config/quickshell/shell.qml:380-415` route the shell-level `theme.apply` IPC path to `desktopctl theme ...` with argv-safe tokenization and failure reporting. |
-| Hyprland autostart | `config/hypr/autostart.conf:4-13` now seeds the brightness cache, launches `desktopctl daemon`, launches Quickshell through `desktopctl launch-quickshell`, and reapplies the persisted wallpaper via `desktopctl theme wallpaper` after `awww-daemon` starts. |
+| Hyprland autostart | `config/hypr/autostart.conf:4-12` launches `desktopctl daemon`, launches Quickshell through `desktopctl launch-quickshell`, and reapplies the persisted wallpaper via `desktopctl theme wallpaper` after `awww-daemon` starts. It no longer seeds any brightness cache. |
 | Hyprland keybinds and idle hooks | `config/hypr/keybinds.conf:9-98` now uses descriptive `bindd` / `bindde` bindings around `desktopctl hypr toggle-float`, `desktopctl brightness`, `desktopctl night-light`, and `desktopctl launch-quickshell`; `config/hypr/hypridle.conf:7-12` uses `desktopctl brightness dim` / `restore`. |
 
 ## Migration Status
 
-- The Python theming entry point and package are gone: `themes/apply-theme` and
-  `themes/lib/` have been removed.
-- The legacy session scripts have been removed: `scripts/focus-daemon.py`,
-  `scripts/sun-schedule`, `scripts/brightness-step.sh`,
-  `scripts/dim-screen.sh`, `scripts/toggle-float.sh`, and
-  `scripts/launch-quickshell.sh` are no longer part of the repo.
-- The Quickshell directory picker helper and the Home Manager
-  `sun-schedule` module are gone: `config/quickshell/scripts/dir-picker.py`
-  and `home/sun-schedule.nix` were removed after the migration completed.
+- The tracked Python theming entry point and session-script surfaces are gone:
+  `themes/apply-theme`, `scripts/focus-daemon.py`, `scripts/sun-schedule`,
+  `scripts/brightness-step.sh`, `scripts/dim-screen.sh`,
+  `scripts/toggle-float.sh`, `scripts/launch-quickshell.sh`,
+  `config/quickshell/scripts/dir-picker.py`, and `home/sun-schedule.nix` are
+  no longer part of the repo.
+- A `themes/lib/` directory can still reappear locally if stale Python bytecode
+  artifacts are generated by an old checkout or tool cache, but it is no longer
+  a tracked implementation surface.
 
 ## Verification
 

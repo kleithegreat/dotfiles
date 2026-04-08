@@ -1,19 +1,16 @@
 # Sun Schedule Review
 
-Reviewed on 2026-04-03.
+Reviewed on 2026-04-07.
 
 ## Verdict
 
-The ownership conflicts called out in the previous review are resolved. The
-daemon now owns one live night-light controller that arbitrates `auto` /
-`on` / `off`, Quickshell and Hyprland keybinds request changes through
-`desktopctl night-light`, and theme-surface `dark_hint` requests are delegated
-back through the daemon instead of bypassing it.
+The `hyprsunset` ownership conflict is resolved, but the broader
+night-light-versus-theme ownership story is still split. The daemon owns one
+live controller for `hyprsunset`, while `dark_hint` can still be changed both
+by the daemon's solar `auto` path and by direct `desktopctl theme` writes.
 
 ## Findings
 
-No open ownership findings remain in this domain as of 2026-04-03.
-
-## Open Questions
-
-None at review time.
+| Severity | Finding | Why it matters |
+| --- | --- | --- |
+| Medium | `dark_hint` still has multiple live policy initiators and no daemon-owned override model. | `desktopctl/src/daemon/night_light.rs:129-163` writes scheduled `dark_hint` changes in `auto`, but `desktopctl/src/theme/mod.rs:252-320` still lets theme surfaces persist `dark_hint` directly. That means sun-schedule docs must describe `dark_hint` as split ownership, not as a daemon-only surface. |

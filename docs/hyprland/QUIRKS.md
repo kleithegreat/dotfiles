@@ -29,17 +29,15 @@ host with no `/sys/class/backlight` device.
 brightness`, which auto-detects the first backlight under
 `/sys/class/backlight/` and errors when none exists:
 
-- `autostart.conf:6` — initial brightness snapshot for Quickshell
 - `hypridle.conf:10-11` — dim-screen timeout and restore handler
 - `keybinds.conf:62-63` — repeat-on-hold brightness step binds
 
 These work on the laptop (which has a discoverable backlight device) but fail
 on the desktop (dedicated NVIDIA, no backlight device).
 
-**Impact:** On the desktop, the brightness snapshot writes nothing useful, the
-dim-screen timeout has no visible effect, and the brightness keybinds do
-nothing. No crashes, but the brightness-related shared surfaces remain
-laptop-oriented.
+**Impact:** On the desktop, the dim-screen timeout has no visible effect and
+the brightness keybinds do nothing. No crashes, but the brightness-related
+shared surfaces remain laptop-oriented.
 
 ## cursor.conf is generated, not committed
 

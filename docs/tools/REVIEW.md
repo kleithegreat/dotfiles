@@ -1,6 +1,6 @@
 # Tools Configuration Review
 
-Reviewed on 2026-04-03.
+Reviewed on 2026-04-07.
 
 ## Verdict
 
@@ -24,7 +24,7 @@ implementation is narrower than the upstream tool surface.
 | Medium | Ghostty | The current design is close to full-file generation even though Ghostty supports split config through `config-file`. |
 | Medium | tmux | Current tmux versions prefer `terminal-features` over `terminal-overrides` for RGB capability declarations. |
 | Medium | Zsh | `compinit -C` trades startup speed for skipping the new-functions and security checks once the dump exists. |
-| Medium | Vicinae | Vicinae supports imported fragments, but the repo still uses merge-based generation, and the theme map still misses some live family spellings. |
+| Medium | Vicinae | Vicinae supports imported fragments, but the repo still uses merge-based generation. |
 | Low | Zathura | Recolor is always enabled, which is coherent for dark-mode PDF reading but stronger than upstream defaults. |
 
 Primary references were the current local configs plus the corresponding upstream

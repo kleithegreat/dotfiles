@@ -78,7 +78,10 @@ Generated output files should not be committed to the repository. The canonical
 outputs live at their `OUTPUT_PATH` locations and are recreated on every theme
 apply.
 
-Historical repo-local snapshots of generated outputs have been removed. Do not
-reintroduce committed concat outputs or inert alternative configs under
-`config/`; keep the source of truth in the repo-authored base file and
-regenerate the runtime output at apply time.
+The current exception is `config/quickshell/GeneratedTheme.json`, which remains
+committed because Home Manager deploys the Quickshell tree recursively and the
+live file is then overwritten in place by the theming pipeline.
+
+Do not reintroduce additional committed concat outputs or inert alternative
+configs under `config/`; keep the source of truth in the repo-authored base
+file and regenerate the runtime output at apply time.

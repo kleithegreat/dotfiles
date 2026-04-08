@@ -13,8 +13,8 @@
 **Resolution:** Short-lived mismatches between the real active app and the rendered charts are expected. The pane is not subscribed to socket events or file-change notifications.
 
 ## Atomic JSON replacement prevents torn reads, but stale detection is still poll-driven
-**Symptom:** Quickshell almost never sees half-written JSON, but it can take roughly one polling interval plus the 10-second freshness window before the pane switches to "Focus daemon is not responding" after the daemon stops writing.
-**Cause:** The daemon writes `focustime_state.tmp`, renames it over `focustime_state.json`, and updates `last_updated` once per second, while `SettingsFocusTimePane.qml` only polls every `3000` ms and treats summaries older than `10` seconds as stale.
+**Symptom:** Quickshell almost never sees half-written JSON, but it can take roughly one polling interval plus the 30-second freshness window before the pane switches to "Focus daemon has not updated recently" after the daemon stops writing.
+**Cause:** The daemon writes `focustime_state.tmp`, renames it over `focustime_state.json`, and updates `last_updated` once per second, while `SettingsFocusTimePane.qml` only polls every `3000` ms and treats summaries older than `30` seconds as stale.
 **Status:** Current behavior
 **Resolution:** Treat the file as an atomic heartbeat snapshot rather than an event stream. A short delay before the UI flips to the stale-state message is expected.
 

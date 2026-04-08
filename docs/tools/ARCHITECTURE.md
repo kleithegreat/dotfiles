@@ -4,7 +4,7 @@
 
 Current map for the repo-managed tool configs under `config/`, the shell-side
 tooling in `home/shell.nix`, and the matching `desktopctl` theme targets as of
-2026-04-03.
+2026-04-07.
 
 ## Source Of Truth
 
@@ -24,7 +24,7 @@ Manager deploys.
 | VS Code | `config/vscode/base.json` | `~/.config/Code/User/settings.json` | `concat` | Base JSON merged with generated theme/font block; `persist()` also syncs extension state in `state.vscdb` |
 | Snappy Switcher | `config/snappy-switcher/base.ini` | `~/.config/snappy-switcher/config.ini` | `concat` | Base INI plus generated theme/icon/font section; daemon restarts on apply |
 | Hyprland | `config/hypr/*.conf` | `~/.config/hypr/colors.conf`, `~/.config/hypr/appearance-theme.conf`, `~/.config/hypr/cursor.conf` | `standalone` | Modular repo configs deployed by Home Manager; three theme targets write standalone files into the same `~/.config/hypr/` tree |
-| Quickshell | `config/quickshell/**/*` | `~/.config/quickshell/GeneratedTheme.json` | `standalone` | Home Manager symlinks the full QML tree; `Theme.qml` watches the generated JSON at runtime |
+| Quickshell | `config/quickshell/**/*` | `~/.config/quickshell/GeneratedTheme.json` | `standalone` | Home Manager symlinks the full QML tree; `Theme.qml` watches the generated JSON at runtime, and the repo also carries one committed bootstrap snapshot at `config/quickshell/GeneratedTheme.json` |
 | Git | `config/git/ignore` | none | none | Global gitignore deployed by Home Manager; no theme integration |
 
 Theme-only targets with no `config/` subdirectory:
@@ -51,5 +51,9 @@ Theme-only targets with no `config/` subdirectory:
   files, so both must exist for a working session.
 - Neovim and Quickshell theme targets similarly write generated state files
   into their Home Manager-symlinked config trees.
+- Quickshell is the only current committed generated-snapshot exception: the
+  repo ships `config/quickshell/GeneratedTheme.json`, and the live file at
+  `~/.config/quickshell/GeneratedTheme.json` is then overwritten by
+  `desktopctl theme sync` and later runtime applies.
 - The VS Code output path (`~/.config/Code/User/settings.json`) remains a
   non-XDG path dictated by the application.

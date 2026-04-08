@@ -107,7 +107,7 @@ Wants=nix-daemon.service
 [Service]
 Environment=NIX_REMOTE=daemon
 Environment=NIX_SECRET_KEY_FILE=/etc/nix/cache/cache-priv-key.pem
-ExecStart=/nix/var/nix/profiles/default/bin/nix-serve --listen 0.0.0.0:5000
+ExecStart=/nix/var/nix/profiles/default/bin/nix-serve --listen 0.0.0.0:5050
 Restart=always
 RestartSec=5
 
@@ -124,20 +124,20 @@ sudo systemctl enable --now nix-serve
 
 ## 7. Firewall
 
-Remote builds and the cache do not require a separate Nix daemon TCP port. SSH on `22/tcp` carries the remote-store traffic, and `nix-serve` listens on `5000/tcp`.
+Remote builds and the cache do not require a separate Nix daemon TCP port. SSH on `22/tcp` carries the remote-store traffic, and the current repo expects `nix-serve` on `5050/tcp` (`system/distributed-builds-data.nix:30-31`).
 
 If you use UFW, allow only the LAN:
 
 ```bash
 sudo ufw allow from 192.168.8.0/24 to any port 22 proto tcp
-sudo ufw allow from 192.168.8.0/24 to any port 5000 proto tcp
+sudo ufw allow from 192.168.8.0/24 to any port 5050 proto tcp
 ```
 
 If you manage nftables directly, the equivalent rules are:
 
 ```nft
 tcp dport 22 ip saddr 192.168.8.0/24 accept
-tcp dport 5000 ip saddr 192.168.8.0/24 accept
+tcp dport 5050 ip saddr 192.168.8.0/24 accept
 ```
 
 ## 8. Data to copy back into the repo
@@ -151,7 +151,7 @@ sudo base64 -w0 /etc/ssh/ssh_host_ed25519_key.pub
 Cache test:
 
 ```bash
-curl http://192.168.8.153:5000/nix-cache-info
+curl http://192.168.8.153:5050/nix-cache-info
 ```
 
 Once the desktop and laptop are rebuilt with the shared module, their post-build hook will push completed store paths to `ssh-ng://nix-ssh@homelab`, and `nix-serve` will immediately expose those paths to the rest of the LAN.

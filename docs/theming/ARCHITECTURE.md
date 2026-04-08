@@ -3,7 +3,7 @@
 ## Scope
 
 Current implementation map for the migrated Rust theming pipeline as of
-2026-04-03.
+2026-04-07.
 
 ## Runtime Surface
 
@@ -56,9 +56,9 @@ Targets with notable extra behavior:
 
 | Consumer | Current integration |
 | --- | --- |
-| Home Manager | `home/default.nix:310-312` runs `desktopctl theme sync` after managed files are written so generated fragments exist before the next session. |
+| Home Manager | `home/default.nix:324-326` runs `desktopctl theme sync` after managed files are written so generated fragments exist before the next session. |
 | Hyprland | `config/hypr/hyprland.conf` and `config/hypr/appearance.conf` source generated `colors.conf`, `cursor.conf`, and `appearance-theme.conf`. `config/hypr/autostart.conf:12-13` now re-applies the wallpaper target from persisted theme state once `awww-daemon` is ready. |
-| Quickshell | `config/quickshell/Theme.qml:8-27` watches `~/.config/quickshell/GeneratedTheme.json`; `config/quickshell/popups/SettingsPopup.qml:127-245` and `config/quickshell/shell.qml:24-108`, `config/quickshell/shell.qml:395-414` call `desktopctl theme` through argv-safe command construction instead of hardcoded repo scripts. |
+| Quickshell | `config/quickshell/Theme.qml:8-27` watches `~/.config/quickshell/GeneratedTheme.json`; `config/quickshell/popups/SettingsPopup.qml:127-245` and `config/quickshell/shell.qml:24-108`, `config/quickshell/shell.qml:395-414` call `desktopctl theme` through argv-safe command construction instead of hardcoded repo scripts. The recursive Quickshell tree also carries one committed bootstrap snapshot at `config/quickshell/GeneratedTheme.json`, which activation/runtime theme applies overwrite in place. |
 | Neovim / Neovide | Generated `theme-state.json` and `neovide-theme.lua` are still written inside the Home Manager-symlinked `~/.config/nvim` tree. |
 | Tool configs | Import or concat targets still write under `~/.config` or app-specific config paths, keeping repo-authored base files read-only. |
 
