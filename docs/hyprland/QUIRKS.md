@@ -54,6 +54,25 @@ the theming pipeline runs. The `home.activation.applyTheme` hook runs
 file before the first Hyprland session in normal use. A manual
 `desktopctl theme` run is needed if the activation hook is skipped.
 
+## input-devices.conf is sourced before plugin keywords are available
+
+**Symptom:** A plugin-specific gesture keyword such as `hyprexpo-gesture`
+would raise an unknown-keyword error if placed in
+`hosts/laptop/input-devices.conf`.
+
+**Cause:** `config/hypr/hyprland.conf:5-10` sources
+`~/.config/hypr/input-devices.conf` before `~/.config/hypr/plugins.conf`.
+Hyprland's `hyprlang` parser handles the config linearly and explicitly calls
+out that plugin-owned keywords may need `# hyprlang noerror true` if they
+appear before the plugin is loaded. The laptop fragment is therefore limited
+to core Hyprland keywords even when it needs to trigger plugin behavior.
+
+**Impact / workaround:** For laptop touchpad gestures that should toggle the
+workspace overview, keep the binding on the core `gesture` keyword and use the
+`dispatcher` action to call `hyprexpo:expo toggle`
+(`hosts/laptop/input-devices.conf:10-11`). Reserve `hyprexpo-gesture` for files
+sourced after `plugins.conf`, or guard it with `hyprlang noerror`.
+
 ## Desktop env.conf mixes environment and autostart
 
 **Symptom:** `hosts/desktop/env.conf` contains an `exec-once` directive

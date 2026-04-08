@@ -46,6 +46,17 @@ The remaining source-graph files — `hyprland.conf`, `appearance.conf`,
 `hypridle.conf`, and `hyprlock.conf` — are deployed identically on all hosts
 from `config/hypr/` (`home/default.nix:198-213`).
 
+Current host input fragments differ materially:
+
+- `hosts/laptop/input-devices.conf` keeps touchpad-only behavior: natural
+  scrolling, a reduced touchpad `scroll_factor`, the existing three-finger
+  horizontal workspace swipe, and a three-finger swipe-up that dispatches
+  `hyprexpo:expo toggle` through Hyprland's core `gesture` keyword
+  (`hosts/laptop/input-devices.conf:3-11`).
+- `hosts/desktop/input-devices.conf` currently only adjusts per-device mouse
+  sensitivity for the Logitech G Pro and MX Master 2S
+  (`hosts/desktop/input-devices.conf:3-9`).
+
 ## Theme Integration
 
 | File | Current role |
