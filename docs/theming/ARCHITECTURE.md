@@ -75,7 +75,7 @@ Targets with notable extra behavior:
   full scheme catalog, and its shared synthetic `gruvbox-dark` fixture includes
   the same app-theme metadata so Python-format target tests exercise the
   centralized lookup path instead of falling back to defaults.
-- `desktopctl/src/theme/targets/gtksourceview.rs:363-454` covers the generated
+- `desktopctl/src/theme/targets/gtksourceview.rs:363-526` covers the generated
   GtkSourceView XML shape and the current family-pairing policy for gedit's
   dark/light source-style keys.
 - `desktopctl/src/theme/targets/qt.rs:968-1017` covers the declared

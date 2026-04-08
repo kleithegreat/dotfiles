@@ -363,7 +363,73 @@ pub fn on_apply(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::theme::targets::testsupport::{dummy_colors, dummy_state, load_repo_colors};
+    use crate::theme::targets::testsupport::{dummy_colors, dummy_state};
+
+    fn scheme_entry(
+        name: &str,
+        family: &str,
+        variant: &str,
+        appearance: ColorSchemeAppearance,
+    ) -> SchemeEntry {
+        let mut colors = dummy_colors();
+        colors.family = family.to_owned();
+        colors.variant = variant.to_owned();
+        colors.appearance = appearance;
+        SchemeEntry {
+            name: name.to_owned(),
+            colors,
+        }
+    }
+
+    fn catalog_fixture() -> Vec<SchemeEntry> {
+        vec![
+            scheme_entry(
+                "gruvbox-dark",
+                "gruvbox",
+                "dark",
+                ColorSchemeAppearance::Dark,
+            ),
+            scheme_entry(
+                "gruvbox-light",
+                "gruvbox",
+                "light",
+                ColorSchemeAppearance::Light,
+            ),
+            scheme_entry(
+                "catppuccin-latte",
+                "catppuccin",
+                "latte",
+                ColorSchemeAppearance::Light,
+            ),
+            scheme_entry(
+                "catppuccin-frappe",
+                "catppuccin",
+                "frappe",
+                ColorSchemeAppearance::Dark,
+            ),
+            scheme_entry(
+                "catppuccin-macchiato",
+                "catppuccin",
+                "macchiato",
+                ColorSchemeAppearance::Dark,
+            ),
+            scheme_entry(
+                "catppuccin-mocha",
+                "catppuccin",
+                "mocha",
+                ColorSchemeAppearance::Dark,
+            ),
+        ]
+    }
+
+    fn colors_for_name(catalog: &[SchemeEntry], name: &str) -> ColorScheme {
+        catalog
+            .iter()
+            .find(|entry| entry.name == name)
+            .expect("scheme fixture exists")
+            .colors
+            .clone()
+    }
 
     #[test]
     fn generate_uses_desktopctl_current_alias_and_palette() {
@@ -382,8 +448,8 @@ mod tests {
 
     #[test]
     fn preferred_variant_name_picks_unique_light_pair() {
-        let catalog = load_scheme_catalog().expect("catalog loads");
-        let current = load_repo_colors("gruvbox-dark");
+        let catalog = catalog_fixture();
+        let current = colors_for_name(&catalog, "gruvbox-dark");
         assert_eq!(
             preferred_variant_name(
                 &catalog,
@@ -397,8 +463,8 @@ mod tests {
 
     #[test]
     fn preferred_variant_name_uses_dark_fallback_order_for_light_schemes() {
-        let catalog = load_scheme_catalog().expect("catalog loads");
-        let current = load_repo_colors("catppuccin-latte");
+        let catalog = catalog_fixture();
+        let current = colors_for_name(&catalog, "catppuccin-latte");
         assert_eq!(
             preferred_variant_name(
                 &catalog,
@@ -412,8 +478,8 @@ mod tests {
 
     #[test]
     fn style_scheme_id_for_appearance_uses_current_alias_when_current_scheme_matches() {
-        let catalog = load_scheme_catalog().expect("catalog loads");
-        let current = load_repo_colors("gruvbox-dark");
+        let catalog = catalog_fixture();
+        let current = colors_for_name(&catalog, "gruvbox-dark");
         assert_eq!(
             style_scheme_id_for_appearance(
                 &catalog,
@@ -436,7 +502,13 @@ mod tests {
 
     #[test]
     fn style_scheme_id_for_appearance_falls_back_to_current_alias_when_no_pair_exists() {
-        let current = load_repo_colors("gruvbox-dark");
+        let current = scheme_entry(
+            "gruvbox-dark",
+            "gruvbox",
+            "dark",
+            ColorSchemeAppearance::Dark,
+        )
+        .colors;
         let catalog = vec![SchemeEntry {
             name: "gruvbox-dark".to_owned(),
             colors: current.clone(),

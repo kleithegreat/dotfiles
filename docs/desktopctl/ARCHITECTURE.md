@@ -62,7 +62,7 @@ integration as of 2026-04-08.
   `snappy_switcher`, `vicinae`, and `vscode`, and a shared synthetic
   `gruvbox-dark` fixture that carries the same metadata for Python-format
   output assertions.
-- `desktopctl/src/theme/targets/gtksourceview.rs:363-454` adds focused
+- `desktopctl/src/theme/targets/gtksourceview.rs:363-526` adds focused
   coverage for generated GtkSourceView XML and the current light/dark pairing
   policy used to set gedit's source-style keys.
 - `desktopctl/src/theme/targets/qt.rs:968-1017` adds scheme-appearance coverage
