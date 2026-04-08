@@ -54,7 +54,7 @@
             home-manager.users.kevin = import ./home;
             home-manager.extraSpecialArgs = {
               dotfilesPath = self;
-              inherit hostName hyprland hyprland-plugins hyprqt6engine vicinae snappy-switcher opencode;
+              inherit hostName vicinae snappy-switcher opencode;
             };
           }
         ];

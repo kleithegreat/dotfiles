@@ -153,7 +153,7 @@ return {
   },
   {
     "lervag/vimtex",
-    ft = { "tex", "plaintex", "bib" },
+    lazy = false,
     init = function()
       vim.g.vimtex_quickfix_enabled = 0
       vim.g.vimtex_quickfix_mode = 0

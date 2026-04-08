@@ -3,7 +3,7 @@
 ## Scope
 
 Current implementation map for `config/hypr/`, the host-selected Hyprland
-fragments, and the generated theme inputs as of 2026-04-07.
+fragments, and the generated theme inputs as of 2026-04-08.
 
 ## Source Graph
 
@@ -22,21 +22,22 @@ order:
 | 8 | `~/.config/hypr/plugins.conf` | Plugin loading and plugin theming |
 | 9 | `~/.config/hypr/keybinds.conf` | Keybinds and external dispatcher integration |
 | 10 | `~/.config/hypr/rules.conf` | Window and layer rules |
-| 11 | `~/.config/hypr/autostart.conf` | Session bootstrap |
+| 11 | `~/.config/hypr/autostart.conf` | Session bootstrap plus `autostart-host.conf` include |
 
 ## Host Selection
 
 `flake.nix` defines three hosts — `vm`, `laptop`, and `desktop` — each passing
-its `hostName` through `specialArgs` to Home Manager (`flake.nix:41-44`,
-`flake.nix:54-57`).
+its `hostName` through `specialArgs` to Home Manager (`flake.nix:42-44`,
+`flake.nix:55-57`).
 `home/default.nix` uses `if hostName == "laptop" ... else if hostName ==
 "desktop" ... else` conditionals to select host-specific fragments
-(`home/default.nix:202-229`). The `else` branch provides safe minimal defaults,
+(`home/default.nix:202-235`). The `else` branch provides safe minimal defaults,
 which is what the `vm` host and any future host without explicit handling
 receives.
 
 | Target path | Laptop | Desktop | Fallback (VM and others) |
 | --- | --- | --- | --- |
+| `~/.config/hypr/autostart-host.conf` | Empty file | `hosts/desktop/autostart.conf` | Empty file |
 | `~/.config/hypr/input-devices.conf` | `hosts/laptop/input-devices.conf` | `hosts/desktop/input-devices.conf` | Empty file |
 | `~/.config/hypr/monitors.conf` | `hosts/laptop/monitors.conf` | `hosts/desktop/monitors.conf` | `monitor = ,preferred,auto,1` |
 | `~/.config/hypr/env.conf` | `config/hypr/env.conf` | `hosts/desktop/env.conf` | Empty file |
@@ -44,7 +45,7 @@ receives.
 The remaining source-graph files — `hyprland.conf`, `appearance.conf`,
 `input.conf`, `keybinds.conf`, `rules.conf`, `plugins.conf`, `autostart.conf`,
 `hypridle.conf`, and `hyprlock.conf` — are deployed identically on all hosts
-from `config/hypr/` (`home/default.nix:198-213`).
+from `config/hypr/` (`home/default.nix:199-219`).
 
 Current host input fragments differ materially:
 
@@ -56,6 +57,9 @@ Current host input fragments differ materially:
 - `hosts/desktop/input-devices.conf` currently only adjusts per-device mouse
   sensitivity for the Logitech G Pro and MX Master 2S
   (`hosts/desktop/input-devices.conf:3-9`).
+- `hosts/desktop/autostart.conf` keeps the Logitech MX Master 2S smart-shift
+  tweak in a desktop-only startup fragment instead of mixing it into
+  `hosts/desktop/env.conf` (`hosts/desktop/autostart.conf:1`).
 
 ## Theme Integration
 
@@ -72,8 +76,8 @@ Current host input fragments differ materially:
 | File | Owns |
 | --- | --- |
 | `input.conf` | Shared keyboard, pointer, cursor, and gesture defaults |
-| `autostart.conf` | Session bootstrap: `desktopctl daemon` (which now carries focus tracking and solar scheduling), `desktopctl launch-quickshell`, `awww-daemon` plus the theme-backed wallpaper bootstrap via `desktopctl theme wallpaper` (`config/hypr/autostart.conf:6-12`), `hypridle`, Vicinae, Snappy Switcher, Easy Effects, Bitwarden, and related session helpers. Wallpaper selection itself remains owned by the theming pipeline's `wallpaper` target (`docs/theming/SPEC.md`). |
-| `keybinds.conf` | Primary modifier scheme, descriptive `bindd` / `bindde` bindings (`config/hypr/keybinds.conf:9-98`), media/brightness repeat binds, Quickshell IPC binds, and external launcher/switcher actions |
+| `autostart.conf` and `autostart-host.conf` | Shared session bootstrap lives in `config/hypr/autostart.conf`, which starts `desktopctl daemon`, Quickshell, wallpaper bootstrap, `hypridle`, Vicinae, Snappy Switcher, Easy Effects, Bitwarden, and related helpers, then sources `~/.config/hypr/autostart-host.conf` for host-only additions such as the desktop's Logitech mouse tuning (`config/hypr/autostart.conf:4-27`, `hosts/desktop/autostart.conf:1`). Wallpaper selection itself remains owned by the theming pipeline's `wallpaper` target (`docs/theming/SPEC.md`). |
+| `keybinds.conf` | Primary modifier scheme, descriptive `bindd` / `bindde` bindings (`config/hypr/keybinds.conf:9-98`), media/brightness repeat binds, Quickshell IPC binds that resolve the shell path through `${DESKTOPCTL_REPO:-$HOME/repos/dotfiles}` (`config/hypr/keybinds.conf:84-88`), and external launcher/switcher actions |
 | `rules.conf` | Floating/dialog rules, app-specific geometry, layer rules, and plugin rule glue |
 | `plugins.conf` | Loading `hyprbars` and `hyprexpo` from `HYPR_PLUGIN_DIR` plus their theme-facing settings |
 | `hypridle.conf` and `hyprlock.conf` | Idle, lock, DPMS, suspend, and lock-screen presentation |

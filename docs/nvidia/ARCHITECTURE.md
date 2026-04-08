@@ -3,7 +3,7 @@
 ## Scope
 
 Current implementation map for the NVIDIA stack across NixOS modules, overlays,
-patches, and Hyprland session environment as of 2026-04-07.
+patches, and Hyprland session environment as of 2026-04-08.
 
 ## Composition
 
@@ -30,9 +30,9 @@ The host build is assembled in three layers:
 | `hosts/desktop/system.nix:4-16`, `hosts/desktop/system.nix:57-72`, `hosts/desktop/system.nix:90-92` | Dedicated desktop kernel and X stack | Imports the PR #996 overlay, sets `NVreg_TemporaryFilePath=/var/tmp`, enables the open NVIDIA driver with `modesetting`, disables `hardware.nvidia.powerManagement.kernelSuspendNotifier`, sets a dual-vendor EGL list directly, disables systemd user-session freezing for suspend, and installs `nvidia-vaapi-driver` |
 | `overlays/nvidia-open-pr996.nix:1-43` | Desktop-only driver patch injection | Rebuilds `linuxPackages.nvidiaPackages.production` through `mkDriver` with `patchesOpen = [ pr996Patch ]`, then points `stable` and the `nvidia_x11*` aliases at the patched driver set |
 | `patches/nvidia/nvidia-open-pr996.patch:1-10` | Actual kernel patch | Adds `drm_mode_config_reset(dev);` in the open NVIDIA DRM resume path |
-| `home/default.nix:223-229` | Host-selected Hyprland GPU env file | Publishes `~/.config/hypr/env.conf` from `config/hypr/env.conf` on the laptop and from `hosts/desktop/env.conf` on the desktop |
+| `home/default.nix:229-235` | Host-selected Hyprland GPU env file | Publishes `~/.config/hypr/env.conf` from `config/hypr/env.conf` on the laptop and from `hosts/desktop/env.conf` on the desktop |
 | `config/hypr/hyprland.conf:4-14` | Hyprland include order | Loads `~/.config/hypr/env.conf` early, before input, rules, and autostart, so these host-specific GPU environment variables apply for the whole session |
-| `config/hypr/env.conf:13-16` | Laptop user-session GPU routing | Keeps Intel as the primary user-session graphics path with `LIBVA_DRIVER_NAME=iHD` and an explicit `AQ_DRM_DEVICES` ordering |
+| `config/hypr/env.conf:13-16` | Laptop user-session GPU routing | Keeps Intel as the primary user-session graphics path with `LIBVA_DRIVER_NAME=iHD` and a stable `AQ_DRM_DEVICES` ordering via `/dev/dri/by-path/pci-0000:00:02.0-card:/dev/dri/by-path/pci-0000:01:00.0-card`, which matches the laptop PRIME bus IDs |
 | `hosts/desktop/env.conf:13-17` | Desktop user-session NVIDIA env | Sets `LIBVA_DRIVER_NAME=nvidia`, `GBM_BACKEND=nvidia-drm`, `__GLX_VENDOR_LIBRARY_NAME=nvidia`, and `NVD_BACKEND=direct` for the dedicated NVIDIA desktop session |
 
 ## Host Behavior Matrix
@@ -45,7 +45,7 @@ The host build is assembled in three layers:
 | Power management | The laptop enables `hardware.nvidia.powerManagement.finegrained = true` for hybrid runtime power behavior (`hosts/laptop/system.nix:56-57`) | The desktop instead sets `hardware.nvidia.powerManagement.kernelSuspendNotifier = false` and relies on the legacy resume-unit path (`hosts/desktop/system.nix:61-63`) |
 | Suspend/resume persistence | No host-specific NVIDIA suspend workaround is present in the laptop module | `boot.extraModprobeConfig` redirects preserved VRAM files to `/var/tmp`, the overlay patches the open kernel module, and `SYSTEMD_SLEEP_FREEZE_USER_SESSIONS=false` is set on `systemd-suspend` (`hosts/desktop/system.nix:12-16`, `hosts/desktop/system.nix:66-68`) |
 | EGL vendor selection | Sets `__EGL_VENDOR_LIBRARY_FILENAMES` directly to Mesa-only in `hosts/laptop/system.nix:68-69` | Sets `__EGL_VENDOR_LIBRARY_FILENAMES` directly to a dual-vendor list in `hosts/desktop/system.nix:70-72`; no shared baseline override or `lib.mkForce` is involved |
-| Hyprland session env | `home/default.nix:223-229` selects `config/hypr/env.conf:13-16`, which keeps Intel VA-API and explicit DRM-device ordering | `home/default.nix:223-229` selects `hosts/desktop/env.conf:13-17`, which forces NVIDIA-oriented VA-API, GBM, and GLX user-space paths |
+| Hyprland session env | `home/default.nix:229-235` selects `config/hypr/env.conf:13-16`, which keeps Intel VA-API and a stable by-path DRM-device ordering | `home/default.nix:229-235` selects `hosts/desktop/env.conf:13-17`, which forces NVIDIA-oriented VA-API, GBM, and GLX user-space paths |
 | Extra packages | No host-specific NVIDIA packages are added here | `environment.systemPackages` adds `nvidia-vaapi-driver` (`hosts/desktop/system.nix:90-92`) |
 
 ## Overlay Flow
@@ -78,7 +78,7 @@ For NVIDIA work in this repo, the minimal implementation read order is:
 5. `hosts/laptop/system.nix:51-69` or
    `hosts/desktop/system.nix:4-16`, `hosts/desktop/system.nix:57-72`,
    `hosts/desktop/system.nix:90-92`
-6. `home/default.nix:223-229`
+6. `home/default.nix:229-235`
 7. `config/hypr/env.conf:13-16` or `hosts/desktop/env.conf:13-17`
 8. `overlays/nvidia-open-pr996.nix:1-43` and
    `patches/nvidia/nvidia-open-pr996.patch:1-10` for desktop resume work

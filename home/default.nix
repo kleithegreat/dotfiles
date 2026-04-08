@@ -1,4 +1,4 @@
-{ config, pkgs, lib, dotfilesPath, hostName, hyprland, hyprland-plugins, vicinae, snappy-switcher, opencode, ... }:
+{ config, pkgs, lib, dotfilesPath, hostName, vicinae, snappy-switcher, opencode, ... }:
 
 let
   opencode-pkg = opencode.packages.${pkgs.stdenv.hostPlatform.system}.default;
@@ -150,7 +150,6 @@ in
     ]))
 
     # Hyprland ecosystem
-    hyprlock
     hypridle
     hyprpolkitagent
     hyprsunset
@@ -200,6 +199,11 @@ in
   xdg.configFile."hypr/hyprland.conf".source = "${dotfilesPath}/config/hypr/hyprland.conf";
   xdg.configFile."hypr/appearance.conf".source = "${dotfilesPath}/config/hypr/appearance.conf";
   xdg.configFile."hypr/autostart.conf".source = "${dotfilesPath}/config/hypr/autostart.conf";
+  xdg.configFile."hypr/autostart-host.conf" =
+    if hostName == "desktop" then
+      { source = "${dotfilesPath}/hosts/desktop/autostart.conf"; }
+    else
+      { text = ""; };
   xdg.configFile."hypr/input.conf".source = "${dotfilesPath}/config/hypr/input.conf";
   xdg.configFile."hypr/input-devices.conf" =
     if hostName == "laptop" then
@@ -298,10 +302,10 @@ in
   xdg.mimeApps = {
     enable = true;
     defaultApplications = {
-      "text/html" = "chromium.desktop";
-      "x-scheme-handler/http" = "chromium.desktop";
-      "x-scheme-handler/https" = "chromium.desktop";
-      "application/pdf" = "chromium.desktop";
+      "text/html" = "chromium-browser.desktop";
+      "x-scheme-handler/http" = "chromium-browser.desktop";
+      "x-scheme-handler/https" = "chromium-browser.desktop";
+      "application/pdf" = "chromium-browser.desktop";
       "inode/directory" = "org.gnome.Nautilus.desktop";
       "image/png" = "imv.desktop";
       "image/jpeg" = "imv.desktop";

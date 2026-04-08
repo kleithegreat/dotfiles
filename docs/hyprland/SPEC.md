@@ -36,7 +36,7 @@ of the contract — later files may depend on variables defined by earlier ones.
 | 8 | `plugins.conf` | Static base |
 | 9 | `keybinds.conf` | Static base |
 | 10 | `rules.conf` | Static base |
-| 11 | `autostart.conf` | Static base |
+| 11 | `autostart.conf` | Static base (sources host-selected `autostart-host.conf`) |
 
 Constraints:
 
@@ -61,7 +61,7 @@ Files committed to `config/hypr/` and deployed via `xdg.configFile` in
 | `keybinds.conf` | Key bindings, dispatcher actions, Quickshell IPC triggers |
 | `rules.conf` | Window rules, layer rules, and plugin rule glue |
 | `plugins.conf` | Plugin loading and theme-facing plugin settings |
-| `autostart.conf` | Session bootstrap services |
+| `autostart.conf` | Session bootstrap services plus the host-autostart include |
 | `hypridle.conf` | Idle, lock, DPMS, and suspend timers |
 | `hyprlock.conf` | Lock screen presentation (sources generated `colors.conf`) |
 
@@ -95,14 +95,16 @@ Files selected per host by `home/default.nix` conditionals based on `hostName`.
 
 | File | Laptop | Desktop | Fallback |
 | --- | --- | --- | --- |
+| `autostart-host.conf` | Empty | `hosts/desktop/autostart.conf` | Empty |
 | `monitors.conf` | `hosts/laptop/monitors.conf` | `hosts/desktop/monitors.conf` | Generic auto-detect rule |
 | `env.conf` | `config/hypr/env.conf` | `hosts/desktop/env.conf` | Empty |
 | `input-devices.conf` | `hosts/laptop/input-devices.conf` | `hosts/desktop/input-devices.conf` | Empty |
 
 Constraints:
 
-- Host-specific files own hardware concerns only: GPU environment, monitor
-  layout, and per-device input overrides.
+- Host-specific files own hardware concerns plus minimal host-only startup
+  hooks: GPU environment, monitor layout, per-device input overrides, and
+  per-host session bootstrap commands that cannot live in the shared base file.
 - The fallback branch must provide safe minimal defaults so the compositor
   starts on any host.
 - Adding a new host requires adding its branches to `home/default.nix` or
@@ -119,8 +121,9 @@ Invariants:
 - The `else` branch must always produce a bootable, functional Hyprland session
   with no host-specific assumptions.
 - Host-specific `system.nix` modules handle NixOS-level concerns (drivers,
-  hardware, boot). Host-specific Hyprland fragments handle only compositor-level
-  concerns (monitors, GPU env, input devices).
+  hardware, boot). Host-specific Hyprland fragments handle compositor-level
+  concerns and host-only session hooks (monitors, GPU env, input devices, and
+  autostart additions).
 - The laptop's `env.conf` lives in `config/hypr/env.conf` because it carries
   shared environment defaults alongside its GPU-specific settings. The desktop's
   `env.conf` lives in `hosts/desktop/env.conf` because it replaces GPU settings
@@ -134,7 +137,7 @@ Invariants:
 | Theme-derived appearance | The theming pipeline | Generated `colors.conf`, `appearance-theme.conf`, and `cursor.conf` are the only theme write surfaces within the Hyprland config directory. |
 | Wallpaper application | The theming pipeline | The `wallpaper` target owns `awww img` invocations. `autostart.conf` owns `awww-daemon` startup and may reapply persisted theme state by calling `desktopctl theme wallpaper` after the daemon is ready. |
 | Night-light automation | `desktopctl daemon` solar subsystem + night-light controller | `hyprsunset` lifecycle belongs to the daemon. Keybinds may request `desktopctl night-light toggle` or `desktopctl night-light auto`, but they do not start or stop `hyprsunset` directly. |
-| Shell UI and IPC | Quickshell | Keybinds trigger Quickshell via `qs ipc call`; Quickshell does not write Hyprland config files. |
+| Shell UI and IPC | Quickshell | Keybinds trigger Quickshell via `qs ipc call`, with the repo path resolved through the same `DESKTOPCTL_REPO` / `~/repos/dotfiles` abstraction used elsewhere; Quickshell does not write Hyprland config files. |
 | Plugin loading | `plugins.conf` | Plugins are loaded from `HYPR_PLUGIN_DIR` (set in NixOS `system/configuration.nix`). Plugin visual settings consume theme variables but are declared in the static config. |
 | Package installation | Nix / Home Manager | Hyprland, plugins, and ecosystem tools are installed via `home/default.nix` packages. |
 

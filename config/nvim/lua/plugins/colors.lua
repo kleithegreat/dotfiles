@@ -13,6 +13,14 @@ local function load_theme_state()
   return state
 end
 
+local function normalize_background(background)
+  if background == "dark" or background == "light" then
+    return background
+  end
+
+  return nil
+end
+
 return {
   {
     "ellisonleao/gruvbox.nvim",
@@ -25,15 +33,17 @@ return {
       require("gruvbox").setup(opts)
 
       local state = load_theme_state()
-      if state and state.background then
-        vim.o.background = state.background
+      local background = state and normalize_background(state.background)
+      if background then
+        vim.o.background = background
       end
 
-      local colorscheme = state and state.colorscheme or "gruvbox"
-      local ok = pcall(vim.cmd.colorscheme, colorscheme)
-      if not ok then
-        vim.cmd.colorscheme("gruvbox")
+      local colorscheme = "gruvbox"
+      if state and state.colorscheme == "gruvbox" then
+        colorscheme = state.colorscheme
       end
+
+      vim.cmd.colorscheme(colorscheme)
     end,
   },
 }

@@ -1,9 +1,17 @@
 { config, pkgs, hostName, ... }:
 
+let
+  zshShareOnly = pkgs.runCommand "zsh-share-only" {} ''
+    mkdir -p "$out/share"
+    ln -s ${pkgs.zsh}/share/zsh "$out/share/zsh"
+  '';
+in
+
 {
   # ── Zsh ──────────────────────────────────────────────────────
   programs.zsh = {
     enable = true;
+    package = zshShareOnly;
     dotDir = "${config.xdg.configHome}/zsh";
 
     history = {
@@ -196,6 +204,7 @@
   # ── Git ──────────────────────────────────────────────────────
   programs.git = {
     enable = true;
+    package = pkgs.gitFull;
     settings = {
       user.name = "Kevin";
       user.email = "kevvinlei89@gmail.com";
