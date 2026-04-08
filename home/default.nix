@@ -12,6 +12,7 @@ in
   imports = [
     ./shell.nix
     ./gtk.nix
+    ./fastfetch.nix
     vicinae.homeManagerModules.default
   ];
 
@@ -51,7 +52,6 @@ in
     strace
     bc
     less
-    fastfetch
     file           # file type identification
     unzip
     zip
