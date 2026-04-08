@@ -6,7 +6,15 @@ QtObject {
     id: root
 
     // ── Mullvad state ──
-    readonly property string mullvadState: _mullvadState      // connected | connecting | disconnected | disconnecting | error
+    readonly property string mullvadPendingAction: _mullvadPendingAction
+    readonly property bool mullvadBusy: mullvadConnectProc.running || mullvadDisconnectProc.running || _mullvadPendingAction !== ""
+    readonly property string mullvadState: {
+        if (_mullvadPendingAction === "connect")
+            return "connecting";
+        if (_mullvadPendingAction === "disconnect")
+            return "disconnecting";
+        return _mullvadState;
+    }
     readonly property string mullvadCountry: _mullvadCountry
     readonly property string mullvadCity: _mullvadCity
     readonly property string mullvadIp: _mullvadIp
@@ -37,7 +45,13 @@ QtObject {
     }
 
     // ── Tailscale state ──
-    readonly property string tailscaleState: _tailscaleState   // running | stopped | needs-login | starting
+    readonly property string tailscalePendingAction: _tailscalePendingAction
+    readonly property bool tailscaleBusy: tailscaleUpProc.running || tailscaleDownProc.running || _tailscalePendingAction !== ""
+    readonly property string tailscaleState: {
+        if (_tailscalePendingAction === "up")
+            return "starting";
+        return _tailscaleState;
+    }
     readonly property string tailscaleTailnet: _tailscaleTailnet
     readonly property string tailscaleIp: _tailscaleIp
     readonly property bool tailscaleExitNode: _tailscaleExitNode
@@ -65,9 +79,13 @@ QtObject {
     property string _tailscaleIp: ""
     property bool _tailscaleExitNode: false
     property string _tailscaleBuf: ""
+    property string _mullvadPendingAction: ""
+    property string _tailscalePendingAction: ""
     property bool _mullvadRefreshPending: false
     property bool _mullvadSelectionRefreshPending: false
     property bool _tailscaleRefreshPending: false
+    property bool _mullvadActionRefreshPending: false
+    property bool _tailscaleActionRefreshPending: false
 
     Component.onCompleted: refresh()
 
@@ -125,24 +143,28 @@ QtObject {
     function mullvadConnect() {
         if (mullvadConnectProc.running || mullvadDisconnectProc.running)
             return;
+        _mullvadPendingAction = "connect";
         mullvadConnectProc.running = true;
     }
 
     function mullvadDisconnect() {
         if (mullvadDisconnectProc.running || mullvadConnectProc.running)
             return;
+        _mullvadPendingAction = "disconnect";
         mullvadDisconnectProc.running = true;
     }
 
     function tailscaleUp() {
         if (tailscaleUpProc.running || tailscaleDownProc.running)
             return;
+        _tailscalePendingAction = "up";
         tailscaleUpProc.running = true;
     }
 
     function tailscaleDown() {
         if (tailscaleDownProc.running || tailscaleUpProc.running)
             return;
+        _tailscalePendingAction = "down";
         tailscaleDownProc.running = true;
     }
 
@@ -313,6 +335,10 @@ QtObject {
                 }
             }
             root._mullvadBuf = "";
+            if (root._mullvadActionRefreshPending) {
+                root._mullvadActionRefreshPending = false;
+                root._mullvadPendingAction = "";
+            }
             if (root._mullvadRefreshPending) {
                 root._mullvadRefreshPending = false;
                 mullvadProc.running = true;
@@ -409,6 +435,10 @@ QtObject {
                 }
             }
             root._tailscaleBuf = "";
+            if (root._tailscaleActionRefreshPending) {
+                root._tailscaleActionRefreshPending = false;
+                root._tailscalePendingAction = "";
+            }
             if (root._tailscaleRefreshPending) {
                 root._tailscaleRefreshPending = false;
                 tailscaleProc.running = true;
@@ -421,13 +451,29 @@ QtObject {
     property Process mullvadConnectProc: Process {
         command: ["mullvad", "connect"]
         running: false
-        onExited: () => { _mullvadActionTimer.restart(); }
+        onExited: (code) => {
+            if (code === 0) {
+                root._mullvadActionRefreshPending = true;
+            } else {
+                root._mullvadPendingAction = "";
+            }
+            root.refreshMullvadStatus();
+            root.refreshMullvadSelection();
+        }
     }
 
     property Process mullvadDisconnectProc: Process {
         command: ["mullvad", "disconnect"]
         running: false
-        onExited: () => { _mullvadActionTimer.restart(); }
+        onExited: (code) => {
+            if (code === 0) {
+                root._mullvadActionRefreshPending = true;
+            } else {
+                root._mullvadPendingAction = "";
+            }
+            root.refreshMullvadStatus();
+            root.refreshMullvadSelection();
+        }
     }
 
     property Process mullvadSetLocationProc: Process {
@@ -451,28 +497,27 @@ QtObject {
     property Process tailscaleUpProc: Process {
         command: ["tailscale", "up"]
         running: false
-        onExited: () => { _tailscaleActionTimer.restart(); }
+        onExited: (code) => {
+            if (code === 0) {
+                root._tailscaleActionRefreshPending = true;
+            } else {
+                root._tailscalePendingAction = "";
+            }
+            root.refreshTailscaleStatus();
+        }
     }
 
     property Process tailscaleDownProc: Process {
         command: ["tailscale", "down"]
         running: false
-        onExited: () => { _tailscaleActionTimer.restart(); }
-    }
-
-    // ── Action delay timers ──
-
-    property Timer _mullvadActionTimer: Timer {
-        interval: 500
-        onTriggered: {
-            root.refreshMullvadStatus();
-            root.refreshMullvadSelection();
+        onExited: (code) => {
+            if (code === 0) {
+                root._tailscaleActionRefreshPending = true;
+            } else {
+                root._tailscalePendingAction = "";
+            }
+            root.refreshTailscaleStatus();
         }
-    }
-
-    property Timer _tailscaleActionTimer: Timer {
-        interval: 500
-        onTriggered: { root.refreshTailscaleStatus(); }
     }
 
     // ── Poll timer ──

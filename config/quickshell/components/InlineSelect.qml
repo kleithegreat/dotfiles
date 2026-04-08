@@ -11,6 +11,7 @@ FocusScope {
     property string secondaryText: ""
     property string fontFamily: Root.Theme.systemFamily
     property bool disabled: root.optionCount === 0
+    property bool pending: false
     property bool expanded: false
     property int maxVisibleItems: 6
     property real rowHeight: Math.max(Root.Theme.btnHeight + 6, 32)
@@ -40,13 +41,17 @@ FocusScope {
     }
 
     implicitHeight: selectorCol.implicitHeight
+    activeFocusOnTab: true
+    readonly property bool interactive: root.optionCount > 0 && !root.disabled && !root.pending
+    opacity: root.disabled ? 0.45 : (root.pending ? 0.72 : 1)
+    Behavior on opacity { Anim { duration: Root.Theme.animHover } }
 
     Keys.priority: Keys.BeforeItem
     Keys.onPressed: (event) => {
         if (event.key === Qt.Key_Escape && root.expanded) {
             root.expanded = false;
             event.accepted = true;
-        } else if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) && root.activeFocus && !root.disabled) {
+        } else if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) && root.activeFocus && root.interactive) {
             root.expanded = !root.expanded;
             event.accepted = true;
         }
@@ -116,12 +121,24 @@ FocusScope {
             radius: Root.Theme.btnRadius + 2
             color: root.disabled ? Root.Theme.bg : (triggerArea.containsMouse || root.expanded ? Root.Theme.bg2 : Root.Theme.bg1)
             border.width: 1
-            border.color: root.expanded ? Root.Theme.accent : (root.disabled ? Root.Theme.bg3 : (triggerArea.containsMouse ? Root.Theme.fg4 : Root.Theme.bg3))
+            border.color: root.activeFocus ? Root.Theme.blueBright : (root.expanded ? Root.Theme.accent : (root.disabled ? Root.Theme.bg3 : (root.interactive && triggerArea.containsMouse ? Root.Theme.fg4 : Root.Theme.bg3)))
             Behavior on color { CAnim { duration: Root.Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Root.Theme.animCurveStandard } }
             Behavior on border.color { CAnim { duration: Root.Theme.animSpring; easing.type: Easing.BezierSpline; easing.bezierCurve: Root.Theme.animCurveStandard } }
             scale: triggerArea.pressed ? 0.98 : 1.0
             Behavior on scale { Anim { duration: Root.Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Root.Theme.animCurveStandard } }
             transformOrigin: Item.Center
+
+            Rectangle {
+                anchors.fill: parent
+                anchors.margins: -2
+                radius: parent.radius + 2
+                color: "transparent"
+                border.width: root.activeFocus ? 2 : 0
+                border.color: Root.Theme.blueBright
+                opacity: root.activeFocus ? 1 : 0
+
+                Behavior on opacity { Anim { duration: Root.Theme.animHover } }
+            }
 
             StyledText {
                 anchors {
@@ -170,7 +187,7 @@ FocusScope {
             HoverLayer {
                 id: triggerArea
                 anchors.fill: parent
-                disabled: root.disabled
+                disabled: !root.interactive
                 hoverEnabled: true
                 hoverOpacity: 0
                 pressedOpacity: 0
@@ -210,7 +227,6 @@ FocusScope {
                     clip: true
                     contentWidth: width
                     contentHeight: optionListContent.implicitHeight
-                    boundsBehavior: Flickable.StopAtBounds
 
                     Column {
                         id: optionListContent

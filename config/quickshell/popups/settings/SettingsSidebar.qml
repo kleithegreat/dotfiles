@@ -10,6 +10,7 @@ Rectangle {
     required property var categoryIcons
     required property int systemCategoryCount
     property var hiddenCategories: []
+    property int focusedCategory: selectedCategory
 
     signal categorySelected(int index)
 
@@ -19,10 +20,108 @@ Rectangle {
         return false;
     }
 
+    function visibleCategoryIndexes() {
+        let categories = [];
+
+        for (let i = 0; i < root.categoryNames.length; i++) {
+            if (!root.isCategoryHidden(i))
+                categories.push(i);
+        }
+
+        return categories;
+    }
+
+    function syncFocusedCategory() {
+        let visible = root.visibleCategoryIndexes();
+
+        if (!visible.length)
+            return;
+
+        if (visible.indexOf(root.focusedCategory) >= 0)
+            return;
+
+        root.focusedCategory = visible.indexOf(root.selectedCategory) >= 0 ? root.selectedCategory : visible[0];
+    }
+
+    function moveFocusedCategory(delta) {
+        let visible = root.visibleCategoryIndexes();
+        let currentIndex = visible.indexOf(root.focusedCategory);
+
+        if (!visible.length)
+            return;
+
+        if (currentIndex < 0)
+            currentIndex = visible.indexOf(root.selectedCategory);
+        if (currentIndex < 0)
+            currentIndex = 0;
+
+        currentIndex = Math.max(0, Math.min(visible.length - 1, currentIndex + delta));
+        root.focusedCategory = visible[currentIndex];
+    }
+
+    function activateFocusedCategory() {
+        root.syncFocusedCategory();
+        root.categorySelected(root.focusedCategory);
+    }
+
+    function ensureItemVisible(item) {
+        if (!item)
+            return;
+
+        let itemTop = item.y;
+        let itemBottom = itemTop + item.height;
+        let viewTop = sidebarFlickable.contentY;
+        let viewBottom = viewTop + sidebarFlickable.height;
+
+        if (itemTop < viewTop)
+            sidebarFlickable.contentY = itemTop;
+        else if (itemBottom > viewBottom)
+            sidebarFlickable.contentY = itemBottom - sidebarFlickable.height;
+    }
+
     readonly property int contentPadding: 8
 
-    width: 190
+    width: {
+        let available = parent ? parent.width : 190;
+        let preferred = Math.round((Theme.fontSizeLarge + root.contentPadding) * 11);
+        let proportional = Math.round(available * 0.28);
+        return Math.min(Math.max(proportional, preferred), Math.round(available * 0.4));
+    }
     height: parent.height
+    activeFocusOnTab: true
+    Keys.priority: Keys.BeforeItem
+    Keys.onPressed: (event) => {
+        if (event.key === Qt.Key_Up) {
+            root.moveFocusedCategory(-1);
+            event.accepted = true;
+        } else if (event.key === Qt.Key_Down) {
+            root.moveFocusedCategory(1);
+            event.accepted = true;
+        } else if (event.key === Qt.Key_Home) {
+            let visible = root.visibleCategoryIndexes();
+            if (visible.length)
+                root.focusedCategory = visible[0];
+            event.accepted = true;
+        } else if (event.key === Qt.Key_End) {
+            let visible = root.visibleCategoryIndexes();
+            if (visible.length)
+                root.focusedCategory = visible[visible.length - 1];
+            event.accepted = true;
+        } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
+            root.activateFocusedCategory();
+            event.accepted = true;
+        }
+    }
+    onSelectedCategoryChanged: {
+        root.focusedCategory = root.selectedCategory;
+        root.syncFocusedCategory();
+    }
+    onActiveFocusChanged: {
+        if (activeFocus) {
+            root.focusedCategory = root.selectedCategory;
+            root.syncFocusedCategory();
+        }
+    }
     color: Theme.bg0_h
     radius: Theme.popupRadius
     topRightRadius: 0
@@ -34,7 +133,6 @@ Rectangle {
         contentWidth: width
         contentHeight: sidebarContent.height
         clip: true
-        boundsBehavior: Flickable.StopAtBounds
 
         Item {
             id: sidebarContent
@@ -88,13 +186,29 @@ Rectangle {
                         required property int index
                         property int categoryIndex: index
                         property bool isSelected: root.selectedCategory === categoryIndex
+                        property bool isFocused: root.activeFocus && root.focusedCategory === categoryIndex
 
                         visible: !root.isCategoryHidden(categoryIndex)
                         Layout.fillWidth: true
                         Layout.preferredHeight: visible ? 32 : 0
                         radius: Theme.hoverRadius
-                        color: isSelected ? Theme.bg2 : (sysCatArea.containsMouse ? Theme.bg1 : "transparent")
+                        color: isSelected ? Theme.bg2 : ((isFocused || sysCatArea.containsMouse) ? Theme.bg1 : "transparent")
                         Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                        onIsFocusedChanged: {
+                            if (isFocused)
+                                Qt.callLater(function() { root.ensureItemVisible(sysCatItem); });
+                        }
+
+                        Rectangle {
+                            anchors.fill: parent
+                            anchors.margins: -1
+                            radius: parent.radius + 1
+                            color: "transparent"
+                            border.width: sysCatItem.isFocused ? 1 : 0
+                            border.color: Theme.blueBright
+                            opacity: sysCatItem.isFocused ? 1 : 0
+                            Behavior on opacity { Components.Anim { duration: Theme.animHover } }
+                        }
 
                         Rectangle {
                             visible: sysCatItem.isSelected
@@ -143,7 +257,10 @@ Rectangle {
                             hoverOpacity: 0
                             pressedOpacity: 0
                             pressedScale: 1.0
-                            onClicked: root.categorySelected(sysCatItem.categoryIndex)
+                            onClicked: {
+                                root.focusedCategory = sysCatItem.categoryIndex;
+                                root.categorySelected(sysCatItem.categoryIndex);
+                            }
                         }
                     }
                 }
@@ -193,12 +310,28 @@ Rectangle {
                         required property int index
                         property int categoryIndex: index + root.systemCategoryCount
                         property bool isSelected: root.selectedCategory === categoryIndex
+                        property bool isFocused: root.activeFocus && root.focusedCategory === categoryIndex
 
                         Layout.fillWidth: true
                         Layout.preferredHeight: 32
                         radius: Theme.hoverRadius
-                        color: isSelected ? Theme.bg2 : (appCatArea.containsMouse ? Theme.bg1 : "transparent")
+                        color: isSelected ? Theme.bg2 : ((isFocused || appCatArea.containsMouse) ? Theme.bg1 : "transparent")
                         Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                        onIsFocusedChanged: {
+                            if (isFocused)
+                                Qt.callLater(function() { root.ensureItemVisible(appCatItem); });
+                        }
+
+                        Rectangle {
+                            anchors.fill: parent
+                            anchors.margins: -1
+                            radius: parent.radius + 1
+                            color: "transparent"
+                            border.width: appCatItem.isFocused ? 1 : 0
+                            border.color: Theme.blueBright
+                            opacity: appCatItem.isFocused ? 1 : 0
+                            Behavior on opacity { Components.Anim { duration: Theme.animHover } }
+                        }
 
                         Rectangle {
                             visible: appCatItem.isSelected
@@ -247,7 +380,10 @@ Rectangle {
                             hoverOpacity: 0
                             pressedOpacity: 0
                             pressedScale: 1.0
-                            onClicked: root.categorySelected(appCatItem.categoryIndex)
+                            onClicked: {
+                                root.focusedCategory = appCatItem.categoryIndex;
+                                root.categorySelected(appCatItem.categoryIndex);
+                            }
                         }
                     }
                 }

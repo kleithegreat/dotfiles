@@ -8,7 +8,6 @@ Components.WheelFlickable {
     anchors.fill: parent
     contentHeight: notificationsCol.implicitHeight
     clip: true
-    boundsBehavior: Flickable.StopAtBounds
 
     ColumnLayout {
         id: notificationsCol

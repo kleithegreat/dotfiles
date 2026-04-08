@@ -6,6 +6,8 @@ import "../../components" as Components
 Components.WheelFlickable {
     id: root
     required property var themeState
+    required property bool writePending
+    required property string pendingKey
     required property var wallpapers
     required property string wallpaperDir
     required property bool directoryBrowserOpen
@@ -18,10 +20,21 @@ Components.WheelFlickable {
     signal browseDirectoryRequested(string name)
     signal confirmDirectoryBrowserRequested()
 
+    function isPending(key) {
+        return root.writePending && root.pendingKey === key;
+    }
+
+    readonly property real wallpaperCardMinWidth: Math.max(Theme.fontSize * 11, 140)
+    readonly property int wallpaperColumnCount: {
+        if (wpGrid.width <= 0)
+            return 1;
+
+        return Math.max(1, Math.floor((wpGrid.width + wpGrid.spacing) / (root.wallpaperCardMinWidth + wpGrid.spacing)));
+    }
+
     anchors.fill: parent
     contentHeight: wpCol.implicitHeight
     clip: true
-    boundsBehavior: Flickable.StopAtBounds
 
     ColumnLayout {
         id: wpCol
@@ -50,6 +63,8 @@ Components.WheelFlickable {
 
             Components.ToggleSwitch {
                 checked: root.themeState.filter_wallpaper === true
+                disabled: root.writePending
+                pending: root.isPending("filter_wallpaper")
                 onToggled: root.setRequested(
                     "filter_wallpaper",
                     root.themeState.filter_wallpaper === true ? "off" : "on"
@@ -74,7 +89,7 @@ Components.WheelFlickable {
             id: wpGrid
             visible: !root.directoryBrowserOpen
             Layout.fillWidth: true
-            columns: 3
+            columns: root.wallpaperColumnCount
             spacing: 8
 
             Repeater {
@@ -86,8 +101,10 @@ Components.WheelFlickable {
                     required property int index
                     property bool isCurrent: root.themeState.wallpaper === root.wallpaperDir + "/" + modelData
 
-                    width: (wpGrid.width - 16) / 3
+                    width: (wpGrid.width - Math.max(0, wpGrid.columns - 1) * wpGrid.spacing) / Math.max(1, wpGrid.columns)
                     height: width * 0.65 + 24
+                    opacity: root.isPending("wallpaper") && wpCard.isCurrent ? 0.72 : 1
+                    Behavior on opacity { Components.Anim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                     scale: wpArea.pressed ? 0.97 : 1.0
                     Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                     transformOrigin: Item.Center
@@ -117,7 +134,7 @@ Components.WheelFlickable {
 
                         Text {
                             width: parent.width
-                            height: 20
+                            height: Math.max(Theme.fontSizeSmall + 10, 20)
                             text: wpCard.modelData.replace(/\.\w+$/, "")
                             color: wpCard.isCurrent ? Theme.accent : Theme.fg3
                             Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
@@ -134,6 +151,7 @@ Components.WheelFlickable {
                     Components.HoverLayer {
                         id: wpArea
                         anchors.fill: parent
+                        disabled: root.writePending
                         cursorShape: Qt.PointingHandCursor
                         hoverEnabled: true
 
@@ -255,7 +273,6 @@ Components.WheelFlickable {
                         clip: true
                         contentWidth: width
                         contentHeight: directoryListContent.implicitHeight
-                        boundsBehavior: Flickable.StopAtBounds
 
                         Column {
                             id: directoryListContent

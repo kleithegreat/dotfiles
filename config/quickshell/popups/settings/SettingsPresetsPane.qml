@@ -8,6 +8,8 @@ Components.WheelFlickable {
     required property var presets
     required property var themeState
     required property var colorFamilies
+    required property var wallpapers
+    required property string wallpaperDir
     required property var monoFontSizeOffsetTargets
     required property bool presetCommandRunning
     required property string presetCommandAction
@@ -233,7 +235,6 @@ Components.WheelFlickable {
     contentWidth: width
     contentHeight: presetsCol.implicitHeight
     clip: true
-    boundsBehavior: Flickable.StopAtBounds
 
     ColumnLayout {
         id: presetsCol
@@ -318,6 +319,8 @@ Components.WheelFlickable {
             revision: root.editorRevision
             themeState: root.themeState
             colorFamilies: root.colorFamilies
+            wallpapers: root.wallpapers
+            wallpaperDir: root.wallpaperDir
             monoFontSizeOffsetTargets: root.monoFontSizeOffsetTargets
             busy: root.presetCommandRunning
             busyAction: root.presetCommandAction

@@ -14,6 +14,8 @@ QtObject {
     property string connectingName: ""
     property string connectError: ""
     property bool powerStateKnown: false
+    readonly property bool powerBusy: powerProc.running || _powerActionPending
+    readonly property bool disconnectBusy: disconnectProc.running || _disconnectPending
 
     readonly property bool refreshing: showProc.running || connInfoProc.running || pairedProc.running || allDevicesProc.running
 
@@ -63,11 +65,35 @@ QtObject {
     }
 
     function disconnectDevice() {
+        if (disconnectProc.running || connectedMac === "")
+            return;
+        _disconnectRollbackState = snapshotSummaryState();
+        _disconnectPending = true;
+        connectedName = "";
+        connectedMac = "";
+        connectedBattery = -1;
         disconnectProc.running = true;
     }
 
     function togglePower() {
-        powerProc.command = ["bluetoothctl", "--timeout", "5", "power", powered ? "off" : "on"];
+        if (powerProc.running)
+            return;
+        _powerRollbackState = snapshotSummaryState();
+        _powerActionPending = true;
+        let nextPowered = !powered;
+        powerStateKnown = true;
+        powered = nextPowered;
+        scanning = false;
+        if (!nextPowered) {
+            connecting = false;
+            connectingName = "";
+            connectedName = "";
+            connectedMac = "";
+            connectedBattery = -1;
+            pairedModel.clear();
+            discoveredModel.clear();
+        }
+        powerProc.command = ["bluetoothctl", "--timeout", "5", "power", nextPowered ? "on" : "off"];
         powerProc.running = true;
     }
 
@@ -77,6 +103,31 @@ QtObject {
 
     function isMacAddress(name) {
         return /^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$/.test(name);
+    }
+
+    function snapshotSummaryState() {
+        return {
+            powered: powered,
+            powerStateKnown: powerStateKnown,
+            connectedName: connectedName,
+            connectedMac: connectedMac,
+            connectedBattery: connectedBattery,
+            connecting: connecting,
+            connectingName: connectingName,
+            scanning: scanning
+        };
+    }
+
+    function restoreSummaryState(snapshot) {
+        let state = snapshot || ({});
+        powered = state.powered === true;
+        powerStateKnown = state.powerStateKnown === true;
+        connectedName = state.connectedName || "";
+        connectedMac = state.connectedMac || "";
+        connectedBattery = state.connectedBattery === undefined ? -1 : state.connectedBattery;
+        connecting = state.connecting === true;
+        connectingName = state.connectingName || "";
+        scanning = state.scanning === true;
     }
 
     function _commitSummaryRefresh() {
@@ -100,9 +151,13 @@ QtObject {
     }
 
     property bool _refreshPending: false
+    property bool _powerActionPending: false
+    property bool _disconnectPending: false
     property bool _summaryPendingPowered: false
     property bool _summaryShowDone: false
     property bool _summaryConnDone: false
+    property var _powerRollbackState: ({})
+    property var _disconnectRollbackState: ({})
 
     // ── Processes ─────────────────────────────────────────────
 
@@ -230,15 +285,28 @@ QtObject {
         id: disconnectProc
         command: ["bluetoothctl", "--timeout", "5", "disconnect"]
         running: false
-        onExited: { root.refresh(true); }
+        onExited: (code) => {
+            if (code === 0) {
+                root._disconnectPending = false;
+                root.refresh(true);
+            } else {
+                root.restoreSummaryState(root._disconnectRollbackState);
+                root._disconnectPending = false;
+            }
+        }
     }
 
     property Process powerProc: Process {
         id: powerProc
         running: false
         onExited: (code, status) => {
-            if (code === 0)
+            if (code === 0) {
+                root._powerActionPending = false;
                 root.refresh(true);
+            } else {
+                root.restoreSummaryState(root._powerRollbackState);
+                root._powerActionPending = false;
+            }
         }
     }
 

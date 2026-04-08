@@ -98,6 +98,20 @@ FocusScope {
     property string presetCommandError: ""
     property int presetMutationToken: 0
     property bool themeStateReloadPending: false
+    readonly property bool themeWritePending: applyProc.running && applyProc.mode === "set" && applyProc.pendingKey !== ""
+    readonly property string pendingThemeKey: applyProc.pendingKey
+    readonly property int panelWidth: {
+        let available = Math.max(420, settingsPop.width - Theme.gapOut * 4);
+        let preferred = Math.round((Theme.fontSize + Theme.popupPadding) * 28);
+        let minimum = Math.round((Theme.fontSize + Theme.popupPadding) * 22);
+        return Math.max(Math.min(available, preferred), Math.min(available, minimum));
+    }
+    readonly property int panelHeight: {
+        let available = Math.max(320, settingsPop.height - Theme.popupTopMargin - Theme.gapOut * 2);
+        let preferred = Math.round((Theme.fontSize + Theme.popupPadding) * 19);
+        let minimum = Math.round((Theme.fontSize + Theme.popupPadding) * 16);
+        return Math.max(Math.min(available, preferred), Math.min(available, minimum));
+    }
 
     function preparePanelForOpen() {
         let item = settingsContentLoader.item;
@@ -158,6 +172,37 @@ FocusScope {
         refreshColorFamilies();
         refreshPresets();
         refreshWallpapers();
+    }
+
+    function cloneThemeState(source) {
+        return JSON.parse(JSON.stringify(source || ({})));
+    }
+
+    function coerceThemeValue(key, value) {
+        if (key === "dark_hint") {
+            if (value === "light" || value === false || value === "false" || value === "off")
+                return false;
+            return true;
+        }
+
+        let current = themeState[key];
+        if (typeof current === "boolean")
+            return value === true || value === "true" || value === "on";
+        if (typeof current === "number") {
+            let parsed = Number(value);
+            return isNaN(parsed) ? current : parsed;
+        }
+        return value;
+    }
+
+    function stageThemeValue(key, value) {
+        let nextState = cloneThemeState(themeState);
+        nextState[key] = coerceThemeValue(key, value);
+        themeState = nextState;
+    }
+
+    function isThemeKeyPending(key) {
+        return themeWritePending && pendingThemeKey === key;
     }
 
     Process {
@@ -657,23 +702,42 @@ FocusScope {
     // ── Apply commands ──
     Process {
         id: applyProc; running: false
+        property string mode: ""
+        property string pendingKey: ""
+        property var rollbackState: ({})
         stderr: SplitParser { onRead: (line) => { console.log("[desktopctl theme stderr]", line); } }
         onExited: (code, status) => {
             if (code !== 0) {
+                if (mode === "set")
+                    settingsPop.themeState = rollbackState;
                 console.log("[desktopctl theme] exit", code);
-                return;
+            } else {
+                settingsPop.loadThemeState();
             }
 
-            settingsPop.loadThemeState();
+            mode = "";
+            pendingKey = "";
+            rollbackState = ({});
         }
     }
 
     function runSet(key, value) {
+        if (applyProc.running)
+            return;
+        applyProc.mode = "set";
+        applyProc.pendingKey = key;
+        applyProc.rollbackState = cloneThemeState(themeState);
+        stageThemeValue(key, value);
         applyProc.command = ["desktopctl", "theme", "set", key, value];
         applyProc.running = true;
     }
 
     function runPreset(name) {
+        if (applyProc.running)
+            return;
+        applyProc.mode = "preset";
+        applyProc.pendingKey = "";
+        applyProc.rollbackState = ({});
         applyProc.command = ["desktopctl", "theme", "preset", name];
         applyProc.running = true;
     }
@@ -756,10 +820,28 @@ FocusScope {
         ScriptAction { script: { settingsPop.closing = false; } }
     }
 
+    Rectangle {
+        anchors.centerIn: parent
+        width: settingsContentLoader.width
+        height: settingsContentLoader.height
+        visible: settingsPop.overlayVisible && !settingsPop.closing && (!settingsContentLoader.item || settingsContentLoader.item.opacity < 1)
+        opacity: settingsContentLoader.item ? Math.max(0, 1 - settingsContentLoader.item.opacity) : 1
+        radius: Theme.popupRadius
+        color: Theme.bg
+        border.width: 1
+        border.color: Theme.bg3
+        Behavior on opacity { Components.Anim { duration: Theme.animHover } }
+
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.AllButtons
+        }
+    }
+
     Loader {
         id: settingsContentLoader
-        width: 700
-        height: 500
+        width: settingsPop.panelWidth
+        height: settingsPop.panelHeight
         anchors.centerIn: parent
         active: settingsPop.contentLoaded || settingsPop.active || settingsPop.closing
         asynchronous: true
@@ -794,6 +876,7 @@ FocusScope {
                 anchors.fill: parent
 
                 Settings.SettingsSidebar {
+                    id: sidebarPanel
                     selectedCategory: settingsPop.selectedCategory
                     categoryNames: settingsPop.categoryNames
                     categoryIcons: settingsPop.categoryIcons
@@ -810,7 +893,7 @@ FocusScope {
 
                 Item {
                     id: paneContainer
-                    width: parent.width - 191
+                    width: parent.width - sidebarPanel.width - 1
                     height: parent.height
 
                     property int _activePane: settingsPop.selectedCategory
@@ -914,6 +997,8 @@ FocusScope {
             presets: settingsPop.presets
             themeState: settingsPop.themeState
             colorFamilies: settingsPop.colorFamilies
+            wallpapers: settingsPop.wallpapers
+            wallpaperDir: settingsPop.wallpaperDir
             monoFontSizeOffsetTargets: settingsPop.monoFontSizeOffsetTargets
             presetCommandRunning: presetCommandProc.running
             presetCommandAction: presetCommandProc.action
@@ -932,6 +1017,8 @@ FocusScope {
         Settings.SettingsColorsPane {
             colorFamilies: settingsPop.colorFamilies
             themeState: settingsPop.themeState
+            writePending: settingsPop.themeWritePending
+            pendingKey: settingsPop.pendingThemeKey
             onColorSchemeSelected: (schemeName) => settingsPop.runSet("color_scheme", schemeName)
             onDarkHintSelected: (value) => settingsPop.runSet("dark_hint", value)
         }
@@ -942,6 +1029,8 @@ FocusScope {
 
         Settings.SettingsFontsPane {
             themeState: settingsPop.themeState
+            writePending: settingsPop.themeWritePending
+            pendingKey: settingsPop.pendingThemeKey
             monoFontSizeOffsetTargets: settingsPop.monoFontSizeOffsetTargets
             onSetRequested: (key, value) => settingsPop.runSet(key, value)
         }
@@ -952,6 +1041,8 @@ FocusScope {
 
         Settings.SettingsWallpaperPane {
             themeState: settingsPop.themeState
+            writePending: settingsPop.themeWritePending
+            pendingKey: settingsPop.pendingThemeKey
             wallpapers: settingsPop.wallpapers
             wallpaperDir: settingsPop.wallpaperDir
             directoryBrowserOpen: settingsPop.directoryBrowserOpen
@@ -986,6 +1077,8 @@ FocusScope {
 
         Settings.SettingsIconsPane {
             themeState: settingsPop.themeState
+            writePending: settingsPop.themeWritePending
+            pendingKey: settingsPop.pendingThemeKey
             onSetRequested: (key, value) => settingsPop.runSet(key, value)
         }
     }

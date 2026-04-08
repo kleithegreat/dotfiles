@@ -7,9 +7,10 @@ QtObject {
     id: root
 
     // ── Connection state ──
-    readonly property bool wifiEnabled: _wifiEnabled
+    readonly property bool wifiEnabled: _wifiRadioPending ? _wifiPendingValue : _wifiEnabled
     readonly property bool wifiRadioReady: _wifiRadioReady
-    readonly property bool wifiRadioBusy: wifiRadioCheckProc.running || wifiRadioToggleProc.running
+    readonly property bool wifiRadioPending: _wifiRadioPending
+    readonly property bool wifiRadioBusy: wifiRadioCheckProc.running || wifiRadioToggleProc.running || _wifiRadioPending
     readonly property string connectedSsid: _connectedSsid
     readonly property string connectedConnectionId: _connectedConnectionId
     readonly property string connectedConnectionUuid: _connectedConnectionUuid
@@ -18,6 +19,12 @@ QtObject {
     readonly property string primaryConnectionLabel: _primaryConnectionLabel
     readonly property bool isCaptivePortal: _connectivityState === "portal" || _connectivityState === "limited"
     readonly property string connectError: _connectError
+    readonly property bool disconnectPending: _disconnectPending
+    readonly property bool forgetPending: _forgetPending
+    readonly property bool dnsSwitchPending: _dnsPendingProfile !== ""
+    readonly property string dnsSelection: _dnsPendingProfile !== ""
+        ? _dnsPendingProfile
+        : ((_diagDnsServer === _diagGateway || _diagDnsServer === "--") ? "auto" : _diagDnsServer)
 
     // ── Network models ──
     readonly property var networksModel: netModel
@@ -149,6 +156,14 @@ QtObject {
     property bool _diagPolling: false
     property var _chanMap: ({})
     property bool _scanAfterRadioRefresh: false
+    property bool _wifiRadioPending: false
+    property bool _wifiPendingValue: false
+    property bool _disconnectPending: false
+    property bool _forgetPending: false
+    property string _dnsPendingProfile: ""
+    property var _disconnectRollbackState: ({})
+    property var _forgetRollbackState: ({})
+    property var _dnsRollbackState: ({})
     property bool _wifiTargetEnabled: false
 
     // ── Models ──
@@ -189,6 +204,14 @@ QtObject {
         if (_wifiRadioReady && _wifiEnabled === enabled)
             return;
         _wifiTargetEnabled = enabled;
+        _wifiRadioPending = true;
+        _wifiPendingValue = enabled;
+        _wifiRadioReady = true;
+        if (!enabled) {
+            clearLiveWifiState();
+            _primaryConnectionType = "";
+            _primaryConnectionLabel = "";
+        }
         wifiRadioToggleProc.command = ["nmcli", "radio", "wifi", enabled ? "on" : "off"];
         wifiRadioToggleProc.running = true;
     }
@@ -257,7 +280,18 @@ QtObject {
 
     function disconnect() {
         if (_connectedConnectionUuid === "") return;
-        disconnectProc.command = ["nmcli", "con", "down", "uuid", _connectedConnectionUuid];
+        let uuid = _connectedConnectionUuid;
+        _disconnectRollbackState = snapshotConnectionState();
+        _disconnectPending = true;
+        _connectedSsid = "";
+        _connectedConnectionId = "";
+        _connectedConnectionUuid = "";
+        _connectivityState = "";
+        if (_primaryConnectionType === "wifi") {
+            _primaryConnectionType = "";
+            _primaryConnectionLabel = "";
+        }
+        disconnectProc.command = ["nmcli", "con", "down", "uuid", uuid];
         disconnectProc.running = true;
     }
 
@@ -270,6 +304,8 @@ QtObject {
             forgetProc.command = ["nmcli", "con", "delete", "id", id];
         else
             return;
+        _forgetRollbackState = snapshotConnectionState();
+        _forgetPending = true;
         forgetProc.running = true;
     }
 
@@ -339,6 +375,9 @@ QtObject {
 
     function switchDns(server) {
         if (_connectedConnectionUuid === "") return;
+        _dnsRollbackState = { diagDnsServer: _diagDnsServer, pendingProfile: _dnsPendingProfile };
+        _dnsPendingProfile = server === "auto" ? "auto" : server;
+        _diagDnsServer = server === "auto" ? (_diagGateway || "--") : server;
         if (server === "auto") {
             dnsSwitchProc.command = ["nmcli", "con", "mod", "uuid", _connectedConnectionUuid, "ipv4.dns", "", "ipv4.ignore-auto-dns", "no"];
         } else {
@@ -419,6 +458,49 @@ QtObject {
         _connectedConnectionId = "";
         _connectedConnectionUuid = "";
         _connectivityState = "";
+    }
+
+    function snapshotConnectionState() {
+        return {
+            connectedSsid: _connectedSsid,
+            connectedConnectionId: _connectedConnectionId,
+            connectedConnectionUuid: _connectedConnectionUuid,
+            connectivityState: _connectivityState,
+            primaryConnectionType: _primaryConnectionType,
+            primaryConnectionLabel: _primaryConnectionLabel,
+            targetSsid: _targetSsid,
+            targetSecurity: _targetSecurity,
+            targetSignal: _targetSignal,
+            targetIsConnected: _targetIsConnected,
+            targetIsKnown: _targetIsKnown,
+            targetConnectionId: _targetConnectionId,
+            targetConnectionUuid: _targetConnectionUuid,
+            detailIp: _detailIp,
+            detailGateway: _detailGateway,
+            detailDns: _detailDns,
+            detailFreq: _detailFreq
+        };
+    }
+
+    function restoreConnectionState(snapshot) {
+        let state = snapshot || ({});
+        _connectedSsid = state.connectedSsid || "";
+        _connectedConnectionId = state.connectedConnectionId || "";
+        _connectedConnectionUuid = state.connectedConnectionUuid || "";
+        _connectivityState = state.connectivityState || "";
+        _primaryConnectionType = state.primaryConnectionType || "";
+        _primaryConnectionLabel = state.primaryConnectionLabel || "";
+        _targetSsid = state.targetSsid || "";
+        _targetSecurity = state.targetSecurity || "";
+        _targetSignal = state.targetSignal || 0;
+        _targetIsConnected = state.targetIsConnected === true;
+        _targetIsKnown = state.targetIsKnown === true;
+        _targetConnectionId = state.targetConnectionId || "";
+        _targetConnectionUuid = state.targetConnectionUuid || "";
+        _detailIp = state.detailIp || "";
+        _detailGateway = state.detailGateway || "";
+        _detailDns = state.detailDns || "";
+        _detailFreq = state.detailFreq || "";
     }
 
     // ── Utility functions ─────────────────────────────────────
@@ -582,6 +664,8 @@ QtObject {
         running: false
         onExited: (code, status) => {
             if (code === 0) {
+                root._wifiEnabled = root._wifiPendingValue;
+                root._wifiRadioPending = false;
                 if (root._wifiTargetEnabled) {
                     root.scan();
                     root.loadKnown();
@@ -589,6 +673,7 @@ QtObject {
                     root.refreshSummary();
                 }
             } else {
+                root._wifiRadioPending = false;
                 console.log("[wifi-radio-toggle] exit", code);
                 root.refreshSummary();
             }
@@ -741,22 +826,36 @@ QtObject {
     property Process disconnectProc: Process {
         running: false
         onExited: (code, status) => {
-            root._connectedSsid = "";
-            root._connectedConnectionId = "";
-            root._connectedConnectionUuid = "";
-            root.resetTarget();
-            root.scan();
-            root.disconnected();
+            if (code === 0) {
+                root._disconnectPending = false;
+                root._connectedSsid = "";
+                root._connectedConnectionId = "";
+                root._connectedConnectionUuid = "";
+                root.resetTarget();
+                root.scan();
+                root.disconnected();
+            } else {
+                root.restoreConnectionState(root._disconnectRollbackState);
+                root._disconnectPending = false;
+                root.refreshSummary();
+            }
         }
     }
 
     property Process forgetProc: Process {
         running: false
         onExited: (code, status) => {
-            root.resetTarget();
-            root.scan();
-            root.loadKnown();
-            root.networkForgotten();
+            if (code === 0) {
+                root._forgetPending = false;
+                root.resetTarget();
+                root.scan();
+                root.loadKnown();
+                root.networkForgotten();
+            } else {
+                root.restoreConnectionState(root._forgetRollbackState);
+                root._forgetPending = false;
+                root.loadKnown();
+            }
         }
     }
 
@@ -1079,6 +1178,10 @@ QtObject {
                 root.dnsReconnectProc.command = ["nmcli", "con", "up", "uuid", root._connectedConnectionUuid];
                 root.dnsReconnectProc.running = true;
             } else {
+                root._diagDnsServer = root._dnsRollbackState.diagDnsServer || "";
+                root._dnsPendingProfile = "";
+                if (!root.dnsProc.running)
+                    root.dnsProc.running = true;
                 console.log("[dns-switch] failed, exit", code);
             }
         }
@@ -1086,8 +1189,12 @@ QtObject {
 
     property Process dnsReconnectProc: Process {
         running: false
-        onExited: {
-            root.dnsProc.running = true;
+        onExited: (code) => {
+            if (code !== 0)
+                root._diagDnsServer = root._dnsRollbackState.diagDnsServer || "";
+            root._dnsPendingProfile = "";
+            if (!root.dnsProc.running)
+                root.dnsProc.running = true;
         }
     }
 

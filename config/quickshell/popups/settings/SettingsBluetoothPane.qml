@@ -38,7 +38,6 @@ FocusScope {
         anchors.fill: parent
         contentHeight: btCol.implicitHeight
         clip: true
-        boundsBehavior: Flickable.StopAtBounds
 
         ColumnLayout {
             id: btCol
@@ -76,10 +75,12 @@ FocusScope {
             RowLayout {
                 Layout.fillWidth: true; spacing: 8
                 Text { text: "Power"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.fillWidth: true }
-                Components.ToggleSwitch {
-                    checked: BluetoothService.powered
-                    onToggled: BluetoothService.togglePower()
-                }
+            Components.ToggleSwitch {
+                checked: BluetoothService.powered
+                disabled: BluetoothService.powerBusy
+                pending: BluetoothService.powerBusy
+                onToggled: BluetoothService.togglePower()
+            }
             }
 
             Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
@@ -124,8 +125,9 @@ FocusScope {
                     color: "transparent"
                     Components.HoverLayer {
                         id: connDcA; color: Theme.bg2; hoverOpacity: 0.6; pressedOpacity: 0.9; pressedScale: 0.98
+                        disabled: BluetoothService.disconnectBusy
                         onClicked: BluetoothService.disconnectDevice()
-                        Text { id: connDcLabel; anchors.centerIn: parent; text: "Disconnect"
+                        Text { id: connDcLabel; anchors.centerIn: parent; text: BluetoothService.disconnectBusy ? "Disconnecting…" : "Disconnect"
                             color: connDcA.containsMouse ? Theme.redBright : Theme.fg4
                             Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
                             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }

@@ -9,7 +9,6 @@ Components.WheelFlickable {
     anchors.fill: parent
     contentHeight: mainCol.implicitHeight
     clip: true
-    boundsBehavior: Flickable.StopAtBounds
 
     // ── Data ──────────────────────────────────────────────
 
@@ -25,6 +24,12 @@ Components.WheelFlickable {
     property var weekData: hasData ? (stateData.week || []) : []
     property var monthData: hasData ? (stateData.month || []) : []
     property string weekRange: hasData ? (stateData.week_range || "") : ""
+    property bool chartVisualsReady: false
+    readonly property real weekChartHeight: Math.max(Theme.fontSize * 8, 96)
+    readonly property real weekValueFontSize: Math.max(Theme.fontSizeSmall - 2, 8)
+    readonly property real monthCellSize: Math.max(Theme.fontSize + 8, 20)
+    readonly property real monthCellGap: Math.max(2, Math.round(Theme.fontSizeSmall / 3))
+    readonly property real monthLabelFontSize: Math.max(Theme.fontSizeSmall - 2, 8)
     property string emptyStateMessage: {
         if (loadState === "missing")
             return "The focus time daemon is not running.\nStart it with: desktopctl daemon";
@@ -79,6 +84,12 @@ Components.WheelFlickable {
                 }
             }
             root.firstLoadDone = true;
+            if (root.loadState === "ready" && !root.chartVisualsReady) {
+                Qt.callLater(function() {
+                    if (root.loadState === "ready")
+                        root.chartVisualsReady = true;
+                });
+            }
             buf = "";
         }
     }
@@ -249,7 +260,7 @@ Components.WheelFlickable {
                         let n = root.weekData.length;
                         return n > 0 ? (mainCol.width - (n - 1) * weekRow.spacing) / n : 0;
                     }
-                    height: 100
+                    height: root.weekChartHeight
 
                     property var dayData: root.weekData[index] || {}
                     property int dayTotal: dayData.total || 0
@@ -260,9 +271,10 @@ Components.WheelFlickable {
                         anchors.bottom: barRect.top
                         anchors.bottomMargin: 2
                         anchors.horizontalCenter: parent.horizontalCenter
+                        visible: root.chartVisualsReady
                         text: barItem.dayTotal > 0 ? root.formatShort(barItem.dayTotal) : ""
                         color: barItem.isToday ? Theme.fg : Theme.fg4
-                        font.family: Theme.fontFamily; font.pixelSize: 8
+                        font.family: Theme.fontFamily; font.pixelSize: root.weekValueFontSize
                     }
 
                     Rectangle {
@@ -270,13 +282,15 @@ Components.WheelFlickable {
                         anchors.bottom: dayLabel.top
                         anchors.bottomMargin: 4
                         anchors.horizontalCenter: parent.horizontalCenter
+                        visible: root.chartVisualsReady
                         width: parent.width * 0.55
-                        height: Math.max(2, (parent.height - 30) * barItem.barFraction)
+                        height: Math.max(2, (parent.height - (Theme.fontSizeSmall * 2 + 10)) * barItem.barFraction)
                         radius: Math.min(width / 4, 6)
                         color: barItem.isToday ? Theme.accent : Theme.blueBright
                         opacity: barItem.isToday ? 1.0 : 0.5
 
                         Behavior on height {
+                            enabled: root.chartVisualsReady
                             Components.Anim {
                                 duration: Theme.animNormal
                                 easing.type: Easing.BezierSpline
@@ -312,16 +326,16 @@ Components.WheelFlickable {
         Row {
             visible: root.hasData
             Layout.alignment: Qt.AlignHCenter
-            spacing: 3
+            spacing: root.monthCellGap
 
             Repeater {
                 model: ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
                 Text {
                     required property string modelData
-                    width: 20
+                    width: root.monthCellSize
                     text: modelData
                     color: Theme.fg4
-                    font.family: Theme.fontFamily; font.pixelSize: 8
+                    font.family: Theme.fontFamily; font.pixelSize: root.monthLabelFontSize
                     horizontalAlignment: Text.AlignHCenter
                 }
             }
@@ -331,8 +345,8 @@ Components.WheelFlickable {
             visible: root.hasData
             Layout.alignment: Qt.AlignHCenter
             columns: 7
-            columnSpacing: 3
-            rowSpacing: 3
+            columnSpacing: root.monthCellGap
+            rowSpacing: root.monthCellGap
 
             Repeater {
                 model: root.monthData.length
@@ -345,7 +359,7 @@ Components.WheelFlickable {
                     property int cellTotal: isNull ? 0 : (cellData.total || 0)
                     property bool isToday: !isNull && (cellData.is_target || false)
 
-                    width: 20; height: 20; radius: 3
+                    width: root.monthCellSize; height: root.monthCellSize; radius: Math.max(3, Math.round(root.monthCellSize * 0.15))
                     color: heatCell.isNull ? "transparent" : Theme.bg2
                     border.width: heatCell.isToday ? 1 : 0
                     border.color: Theme.fg
@@ -410,12 +424,14 @@ Components.WheelFlickable {
 
                     Rectangle {
                         anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
+                        visible: root.chartVisualsReady
                         width: parent.width * Math.min(1.0, (appItem.appData.percent || 0) / 100)
                         radius: parent.radius
                         color: Theme.blueBright
                         opacity: 0.8
 
                         Behavior on width {
+                            enabled: root.chartVisualsReady
                             Components.Anim {
                                 duration: Theme.animNormal
                                 easing.type: Easing.BezierSpline

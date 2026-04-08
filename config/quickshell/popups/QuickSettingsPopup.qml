@@ -31,6 +31,8 @@ FocusScope {
 
     property bool wifiConnected: NetworkService.connectedSsid !== ""
     property string wifiSsid: NetworkService.connectedSsid
+    property real panelHeightHint: 360
+    readonly property int metricLabelWidth: Math.max(Theme.fontSize * 3, 32)
 
     // ── Battery ──
     property real batPct: {
@@ -126,21 +128,58 @@ FocusScope {
 
     Keys.onEscapePressed: qsPop.close()
 
+    Rectangle {
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.topMargin: Theme.popupTopMargin
+        anchors.rightMargin: Theme.gapOut
+        width: qsContentLoader.width
+        height: qsContentLoader.height
+        visible: qsPop.overlayVisible && !qsPop.closing && height > 0 && (!qsContentLoader.item || qsContentLoader.item.opacity < 1)
+        opacity: qsContentLoader.item ? Math.max(0, 1 - qsContentLoader.item.opacity) : 1
+        radius: Theme.popupRadius
+        color: Theme.bg1
+        border.width: 1
+        border.color: Theme.bg3
+        Behavior on opacity { Components.Anim { duration: Theme.animHover } }
+
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.AllButtons
+        }
+    }
+
     Loader {
         id: qsContentLoader
         anchors.right: parent.right; anchors.top: parent.top
         anchors.topMargin: Theme.popupTopMargin; anchors.rightMargin: Theme.gapOut
         width: 360
-        height: item ? item.implicitHeight : 0
+        height: qsPop.overlayVisible ? (item ? item.implicitHeight : qsPop.panelHeightHint) : 0
         active: qsPop.contentLoaded || qsPop.active || qsPop.closing
         asynchronous: true
         sourceComponent: qsPanelComponent
+        Behavior on height {
+            Components.Anim {
+                duration: Theme.animHeightResize
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveStandard
+            }
+        }
 
         onLoaded: {
+            qsPop.panelHeightHint = item.implicitHeight;
             item.opacity = 0;
             item.scale = 0.92;
             if (qsPop.active)
                 qsOpenAnim.start();
+        }
+    }
+
+    Connections {
+        target: qsContentLoader.item
+
+        function onImplicitHeightChanged() {
+            qsPop.panelHeightHint = qsContentLoader.item.implicitHeight;
         }
     }
 
@@ -150,7 +189,7 @@ FocusScope {
         Rectangle {
             id: qsPanel
             anchors.fill: parent
-            implicitHeight: qsMainCol.implicitHeight + Theme.popupPadding * 2
+            implicitHeight: Math.min(qsMainCol.implicitHeight + Theme.popupPadding * 2, qsPop.height - Theme.popupTopMargin - Theme.gapOut * 2)
             radius: Theme.popupRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
             opacity: 0; scale: 0.92
             transformOrigin: Item.TopRight
@@ -162,9 +201,17 @@ FocusScope {
             }
             MouseArea { anchors.fill: parent }
 
-            ColumnLayout {
-                id: qsMainCol
-                anchors.fill: parent; anchors.margins: Theme.popupPadding
+            Components.WheelFlickable {
+                id: qsScroll
+                anchors.fill: parent
+                anchors.margins: Theme.popupPadding
+                contentWidth: width
+                contentHeight: qsMainCol.implicitHeight
+                clip: true
+
+                ColumnLayout {
+                    id: qsMainCol
+                    width: qsScroll.width
                 spacing: Theme.sectionSpacing
 
                 // ═══════════════════ Toggle Tile Grid ═══════════════════
@@ -205,6 +252,16 @@ FocusScope {
                                 }
                             }
 
+                            property bool isPending: {
+                                switch (modelData.key) {
+                                case "wifi": return NetworkService.wifiRadioBusy;
+                                case "bluetooth": return BluetoothService.powerBusy;
+                                case "vpn": return VpnService.mullvadBusy;
+                                case "power": return PowerProfileService.pendingProfile !== "";
+                                default: return false;
+                                }
+                            }
+
                             property string tileIcon: {
                                 switch (modelData.key) {
                                 case "wifi": return qsPop.wifiConnected ? "../icons/wifi.svg" : "../icons/wifi-off.svg";
@@ -224,13 +281,18 @@ FocusScope {
                             property string tileSublabel: {
                                 switch (modelData.key) {
                                 case "wifi":
+                                    if (NetworkService.wifiRadioBusy)
+                                        return NetworkService.wifiEnabled ? "Turning on…" : "Turning off…";
                                     if (!NetworkService.wifiRadioReady) return "Checking…";
                                     if (!NetworkService.wifiEnabled) return "Off";
                                     return qsPop.wifiConnected ? qsPop.wifiSsid : "Not connected";
                                 case "bluetooth":
+                                    if (BluetoothService.powerBusy)
+                                        return BluetoothService.powered ? "Turning on…" : "Turning off…";
                                     if (!BluetoothService.powered) return "Off";
                                     return BluetoothService.connectedName !== "" ? BluetoothService.connectedName : "On";
                                 case "vpn":
+                                    if (VpnService.mullvadState === "disconnecting") return "Disconnecting…";
                                     if (VpnService.mullvadState === "connected")
                                         return VpnService.mullvadCity || VpnService.mullvadCountry || "Connected";
                                     if (VpnService.mullvadState === "connecting") return "Connecting…";
@@ -283,6 +345,9 @@ FocusScope {
 
                             // ── Tile visuals ──
 
+                            opacity: tile.isPending ? 0.72 : 1
+                            Behavior on opacity { Components.Anim { duration: Theme.animHover } }
+
                             Rectangle {
                                 anchors.fill: parent; radius: parent.radius
                                 color: tile.isActive
@@ -322,8 +387,9 @@ FocusScope {
                             MouseArea {
                                 id: tileMainArea
                                 anchors.fill: parent
+                                enabled: !tile.isPending
                                 hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
+                                cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                                 onClicked: tile.tileToggle()
                             }
 
@@ -437,7 +503,7 @@ FocusScope {
                     Text {
                         text: Math.round(AudioService.volume * 100) + "%"
                         color: Theme.fg3; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
-                        Layout.preferredWidth: 32; horizontalAlignment: Text.AlignRight
+                        Layout.preferredWidth: qsPop.metricLabelWidth; horizontalAlignment: Text.AlignRight
                     }
                 }
 
@@ -498,7 +564,7 @@ FocusScope {
                     Text {
                         text: BrightnessService.brightnessAvailable ? BrightnessService.brightnessPercent + "%" : ""
                         color: Theme.fg3; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
-                        Layout.preferredWidth: 32; horizontalAlignment: Text.AlignRight
+                        Layout.preferredWidth: qsPop.metricLabelWidth; horizontalAlignment: Text.AlignRight
                     }
                 }
 
@@ -569,6 +635,7 @@ FocusScope {
                         }
                     }
                 }
+            }
             }
         }
     }

@@ -6,13 +6,39 @@ import "../../components" as Components
 Components.WheelFlickable {
     id: root
     required property var themeState
+    required property bool writePending
+    required property string pendingKey
+
+    readonly property var iconThemeOptions: [
+        "Neuwaita",
+        "Colloid",
+        "Colloid-Dark",
+        "Colloid-Light",
+        "Papirus-Dark",
+        "Papirus",
+        "Papirus-Light",
+        "Adwaita",
+        "hicolor"
+    ]
+    readonly property var cursorThemeOptions: [
+        "Adwaita",
+        "BreezeX-RosePine-Linux",
+        "BreezeX-RosePineDawn-Linux",
+        "Bibata-Modern-Classic",
+        "Bibata-Modern-Ice",
+        "Bibata-Original-Classic",
+        "Bibata-Original-Ice"
+    ]
 
     signal setRequested(string key, string value)
+
+    function isPending(key) {
+        return root.writePending && root.pendingKey === key;
+    }
 
     anchors.fill: parent
     contentHeight: iconsCol.implicitHeight
     clip: true
-    boundsBehavior: Flickable.StopAtBounds
 
     ColumnLayout {
         id: iconsCol
@@ -35,15 +61,21 @@ Components.WheelFlickable {
                 color: Theme.fg3
                 font.family: Theme.systemFamily
                 font.pixelSize: Theme.fontSizeSmall
-                Layout.fillWidth: true
+                Layout.preferredWidth: Math.max(Theme.fontSize * 8, 104)
             }
 
-            Components.InlineDropdown {
+            Components.InlineSelect {
                 id: iconSelect
-                Layout.preferredWidth: 180
+                Layout.fillWidth: true
                 Layout.alignment: Qt.AlignTop
-                model: ["Neuwaita", "Papirus-Dark", "Papirus", "Papirus-Light", "Adwaita", "hicolor"]
+                disabled: root.writePending
+                pending: root.isPending("icon_theme")
+                model: root.iconThemeOptions
                 currentValue: root.themeState.icon_theme
+                currentText: root.themeState.icon_theme || ""
+                secondaryText: root.iconThemeOptions.length + " themes"
+                fontFamily: Theme.systemFamily
+                maxVisibleItems: 7
                 onExpandedChanged: {
                     if (expanded)
                         cursorSelect.expanded = false;
@@ -63,15 +95,21 @@ Components.WheelFlickable {
                 color: Theme.fg3
                 font.family: Theme.systemFamily
                 font.pixelSize: Theme.fontSizeSmall
-                Layout.fillWidth: true
+                Layout.preferredWidth: Math.max(Theme.fontSize * 8, 104)
             }
 
-            Components.InlineDropdown {
+            Components.InlineSelect {
                 id: cursorSelect
-                Layout.preferredWidth: 180
+                Layout.fillWidth: true
                 Layout.alignment: Qt.AlignTop
-                model: ["Adwaita", "BreezeX-RosePine-Linux", "BreezeX-RosePineDawn-Linux"]
+                disabled: root.writePending
+                pending: root.isPending("cursor_theme")
+                model: root.cursorThemeOptions
                 currentValue: root.themeState.cursor_theme
+                currentText: root.themeState.cursor_theme || ""
+                secondaryText: root.cursorThemeOptions.length + " themes"
+                fontFamily: Theme.systemFamily
+                maxVisibleItems: 7
                 onExpandedChanged: {
                     if (expanded)
                         iconSelect.expanded = false;
@@ -96,14 +134,17 @@ Components.WheelFlickable {
 
             Rectangle {
                 width: 28; height: Theme.btnHeight; radius: Theme.btnRadius
+                opacity: root.isPending("cursor_size") ? 0.72 : 1
                 color: csMinus.containsMouse ? Theme.bg2 : Theme.bg1
                 border.width: 1; border.color: Theme.bg3
                 Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                Behavior on opacity { Components.Anim { duration: Theme.animHover } }
 
                 Text { anchors.centerIn: parent; text: "\u2212"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
 
                 Components.HoverLayer {
                     id: csMinus
+                    disabled: root.writePending
                     cursorShape: Qt.PointingHandCursor; hoverEnabled: true
                     hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
                     onClicked: {
@@ -116,20 +157,25 @@ Components.WheelFlickable {
 
             Text {
                 text: String(root.themeState.cursor_size || 24)
+                opacity: root.isPending("cursor_size") ? 0.72 : 1
                 color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize
                 width: 28; horizontalAlignment: Text.AlignHCenter
+                Behavior on opacity { Components.Anim { duration: Theme.animHover } }
             }
 
             Rectangle {
                 width: 28; height: Theme.btnHeight; radius: Theme.btnRadius
+                opacity: root.isPending("cursor_size") ? 0.72 : 1
                 color: csPlus.containsMouse ? Theme.bg2 : Theme.bg1
                 border.width: 1; border.color: Theme.bg3
                 Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                Behavior on opacity { Components.Anim { duration: Theme.animHover } }
 
                 Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
 
                 Components.HoverLayer {
                     id: csPlus
+                    disabled: root.writePending
                     cursorShape: Qt.PointingHandCursor; hoverEnabled: true
                     hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
                     onClicked: {

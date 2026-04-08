@@ -214,7 +214,7 @@ Item {
     Components.WheelFlickable {
         visible: !root.diagLoading
         anchors.fill: parent
-        contentHeight: diagCol.implicitHeight; clip: true; boundsBehavior: Flickable.StopAtBounds
+        contentHeight: diagCol.implicitHeight; clip: true
 
         ColumnLayout {
             id: diagCol; width: parent.width; spacing: 6
@@ -433,11 +433,13 @@ Item {
             // DNS quick-switch buttons
             RowLayout {
                 Layout.fillWidth: true; spacing: 6; Layout.topMargin: 4
+                opacity: NetworkService.dnsSwitchPending ? 0.72 : 1
+                Behavior on opacity { Components.Anim { duration: Theme.animHover } }
 
                 Text { text: "Switch:"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
 
                 Rectangle {
-                    property bool isCurrent: root.diagDnsServer === root.diagGateway || root.diagDnsServer === "--"
+                    property bool isCurrent: NetworkService.dnsSelection === "auto"
                     width: dnsAutoLabel.implicitWidth + 16; height: 24; radius: Theme.btnRadius
                     color: isCurrent ? Theme.accent : "transparent"
                     border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
@@ -463,11 +465,12 @@ Item {
                             }
                         } }
                     Components.HoverLayer { id: dnsAutoA; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 0.98
+                        disabled: NetworkService.dnsSwitchPending
                         onClicked: root.dnsChanged("auto") }
                 }
 
                 Rectangle {
-                    property bool isCurrent: root.diagDnsServer === "8.8.8.8"
+                    property bool isCurrent: NetworkService.dnsSelection === "8.8.8.8"
                     width: dnsGoogleLabel.implicitWidth + 16; height: 24; radius: Theme.btnRadius
                     color: isCurrent ? Theme.accent : "transparent"
                     border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
@@ -493,11 +496,12 @@ Item {
                             }
                         } }
                     Components.HoverLayer { id: dnsGoogleA; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 0.98
+                        disabled: NetworkService.dnsSwitchPending
                         onClicked: root.dnsChanged("8.8.8.8") }
                 }
 
                 Rectangle {
-                    property bool isCurrent: root.diagDnsServer === "1.1.1.1"
+                    property bool isCurrent: NetworkService.dnsSelection === "1.1.1.1"
                     width: dnsCfLabel.implicitWidth + 16; height: 24; radius: Theme.btnRadius
                     color: isCurrent ? Theme.accent : "transparent"
                     border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
@@ -523,6 +527,7 @@ Item {
                             }
                         } }
                     Components.HoverLayer { id: dnsCfA; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 0.98
+                        disabled: NetworkService.dnsSwitchPending
                         onClicked: root.dnsChanged("1.1.1.1") }
                 }
             }

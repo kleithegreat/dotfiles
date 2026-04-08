@@ -12,6 +12,7 @@ Item {
     property bool showLabel: true
     readonly property int brightnessPercent: BrightnessService.brightnessPercent
     readonly property string labelText: BrightnessService.hasBacklight ? (BrightnessService.brightnessAvailable ? brightnessPercent + "%" : "") : DisplayService.nightLightSubtitle
+    readonly property int labelMaxWidth: Math.max(Theme.fontSize * 6, 84)
 
     RowLayout {
         id: displayRow
@@ -43,11 +44,15 @@ Item {
         }
 
         Text {
+            id: brightnessLabel
             visible: displayRoot.showLabel
             text: displayRoot.labelText
             color: displayArea.containsMouse ? Theme.yellowBright : (BrightnessService.hasBacklight ? Theme.fg : (DisplayService.nightLightEnabled ? Theme.orangeBright : Theme.fg3))
             font.family: Theme.systemFamily
             font.pixelSize: Theme.fontSizeSmall
+            elide: Text.ElideRight
+            Layout.preferredWidth: Math.min(brightnessLabel.implicitWidth, displayRoot.labelMaxWidth)
+            Layout.maximumWidth: displayRoot.labelMaxWidth
             Behavior on color { Components.CAnim { duration: Theme.animHover } }
         }
     }
