@@ -3,7 +3,7 @@
 ## Scope
 
 Current implementation map for `config/quickshell/` and its theme/runtime
-integration as of 2026-04-03.
+integration as of 2026-04-07.
 
 ## Shell Topology
 
@@ -26,8 +26,9 @@ Managed popups mounted by the overlay host remain:
 | --- | --- | --- |
 | `AudioService.qml` | Volume, mute, sink summary, shared OSD state | Bar volume, audio pane, shell OSD, IPC |
 | `BluetoothService.qml` | Powered state, summary device data, full device/pairing flows | Bar Bluetooth, quick settings, Bluetooth pane |
-| `BrightnessService.qml` | Backlight discovery, watch, and writes | Display pane; shell brightness OSD still enters through `/tmp/quickshell-brightness` |
+| `BrightnessService.qml` | Backlight discovery, file watching, and direct `brightnessctl` writes for the Display pane | Display pane and any brightness slider UI |
 | `DisplayService.qml` | Monitor refresh/apply and daemon-backed night-light status / override requests | Display pane |
+| `HostCapabilities.qml` | Detects Wi-Fi, battery, and power-profile capabilities | Settings host category visibility and power-pane availability |
 | `NetworkService.qml` | Wi-Fi summary, scans, known networks, diagnostics, DNS, captive portal, reporting | Bar network, quick settings, network pane |
 | `NotificationService.qml` | Popup/history models, DND, dismissal, relative-time refresh | Root notifications, drawer, bar bell, Notifications settings pane, IPC |
 | `PowerProfileService.qml` | CPU profiles and supported battery controls | Power pane |
@@ -43,8 +44,10 @@ Direct-upstream or local exceptions:
   services directly.
 - Focus Time still polls `$XDG_RUNTIME_DIR/focustime_state.json` inside its
   pane; see `docs/focus-time/SPEC.md`.
-- The shell brightness OSD still reads `/tmp/quickshell-brightness`, which is
-  written by `desktopctl brightness` helpers launched from Hyprland config.
+- The shell brightness OSD no longer reads `/tmp/quickshell-brightness`.
+  `config/quickshell/shell.qml:212-219` exposes an IPC handler for brightness
+  OSD events, and `desktopctl/src/brightness.rs:149-160` drives it with
+  `qs -p <repo>/config/quickshell ipc call brightness osd ...`.
 
 ## Settings System
 
@@ -54,17 +57,12 @@ Direct-upstream or local exceptions:
 | Host loaders | `Process` helpers call `desktopctl theme status --json`, `desktopctl theme list-schemes --json`, `desktopctl theme list-presets --json`, and shell commands for wallpaper/directory browsing |
 | Service-driven panes | Network, Bluetooth, Audio, Display, Power, Notifications, Focus Time |
 | Host-driven panes | Presets, Colors, Fonts, Wallpaper, Icons, Hyprland |
+| Category gating | `HostCapabilities.qml:1-40` plus `config/quickshell/popups/SettingsPopup.qml:61-68`, `config/quickshell/popups/SettingsPopup.qml:796-859` hide the Power category when neither battery nor power-profile support is present |
 | General theme writes | `desktopctl theme set` and `desktopctl theme preset` |
 | Preset writes | `desktopctl theme save-preset` and `desktopctl theme delete-preset` |
 | Hyprland appearance writes | Debounced queue of `desktopctl theme set hypr_* ...` writes with desktop-notification feedback |
 
-The main host wiring lives in
-`config/quickshell/popups/SettingsPopup.qml:127-245`,
-`config/quickshell/popups/SettingsPopup.qml:652-701`, and
-`config/quickshell/popups/SettingsPopup.qml:751-949`. The notification pane is
-mounted through `config/quickshell/popups/settings/SettingsNotificationsPane.qml:6-163`.
-
-Quick Settings expand affordances are now consumed by the overlay host:
+Quick Settings expand affordances are consumed by the overlay host:
 `config/quickshell/PopupOverlayHost.qml:13-17` closes the current popup,
 selects the target settings category, and opens the full Settings popup, while
 `config/quickshell/PopupOverlayHost.qml:167-172` maps Wi-Fi, Bluetooth, VPN,
@@ -76,8 +74,9 @@ DND, and power-profile expand requests to concrete category indices.
 | --- | --- |
 | `Theme.qml` | Watches `~/.config/quickshell/GeneratedTheme.json`, reparses on change, and exposes generated colors/fonts plus shell-owned layout constants |
 | `desktopctl/src/theme/targets/quickshell.rs` | Writes `GeneratedTheme.json`, maps theming names into Quickshell's `bg0_h` / `aqua` naming, emits both mono and system font families, and derives shell font sizes from `ThemeState.font_size` |
+| Recursive tree exception | `config/quickshell/GeneratedTheme.json` is committed in the repo as a bootstrap snapshot because Home Manager deploys the whole `config/quickshell/` tree recursively; activation/runtime theme applies still overwrite the live `~/.config/quickshell/GeneratedTheme.json` path |
 | Settings host | Runs `desktopctl theme ...`, then reloads its theme snapshot on success |
-| Shell IPC | Provides a second command path into `desktopctl theme ...` through `theme.apply`, with shell-style tokenization for string payloads and error toasts on failure |
+| Shell IPC | Provides a second command path into `desktopctl theme ...` through `theme.apply`, with shell-style tokenization and error toasts on failure |
 
 `Theme.qml` still keeps hardcoded Gruvbox Dark fallbacks for the generated JSON
 surface in `config/quickshell/Theme.qml:29-69`.
@@ -86,10 +85,13 @@ surface in `config/quickshell/Theme.qml:29-69`.
 
 - `desktopctl` is on `PATH` for every Quickshell `Process` that invokes theme
   commands.
-- `/tmp/quickshell-brightness` exists and is updated by an external producer.
 - A writable `~/.config/quickshell/GeneratedTheme.json` exists beside the
-  Home Manager-managed Quickshell tree.
-- A backlight is discoverable under `/sys/class/backlight`.
+  Home Manager-managed Quickshell tree; it may begin as the committed repo
+  snapshot and then be overwritten by `desktopctl theme sync`.
+- Keyboard-driven brightness OSD updates depend on `qs` plus repo-root
+  resolution in `desktopctl`, not on a temp file.
+- A backlight is discoverable under `/sys/class/backlight` for the brightness
+  slider path to be usable.
 - `$XDG_RUNTIME_DIR/focustime_state.json` exists when the focus-time daemon is
   running.
 - CLI tools such as `nmcli`, `bluetoothctl`, `hyprctl`, `brightnessctl`,

@@ -2,7 +2,7 @@
 
 ## Scope
 
-Current implementation map for the focus-time subsystem as of 2026-04-03.
+Current implementation map for the focus-time subsystem as of 2026-04-07.
 
 ## Runtime Topology
 
@@ -23,11 +23,11 @@ Current implementation map for the focus-time subsystem as of 2026-04-03.
 
 | Path | Current role | Evidence |
 | --- | --- | --- |
-| `home/default.nix` | Installs `desktopctl` and the Hyprland config fragments that source `autostart.conf` | `home/default.nix:33-45`, `home/default.nix:182-199` |
+| `home/default.nix` | Installs `desktopctl` and the Hyprland config fragments that source `autostart.conf` | `home/default.nix:37-49`, `home/default.nix:196-211` |
 | `config/hypr/autostart.conf` | Starts `desktopctl daemon` during session startup | `config/hypr/autostart.conf:6-8` |
 | `desktopctl/src/daemon/mod.rs` | Builds the tokio runtime and starts focus, solar, and socket subsystems together | `desktopctl/src/daemon/mod.rs:19-100` |
-| `desktopctl/src/daemon/focus.rs` | Implements the full focus producer: shared-DB initialization, legacy focus-data migration, per-second accumulation, daily minute-table retention, reconnect seeding, desktop-file cache, summary building, and atomic JSON replacement | `desktopctl/src/daemon/focus.rs:20-577`, `desktopctl/src/daemon/focus.rs:617-800` |
-| `config/quickshell/popups/SettingsPopup.qml` | Still mounts the focus-time pane as settings category `6`, after the new Notifications pane | `config/quickshell/popups/SettingsPopup.qml:59-63`, `config/quickshell/popups/SettingsPopup.qml:806-824`, `config/quickshell/popups/SettingsPopup.qml:864-866` |
+| `desktopctl/src/daemon/focus.rs` | Implements the full focus producer: shared-DB initialization, legacy focus-data migration, per-second accumulation, daily minute-table retention, reconnect seeding, desktop-file cache, summary building, and atomic JSON replacement | `desktopctl/src/daemon/focus.rs:20-577`, `desktopctl/src/daemon/focus.rs:613-800` |
+| `config/quickshell/popups/SettingsPopup.qml` | Still mounts the focus-time pane as settings category `6`, after the Notifications pane | `config/quickshell/popups/SettingsPopup.qml:59-68`, `config/quickshell/popups/SettingsPopup.qml:796-859`, `config/quickshell/popups/SettingsPopup.qml:905-907` |
 | `config/quickshell/popups/settings/SettingsFocusTimePane.qml` | Polls the JSON summary, classifies missing/stale/parse failures, and renders totals, charts, and app breakdowns only for fresh data | `config/quickshell/popups/settings/SettingsFocusTimePane.qml:16-90`, `config/quickshell/popups/settings/SettingsFocusTimePane.qml:132-418` |
 
 No other repo file reads `focustime_state.json` directly.
@@ -52,7 +52,7 @@ No other repo file reads `focustime_state.json` directly.
 | Concern | Current implementation | Evidence |
 | --- | --- | --- |
 | Read path | A `Process` runs `bash -c 'state_path="$XDG_RUNTIME_DIR/focustime_state.json"; [ -f "$state_path" ] || exit 3; cat -- "$state_path"'` | `config/quickshell/popups/settings/SettingsFocusTimePane.qml:52-54` |
-| Parse behavior | Exit code `3` maps to "daemon is not running"; other read failures or parse failures map to "unable to read"; parsed summaries older than 10 seconds map to "daemon is not responding" and do not render charts | `config/quickshell/popups/settings/SettingsFocusTimePane.qml:28-34`, `config/quickshell/popups/settings/SettingsFocusTimePane.qml:57-83`, `config/quickshell/popups/settings/SettingsFocusTimePane.qml:132-157` |
+| Parse behavior | Exit code `3` maps to "The focus time daemon is not running"; other read failures or parse failures map to "Unable to read focus time data"; parsed summaries older than 30 seconds map to "Focus daemon has not updated recently" and do not render charts | `config/quickshell/popups/settings/SettingsFocusTimePane.qml:28-34`, `config/quickshell/popups/settings/SettingsFocusTimePane.qml:57-83`, `config/quickshell/popups/settings/SettingsFocusTimePane.qml:132-160` |
 | Poll cadence | The pane triggers an immediate read on mount, then polls every 3000 ms while idle | `config/quickshell/popups/settings/SettingsFocusTimePane.qml:86-90` |
 | Derived fields | The pane projects fresh JSON into totals, current app, app list, week series, month heatmap, and week range; `last_updated` is consumed only by the freshness gate | `config/quickshell/popups/settings/SettingsFocusTimePane.qml:16-48`, `config/quickshell/popups/settings/SettingsFocusTimePane.qml:160-418` |
 

@@ -6,11 +6,11 @@
 **Status:** Workaround in place
 **Resolution:** The Qt target uses the full `qt6ct`/`qt5ct` + `kdeglobals`/`current.colors` + Kvantum + `hyprqt6engine` chain; `qt6ct + Fusion` or `hyprqt6engine` alone were only partial fixes.
 
-## Kate and KWrite editor colors do not follow the system theme
-**Symptom:** The app chrome updates, but the editor area keeps its own syntax and background colors.
-**Cause:** KSyntaxHighlighting uses a separate theme system from Kvantum and KColorScheme.
-**Status:** Open
-**Resolution:** The repo themes the UI chrome through the Qt target, but Kate and KWrite editor themes still need to be chosen inside the apps.
+## Quickshell keeps one committed generated snapshot
+**Symptom:** `config/quickshell/GeneratedTheme.json` is checked into the repo even though generated outputs are usually kept out of version control.
+**Cause:** Home Manager deploys `config/quickshell/` recursively, so the repo carries one bootstrap snapshot for the live `~/.config/quickshell/GeneratedTheme.json` path before `desktopctl theme sync` and later runtime theme applies overwrite it.
+**Status:** Deliberate exception
+**Resolution:** Treat the committed file as bootstrap state, not as a hand-edited source of truth. Theme changes still flow through `desktopctl theme`, and no other generated snapshot should be committed by default.
 
 ## Kvantum SVG assets cap exact background matching
 **Symptom:** Some KDE surfaces stay slightly off from the active background color even after the generated Kvantum config applies.

@@ -60,7 +60,7 @@ Connection behavior:
 | Property | Current behavior |
 | --- | --- |
 | File creation | `paths::db_path()` creates `$XDG_DATA_HOME/desktopctl/` before connect |
-| Connection mode | `sqlite3.connect(..., isolation_level=None)` |
+| Connection mode | `rusqlite::Connection::open(...)`, with explicit transactions around accumulation and legacy-data import |
 | Journal mode | `PRAGMA journal_mode=WAL` |
 | Migrations | `CREATE TABLE IF NOT EXISTS` only |
 | Legacy import | Copy rows from `$XDG_DATA_HOME/focustime/focustime.db` when the shared focus tables are empty |
@@ -203,9 +203,9 @@ This resolution affects `apps[*].name`, `apps[*].icon`, and the unlocked
   not running".
 - Any other non-zero exit, empty stdout, or JSON parse failure means
   `hasData = false` and maps to "Unable to read focus time data".
-- Parsed JSON with `last_updated` more than `10` seconds away from
+- Parsed JSON with `last_updated` more than `30` seconds away from
   `Date.now() / 1000` means `hasData = false` and maps to
-  "Focus daemon is not responding".
+  "Focus daemon has not updated recently".
 - Missing keys fall back to `0`, `""`, or `[]` in QML because the pane reads
   with `stateData.foo || defaultValue`.
 - The pane renders from `total`, `yesterday`, `average`, `current`, `apps`,

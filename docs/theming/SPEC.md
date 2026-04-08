@@ -20,6 +20,11 @@ Non-goals:
 - Giving each app a custom file-ownership model when one of the standard
   assembly strategies is sufficient
 
+The only current exception to the "no generated outputs in the repo" rule is
+`config/quickshell/GeneratedTheme.json`, which is committed as a bootstrap
+snapshot because Home Manager deploys the full Quickshell tree recursively and
+the live file is then overwritten by the `quickshell` target.
+
 ## Source Of Truth
 
 | Artifact | Role | Ownership |
@@ -206,6 +211,12 @@ The dependency map in code must remain a direct encoding of this table.
 | Quickshell | Reads `GeneratedTheme.json`; `system_font` is for shell UI text, while `mono_font` remains for monospaced or glyph-oriented surfaces; see `docs/quickshell/SPEC.md` for shell-side constraints |
 | Hyprland | Reads `colors.conf` and `appearance-theme.conf` |
 | Neovim / Neovide | Read generated theme state files rather than embedding palette logic in Home Manager |
+
+Constraint:
+
+- `config/quickshell/GeneratedTheme.json` is the only committed generated
+  snapshot currently allowed in the repo. Additional committed generated
+  outputs are still forbidden.
 
 ## Qt / KDE Constraint
 

@@ -3,7 +3,7 @@
 ## Scope
 
 Current implementation map for `config/hypr/`, the host-selected Hyprland
-fragments, and the generated theme inputs as of 2026-04-03.
+fragments, and the generated theme inputs as of 2026-04-07.
 
 ## Source Graph
 
@@ -31,7 +31,7 @@ its `hostName` through `specialArgs` to Home Manager (`flake.nix:41-44`,
 `flake.nix:54-57`).
 `home/default.nix` uses `if hostName == "laptop" ... else if hostName ==
 "desktop" ... else` conditionals to select host-specific fragments
-(`home/default.nix:188-215`). The `else` branch provides safe minimal defaults,
+(`home/default.nix:202-229`). The `else` branch provides safe minimal defaults,
 which is what the `vm` host and any future host without explicit handling
 receives.
 
@@ -44,7 +44,7 @@ receives.
 The remaining source-graph files — `hyprland.conf`, `appearance.conf`,
 `input.conf`, `keybinds.conf`, `rules.conf`, `plugins.conf`, `autostart.conf`,
 `hypridle.conf`, and `hyprlock.conf` — are deployed identically on all hosts
-from `config/hypr/` (`home/default.nix:184-199`).
+from `config/hypr/` (`home/default.nix:198-213`).
 
 ## Theme Integration
 
@@ -61,7 +61,7 @@ from `config/hypr/` (`home/default.nix:184-199`).
 | File | Owns |
 | --- | --- |
 | `input.conf` | Shared keyboard, pointer, cursor, and gesture defaults |
-| `autostart.conf` | Session bootstrap: `awww-daemon`, a theme-backed wallpaper bootstrap via `desktopctl theme wallpaper` (`config/hypr/autostart.conf:12-13`), Quickshell, `hypridle`, Vicinae, Snappy Switcher, focus-time, Easy Effects, and related session helpers. Wallpaper selection itself remains owned by the theming pipeline's `wallpaper` target (`docs/theming/SPEC.md`). |
+| `autostart.conf` | Session bootstrap: `desktopctl daemon` (which now carries focus tracking and solar scheduling), `desktopctl launch-quickshell`, `awww-daemon` plus the theme-backed wallpaper bootstrap via `desktopctl theme wallpaper` (`config/hypr/autostart.conf:6-12`), `hypridle`, Vicinae, Snappy Switcher, Easy Effects, Bitwarden, and related session helpers. Wallpaper selection itself remains owned by the theming pipeline's `wallpaper` target (`docs/theming/SPEC.md`). |
 | `keybinds.conf` | Primary modifier scheme, descriptive `bindd` / `bindde` bindings (`config/hypr/keybinds.conf:9-98`), media/brightness repeat binds, Quickshell IPC binds, and external launcher/switcher actions |
 | `rules.conf` | Floating/dialog rules, app-specific geometry, layer rules, and plugin rule glue |
 | `plugins.conf` | Loading `hyprbars` and `hyprexpo` from `HYPR_PLUGIN_DIR` plus their theme-facing settings |
