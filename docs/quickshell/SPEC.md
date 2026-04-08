@@ -45,6 +45,19 @@ Constraints:
 - Quick Settings is the shallow surface: summary state, bounded toggles, and
   jumps to deeper settings only.
 
+## Interaction Contract
+
+- Custom shell chrome is intentionally pointer-first. The repo does not impose
+  a custom tab-order or Enter/Space activation contract on bar modules, popup
+  tiles, sidebar categories, or other mouse-driven shell surfaces.
+- Shared controls and shell-surface buttons should reuse the repo's common
+  interaction primitives rather than each view inventing separate hover or
+  overscroll behavior.
+- Scrollable shell surfaces use one shared elastic overscroll model rather than
+  mixing hard-stop lists with custom timer-driven rebound code.
+- Domains that mutate state through subprocesses may stage an optimistic local
+  value while the owner confirms or rolls back on real completion.
+
 ## Bar Contract
 
 - Bar modules may display state, surface tooltips, and route clicks into popup

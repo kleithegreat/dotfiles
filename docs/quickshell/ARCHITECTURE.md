@@ -3,7 +3,7 @@
 ## Scope
 
 Current implementation map for `config/quickshell/` and its theme/runtime
-integration as of 2026-04-07.
+integration as of 2026-04-08.
 
 ## Shell Topology
 
@@ -25,9 +25,10 @@ Managed popups mounted by the overlay host remain:
 | Primitive | Current role | Evidence |
 | --- | --- | --- |
 | `components/WheelFlickable.qml` | Shared wheel + drag scroll surface for settings panes, dropdown option lists, notification history, Wi-Fi lists, and Quick Settings overflow. It now uses one elastic overscroll model (`FollowBoundsBehavior` + `DragAndOvershootBounds`) and lets `returnToBounds()` handle rebound instead of timer-driven snap-back bookkeeping. | `config/quickshell/components/WheelFlickable.qml:4-72`, `config/quickshell/popups/QuickSettingsPopup.qml:189-215`, `config/quickshell/NotifDrawer.qml:223-226`, `config/quickshell/popups/settings/SettingsSidebar.qml:130-140` |
-| `components/ToggleSwitch.qml` | Shared boolean control with tab focus, Enter/Space activation, focus ring, and disabled/pending opacity states. | `config/quickshell/components/ToggleSwitch.qml:4-68` |
-| `components/InlineDropdown.qml` | Compact one-of-many selector with tab focus, Enter/Space expansion, focus ring, animated dropdown height, and `WheelFlickable`-backed option scrolling. | `config/quickshell/components/InlineDropdown.qml:4-228` |
-| `components/InlineSelect.qml` | Card-style one-of-many selector with the same keyboard/focus contract as `InlineDropdown`, plus current-option auto-scroll inside the shared flickable list. | `config/quickshell/components/InlineSelect.qml:4-294` |
+| `components/HoverLayer.qml` | Shared pressed/hover visual layer for shell buttons and tile hit areas. It stays pointer-only and does not introduce an extra keyboard interaction contract on top of each caller. | `config/quickshell/components/HoverLayer.qml:4-68`, `config/quickshell/popups/QuickSettingsPopup.qml:418-440`, `config/quickshell/PowerMenu.qml:112-134` |
+| `components/ToggleSwitch.qml` | Shared boolean control with mouse-driven activation plus disabled/pending opacity states. | `config/quickshell/components/ToggleSwitch.qml:4-42` |
+| `components/InlineDropdown.qml` | Compact one-of-many selector with pointer-driven expansion, animated dropdown height, and `WheelFlickable`-backed option scrolling. | `config/quickshell/components/InlineDropdown.qml:4-188` |
+| `components/InlineSelect.qml` | Card-style one-of-many selector with the same pointer-first contract as `InlineDropdown`, plus current-option auto-scroll inside the shared flickable list. | `config/quickshell/components/InlineSelect.qml:4-251` |
 
 ## Service Layer
 
@@ -101,13 +102,10 @@ behaviors:
   `config/quickshell/popups/settings/SettingsPresetsPane.qml:312-330`,
   `config/quickshell/popups/settings/SettingsPresetEditor.qml:589-755`.
 
-The settings sidebar also now owns its own keyboard navigation contract
-instead of being click-only: visible categories are navigated with
-Up/Down/Home/End, focused items scroll into view, and Enter/Space activates the
-currently focused category. Evidence:
-`config/quickshell/popups/settings/SettingsSidebar.qml:13-123`,
-`config/quickshell/popups/settings/SettingsSidebar.qml:130-264`,
-`config/quickshell/popups/settings/SettingsSidebar.qml:305-388`.
+The settings sidebar remains click-driven. It uses the shared `WheelFlickable`
+for scrolling and `HoverLayer` for category hit targets, but it does not add a
+custom tab-order or focused-outline layer on top of the popup shell. Evidence:
+`config/quickshell/popups/settings/SettingsSidebar.qml:1-247`.
 
 `SettingsFocusTimePane.qml` still consumes the JSON summary directly, but it no
 longer paints charts from placeholder geometry on first load. The pane waits for
@@ -116,6 +114,17 @@ after `chartVisualsReady` has been primed. Evidence:
 `config/quickshell/popups/settings/SettingsFocusTimePane.qml:15-32`,
 `config/quickshell/popups/settings/SettingsFocusTimePane.qml:63-94`,
 `config/quickshell/popups/settings/SettingsFocusTimePane.qml:218-434`.
+
+Shell chrome remains deliberately pointer-first after the frontend-polish pass.
+Quick Settings tiles and footer actions, bar modules, and power-menu actions
+all use mouse/touch hit areas plus hover/pressed feedback, without repo-local
+tab stops or focus outlines layered onto those surfaces. Evidence:
+`config/quickshell/popups/QuickSettingsPopup.qml:232-440`,
+`config/quickshell/bar/Bar.qml:17-73`,
+`config/quickshell/bar/Clock.qml:1-117`,
+`config/quickshell/bar/Mpris.qml:1-62`,
+`config/quickshell/bar/Workspaces.qml:1-38`,
+`config/quickshell/PowerMenu.qml:58-140`.
 
 ## Theme Integration
 

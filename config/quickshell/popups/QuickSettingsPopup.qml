@@ -377,7 +377,9 @@ FocusScope {
                             Rectangle {
                                 anchors.fill: parent; radius: parent.radius
                                 color: Theme.fg
-                                opacity: tileMainArea.containsMouse ? (tileMainArea.pressed ? 0.08 : 0.04) : 0
+                                opacity: tileMainArea.containsMouse
+                                    ? (tileMainArea.pressed ? 0.08 : 0.04)
+                                    : 0
                                 Behavior on opacity { Components.Anim { duration: Theme.animHover } }
                             }
 
@@ -436,8 +438,9 @@ FocusScope {
                                     MouseArea {
                                         id: expandBtnArea
                                         anchors.fill: parent
+                                        enabled: !tile.isPending
                                         hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
+                                        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                                         onClicked: tile.tileExpand()
                                     }
                                 }

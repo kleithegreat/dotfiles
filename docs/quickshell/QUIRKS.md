@@ -17,3 +17,9 @@
 **Cause:** `config/quickshell/shell.qml:24-108` tokenizes string payloads into argv using shell-style quote and backslash rules before spawning `desktopctl theme`.
 **Status:** By design
 **Resolution:** Quote arguments such as `"IBM Plex Sans"` or pass an array payload when the caller already has structured argv pieces. Failures now surface through the shell toast path (`config/quickshell/shell.qml:380-415`).
+
+## Custom shell chrome is intentionally pointer-first
+**Symptom:** Bar modules, Quick Settings tiles, the power menu, shared toggles, and settings sidebar categories do not expose repo-local tab stops, Enter/Space activation, or explicit focus outlines.
+**Cause:** The Quickshell UI is currently designed around pointer/touch hit targets and hover/pressed feedback rather than a second custom keyboard-navigation layer across shell surfaces.
+**Status:** By design
+**Resolution:** Preserve the pointer-first interaction model in `config/quickshell/components/ToggleSwitch.qml`, `config/quickshell/components/InlineDropdown.qml`, `config/quickshell/components/InlineSelect.qml`, `config/quickshell/popups/settings/SettingsSidebar.qml`, `config/quickshell/popups/QuickSettingsPopup.qml`, `config/quickshell/bar/`, and `config/quickshell/PowerMenu.qml` unless the shell interaction policy changes again.
