@@ -1135,6 +1135,18 @@ fn command_result(output: io::Result<std::process::Output>, program: &str) -> cr
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::{Path, PathBuf};
+
+    fn repo_root() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("desktopctl lives under the repo root")
+            .to_path_buf()
+    }
+
+    fn dark_hint_for_repo_scheme_name(scheme_name: &str) -> crate::Result<bool> {
+        Ok(resolve::load_colors(scheme_name, &repo_root().join("themes/colors"))?.is_dark())
+    }
 
     #[test]
     fn bool_aliases_match_python_cli() {
@@ -1182,7 +1194,11 @@ mod tests {
 
     #[test]
     fn dark_hint_follows_scheme_appearance() {
-        assert!(dark_hint_for_scheme_name("gruvbox-dark").expect("dark scheme should load"));
-        assert!(!dark_hint_for_scheme_name("gruvbox-light").expect("light scheme should load"));
+        assert!(
+            dark_hint_for_repo_scheme_name("gruvbox-dark").expect("dark scheme should load")
+        );
+        assert!(
+            !dark_hint_for_repo_scheme_name("gruvbox-light").expect("light scheme should load")
+        );
     }
 }

@@ -81,7 +81,7 @@ Targets with notable extra behavior:
   GtkSourceView XML shape and the current family-pairing policy for gedit's
   dark/light source-style keys.
 - `desktopctl/src/theme/mod.rs:613-672` and
-  `desktopctl/src/theme/mod.rs:1183-1187` cover the rule that `color_scheme`
+  `desktopctl/src/theme/mod.rs:1195-1202` cover the rule that `color_scheme`
   changes realign `dark_hint` with scheme appearance before persistence.
 - `desktopctl/src/theme/targets/qt.rs:966-1019` covers the declared
   KTextEditor theme metadata and Kvantum dark/light asset selection behavior.
