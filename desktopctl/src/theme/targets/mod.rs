@@ -321,6 +321,7 @@ pub(crate) mod testsupport {
             "appearance": "dark",
             "app_themes": {
                 "bat": "gruvbox-dark",
+                "ktexteditor": "gruvbox Dark",
                 "snappy_switcher": "gruvbox-dark.ini",
                 "vicinae": {
                     "name": "gruvbox-dark",

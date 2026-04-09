@@ -45,7 +45,7 @@ Additional path rules:
 | Live `hyprsunset` process lifecycle | `desktopctl daemon` night-light controller | Quickshell and Hyprland request mode changes through `desktopctl night-light ...`; they do not spawn `hyprsunset` directly |
 | Persisted theme state | `desktopctl theme` | Stored in the `theme_state` table inside `desktopctl.db` |
 | Scheduled `dark_hint` changes in `auto` mode | `desktopctl daemon` via `theme::set_dark_hint()` | The daemon computes solar status and persists the scheduled value through the theming module |
-| Manual and preset `dark_hint` changes | `desktopctl theme set dark_hint ...` and `desktopctl theme preset ...` | These writes still persist and apply directly; they do not route through the daemon |
+| Manual and preset `dark_hint` changes | `desktopctl theme set dark_hint ...` and `desktopctl theme preset ...` | Direct `dark_hint` writes still persist and apply directly; presets that omit `dark_hint` now inherit it from the selected `color_scheme` instead of preserving a stale hint |
 | Focus-time SQLite writes and JSON summaries | `desktopctl daemon` focus tracker | Quickshell is read-only for this data |
 | Generated theme outputs and runtime side effects | `desktopctl theme` targets | Includes files under `~/.config`, dconf writes, cursor updates, wallpaper apply, and editor/shell state files |
 | Quickshell shell IPC | Quickshell | Shell IPC is only a requester; it calls `desktopctl` and does not mutate theme state itself |
@@ -55,6 +55,9 @@ Important current behavior:
 - `hyprsunset` has a single live arbiter in the daemon.
 - `dark_hint` does not: the daemon writes it for solar `auto` mode, but manual
   theme surfaces can also write it directly.
+- `theme set color_scheme ...` and presets that change `color_scheme` without
+  an explicit `dark_hint` normalize the persisted hint to the selected
+  scheme's dark/light appearance before applying targets.
 
 ## Command Surface
 
@@ -85,8 +88,8 @@ State mutation:
 
 | Command | Current behavior |
 | --- | --- |
-| `theme set <key> <value>` | Validates one state key, applies only the affected targets, and persists the new state only if that apply succeeds |
-| `theme preset <name>` | Loads one preset patch, merges it into current state, applies all targets, persists the merged state only if that apply succeeds, then applies any preset-supplied `dark_hint` directly |
+| `theme set <key> <value>` | Validates one state key, applies only the affected targets, and persists the new state only if that apply succeeds. Setting `color_scheme` also realigns `dark_hint` to that scheme's declared appearance before validation. |
+| `theme preset <name>` | Loads one preset patch, merges it into current state, applies all targets, and persists the merged state only if that apply succeeds. If the preset changes `color_scheme` and omits `dark_hint`, the merged state inherits the scheme appearance; an explicit preset `dark_hint` still applies directly through the theming module afterward. |
 | `theme save-preset <name> <json>` | Writes one preset JSON object with canonical key ordering via atomic replacement |
 | `theme delete-preset <name>` | Removes one preset file |
 
@@ -107,6 +110,9 @@ Theming invariants:
 - Presets are partial patches, not full-state snapshots.
 - `theme sync` is the activation-time safe subset; it is intentionally narrower
   than `theme all`.
+- State mutations that change `color_scheme` without an explicit `dark_hint`
+  normalize `dark_hint` to the selected scheme appearance before target apply
+  and persistence.
 - `theme set`, `theme preset`, and `theme::set_dark_hint()` only persist state
   after the required target application succeeds; failed applies leave the
   stored state unchanged.

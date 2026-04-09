@@ -358,6 +358,7 @@ fn cmd_preset(args: crate::NamedArg) -> CliResult<()> {
         preset_value,
         &format!("preset '{}'", preset_name),
     ))?;
+    let preset_updates_color_scheme = preset.contains_key("color_scheme");
     let requested_dark_hint = preset.remove("dark_hint").and_then(|value| value.as_bool());
 
     let has_theme_changes = !preset.is_empty();
@@ -367,6 +368,9 @@ fn cmd_preset(args: crate::NamedArg) -> CliResult<()> {
         let mut state_map = state.to_ordered_json_map();
         for (key, value) in &preset {
             state_map.insert(key.clone(), value.clone());
+        }
+        if preset_updates_color_scheme && requested_dark_hint.is_none() {
+            map_user_err(align_dark_hint_with_color_scheme(&mut state_map))?;
         }
 
         let new_state = map_user_err(validated_theme_state(state_map, "theme state"))?;
@@ -606,12 +610,34 @@ fn color_targets_for_state(state: &schema::ThemeState) -> std::collections::BTre
     targets
 }
 
+fn dark_hint_for_scheme_name(scheme_name: &str) -> crate::Result<bool> {
+    let colors_dir = resolve::colors_dir()?;
+    Ok(resolve::load_colors(scheme_name, &colors_dir)?.is_dark())
+}
+
+fn align_dark_hint_with_color_scheme(state_map: &mut Map<String, Value>) -> crate::Result<()> {
+    let scheme_name = state_map
+        .get("color_scheme")
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "theme state: 'color_scheme' must be a non-empty string",
+            )
+        })?;
+    state_map.insert(
+        "dark_hint".to_owned(),
+        Value::Bool(dark_hint_for_scheme_name(scheme_name)?),
+    );
+    Ok(())
+}
+
 fn set_state_key_internal(key: &str, raw_value: Value) -> crate::Result<StateUpdateOutcome> {
     let state = resolve::load_state()?;
     let mut state_map = state.to_ordered_json_map();
     let value = coerce_theme_value(key, raw_value)?;
 
-    let Some(current) = state_map.get(key) else {
+    let Some(current) = state_map.get(key).cloned() else {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             format!(
@@ -623,7 +649,12 @@ fn set_state_key_internal(key: &str, raw_value: Value) -> crate::Result<StateUpd
         .into());
     };
 
-    if *current == value {
+    state_map.insert(key.to_owned(), value.clone());
+    if key == "color_scheme" {
+        align_dark_hint_with_color_scheme(&mut state_map)?;
+    }
+    let new_state = validated_theme_state(state_map, "theme state")?;
+    if current == value && new_state == state {
         return Ok(StateUpdateOutcome {
             changed: false,
             value,
@@ -631,9 +662,6 @@ fn set_state_key_internal(key: &str, raw_value: Value) -> crate::Result<StateUpd
             affected_targets: std::collections::BTreeSet::new(),
         });
     }
-
-    state_map.insert(key.to_owned(), value.clone());
-    let new_state = validated_theme_state(state_map, "theme state")?;
     let affected_targets = orchestrator::targets_for_key(key, Some(&new_state));
 
     Ok(StateUpdateOutcome {
@@ -1150,5 +1178,11 @@ mod tests {
             .map(|(key, _)| key)
             .collect::<Vec<_>>();
         assert_eq!(keys, vec!["color_scheme", "wallpaper", "mono_font"]);
+    }
+
+    #[test]
+    fn dark_hint_follows_scheme_appearance() {
+        assert!(dark_hint_for_scheme_name("gruvbox-dark").expect("dark scheme should load"));
+        assert!(!dark_hint_for_scheme_name("gruvbox-light").expect("light scheme should load"));
     }
 }

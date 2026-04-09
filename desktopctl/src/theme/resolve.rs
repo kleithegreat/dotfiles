@@ -404,7 +404,7 @@ mod tests {
                 "  \"neovide_mono_font_size_offset\": 0,\n",
                 "  \"qt_mono_font_size_offset\": 0,\n",
                 "  \"vscode_mono_font_size_offset\": 3,\n",
-                "  \"dark_hint\": false,\n",
+                "  \"dark_hint\": true,\n",
                 "  \"hypr_gaps_in\": 4,\n",
                 "  \"hypr_gaps_out\": 6,\n",
                 "  \"hypr_border_size\": 0,\n",

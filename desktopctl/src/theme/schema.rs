@@ -132,6 +132,8 @@ pub struct ColorSchemeAppThemes {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bat: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub ktexteditor: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub snappy_switcher: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vicinae: Option<VicinaeThemeNames>,
@@ -142,6 +144,7 @@ pub struct ColorSchemeAppThemes {
 impl ColorSchemeAppThemes {
     fn is_empty(&self) -> bool {
         self.bat.is_none()
+            && self.ktexteditor.is_none()
             && self.snappy_switcher.is_none()
             && self.vicinae.is_none()
             && self.vscode.is_none()
@@ -248,6 +251,17 @@ impl ColorScheme {
 
     pub fn bat_theme_name(&self) -> &str {
         self.app_themes.bat.as_deref().unwrap_or("base16")
+    }
+
+    pub fn ktexteditor_theme_name(&self) -> &str {
+        self.app_themes
+            .ktexteditor
+            .as_deref()
+            .unwrap_or(if self.is_light() {
+                "Breeze Light"
+            } else {
+                "Breeze Dark"
+            })
     }
 
     pub fn snappy_switcher_theme_name(&self) -> &str {
@@ -412,6 +426,12 @@ impl ThemeState {
     }
 
     pub fn default_state_for_repo_root(repo_root: &Path) -> Self {
+        let default_dark_hint = crate::theme::resolve::load_colors(
+            DEFAULT_COLOR_SCHEME,
+            &repo_root.join("themes/colors"),
+        )
+        .map(|colors| colors.is_dark())
+        .unwrap_or(DEFAULT_DARK_HINT);
         Self {
             color_scheme: DEFAULT_COLOR_SCHEME.to_owned(),
             wallpaper: repo_root
@@ -432,7 +452,7 @@ impl ThemeState {
             neovide_mono_font_size_offset: DEFAULT_NEOVIDE_MONO_FONT_SIZE_OFFSET,
             qt_mono_font_size_offset: DEFAULT_QT_MONO_FONT_SIZE_OFFSET,
             vscode_mono_font_size_offset: DEFAULT_VSCODE_MONO_FONT_SIZE_OFFSET,
-            dark_hint: DEFAULT_DARK_HINT,
+            dark_hint: default_dark_hint,
             hypr_gaps_in: DEFAULT_HYPR_GAPS_IN,
             hypr_gaps_out: DEFAULT_HYPR_GAPS_OUT,
             hypr_border_size: DEFAULT_HYPR_BORDER_SIZE,

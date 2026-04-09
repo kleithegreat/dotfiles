@@ -4,6 +4,7 @@
   "appearance": "light",
   "app_themes": {
     "bat": "gruvbox-light",
+    "ktexteditor": "gruvbox Light",
     "snappy_switcher": "catppuccin-latte.ini",
     "vicinae": {
       "name": "gruvbox-light",
