@@ -59,6 +59,9 @@ Important current behavior:
 - `hyprsunset` has a single live arbiter in the daemon.
 - `dark_hint` does not: the daemon writes it for solar `auto` mode, but manual
   theme surfaces can also write it directly.
+- Persisted `theme_state` rows and legacy `themes/state.json` imports that are
+  missing newly added required keys are backfilled from compiled defaults and
+  then rewritten through the SQLite-backed theme-state path.
 - `theme set color_scheme ...` and presets that change `color_scheme` without
   an explicit `dark_hint` normalize the persisted hint to the selected
   scheme's dark/light appearance before applying targets.
@@ -109,6 +112,8 @@ Theming invariants:
 
 - `theme status --json` is the authoritative machine-readable view of persisted
   theme state.
+- Loading persisted theme state backfills any newly required keys from compiled
+  defaults before validation and rewrites the upgraded row set to SQLite.
 - `theme list-schemes --json` is the machine-readable scheme-preview inventory
   consumed by Quickshell theme selectors.
 - Presets are partial patches, not full-state snapshots.

@@ -11,7 +11,7 @@ Current implementation map for the migrated Rust theming pipeline as of
 | --- | --- |
 | CLI entry point | `desktopctl/src/main.rs:46-83` and `desktopctl/src/theme/mod.rs:67-573` implement the full `desktopctl theme` surface. |
 | Schema | `desktopctl/src/theme/schema.rs:33-120` and `desktopctl/src/theme/schema.rs:405-620` define `ColorScheme`, required `appearance`, centralized per-target app-theme metadata including KTextEditor theme names, `ThemeState`, canonical field ordering, compiled default theme-state values, the per-target system-font and mono-font offset contract, and the shared font-size / mono-font-size helpers. `desktopctl/src/theme/schema.rs:444-485` still derives the default `dark_hint` from the default scheme's declared appearance instead of a detached constant. |
-| Resolution | `desktopctl/src/theme/resolve.rs:11-500` resolves `themes/colors/`, rejects schemes that omit `appearance`, persists theme state in the shared `desktopctl.db` `theme_state` table, imports legacy `themes/state.json` on first access, and serializes canonical JSON for CLI output. |
+| Resolution | `desktopctl/src/theme/resolve.rs:11-248` resolves `themes/colors/`, rejects schemes that omit `appearance`, persists theme state in the shared `desktopctl.db` `theme_state` table, backfills missing required `ThemeState` keys from compiled defaults when older SQLite rows or legacy `themes/state.json` inputs are reused, imports the legacy JSON on first access, and serializes canonical JSON for CLI output. |
 | JSON compatibility | `desktopctl/src/theme/json.rs:4-142` preserves Python-compatible object ordering and ASCII escaping for generated JSON files and `--json` CLI output. |
 | Registry | `desktopctl/src/theme/targets/mod.rs:26-305` defines target metadata, hook surfaces, and the typed registry, and registers all 21 current targets explicitly. |
 | Orchestrator | `desktopctl/src/theme/orchestrator.rs:16-68`, `desktopctl/src/theme/orchestrator.rs:77-235`, `desktopctl/src/theme/orchestrator.rs:237-324`, and `desktopctl/src/theme/orchestrator.rs:526-541` handle dependency selection, target ordering, file assembly, atomic file replacement, concat merges, repo-relative `base_path` resolution, post-write hooks, reload hooks, and sync-safe filtering. The current dependency map routes `font_size`, `quickshell_font_size_offset`, `gtk_font_size_offset`, `qt_font_size_offset`, and `chromium_font_size_offset` back to the matching font consumers, and still includes the GtkSourceView color fanout through `desktopctl/src/theme/orchestrator.rs:16-68` and `desktopctl/src/theme/orchestrator.rs:191-223`. |
@@ -79,6 +79,9 @@ Targets with notable extra behavior:
   the same app-theme metadata, including the KTextEditor name, so Python-format
   target tests exercise the centralized lookup path instead of falling back to
   defaults.
+- `desktopctl/src/theme/resolve.rs:418-692` covers default seeding, unknown
+  field round-trips, upgrade-time backfill for older `theme_state` SQLite rows,
+  and legacy `themes/state.json` imports that are missing newer required keys.
 - `desktopctl/src/theme/targets/gtksourceview.rs:363-526` covers the generated
   GtkSourceView XML shape and the current family-pairing policy for gedit's
   dark/light source-style keys.
