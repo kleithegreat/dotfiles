@@ -3,12 +3,7 @@ use crate::theme::{
     atomic_write, expand_user_path, resolve,
     schema::{ColorScheme, ColorSchemeAppearance, ThemeState},
 };
-use std::{
-    collections::HashSet,
-    fs,
-    path::Path,
-    process::Command,
-};
+use std::{collections::HashSet, fs, path::Path, process::Command};
 
 pub const METADATA: TargetMetadata = TargetMetadata {
     name: "gtksourceview",
@@ -62,7 +57,10 @@ fn style_scheme_file_name(scheme_name: &str) -> String {
 }
 
 fn current_style_scheme_name(scheme_name: &str) -> String {
-    format!("Desktopctl Current ({})", title_case_scheme_name(scheme_name))
+    format!(
+        "Desktopctl Current ({})",
+        title_case_scheme_name(scheme_name)
+    )
 }
 
 fn title_case_scheme_name(scheme_name: &str) -> String {
@@ -197,7 +195,10 @@ fn load_scheme_catalog() -> crate::Result<Vec<SchemeEntry>> {
         .filter_map(|entry| {
             let entry = entry.ok()?;
             let path = entry.path();
-            if path.extension().is_some_and(|extension| extension == "json") {
+            if path
+                .extension()
+                .is_some_and(|extension| extension == "json")
+            {
                 path.file_stem()
                     .and_then(|stem| stem.to_str())
                     .map(str::to_owned)
@@ -243,9 +244,7 @@ fn preferred_variant_name(
     candidates.sort_by(|left, right| left.name.cmp(&right.name));
 
     let preferred_variants = match desired_appearance {
-        ColorSchemeAppearance::Dark => {
-            ["dark", "night", "mocha", "macchiato", "frappe"].as_slice()
-        }
+        ColorSchemeAppearance::Dark => ["dark", "night", "mocha", "macchiato", "frappe"].as_slice(),
         ColorSchemeAppearance::Light => ["light", "dawn", "latte"].as_slice(),
     };
 
@@ -292,12 +291,8 @@ fn style_scheme_id_for_appearance(
         return CURRENT_SCHEME_ID.to_owned();
     }
 
-    let variant_name = preferred_variant_name(
-        catalog,
-        current_name,
-        current_colors,
-        desired_appearance,
-    );
+    let variant_name =
+        preferred_variant_name(catalog, current_name, current_colors, desired_appearance);
     if variant_name == current_name {
         CURRENT_SCHEME_ID.to_owned()
     } else {
@@ -326,7 +321,10 @@ pub fn persist(_colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
 
         let file_name = style_scheme_file_name(&entry.name);
         let path = styles_dir.join(&file_name);
-        atomic_write(&path, render_named_style_scheme(&entry.name, &entry.colors).as_bytes())?;
+        atomic_write(
+            &path,
+            render_named_style_scheme(&entry.name, &entry.colors).as_bytes(),
+        )?;
         expected.insert(file_name);
     }
 
