@@ -40,6 +40,9 @@ Constraints:
 - Targets consume resolved `ColorScheme` and `ThemeState`; they do not invent
   alternate state stores.
 - Presets are partial patches, not separate full-state documents.
+- Presets or direct state writes that change `color_scheme` without explicitly
+  setting `dark_hint` must normalize `dark_hint` to the selected scheme's
+  `appearance` before validation and apply.
 - `dark_hint` remains part of `ThemeState`, but another domain may own the live
   policy for that key as long as persistence still flows through the theming
   pipeline.
@@ -153,6 +156,8 @@ Constraints:
 - Color JSON must satisfy the full `ColorScheme` field set, including explicit
   `appearance`, and a 16-entry palette.
 - `ThemeState` is the only mutable theme selection schema.
+- `color_scheme` mutations may also rewrite `dark_hint` during normalization;
+  callers that need a different hint must set `dark_hint` explicitly.
 - Theme-state storage is row-oriented (`key` + JSON-encoded `value`), but
   `desktopctl theme status --json` must preserve the canonical field order from
   `THEME_STATE_FIELD_ORDER`.

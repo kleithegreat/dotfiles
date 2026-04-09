@@ -90,7 +90,7 @@ pub fn persist(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
         )?;
     }
 
-    update_kdeglobals(colors)?;
+    update_kdeglobals(colors, state)?;
     write_kcolorscheme(colors)?;
     write_hyprqt6engine_conf(colors, state)?;
     setup_kvantum(colors)?;
@@ -382,10 +382,12 @@ fn apply_kde_colors(config: &mut IniFile, colors: &ColorScheme) {
     }
 }
 
-fn update_kdeglobals(colors: &ColorScheme) -> crate::Result<()> {
+fn update_kdeglobals(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
     let conf_path = expand_user_path(KDEGLOBALS)?;
     let mut config = IniFile::from_path(&conf_path)?;
     apply_kde_colors(&mut config, colors);
+    config.ensure_section("Icons");
+    config.set("Icons", "Theme", &state.icon_theme);
     if let Some(parent) = conf_path.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -442,12 +444,8 @@ fn write_hyprqt6engine_conf(_colors: &ColorScheme, state: &ThemeState) -> crate:
     Ok(())
 }
 
-fn ktexteditor_color_theme(colors: &ColorScheme) -> &'static str {
-    if colors.is_dark() {
-        "Breeze Dark"
-    } else {
-        "Breeze Light"
-    }
+fn ktexteditor_color_theme<'a>(colors: &'a ColorScheme) -> &'a str {
+    colors.ktexteditor_theme_name()
 }
 
 fn sync_ktexteditor_config(
@@ -984,7 +982,15 @@ mod tests {
     }
 
     #[test]
-    fn ktexteditor_theme_uses_declared_scheme_appearance() {
+    fn ktexteditor_theme_uses_declared_theme_metadata_or_appearance() {
+        assert_eq!(
+            ktexteditor_color_theme(&load_repo_colors("gruvbox-dark")),
+            "gruvbox Dark"
+        );
+        assert_eq!(
+            ktexteditor_color_theme(&load_repo_colors("gruvbox-light")),
+            "gruvbox Light"
+        );
         assert_eq!(
             ktexteditor_color_theme(&load_repo_colors("tokyo-night")),
             "Breeze Dark"
