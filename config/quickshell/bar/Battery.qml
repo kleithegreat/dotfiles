@@ -59,6 +59,13 @@ RowLayout {
         Behavior on color { Components.CAnim { duration: 200 } }
     }
 
+    Components.StyledText {
+        visible: pct <= 25 && !charging
+        text: Math.round(pct) + "%"
+        font.pixelSize: Theme.fontSizeSmall
+        color: batIcon.color
+    }
+
     MouseArea {
         id: batArea; anchors.fill: parent
         cursorShape: Qt.PointingHandCursor; hoverEnabled: true
