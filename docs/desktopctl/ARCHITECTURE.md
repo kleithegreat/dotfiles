@@ -66,7 +66,7 @@ integration as of 2026-04-08.
   coverage for generated GtkSourceView XML and the current light/dark pairing
   policy used to set gedit's source-style keys.
 - `desktopctl/src/theme/mod.rs:613-672` and
-  `desktopctl/src/theme/mod.rs:1183-1187` add focused coverage for
+  `desktopctl/src/theme/mod.rs:1195-1202` add focused coverage for
   `color_scheme`-driven `dark_hint` normalization.
 - `desktopctl/src/theme/targets/qt.rs:966-1019` adds scheme-metadata and
   appearance coverage for the `qt` target's KTextEditor and Kvantum
