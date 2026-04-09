@@ -34,6 +34,23 @@ the theming pipeline runs. The `home.activation.applyTheme` hook runs
 file before the first Hyprland session in normal use. A manual
 `desktopctl theme` run is needed if the activation hook is skipped.
 
+## input-runtime.conf only overrides shared defaults
+
+**Symptom:** The Mouse page's shared "Mouse Speed" setting changes, but a
+specific mouse still keeps its old per-device feel.
+
+**Cause:** `desktopctl hypr input set ...` writes
+`~/.config/hypr/input-runtime.conf`, which is sourced after
+`input-devices.conf` (`config/hypr/hyprland.conf:7-12`). That updates the
+shared `input { ... }` defaults, but device-specific `device { ... }`
+overrides such as the desktop's Logitech sensitivity blocks still apply
+separately (`hosts/desktop/input-devices.conf:3-9`).
+
+**Impact / workaround:** Use the Mouse page for the shared Hyprland defaults
+that should apply when no device-specific override exists. Keep hardware-
+specific tuning in `hosts/*/input-devices.conf`; on the desktop, those Logitech
+blocks still win over the shared runtime value.
+
 ## input-devices.conf is sourced before plugin keywords are available
 
 **Symptom:** A plugin-specific gesture keyword such as `hyprexpo-gesture`

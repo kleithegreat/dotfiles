@@ -12,7 +12,7 @@ describing an intended future migration.
 | `desktopctl daemon` | Long-lived foreground process that starts the focus tracker, solar scheduler, and Unix-socket server |
 | `desktopctl theme ...` | Theming CLI that reads and writes the shared theme state, applies generated outputs, and manages presets |
 | `desktopctl brightness ...` | Short-lived helpers for perceptual brightness stepping, dimming, restoring, and Quickshell brightness OSD notification |
-| `desktopctl hypr ...` | Small Hyprland helper surface; today this is only `toggle-float` |
+| `desktopctl hypr ...` | Hyprland helper surface for `toggle-float` plus managed shared input settings |
 | `desktopctl launch-quickshell` | Reads cursor env overrides from `~/.config/hypr/cursor.conf`, then launches Quickshell against the repo checkout |
 | `desktopctl portal ...` | Short-lived portal helper surface; today this is only `pick-directory` |
 | `desktopctl night-light ...` | CLI client for daemon-owned `hyprsunset` override state and fallback status reporting |
@@ -28,12 +28,15 @@ describing an intended future migration.
 | `/run/user/$UID/desktopctl.sock` | `desktopctl daemon` | Socket fallback when `XDG_RUNTIME_DIR` is unset |
 | `$XDG_RUNTIME_DIR/focustime_state.json` | `desktopctl daemon` | Focus-time summary consumed by Quickshell |
 | `$XDG_CACHE_HOME/sun-schedule/location.json` | `desktopctl sun` / daemon | Cached latitude/longitude for solar scheduling |
+| `~/.config/hypr/input-runtime.conf` | `desktopctl hypr input` | Persisted shared Hyprland mouse defaults layered after `input.conf` and `input-devices.conf` |
 | `~/repos/dotfiles` | `desktopctl` helpers | Default repo-root fallback for Quickshell launch and repo-relative helper paths |
 
 Additional path rules:
 
 - `paths::repo_root()` first honors `DESKTOPCTL_REPO`, then the legacy
   lowercase `desktopctl_REPO`, then falls back to `~/repos/dotfiles`.
+- `desktopctl hypr input status` layers `~/.config/hypr/input.conf` defaults
+  with any managed overrides found in `~/.config/hypr/input-runtime.conf`.
 - `launch-quickshell`, brightness OSD notifications, and repo-relative concat
   target base paths all depend on that repo-root resolution when they need the
   repo's `config/` tree.
@@ -46,6 +49,7 @@ Additional path rules:
 | Persisted theme state | `desktopctl theme` | Stored in the `theme_state` table inside `desktopctl.db` |
 | Scheduled `dark_hint` changes in `auto` mode | `desktopctl daemon` via `theme::set_dark_hint()` | The daemon computes solar status and persists the scheduled value through the theming module |
 | Manual and preset `dark_hint` changes | `desktopctl theme set dark_hint ...` and `desktopctl theme preset ...` | Direct `dark_hint` writes still persist and apply directly; presets that omit `dark_hint` now inherit it from the selected `color_scheme` instead of preserving a stale hint |
+| Persisted Hyprland mouse defaults | `desktopctl hypr input` | Stored in `~/.config/hypr/input-runtime.conf`, applied live through `hyprctl keyword`, and rolled back if the live apply fails |
 | Focus-time SQLite writes and JSON summaries | `desktopctl daemon` focus tracker | Quickshell is read-only for this data |
 | Generated theme outputs and runtime side effects | `desktopctl theme` targets | Includes files under `~/.config`, dconf writes, cursor updates, wallpaper apply, and editor/shell state files |
 | Quickshell shell IPC | Quickshell | Shell IPC is only a requester; it calls `desktopctl` and does not mutate theme state itself |
@@ -142,6 +146,8 @@ Brightness rules:
 | Command | Current behavior |
 | --- | --- |
 | `hypr toggle-float` | If the active window is tiled, toggles floating, resizes it to `75% 75%`, and centers it; if already floating, toggles floating off |
+| `hypr input status [--json]` | Prints the effective managed shared input state by layering `~/.config/hypr/input.conf` defaults with `~/.config/hypr/input-runtime.conf` overrides |
+| `hypr input set <key> <value>` | Validates one managed shared input key (`sensitivity`, `accel_profile`, or `scroll_factor`), atomically rewrites `input-runtime.conf`, applies the same value live through `hyprctl keyword`, and restores the previous file if that live apply fails |
 
 ### `desktopctl launch-quickshell`
 
@@ -201,11 +207,11 @@ Response shape:
 
 | Surface | Current contract |
 | --- | --- |
-| Home Manager | Installs `desktopctl` into `home.packages` and runs `desktopctl theme sync` in `home.activation.applyTheme` |
+| Home Manager | Installs `desktopctl` into `home.packages`, bootstraps `~/.config/hypr/input-runtime.conf`, and runs `desktopctl theme sync` in `home.activation.applyTheme` |
 | Hyprland autostart | Starts `desktopctl daemon` and `desktopctl launch-quickshell`, then re-applies wallpaper with `desktopctl theme wallpaper` |
 | Hyprland keybinds | Use `desktopctl brightness`, `desktopctl hypr toggle-float`, and `desktopctl night-light ...` |
 | Hypridle | Uses `desktopctl brightness dim` and `desktopctl brightness restore` |
-| Quickshell settings | Reads theme state, scheme lists, and presets through `desktopctl theme ... --json`, and sends theme writes back through `desktopctl theme ...` |
+| Quickshell settings | Reads theme state, scheme lists, and presets through `desktopctl theme ... --json`, reads shared mouse defaults through `desktopctl hypr input status --json`, and sends writes back through `desktopctl theme ...` plus `desktopctl hypr input set ...` |
 | Quickshell shell IPC | Routes `theme.apply` to `desktopctl theme ...` with argv-safe tokenization and error-only toast reporting |
 
 ## Packaging

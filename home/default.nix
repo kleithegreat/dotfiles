@@ -331,6 +331,8 @@ in
   # ── Theme activation ────────────────────────────────────────
   home.activation.applyTheme = lib.hm.dag.entryAfter ["writeBoundary"] ''
     PATH="${lib.makeBinPath [pkgs.desktopctl]}:$PATH"
+    mkdir -p "$HOME/.config/hypr"
+    touch "$HOME/.config/hypr/input-runtime.conf"
     desktopctl theme sync
   '';
 

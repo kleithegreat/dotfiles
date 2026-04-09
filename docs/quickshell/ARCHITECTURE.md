@@ -74,12 +74,13 @@ preserving a rollback snapshot for failures.
 
 | Area | Current implementation |
 | --- | --- |
-| Host-owned data | Theme snapshot, colors, presets, wallpapers, directories, icon/cursor/font choices, and Hyprland appearance draft state |
-| Host loaders | `Process` helpers call `desktopctl theme status --json`, `desktopctl theme list-schemes --json`, `desktopctl theme list-presets --json`, and shell commands for wallpaper/directory browsing |
+| Host-owned data | Theme snapshot, shared mouse-input snapshot, colors, presets, wallpapers, directories, icon/cursor/font choices, and Hyprland appearance draft state |
+| Host loaders | `Process` helpers call `desktopctl theme status --json`, `desktopctl hypr input status --json`, `desktopctl theme list-schemes --json`, `desktopctl theme list-presets --json`, and shell commands for wallpaper/directory browsing |
 | Service-driven panes | Network, Bluetooth, Audio, Display, Power, Notifications, Focus Time |
 | Host-driven panes | Presets, Colors, Fonts, Wallpaper, Icons, Mouse, Hyprland |
 | Category gating | `HostCapabilities.qml:1-40` plus `config/quickshell/popups/SettingsPopup.qml:64-72` and `config/quickshell/popups/SettingsPopup.qml:955-962` hide the Power category when neither battery nor power-profile support is present |
 | General theme writes | Serialized `desktopctl theme set` and `desktopctl theme preset` requests, with host-local staging for individual `set` writes before process exit and toast-visible backend errors |
+| Mouse input writes | Serialized `desktopctl hypr input set` requests, with host-local staging for shared mouse settings before the backend reload confirms or rolls them back |
 | Preset writes | `desktopctl theme save-preset` and `desktopctl theme delete-preset` |
 | Hyprland appearance writes | Debounced queue of `desktopctl theme set hypr_* ...` writes with desktop-notification feedback |
 
@@ -113,13 +114,20 @@ behaviors:
   `config/quickshell/popups/settings/SettingsPresetsPane.qml:6-38`,
   `config/quickshell/popups/settings/SettingsPresetsPane.qml:317-330`,
   `config/quickshell/popups/settings/SettingsPresetEditor.qml:560-726`.
-- Keeping icon-theme selection separate from cursor theme/size by routing them
-  through dedicated Icons and Mouse panes:
-  `config/quickshell/popups/SettingsPopup.qml:71-72`,
-  `config/quickshell/popups/SettingsPopup.qml:1011-1026`,
-  `config/quickshell/popups/SettingsPopup.qml:1155-1174`,
+- Keeping icon-theme selection separate from the Mouse page by routing it
+  through a dedicated Icons pane, while the Mouse pane now owns cursor
+  theme/size plus shared `desktopctl hypr input` controls for speed,
+  acceleration profile, and scroll factor:
+  `config/quickshell/popups/SettingsPopup.qml:1318-1331`,
   `config/quickshell/popups/settings/SettingsIconsPane.qml:6-72`,
-  `config/quickshell/popups/settings/SettingsMousePane.qml:6-138`.
+  `config/quickshell/popups/settings/SettingsMousePane.qml:6-466`.
+- Owning a dedicated shared-mouse snapshot plus serialized
+  `desktopctl hypr input` write queue alongside the existing theme-write path:
+  `config/quickshell/popups/SettingsPopup.qml:112-118`,
+  `config/quickshell/popups/SettingsPopup.qml:185-199`,
+  `config/quickshell/popups/SettingsPopup.qml:338-385`,
+  `config/quickshell/popups/SettingsPopup.qml:857-1006`,
+  `config/quickshell/popups/SettingsPopup.qml:1318-1331`.
 - Passing dedicated target lists into the Fonts and Presets panes so the shell
   now exposes a Quickshell-only UI-size offset plus the full mono-offset set,
   including Neovide, while keeping every offset row compact by showing only the
@@ -211,6 +219,9 @@ avoiding the old “history settles again on every open” behavior:
 - A writable `${XDG_CONFIG_HOME:-~/.config}/quickshell/GeneratedTheme.json`
   exists beside the Home Manager-managed Quickshell tree; it may begin as the
   committed repo snapshot and then be overwritten by `desktopctl theme sync`.
+- A writable `${XDG_CONFIG_HOME:-~/.config}/hypr/input-runtime.conf` exists
+  before the Mouse page issues any `desktopctl hypr input set ...` writes; Home
+  Manager now bootstraps that file during activation.
 - Keyboard-driven brightness OSD updates depend on `qs` plus repo-root
   resolution in `desktopctl`, not on a temp file.
 - A backlight is discoverable under `/sys/class/backlight` for the brightness

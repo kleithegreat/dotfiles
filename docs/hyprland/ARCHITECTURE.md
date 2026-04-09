@@ -3,7 +3,7 @@
 ## Scope
 
 Current implementation map for `config/hypr/`, the host-selected Hyprland
-fragments, and the generated theme inputs as of 2026-04-08.
+fragments, and the generated theme inputs as of 2026-04-09.
 
 ## Source Graph
 
@@ -17,12 +17,13 @@ order:
 | 3 | `~/.config/hypr/cursor.conf` | Generated cursor environment |
 | 4 | `~/.config/hypr/input.conf` | Shared input defaults |
 | 5 | `~/.config/hypr/input-devices.conf` | Host-specific device overrides |
-| 6 | `~/.config/hypr/colors.conf` | Generated `$theme_*` variables |
-| 7 | `~/.config/hypr/appearance.conf` | Stable appearance defaults plus generated appearance overrides |
-| 8 | `~/.config/hypr/plugins.conf` | Plugin loading and plugin theming |
-| 9 | `~/.config/hypr/keybinds.conf` | Keybinds and external dispatcher integration |
-| 10 | `~/.config/hypr/rules.conf` | Window and layer rules |
-| 11 | `~/.config/hypr/autostart.conf` | Session bootstrap plus `autostart-host.conf` include |
+| 6 | `~/.config/hypr/input-runtime.conf` | `desktopctl`-managed shared pointer overrides |
+| 7 | `~/.config/hypr/colors.conf` | Generated `$theme_*` variables |
+| 8 | `~/.config/hypr/appearance.conf` | Stable appearance defaults plus generated appearance overrides |
+| 9 | `~/.config/hypr/plugins.conf` | Plugin loading and plugin theming |
+| 10 | `~/.config/hypr/keybinds.conf` | Keybinds and external dispatcher integration |
+| 11 | `~/.config/hypr/rules.conf` | Window and layer rules |
+| 12 | `~/.config/hypr/autostart.conf` | Session bootstrap plus `autostart-host.conf` include |
 
 ## Host Selection
 
@@ -47,6 +48,11 @@ The remaining source-graph files — `hyprland.conf`, `appearance.conf`,
 `hypridle.conf`, and `hyprlock.conf` — are deployed identically on all hosts
 from `config/hypr/` (`home/default.nix:199-219`).
 
+Home Manager now also bootstraps an empty `~/.config/hypr/input-runtime.conf`
+on every host before running `desktopctl theme sync`
+(`home/default.nix:332-336`). `desktopctl hypr input set ...` rewrites that
+file later when the Mouse settings page updates shared pointer defaults.
+
 Current host input fragments differ materially:
 
 - `hosts/laptop/input-devices.conf` keeps touchpad-only behavior: natural
@@ -61,12 +67,13 @@ Current host input fragments differ materially:
   tweak in a desktop-only startup fragment instead of mixing it into
   `hosts/desktop/env.conf` (`hosts/desktop/autostart.conf:1`).
 
-## Theme Integration
+## Theme And Runtime Integration
 
 | File | Current role |
 | --- | --- |
 | `colors.conf` | Generated palette, font, and semantic `$theme_*` variables |
 | `appearance-theme.conf` | Generated runtime appearance values such as gaps, borders, rounding, blur, and animation toggles |
+| `input-runtime.conf` | Generated runtime pointer overrides written by `desktopctl hypr input` |
 | `appearance.conf` | Stable compositor defaults that source `appearance-theme.conf` |
 | `hyprlock.conf` | Sources `colors.conf` so the lock screen shares the compositor palette |
 | `plugins.conf` | Consumes the same theme variables for `hyprbars` and `hyprexpo` |
@@ -75,7 +82,8 @@ Current host input fragments differ materially:
 
 | File | Owns |
 | --- | --- |
-| `input.conf` | Shared keyboard, pointer, cursor, and gesture defaults |
+| `input.conf` | Shared keyboard, pointer, cursor, and gesture defaults that remain the fallback when no runtime override exists |
+| `input-runtime.conf` | Shared mouse defaults written by `desktopctl hypr input`; the file is sourced after `input-devices.conf`, so it layers on top of the shared base config without editing static or host fragments (`config/hypr/hyprland.conf:4-15`, `desktopctl/src/hypr.rs:278-369`) |
 | `autostart.conf` and `autostart-host.conf` | Shared session bootstrap lives in `config/hypr/autostart.conf`, which starts `desktopctl daemon`, Quickshell, wallpaper bootstrap, `hypridle`, Vicinae, Snappy Switcher, Easy Effects, Bitwarden, and related helpers, then sources `~/.config/hypr/autostart-host.conf` for host-only additions such as the desktop's Logitech mouse tuning (`config/hypr/autostart.conf:4-27`, `hosts/desktop/autostart.conf:1`). Wallpaper selection itself remains owned by the theming pipeline's `wallpaper` target (`docs/theming/SPEC.md`). |
 | `keybinds.conf` | Primary modifier scheme, descriptive `bindd` / `bindde` bindings (`config/hypr/keybinds.conf:9-98`), media/brightness repeat binds, Quickshell IPC binds that resolve the shell path through `${DESKTOPCTL_REPO:-$HOME/repos/dotfiles}` (`config/hypr/keybinds.conf:84-88`), and external launcher/switcher actions |
 | `rules.conf` | Floating/dialog rules, app-specific geometry, layer rules, and plugin rule glue |
