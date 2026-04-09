@@ -7,6 +7,38 @@ let
   optimizedPackages = import ../overlays/march-optimized.nix {
     inherit lib inputs march enableMarchOptimizations;
   };
+  hyprlandNativeCFlags = [
+    "-O3"
+    "-march=native"
+  ];
+
+  joinFlags =
+    flags:
+    lib.concatStringsSep " " (lib.filter (flag: flag != null && flag != "") flags);
+
+  optimizeHyprlandNativePackage =
+    drv:
+    drv.overrideAttrs (
+      old:
+      let
+        oldEnv = old.env or { };
+        existingFlags =
+          if builtins.hasAttr "NIX_CFLAGS_COMPILE" oldEnv then
+            toString oldEnv.NIX_CFLAGS_COMPILE
+          else if builtins.hasAttr "NIX_CFLAGS_COMPILE" old then
+            toString old.NIX_CFLAGS_COMPILE
+          else
+            null;
+      in
+      {
+        env = oldEnv // {
+          NIX_CFLAGS_COMPILE = joinFlags [
+            existingFlags
+            (joinFlags hyprlandNativeCFlags)
+          ];
+        };
+      }
+    );
 
   hyprqt6engine = inputs.hyprqt6engine.packages.${system}.default.overrideAttrs (old: {
     buildInputs = (old.buildInputs or []) ++ [
@@ -16,7 +48,7 @@ let
     ];
   });
 
-  patchedHyprland = optimizedPackages.optimizeCCPackage (
+  patchedHyprland = optimizeHyprlandNativePackage (
     hyprland.packages.${system}.hyprland.overrideAttrs (old: {
       patches = (old.patches or []) ++ [
         ../patches/hyprland/hyprland-floating-top-decoration-rounding-0.54.patch
@@ -25,9 +57,11 @@ let
     })
   );
 
-  patchedHyprlandPortal = hyprland.packages.${system}.xdg-desktop-portal-hyprland.override {
-    hyprland = patchedHyprland;
-  };
+  patchedHyprlandPortal = optimizeHyprlandNativePackage (
+    hyprland.packages.${system}.xdg-desktop-portal-hyprland.override {
+      hyprland = patchedHyprland;
+    }
+  );
 
   hyprPluginPkgs =
     let
@@ -35,21 +69,25 @@ let
     in
     upstreamHyprPluginPkgs
     // {
-      hyprbars = (upstreamHyprPluginPkgs.hyprbars.override {
-        hyprland = patchedHyprland;
-      }).overrideAttrs (old: {
-        patches = (old.patches or []) ++ [
-          ../patches/hyprland-plugins/hyprbars-hyprland-0.54.patch
-        ];
-      });
+      hyprbars = optimizeHyprlandNativePackage (
+        (upstreamHyprPluginPkgs.hyprbars.override {
+          hyprland = patchedHyprland;
+        }).overrideAttrs (old: {
+          patches = (old.patches or []) ++ [
+            ../patches/hyprland-plugins/hyprbars-hyprland-0.54.patch
+          ];
+        })
+      );
 
-      hyprexpo = (upstreamHyprPluginPkgs.hyprexpo.override {
-        hyprland = patchedHyprland;
-      }).overrideAttrs (old: {
-        patches = (old.patches or []) ++ [
-          ../patches/hyprland-plugins/hyprexpo-hyprland-0.54.patch
-        ];
-      });
+      hyprexpo = optimizeHyprlandNativePackage (
+        (upstreamHyprPluginPkgs.hyprexpo.override {
+          hyprland = patchedHyprland;
+        }).overrideAttrs (old: {
+          patches = (old.patches or []) ++ [
+            ../patches/hyprland-plugins/hyprexpo-hyprland-0.54.patch
+          ];
+        })
+      );
     };
   hyprPluginDir = pkgs.symlinkJoin {
     name = "hyprland-plugins";
