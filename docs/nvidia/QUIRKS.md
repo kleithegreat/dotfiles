@@ -18,8 +18,14 @@
 **Status:** Workaround in place
 **Resolution:** `hosts/desktop/system.nix` sets `SYSTEMD_SLEEP_FREEZE_USER_SESSIONS=false` on `systemd-suspend`.
 
+## `AQ_DRM_DEVICES` cannot use `/dev/dri/by-path` symlinks on the laptop stack
+**Symptom:** SDDM accepts a correct password, then immediately returns to the greeter because Hyprland aborts during session startup.
+**Cause:** Current Hyprland/Aquamarine parses `AQ_DRM_DEVICES` as a colon-separated list of DRM device paths. Laptop `/dev/dri/by-path/pci-0000:...` symlinks contain literal colons, so the parser splits them into invalid fragments, finds no usable GPU backend, and the compositor exits.
+**Status:** Workaround in place
+**Resolution:** `config/hypr/env.conf` keeps the laptop on `/dev/dri/card2:/dev/dri/card1` for now. Revisit the by-path approach only after Aquamarine supports embedded colons or exposes another stable device selector.
+
 ## EGL vendor policy must stay host-specific
 **Symptom:** EGL clients on the desktop can miss the NVIDIA EGL ICD.
 **Cause:** The laptop needs Mesa-only EGL vendor selection for the hybrid path, while the dedicated desktop needs both the NVIDIA and Mesa ICDs.
 **Status:** Host split in place
-**Resolution:** `system/configuration.nix` leaves `__EGL_VENDOR_LIBRARY_FILENAMES` unset. `hosts/laptop/system.nix:63-64` sets the laptop's Mesa-only value, and `hosts/desktop/system.nix:69-71` sets the desktop's dual-vendor list directly.
+**Resolution:** `system/configuration.nix` leaves `__EGL_VENDOR_LIBRARY_FILENAMES` unset. `hosts/laptop/system.nix:68-69` sets the laptop's Mesa-only value, and `hosts/desktop/system.nix:70-72` sets the desktop's dual-vendor list directly.
