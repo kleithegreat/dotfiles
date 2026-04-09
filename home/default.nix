@@ -180,6 +180,7 @@ in
     # Dev tools (lightweight baseline — heavy stuff goes in devshells)
     python3
     nodejs
+    qt6.qtdeclarative # qmllint for Quickshell QML configs
     uv             # Python package/project manager
     gh             # GitHub CLI
 
