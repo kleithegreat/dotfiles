@@ -195,6 +195,7 @@ fn dependency_targets(state_key: &str) -> &'static [&'static str] {
         "icon_theme" => &ICON_THEME_TARGETS,
         "cursor_theme" | "cursor_size" => &CURSOR_TARGETS,
         "font_size" => &FONT_SIZE_TARGETS,
+        "quickshell_font_size_offset" => &["quickshell"],
         "mono_font_size" => &MONO_FONT_SIZE_TARGETS,
         "alacritty_mono_font_size_offset" => &["alacritty"],
         "ghostty_mono_font_size_offset" => &["ghostty"],
@@ -582,6 +583,7 @@ mod tests {
             cursor_theme: "BreezeX-RosePine-Linux".to_owned(),
             cursor_size: 24,
             font_size: 11,
+            quickshell_font_size_offset: 0,
             mono_font_size: 11,
             alacritty_mono_font_size_offset: 0,
             ghostty_mono_font_size_offset: 0,
@@ -629,6 +631,14 @@ mod tests {
         let state = dummy_state(true);
         let targets = targets_for_key("color_scheme", Some(&state));
         assert!(targets.contains("wallpaper"));
+    }
+
+    #[test]
+    fn quickshell_font_size_offset_targets_only_quickshell() {
+        let targets = targets_for_key("quickshell_font_size_offset", None)
+            .into_iter()
+            .collect::<Vec<_>>();
+        assert_eq!(targets, vec!["quickshell".to_owned()]);
     }
 
     #[test]

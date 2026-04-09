@@ -14,6 +14,7 @@ Rectangle {
     required property var colorFamilies
     required property var wallpapers
     required property string wallpaperDir
+    required property var fontSizeOffsetTargets
     required property var monoFontSizeOffsetTargets
     required property bool busy
     required property string busyAction
@@ -912,6 +913,105 @@ Rectangle {
 
                         pressedScale: 1.0
                         onClicked: root.stepField("font_size", 1, 6, 24)
+                    }
+                }
+            }
+        }
+
+        Repeater {
+            model: root.fontSizeOffsetTargets
+
+            delegate: ColumnLayout {
+                required property var modelData
+                required property int index
+                property string fieldKey: modelData.key
+
+                Layout.fillWidth: true
+                spacing: 8
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    Text {
+                        text: modelData.label + " offset"
+                        color: Theme.fg
+                        font.family: Theme.systemFamily
+                        font.pixelSize: Theme.fontSizeSmall
+                        Layout.fillWidth: true
+                    }
+
+                    Components.ToggleSwitch {
+                        checked: root.hasField(fieldKey)
+                        onToggled: root.toggleFieldInclusion(fieldKey, root.themeState[fieldKey] === undefined ? 0 : root.themeState[fieldKey])
+                    }
+                }
+
+                Row {
+                    visible: root.hasField(fieldKey)
+                    spacing: 8
+
+                    Rectangle {
+                        width: 28
+                        height: Theme.btnHeight
+                        radius: Theme.btnRadius
+                        color: systemOffsetMinus.containsMouse ? Theme.bg2 : Theme.bg
+                        border.width: 1
+                        border.color: Theme.bg3
+                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+
+                        Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
+
+                        Components.HoverLayer {
+                            id: systemOffsetMinus
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            hoverEnabled: true
+
+                            hoverOpacity: 0
+
+                            pressedOpacity: 0
+
+                            pressedScale: 1.0
+                            onClicked: root.stepField(fieldKey, -1)
+                        }
+                    }
+
+                    Text {
+                        text: String(root.currentIntValue(fieldKey, 0))
+                        color: Theme.fg
+                        font.family: Theme.systemFamily
+                        font.pixelSize: Theme.fontSize
+                        width: 28
+                        horizontalAlignment: Text.AlignHCenter
+                        height: Theme.btnHeight
+                        verticalAlignment: Text.AlignVCenter
+                    }
+
+                    Rectangle {
+                        width: 28
+                        height: Theme.btnHeight
+                        radius: Theme.btnRadius
+                        color: systemOffsetPlus.containsMouse ? Theme.bg2 : Theme.bg
+                        border.width: 1
+                        border.color: Theme.bg3
+                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+
+                        Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
+
+                        Components.HoverLayer {
+                            id: systemOffsetPlus
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            hoverEnabled: true
+
+                            hoverOpacity: 0
+
+                            pressedOpacity: 0
+
+                            pressedScale: 1.0
+                            onClicked: root.stepField(fieldKey, 1)
+                        }
                     }
                 }
             }

@@ -17,7 +17,7 @@ pub const METADATA: TargetMetadata = TargetMetadata {
 };
 
 pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<GeneratedContent> {
-    let font_size = state.font_size.max(1);
+    let font_size = state.font_size_for("quickshell")?.max(1);
     let font_size_small = (font_size - 2).max(1);
     let font_size_large = font_size + 2;
 

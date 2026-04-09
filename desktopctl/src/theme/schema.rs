@@ -30,7 +30,7 @@ pub const COLOR_FIELD_NAMES: [&str; 24] = [
     "orange_bright",
 ];
 
-pub const THEME_STATE_FIELD_ORDER: [&str; 25] = [
+pub const THEME_STATE_FIELD_ORDER: [&str; 26] = [
     "color_scheme",
     "wallpaper",
     "filter_wallpaper",
@@ -40,6 +40,7 @@ pub const THEME_STATE_FIELD_ORDER: [&str; 25] = [
     "cursor_theme",
     "cursor_size",
     "font_size",
+    "quickshell_font_size_offset",
     "mono_font_size",
     "alacritty_mono_font_size_offset",
     "ghostty_mono_font_size_offset",
@@ -67,9 +68,10 @@ pub const THEME_STATE_STRING_FIELDS: [&str; 6] = [
     "cursor_theme",
 ];
 
-pub const THEME_STATE_INT_FIELDS: [&str; 15] = [
+pub const THEME_STATE_INT_FIELDS: [&str; 16] = [
     "cursor_size",
     "font_size",
+    "quickshell_font_size_offset",
     "mono_font_size",
     "alacritty_mono_font_size_offset",
     "ghostty_mono_font_size_offset",
@@ -101,6 +103,7 @@ pub const DEFAULT_ICON_THEME: &str = "Neuwaita";
 pub const DEFAULT_CURSOR_THEME: &str = "BreezeX-RosePine-Linux";
 pub const DEFAULT_CURSOR_SIZE: i64 = 24;
 pub const DEFAULT_FONT_SIZE: i64 = 11;
+pub const DEFAULT_QUICKSHELL_FONT_SIZE_OFFSET: i64 = 0;
 pub const DEFAULT_MONO_FONT_SIZE: i64 = 11;
 pub const DEFAULT_ALACRITTY_MONO_FONT_SIZE_OFFSET: i64 = 0;
 pub const DEFAULT_GHOSTTY_MONO_FONT_SIZE_OFFSET: i64 = 0;
@@ -400,6 +403,7 @@ pub struct ThemeState {
     pub cursor_theme: String,
     pub cursor_size: i64,
     pub font_size: i64,
+    pub quickshell_font_size_offset: i64,
     pub mono_font_size: i64,
     pub alacritty_mono_font_size_offset: i64,
     pub ghostty_mono_font_size_offset: i64,
@@ -445,6 +449,7 @@ impl ThemeState {
             cursor_theme: DEFAULT_CURSOR_THEME.to_owned(),
             cursor_size: DEFAULT_CURSOR_SIZE,
             font_size: DEFAULT_FONT_SIZE,
+            quickshell_font_size_offset: DEFAULT_QUICKSHELL_FONT_SIZE_OFFSET,
             mono_font_size: DEFAULT_MONO_FONT_SIZE,
             alacritty_mono_font_size_offset: DEFAULT_ALACRITTY_MONO_FONT_SIZE_OFFSET,
             ghostty_mono_font_size_offset: DEFAULT_GHOSTTY_MONO_FONT_SIZE_OFFSET,
@@ -479,6 +484,24 @@ impl ThemeState {
 
     pub fn bool_field_names() -> &'static [&'static str] {
         &THEME_STATE_BOOL_FIELDS
+    }
+
+    pub fn font_size_offset_for(&self, target_name: &str) -> crate::Result<i64> {
+        let offset = match target_name {
+            "quickshell" => self.quickshell_font_size_offset,
+            _ => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    format!("Unknown font size target: {target_name}"),
+                )
+                .into());
+            }
+        };
+        Ok(offset)
+    }
+
+    pub fn font_size_for(&self, target_name: &str) -> crate::Result<i64> {
+        Ok(self.font_size + self.font_size_offset_for(target_name)?)
     }
 
     pub fn mono_font_size_offset_for(&self, target_name: &str) -> crate::Result<i64> {
@@ -536,6 +559,10 @@ impl ThemeState {
         );
         map.insert("cursor_size".to_owned(), Value::from(self.cursor_size));
         map.insert("font_size".to_owned(), Value::from(self.font_size));
+        map.insert(
+            "quickshell_font_size_offset".to_owned(),
+            Value::from(self.quickshell_font_size_offset),
+        );
         map.insert(
             "mono_font_size".to_owned(),
             Value::from(self.mono_font_size),

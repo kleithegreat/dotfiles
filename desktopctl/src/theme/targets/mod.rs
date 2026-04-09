@@ -379,6 +379,7 @@ pub(crate) mod testsupport {
             cursor_theme: "BreezeX-RosePine-Linux".to_owned(),
             cursor_size: 24,
             font_size: 11,
+            quickshell_font_size_offset: 0,
             mono_font_size: 11,
             alacritty_mono_font_size_offset: 0,
             ghostty_mono_font_size_offset: 0,
@@ -497,6 +498,18 @@ mod tests {
         assert_eq!(
             output,
             "{\n  \"colors\": {\n    \"bg\": \"#000000\",\n    \"bg0_h\": \"#010101\",\n    \"bg1\": \"#020202\",\n    \"bg2\": \"#030303\",\n    \"bg3\": \"#040404\",\n    \"fg\": \"#f0f0f0\",\n    \"fg2\": \"#e0e0e0\",\n    \"fg3\": \"#d0d0d0\",\n    \"fg4\": \"#c0c0c0\",\n    \"red\": \"#ff0000\",\n    \"green\": \"#00ff00\",\n    \"yellow\": \"#ffff00\",\n    \"blue\": \"#0000ff\",\n    \"purple\": \"#ff00ff\",\n    \"aqua\": \"#00ffff\",\n    \"orange\": \"#ff8800\",\n    \"redBright\": \"#ff1111\",\n    \"greenBright\": \"#11ff11\",\n    \"yellowBright\": \"#ffff11\",\n    \"blueBright\": \"#1111ff\",\n    \"purpleBright\": \"#ff11ff\",\n    \"aquaBright\": \"#11ffff\",\n    \"orangeBright\": \"#ff9911\",\n    \"accent\": \"#3366ff\"\n  },\n  \"fonts\": {\n    \"family\": \"JetBrains Mono Nerd Font\",\n    \"systemFamily\": \"Overpass\",\n    \"size\": 11,\n    \"sizeSmall\": 9,\n    \"sizeLarge\": 13\n  }\n}\n"
+        );
+    }
+
+    #[test]
+    fn quickshell_output_applies_font_size_offset() {
+        let mut state = dummy_state();
+        state.quickshell_font_size_offset = 2;
+
+        let output = text(quickshell::generate(&dummy_colors(), &state));
+        assert!(
+            output.contains("\"size\": 13,\n    \"sizeSmall\": 11,\n    \"sizeLarge\": 15"),
+            "{output}"
         );
     }
 

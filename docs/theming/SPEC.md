@@ -148,6 +148,7 @@ Constraints:
 | --- | --- |
 | Palette and assets | `color_scheme`, `wallpaper`, `filter_wallpaper`, `icon_theme`, `cursor_theme`, `cursor_size`, `dark_hint` |
 | Fonts | `system_font`, `mono_font`, `font_size`, `mono_font_size` |
+| Per-target font offsets | `quickshell_font_size_offset` |
 | Per-target mono offsets | `alacritty_*`, `ghostty_*`, `gtk_*`, `neovide_*`, `qt_*`, `vscode_*` mono-font offset keys |
 | Hyprland appearance | `hypr_gaps_in`, `hypr_gaps_out`, `hypr_border_size`, `hypr_rounding`, `hypr_blur_enabled`, `hypr_blur_size`, `hypr_blur_passes`, `hypr_animations_enabled` |
 
@@ -205,6 +206,7 @@ State changes fan out by ownership, not by CLI convenience.
 | `mono_font` | `alacritty`, `ghostty`, `gtk`, `neovide`, `qt`, `quickshell`, `tmux`, `vscode` |
 | `icon_theme` | `gtk`, `qt`, `snappy_switcher` |
 | `font_size` | `gtk`, `qt`, `quickshell`, `snappy_switcher` |
+| `quickshell_font_size_offset` | `quickshell` |
 | `mono_font_size` | `alacritty`, `ghostty`, `gtk`, `neovide`, `qt`, `vscode` |
 | Per-target `*_mono_font_size_offset` | The named target only |
 | `dark_hint` | `gtk` |
@@ -222,7 +224,7 @@ The dependency map in code must remain a direct encoding of this table.
 | `xdg.configFile` | May deploy base config and static trees, not mutable generated outputs |
 | Recursive trees | Allowed when generated sibling files remain writable, as with `quickshell/` and `nvim/` |
 | Activation hook | Rebuild-time sync writes only outputs safe to materialize during activation |
-| Quickshell | Reads `GeneratedTheme.json`; `system_font` is for shell UI text, while `mono_font` remains for monospaced or glyph-oriented surfaces; see `docs/quickshell/SPEC.md` for shell-side constraints |
+| Quickshell | Reads `GeneratedTheme.json`; `system_font` and `font_size` define the shell UI baseline, `quickshell_font_size_offset` can refine the shell target without changing GTK/Qt/snappy-switcher, and `mono_font` remains for monospaced or glyph-oriented surfaces; see `docs/quickshell/SPEC.md` for shell-side constraints |
 | Gedit / GtkSourceView | Reads generated styles from `~/.local/share/libgedit-gtksourceview-300/styles/`; gedit's light/dark source-style selection is theme-owned |
 | Hyprland | Reads `colors.conf` and `appearance-theme.conf` |
 | Neovim / Neovide | Read generated theme state files rather than embedding palette logic in Home Manager |

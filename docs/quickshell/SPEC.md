@@ -89,6 +89,10 @@ Invariants:
   from a reloaded theme snapshot.
 - Backend theme-write failures are surfaced to the user instead of being
   console-only.
-- `system_font` controls regular shell UI text, while `mono_font` remains for
-  monospaced or glyph-oriented surfaces such as the clock and icon fonts.
+- `system_font` and `font_size` define the shared shell UI typography baseline,
+  while `quickshell_font_size_offset` may refine the Quickshell target without
+  changing other consumers of the shared UI font size.
+- `mono_font` and `mono_font_size` remain for monospaced or glyph-oriented
+  surfaces such as the clock and icon fonts, with per-target mono offsets used
+  only for the named non-shell consumers.
 - Shell font families are theme-managed; shell layout constants are not.
