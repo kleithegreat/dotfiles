@@ -89,7 +89,7 @@ selects the target settings category, and opens the full Settings popup, while
 `config/quickshell/PopupOverlayHost.qml:167-172` maps Wi-Fi, Bluetooth, VPN,
 DND, and power-profile expand requests to concrete category indices.
 
-`SettingsPopup.qml` is now responsible for four additional shell-side polish
+`SettingsPopup.qml` is now responsible for five additional shell-side polish
 behaviors:
 
 - Responsive panel sizing instead of the old fixed `700x500` shell:
@@ -113,6 +113,11 @@ behaviors:
   `config/quickshell/popups/settings/SettingsPresetsPane.qml:6-38`,
   `config/quickshell/popups/settings/SettingsPresetsPane.qml:312-330`,
   `config/quickshell/popups/settings/SettingsPresetEditor.qml:560-726`.
+- Keeping the Fonts pane offset controls compact by showing only the signed
+  per-target delta beside the stepper, instead of repeating a derived
+  "effective size" label for every row:
+  `config/quickshell/popups/settings/SettingsFontsPane.qml:37-51`,
+  `config/quickshell/popups/settings/SettingsFontsPane.qml:191-282`.
 
 The Power pane remains lazy-loaded through the settings detail loader, so the
 privileged charge-limit probe is now deferred until `SettingsPowerPane.qml`

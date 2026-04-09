@@ -46,10 +46,6 @@ Components.WheelFlickable {
         return value === undefined || value === null ? 0 : value;
     }
 
-    function effectiveMonoFontSize(key) {
-        return monoFontBaseSize() + monoFontSizeOffset(key);
-    }
-
     function minimumMonoFontSizeOffset() {
         let minOffset = 0;
 
@@ -284,13 +280,6 @@ Components.WheelFlickable {
                         }
                     }
 
-                    Text {
-                        text: "Effective " + String(root.effectiveMonoFontSize(modelData.key))
-                        color: Theme.fg4
-                        font.family: Theme.systemFamily
-                        font.pixelSize: Theme.fontSizeSmall
-                        Layout.alignment: Qt.AlignVCenter
-                    }
                 }
             }
         }
