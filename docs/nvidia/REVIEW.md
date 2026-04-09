@@ -26,14 +26,14 @@ workaround lifecycle easier to audit.
 | --- | --- | --- |
 | Medium | The desktop resume workaround spans several files and one of its key comments still frames it as an experiment. | The steady-state workaround now lives across `hosts/desktop/system.nix:4-16`, `hosts/desktop/system.nix:61-68`, and `overlays/nvidia-open-pr996.nix:1-43`, but `hosts/desktop/system.nix:62` still says "Experiment". That comment now understates how intentional and cross-file the workaround really is. |
 | Low | The PR #996 overlay has only a comment-based removal trigger. | `hosts/desktop/system.nix:5-6`, `overlays/nvidia-open-pr996.nix:1-2`, and `docs/nvidia/QUIRKS.md` all say to remove the overlay once a future driver release includes the fix, but the repo does not record which nixpkgs driver version still needs it. Upgrades will require manual re-validation. |
-| Low | The shared unfree allowlist exposes NVIDIA and CUDA closure details without documenting ownership. | `system/configuration.nix:85-122` includes many CUDA package names plus `nvidia-settings` and `nvidia-x11`, but the list does not say which package or host path requires each entry. That makes future cleanup or regression triage harder than it needs to be. |
+| Low | The shared unfree allowlist exposes NVIDIA and CUDA closure details without documenting ownership. | `system/configuration.nix:123-160` includes many CUDA package names plus `nvidia-settings` and `nvidia-x11`, but the list does not say which package or host path requires each entry. That makes future cleanup or regression triage harder than it needs to be. |
 
 ## QUIRKS.md Status
 
 `docs/nvidia/QUIRKS.md` still matches the current implementation:
 
 - The preserved-VRAM workaround is backed by `boot.tmp.useTmpfs = true` in
-  `system/configuration.nix:129` and `NVreg_TemporaryFilePath=/var/tmp` in
+  `system/configuration.nix:167` and `NVreg_TemporaryFilePath=/var/tmp` in
   `hosts/desktop/system.nix:12-16`.
 - The resume-delay workaround still matches the desktop-only combination of
   `hardware.nvidia.powerManagement.kernelSuspendNotifier = false` plus the PR

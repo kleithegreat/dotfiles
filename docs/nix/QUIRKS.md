@@ -24,6 +24,12 @@
 **Status:** Workaround in place
 **Resolution:** `system/distributed-builds.nix` appends the host `march-*` feature only while `enableMarchOptimizations` is enabled.
 
+## Hyprland-family builds ignore `enableMarchOptimizations`
+**Symptom:** `hyprland`, `xdg-desktop-portal-hyprland`, `hyprbars`, and `hyprexpo` still rebuild with `-O3 -march=native` even when `enableMarchOptimizations = false`.
+**Cause:** `system/configuration.nix` applies a dedicated local helper to those flake-provided derivations instead of routing them through `overlays/march-optimized.nix`. They already build from source in this repo because they come from flake inputs and/or carry local patches, so the global binary-cache tradeoff does not apply the same way it does for nixpkgs packages.
+**Status:** Intentional exception
+**Resolution:** Keep using `enableMarchOptimizations` only for the optional nixpkgs overlay. If you later enable distributed builds for the Hyprland stack, make sure those derivations are built on CPUs compatible with the machine that will run them, because `-march=native` follows the builder's CPU.
+
 ## Narrow unfree predicates must cover transitive module closures, not just package lists
 **Symptom:** Replacing `allowUnfree = true` with a small name allowlist still fails evaluation on packages that are not listed directly in `home.packages` or `environment.systemPackages`.
 **Cause:** NixOS and Home Manager evaluate the full module graph. Unfree packages can enter indirectly through options such as `fonts.packages`, `programs.steam.*`, or CUDA-enabled dependency closures.

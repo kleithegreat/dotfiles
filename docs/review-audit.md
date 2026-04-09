@@ -40,7 +40,7 @@ Status meanings:
 | High | The laptop hybrid path still depends on hardcoded `/dev/dri/cardN` ordering. | resolved | `config/hypr/env.conf:13-15` now sets `AQ_DRM_DEVICES=/dev/dri/by-path/pci-0000:00:02.0-card:/dev/dri/by-path/pci-0000:01:00.0-card`, matching the laptop's Intel and NVIDIA PCI devices. |
 | Medium | The desktop resume workaround spans several files and one of its key comments still frames it as an experiment. | partially addressed | The lifecycle is now easier to audit because `docs/nvidia/ARCHITECTURE.md` maps the cross-file ownership explicitly, but the live host config still says `powerManagement.kernelSuspendNotifier = false; # Experiment...` (`hosts/desktop/system.nix:61-63`). |
 | Low | The PR #996 overlay has only a comment-based removal trigger. | open | `hosts/desktop/system.nix:4-8` and `overlays/nvidia-open-pr996.nix:1-2` still only say to remove the overlay after a future release; there is still no version gate or recorded cutoff in code. |
-| Low | The shared unfree allowlist exposes NVIDIA and CUDA closure details without documenting ownership. | open | `system/configuration.nix:85-122` still has no per-entry reason or host annotation for the shared NVIDIA/CUDA-related allowlist entries. |
+| Low | The shared unfree allowlist exposes NVIDIA and CUDA closure details without documenting ownership. | open | `system/configuration.nix:123-160` still has no per-entry reason or host annotation for the shared NVIDIA/CUDA-related allowlist entries. |
 
 ## Theming
 

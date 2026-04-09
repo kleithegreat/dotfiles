@@ -3,18 +3,18 @@
 ## Scope
 
 Current implementation map for the flake, shared NixOS modules, optional
-distributed-build wiring, and embedded Home Manager layer as of 2026-04-08.
+distributed-build wiring, and embedded Home Manager layer as of 2026-04-09.
 
 ## Flake Topology
 
 | Piece | Current implementation |
 | --- | --- |
-| Outputs | `flake.nix:23-101` exports `nixosConfigurations.vm`, `nixosConfigurations.laptop`, `nixosConfigurations.desktop`, plus `overlays.default` and `packages.x86_64-linux.desktopctl` |
-| Host constructor | `mkHost` in `flake.nix:33-60` wraps `nixpkgs.lib.nixosSystem` |
-| Feature flags | `flake.nix:25-31` keeps both `enableMarchOptimizations` and `enableDistributedBuilds` in the shared host constructor, with distributed builds currently disabled by default |
-| Shared system layer | `system/configuration.nix:1-405` |
-| Home Manager entry | `home/default.nix:1-350`, embedded through `home-manager.nixosModules.home-manager` in `flake.nix:49-58` |
-| Platform | `flake.nix:39-40` passes `system = "x86_64-linux"` directly to `nixosSystem` |
+| Outputs | `flake.nix:24-102` exports `nixosConfigurations.vm`, `nixosConfigurations.laptop`, `nixosConfigurations.desktop`, plus `overlays.default` and `packages.x86_64-linux.desktopctl` |
+| Host constructor | `mkHost` in `flake.nix:34-61` wraps `nixpkgs.lib.nixosSystem` |
+| Feature flags | `flake.nix:26-32` keeps both `enableMarchOptimizations` and `enableDistributedBuilds` in the shared host constructor, with distributed builds currently disabled by default |
+| Shared system layer | `system/configuration.nix:1-443` |
+| Home Manager entry | `home/default.nix:1-350`, embedded through `home-manager.nixosModules.home-manager` in `flake.nix:49-59` |
+| Platform | `flake.nix:41-42` passes `system = "x86_64-linux"` directly to `nixosSystem` |
 
 `mkHost` currently assembles this module stack:
 
@@ -44,13 +44,17 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-08.
 
 - `overlays/desktopctl.nix:1-3` exposes `pkgs.desktopctl` from the local
   `desktopctl/` derivation.
-- `flake.nix:62-71` exports that overlay as `self.overlays.default` and also
+- `flake.nix:63-72` exports that overlay as `self.overlays.default` and also
   exposes `packages.x86_64-linux.desktopctl`.
-- `system/configuration.nix:5-8` imports both the `desktopctl` overlay and the
-  optional march-optimization overlay; `system/configuration.nix:160-164`
+- `system/configuration.nix:5-9` imports both the `desktopctl` overlay and the
+  optional march-optimization overlay; `system/configuration.nix:198-202`
   applies them globally.
-- `overlays/march-optimized.nix:167-170` optionally rebuilds `desktopctl` and
+- `overlays/march-optimized.nix:167-169` optionally rebuilds `desktopctl` and
   other selected derivations with march tuning.
+- `system/configuration.nix:10-90` also defines a Hyprland-only helper that
+  always appends `-O3 -march=native` to the flake-provided `hyprland`,
+  `xdg-desktop-portal-hyprland`, `hyprbars`, and `hyprexpo` derivations,
+  independent of the global `enableMarchOptimizations` flag.
 - `hosts/desktop/system.nix:4-8` still appends
   `overlays/nvidia-open-pr996.nix` for the desktop-specific NVIDIA workaround.
 
@@ -62,7 +66,7 @@ though the repo currently ships with it disabled.
 | Surface | Current implementation |
 | --- | --- |
 | Flag state | `flake.nix:29-31` sets `enableDistributedBuilds = false`, so the distributed-build module evaluates but its host-specific `mkIf` payload stays inactive |
-| Shared module import | `system/configuration.nix:125-127` always imports `./distributed-builds.nix` |
+| Shared module import | `system/configuration.nix:163-165` always imports `./distributed-builds.nix` |
 | Host gating | `system/distributed-builds.nix:77-99` only activates the subsystem when the flag is true and `hostName` is `desktop` or `laptop` |
 | Cache URL | `system/distributed-builds.nix:25-27` falls back to `http://<homelab>:5000`, but `system/distributed-builds-data.nix:30-31` currently overrides that to `http://192.168.8.153:5050` |
 | Reference docs | `docs/nix/distributed-builds.md` documents the repo-side contract, and `docs/nix/homelab-builder-setup.md` documents the Ubuntu homelab setup that matches the current `5050` override |
@@ -90,7 +94,7 @@ This is the current base/generated split:
 Privileged desktop helper wiring currently bypasses Home Manager for one shared
 GUI package:
 
-- `system/configuration.nix:334-336` enables `programs.partition-manager`,
+- `system/configuration.nix:372-374` enables `programs.partition-manager`,
   which installs `kdePackages.partitionmanager` and `kdePackages.kpmcore`
   through the NixOS module so `kpmcore` lands in both
   `services.dbus.packages` and `environment.systemPackages`.

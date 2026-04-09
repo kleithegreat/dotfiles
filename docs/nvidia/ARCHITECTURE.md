@@ -3,15 +3,16 @@
 ## Scope
 
 Current implementation map for the NVIDIA stack across NixOS modules, overlays,
-patches, and Hyprland session environment as of 2026-04-08.
+patches, and Hyprland session environment as of 2026-04-09.
 
 ## Composition
 
 The host build is assembled in three layers:
 
-1. `flake.nix:33-87` uses `mkHost` to combine the shared
+1. `flake.nix:34-88` uses `mkHost` to combine the shared
    `system/configuration.nix`, one host module, and the Home Manager module.
-2. `system/configuration.nix:129,155-164,217-223` provides the shared
+2. `system/configuration.nix:123-160`, `system/configuration.nix:167`, and
+   `system/configuration.nix:255-260` provide the shared
    graphics-adjacent baseline: tmpfs-backed `/tmp`, the shared unfree predicate
    that includes CUDA and NVIDIA userspace packages, and the common plugin/Qt
    session variables.
@@ -23,9 +24,9 @@ The host build is assembled in three layers:
 
 | File | Owns | Notes |
 | --- | --- | --- |
-| `flake.nix:33-87` | Host composition | Selects `system/configuration.nix`, then `hosts/<host>/system.nix`, then Home Manager |
-| `system/configuration.nix:85-122` | Shared NVIDIA/CUDA package allowlist | `nixpkgs.config.allowUnfreePredicate` is fed from `allowedUnfreePackageNames`, which includes CUDA userspace packages plus `nvidia-settings` and `nvidia-x11` |
-| `system/configuration.nix:129,217-223` | Shared graphics baseline | `boot.tmp.useTmpfs = true` makes `/tmp` tmpfs-backed, which matters for preserved VRAM on the desktop. The shared baseline does not set `__EGL_VENDOR_LIBRARY_FILENAMES` |
+| `flake.nix:34-88` | Host composition | Selects `system/configuration.nix`, then `hosts/<host>/system.nix`, then Home Manager |
+| `system/configuration.nix:123-160`, `system/configuration.nix:196-197` | Shared NVIDIA/CUDA package allowlist | `nixpkgs.config.allowUnfreePredicate` is fed from `allowedUnfreePackageNames`, which includes CUDA userspace packages plus `nvidia-settings` and `nvidia-x11` |
+| `system/configuration.nix:167`, `system/configuration.nix:255-260` | Shared graphics baseline | `boot.tmp.useTmpfs = true` makes `/tmp` tmpfs-backed, which matters for preserved VRAM on the desktop. The shared baseline does not set `__EGL_VENDOR_LIBRARY_FILENAMES` |
 | `hosts/laptop/system.nix:51-69` | Hybrid laptop kernel and X stack | Sets `hardware.graphics.enable`, enables the open NVIDIA driver with `modesetting`, enables NVIDIA power management plus `powerManagement.finegrained`, configures PRIME offload, uses `services.xserver.videoDrivers = [ "modesetting" "nvidia" ]`, and sets a laptop-only Mesa EGL vendor list |
 | `hosts/desktop/system.nix:4-16`, `hosts/desktop/system.nix:57-72`, `hosts/desktop/system.nix:90-92` | Dedicated desktop kernel and X stack | Imports the PR #996 overlay, sets `NVreg_TemporaryFilePath=/var/tmp`, enables the open NVIDIA driver with `modesetting`, disables `hardware.nvidia.powerManagement.kernelSuspendNotifier`, sets a dual-vendor EGL list directly, disables systemd user-session freezing for suspend, and installs `nvidia-vaapi-driver` |
 | `overlays/nvidia-open-pr996.nix:1-43` | Desktop-only driver patch injection | Rebuilds `linuxPackages.nvidiaPackages.production` through `mkDriver` with `patchesOpen = [ pr996Patch ]`, then points `stable` and the `nvidia_x11*` aliases at the patched driver set |
@@ -73,8 +74,8 @@ For NVIDIA work in this repo, the minimal implementation read order is:
 1. `docs/nvidia/ARCHITECTURE.md`
 2. `docs/nvidia/REVIEW.md`
 3. `docs/nvidia/QUIRKS.md`
-4. `system/configuration.nix:85-122`, `system/configuration.nix:129`,
-   `system/configuration.nix:217-223`
+4. `system/configuration.nix:123-160`, `system/configuration.nix:167`,
+   `system/configuration.nix:255-260`
 5. `hosts/laptop/system.nix:51-69` or
    `hosts/desktop/system.nix:4-16`, `hosts/desktop/system.nix:57-72`,
    `hosts/desktop/system.nix:90-92`

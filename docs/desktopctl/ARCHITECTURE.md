@@ -3,13 +3,13 @@
 ## Scope
 
 Current implementation state for the unified `desktopctl` binary and its repo
-integration as of 2026-04-08.
+integration as of 2026-04-09.
 
 ## Current Crate Layout
 
 | Piece | Current implementation |
 | --- | --- |
-| Crate manifest and packaging | `desktopctl/Cargo.toml:1-12` defines the binary crate; `desktopctl/default.nix:1-15`, `overlays/desktopctl.nix:1-3`, and `flake.nix:62-71` package it as a flake-exposed Nix derivation. |
+| Crate manifest and packaging | `desktopctl/Cargo.toml:1-12` defines the binary crate; `desktopctl/default.nix:1-15`, `overlays/desktopctl.nix:1-3`, and `flake.nix:63-72` package it as a flake-exposed Nix derivation. |
 | CLI dispatch | `desktopctl/src/main.rs:14-285` defines the full clap tree for `daemon`, `theme`, `brightness`, `hypr`, `launch-quickshell`, `portal`, `night-light`, and `sun`, and routes each command to the live Rust implementation. |
 | Shared path helpers | `desktopctl/src/paths.rs:6-66` resolves the repo root from `DESKTOPCTL_REPO` or `~/repos/dotfiles`, exposes `repo_path()` for repo-relative helper lookups, provides shared XDG home/runtime fallbacks, and exposes the shared `desktopctl.db` path. |
 | Theme schema and validation | `desktopctl/src/theme/schema.rs:121-580` and `desktopctl/src/theme/resolve.rs:11-500` define the `ColorScheme` and `ThemeState` contract, including required scheme `appearance`, centralized app-theme metadata including KTextEditor theme names, compiled default theme-state values, canonical field ordering, color-scheme loading, and `theme_state` persistence with legacy `themes/state.json` import support. `desktopctl/src/theme/schema.rs:423-466` now derives the default `dark_hint` from the default color scheme's declared appearance. |
@@ -32,8 +32,8 @@ integration as of 2026-04-08.
 
 | Surface | Current implementation |
 | --- | --- |
-| Nix overlay and package wiring | `system/configuration.nix:5-8` imports the `desktopctl` overlay, `system/configuration.nix:159-162` applies it globally, and `overlays/march-optimized.nix:167-170` optionally rebuilds `desktopctl` with march tuning. |
-| Home Manager install and activation | `home/default.nix:37-49` adds `desktopctl` to `home.packages`, and `home/default.nix:323-327` runs `desktopctl theme sync` during Home Manager activation. |
+| Nix overlay and package wiring | `system/configuration.nix:5-9` imports the `desktopctl` overlay, `system/configuration.nix:198-202` applies it globally, and `overlays/march-optimized.nix:167-169` optionally rebuilds `desktopctl` with march tuning. |
+| Home Manager install and activation | `home/default.nix:38-52` adds `desktopctl` to `home.packages`, and `home/default.nix:332-335` runs `desktopctl theme sync` during Home Manager activation. |
 | Quickshell settings host | `config/quickshell/popups/SettingsPopup.qml:160-175`, `config/quickshell/popups/SettingsPopup.qml:209-292`, and `config/quickshell/popups/SettingsPopup.qml:397-404` read theme state, scheme lists, and presets through `desktopctl theme ... --json`, normalize scheme previews into `colorFamilies`, and feed the shared color-card selectors. `config/quickshell/DisplayService.qml:40-239` now reads daemon-owned night-light status and sends `desktopctl night-light ...` requests, while `config/quickshell/popups/SettingsPopup.qml:706-815` and `config/quickshell/popups/SettingsPopup.qml:1067-1096` send theme mutations through `desktopctl theme set`, `preset`, `save-preset`, and `delete-preset`. |
 | Quickshell shell IPC | `config/quickshell/shell.qml:24-108` and `config/quickshell/shell.qml:380-415` route the shell-level `theme.apply` IPC path to `desktopctl theme ...` with argv-safe tokenization and failure reporting. |
 | Hyprland autostart | `config/hypr/autostart.conf:4-12` launches `desktopctl daemon`, launches Quickshell through `desktopctl launch-quickshell`, and reapplies the persisted wallpaper via `desktopctl theme wallpaper` after `awww-daemon` starts. It no longer seeds any brightness cache. |
