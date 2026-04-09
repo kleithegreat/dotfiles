@@ -84,7 +84,7 @@ Invariants:
 | `import` | App supports includes/imports | Only the generated fragment is writable |
 | `standalone` | The output file is purely theming by nature | The whole file is theme-owned |
 | `concat` | The app needs base content plus generated theme content | Base file is read-only; final output is writable |
-| `command` | No file is needed | The pipeline owns only the invoked side effect |
+| `command` | No standalone generated file is needed, or the target must patch live runtime settings in place | The pipeline owns only the documented side effect or targeted preference patch |
 
 Constraints:
 
@@ -148,7 +148,7 @@ Constraints:
 | --- | --- |
 | Palette and assets | `color_scheme`, `wallpaper`, `filter_wallpaper`, `icon_theme`, `cursor_theme`, `cursor_size`, `dark_hint` |
 | Fonts | `system_font`, `mono_font`, `font_size`, `mono_font_size` |
-| Per-target font offsets | `quickshell_font_size_offset` |
+| Per-target font offsets | `quickshell_font_size_offset`, `gtk_font_size_offset`, `qt_font_size_offset`, `chromium_font_size_offset` |
 | Per-target mono offsets | `alacritty_*`, `ghostty_*`, `gtk_*`, `neovide_*`, `qt_*`, `vscode_*` mono-font offset keys |
 | Hyprland appearance | `hypr_gaps_in`, `hypr_gaps_out`, `hypr_border_size`, `hypr_rounding`, `hypr_blur_enabled`, `hypr_blur_size`, `hypr_blur_passes`, `hypr_animations_enabled` |
 
@@ -175,6 +175,7 @@ Constraints:
 | --- | --- | --- |
 | `alacritty` | `import` | `~/.config/alacritty/theme.toml` |
 | `bat` | `standalone` | `~/.config/bat/config` |
+| `chromium` | `command` | Chromium `Default/Preferences` web-font preferences |
 | `cursor` | `standalone` | Cursor indexes, Hyprland cursor env, runtime cursor apply |
 | `ghostty` | `concat` | `~/.config/ghostty/config` |
 | `gtk` | `command` | GTK interface settings |
@@ -202,12 +203,15 @@ State changes fan out by ownership, not by CLI convenience.
 | --- | --- |
 | `color_scheme` | `alacritty`, `bat`, `ghostty`, `gtk`, `gtksourceview`, `hyprland`, `neovim`, `qt`, `quickshell`, `snappy_switcher`, `spicetify`, `starship`, `tmux`, `vicinae`, `vscode`, `wallpaper`\*, `zathura` |
 | `wallpaper`, `filter_wallpaper` | `wallpaper` |
-| `system_font` | `gtk`, `qt`, `quickshell`, `snappy_switcher`, `vicinae` |
-| `mono_font` | `alacritty`, `ghostty`, `gtk`, `neovide`, `qt`, `quickshell`, `tmux`, `vscode` |
+| `system_font` | `chromium`, `gtk`, `qt`, `quickshell`, `snappy_switcher`, `vicinae` |
+| `mono_font` | `alacritty`, `chromium`, `ghostty`, `gtk`, `neovide`, `qt`, `quickshell`, `tmux`, `vscode` |
 | `icon_theme` | `gtk`, `qt`, `snappy_switcher` |
-| `font_size` | `gtk`, `qt`, `quickshell`, `snappy_switcher` |
+| `font_size` | `chromium`, `gtk`, `qt`, `quickshell`, `snappy_switcher` |
 | `quickshell_font_size_offset` | `quickshell` |
-| `mono_font_size` | `alacritty`, `ghostty`, `gtk`, `neovide`, `qt`, `vscode` |
+| `gtk_font_size_offset` | `gtk` |
+| `qt_font_size_offset` | `qt` |
+| `chromium_font_size_offset` | `chromium` |
+| `mono_font_size` | `alacritty`, `chromium`, `ghostty`, `gtk`, `neovide`, `qt`, `vscode` |
 | Per-target `*_mono_font_size_offset` | The named target only |
 | `dark_hint` | `gtk` |
 | `cursor_theme`, `cursor_size` | `cursor` |
@@ -225,6 +229,7 @@ The dependency map in code must remain a direct encoding of this table.
 | Recursive trees | Allowed when generated sibling files remain writable, as with `quickshell/` and `nvim/` |
 | Activation hook | Rebuild-time sync writes only outputs safe to materialize during activation |
 | Quickshell | Reads `GeneratedTheme.json`; `system_font` and `font_size` define the shell UI baseline, `quickshell_font_size_offset` can refine the shell target without changing GTK/Qt/snappy-switcher, and `mono_font` remains for monospaced or glyph-oriented surfaces; see `docs/quickshell/SPEC.md` for shell-side constraints |
+| Chromium | Reads the `Default/Preferences` font prefs patched by the `chromium` target; browser chrome still follows GTK/Qt integration outside that prefs surface |
 | Gedit / GtkSourceView | Reads generated styles from `~/.local/share/libgedit-gtksourceview-300/styles/`; gedit's light/dark source-style selection is theme-owned |
 | Hyprland | Reads `colors.conf` and `appearance-theme.conf` |
 | Neovim / Neovide | Read generated theme state files rather than embedding palette logic in Home Manager |

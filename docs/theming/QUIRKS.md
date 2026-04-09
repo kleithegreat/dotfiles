@@ -17,3 +17,9 @@
 **Cause:** The reused KvGnome and KvGnomeDark SVGs have baked background shades that the generated kvconfig cannot fully override.
 **Status:** Open
 **Resolution:** The Qt target regenerates the color config and swaps the dark/light SVGs, but exact background matching would require custom SVG assets.
+
+## Chromium font prefs are profile-local and not live-reloaded
+**Symptom:** Chromium font changes can appear to do nothing until the browser restarts, and non-default Chromium profiles keep their old font settings.
+**Cause:** The `chromium` target patches `~/.config/chromium/Default/Preferences`; Chromium keeps one prefs file per profile and may rewrite that file on exit.
+**Status:** Current behavior
+**Resolution:** Treat the target as owning the default profile's web-font prefs only. Reapply the target after closing Chromium if a live session overwrote the managed values.

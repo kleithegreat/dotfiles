@@ -57,7 +57,11 @@ pub fn on_apply(_colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> 
     dconf_set("color-scheme", &format!("'{color_pref}'"))?;
     dconf_set(
         "font-name",
-        &format!("'{} {}'", state.system_font, state.font_size),
+        &format!(
+            "'{} {}'",
+            state.system_font,
+            state.font_size_for(METADATA.name)?,
+        ),
     )?;
     dconf_set(
         "monospace-font-name",

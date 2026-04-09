@@ -36,8 +36,9 @@ const BASE_COLOR_TARGETS: [&str; 16] = [
     "vscode",
 ];
 
-const FONT_TARGETS: [&str; 10] = [
+const FONT_TARGETS: [&str; 11] = [
     "alacritty",
+    "chromium",
     "ghostty",
     "neovide",
     "quickshell",
@@ -1194,9 +1195,7 @@ mod tests {
 
     #[test]
     fn dark_hint_follows_scheme_appearance() {
-        assert!(
-            dark_hint_for_repo_scheme_name("gruvbox-dark").expect("dark scheme should load")
-        );
+        assert!(dark_hint_for_repo_scheme_name("gruvbox-dark").expect("dark scheme should load"));
         assert!(
             !dark_hint_for_repo_scheme_name("gruvbox-light").expect("light scheme should load")
         );

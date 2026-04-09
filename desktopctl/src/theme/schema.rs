@@ -30,7 +30,7 @@ pub const COLOR_FIELD_NAMES: [&str; 24] = [
     "orange_bright",
 ];
 
-pub const THEME_STATE_FIELD_ORDER: [&str; 26] = [
+pub const THEME_STATE_FIELD_ORDER: [&str; 29] = [
     "color_scheme",
     "wallpaper",
     "filter_wallpaper",
@@ -41,6 +41,9 @@ pub const THEME_STATE_FIELD_ORDER: [&str; 26] = [
     "cursor_size",
     "font_size",
     "quickshell_font_size_offset",
+    "gtk_font_size_offset",
+    "qt_font_size_offset",
+    "chromium_font_size_offset",
     "mono_font_size",
     "alacritty_mono_font_size_offset",
     "ghostty_mono_font_size_offset",
@@ -68,10 +71,13 @@ pub const THEME_STATE_STRING_FIELDS: [&str; 6] = [
     "cursor_theme",
 ];
 
-pub const THEME_STATE_INT_FIELDS: [&str; 16] = [
+pub const THEME_STATE_INT_FIELDS: [&str; 19] = [
     "cursor_size",
     "font_size",
     "quickshell_font_size_offset",
+    "gtk_font_size_offset",
+    "qt_font_size_offset",
+    "chromium_font_size_offset",
     "mono_font_size",
     "alacritty_mono_font_size_offset",
     "ghostty_mono_font_size_offset",
@@ -104,6 +110,9 @@ pub const DEFAULT_CURSOR_THEME: &str = "BreezeX-RosePine-Linux";
 pub const DEFAULT_CURSOR_SIZE: i64 = 24;
 pub const DEFAULT_FONT_SIZE: i64 = 11;
 pub const DEFAULT_QUICKSHELL_FONT_SIZE_OFFSET: i64 = 0;
+pub const DEFAULT_GTK_FONT_SIZE_OFFSET: i64 = 0;
+pub const DEFAULT_QT_FONT_SIZE_OFFSET: i64 = 0;
+pub const DEFAULT_CHROMIUM_FONT_SIZE_OFFSET: i64 = 0;
 pub const DEFAULT_MONO_FONT_SIZE: i64 = 11;
 pub const DEFAULT_ALACRITTY_MONO_FONT_SIZE_OFFSET: i64 = 0;
 pub const DEFAULT_GHOSTTY_MONO_FONT_SIZE_OFFSET: i64 = 0;
@@ -404,6 +413,9 @@ pub struct ThemeState {
     pub cursor_size: i64,
     pub font_size: i64,
     pub quickshell_font_size_offset: i64,
+    pub gtk_font_size_offset: i64,
+    pub qt_font_size_offset: i64,
+    pub chromium_font_size_offset: i64,
     pub mono_font_size: i64,
     pub alacritty_mono_font_size_offset: i64,
     pub ghostty_mono_font_size_offset: i64,
@@ -450,6 +462,9 @@ impl ThemeState {
             cursor_size: DEFAULT_CURSOR_SIZE,
             font_size: DEFAULT_FONT_SIZE,
             quickshell_font_size_offset: DEFAULT_QUICKSHELL_FONT_SIZE_OFFSET,
+            gtk_font_size_offset: DEFAULT_GTK_FONT_SIZE_OFFSET,
+            qt_font_size_offset: DEFAULT_QT_FONT_SIZE_OFFSET,
+            chromium_font_size_offset: DEFAULT_CHROMIUM_FONT_SIZE_OFFSET,
             mono_font_size: DEFAULT_MONO_FONT_SIZE,
             alacritty_mono_font_size_offset: DEFAULT_ALACRITTY_MONO_FONT_SIZE_OFFSET,
             ghostty_mono_font_size_offset: DEFAULT_GHOSTTY_MONO_FONT_SIZE_OFFSET,
@@ -489,6 +504,9 @@ impl ThemeState {
     pub fn font_size_offset_for(&self, target_name: &str) -> crate::Result<i64> {
         let offset = match target_name {
             "quickshell" => self.quickshell_font_size_offset,
+            "gtk" => self.gtk_font_size_offset,
+            "qt" => self.qt_font_size_offset,
+            "chromium" => self.chromium_font_size_offset,
             _ => {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
@@ -562,6 +580,18 @@ impl ThemeState {
         map.insert(
             "quickshell_font_size_offset".to_owned(),
             Value::from(self.quickshell_font_size_offset),
+        );
+        map.insert(
+            "gtk_font_size_offset".to_owned(),
+            Value::from(self.gtk_font_size_offset),
+        );
+        map.insert(
+            "qt_font_size_offset".to_owned(),
+            Value::from(self.qt_font_size_offset),
+        );
+        map.insert(
+            "chromium_font_size_offset".to_owned(),
+            Value::from(self.chromium_font_size_offset),
         );
         map.insert(
             "mono_font_size".to_owned(),

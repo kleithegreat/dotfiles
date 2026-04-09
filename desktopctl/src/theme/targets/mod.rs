@@ -1,5 +1,6 @@
 mod alacritty;
 mod bat;
+mod chromium;
 mod cursor;
 mod ghostty;
 mod gtk;
@@ -236,6 +237,12 @@ pub fn build_registry() -> crate::Result<TargetRegistry> {
     registry.register_function(alacritty::METADATA, alacritty::generate)?;
     registry.register_function(bat::METADATA, bat::generate)?;
     registry.register_function_with_hooks(
+        chromium::METADATA,
+        chromium::generate,
+        Some(chromium::persist),
+        None,
+    )?;
+    registry.register_function_with_hooks(
         cursor::METADATA,
         cursor::generate,
         Some(cursor::persist),
@@ -380,6 +387,9 @@ pub(crate) mod testsupport {
             cursor_size: 24,
             font_size: 11,
             quickshell_font_size_offset: 0,
+            gtk_font_size_offset: 0,
+            qt_font_size_offset: 0,
+            chromium_font_size_offset: 0,
             mono_font_size: 11,
             alacritty_mono_font_size_offset: 0,
             ghostty_mono_font_size_offset: 0,
@@ -431,7 +441,8 @@ mod tests {
     fn registry_contains_all_python_targets() {
         let registry = build_registry().expect("registry builds");
         let names = registry.iter().map(|(name, _)| name).collect::<Vec<_>>();
-        assert_eq!(names.len(), 20);
+        assert_eq!(names.len(), 21);
+        assert!(names.contains(&"chromium"));
         assert!(names.contains(&"cursor"));
         assert!(names.contains(&"gtksourceview"));
         assert_eq!(
@@ -541,6 +552,11 @@ mod tests {
             output,
             "font-family = JetBrains Mono Nerd Font\nfont-size = 11\nbackground = #000000\nforeground = #f0f0f0\nselection-background = #040404\nselection-foreground = #f0f0f0\ncursor-color = #f0f0f0\ncursor-text = #000000\npalette = 0=#000000\npalette = 1=#111111\npalette = 2=#222222\npalette = 3=#333333\npalette = 4=#444444\npalette = 5=#555555\npalette = 6=#666666\npalette = 7=#777777\npalette = 8=#888888\npalette = 9=#999999\npalette = 10=#aaaaaa\npalette = 11=#bbbbbb\npalette = 12=#cccccc\npalette = 13=#dddddd\npalette = 14=#eeeeee\npalette = 15=#ffffff\n"
         );
+    }
+
+    #[test]
+    fn chromium_generate_returns_no_commands() {
+        assert!(commands(chromium::generate(&dummy_colors(), &dummy_state())).is_empty());
     }
 
     #[test]
