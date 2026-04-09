@@ -49,10 +49,14 @@ FocusScope {
     property bool directoryBrowserOpen: false
     property string directoryBrowserPath: "/home/kevin/repos/dotfiles/wallpapers"
     property var directoryBrowserEntries: []
+    property var fontSizeOffsetTargets: [
+        { label: "Quickshell", key: "quickshell_font_size_offset" }
+    ]
     property var monoFontSizeOffsetTargets: [
         { label: "Alacritty", key: "alacritty_mono_font_size_offset" },
         { label: "Ghostty", key: "ghostty_mono_font_size_offset" },
         { label: "GTK", key: "gtk_mono_font_size_offset" },
+        { label: "Neovide", key: "neovide_mono_font_size_offset" },
         { label: "Qt", key: "qt_mono_font_size_offset" },
         { label: "VS Code", key: "vscode_mono_font_size_offset" }
     ]
@@ -1073,6 +1077,7 @@ FocusScope {
             colorFamilies: settingsPop.colorFamilies
             wallpapers: settingsPop.wallpapers
             wallpaperDir: settingsPop.wallpaperDir
+            fontSizeOffsetTargets: settingsPop.fontSizeOffsetTargets
             monoFontSizeOffsetTargets: settingsPop.monoFontSizeOffsetTargets
             presetCommandRunning: presetCommandProc.running
             presetCommandAction: presetCommandProc.action
@@ -1105,6 +1110,7 @@ FocusScope {
             themeState: settingsPop.themeState
             writePending: settingsPop.themeWritePending
             pendingKey: settingsPop.pendingThemeKey
+            fontSizeOffsetTargets: settingsPop.fontSizeOffsetTargets
             monoFontSizeOffsetTargets: settingsPop.monoFontSizeOffsetTargets
             onSetRequested: (key, value) => settingsPop.runSet(key, value)
         }
@@ -1156,7 +1162,6 @@ FocusScope {
             onSetRequested: (key, value) => settingsPop.runSet(key, value)
         }
     }
-}
 
     Component {
         id: mousePane

@@ -1,6 +1,6 @@
 # Quickshell Review
 
-Reviewed on 2026-04-08.
+Reviewed on 2026-04-09.
 
 ## Verdict
 
@@ -10,14 +10,13 @@ frontend polish checkpoint now covers the shared primitives, optimistic update
 plumbing, first-paint cleanup, and the settings affordances/layout fixes. The
 custom shell controls remain intentionally pointer-first rather than trying to
 overlay a repo-specific keyboard-navigation model on bar modules and popup
-tiles. The remaining issues are back down to the older settings / IPC gaps
-below, plus runtime validation that still needs a live shell smoke test.
+tiles. The remaining issue is the older IPC completion gap below, plus runtime
+validation that still needs a live shell smoke test.
 
 ## Findings
 
 | Severity | Finding | Why it matters |
 | --- | --- | --- |
-| Medium | `neovide_mono_font_size_offset` exists in theming state but is missing from the editable settings list. | The backend and the settings UI no longer expose the same theme surface. |
 | Low | `theme.apply` still has no positive completion reporting. | `config/quickshell/shell.qml:376-410` now tokenizes args safely and reports failures through `ToastService.showError(...)`, but successful completion is still silent. IPC callers can fire-and-forget a theme change, but they do not get a matching success signal or toast from the shell. |
 
 ## Checkpoint Notes

@@ -397,6 +397,7 @@ mod tests {
                 "  \"cursor_theme\": \"BreezeX-RosePine-Linux\",\n",
                 "  \"cursor_size\": 24,\n",
                 "  \"font_size\": 11,\n",
+                "  \"quickshell_font_size_offset\": 0,\n",
                 "  \"mono_font_size\": 11,\n",
                 "  \"alacritty_mono_font_size_offset\": 0,\n",
                 "  \"ghostty_mono_font_size_offset\": 0,\n",

@@ -10,6 +10,7 @@ Components.WheelFlickable {
     required property var colorFamilies
     required property var wallpapers
     required property string wallpaperDir
+    required property var fontSizeOffsetTargets
     required property var monoFontSizeOffsetTargets
     required property bool presetCommandRunning
     required property string presetCommandAction
@@ -36,6 +37,10 @@ Components.WheelFlickable {
         "qt_mono_font_size_offset",
         "vscode_mono_font_size_offset"
     ]
+    readonly property var fontSizeOffsetKeys: [
+        "quickshell_font_size_offset"
+    ]
+    readonly property var fontOffsetKeys: root.monoFontOffsetKeys.concat(root.fontSizeOffsetKeys)
     readonly property var hyprIntKeys: [
         "hypr_gaps_in",
         "hypr_gaps_out",
@@ -138,7 +143,7 @@ Components.WheelFlickable {
         let fonts = [];
         let icons = [];
         let hypr = [];
-        let fontOffsetCount = root.countDefinedKeys(data, root.monoFontOffsetKeys);
+        let fontOffsetCount = root.countDefinedKeys(data, root.fontOffsetKeys);
         let hyprTweakCount = root.countDefinedKeys(data, root.hyprIntKeys);
 
         if (data.color_scheme !== undefined)
@@ -321,6 +326,7 @@ Components.WheelFlickable {
             colorFamilies: root.colorFamilies
             wallpapers: root.wallpapers
             wallpaperDir: root.wallpaperDir
+            fontSizeOffsetTargets: root.fontSizeOffsetTargets
             monoFontSizeOffsetTargets: root.monoFontSizeOffsetTargets
             busy: root.presetCommandRunning
             busyAction: root.presetCommandAction

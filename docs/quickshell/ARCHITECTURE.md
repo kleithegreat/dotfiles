@@ -78,7 +78,7 @@ preserving a rollback snapshot for failures.
 | Host loaders | `Process` helpers call `desktopctl theme status --json`, `desktopctl theme list-schemes --json`, `desktopctl theme list-presets --json`, and shell commands for wallpaper/directory browsing |
 | Service-driven panes | Network, Bluetooth, Audio, Display, Power, Notifications, Focus Time |
 | Host-driven panes | Presets, Colors, Fonts, Wallpaper, Icons, Mouse, Hyprland |
-| Category gating | `HostCapabilities.qml:1-40` plus `config/quickshell/popups/SettingsPopup.qml:61-68` and `config/quickshell/popups/SettingsPopup.qml:951-958` hide the Power category when neither battery nor power-profile support is present |
+| Category gating | `HostCapabilities.qml:1-40` plus `config/quickshell/popups/SettingsPopup.qml:64-72` and `config/quickshell/popups/SettingsPopup.qml:955-962` hide the Power category when neither battery nor power-profile support is present |
 | General theme writes | Serialized `desktopctl theme set` and `desktopctl theme preset` requests, with host-local staging for individual `set` writes before process exit and toast-visible backend errors |
 | Preset writes | `desktopctl theme save-preset` and `desktopctl theme delete-preset` |
 | Hyprland appearance writes | Debounced queue of `desktopctl theme set hypr_* ...` writes with desktop-notification feedback |
@@ -93,43 +93,54 @@ DND, and power-profile expand requests to concrete category indices.
 behaviors:
 
 - Responsive panel sizing instead of the old fixed `700x500` shell:
-  `config/quickshell/popups/SettingsPopup.qml:105-115`, `config/quickshell/popups/SettingsPopup.qml:930-1026`.
+  `config/quickshell/popups/SettingsPopup.qml:109-120`, `config/quickshell/popups/SettingsPopup.qml:935-1030`.
 - Optimistic theme-state staging and rollback for `desktopctl theme set`
   writes, plus serialized `set` / `preset` draining between backend reloads:
-  `config/quickshell/popups/SettingsPopup.qml:178-245`,
-  `config/quickshell/popups/SettingsPopup.qml:741-800`.
+  `config/quickshell/popups/SettingsPopup.qml:182-248`,
+  `config/quickshell/popups/SettingsPopup.qml:745-800`.
 - Normalizing `desktopctl theme list-schemes --json` into richer `colorFamilies`
   preview objects, then feeding the shared responsive card selector used by
   both the Colors pane and the preset editor:
-  `config/quickshell/popups/SettingsPopup.qml:248-292`,
-  `config/quickshell/popups/SettingsPopup.qml:397-400`,
+  `config/quickshell/popups/SettingsPopup.qml:252-298`,
+  `config/quickshell/popups/SettingsPopup.qml:401-404`,
   `config/quickshell/components/ColorSchemeCards.qml:4-78`,
   `config/quickshell/components/ColorSchemeCard.qml:5-227`,
   `config/quickshell/popups/settings/SettingsColorsPane.qml:37-66`,
   `config/quickshell/popups/settings/SettingsPresetEditor.qml:472-497`.
 - Passing wallpaper-directory metadata into the preset editor so wallpaper
   fields can validate and commit separately from freeform typing:
-  `config/quickshell/popups/SettingsPopup.qml:1068-1084`,
+  `config/quickshell/popups/SettingsPopup.qml:1074-1089`,
   `config/quickshell/popups/settings/SettingsPresetsPane.qml:6-38`,
-  `config/quickshell/popups/settings/SettingsPresetsPane.qml:312-330`,
+  `config/quickshell/popups/settings/SettingsPresetsPane.qml:317-330`,
   `config/quickshell/popups/settings/SettingsPresetEditor.qml:560-726`.
 - Keeping icon-theme selection separate from cursor theme/size by routing them
   through dedicated Icons and Mouse panes:
-  `config/quickshell/popups/SettingsPopup.qml:67-68`,
-  `config/quickshell/popups/SettingsPopup.qml:1007-1024`,
-  `config/quickshell/popups/SettingsPopup.qml:1149-1169`,
+  `config/quickshell/popups/SettingsPopup.qml:71-72`,
+  `config/quickshell/popups/SettingsPopup.qml:1011-1026`,
+  `config/quickshell/popups/SettingsPopup.qml:1155-1174`,
   `config/quickshell/popups/settings/SettingsIconsPane.qml:6-72`,
   `config/quickshell/popups/settings/SettingsMousePane.qml:6-138`.
-- Keeping the Fonts pane offset controls compact by showing only the signed
-  per-target delta beside the stepper, instead of repeating a derived
-  "effective size" label for every row:
-  `config/quickshell/popups/settings/SettingsFontsPane.qml:37-51`,
-  `config/quickshell/popups/settings/SettingsFontsPane.qml:191-282`.
+- Passing dedicated target lists into the Fonts and Presets panes so the shell
+  now exposes a Quickshell-only UI-size offset plus the full mono-offset set,
+  including Neovide, while keeping every offset row compact by showing only the
+  signed delta beside the stepper:
+  `config/quickshell/popups/SettingsPopup.qml:52-61`,
+  `config/quickshell/popups/SettingsPopup.qml:1074-1081`,
+  `config/quickshell/popups/SettingsPopup.qml:1109-1114`,
+  `config/quickshell/popups/settings/SettingsFontsPane.qml:7-105`,
+  `config/quickshell/popups/settings/SettingsFontsPane.qml:216-315`,
+  `config/quickshell/popups/settings/SettingsFontsPane.qml:319-510`,
+  `config/quickshell/popups/settings/SettingsPresetsPane.qml:13-43`,
+  `config/quickshell/popups/settings/SettingsPresetsPane.qml:138-174`,
+  `config/quickshell/popups/settings/SettingsPresetEditor.qml:13-18`,
+  `config/quickshell/popups/settings/SettingsPresetEditor.qml:838-1018`,
+  `config/quickshell/popups/settings/SettingsPresetEditor.qml:1152-1178`.
 
 The Power pane remains lazy-loaded through the settings detail loader, so the
 privileged charge-limit probe is now deferred until `SettingsPowerPane.qml`
 mounts instead of firing on every Settings popup open. Evidence:
-`config/quickshell/popups/SettingsPopup.qml:1003-1054`,
+`config/quickshell/popups/SettingsPopup.qml:1007-1030`,
+`config/quickshell/popups/SettingsPopup.qml:1056-1058`,
 `config/quickshell/popups/settings/SettingsPowerPane.qml:13-16`.
 
 The settings sidebar remains click-driven. It uses the shared `WheelFlickable`
@@ -163,7 +174,7 @@ tab stops or focus outlines layered onto those surfaces. Evidence:
 | Piece | Current role |
 | --- | --- |
 | `Theme.qml` | Watches the XDG-config-derived `GeneratedTheme.json` path, reparses on change, and exposes generated colors/fonts plus shell-owned layout constants |
-| `desktopctl/src/theme/targets/quickshell.rs` | Writes `GeneratedTheme.json`, maps theming names into Quickshell's `bg0_h` / `aqua` naming, emits both mono and system font families, and derives shell font sizes from `ThemeState.font_size` |
+| `desktopctl/src/theme/targets/quickshell.rs` | Writes `GeneratedTheme.json`, maps theming names into Quickshell's `bg0_h` / `aqua` naming, emits both mono and system font families, and derives shell font sizes from `ThemeState.font_size + quickshell_font_size_offset` |
 | Recursive tree exception | `config/quickshell/GeneratedTheme.json` is committed in the repo as a bootstrap snapshot because Home Manager deploys the whole `config/quickshell/` tree recursively; activation/runtime theme applies still overwrite the live `${XDG_CONFIG_HOME:-~/.config}/quickshell/GeneratedTheme.json` path |
 | Settings host | Runs `desktopctl theme ...`, stages optimistic `themeState` updates for individual `set` writes, serializes general theme writes, shows toast-visible backend failures, then reloads or rolls back its local snapshot when the process exits |
 | Shell IPC | Provides a second command path into `desktopctl theme ...` through `theme.apply`, with shell-style tokenization and error toasts on failure |
@@ -181,7 +192,7 @@ Calendar:
 
 - `config/quickshell/popups/QuickSettingsPopup.qml:32-35`,
   `config/quickshell/popups/QuickSettingsPopup.qml:152-210`
-- `config/quickshell/popups/SettingsPopup.qml:930-1026`
+- `config/quickshell/popups/SettingsPopup.qml:935-1030`
 - `config/quickshell/NotifDrawer.qml:44-45`,
   `config/quickshell/NotifDrawer.qml:145-190`
 - `config/quickshell/popups/CalendarPopup.qml:18-19`,

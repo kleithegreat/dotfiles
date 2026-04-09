@@ -31,7 +31,7 @@ Status meanings:
 | Severity | Finding | Status | Evidence |
 | --- | --- | --- | --- |
 | Medium | `theme.apply` still has no positive completion reporting. | partially addressed | `config/quickshell/shell.qml:24-108` now tokenizes string payloads shell-style instead of using `args.split(" ")`, and `config/quickshell/shell.qml:376-410` reports failures through `ToastService.showError(...)`. The path still has no matching success signal or toast. |
-| Medium | `neovide_mono_font_size_offset` exists in theming state but is missing from the editable settings list. | open | Theme state still contains `neovide_mono_font_size_offset` (`desktopctl/src/theme/schema.rs:421-460`), but `config/quickshell/popups/SettingsPopup.qml:52-58` still only enumerates Alacritty, Ghostty, GTK, Qt, and VS Code offsets. |
+| Medium | `neovide_mono_font_size_offset` exists in theming state but is missing from the editable settings list. | resolved | `config/quickshell/popups/SettingsPopup.qml:55-61` now enumerates Neovide in `monoFontSizeOffsetTargets`, and `config/quickshell/popups/settings/SettingsFontsPane.qml:227-314` renders that full mono-offset list in the editable Fonts pane. |
 
 ## NVIDIA
 

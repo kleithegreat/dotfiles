@@ -8,6 +8,7 @@ Components.WheelFlickable {
     required property var themeState
     required property bool writePending
     required property string pendingKey
+    required property var fontSizeOffsetTargets
     required property var monoFontSizeOffsetTargets
 
     signal setRequested(string key, string value)
@@ -41,6 +42,27 @@ Components.WheelFlickable {
         return root.themeState.mono_font_size || 11;
     }
 
+    function fontBaseSize() {
+        return root.themeState.font_size || 11;
+    }
+
+    function fontSizeOffset(key) {
+        let value = root.themeState[key];
+        return value === undefined || value === null ? 0 : value;
+    }
+
+    function minimumFontSizeOffset() {
+        let minOffset = 0;
+
+        for (let i = 0; i < root.fontSizeOffsetTargets.length; i++) {
+            let offset = fontSizeOffset(root.fontSizeOffsetTargets[i].key);
+            if (offset < minOffset)
+                minOffset = offset;
+        }
+
+        return minOffset;
+    }
+
     function monoFontSizeOffset(key) {
         let value = root.themeState[key];
         return value === undefined || value === null ? 0 : value;
@@ -69,6 +91,14 @@ Components.WheelFlickable {
     function adjustMonoFontSizeOffset(key, delta) {
         let next = monoFontSizeOffset(key) + delta;
         if (monoFontBaseSize() + next < 1)
+            return;
+
+        root.setRequested(key, String(next));
+    }
+
+    function adjustFontSizeOffset(key, delta) {
+        let next = fontSizeOffset(key) + delta;
+        if (fontBaseSize() + next < 1)
             return;
 
         root.setRequested(key, String(next));
@@ -337,14 +367,14 @@ Components.WheelFlickable {
 
                     pressedScale: 1.0
                     onClicked: {
-                        let s = (root.themeState.font_size || 11) - 1;
-                        if (s >= 6)
+                        let s = root.fontBaseSize() - 1;
+                        if (s >= 6 && s + root.minimumFontSizeOffset() >= 1)
                             root.setRequested("font_size", String(s));
                     }
                 }
             }
 
-            Text { text: String(root.themeState.font_size || 11); color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize; width: 24; horizontalAlignment: Text.AlignHCenter; height: Theme.btnHeight; verticalAlignment: Text.AlignVCenter }
+            Text { text: String(root.fontBaseSize()); color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize; width: 24; horizontalAlignment: Text.AlignHCenter; height: Theme.btnHeight; verticalAlignment: Text.AlignVCenter }
 
             Rectangle {
                 width: 28
@@ -370,9 +400,110 @@ Components.WheelFlickable {
 
                     pressedScale: 1.0
                     onClicked: {
-                        let s = (root.themeState.font_size || 11) + 1;
+                        let s = root.fontBaseSize() + 1;
                         if (s <= 24)
                             root.setRequested("font_size", String(s));
+                    }
+                }
+            }
+        }
+
+        ColumnLayout {
+            visible: root.fontSizeOffsetTargets.length > 0
+            Layout.fillWidth: true
+            spacing: 8
+
+            Text {
+                text: "Per-target offsets"
+                color: Theme.fg3
+                font.family: Theme.systemFamily
+                font.pixelSize: Theme.fontSizeSmall
+            }
+
+            Repeater {
+                model: root.fontSizeOffsetTargets
+
+                delegate: RowLayout {
+                    required property var modelData
+                    required property int index
+
+                    Layout.fillWidth: true
+                    spacing: 8
+                    opacity: root.isPending(modelData.key) ? 0.72 : 1
+                    Behavior on opacity { Components.Anim { duration: Theme.animHover } }
+
+                    Text {
+                        text: modelData.label
+                        color: Theme.fg
+                        font.family: Theme.systemFamily
+                        font.pixelSize: Theme.fontSizeSmall
+                        Layout.fillWidth: true
+                        Layout.alignment: Qt.AlignVCenter
+                    }
+
+                    Rectangle {
+                        width: 28
+                        height: Theme.btnHeight
+                        radius: Theme.btnRadius
+                        color: systemOffsetMinus.containsMouse ? Theme.bg2 : Theme.bg1
+                        border.width: 1
+                        border.color: Theme.bg3
+                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+
+                        Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
+
+                        Components.HoverLayer {
+                            id: systemOffsetMinus
+                            anchors.fill: parent
+                            disabled: root.writePending
+                            cursorShape: Qt.PointingHandCursor
+                            hoverEnabled: true
+
+                            hoverOpacity: 0
+
+                            pressedOpacity: 0
+
+                            pressedScale: 1.0
+                            onClicked: root.adjustFontSizeOffset(modelData.key, -1)
+                        }
+                    }
+
+                    Text {
+                        text: root.formatSignedNumber(root.fontSizeOffset(modelData.key))
+                        color: Theme.fg
+                        font.family: Theme.systemFamily
+                        font.pixelSize: Theme.fontSize
+                        width: 36
+                        horizontalAlignment: Text.AlignHCenter
+                        height: Theme.btnHeight
+                        verticalAlignment: Text.AlignVCenter
+                    }
+
+                    Rectangle {
+                        width: 28
+                        height: Theme.btnHeight
+                        radius: Theme.btnRadius
+                        color: systemOffsetPlus.containsMouse ? Theme.bg2 : Theme.bg1
+                        border.width: 1
+                        border.color: Theme.bg3
+                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+
+                        Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
+
+                        Components.HoverLayer {
+                            id: systemOffsetPlus
+                            anchors.fill: parent
+                            disabled: root.writePending
+                            cursorShape: Qt.PointingHandCursor
+                            hoverEnabled: true
+
+                            hoverOpacity: 0
+
+                            pressedOpacity: 0
+
+                            pressedScale: 1.0
+                            onClicked: root.adjustFontSizeOffset(modelData.key, 1)
+                        }
                     }
                 }
             }
