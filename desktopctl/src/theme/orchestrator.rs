@@ -33,9 +33,17 @@ const COLOR_SCHEME_TARGETS: [&str; 17] = [
     "snappy_switcher",
 ];
 const WALLPAPER_TARGETS: [&str; 1] = ["wallpaper"];
-const SYSTEM_FONT_TARGETS: [&str; 5] = ["quickshell", "gtk", "qt", "vicinae", "snappy_switcher"];
-const MONO_FONT_TARGETS: [&str; 8] = [
+const SYSTEM_FONT_TARGETS: [&str; 6] = [
+    "chromium",
+    "quickshell",
+    "gtk",
+    "qt",
+    "vicinae",
+    "snappy_switcher",
+];
+const MONO_FONT_TARGETS: [&str; 9] = [
     "alacritty",
+    "chromium",
     "ghostty",
     "gtk",
     "neovide",
@@ -46,9 +54,16 @@ const MONO_FONT_TARGETS: [&str; 8] = [
 ];
 const ICON_THEME_TARGETS: [&str; 3] = ["gtk", "qt", "snappy_switcher"];
 const CURSOR_TARGETS: [&str; 1] = ["cursor"];
-const FONT_SIZE_TARGETS: [&str; 4] = ["gtk", "qt", "quickshell", "snappy_switcher"];
-const MONO_FONT_SIZE_TARGETS: [&str; 6] =
-    ["alacritty", "ghostty", "gtk", "neovide", "qt", "vscode"];
+const FONT_SIZE_TARGETS: [&str; 5] = ["chromium", "gtk", "qt", "quickshell", "snappy_switcher"];
+const MONO_FONT_SIZE_TARGETS: [&str; 7] = [
+    "alacritty",
+    "chromium",
+    "ghostty",
+    "gtk",
+    "neovide",
+    "qt",
+    "vscode",
+];
 const DARK_HINT_TARGETS: [&str; 1] = ["gtk"];
 const HYPR_APPEARANCE_TARGETS: [&str; 1] = ["hypr_appearance"];
 
@@ -196,6 +211,9 @@ fn dependency_targets(state_key: &str) -> &'static [&'static str] {
         "cursor_theme" | "cursor_size" => &CURSOR_TARGETS,
         "font_size" => &FONT_SIZE_TARGETS,
         "quickshell_font_size_offset" => &["quickshell"],
+        "gtk_font_size_offset" => &["gtk"],
+        "qt_font_size_offset" => &["qt"],
+        "chromium_font_size_offset" => &["chromium"],
         "mono_font_size" => &MONO_FONT_SIZE_TARGETS,
         "alacritty_mono_font_size_offset" => &["alacritty"],
         "ghostty_mono_font_size_offset" => &["ghostty"],
@@ -584,6 +602,9 @@ mod tests {
             cursor_size: 24,
             font_size: 11,
             quickshell_font_size_offset: 0,
+            gtk_font_size_offset: 0,
+            qt_font_size_offset: 0,
+            chromium_font_size_offset: 0,
             mono_font_size: 11,
             alacritty_mono_font_size_offset: 0,
             ghostty_mono_font_size_offset: 0,
@@ -639,6 +660,30 @@ mod tests {
             .into_iter()
             .collect::<Vec<_>>();
         assert_eq!(targets, vec!["quickshell".to_owned()]);
+    }
+
+    #[test]
+    fn gtk_font_size_offset_targets_only_gtk() {
+        let targets = targets_for_key("gtk_font_size_offset", None)
+            .into_iter()
+            .collect::<Vec<_>>();
+        assert_eq!(targets, vec!["gtk".to_owned()]);
+    }
+
+    #[test]
+    fn qt_font_size_offset_targets_only_qt() {
+        let targets = targets_for_key("qt_font_size_offset", None)
+            .into_iter()
+            .collect::<Vec<_>>();
+        assert_eq!(targets, vec!["qt".to_owned()]);
+    }
+
+    #[test]
+    fn chromium_font_size_offset_targets_only_chromium() {
+        let targets = targets_for_key("chromium_font_size_offset", None)
+            .into_iter()
+            .collect::<Vec<_>>();
+        assert_eq!(targets, vec!["chromium".to_owned()]);
     }
 
     #[test]
