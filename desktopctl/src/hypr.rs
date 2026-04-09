@@ -112,7 +112,9 @@ fn tmp_socket2_path(signature: &str) -> PathBuf {
 
 fn discover_socket2_path() -> Result<Option<PathBuf>> {
     let mut candidates = Vec::new();
-    candidates.extend(find_socket2_candidates(&paths::xdg_runtime_dir()?.join("hypr"))?);
+    candidates.extend(find_socket2_candidates(
+        &paths::xdg_runtime_dir()?.join("hypr"),
+    )?);
     candidates.extend(find_socket2_candidates(&PathBuf::from("/tmp/hypr"))?);
 
     Ok(candidates

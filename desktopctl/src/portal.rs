@@ -143,7 +143,10 @@ fn extract_request_handle(output: &Output) -> Result<String> {
     let start = stdout.find(marker).ok_or_else(|| {
         io::Error::new(
             io::ErrorKind::InvalidData,
-            format!("busctl did not return a portal request handle: {}", stdout.trim()),
+            format!(
+                "busctl did not return a portal request handle: {}",
+                stdout.trim()
+            ),
         )
     })?;
     let tail = &stdout[start..];
