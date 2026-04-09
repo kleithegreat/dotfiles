@@ -64,8 +64,8 @@ FocusScope {
         return h;
     }
     property string wallpaperDir: "/home/kevin/repos/dotfiles/wallpapers"
-    property var categoryNames: ["Network", "Bluetooth", "Audio", "Display", "Power", "Notifications", "Screen Time", "Presets", "Colors", "Fonts", "Wallpaper", "Icons & Cursors", "Hyprland"]
-    property var categoryIcons: ["../icons/wifi.svg", "../icons/bluetooth-on.svg", "../icons/volume-high.svg", "../icons/monitor.svg", "../icons/bolt.svg", "../icons/bell.svg", "../icons/hourglass.svg", "../icons/adjustments.svg", "../icons/palette.svg", "../icons/typography.svg", "../icons/photo.svg", "../icons/cursor.svg", "../icons/layout.svg"]
+    property var categoryNames: ["Network", "Bluetooth", "Audio", "Display", "Power", "Notifications", "Screen Time", "Presets", "Colors", "Fonts", "Wallpaper", "Icons", "Mouse", "Hyprland"]
+    property var categoryIcons: ["../icons/wifi.svg", "../icons/bluetooth-on.svg", "../icons/volume-high.svg", "../icons/monitor.svg", "../icons/bolt.svg", "../icons/bell.svg", "../icons/hourglass.svg", "../icons/adjustments.svg", "../icons/palette.svg", "../icons/typography.svg", "../icons/photo.svg", "../icons/certificate.svg", "../icons/cursor.svg", "../icons/layout.svg"]
     property var hyprOptionInfo: ({
         "general:gaps_in": { label: "Inner gaps", type: "int", fallback: 4, minimum: 0, step: 1, stateKey: "hypr_gaps_in" },
         "general:gaps_out": { label: "Outer gaps", type: "int", fallback: 6, minimum: 0, step: 1, stateKey: "hypr_gaps_out" },
@@ -1018,7 +1018,8 @@ FocusScope {
                                 case 9: return fontsPane;
                                 case 10: return wallpaperPane;
                                 case 11: return iconsPane;
-                                case 12: return hyprlandPane;
+                                case 12: return mousePane;
+                                case 13: return hyprlandPane;
                                 default: return null;
                             }
                         }
@@ -1149,6 +1150,18 @@ FocusScope {
         id: iconsPane
 
         Settings.SettingsIconsPane {
+            themeState: settingsPop.themeState
+            writePending: settingsPop.themeWritePending
+            pendingKey: settingsPop.pendingThemeKey
+            onSetRequested: (key, value) => settingsPop.runSet(key, value)
+        }
+    }
+}
+
+    Component {
+        id: mousePane
+
+        Settings.SettingsMousePane {
             themeState: settingsPop.themeState
             writePending: settingsPop.themeWritePending
             pendingKey: settingsPop.pendingThemeKey

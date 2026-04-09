@@ -3,7 +3,7 @@
 ## Scope
 
 Current implementation map for the migrated Rust theming pipeline as of
-2026-04-08.
+2026-04-09.
 
 ## Runtime Surface
 
@@ -61,7 +61,7 @@ Targets with notable extra behavior:
 | Home Manager | `home/default.nix:329-332` runs `desktopctl theme sync` after managed files are written so generated fragments exist before the next session. |
 | Gedit / GtkSourceView | The `gtksourceview` target writes generated styles into `~/.local/share/libgedit-gtksourceview-300/styles/` during sync-safe runs, then sets gedit's per-variant source-style dconf keys during runtime applies. |
 | Hyprland | `config/hypr/hyprland.conf` and `config/hypr/appearance.conf` source generated `colors.conf`, `cursor.conf`, and `appearance-theme.conf`. `config/hypr/autostart.conf:12-13` now re-applies the wallpaper target from persisted theme state once `awww-daemon` is ready. |
-| Quickshell | `config/quickshell/Theme.qml:9-23` watches the XDG-config-derived `GeneratedTheme.json` path; `config/quickshell/popups/SettingsPopup.qml:160-175`, `config/quickshell/popups/SettingsPopup.qml:209-292`, `config/quickshell/popups/SettingsPopup.qml:397-404`, `config/quickshell/popups/SettingsPopup.qml:741-815`, `config/quickshell/popups/SettingsPopup.qml:1067-1096`, and `config/quickshell/shell.qml:24-108`, `config/quickshell/shell.qml:395-414` call `desktopctl theme` through argv-safe command construction instead of hardcoded repo scripts. The settings host stages individual `theme set` writes optimistically, serializes queued `set` / `preset` requests, reloads or rolls back on process exit, and now consumes the richer `list-schemes --json` preview payload for the shared color-card selectors. The recursive Quickshell tree also carries one committed bootstrap snapshot at `config/quickshell/GeneratedTheme.json`, which activation/runtime theme applies overwrite in place. |
+| Quickshell | `config/quickshell/Theme.qml:9-23` watches the XDG-config-derived `GeneratedTheme.json` path; `config/quickshell/popups/SettingsPopup.qml:160-175`, `config/quickshell/popups/SettingsPopup.qml:209-292`, `config/quickshell/popups/SettingsPopup.qml:397-404`, `config/quickshell/popups/SettingsPopup.qml:741-815`, `config/quickshell/popups/SettingsPopup.qml:1068-1169`, `config/quickshell/popups/settings/SettingsIconsPane.qml:6-72`, `config/quickshell/popups/settings/SettingsMousePane.qml:6-138`, and `config/quickshell/shell.qml:24-108`, `config/quickshell/shell.qml:395-414` call or route `desktopctl theme` through argv-safe command construction instead of hardcoded repo scripts. The settings host stages individual `theme set` writes optimistically, serializes queued `set` / `preset` requests, reloads or rolls back on process exit, and now keeps `icon_theme` and cursor controls on separate Icons and Mouse panes while consuming the richer `list-schemes --json` preview payload for the shared color-card selectors. The recursive Quickshell tree also carries one committed bootstrap snapshot at `config/quickshell/GeneratedTheme.json`, which activation/runtime theme applies overwrite in place. |
 | Neovim / Neovide | Generated `theme-state.json` and `neovide-theme.lua` are still written inside the Home Manager-symlinked `~/.config/nvim` tree. |
 | Tool configs | Import or concat targets still write under `~/.config` or app-specific config paths, keeping repo-authored base files read-only. Repo-authored concat bases now resolve through `paths::repo_root()` when the target declares a relative `base_path`. |
 
