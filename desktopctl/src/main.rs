@@ -158,6 +158,31 @@ struct HyprArgs {
 enum HyprCommand {
     /// Toggle floating and recenter when promoting a tiled window.
     ToggleFloat,
+    /// Inspect and update managed Hyprland input settings.
+    Input(HyprInputArgs),
+}
+
+#[derive(Debug, Args)]
+#[command(arg_required_else_help = true, subcommand_required = true)]
+struct HyprInputArgs {
+    #[command(subcommand)]
+    command: HyprInputCommand,
+}
+
+#[derive(Debug, Subcommand)]
+enum HyprInputCommand {
+    /// Show the effective managed Hyprland input settings.
+    Status(JsonOutputArgs),
+    /// Persist and apply one managed Hyprland input setting.
+    Set(HyprInputSetArgs),
+}
+
+#[derive(Debug, Args)]
+struct HyprInputSetArgs {
+    /// Managed Hyprland input setting to update.
+    key: String,
+    /// New value for the provided setting.
+    value: String,
 }
 
 #[derive(Debug, Args)]
@@ -263,6 +288,17 @@ fn run_brightness(args: BrightnessArgs) -> Result<()> {
 fn run_hypr(args: HyprArgs) -> Result<()> {
     match args.command {
         HyprCommand::ToggleFloat => hypr::toggle_float(),
+        HyprCommand::Input(args) => run_hypr_input(args),
+    }
+}
+
+fn run_hypr_input(args: HyprInputArgs) -> Result<()> {
+    match args.command {
+        HyprInputCommand::Status(args) => hypr::print_input_status(args.json),
+        HyprInputCommand::Set(args) => {
+            let setting = hypr::InputSetting::parse(&args.key)?;
+            hypr::set_input_value(setting, &args.value)
+        }
     }
 }
 

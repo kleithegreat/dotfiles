@@ -109,6 +109,13 @@ FocusScope {
     property bool themeWriteDrainAfterReload: false
     readonly property bool themeWritePending: applyProc.running && applyProc.mode === "set" && applyProc.pendingKey !== ""
     readonly property string pendingThemeKey: applyProc.pendingKey
+    property var mouseSettings: ({})
+    property string mouseRuntimeError: ""
+    property bool mouseStateReloadPending: false
+    property var mouseWriteQueue: []
+    property bool mouseWriteDrainAfterReload: false
+    readonly property bool mouseWritePending: mouseApplyProc.running && mouseApplyProc.pendingKey !== ""
+    readonly property string pendingMouseKey: mouseApplyProc.pendingKey
     readonly property int panelWidth: {
         let available = Math.max(420, settingsPop.width - Theme.gapOut * 4);
         let preferred = Math.round((Theme.fontSize + Theme.popupPadding) * 28);
@@ -175,8 +182,21 @@ FocusScope {
         stateProc.running = true;
     }
 
+    function loadMouseSettings() {
+        if (mouseStateProc.running) {
+            mouseStateReloadPending = true;
+            return;
+        }
+
+        mouseStateReloadPending = false;
+        mouseStateProc.buf = "";
+        mouseStateProc.errorBuf = "";
+        mouseStateProc.running = true;
+    }
+
     function loadState() {
         loadThemeState();
+        loadMouseSettings();
         refreshColorFamilies();
         refreshPresets();
         refreshWallpapers();
@@ -207,6 +227,20 @@ FocusScope {
         let nextState = cloneThemeState(themeState);
         nextState[key] = coerceThemeValue(key, value);
         themeState = nextState;
+    }
+
+    function coerceMouseValue(key, value) {
+        if (key === "accel_profile")
+            return String(value);
+
+        let parsed = Number(value);
+        return isNaN(parsed) ? value : parsed;
+    }
+
+    function stageMouseValue(key, value) {
+        let nextState = cloneMap(mouseSettings);
+        nextState[key] = coerceMouseValue(key, value);
+        mouseSettings = nextState;
     }
 
     function isThemeKeyPending(key) {
@@ -298,6 +332,56 @@ FocusScope {
             settingsPop.colorSchemes = schemes;
             settingsPop.colorFamilies = result;
             buf = "";
+        }
+    }
+
+    Process {
+        id: mouseStateProc
+        command: ["desktopctl", "hypr", "input", "status", "--json"]
+        running: false
+        property string buf: ""
+        property string errorBuf: ""
+        stdout: SplitParser { onRead: (line) => { mouseStateProc.buf += line; } }
+        stderr: SplitParser { onRead: (line) => { mouseStateProc.errorBuf += line + "\n"; } }
+        onExited: (code) => {
+            let parsed = false;
+            let trimmed = buf.trim();
+            let errorMessage = errorBuf.trim();
+
+            try {
+                if (code === 0 && trimmed !== "") {
+                    settingsPop.mouseSettings = JSON.parse(trimmed);
+                    settingsPop.mouseRuntimeError = "";
+                    parsed = true;
+                }
+            } catch (e) {
+                settingsPop.mouseRuntimeError = "Failed to parse mouse settings";
+                ToastService.showError(settingsPop.mouseRuntimeError);
+            }
+
+            if (code !== 0) {
+                settingsPop.mouseRuntimeError = errorMessage !== "" ? errorMessage : "Failed to load mouse settings";
+                ToastService.showError(settingsPop.mouseRuntimeError);
+            } else if (!parsed && trimmed === "") {
+                settingsPop.mouseRuntimeError = "Mouse settings are empty";
+                ToastService.showError(settingsPop.mouseRuntimeError);
+            }
+
+            buf = "";
+            errorBuf = "";
+
+            if (settingsPop.mouseStateReloadPending) {
+                settingsPop.loadMouseSettings();
+                return;
+            }
+
+            if (settingsPop.mouseWriteDrainAfterReload) {
+                settingsPop.mouseWriteDrainAfterReload = false;
+                settingsPop.startNextMouseWrite();
+                return;
+            }
+
+            settingsPop.startNextMouseWrite();
         }
     }
 
@@ -770,6 +854,29 @@ FocusScope {
         applyProc.running = true;
     }
 
+    function queueMouseWrite(request) {
+        let nextQueue = mouseWriteQueue.slice(0);
+        nextQueue.push(request);
+        mouseWriteQueue = nextQueue;
+        startNextMouseWrite();
+    }
+
+    function startNextMouseWrite() {
+        if (mouseApplyProc.running || mouseStateProc.running || mouseWriteDrainAfterReload || mouseWriteQueue.length === 0)
+            return;
+
+        let nextQueue = mouseWriteQueue.slice(0);
+        let request = nextQueue.shift();
+        mouseWriteQueue = nextQueue;
+
+        mouseApplyProc.pendingKey = request.key;
+        mouseApplyProc.rollbackState = cloneMap(mouseSettings);
+        mouseApplyProc.errorBuf = "";
+        stageMouseValue(request.key, request.value);
+        mouseApplyProc.command = request.command;
+        mouseApplyProc.running = true;
+    }
+
     // ── Apply commands ──
     Process {
         id: applyProc; running: false
@@ -814,6 +921,15 @@ FocusScope {
         });
     }
 
+    function runMouseSet(key, value) {
+        let commandValue = String(value);
+        queueMouseWrite({
+            key: key,
+            value: value,
+            command: ["desktopctl", "hypr", "input", "set", key, commandValue]
+        });
+    }
+
     function runPreset(name) {
         queueThemeWrite({
             mode: "preset",
@@ -846,6 +962,39 @@ FocusScope {
             buf = "";
             action = "";
             targetName = "";
+        }
+    }
+
+    Process {
+        id: mouseApplyProc
+        running: false
+        property string pendingKey: ""
+        property var rollbackState: ({})
+        property string errorBuf: ""
+        stderr: SplitParser {
+            onRead: (line) => {
+                mouseApplyProc.errorBuf += line + "\n";
+                console.log("[desktopctl hypr stderr]", line);
+            }
+        }
+        onExited: (code) => {
+            let errorMessage = mouseApplyProc.errorBuf.trim();
+            if (code !== 0) {
+                settingsPop.mouseSettings = mouseApplyProc.rollbackState;
+                settingsPop.mouseRuntimeError = errorMessage !== "" ? errorMessage : "Mouse command failed";
+                ToastService.showError(settingsPop.mouseRuntimeError);
+            } else {
+                settingsPop.mouseRuntimeError = "";
+                settingsPop.mouseWriteDrainAfterReload = true;
+                settingsPop.loadMouseSettings();
+            }
+
+            pendingKey = "";
+            rollbackState = ({});
+            errorBuf = "";
+
+            if (code !== 0)
+                settingsPop.startNextMouseWrite();
         }
     }
 
@@ -1171,9 +1320,14 @@ FocusScope {
 
         Settings.SettingsMousePane {
             themeState: settingsPop.themeState
-            writePending: settingsPop.themeWritePending
-            pendingKey: settingsPop.pendingThemeKey
-            onSetRequested: (key, value) => settingsPop.runSet(key, value)
+            themeWritePending: settingsPop.themeWritePending
+            pendingThemeKey: settingsPop.pendingThemeKey
+            mouseSettings: settingsPop.mouseSettings
+            mouseRuntimeError: settingsPop.mouseRuntimeError
+            mouseWritePending: settingsPop.mouseWritePending
+            pendingMouseKey: settingsPop.pendingMouseKey
+            onThemeSetRequested: (key, value) => settingsPop.runSet(key, value)
+            onMouseSetRequested: (key, value) => settingsPop.runMouseSet(key, value)
         }
     }
 }

@@ -31,19 +31,22 @@ of the contract — later files may depend on variables defined by earlier ones.
 | 3 | `cursor.conf` | Generated |
 | 4 | `input.conf` | Static base |
 | 5 | `input-devices.conf` | Host-specific |
-| 6 | `colors.conf` | Generated |
-| 7 | `appearance.conf` | Static base (sources generated `appearance-theme.conf`) |
-| 8 | `plugins.conf` | Static base |
-| 9 | `keybinds.conf` | Static base |
-| 10 | `rules.conf` | Static base |
-| 11 | `autostart.conf` | Static base (sources host-selected `autostart-host.conf`) |
+| 6 | `input-runtime.conf` | Generated runtime override |
+| 7 | `colors.conf` | Generated |
+| 8 | `appearance.conf` | Static base (sources generated `appearance-theme.conf`) |
+| 9 | `plugins.conf` | Static base |
+| 10 | `keybinds.conf` | Static base |
+| 11 | `rules.conf` | Static base |
+| 12 | `autostart.conf` | Static base (sources host-selected `autostart-host.conf`) |
 
 Constraints:
 
 - The source order is authoritative. Adding, removing, or reordering entries
   in `hyprland.conf` is a contract change.
-- Generated files must appear before any static file that consumes their
+- Generated theme files must appear before any static file that consumes their
   variables.
+- Runtime override files must appear after the static or host fragments they
+  are allowed to override.
 - Host-specific files must not assume behavior from other host-specific files.
 
 ## File Classifications
@@ -88,6 +91,23 @@ Constraints:
 - These files are owned by the theming pipeline; see `docs/theming/SPEC.md` for
   the target contract.
 - The compositor sources these files but does not define their content.
+
+### Generated desktopctl runtime overrides
+
+Files written by `desktopctl` at runtime. Never committed to the repo.
+
+| File | Owner | Content |
+| --- | --- | --- |
+| `input-runtime.conf` | `desktopctl hypr input` | Shared pointer defaults (`sensitivity`, `accel_profile`, `scroll_factor`) layered after `input.conf` and `input-devices.conf` |
+
+Constraints:
+
+- Runtime override files must only contain the mutable state owned by their
+  runtime helper.
+- `desktopctl hypr input` may rewrite `input-runtime.conf`, but it must not
+  edit `input.conf` or `input-devices.conf`.
+- A missing runtime override file must be safe; Hyprland should still boot from
+  the static and host-selected base config alone.
 
 ### Host-specific overrides
 
@@ -135,6 +155,7 @@ Invariants:
 | --- | --- | --- |
 | Source graph and compositor behavior | Hyprland config (`config/hypr/`) | Static base files define the session's behavior, bindings, rules, and idle policy. |
 | Theme-derived appearance | The theming pipeline | Generated `colors.conf`, `appearance-theme.conf`, and `cursor.conf` are the only theme write surfaces within the Hyprland config directory. |
+| Shared Hyprland mouse defaults | `desktopctl hypr input` | Writes generated `input-runtime.conf` and applies the same values live through `hyprctl keyword`, without editing `input.conf` or `input-devices.conf`. |
 | Wallpaper application | The theming pipeline | The `wallpaper` target owns `awww img` invocations. `autostart.conf` owns `awww-daemon` startup and may reapply persisted theme state by calling `desktopctl theme wallpaper` after the daemon is ready. |
 | Night-light automation | `desktopctl daemon` solar subsystem + night-light controller | `hyprsunset` lifecycle belongs to the daemon. Keybinds may request `desktopctl night-light toggle` or `desktopctl night-light auto`, but they do not start or stop `hyprsunset` directly. |
 | Shell UI and IPC | Quickshell | Keybinds trigger Quickshell via `qs ipc call`, with the repo path resolved through the same `DESKTOPCTL_REPO` / `~/repos/dotfiles` abstraction used elsewhere; Quickshell does not write Hyprland config files. |
@@ -147,5 +168,7 @@ Invariants:
   writing config files.
 - The theming pipeline writes generated fragments; it does not modify static
   base config.
+- `desktopctl hypr input` only writes `input-runtime.conf`; it does not mutate
+  static or host-selected fragments.
 - `desktopctl daemon` owns all live `hyprsunset` lifecycle changes. Keybinds
   are request surfaces into the daemon, not a parallel scheduling system.
