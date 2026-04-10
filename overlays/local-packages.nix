@@ -3,11 +3,11 @@ final: prev: {
   helium = final.callPackage ../pkgs/helium { };
   sf-pro = final.stdenvNoCC.mkDerivation {
     pname = "sf-pro";
-    version = "2026-02-05";
+    version = "2026-04-10";
 
     src = final.fetchurl {
       url = "https://devimages-cdn.apple.com/design/resources/download/SF-Pro.dmg";
-      hash = "sha256-s42hsaUe0Vkaw5yw8G7G3W3AYJb2TPqSlMqPyY0e5WU=";
+      hash = "sha256-W0sZkipBtrduInk0oocbFAXX1qy0Z+yk2xUyFfDWx4s=";
     };
 
     nativeBuildInputs = [
