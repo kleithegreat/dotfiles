@@ -234,6 +234,7 @@ in
     nerd-fonts.fira-code
     nerd-fonts.iosevka
     nerd-fonts.recursive-mono
+    cozette
     commit-mono
     overpass
     inter

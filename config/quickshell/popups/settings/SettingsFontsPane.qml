@@ -21,6 +21,7 @@ Components.WheelFlickable {
         "JetBrains Mono Nerd Font",
         "Berkeley Mono",
         "Commit Mono",
+        "CozetteVector",
         "Recursive Mono",
         "Fira Code Nerd Font",
         "Iosevka Nerd Font"
