@@ -19,7 +19,7 @@ to audit.
 | EGL policy locality | Each host module now owns its own EGL vendor selection instead of depending on a shared baseline override (`hosts/laptop/system.nix:68-69`, `hosts/desktop/system.nix:70-72`). |
 | Laptop GPU routing locality | The laptop Hyprland env keeps Intel-first user-session routing localized to one file, so the hybrid-specific `LIBVA_DRIVER_NAME` and `AQ_DRM_DEVICES` policy are easy to audit (`config/hypr/env.conf:13-16`). |
 | Desktop resume workaround | The desktop-only suspend stack is explicit: preserved VRAM storage, kernel patch overlay, and the systemd freeze workaround are all present and localized to the desktop (`hosts/desktop/system.nix:4-16`, `hosts/desktop/system.nix:66-68`, `overlays/nvidia-open-pr996.nix:1-43`). |
-| Session wiring | Home Manager keeps the Hyprland GPU env file host-specific, so the laptop and desktop do not share the same user-session GPU assumptions (`home/default.nix:229-235`). |
+| Session wiring | Home Manager keeps the Hyprland GPU env file host-specific, so the laptop and desktop do not share the same user-session GPU assumptions (`home/default.nix:232-238`). |
 | Option locality | The actual `hardware.nvidia.*` and `services.xserver.videoDrivers` settings remain in the host modules instead of being scattered across unrelated files (`hosts/laptop/system.nix:52-67`, `hosts/desktop/system.nix:57-64`). |
 
 ## Findings

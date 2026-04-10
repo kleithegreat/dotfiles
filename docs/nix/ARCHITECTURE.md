@@ -13,7 +13,7 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-10.
 | Host constructor | `mkHost` in `flake.nix:34-61` wraps `nixpkgs.lib.nixosSystem` |
 | Feature flags | `flake.nix:26-32` keeps both `enableMarchOptimizations` and `enableDistributedBuilds` in the shared host constructor, with distributed builds currently disabled by default |
 | Shared system layer | `system/configuration.nix:1-446` |
-| Home Manager entry | `home/default.nix:1-350`, embedded through `home-manager.nixosModules.home-manager` in `flake.nix:49-59` |
+| Home Manager entry | `home/default.nix:1-353`, embedded through `home-manager.nixosModules.home-manager` in `flake.nix:49-59` |
 | Platform | `flake.nix:41-42` passes `system = "x86_64-linux"` directly to `nixosSystem` |
 
 `mkHost` currently assembles this module stack:
@@ -111,7 +111,7 @@ GUI package:
   which installs `kdePackages.partitionmanager` and `kdePackages.kpmcore`
   through the NixOS module so `kpmcore` lands in both
   `services.dbus.packages` and `environment.systemPackages`.
-- `home/default.nix:102-132` no longer lists `kdePackages.partitionmanager`
+- `home/default.nix:127-133` no longer lists `kdePackages.partitionmanager`
   directly; the nearby comment documents that the move is required because the
   helper depends on system-wide D-Bus and polkit registration.
 
@@ -121,7 +121,7 @@ GUI package:
    the selected `nixosConfigurations.<host>`.
 2. The embedded Home Manager module writes managed user files.
 3. `home.activation.applyTheme` prepends `pkgs.desktopctl` to `PATH` and runs
-   `desktopctl theme sync` through `home/default.nix:332-335`.
+   `desktopctl theme sync` through `home/default.nix:333-337`.
 4. `sync` materializes only `sync_safe` targets and skips runtime reload hooks.
 
 The `nrs` alias in `home/shell.nix` remains the preferred wrapper for this

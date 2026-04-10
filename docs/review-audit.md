@@ -55,8 +55,8 @@ Status meanings:
 | Severity | Finding | Status | Evidence |
 | --- | --- | --- | --- |
 | Low | The `specialArgs` / `extraSpecialArgs` surface is broader than current modules need. | resolved | `flake.nix:55-57` now keeps Home Manager `extraSpecialArgs` to `dotfilesPath`, `hostName`, `vicinae`, `snappy-switcher`, and `opencode`; `home/default.nix:1-16` is the only current consumer surface under `home/`. |
-| Low | Host-specific Home Manager branching stays centralized in `home/default.nix`. | open | `home/default.nix:202-235` still selects `hypr/autostart-host.conf`, `hypr/input-devices.conf`, `hypr/monitors.conf`, and `hypr/env.conf` with one centralized `if hostName == ... else if ... else` block. |
-| Low | The recursive Quickshell tree plus writable generated sibling file remains a deliberate special case. | partially addressed | The implementation is still the same special case (`home/default.nix:246-249`, `desktopctl/src/theme/targets/quickshell.rs:8-17`, `home/default.nix:329-332`), but the docs now describe the committed `config/quickshell/GeneratedTheme.json` bootstrap snapshot and the runtime overwrite path explicitly. |
+| Low | Host-specific Home Manager branching stays centralized in `home/default.nix`. | open | `home/default.nix:205-238` still selects `hypr/autostart-host.conf`, `hypr/input-devices.conf`, `hypr/monitors.conf`, and `hypr/env.conf` with one centralized `if hostName == ... else if ... else` block. |
+| Low | The recursive Quickshell tree plus writable generated sibling file remains a deliberate special case. | partially addressed | The implementation is still the same special case (`home/default.nix:249-252`, `desktopctl/src/theme/targets/quickshell.rs:8-17`, `home/default.nix:333-337`), but the docs now describe the committed `config/quickshell/GeneratedTheme.json` bootstrap snapshot and the runtime overwrite path explicitly. |
 
 ## Sun Schedule
 

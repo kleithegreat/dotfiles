@@ -96,6 +96,7 @@ in
     spotify
     zathura
     vscode
+    lapce
     lmstudio
     imv            # Wayland image viewer
     nautilus
