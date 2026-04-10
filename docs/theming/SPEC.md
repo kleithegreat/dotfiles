@@ -234,7 +234,7 @@ The dependency map in code must remain a direct encoding of this table.
 | Recursive trees | Allowed when generated sibling files remain writable, as with `quickshell/` and `nvim/` |
 | Activation hook | Rebuild-time sync writes only outputs safe to materialize during activation |
 | Quickshell | Reads `GeneratedTheme.json`; `system_font` and `font_size` define the shell UI baseline, `quickshell_font_size_offset` can refine the shell target without changing GTK/Qt/snappy-switcher, and `mono_font` remains for monospaced or glyph-oriented surfaces; see `docs/quickshell/SPEC.md` for shell-side constraints |
-| Chromium | Reads the `Default/Preferences` font prefs patched by the `chromium` target; browser chrome still follows GTK/Qt integration outside that prefs surface |
+| Chromium | Reads the `Default/Preferences` web-font prefs patched by the `chromium` target; the target converts point-based theme sizes into Chromium CSS-pixel font prefs, while browser chrome still follows GTK/Qt integration outside that prefs surface |
 | Gedit / GtkSourceView | Reads generated styles from `~/.local/share/libgedit-gtksourceview-300/styles/`; gedit's light/dark source-style selection is theme-owned |
 | Hyprland | Reads `colors.conf` and `appearance-theme.conf` |
 | Neovim / Neovide | Read generated theme state files rather than embedding palette logic in Home Manager |
