@@ -26,3 +26,5 @@ config/nvim/lua/theme-state.json
 config/quickshell/GeneratedTheme.json
 config/tmux/colors.conf
 config/zathura/colors
+
+.codex
