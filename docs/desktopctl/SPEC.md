@@ -222,5 +222,5 @@ Response shape:
 ## Packaging
 
 `desktopctl` is packaged from `desktopctl/default.nix` as a Rust derivation,
-exposed through `overlays/desktopctl.nix`, and published from the flake as
+exposed through `overlays/local-packages.nix`, and published from the flake as
 `packages.x86_64-linux.desktopctl`.
