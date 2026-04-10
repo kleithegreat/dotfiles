@@ -33,9 +33,9 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-09.
 | `system/distributed-builds.nix` | Optional shared distributed-build layer | When enabled, configures remote builders, the post-build cache push hook, `nix.sshServe`, and LAN-only SSH firewall rules |
 | `system/distributed-builds-data.nix` | Environment-specific builder/cache data | Authorized builder keys, host keys, current cache signing key, and the current cache URL override |
 | `hosts/vm/system.nix` | VM overlay | VM boot, guest profile, and virtual disk layout |
-| `hosts/laptop/system.nix` | Laptop overlay | Hybrid GPU policy, laptop-only services and overrides, GRUB, and laptop hardware policy |
+| `hosts/laptop/system.nix` | Laptop overlay | Hybrid GPU policy, laptop-only services and overrides, GRUB, laptop hardware policy, and the laptop `tailscaled` stop-timeout override |
 | `hosts/laptop/fan-control.nix` | Laptop-only hardware submodule | Dell SMM kernel module wiring, BIOS fan-control handoff, `i8kmon.conf`, and the `i8kmon` systemd service |
-| `hosts/desktop/system.nix` | Desktop overlay | Dedicated NVIDIA policy, desktop-only packages/services, storage mounts, GRUB, and desktop-only overlay imports |
+| `hosts/desktop/system.nix` | Desktop overlay | Dedicated NVIDIA policy, desktop-only packages/services, storage mounts, GRUB, desktop-only overlay imports, and the desktop `tailscaled` stop-timeout override |
 | `home/default.nix` | Shared user baseline | User packages that do not require system-scoped helper registration, `xdg.configFile` mappings, host-specific Hyprland file selection, desktop entry overrides, and theme activation |
 | `home/shell.nix` | Shell submodule | Zsh, shell tools, Git, aliases, and shell helpers |
 | `home/gtk.nix` | GTK submodule | GTK packages and small dconf defaults |
@@ -57,6 +57,9 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-09.
   independent of the global `enableMarchOptimizations` flag.
 - `hosts/desktop/system.nix:4-8` still appends
   `overlays/nvidia-open-pr996.nix` for the desktop-specific NVIDIA workaround.
+- `hosts/laptop/system.nix:78-84` and `hosts/desktop/system.nix:74-77`
+  cap `tailscaled` shutdown at 15 seconds on the physical hosts, bounding rare
+  upstream stop hangs without changing the shared VM profile.
 
 ## Distributed Builds
 

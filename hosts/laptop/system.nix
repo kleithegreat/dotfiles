@@ -79,6 +79,9 @@
   # don't default to it (NVMe, audio codec, sensor hub, etc.)
   powerManagement.powertop.enable = true;
   networking.useDHCP = lib.mkDefault true;
+  # Bound rare upstream tailscaled shutdown hangs so reboot does not wait for
+  # the full systemd default stop timeout.
+  systemd.services.tailscaled.serviceConfig.TimeoutStopSec = "15s";
 
   # ── Fingerprint auth ────────────────────────────────────────
   # Goodix 27c6:63ac is supported by upstream libfprint, so keep TOD disabled.

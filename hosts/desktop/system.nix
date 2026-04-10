@@ -72,6 +72,9 @@
     "/run/opengl-driver/share/glvnd/egl_vendor.d/10_nvidia.json:/run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json";
 
   networking.useDHCP = lib.mkDefault true;
+  # Bound rare upstream tailscaled shutdown hangs so reboot does not wait for
+  # the full systemd default stop timeout.
+  systemd.services.tailscaled.serviceConfig.TimeoutStopSec = "15s";
 
   hardware.logitech.wireless = {
     enable = true;
