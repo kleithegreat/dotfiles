@@ -264,3 +264,80 @@ fn local_datetime(date: NaiveDate, hour: u32, minute: u32, second: u32) -> DateT
 fn duration_from_hours(hours: f64) -> Duration {
     Duration::microseconds((hours * 3_600_000_000.0).round() as i64)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_support::{ScopedEnvVar, TempDir, env_lock};
+
+    fn sample_location() -> Coordinates {
+        Coordinates {
+            latitude: DEFAULT_LATITUDE,
+            longitude: DEFAULT_LONGITUDE,
+        }
+    }
+
+    #[test]
+    fn sun_times_return_a_same_day_sunrise_and_later_sunset() {
+        let date = NaiveDate::from_ymd_opt(2026, 4, 10).expect("valid date");
+        let (sunrise, sunset) = sun_times(DEFAULT_LATITUDE, DEFAULT_LONGITUDE, date);
+
+        assert_eq!(sunrise.date_naive(), date);
+        assert!(sunset > sunrise);
+        assert!(sunset - sunrise > Duration::hours(6));
+    }
+
+    #[test]
+    fn status_for_now_before_sunrise_is_night_and_dark() {
+        let location = sample_location();
+        let date = NaiveDate::from_ymd_opt(2026, 4, 10).expect("valid date");
+        let (sunrise_utc, _) = sun_times(location.latitude, location.longitude, date);
+        let sunrise = sunrise_utc.with_timezone(&Local);
+        let now = sunrise - Duration::minutes(30);
+
+        let status = status_for_now(now, location);
+
+        assert!(status.is_night);
+        assert!(status.is_dark);
+        assert_eq!(next_event(&status).when, sunrise);
+    }
+
+    #[test]
+    fn status_for_now_after_sunset_waits_for_dark_hint_cutover() {
+        let location = sample_location();
+        let date = NaiveDate::from_ymd_opt(2026, 4, 10).expect("valid date");
+        let (_, sunset_utc) = sun_times(location.latitude, location.longitude, date);
+        let sunset = sunset_utc.with_timezone(&Local);
+        let now = sunset + Duration::minutes(30);
+
+        let status = status_for_now(now, location);
+        let dark_on = local_datetime(date, DARK_ON_HOUR, 0, 0);
+
+        assert!(status.is_night);
+        assert!(!status.is_dark);
+        assert_eq!(status.next_dark_on, dark_on);
+        assert_eq!(next_event(&status).when, dark_on);
+    }
+
+    #[test]
+    fn resolve_location_prefers_cached_coordinates() {
+        let _lock = env_lock();
+        let temp_dir = TempDir::new("desktopctl-solar-cache").expect("temp dir");
+        let _cache_home = ScopedEnvVar::set("XDG_CACHE_HOME", temp_dir.path().as_os_str());
+        let cache_path = temp_dir.path().join("sun-schedule/location.json");
+        fs::create_dir_all(cache_path.parent().expect("cache parent")).expect("create cache dir");
+        fs::write(&cache_path, r#"{"latitude":12.34,"longitude":56.78}"#).expect("write cache");
+
+        let location = resolve_location().expect("location should resolve");
+
+        assert!((location.latitude - 12.34).abs() < f64::EPSILON);
+        assert!((location.longitude - 56.78).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn parse_coordinate_line_strips_degree_marker() {
+        assert_eq!(parse_coordinate_line("Latitude: 30.6280°"), Some(30.628));
+        assert_eq!(parse_coordinate_line("Longitude: -96.3344"), Some(-96.3344));
+        assert_eq!(parse_coordinate_line("Latitude unavailable"), None);
+    }
+}

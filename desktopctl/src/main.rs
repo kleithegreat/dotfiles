@@ -6,6 +6,8 @@ mod night_light;
 mod paths;
 mod portal;
 mod solar;
+#[cfg(test)]
+mod test_support;
 mod theme;
 
 use clap::{Args, Parser, Subcommand};

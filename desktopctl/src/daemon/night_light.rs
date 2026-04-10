@@ -164,3 +164,70 @@ fn apply_desired_state(desired: &DesiredState) -> crate::Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_solar_status(is_night: bool, is_dark: bool) -> solar::SolarStatus {
+        let now = chrono::Local::now();
+        solar::SolarStatus {
+            location: solar::Coordinates {
+                latitude: solar::DEFAULT_LATITUDE,
+                longitude: solar::DEFAULT_LONGITUDE,
+            },
+            sunrise: now,
+            sunset: now,
+            is_night,
+            is_dark,
+            next_sunrise: now,
+            next_sunset: now,
+            next_dark_on: now,
+        }
+    }
+
+    #[test]
+    fn desired_state_auto_tracks_solar_schedule() {
+        let desired = desired_state(
+            NightLightMode::Auto,
+            5200,
+            &sample_solar_status(true, false),
+        );
+
+        assert!(desired.running);
+        assert_eq!(desired.temperature, solar::HYPRSUNSET_TEMP);
+        assert_eq!(desired.dark_hint, Some(false));
+    }
+
+    #[test]
+    fn desired_state_manual_modes_use_manual_temperature_without_dark_hint() {
+        let solar_status = sample_solar_status(false, true);
+
+        let on = desired_state(NightLightMode::On, 5100, &solar_status);
+        assert!(on.running);
+        assert_eq!(on.temperature, 5100);
+        assert_eq!(on.dark_hint, None);
+
+        let off = desired_state(NightLightMode::Off, 5100, &solar_status);
+        assert!(!off.running);
+        assert_eq!(off.temperature, 5100);
+        assert_eq!(off.dark_hint, None);
+    }
+
+    #[test]
+    fn target_temperature_uses_schedule_only_in_auto_mode() {
+        let auto = State {
+            mode: NightLightMode::Auto,
+            manual_temperature: 5100,
+            solar_status: None,
+        };
+        let on = State {
+            mode: NightLightMode::On,
+            manual_temperature: 5100,
+            solar_status: None,
+        };
+
+        assert_eq!(target_temperature(&auto), solar::HYPRSUNSET_TEMP);
+        assert_eq!(target_temperature(&on), 5100);
+    }
+}

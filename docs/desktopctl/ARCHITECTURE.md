@@ -3,22 +3,22 @@
 ## Scope
 
 Current implementation state for the unified `desktopctl` binary and its repo
-integration as of 2026-04-09.
+integration as of 2026-04-10.
 
 ## Current Crate Layout
 
 | Piece | Current implementation |
 | --- | --- |
 | Crate manifest and packaging | `desktopctl/Cargo.toml:1-12` defines the binary crate; `desktopctl/default.nix:1-15`, `overlays/desktopctl.nix:1-3`, and `flake.nix:63-72` package it as a flake-exposed Nix derivation. |
-| CLI dispatch | `desktopctl/src/main.rs:14-320` defines the full clap tree for `daemon`, `theme`, `brightness`, `hypr`, `launch-quickshell`, `portal`, `night-light`, and `sun`, including the nested `hypr input status/set` surface, and routes each command to the live Rust implementation. |
+| CLI dispatch | `desktopctl/src/main.rs:16-323` defines the full clap tree for `daemon`, `theme`, `brightness`, `hypr`, `launch-quickshell`, `portal`, `night-light`, and `sun`, including the nested `hypr input status/set` surface, and routes each command to the live Rust implementation. |
 | Shared path helpers | `desktopctl/src/paths.rs:6-66` resolves the repo root from `DESKTOPCTL_REPO` or `~/repos/dotfiles`, exposes `repo_path()` for repo-relative helper lookups, provides shared XDG home/runtime fallbacks, and exposes the shared `desktopctl.db` path. |
 | Theme schema and validation | `desktopctl/src/theme/schema.rs:33-120`, `desktopctl/src/theme/schema.rs:405-620`, and `desktopctl/src/theme/resolve.rs:11-248` define the `ColorScheme` and `ThemeState` contract, including required scheme `appearance`, centralized app-theme metadata including KTextEditor theme names, compiled default theme-state values, canonical field ordering, per-target system-font and mono-font offsets, color-scheme loading, `theme_state` persistence with legacy `themes/state.json` import support, and additive-schema backfill for older persisted state rows that are missing newer required keys. `desktopctl/src/theme/schema.rs:444-485` now derives the default `dark_hint` from the default color scheme's declared appearance. |
 | Theme JSON compatibility | `desktopctl/src/theme/json.rs:4-142` implements Python-style JSON rendering, including preserved object order, 2-space indentation, compact object spacing, and `ensure_ascii=True` escaping used by generated JSON targets and Quickshell-facing CLI output. |
 | Theme CLI surface | `desktopctl/src/theme/mod.rs:67-573` implements the current `desktopctl theme` command surface, including `all`, `sync`, scoped apply commands, `set`, `preset`, preset-file management, and `status` / `list-*` inspection output. `desktopctl/src/theme/mod.rs:438-507` emits richer `theme list-schemes --json` preview objects for Quickshell, including identity, appearance, named colors, bright variants, and the 16-color terminal palette. `desktopctl/src/theme/mod.rs:75-96` still persists and applies `dark_hint` directly through the theming module, `desktopctl/src/theme/mod.rs:322-396` keeps `theme set dark_hint ...` and explicit preset `dark_hint` values on that same direct path, and `desktopctl/src/theme/mod.rs:614-673` now realigns `dark_hint` to scheme appearance whenever `color_scheme` changes without an explicit override. |
 | Theme orchestration | `desktopctl/src/theme/orchestrator.rs:16-68`, `desktopctl/src/theme/orchestrator.rs:77-235`, `desktopctl/src/theme/orchestrator.rs:237-324`, and `desktopctl/src/theme/orchestrator.rs:526-541` own generated-file headers, assembly strategies, sync-safe filtering, dependency selection, ordered target application, atomic file replacement, concat merges, repo-relative base-path resolution, post-write hooks, and best-effort runtime reloads. The current dependency map includes both `quickshell` and `gtksourceview` in the color-fanout tables and now routes the per-target system-font offsets plus Chromium font fanout through `desktopctl/src/theme/orchestrator.rs:16-68` and `desktopctl/src/theme/orchestrator.rs:191-223`. |
 | Theme target registry | `desktopctl/src/theme/targets/mod.rs:26-305` replaces Python auto-discovery with a typed registry and hand-registered target set for all 21 current theme targets. |
-| Theme targets | File-writing targets live under `desktopctl/src/theme/targets/*.rs`; `desktopctl/src/theme/targets/bat.rs:1-20`, `desktopctl/src/theme/targets/snappy_switcher.rs:11-94`, `desktopctl/src/theme/targets/vicinae.rs:8-51`, `desktopctl/src/theme/targets/vscode.rs:9-100`, and `desktopctl/src/theme/targets/qt.rs:448-490` read per-scheme app metadata from `ColorScheme`. The command-only `desktopctl/src/theme/targets/chromium.rs:9-214` target now patches the default Chromium profile prefs in place for web-font settings, the concat targets still declare repo-relative `base_path` values instead of `~/repos/dotfiles/...`, and `desktopctl/src/theme/targets/qt.rs:82-99`, `desktopctl/src/theme/targets/qt.rs:385-490`, and `desktopctl/src/theme/targets/qt.rs:544-629` write KDE icon-theme state into `kdeglobals`, sync Kate/KWrite to scheme-declared KTextEditor theme names, and use declared `appearance` for light/dark-only Kvantum asset selection. Other notable runtime-heavy ports include `desktopctl/src/theme/targets/cursor.rs:11-221`, `desktopctl/src/theme/targets/gtk.rs:5-75`, `desktopctl/src/theme/targets/gtksourceview.rs:13-360`, `desktopctl/src/theme/targets/quickshell.rs:19-89`, and `desktopctl/src/theme/targets/wallpaper.rs:13-220`. |
-| Hyprland helpers | `desktopctl/src/hypr.rs:25-190` now covers both window helpers and live `hyprctl keyword` calls, while `desktopctl/src/hypr.rs:278-369` layers `~/.config/hypr/input.conf` defaults with the generated `input-runtime.conf` override file, atomically rewrites that file, and renders the persisted input block used by the Mouse settings page. `desktopctl/src/hypr.rs:490-528` adds focused tests for the parser and generated file format. Socket lookup still prefers the current `HYPRLAND_INSTANCE_SIGNATURE`, falls back to `/tmp/hypr/<sig>/.socket2.sock`, and otherwise picks the newest discovered socket under the runtime or `/tmp/hypr` trees (`desktopctl/src/hypr.rs:192-276`). |
+| Theme targets | File-writing targets live under `desktopctl/src/theme/targets/*.rs`; `desktopctl/src/theme/targets/bat.rs:1-20`, `desktopctl/src/theme/targets/snappy_switcher.rs:11-94`, `desktopctl/src/theme/targets/vicinae.rs:8-51`, `desktopctl/src/theme/targets/vscode.rs:9-100`, and `desktopctl/src/theme/targets/qt.rs:448-490` read per-scheme app metadata from `ColorScheme`. The command-only `desktopctl/src/theme/targets/chromium.rs:9-226` target now patches the default Chromium profile prefs in place for web-font settings, converting point-based theme sizes into Chromium CSS-pixel prefs while preserving unrelated keys. The concat targets still declare repo-relative `base_path` values instead of `~/repos/dotfiles/...`, and `desktopctl/src/theme/targets/qt.rs:82-99`, `desktopctl/src/theme/targets/qt.rs:385-490`, and `desktopctl/src/theme/targets/qt.rs:544-629` write KDE icon-theme state into `kdeglobals`, sync Kate/KWrite to scheme-declared KTextEditor theme names, and use declared `appearance` for light/dark-only Kvantum asset selection. Other notable runtime-heavy ports include `desktopctl/src/theme/targets/cursor.rs:11-221`, `desktopctl/src/theme/targets/gtk.rs:5-75`, `desktopctl/src/theme/targets/gtksourceview.rs:13-360`, `desktopctl/src/theme/targets/quickshell.rs:19-89`, and `desktopctl/src/theme/targets/wallpaper.rs:13-220`. |
+| Hyprland helpers | `desktopctl/src/hypr.rs:25-190` now covers both window helpers and live `hyprctl keyword` calls, while `desktopctl/src/hypr.rs:278-369` layers `~/.config/hypr/input.conf` defaults with the generated `input-runtime.conf` override file, atomically rewrites that file, and renders the persisted input block used by the Mouse settings page. `desktopctl/src/hypr.rs:490-557` adds focused tests for the parser, generated file format, and managed-input value parsing helpers. Socket lookup still prefers the current `HYPRLAND_INSTANCE_SIGNATURE`, falls back to `/tmp/hypr/<sig>/.socket2.sock`, and otherwise picks the newest discovered socket under the runtime or `/tmp/hypr` trees (`desktopctl/src/hypr.rs:192-276`). |
 | Focus tracker | `desktopctl/src/daemon/focus.rs:20-236`, `desktopctl/src/daemon/focus.rs:238-698`, and `desktopctl/src/daemon/focus.rs:700-902` implement the live focus subsystem: one-second SQLite accumulation, migration from the legacy `focustime.db`, desktop-entry resolution, Hyprland socket listening, and atomic JSON summary writes. |
 | Shared solar logic | `desktopctl/src/solar.rs:40-202` resolves cached or GeoClue coordinates, compute sunrise/sunset with the NOAA-derived port, and expose `sun status` plus next-event selection. |
 | Night-light CLI and helpers | `desktopctl/src/night_light.rs:15-318` adds the daemon-backed `desktopctl night-light {status,on,off,auto,toggle}` surface, the Unix-socket client helpers, fallback status reporting, and `hyprsunset` process inspection / start / stop helpers. |
@@ -71,11 +71,46 @@ integration as of 2026-04-09.
 - `desktopctl/src/theme/resolve.rs:418-692` adds focused coverage for default
   state seeding, unknown-field round-trips, and upgrade-time backfill for both
   partial SQLite `theme_state` rows and legacy `themes/state.json` imports.
-- `desktopctl/src/hypr.rs:490-528` adds focused coverage for the managed
-  Hyprland input parser and the generated `input-runtime.conf` contents used by
-  the new Mouse settings flow.
-- `desktopctl/src/theme/targets/chromium.rs:142-213` adds focused coverage for
-  recursive Chromium prefs merging and per-target font-size offsets.
+- `desktopctl/src/hypr.rs:490-557` adds focused coverage for the managed
+  Hyprland input parser, the generated `input-runtime.conf` contents used by
+  the Mouse settings flow, managed input-value parsers, and CLI-facing decimal
+  formatting.
+- `desktopctl/src/daemon/server.rs:149-249` now covers the socket protocol's
+  request deserialization defaults, newline handling, `ping` success envelope,
+  invalid-request and invalid-param errors, and unsupported-method errors
+  without binding a filesystem socket.
+- `desktopctl/src/brightness.rs:219-263` now covers the gamma-based
+  raw/perceived conversion helpers, perceptual-step clamping, and zero-max
+  rejection. The `dim`/`restore` subprocess choreography in
+  `desktopctl/src/brightness.rs:45-103` remains side-effect-coupled and would
+  need a smaller pure helper to unit-test directly.
+- The `toggle-float` resize/center behavior in
+  `desktopctl/src/hypr.rs:176-189` is still only expressed as a
+  `hyprctl --batch` command string, so geometry-level assertions would require
+  a pure helper.
+- `desktopctl/src/portal.rs:244-316` now covers request-handle extraction,
+  handle matching, response-finished detection, selected-path URI decoding, and
+  invalid percent-escape rejection. The live `busctl` / `dbus-monitor`
+  orchestration in `desktopctl/src/portal.rs:14-110` remains process-coupled.
+- `desktopctl/src/solar.rs:268-343`,
+  `desktopctl/src/daemon/solar.rs:51-70`, and
+  `desktopctl/src/daemon/night_light.rs:168-233` now cover sunrise/sunset
+  ordering, pre-sunrise and post-sunset schedule transitions, cached
+  coordinate resolution, scheduler sleep math, and the controller's
+  auto/manual desired-state mapping.
+- `desktopctl/src/night_light.rs:321-427` now covers request-envelope
+  serialization, response-envelope decoding, `socket_unavailable()`
+  classification, and the existing temperature parsing / normalization helpers.
+- `desktopctl/src/launch.rs:110-171` now covers `cursor.conf` parsing, file
+  override precedence over inherited environment values, and the printable env
+  export used by `launch-quickshell --print-env`.
+- `desktopctl/src/paths.rs:85-210` plus
+  `desktopctl/src/test_support.rs:1-72` now cover repo-root precedence,
+  XDG-home and runtime-dir fallback behavior, database-path creation, and the
+  serialized env-mutation scaffolding needed for those tests.
+- `desktopctl/src/theme/targets/chromium.rs:148-226` adds focused coverage for
+  recursive Chromium prefs merging, point-to-CSS-pixel font-size conversion,
+  and per-target font-size offsets.
 - `desktopctl/src/theme/targets/qt.rs:967-1023` adds scheme-metadata and
   appearance coverage for the `qt` target's KTextEditor and Kvantum
   dark/light asset selection.
