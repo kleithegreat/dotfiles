@@ -9,6 +9,7 @@ mod hypr_appearance;
 mod hyprland;
 mod neovide;
 mod neovim;
+mod opencode;
 mod qt;
 mod quickshell;
 mod snappy_switcher;
@@ -265,6 +266,12 @@ pub fn build_registry() -> crate::Result<TargetRegistry> {
     registry.register_function(hyprland::METADATA, hyprland::generate)?;
     registry.register_function(neovide::METADATA, neovide::generate)?;
     registry.register_function(neovim::METADATA, neovim::generate)?;
+    registry.register_function_with_hooks(
+        opencode::METADATA,
+        opencode::generate,
+        Some(opencode::persist),
+        None,
+    )?;
     registry.register_function_with_hooks(qt::METADATA, qt::generate, Some(qt::persist), None)?;
     registry.register_function(quickshell::METADATA, quickshell::generate)?;
     registry.register_function_with_hooks(
@@ -441,10 +448,11 @@ mod tests {
     fn registry_contains_all_python_targets() {
         let registry = build_registry().expect("registry builds");
         let names = registry.iter().map(|(name, _)| name).collect::<Vec<_>>();
-        assert_eq!(names.len(), 21);
+        assert_eq!(names.len(), 22);
         assert!(names.contains(&"chromium"));
         assert!(names.contains(&"cursor"));
         assert!(names.contains(&"gtksourceview"));
+        assert!(names.contains(&"opencode"));
         assert_eq!(
             registry
                 .get("cursor")
@@ -552,6 +560,12 @@ mod tests {
             output,
             "font-family = JetBrains Mono Nerd Font\nfont-size = 11\nbackground = #000000\nforeground = #f0f0f0\nselection-background = #040404\nselection-foreground = #f0f0f0\ncursor-color = #f0f0f0\ncursor-text = #000000\npalette = 0=#000000\npalette = 1=#111111\npalette = 2=#222222\npalette = 3=#333333\npalette = 4=#444444\npalette = 5=#555555\npalette = 6=#666666\npalette = 7=#777777\npalette = 8=#888888\npalette = 9=#999999\npalette = 10=#aaaaaa\npalette = 11=#bbbbbb\npalette = 12=#cccccc\npalette = 13=#dddddd\npalette = 14=#eeeeee\npalette = 15=#ffffff\n"
         );
+    }
+
+    #[test]
+    fn opencode_output_sets_managed_theme() {
+        let output = text(opencode::generate(&dummy_colors(), &dummy_state()));
+        assert_eq!(output, "{\n  \"theme\": \"desktopctl\"\n}");
     }
 
     #[test]

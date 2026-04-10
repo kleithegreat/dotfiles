@@ -13,7 +13,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-const COLOR_SCHEME_TARGETS: [&str; 17] = [
+const COLOR_SCHEME_TARGETS: [&str; 18] = [
     "alacritty",
     "ghostty",
     "gtksourceview",
@@ -21,6 +21,7 @@ const COLOR_SCHEME_TARGETS: [&str; 17] = [
     "zathura",
     "quickshell",
     "neovim",
+    "opencode",
     "starship",
     "tmux",
     "gtk",
@@ -652,6 +653,13 @@ mod tests {
         let state = dummy_state(true);
         let targets = targets_for_key("color_scheme", Some(&state));
         assert!(targets.contains("wallpaper"));
+    }
+
+    #[test]
+    fn targets_for_color_scheme_include_opencode() {
+        let state = dummy_state(true);
+        let targets = targets_for_key("color_scheme", Some(&state));
+        assert!(targets.contains("opencode"));
     }
 
     #[test]
