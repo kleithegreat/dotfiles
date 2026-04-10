@@ -4,7 +4,10 @@ use crate::theme::{
     schema::{ColorScheme, ThemeState},
 };
 use serde_json::{Map, Value};
-use std::{fs, io, path::Path};
+use std::{
+    fs, io,
+    path::{Component, Path},
+};
 
 pub const METADATA: TargetMetadata = TargetMetadata {
     name: "chromium",
@@ -17,7 +20,10 @@ pub const METADATA: TargetMetadata = TargetMetadata {
     sync_safe: true,
 };
 
-const PREFERENCES_PATH: &str = "~/.config/chromium/Default/Preferences";
+const CHROMIUM_CONFIG_DIR: &str = "~/.config/chromium";
+const DEFAULT_PROFILE_NAME: &str = "Default";
+const LOCAL_STATE_FILE_NAME: &str = "Local State";
+const PREFERENCES_FILE_NAME: &str = "Preferences";
 const COMMON_SCRIPT: &str = "Zyyy";
 const CSS_PIXELS_PER_POINT: f64 = 96.0 / 72.0;
 
@@ -26,7 +32,18 @@ pub fn generate(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<Gen
 }
 
 pub fn persist(_colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
-    write_preferences(&expand_user_path(PREFERENCES_PATH)?, state)
+    write_active_preferences(&expand_user_path(CHROMIUM_CONFIG_DIR)?, state)
+}
+
+fn write_active_preferences(config_dir: &Path, state: &ThemeState) -> crate::Result<()> {
+    for profile_name in active_profile_names(config_dir)? {
+        write_preferences(
+            &config_dir.join(profile_name).join(PREFERENCES_FILE_NAME),
+            state,
+        )?;
+    }
+
+    Ok(())
 }
 
 fn write_preferences(path: &Path, state: &ThemeState) -> crate::Result<()> {
@@ -43,6 +60,38 @@ fn write_preferences(path: &Path, state: &ThemeState) -> crate::Result<()> {
 
     let content = json::format_value(&root);
     atomic_write(path, content.as_bytes())
+}
+
+fn active_profile_names(config_dir: &Path) -> crate::Result<Vec<String>> {
+    let local_state_path = config_dir.join(LOCAL_STATE_FILE_NAME);
+    let Some(local_state) = load_optional_json_object(&local_state_path)? else {
+        return Ok(vec![DEFAULT_PROFILE_NAME.to_owned()]);
+    };
+
+    let mut profile_names = Vec::new();
+    if let Some(entries) = local_state
+        .get("profile")
+        .and_then(|profile| profile.get("last_active_profiles"))
+        .and_then(Value::as_array)
+    {
+        for entry in entries {
+            let Some(name) = entry.as_str() else {
+                continue;
+            };
+            if !is_safe_profile_name(name)
+                || profile_names.iter().any(|existing| existing == name)
+            {
+                continue;
+            }
+            profile_names.push(name.to_owned());
+        }
+    }
+
+    if profile_names.is_empty() {
+        profile_names.push(DEFAULT_PROFILE_NAME.to_owned());
+    }
+
+    Ok(profile_names)
 }
 
 fn load_preferences(path: &Path) -> crate::Result<Value> {
@@ -71,6 +120,32 @@ fn load_preferences(path: &Path) -> crate::Result<Value> {
     }
 
     Ok(value)
+}
+
+fn load_optional_json_object(path: &Path) -> crate::Result<Option<Value>> {
+    if !path.exists() {
+        return Ok(None);
+    }
+
+    let text = fs::read_to_string(path)?;
+    if text.trim().is_empty() {
+        return Ok(None);
+    }
+
+    let Ok(value) = serde_json::from_str::<Value>(&text) else {
+        return Ok(None);
+    };
+
+    if !value.is_object() {
+        return Ok(None);
+    }
+
+    Ok(Some(value))
+}
+
+fn is_safe_profile_name(name: &str) -> bool {
+    let mut components = Path::new(name).components();
+    matches!(components.next(), Some(Component::Normal(_))) && components.next().is_none()
 }
 
 fn font_preferences(state: &ThemeState) -> crate::Result<Value> {
@@ -191,6 +266,72 @@ mod tests {
         );
 
         let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn write_active_preferences_uses_default_profile_when_local_state_is_missing() {
+        let config_dir = temp_path("chromium-active-default");
+
+        write_active_preferences(&config_dir, &dummy_state()).expect("write succeeds");
+        let written = read_json(&config_dir.join(DEFAULT_PROFILE_NAME).join(PREFERENCES_FILE_NAME));
+
+        assert_eq!(
+            written["webkit"]["webprefs"]["fonts"]["standard"][COMMON_SCRIPT],
+            Value::String("Overpass".to_owned())
+        );
+
+        let _ = fs::remove_dir_all(config_dir);
+    }
+
+    #[test]
+    fn write_active_preferences_updates_all_safe_active_profiles() {
+        let config_dir = temp_path("chromium-active-profiles");
+        fs::create_dir_all(&config_dir).expect("config dir created");
+        fs::write(
+            config_dir.join(LOCAL_STATE_FILE_NAME),
+            r#"{"profile":{"last_active_profiles":["Profile 1","../escape","Profile 1","Profile 2"]}}"#,
+        )
+        .expect("local state written");
+
+        write_active_preferences(&config_dir, &dummy_state()).expect("write succeeds");
+
+        assert!(config_dir.join("Profile 1").join(PREFERENCES_FILE_NAME).exists());
+        assert!(config_dir.join("Profile 2").join(PREFERENCES_FILE_NAME).exists());
+        assert!(
+            !config_dir
+                .join(DEFAULT_PROFILE_NAME)
+                .join(PREFERENCES_FILE_NAME)
+                .exists()
+        );
+        assert!(
+            !config_dir
+                .parent()
+                .expect("has parent")
+                .join("escape")
+                .join(PREFERENCES_FILE_NAME)
+                .exists()
+        );
+
+        let _ = fs::remove_dir_all(config_dir);
+    }
+
+    #[test]
+    fn write_active_preferences_falls_back_to_default_when_local_state_is_invalid() {
+        let config_dir = temp_path("chromium-active-invalid-local-state");
+        fs::create_dir_all(&config_dir).expect("config dir created");
+        fs::write(config_dir.join(LOCAL_STATE_FILE_NAME), "not json")
+            .expect("local state written");
+
+        write_active_preferences(&config_dir, &dummy_state()).expect("write succeeds");
+
+        assert!(
+            config_dir
+                .join(DEFAULT_PROFILE_NAME)
+                .join(PREFERENCES_FILE_NAME)
+                .exists()
+        );
+
+        let _ = fs::remove_dir_all(config_dir);
     }
 
     #[test]
