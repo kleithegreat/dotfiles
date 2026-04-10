@@ -19,6 +19,7 @@ pub const METADATA: TargetMetadata = TargetMetadata {
 
 const PREFERENCES_PATH: &str = "~/.config/chromium/Default/Preferences";
 const COMMON_SCRIPT: &str = "Zyyy";
+const CSS_PIXELS_PER_POINT: f64 = 96.0 / 72.0;
 
 pub fn generate(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<GeneratedContent> {
     Ok(GeneratedContent::commands(Vec::new()))
@@ -73,7 +74,8 @@ fn load_preferences(path: &Path) -> crate::Result<Value> {
 }
 
 fn font_preferences(state: &ThemeState) -> crate::Result<Value> {
-    let font_size = state.font_size_for(METADATA.name)?;
+    let font_size = chromium_font_pixels(state.font_size_for(METADATA.name)?);
+    let fixed_font_size = chromium_font_pixels(state.mono_font_size);
 
     let mut standard = Map::new();
     standard.insert(
@@ -110,7 +112,7 @@ fn font_preferences(state: &ThemeState) -> crate::Result<Value> {
     webprefs.insert("default_font_size".to_owned(), Value::from(font_size));
     webprefs.insert(
         "default_fixed_font_size".to_owned(),
-        Value::from(state.mono_font_size),
+        Value::from(fixed_font_size),
     );
 
     let mut webkit = Map::new();
@@ -119,6 +121,10 @@ fn font_preferences(state: &ThemeState) -> crate::Result<Value> {
     let mut root = Map::new();
     root.insert("webkit".to_owned(), Value::Object(webkit));
     Ok(Value::Object(root))
+}
+
+fn chromium_font_pixels(point_size: i64) -> i64 {
+    ((point_size as f64) * CSS_PIXELS_PER_POINT).round() as i64
 }
 
 fn merge_value(base: &mut Value, generated: Value) {
@@ -177,11 +183,11 @@ mod tests {
         );
         assert_eq!(
             written["webkit"]["webprefs"]["default_font_size"],
-            Value::from(13)
+            Value::from(17)
         );
         assert_eq!(
             written["webkit"]["webprefs"]["default_fixed_font_size"],
-            Value::from(state.mono_font_size)
+            Value::from(15)
         );
 
         let _ = fs::remove_file(path);
@@ -210,5 +216,12 @@ mod tests {
         );
 
         let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn chromium_font_pixels_rounds_point_sizes_to_css_pixels() {
+        assert_eq!(chromium_font_pixels(11), 15);
+        assert_eq!(chromium_font_pixels(12), 16);
+        assert_eq!(chromium_font_pixels(16), 21);
     }
 }

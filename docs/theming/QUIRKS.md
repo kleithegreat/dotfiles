@@ -18,8 +18,8 @@
 **Status:** Open
 **Resolution:** The Qt target regenerates the color config and swaps the dark/light SVGs, but exact background matching would require custom SVG assets.
 
-## Chromium font prefs are profile-local and not live-reloaded
-**Symptom:** Chromium font changes can appear to do nothing until the browser restarts, and non-default Chromium profiles keep their old font settings.
-**Cause:** The `chromium` target patches `~/.config/chromium/Default/Preferences`; Chromium keeps one prefs file per profile and may rewrite that file on exit.
+## Chromium font prefs are profile-local, web-content-only, and not live-reloaded
+**Symptom:** Chromium font changes can appear to do nothing until the browser restarts, browser chrome keeps matching GTK instead of the Chromium-specific offset, and non-default Chromium profiles keep their old font settings.
+**Cause:** The `chromium` target patches `~/.config/chromium/Default/Preferences` `webkit.webprefs` entries only. Those prefs drive web-content font families and CSS-pixel default font sizes; Chromium's own chrome continues to use the toolkit font settings from GTK, Chromium keeps one prefs file per profile, and a live browser session may rewrite that file on exit.
 **Status:** Current behavior
-**Resolution:** Treat the target as owning the default profile's web-font prefs only. Reapply the target after closing Chromium if a live session overwrote the managed values.
+**Resolution:** Treat the target as owning the default profile's web-font prefs only. Use the GTK font size and GTK offset controls for Chromium's browser chrome, and reapply the Chromium target after closing Chromium if a live session overwrote the managed values.

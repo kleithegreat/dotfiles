@@ -46,7 +46,7 @@ Targets with notable extra behavior:
 
 | Target | Extra behavior beyond one generated file |
 | --- | --- |
-| `chromium` | `desktopctl/src/theme/targets/chromium.rs:9-214` is command-only and patches `~/.config/chromium/Default/Preferences` in place, recursively preserving unrelated profile prefs while setting the common-script web font families and default font sizes. |
+| `chromium` | `desktopctl/src/theme/targets/chromium.rs:9-226` is command-only and patches `~/.config/chromium/Default/Preferences` in place, recursively preserving unrelated profile prefs while setting the common-script web font families and converting point-based theme sizes into Chromium CSS-pixel default font sizes. |
 | `cursor` | `desktopctl/src/theme/targets/cursor.rs:153-221` writes cursor index files plus `~/.config/hypr/cursor.conf`, updates dconf, updates Hyprland cursor env, and imports cursor vars into the user environment. |
 | `gtk` | `desktopctl/src/theme/targets/gtk.rs:5-75` is command-only and does all real work in `on_apply()` through dconf writes, now routing both the normal UI font and monospace font through the shared offset helpers. |
 | `gtksourceview` | `desktopctl/src/theme/targets/gtksourceview.rs:13-360` writes the current GtkSourceView scheme to `desktopctl-current.xml`, mirrors the rest of the repo scheme catalog into `~/.local/share/libgedit-gtksourceview-300/styles/desktopctl-*.xml`, and updates gedit's dark/light source-style dconf keys at runtime. |
@@ -60,7 +60,7 @@ Targets with notable extra behavior:
 | Consumer | Current integration |
 | --- | --- |
 | Home Manager | `home/default.nix:329-332` runs `desktopctl theme sync` after managed files are written so generated fragments exist before the next session. |
-| Chromium | `desktopctl/src/theme/targets/chromium.rs:31-121` patches the default profile's `Preferences` file in place so Chromium web content picks up the managed system and mono font selections. |
+| Chromium | `desktopctl/src/theme/targets/chromium.rs:32-128` patches the default profile's `Preferences` file in place so Chromium web content picks up the managed system and mono font selections plus CSS-pixel font sizes derived from the shared theme point sizes. Browser chrome still follows GTK outside that prefs surface. |
 | Gedit / GtkSourceView | The `gtksourceview` target writes generated styles into `~/.local/share/libgedit-gtksourceview-300/styles/` during sync-safe runs, then sets gedit's per-variant source-style dconf keys during runtime applies. |
 | Hyprland | `config/hypr/hyprland.conf` and `config/hypr/appearance.conf` source generated `colors.conf`, `cursor.conf`, and `appearance-theme.conf`. `config/hypr/autostart.conf:12-13` now re-applies the wallpaper target from persisted theme state once `awww-daemon` is ready. |
 | Quickshell | `config/quickshell/Theme.qml:9-23` watches the XDG-config-derived `GeneratedTheme.json` path; `config/quickshell/popups/SettingsPopup.qml:174-248`, `config/quickshell/popups/SettingsPopup.qml:250-295`, `config/quickshell/popups/SettingsPopup.qml:405-410`, `config/quickshell/popups/SettingsPopup.qml:797-855`, `config/quickshell/popups/SettingsPopup.qml:52-64`, `config/quickshell/popups/SettingsPopup.qml:1070-1084`, `config/quickshell/popups/SettingsPopup.qml:1107-1115`, `config/quickshell/popups/settings/SettingsFontsPane.qml:216-315`, `config/quickshell/popups/settings/SettingsFontsPane.qml:319-510`, `config/quickshell/popups/settings/SettingsPresetsPane.qml:13-46`, `config/quickshell/popups/settings/SettingsPresetsPane.qml:141-177`, `config/quickshell/popups/settings/SettingsPresetEditor.qml:13-18`, `config/quickshell/popups/settings/SettingsPresetEditor.qml:838-1018`, `config/quickshell/popups/settings/SettingsPresetEditor.qml:1152-1178`, and `config/quickshell/shell.qml:24-108`, `config/quickshell/shell.qml:395-414` call or route `desktopctl theme` through argv-safe command construction instead of hardcoded repo scripts. The settings host stages individual `theme set` writes optimistically, serializes queued `set` / `preset` requests, reloads or rolls back on process exit, now exposes the full system-font offset set (`quickshell`, `GTK`, `Qt`, `Chromium`) plus the full mono-offset set (including `neovide_mono_font_size_offset`) through the Fonts and Presets panes, and keeps `icon_theme` and cursor controls on separate Icons and Mouse panes while consuming the richer `list-schemes --json` preview payload for the shared color-card selectors. The recursive Quickshell tree also carries one committed bootstrap snapshot at `config/quickshell/GeneratedTheme.json`, which activation/runtime theme applies overwrite in place. |
@@ -88,9 +88,10 @@ Targets with notable extra behavior:
 - `desktopctl/src/theme/mod.rs:614-673` and
   `desktopctl/src/theme/mod.rs:1196-1202` cover the rule that `color_scheme`
   changes realign `dark_hint` with scheme appearance before persistence.
-- `desktopctl/src/theme/targets/chromium.rs:142-213` covers the recursive
-  Chromium prefs merge, including preservation of unrelated keys and
-  per-target font-size offsets.
+- `desktopctl/src/theme/targets/chromium.rs:148-226` covers the recursive
+  Chromium prefs merge, including preservation of unrelated keys, conversion
+  from point-based theme sizes to Chromium CSS-pixel prefs, and per-target
+  font-size offsets.
 - `desktopctl/src/theme/targets/qt.rs:967-1023` covers the declared
   KTextEditor theme metadata and Kvantum dark/light asset selection behavior.
 - `desktopctl theme list-schemes --json`, `list-presets --json`, and
