@@ -17,6 +17,7 @@ FocusScope {
     property real rowHeight: Math.max(Root.Theme.btnHeight + 6, 32)
     property var textForValue: null
     property var matchesCurrent: null
+    property var isOptionDisabled: null
 
     signal activated(var value)
 
@@ -219,10 +220,11 @@ FocusScope {
                                 radius: Root.Theme.hoverRadius
 
                                 property bool isCurrent: root.isCurrentOption(modelData)
+                                property bool optionDisabled: root.isOptionDisabled ? root.isOptionDisabled(modelData) : false
 
-                                color: isCurrent ? Root.Theme.accent : (optionArea.containsMouse ? Root.Theme.bg2 : "transparent")
+                                color: optionDisabled ? "transparent" : (isCurrent ? Root.Theme.accent : (optionArea.containsMouse ? Root.Theme.bg2 : "transparent"))
                                 border.width: 1
-                                border.color: isCurrent ? Root.Theme.accent : (optionArea.containsMouse ? Root.Theme.bg3 : "transparent")
+                                border.color: optionDisabled ? "transparent" : (isCurrent ? Root.Theme.accent : (optionArea.containsMouse ? Root.Theme.bg3 : "transparent"))
                                 Behavior on color { CAnim { duration: Root.Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Root.Theme.animCurveStandard } }
                                 Behavior on border.color { CAnim { duration: Root.Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Root.Theme.animCurveStandard } }
                                 scale: optionArea.pressed ? 0.98 : 1.0
@@ -238,7 +240,7 @@ FocusScope {
                                         verticalCenter: parent.verticalCenter
                                     }
                                     text: root.optionText(modelData)
-                                    color: isCurrent ? Root.Theme.bg : Root.Theme.fg
+                                    color: parent.optionDisabled ? Root.Theme.fg4 : (isCurrent ? Root.Theme.bg : Root.Theme.fg)
                                     font.family: root.fontFamily
                                     font.pixelSize: Root.Theme.fontSizeSmall
                                     elide: Text.ElideRight
@@ -247,6 +249,7 @@ FocusScope {
                                 HoverLayer {
                                     id: optionArea
                                     anchors.fill: parent
+                                    disabled: parent.optionDisabled
                                     hoverEnabled: true
                                     hoverOpacity: 0
                                     pressedOpacity: 0

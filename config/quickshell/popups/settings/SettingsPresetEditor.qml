@@ -41,6 +41,19 @@ Rectangle {
         "Fira Code Nerd Font",
         "Iosevka Nerd Font"
     ]
+
+    readonly property var installedFamilies: {
+        let families = Qt.fontFamilies();
+        let normalized = {};
+        for (let i = 0; i < families.length; i++)
+            normalized[families[i].replace(/ /g, "").toLowerCase()] = true;
+        return normalized;
+    }
+
+    function isFontUnavailable(familyName) {
+        return !root.installedFamilies[familyName.replace(/ /g, "").toLowerCase()];
+    }
+
     readonly property var iconThemeOptions: [
         "Neuwaita",
         "Colloid",
@@ -817,6 +830,7 @@ Rectangle {
                 currentValue: root.currentValue("system_font")
                 currentText: root.currentValue("system_font") || ""
                 secondaryText: root.systemFontOptions.length + " fonts"
+                isOptionDisabled: function(fontName) { return root.isFontUnavailable(fontName); }
                 fontFamily: Theme.systemFamily
                 maxVisibleItems: 7
                 onExpandedChanged: {
@@ -1047,6 +1061,7 @@ Rectangle {
                 currentValue: root.currentValue("mono_font")
                 currentText: root.currentValue("mono_font") ? root.currentValue("mono_font").replace(" Nerd Font", "") : ""
                 secondaryText: root.monoFontOptions.length + " fonts"
+                isOptionDisabled: function(fontName) { return root.isFontUnavailable(fontName); }
                 fontFamily: Theme.systemFamily
                 maxVisibleItems: 6
                 textForValue: function(fontName) { return fontName.replace(" Nerd Font", ""); }
