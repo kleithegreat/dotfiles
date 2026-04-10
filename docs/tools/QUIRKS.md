@@ -10,9 +10,9 @@ The one current repo-committed exception is Quickshell's
 
 | Generated file | Written by | Sourced by |
 | --- | --- | --- |
-| `~/.config/hypr/colors.conf` | `desktopctl` target `hyprland` | `config/hypr/hyprland.conf` line 9 |
-| `~/.config/hypr/appearance-theme.conf` | `desktopctl` target `hypr_appearance` | `config/hypr/appearance.conf` line 3 |
-| `~/.config/hypr/cursor.conf` | `desktopctl` target `cursor` (via `persist()`) | `config/hypr/hyprland.conf` line 6 |
+| `~/.config/hypr/colors.conf` | `desktopctl` target `hyprland` | `config/hypr/hyprland.conf` `source = ~/.config/hypr/colors.conf` |
+| `~/.config/hypr/appearance-theme.conf` | `desktopctl` target `hypr_appearance` | `config/hypr/appearance.conf` `source = ~/.config/hypr/appearance-theme.conf` |
+| `~/.config/hypr/cursor.conf` | `desktopctl` target `cursor` (via `persist()`) | `config/hypr/hyprland.conf` `source = ~/.config/hypr/cursor.conf` |
 | `~/.config/nvim/lua/theme-state.json` | `desktopctl` target `neovim` | `config/nvim/lua/plugins/colors.lua` |
 | `~/.config/nvim/lua/neovide-theme.lua` | `desktopctl` target `neovide` | Neovide reads it on startup |
 | `~/.config/quickshell/GeneratedTheme.json` | `desktopctl` target `quickshell` | `config/quickshell/Theme.qml` |

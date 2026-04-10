@@ -14,7 +14,7 @@ before the first focus-change event arrives.
 
 | Severity | Finding | Why it matters | Evidence |
 | --- | --- | --- | --- |
-| Medium | Startup recording still depends on at least one successful `hyprctl activewindow -j` seed or a later focus-change event. | The daemon now seeds at startup and again after each successful socket reconnect, but if both seed attempts return empty and the focused window never changes, unlocked time is still skipped while JSON rewrites continue. | `desktopctl/src/hypr.rs:21-25`, `desktopctl/src/daemon/focus.rs:20-24`, `desktopctl/src/daemon/focus.rs:51-63`, `desktopctl/src/daemon/focus.rs:523-530` |
+| Medium | Startup recording still depends on at least one successful `hyprctl activewindow -j` seed or a later focus-change event. | The daemon now seeds at startup and again after each successful socket reconnect, but if both seed attempts return empty and the focused window never changes, unlocked time is still skipped while JSON rewrites continue. | The `hyprctl` snapshot helper in `desktopctl/src/hypr.rs` plus the startup tick and reconnect-seed paths in `desktopctl/src/daemon/focus.rs` |
 
 ## Open Questions
 

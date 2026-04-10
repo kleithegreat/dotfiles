@@ -9,12 +9,12 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-10.
 
 | Piece | Current implementation |
 | --- | --- |
-| Outputs | `flake.nix:24-104` exports `nixosConfigurations.vm`, `nixosConfigurations.laptop`, `nixosConfigurations.desktop`, plus `overlays.default`, `packages.x86_64-linux.desktopctl`, and `packages.x86_64-linux.helium` |
-| Host constructor | `mkHost` in `flake.nix:34-61` wraps `nixpkgs.lib.nixosSystem` |
-| Feature flags | `flake.nix:26-32` keeps both `enableMarchOptimizations` and `enableDistributedBuilds` in the shared host constructor, with distributed builds currently disabled by default |
-| Shared system layer | `system/configuration.nix:1-446` |
-| Home Manager entry | `home/default.nix:1-353`, embedded through `home-manager.nixosModules.home-manager` in `flake.nix:49-59` |
-| Platform | `flake.nix:41-42` passes `system = "x86_64-linux"` directly to `nixosSystem` |
+| Outputs | The `outputs` attrset in `flake.nix` exports `nixosConfigurations.vm`, `nixosConfigurations.laptop`, `nixosConfigurations.desktop`, plus `overlays.default`, `packages.x86_64-linux.desktopctl`, and `packages.x86_64-linux.helium` |
+| Host constructor | `mkHost` in `flake.nix` wraps `nixpkgs.lib.nixosSystem` |
+| Feature flags | The top-level `enableMarchOptimizations` and `enableDistributedBuilds` bindings in `flake.nix` stay shared across all hosts, with distributed builds currently disabled by default |
+| Shared system layer | The top-level shared NixOS module in `system/configuration.nix` |
+| Home Manager entry | `home/default.nix`, embedded through the inline Home Manager module inside `mkHost` in `flake.nix` |
+| Platform | `mkHost` in `flake.nix` passes `system = "x86_64-linux"` directly to `nixosSystem` |
 
 `mkHost` currently assembles this module stack:
 
@@ -39,12 +39,12 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-10.
 | `home/default.nix` | Shared user baseline | User packages that do not require system-scoped helper registration, `xdg.configFile` mappings, host-specific Hyprland file selection, desktop entry overrides, and theme activation |
 | `home/shell.nix` | Shell submodule | Zsh, shell tools, Git, aliases, and shell helpers |
 | `home/gtk.nix` | GTK submodule | GTK packages and small dconf defaults |
-| `pkgs/helium/default.nix` | Prebuilt browser package | Fetches the upstream Helium release tarball, auto-patches the bundled ELFs, wraps the upstream launcher, and installs desktop assets using the pin from `pkgs/helium/source.nix:1-6` |
+| `pkgs/helium/default.nix` | Prebuilt browser package | Fetches the upstream Helium release tarball, auto-patches the bundled ELFs, wraps the upstream launcher, and installs desktop assets using the pin in `pkgs/helium/source.nix` |
 | `overlays/local-packages.nix` | Local package overlay | Exposes the repo's `desktopctl` and `helium` derivations, carries the repo-local `sf-pro` font package, and applies small nixpkgs overrides such as the LM Studio AppImage fixups |
 
 ## Overlay Usage
 
-- `overlays/local-packages.nix:1-73` exposes `pkgs.desktopctl` from the local
+- `overlays/local-packages.nix` exposes `pkgs.desktopctl` from the local
   `desktopctl/` derivation, `pkgs.helium` from `pkgs/helium/`, defines a
   repo-local `pkgs.sf-pro` derivation that fetches Apple's stable-url
   `SF-Pro.dmg` with a repo-pinned hash and unpacks `Payload~` via `cpio` when
@@ -52,24 +52,27 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-10.
   stale AppImage icon path to the current upstream AppImage's real
   `resources/app/.webpack/Icon-512x512.png` asset and skips the bundled `lms`
   post-install fixup when the release only ships an empty placeholder file.
-- `flake.nix:63-74` exports that overlay as `self.overlays.default` and also
+- The `overlays.default` and `packages.x86_64-linux` exports in `flake.nix`
+  expose that overlay and also
   exposes `packages.x86_64-linux.desktopctl` and
   `packages.x86_64-linux.helium`.
-- `system/configuration.nix:5-9` imports both the `desktopctl` overlay and the
-  optional march-optimization overlay; `system/configuration.nix:199-203`
-  applies them globally, and `system/configuration.nix:232-256` installs the
-  local `pkgs.sf-pro` derivation through the shared `fonts.packages` list.
-- `overlays/march-optimized.nix:167-169` optionally rebuilds `desktopctl` and
+- In `system/configuration.nix`, the local `let` block imports both the
+  `desktopctl` overlay and the optional march-optimization overlay;
+  `nixpkgs.overlays` applies them globally, and `fonts.packages` installs the
+  local `pkgs.sf-pro` derivation.
+- `overlays/march-optimized.nix` optionally rebuilds `desktopctl` and
   other selected derivations with march tuning.
-- `system/configuration.nix:10-90` also defines a Hyprland-only helper that
+- `system/configuration.nix` also defines the `optimizeHyprlandNativePackage`
+  helper that
   always appends `-O3 -march=native` to the flake-provided `hyprland`,
   `xdg-desktop-portal-hyprland`, `hyprbars`, and `hyprexpo` derivations,
   independent of the global `enableMarchOptimizations` flag.
-- `hosts/desktop/system.nix:4-8` still appends
+- The desktop host module's `nixpkgs.overlays` list in `hosts/desktop/system.nix`
+  still appends
   `overlays/nvidia-open-pr996.nix` for the desktop-specific NVIDIA workaround.
-- `hosts/laptop/system.nix:78-84` and `hosts/desktop/system.nix:74-77`
-  cap `tailscaled` shutdown at 15 seconds on the physical hosts, bounding rare
-  upstream stop hangs without changing the shared VM profile.
+- Both physical host modules set
+  `systemd.services.tailscaled.serviceConfig.TimeoutStopSec = "15s"`, bounding
+  rare upstream stop hangs without changing the shared VM profile.
 
 ## Distributed Builds
 
@@ -78,10 +81,10 @@ though the repo currently ships with it disabled.
 
 | Surface | Current implementation |
 | --- | --- |
-| Flag state | `flake.nix:29-31` sets `enableDistributedBuilds = false`, so the distributed-build module evaluates but its host-specific `mkIf` payload stays inactive |
-| Shared module import | `system/configuration.nix:164-166` always imports `./distributed-builds.nix` |
-| Host gating | `system/distributed-builds.nix:77-99` only activates the subsystem when the flag is true and `hostName` is `desktop` or `laptop` |
-| Cache URL | `system/distributed-builds.nix:25-27` falls back to `http://<homelab>:5000`, but `system/distributed-builds-data.nix:30-31` currently overrides that to `http://192.168.8.153:5050` |
+| Flag state | The `enableDistributedBuilds = false` binding in `flake.nix` leaves the distributed-build module evaluated but inactive |
+| Shared module import | `system/configuration.nix` always imports `./distributed-builds.nix` |
+| Host gating | `system/distributed-builds.nix` only activates the subsystem inside the `enableDistributedBuilds'` host gate for `desktop` or `laptop` |
+| Cache URL | The `cacheUrl` fallback in `system/distributed-builds.nix` points at `http://<homelab>:5000`, but `system/distributed-builds-data.nix` currently overrides it to `http://192.168.8.153:5050` |
 | Reference docs | `docs/nix/distributed-builds.md` documents the repo-side contract, and `docs/nix/homelab-builder-setup.md` documents the Ubuntu homelab setup that matches the current `5050` override |
 
 ## Home Manager Deployment Model
@@ -100,18 +103,20 @@ This is the current base/generated split:
   `colors.conf`, `appearance-theme.conf`, and the other generated theme files.
 - The recursive Quickshell tree is the deliberate exception: Home Manager
   deploys `config/quickshell/` recursively, which includes the committed
-  `config/quickshell/GeneratedTheme.json` bootstrap snapshot, and
-  `desktopctl/src/theme/targets/quickshell.rs:8-17` then overwrites the live
+  `config/quickshell/GeneratedTheme.json` bootstrap snapshot, and the
+  Quickshell target implementation in `desktopctl/src/theme/targets/quickshell.rs`
+  then overwrites the live
   `~/.config/quickshell/GeneratedTheme.json` path during activation/runtime.
 
 Privileged desktop helper wiring currently bypasses Home Manager for one shared
 GUI package:
 
-- `system/configuration.nix:375-377` enables `programs.partition-manager`,
+- `system/configuration.nix` enables `programs.partition-manager`,
   which installs `kdePackages.partitionmanager` and `kdePackages.kpmcore`
   through the NixOS module so `kpmcore` lands in both
   `services.dbus.packages` and `environment.systemPackages`.
-- `home/default.nix:127-133` no longer lists `kdePackages.partitionmanager`
+- The `home.packages` list in `home/default.nix` no longer lists
+  `kdePackages.partitionmanager`
   directly; the nearby comment documents that the move is required because the
   helper depends on system-wide D-Bus and polkit registration.
 
@@ -120,8 +125,9 @@ GUI package:
 1. `nixos-rebuild switch --flake ~/repos/dotfiles#<host>` builds and activates
    the selected `nixosConfigurations.<host>`.
 2. The embedded Home Manager module writes managed user files.
-3. `home.activation.applyTheme` prepends `pkgs.desktopctl` to `PATH` and runs
-   `desktopctl theme sync` through `home/default.nix:333-337`.
+3. The `home.activation.applyTheme` hook in `home/default.nix` prepends
+   `pkgs.desktopctl` to `PATH`, bootstraps `~/.config/hypr/input-runtime.conf`,
+   and runs `desktopctl theme sync`.
 4. `sync` materializes only `sync_safe` targets and skips runtime reload hooks.
 
 The `nrs` alias in `home/shell.nix` remains the preferred wrapper for this

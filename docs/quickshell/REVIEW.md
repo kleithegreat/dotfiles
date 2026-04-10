@@ -17,7 +17,7 @@ validation that still needs a live shell smoke test.
 
 | Severity | Finding | Why it matters |
 | --- | --- | --- |
-| Low | `theme.apply` still has no positive completion reporting. | `config/quickshell/shell.qml:376-410` now tokenizes args safely and reports failures through `ToastService.showError(...)`, but successful completion is still silent. IPC callers can fire-and-forget a theme change, but they do not get a matching success signal or toast from the shell. |
+| Low | `theme.apply` still has no positive completion reporting. | The `themeApplyProc` / `theme.apply` path in `config/quickshell/shell.qml` now tokenizes args safely and reports failures through `ToastService.showError(...)`, but successful completion is still silent. IPC callers can fire-and-forget a theme change, but they do not get a matching success signal or toast from the shell. |
 
 ## Checkpoint Notes
 

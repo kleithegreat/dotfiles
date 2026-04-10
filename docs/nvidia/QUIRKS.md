@@ -28,4 +28,4 @@
 **Symptom:** EGL clients on the desktop can miss the NVIDIA EGL ICD.
 **Cause:** The laptop needs Mesa-only EGL vendor selection for the hybrid path, while the dedicated desktop needs both the NVIDIA and Mesa ICDs.
 **Status:** Host split in place
-**Resolution:** `system/configuration.nix` leaves `__EGL_VENDOR_LIBRARY_FILENAMES` unset. `hosts/laptop/system.nix:68-69` sets the laptop's Mesa-only value, and `hosts/desktop/system.nix:70-72` sets the desktop's dual-vendor list directly.
+**Resolution:** `system/configuration.nix` leaves `__EGL_VENDOR_LIBRARY_FILENAMES` unset. `hosts/laptop/system.nix` sets the laptop's Mesa-only value through `environment.sessionVariables.__EGL_VENDOR_LIBRARY_FILENAMES`, and `hosts/desktop/system.nix` sets the desktop's dual-vendor list directly through the same variable.

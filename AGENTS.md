@@ -38,7 +38,9 @@ Update any documentation affected by your changes. This is not optional.
   If your change intentionally diverges from the spec, update the spec. If it does
   not, update your implementation.
 - If you changed code that an `ARCHITECTURE.md` describes, update the architecture
-  doc to reflect the new state. Include file paths and line references.
+  doc to reflect the new state. Include file paths plus stable references to
+  named constructs, options, attribute sets, sections, or quoted snippets when
+  needed.
 - If you resolved an issue documented in a `REVIEW.md`, remove or update that
   section.
 - If you changed a workaround or gotcha documented in a `QUIRKS.md`, update that
@@ -53,6 +55,8 @@ Do not leave documentation in a state where it contradicts the code.
 
 ## File References
 
-Architecture and review docs include specific file paths and line ranges. When
-updating these docs, verify that your references point to the correct locations
-after your changes. Stale line references are worse than no references.
+Architecture and review docs should cite file paths and stable in-file context
+such as function names, option names, attribute sets, sections, or short quoted
+snippets. Never reference source code by line number or line range. Line
+numbers go stale immediately and cause agents to spend time maintaining brittle
+citations instead of improving the code and docs.
