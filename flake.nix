@@ -19,13 +19,9 @@
     vicinae.url = "github:vicinaehq/vicinae";
     snappy-switcher.url = "github:OpalAayan/snappy-switcher";
     opencode.url = "github:sst/opencode";
-    apple-fonts = {
-      url = "github:Lyndeno/apple-fonts.nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
-  outputs = { self, nixpkgs, home-manager, hyprland, hyprland-plugins, hyprqt6engine, vicinae, snappy-switcher, opencode, apple-fonts, ... }:
+  outputs = { self, nixpkgs, home-manager, hyprland, hyprland-plugins, hyprqt6engine, vicinae, snappy-switcher, opencode, ... }:
   let
     # Set to true to rebuild the targeted packages from source with host-
     # specific march flags instead of using the stock nixpkgs binary cache.
@@ -45,7 +41,7 @@
         system = "x86_64-linux";
         specialArgs = {
           inherit hyprland hostName march enableMarchOptimizations enableDistributedBuilds;
-          inputs = { inherit nixpkgs hyprland hyprland-plugins hyprqt6engine vicinae snappy-switcher opencode apple-fonts home-manager; };
+          inputs = { inherit nixpkgs hyprland hyprland-plugins hyprqt6engine vicinae snappy-switcher opencode home-manager; };
         };
         modules = [
           ./system/configuration.nix
