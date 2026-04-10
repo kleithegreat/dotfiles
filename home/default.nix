@@ -93,7 +93,6 @@ in
     thunderbird
     obs-studio
     libreoffice-fresh
-    mpv
     spotify
     zathura
     vscode
@@ -111,7 +110,7 @@ in
     kdePackages.kcharselect
     kdePackages.isoimagewriter
     kdePackages.kompare
-    vlc
+    haruna
     zoom-us
     tor-browser
     f3d            # 3D file viewer
@@ -316,10 +315,10 @@ in
       "image/gif" = "imv.desktop";
       "image/webp" = "imv.desktop";
       "image/svg+xml" = "imv.desktop";
-      "video/mp4" = "vlc.desktop";
-      "video/x-matroska" = "vlc.desktop";
-      "video/x-msvideo" = "vlc.desktop";
-      "video/webm" = "vlc.desktop";
+      "video/mp4" = "org.kde.haruna.desktop";
+      "video/x-matroska" = "org.kde.haruna.desktop";
+      "video/x-msvideo" = "org.kde.haruna.desktop";
+      "video/webm" = "org.kde.haruna.desktop";
       "text/plain" = "org.gnome.gedit.desktop";
       "x-scheme-handler/mailto" = "thunderbird.desktop";
       "x-scheme-handler/terminal" = "Alacritty.desktop";

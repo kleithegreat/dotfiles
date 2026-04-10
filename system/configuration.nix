@@ -376,7 +376,7 @@ in
 
   # ── Qt theming ───────────────────────────────────────────────
   # hyprqt6engine replaces qt6ct as the primary Qt6 platform theme (QT_QPA_PLATFORMTHEME=hyprqt6engine)
-  # qt6ct is kept for qt5ct backward compatibility (Qt5 apps like VLC still use it)
+  # qt6ct is kept for qt5ct backward compatibility (Qt5 apps still use it)
   
   # ── Man pages ────────────────────────────────────────────────
   documentation.man.enable = true;
