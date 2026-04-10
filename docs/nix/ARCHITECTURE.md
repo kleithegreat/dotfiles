@@ -3,13 +3,13 @@
 ## Scope
 
 Current implementation map for the flake, shared NixOS modules, optional
-distributed-build wiring, and embedded Home Manager layer as of 2026-04-09.
+distributed-build wiring, and embedded Home Manager layer as of 2026-04-10.
 
 ## Flake Topology
 
 | Piece | Current implementation |
 | --- | --- |
-| Outputs | `flake.nix:24-102` exports `nixosConfigurations.vm`, `nixosConfigurations.laptop`, `nixosConfigurations.desktop`, plus `overlays.default` and `packages.x86_64-linux.desktopctl` |
+| Outputs | `flake.nix:24-104` exports `nixosConfigurations.vm`, `nixosConfigurations.laptop`, `nixosConfigurations.desktop`, plus `overlays.default`, `packages.x86_64-linux.desktopctl`, and `packages.x86_64-linux.helium` |
 | Host constructor | `mkHost` in `flake.nix:34-61` wraps `nixpkgs.lib.nixosSystem` |
 | Feature flags | `flake.nix:26-32` keeps both `enableMarchOptimizations` and `enableDistributedBuilds` in the shared host constructor, with distributed builds currently disabled by default |
 | Shared system layer | `system/configuration.nix:1-443` |
@@ -39,13 +39,15 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-09.
 | `home/default.nix` | Shared user baseline | User packages that do not require system-scoped helper registration, `xdg.configFile` mappings, host-specific Hyprland file selection, desktop entry overrides, and theme activation |
 | `home/shell.nix` | Shell submodule | Zsh, shell tools, Git, aliases, and shell helpers |
 | `home/gtk.nix` | GTK submodule | GTK packages and small dconf defaults |
+| `pkgs/helium/default.nix` | Prebuilt browser package | Fetches the upstream Helium release tarball, auto-patches the bundled ELFs, wraps the upstream launcher, and installs desktop assets using the pin from `pkgs/helium/source.nix:1-6` |
 
 ## Overlay Usage
 
-- `overlays/desktopctl.nix:1-3` exposes `pkgs.desktopctl` from the local
-  `desktopctl/` derivation.
-- `flake.nix:63-72` exports that overlay as `self.overlays.default` and also
-  exposes `packages.x86_64-linux.desktopctl`.
+- `overlays/local-packages.nix:1-4` exposes `pkgs.desktopctl` from the local
+  `desktopctl/` derivation and `pkgs.helium` from `pkgs/helium/`.
+- `flake.nix:63-74` exports that overlay as `self.overlays.default` and also
+  exposes `packages.x86_64-linux.desktopctl` and
+  `packages.x86_64-linux.helium`.
 - `system/configuration.nix:5-9` imports both the `desktopctl` overlay and the
   optional march-optimization overlay; `system/configuration.nix:198-202`
   applies them globally.

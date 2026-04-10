@@ -60,16 +60,18 @@
         ];
       };
   in {
-    overlays.default = import ./overlays/desktopctl.nix;
+    overlays.default = import ./overlays/local-packages.nix;
 
-    packages.x86_64-linux.desktopctl =
+    packages.x86_64-linux =
       let
         pkgs = import nixpkgs {
           system = "x86_64-linux";
           overlays = [ self.overlays.default ];
         };
-      in
-      pkgs.desktopctl;
+      in {
+        desktopctl = pkgs.desktopctl;
+        helium = pkgs.helium;
+      };
 
     nixosConfigurations.vm = mkHost {
       hostName = "vm";
