@@ -92,7 +92,7 @@ integration as of 2026-04-10.
   handle matching, response-finished detection, selected-path URI decoding, and
   invalid percent-escape rejection. The live `busctl` / `dbus-monitor`
   orchestration in `desktopctl/src/portal.rs:14-110` remains process-coupled.
-- `desktopctl/src/solar.rs:268-343`,
+- `desktopctl/src/solar.rs:268-348`,
   `desktopctl/src/daemon/solar.rs:51-70`, and
   `desktopctl/src/daemon/night_light.rs:168-233` now cover sunrise/sunset
   ordering, pre-sunrise and post-sunset schedule transitions, cached

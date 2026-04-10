@@ -270,10 +270,15 @@ mod tests {
     use super::*;
     use crate::test_support::{ScopedEnvVar, TempDir, env_lock};
 
-    fn sample_location() -> Coordinates {
+    fn sample_location(date: NaiveDate) -> Coordinates {
+        // Keep solar noon roughly aligned with the builder's local noon so the
+        // sunrise/sunset window assertions stay stable under different `TZ`s.
+        let local_noon = local_datetime(date, 12, 0, 0);
+        let offset_hours = f64::from(local_noon.offset().local_minus_utc()) / 3600.0;
+
         Coordinates {
             latitude: DEFAULT_LATITUDE,
-            longitude: DEFAULT_LONGITUDE,
+            longitude: offset_hours * 15.0,
         }
     }
 
@@ -289,8 +294,8 @@ mod tests {
 
     #[test]
     fn status_for_now_before_sunrise_is_night_and_dark() {
-        let location = sample_location();
         let date = NaiveDate::from_ymd_opt(2026, 4, 10).expect("valid date");
+        let location = sample_location(date);
         let (sunrise_utc, _) = sun_times(location.latitude, location.longitude, date);
         let sunrise = sunrise_utc.with_timezone(&Local);
         let now = sunrise - Duration::minutes(30);
@@ -304,8 +309,8 @@ mod tests {
 
     #[test]
     fn status_for_now_after_sunset_waits_for_dark_hint_cutover() {
-        let location = sample_location();
         let date = NaiveDate::from_ymd_opt(2026, 4, 10).expect("valid date");
+        let location = sample_location(date);
         let (_, sunset_utc) = sun_times(location.latitude, location.longitude, date);
         let sunset = sunset_utc.with_timezone(&Local);
         let now = sunset + Duration::minutes(30);
