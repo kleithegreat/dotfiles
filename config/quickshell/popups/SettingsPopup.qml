@@ -53,7 +53,7 @@ FocusScope {
         { label: "Quickshell", key: "quickshell_font_size_offset" },
         { label: "GTK", key: "gtk_font_size_offset" },
         { label: "Qt", key: "qt_font_size_offset" },
-        { label: "Chromium", key: "chromium_font_size_offset" }
+        { label: "Chromium pages", key: "chromium_font_size_offset" }
     ]
     property var monoFontSizeOffsetTargets: [
         { label: "Alacritty", key: "alacritty_mono_font_size_offset" },

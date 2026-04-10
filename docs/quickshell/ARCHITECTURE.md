@@ -129,9 +129,10 @@ behaviors:
   `config/quickshell/popups/SettingsPopup.qml:857-1006`,
   `config/quickshell/popups/SettingsPopup.qml:1318-1331`.
 - Passing dedicated target lists into the Fonts and Presets panes so the shell
-  now exposes a Quickshell-only UI-size offset plus the full mono-offset set,
-  including Neovide, while keeping every offset row compact by showing only the
-  signed delta beside the stepper:
+  now exposes a Quickshell-only UI-size offset, labels the Chromium-specific
+  system-font offset as `Chromium pages` to reflect its web-content-only scope,
+  and keeps the full mono-offset set, including Neovide, while showing only
+  the signed delta beside each stepper:
   `config/quickshell/popups/SettingsPopup.qml:52-61`,
   `config/quickshell/popups/SettingsPopup.qml:1074-1081`,
   `config/quickshell/popups/SettingsPopup.qml:1109-1114`,
