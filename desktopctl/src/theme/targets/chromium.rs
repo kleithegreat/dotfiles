@@ -25,7 +25,6 @@ const DEFAULT_PROFILE_NAME: &str = "Default";
 const LOCAL_STATE_FILE_NAME: &str = "Local State";
 const PREFERENCES_FILE_NAME: &str = "Preferences";
 const COMMON_SCRIPT: &str = "Zyyy";
-const CSS_PIXELS_PER_POINT: f64 = 96.0 / 72.0;
 
 pub fn generate(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<GeneratedContent> {
     Ok(GeneratedContent::commands(Vec::new()))
@@ -78,8 +77,7 @@ fn active_profile_names(config_dir: &Path) -> crate::Result<Vec<String>> {
             let Some(name) = entry.as_str() else {
                 continue;
             };
-            if !is_safe_profile_name(name)
-                || profile_names.iter().any(|existing| existing == name)
+            if !is_safe_profile_name(name) || profile_names.iter().any(|existing| existing == name)
             {
                 continue;
             }
@@ -149,8 +147,11 @@ fn is_safe_profile_name(name: &str) -> bool {
 }
 
 fn font_preferences(state: &ThemeState) -> crate::Result<Value> {
-    let font_size = chromium_font_pixels(state.font_size_for(METADATA.name)?);
-    let fixed_font_size = chromium_font_pixels(state.mono_font_size);
+    // Chromium persists these prefs using the same integer sizes it exposes in
+    // its UI, so writing the raw theme sizes avoids an extra point-to-pixel
+    // conversion that live Chromium sessions immediately normalize away.
+    let font_size = state.font_size_for(METADATA.name)?;
+    let fixed_font_size = state.mono_font_size;
 
     let mut standard = Map::new();
     standard.insert(
@@ -196,10 +197,6 @@ fn font_preferences(state: &ThemeState) -> crate::Result<Value> {
     let mut root = Map::new();
     root.insert("webkit".to_owned(), Value::Object(webkit));
     Ok(Value::Object(root))
-}
-
-fn chromium_font_pixels(point_size: i64) -> i64 {
-    ((point_size as f64) * CSS_PIXELS_PER_POINT).round() as i64
 }
 
 fn merge_value(base: &mut Value, generated: Value) {
@@ -258,11 +255,11 @@ mod tests {
         );
         assert_eq!(
             written["webkit"]["webprefs"]["default_font_size"],
-            Value::from(17)
+            Value::from(13)
         );
         assert_eq!(
             written["webkit"]["webprefs"]["default_fixed_font_size"],
-            Value::from(15)
+            Value::from(11)
         );
 
         let _ = fs::remove_file(path);
@@ -273,7 +270,11 @@ mod tests {
         let config_dir = temp_path("chromium-active-default");
 
         write_active_preferences(&config_dir, &dummy_state()).expect("write succeeds");
-        let written = read_json(&config_dir.join(DEFAULT_PROFILE_NAME).join(PREFERENCES_FILE_NAME));
+        let written = read_json(
+            &config_dir
+                .join(DEFAULT_PROFILE_NAME)
+                .join(PREFERENCES_FILE_NAME),
+        );
 
         assert_eq!(
             written["webkit"]["webprefs"]["fonts"]["standard"][COMMON_SCRIPT],
@@ -295,8 +296,18 @@ mod tests {
 
         write_active_preferences(&config_dir, &dummy_state()).expect("write succeeds");
 
-        assert!(config_dir.join("Profile 1").join(PREFERENCES_FILE_NAME).exists());
-        assert!(config_dir.join("Profile 2").join(PREFERENCES_FILE_NAME).exists());
+        assert!(
+            config_dir
+                .join("Profile 1")
+                .join(PREFERENCES_FILE_NAME)
+                .exists()
+        );
+        assert!(
+            config_dir
+                .join("Profile 2")
+                .join(PREFERENCES_FILE_NAME)
+                .exists()
+        );
         assert!(
             !config_dir
                 .join(DEFAULT_PROFILE_NAME)
@@ -319,8 +330,7 @@ mod tests {
     fn write_active_preferences_falls_back_to_default_when_local_state_is_invalid() {
         let config_dir = temp_path("chromium-active-invalid-local-state");
         fs::create_dir_all(&config_dir).expect("config dir created");
-        fs::write(config_dir.join(LOCAL_STATE_FILE_NAME), "not json")
-            .expect("local state written");
+        fs::write(config_dir.join(LOCAL_STATE_FILE_NAME), "not json").expect("local state written");
 
         write_active_preferences(&config_dir, &dummy_state()).expect("write succeeds");
 
@@ -360,9 +370,25 @@ mod tests {
     }
 
     #[test]
-    fn chromium_font_pixels_rounds_point_sizes_to_css_pixels() {
-        assert_eq!(chromium_font_pixels(11), 15);
-        assert_eq!(chromium_font_pixels(12), 16);
-        assert_eq!(chromium_font_pixels(16), 21);
+    fn write_preferences_keeps_theme_font_sizes_in_chromium_prefs_units() {
+        let path = temp_path("chromium-font-size-units");
+        let mut state = dummy_state();
+        state.font_size = 12;
+        state.chromium_font_size_offset = 1;
+        state.mono_font_size = 10;
+
+        write_preferences(&path, &state).expect("write succeeds");
+        let written = read_json(&path);
+
+        assert_eq!(
+            written["webkit"]["webprefs"]["default_font_size"],
+            Value::from(13)
+        );
+        assert_eq!(
+            written["webkit"]["webprefs"]["default_fixed_font_size"],
+            Value::from(10)
+        );
+
+        let _ = fs::remove_file(path);
     }
 }

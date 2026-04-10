@@ -40,11 +40,16 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-10.
 | `home/shell.nix` | Shell submodule | Zsh, shell tools, Git, aliases, and shell helpers |
 | `home/gtk.nix` | GTK submodule | GTK packages and small dconf defaults |
 | `pkgs/helium/default.nix` | Prebuilt browser package | Fetches the upstream Helium release tarball, auto-patches the bundled ELFs, wraps the upstream launcher, and installs desktop assets using the pin from `pkgs/helium/source.nix:1-6` |
+| `overlays/local-packages.nix` | Local package overlay | Exposes the repo's `desktopctl` and `helium` derivations and carries small repo-local nixpkgs overrides such as the LM Studio AppImage fixups |
 
 ## Overlay Usage
 
-- `overlays/local-packages.nix:1-4` exposes `pkgs.desktopctl` from the local
-  `desktopctl/` derivation and `pkgs.helium` from `pkgs/helium/`.
+- `overlays/local-packages.nix:1-10` exposes `pkgs.desktopctl` from the local
+  `desktopctl/` derivation, `pkgs.helium` from `pkgs/helium/`, and a local
+  `pkgs.lmstudio` override that rewrites nixpkgs' stale AppImage icon path to
+  the current upstream AppImage's real
+  `resources/app/.webpack/Icon-512x512.png` asset and skips the bundled `lms`
+  post-install fixup when the release only ships an empty placeholder file.
 - `flake.nix:63-74` exports that overlay as `self.overlays.default` and also
   exposes `packages.x86_64-linux.desktopctl` and
   `packages.x86_64-linux.helium`.

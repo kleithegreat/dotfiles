@@ -98,6 +98,7 @@ struct SetArgs {
     /// Theme state key to update.
     key: String,
     /// New value for the provided key.
+    #[arg(allow_hyphen_values = true)]
     value: String,
 }
 
@@ -184,6 +185,7 @@ struct HyprInputSetArgs {
     /// Managed Hyprland input setting to update.
     key: String,
     /// New value for the provided setting.
+    #[arg(allow_hyphen_values = true)]
     value: String,
 }
 
@@ -319,5 +321,50 @@ fn run_portal(args: PortalArgs) -> Result<()> {
 fn run_sun(args: SunArgs) -> Result<()> {
     match args.command {
         SunCommand::Status => solar::print_status(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn theme_set_accepts_negative_values_without_double_dash() {
+        let cli = Cli::try_parse_from([
+            "desktopctl",
+            "theme",
+            "set",
+            "chromium_font_size_offset",
+            "-1",
+        ])
+        .expect("cli should parse");
+
+        let TopLevelCommand::Theme(theme_args) = cli.command else {
+            panic!("expected theme command");
+        };
+        let ThemeCommand::Set(set_args) = theme_args.command else {
+            panic!("expected theme set command");
+        };
+        assert_eq!(set_args.key, "chromium_font_size_offset");
+        assert_eq!(set_args.value, "-1");
+    }
+
+    #[test]
+    fn hypr_input_set_accepts_negative_values_without_double_dash() {
+        let cli =
+            Cli::try_parse_from(["desktopctl", "hypr", "input", "set", "sensitivity", "-0.1"])
+                .expect("cli should parse");
+
+        let TopLevelCommand::Hypr(hypr_args) = cli.command else {
+            panic!("expected hypr command");
+        };
+        let HyprCommand::Input(input_args) = hypr_args.command else {
+            panic!("expected hypr input command");
+        };
+        let HyprInputCommand::Set(set_args) = input_args.command else {
+            panic!("expected hypr input set command");
+        };
+        assert_eq!(set_args.key, "sensitivity");
+        assert_eq!(set_args.value, "-0.1");
     }
 }
