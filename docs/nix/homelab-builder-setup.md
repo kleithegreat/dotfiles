@@ -124,7 +124,7 @@ sudo systemctl enable --now nix-serve
 
 ## 7. Firewall
 
-Remote builds and the cache do not require a separate Nix daemon TCP port. SSH on `22/tcp` carries the remote-store traffic, and the current repo expects `nix-serve` on `5050/tcp` (`system/distributed-builds-data.nix:30-31`).
+Remote builds and the cache do not require a separate Nix daemon TCP port. SSH on `22/tcp` carries the remote-store traffic, and the current repo expects `nix-serve` on `5050/tcp` via the `cacheUrl` value in `system/distributed-builds-data.nix`.
 
 If you use UFW, allow only the LAN:
 

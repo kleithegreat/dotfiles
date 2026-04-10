@@ -14,9 +14,9 @@
 
 ## `theme.apply` string payloads use shell-style quoting
 **Symptom:** Shell IPC string payloads still split on unquoted whitespace, so multi-word fonts or wallpaper paths need quoting.
-**Cause:** `config/quickshell/shell.qml:24-108` tokenizes string payloads into argv using shell-style quote and backslash rules before spawning `desktopctl theme`.
+**Cause:** The `tokenizeThemeArgs` helper in `config/quickshell/shell.qml` tokenizes string payloads into argv using shell-style quote and backslash rules before spawning `desktopctl theme`.
 **Status:** By design
-**Resolution:** Quote arguments such as `"IBM Plex Sans"` or pass an array payload when the caller already has structured argv pieces. Failures now surface through the shell toast path (`config/quickshell/shell.qml:380-415`).
+**Resolution:** Quote arguments such as `"IBM Plex Sans"` or pass an array payload when the caller already has structured argv pieces. Failures now surface through the `themeApplyProc` / `ToastService.showError(...)` path in `config/quickshell/shell.qml`.
 
 ## Custom shell chrome is intentionally pointer-first
 **Symptom:** Bar modules, Quick Settings tiles, the power menu, shared toggles, and settings sidebar categories do not expose repo-local tab stops, Enter/Space activation, or explicit focus outlines.

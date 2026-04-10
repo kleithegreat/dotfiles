@@ -13,4 +13,4 @@ by the daemon's solar `auto` path and by direct `desktopctl theme` writes.
 
 | Severity | Finding | Why it matters |
 | --- | --- | --- |
-| Medium | `dark_hint` still has multiple live policy initiators and no daemon-owned override model. | `desktopctl/src/daemon/night_light.rs:129-163` writes scheduled `dark_hint` changes in `auto`, but `desktopctl/src/theme/mod.rs:252-320` still lets theme surfaces persist `dark_hint` directly. That means sun-schedule docs must describe `dark_hint` as split ownership, not as a daemon-only surface. |
+| Medium | `dark_hint` still has multiple live policy initiators and no daemon-owned override model. | `desired_state()` / `apply_desired_state()` in `desktopctl/src/daemon/night_light.rs` write scheduled `dark_hint` changes in `auto`, but `desktopctl/src/theme/mod.rs` still lets theme surfaces persist `dark_hint` directly through `set_dark_hint()` and the theme command handlers. That means sun-schedule docs must describe `dark_hint` as split ownership, not as a daemon-only surface. |

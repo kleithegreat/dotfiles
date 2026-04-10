@@ -9,8 +9,10 @@ host with no `/sys/class/backlight` device.
 brightness`, which auto-detects the first backlight under
 `/sys/class/backlight/` and errors when none exists:
 
-- `hypridle.conf:10-11` — dim-screen timeout and restore handler
-- `keybinds.conf:62-63` — repeat-on-hold brightness step binds
+Specifically:
+
+- `config/hypr/hypridle.conf` listener block with `on-timeout = desktopctl brightness dim` and `on-resume = ... desktopctl brightness restore`
+- `config/hypr/keybinds.conf` brightness bindings for `F6` / `F7` that call `desktopctl brightness down` and `desktopctl brightness up`
 
 These work on the laptop (which has a discoverable backlight device) but fail
 on the desktop (dedicated NVIDIA, no backlight device).
@@ -41,10 +43,10 @@ specific mouse still keeps its old per-device feel.
 
 **Cause:** `desktopctl hypr input set ...` writes
 `~/.config/hypr/input-runtime.conf`, which is sourced after
-`input-devices.conf` (`config/hypr/hyprland.conf:7-12`). That updates the
+`input-devices.conf` in `config/hypr/hyprland.conf`. That updates the
 shared `input { ... }` defaults, but device-specific `device { ... }`
 overrides such as the desktop's Logitech sensitivity blocks still apply
-separately (`hosts/desktop/input-devices.conf:3-9`).
+separately in `hosts/desktop/input-devices.conf`.
 
 **Impact / workaround:** Use the Mouse page for the shared Hyprland defaults
 that should apply when no device-specific override exists. Keep hardware-
@@ -57,7 +59,7 @@ blocks still win over the shared runtime value.
 would raise an unknown-keyword error if placed in
 `hosts/laptop/input-devices.conf`.
 
-**Cause:** `config/hypr/hyprland.conf:5-10` sources
+**Cause:** `config/hypr/hyprland.conf` sources
 `~/.config/hypr/input-devices.conf` before `~/.config/hypr/plugins.conf`.
 Hyprland's `hyprlang` parser handles the config linearly and explicitly calls
 out that plugin-owned keywords may need `# hyprlang noerror true` if they
@@ -67,5 +69,5 @@ to core Hyprland keywords even when it needs to trigger plugin behavior.
 **Impact / workaround:** For laptop touchpad gestures that should toggle the
 workspace overview, keep the binding on the core `gesture` keyword and use the
 `dispatcher` action to call `hyprexpo:expo toggle`
-(`hosts/laptop/input-devices.conf:10-11`). Reserve `hyprexpo-gesture` for files
+from `hosts/laptop/input-devices.conf`. Reserve `hyprexpo-gesture` for files
 sourced after `plugins.conf`, or guard it with `hyprlang noerror`.

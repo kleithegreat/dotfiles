@@ -12,4 +12,4 @@ ownership between the daemon's solar schedule and direct theme-surface writes.
 
 | Severity | Finding | Why it matters |
 | --- | --- | --- |
-| Medium | `dark_hint` still has multiple live policy initiators. | `desktopctl/src/daemon/night_light.rs:129-163` applies scheduled `dark_hint` changes in `auto`, but `desktopctl/src/theme/mod.rs:74-96` and `desktopctl/src/theme/mod.rs:321-385` still let `theme set dark_hint ...` and preset-supplied `dark_hint` values persist directly without daemon arbitration. Docs in this domain and in `docs/sun-schedule/` must treat that split as current behavior, not as resolved delegation. |
+| Medium | `dark_hint` still has multiple live policy initiators. | `desired_state()` / `apply_desired_state()` in `desktopctl/src/daemon/night_light.rs` apply scheduled `dark_hint` changes in `auto`, but `set_dark_hint()`, `cmd_set()`, and `cmd_preset()` in `desktopctl/src/theme/mod.rs` still let `theme set dark_hint ...` and preset-supplied `dark_hint` values persist directly without daemon arbitration. Docs in this domain and in `docs/sun-schedule/` must treat that split as current behavior, not as resolved delegation. |

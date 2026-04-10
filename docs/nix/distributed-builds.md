@@ -5,15 +5,17 @@ Environment-specific values live in `system/distributed-builds-data.nix`.
 
 ## Current state
 
-- The subsystem exists in the shared module graph, but `flake.nix:29-31`
-  currently leaves `enableDistributedBuilds = false`.
-- When that flag is flipped on, `system/distributed-builds.nix:77-99` enables
-  the distributed-build path only on `desktop` and `laptop`.
+- The subsystem exists in the shared module graph, but the
+  `enableDistributedBuilds` binding in `flake.nix` currently stays `false`.
+- When that flag is flipped on, the `enableDistributedBuilds'` host gate in
+  `system/distributed-builds.nix` enables the distributed-build path only on
+  `desktop` and `laptop`.
 - The module still uses `ssh-ng` with a dedicated `nix-ssh` account on the
   NixOS workers and pushes completed outputs to the homelab over SSH.
-- `system/distributed-builds.nix:25-27` has a `:5000` fallback, but the repo's
-  live data file overrides the cache URL to `http://192.168.8.153:5050`
-  (`system/distributed-builds-data.nix:30-31`).
+- The `cacheUrl` fallback in `system/distributed-builds.nix` uses `:5000`, but
+  the repo's live data file overrides the cache URL to
+  `http://192.168.8.153:5050` through `cacheUrl` in
+  `system/distributed-builds-data.nix`.
 
 ## What the setup does when enabled
 
