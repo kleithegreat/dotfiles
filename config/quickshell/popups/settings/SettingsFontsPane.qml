@@ -39,6 +39,18 @@ Components.WheelFlickable {
         "SF Pro"
     ]
 
+    readonly property var installedFamilies: {
+        let families = Qt.fontFamilies();
+        let normalized = {};
+        for (let i = 0; i < families.length; i++)
+            normalized[families[i].replace(/ /g, "").toLowerCase()] = true;
+        return normalized;
+    }
+
+    function isFontUnavailable(familyName) {
+        return !root.installedFamilies[familyName.replace(/ /g, "").toLowerCase()];
+    }
+
     function monoFontBaseSize() {
         return root.themeState.mono_font_size || 11;
     }
@@ -133,6 +145,7 @@ Components.WheelFlickable {
             currentText: root.themeState.mono_font ? root.monoFontLabel(root.themeState.mono_font) : ""
             secondaryText: root.monoFontOptions.length + " fonts"
             textForValue: function(fontName) { return root.monoFontLabel(fontName); }
+            isOptionDisabled: function(fontName) { return root.isFontUnavailable(fontName); }
             fontFamily: Theme.systemFamily
             maxVisibleItems: 6
             onExpandedChanged: {
@@ -328,6 +341,7 @@ Components.WheelFlickable {
             currentValue: root.themeState.system_font
             currentText: root.themeState.system_font || ""
             secondaryText: root.systemFontOptions.length + " fonts"
+            isOptionDisabled: function(fontName) { return root.isFontUnavailable(fontName); }
             fontFamily: Theme.systemFamily
             maxVisibleItems: 7
             onExpandedChanged: {
