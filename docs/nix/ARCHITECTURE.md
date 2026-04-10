@@ -46,10 +46,10 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-10.
 
 - `overlays/local-packages.nix:1-73` exposes `pkgs.desktopctl` from the local
   `desktopctl/` derivation, `pkgs.helium` from `pkgs/helium/`, defines a
-  repo-local `pkgs.sf-pro` derivation that fetches the current Apple
-  `SF-Pro.dmg` and unpacks `Payload~` via `cpio` when present, and carries the
-  `pkgs.lmstudio` override that rewrites nixpkgs' stale AppImage icon path to
-  the current upstream AppImage's real
+  repo-local `pkgs.sf-pro` derivation that fetches Apple's stable-url
+  `SF-Pro.dmg` with a repo-pinned hash and unpacks `Payload~` via `cpio` when
+  present, and carries the `pkgs.lmstudio` override that rewrites nixpkgs'
+  stale AppImage icon path to the current upstream AppImage's real
   `resources/app/.webpack/Icon-512x512.png` asset and skips the bundled `lms`
   post-install fixup when the release only ships an empty placeholder file.
 - `flake.nix:63-74` exports that overlay as `self.overlays.default` and also
