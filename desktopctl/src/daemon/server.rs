@@ -145,3 +145,105 @@ async fn write_error<W: AsyncWrite + Unpin>(writer: &mut W, error: String) -> io
     writer.write_all(response.to_string().as_bytes()).await?;
     writer.write_all(b"\n").await
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::{
+        io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
+        net::UnixStream,
+    };
+
+    #[test]
+    fn request_deserialization_defaults_missing_params_to_null() {
+        let request: Request =
+            serde_json::from_str(r#"{"method":"ping"}"#).expect("request should deserialize");
+
+        assert_eq!(request.method, "ping");
+        assert_eq!(request.params, serde_json::Value::Null);
+    }
+
+    #[tokio::test]
+    async fn handle_client_replies_to_ping_and_skips_blank_lines() {
+        let responses = send_requests(&["", r#"{"method":"ping"}"#]).await;
+
+        assert_eq!(responses.len(), 1);
+        assert_eq!(
+            responses[0],
+            serde_json::json!({
+                "ok": true,
+                "data": {
+                    "pong": true,
+                },
+            })
+        );
+    }
+
+    #[tokio::test]
+    async fn handle_client_reports_invalid_requests_and_invalid_params() {
+        let responses = send_requests(&[
+            "{not valid json",
+            r#"{"method":"night_light.set","params":{"mode":"invalid"}}"#,
+        ])
+        .await;
+
+        assert_eq!(responses.len(), 2);
+        assert_eq!(responses[0]["ok"], serde_json::json!(false));
+        assert!(
+            responses[0]["error"]
+                .as_str()
+                .expect("error string")
+                .starts_with("invalid request:")
+        );
+        assert_eq!(responses[1]["ok"], serde_json::json!(false));
+        assert!(
+            responses[1]["error"]
+                .as_str()
+                .expect("error string")
+                .starts_with("invalid params for night_light.set:")
+        );
+    }
+
+    #[tokio::test]
+    async fn handle_client_reports_unsupported_methods() {
+        let responses = send_requests(&[r#"{"method":"unknown.method"}"#]).await;
+
+        assert_eq!(responses.len(), 1);
+        assert_eq!(
+            responses[0],
+            serde_json::json!({
+                "ok": false,
+                "error": "unsupported method: unknown.method",
+            })
+        );
+    }
+
+    async fn send_requests(requests: &[&str]) -> Vec<serde_json::Value> {
+        let (client, server) = UnixStream::pair().expect("socket pair");
+        let controller = Controller::new();
+        let server_task = tokio::spawn(async move {
+            handle_client(server, controller)
+                .await
+                .expect("server should handle requests");
+        });
+
+        let (reader, mut writer) = client.into_split();
+        for request in requests {
+            writer
+                .write_all(request.as_bytes())
+                .await
+                .expect("write request");
+            writer.write_all(b"\n").await.expect("write newline");
+        }
+        writer.shutdown().await.expect("shutdown writer");
+
+        let mut responses = Vec::new();
+        let mut lines = BufReader::new(reader).lines();
+        while let Some(line) = lines.next_line().await.expect("read response line") {
+            responses.push(serde_json::from_str(&line).expect("valid response json"));
+        }
+
+        server_task.await.expect("server task should finish");
+        responses
+    }
+}

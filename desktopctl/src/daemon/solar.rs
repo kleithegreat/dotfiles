@@ -47,3 +47,24 @@ fn duration_until(when: chrono::DateTime<chrono::Local>) -> StdDuration {
 
     duration.to_std().unwrap_or(StdDuration::ZERO)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn duration_until_returns_zero_for_past_times() {
+        let when = chrono::Local::now() - chrono::Duration::seconds(5);
+
+        assert_eq!(duration_until(when), StdDuration::ZERO);
+    }
+
+    #[test]
+    fn duration_until_returns_positive_duration_for_future_times() {
+        let when = chrono::Local::now() + chrono::Duration::milliseconds(1500);
+        let duration = duration_until(when);
+
+        assert!(duration > StdDuration::ZERO);
+        assert!(duration <= StdDuration::from_secs(2));
+    }
+}

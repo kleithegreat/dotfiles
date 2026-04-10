@@ -106,3 +106,66 @@ fn parse_cursor_conf(path: &Path) -> io::Result<CursorEnvOverrides> {
 
     Ok(overrides)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_support::{ScopedEnvVar, TempDir, env_lock};
+    use std::fs;
+
+    #[test]
+    fn parse_cursor_conf_reads_supported_env_overrides() {
+        let temp_dir = TempDir::new("desktopctl-cursor-conf").expect("temp dir");
+        let path = temp_dir.path().join("cursor.conf");
+        fs::write(
+            &path,
+            concat!(
+                "env = XCURSOR_THEME,Bibata-Modern-Ice\n",
+                "env = XCURSOR_SIZE,24\n",
+                "env = HYPRCURSOR_THEME,Bibata-Hypr\n",
+                "env = OTHER_VAR,ignored\n",
+            ),
+        )
+        .expect("write cursor.conf");
+
+        let overrides = parse_cursor_conf(&path).expect("cursor.conf should parse");
+
+        assert_eq!(
+            overrides.xcursor_theme.as_deref(),
+            Some("Bibata-Modern-Ice")
+        );
+        assert_eq!(overrides.xcursor_size.as_deref(), Some("24"));
+        assert_eq!(overrides.hyprcursor_theme.as_deref(), Some("Bibata-Hypr"));
+    }
+
+    #[test]
+    fn parse_cursor_conf_returns_empty_overrides_when_missing() {
+        let temp_dir = TempDir::new("desktopctl-cursor-missing").expect("temp dir");
+        let path = temp_dir.path().join("missing.conf");
+
+        let overrides = parse_cursor_conf(&path).expect("missing file should be ignored");
+
+        assert!(overrides.xcursor_theme.is_none());
+        assert!(overrides.hyprcursor_theme.is_none());
+        assert!(overrides.xcursor_size.is_none());
+    }
+
+    #[test]
+    fn cursor_env_resolve_prefers_file_overrides_over_process_env() {
+        let _lock = env_lock();
+        let _xcursor_theme = ScopedEnvVar::set("XCURSOR_THEME", "EnvTheme");
+        let _xcursor_size = ScopedEnvVar::set("XCURSOR_SIZE", "32");
+        let _hyprcursor_theme = ScopedEnvVar::set("HYPRCURSOR_THEME", "IgnoredEnvTheme");
+
+        let resolved = CursorEnv::resolve(CursorEnvOverrides {
+            xcursor_theme: Some("FileTheme".to_owned()),
+            hyprcursor_theme: Some("FileHyprTheme".to_owned()),
+            xcursor_size: None,
+        });
+
+        assert_eq!(resolved.xcursor_theme.as_deref(), Some("FileTheme"));
+        assert_eq!(resolved.hyprcursor_theme.as_deref(), Some("FileHyprTheme"));
+        assert_eq!(resolved.xcursor_size.as_deref(), Some("32"));
+        assert_eq!(resolved.printable(), "FileTheme|FileHyprTheme|32");
+    }
+}

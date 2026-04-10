@@ -215,3 +215,49 @@ impl Drop for DimPidFile {
         let _ = fs::remove_file(&self.path);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn raw_to_perceived_uses_gamma_curve() {
+        let perceived = raw_to_perceived(25, 100);
+
+        assert!((perceived - 0.532_520_544_7).abs() < 1e-9);
+    }
+
+    #[test]
+    fn perceived_to_raw_clamps_inputs_and_rounds_down() {
+        assert_eq!(perceived_to_raw(-0.25, 200), 0);
+        assert_eq!(perceived_to_raw(1.5, 200), 200);
+        assert_eq!(perceived_to_raw(0.5, 100), 21);
+    }
+
+    #[test]
+    fn perceptual_steps_move_in_the_expected_direction_and_clamp_at_bounds() {
+        let current = 25;
+        let max = 100;
+        let perceived = raw_to_perceived(current, max);
+
+        let stepped_up = perceived_to_raw((perceived + STEP).clamp(0.0, 1.0), max);
+        let stepped_down = perceived_to_raw((perceived - STEP).clamp(0.0, 1.0), max);
+
+        assert!(stepped_up > current);
+        assert!(stepped_down < current);
+        assert_eq!(
+            perceived_to_raw((raw_to_perceived(max, max) + STEP).clamp(0.0, 1.0), max),
+            max
+        );
+        assert_eq!(
+            perceived_to_raw((raw_to_perceived(0, max) - STEP).clamp(0.0, 1.0), max),
+            0
+        );
+    }
+
+    #[test]
+    fn ensure_nonzero_max_rejects_zero() {
+        assert!(ensure_nonzero_max(0).is_err());
+        assert!(ensure_nonzero_max(1).is_ok());
+    }
+}

@@ -489,7 +489,10 @@ impl IfEmpty for &str {
 
 #[cfg(test)]
 mod tests {
-    use super::{AccelProfile, InputState, parse_input_state_from_str, render_input_runtime_state};
+    use super::{
+        AccelProfile, InputSetting, InputState, format_decimal, parse_input_state_from_str,
+        parse_scroll_factor, parse_sensitivity, render_input_runtime_state,
+    };
 
     #[test]
     fn parse_input_state_only_reads_top_level_input_keys() {
@@ -524,5 +527,32 @@ input {
         assert!(rendered.contains("sensitivity = 0.76"));
         assert!(rendered.contains("accel_profile = flat"));
         assert!(rendered.contains("scroll_factor = 1.0"));
+    }
+
+    #[test]
+    fn parse_input_value_helpers_validate_and_round() {
+        assert_eq!(parse_sensitivity("0.755").expect("valid sensitivity"), 0.76);
+        assert!(parse_sensitivity("1.5").is_err());
+        assert!(parse_sensitivity("nan").is_err());
+
+        assert_eq!(
+            parse_scroll_factor("1.234").expect("valid scroll factor"),
+            1.23
+        );
+        assert!(parse_scroll_factor("0").is_err());
+        assert!(parse_scroll_factor("inf").is_err());
+    }
+
+    #[test]
+    fn input_setting_parser_and_decimal_formatter_match_cli_output() {
+        assert_eq!(
+            InputSetting::parse(" scroll_factor ").expect("setting should parse"),
+            InputSetting::ScrollFactor
+        );
+        assert!(InputSetting::parse("unknown").is_err());
+
+        assert_eq!(format_decimal(1.0), "1.0");
+        assert_eq!(format_decimal(0.755), "0.76");
+        assert_eq!(format_decimal(-0.5), "-0.5");
     }
 }

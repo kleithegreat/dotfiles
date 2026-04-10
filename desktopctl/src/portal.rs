@@ -240,3 +240,77 @@ fn command_error(binary: &str, output: &Output) -> io::Error {
 
     io::Error::other(format!("{binary} failed: {detail}"))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{os::unix::process::ExitStatusExt, process::ExitStatus};
+
+    #[test]
+    fn extract_request_handle_reads_portal_path_from_busctl_output() {
+        let output = Output {
+            status: ExitStatus::from_raw(0),
+            stdout: br#"o "/org/freedesktop/portal/desktop/request/1_99/handle""#.to_vec(),
+            stderr: Vec::new(),
+        };
+
+        assert_eq!(
+            extract_request_handle(&output).expect("request handle should parse"),
+            "/org/freedesktop/portal/desktop/request/1_99/handle"
+        );
+    }
+
+    #[test]
+    fn extract_request_handle_rejects_missing_handles() {
+        let output = Output {
+            status: ExitStatus::from_raw(0),
+            stdout: b"no portal handle here".to_vec(),
+            stderr: Vec::new(),
+        };
+
+        assert!(extract_request_handle(&output).is_err());
+    }
+
+    #[test]
+    fn response_helpers_match_handles_and_completion_codes() {
+        let message = concat!(
+            "signal time=0 sender=:1.2 -> destination=(null destination) serial=3 ",
+            "path=/org/freedesktop/portal/desktop/request/1_99/handle; interface=",
+            "org.freedesktop.portal.Request; member=Response\n",
+            "   uint32 0\n",
+        );
+
+        assert!(response_matches_handle(
+            message,
+            "/org/freedesktop/portal/desktop/request/1_99/handle"
+        ));
+        assert!(response_finished(message));
+        assert!(!response_matches_handle(
+            message,
+            "/org/freedesktop/portal/desktop/request/other"
+        ));
+    }
+
+    #[test]
+    fn extract_selected_path_decodes_percent_escaped_uris() {
+        let message = concat!(
+            "dict entry(\n",
+            "   string \"uris\"\n",
+            "   array [\n",
+            "      string \"file:///home/kevin/My%20Folder/Wallpapers\"\n",
+            "   ]\n",
+            ")\n",
+        );
+
+        assert_eq!(
+            extract_selected_path(message).expect("path should parse"),
+            Some("/home/kevin/My Folder/Wallpapers".to_owned())
+        );
+    }
+
+    #[test]
+    fn percent_decode_rejects_invalid_escape_sequences() {
+        assert!(percent_decode("%ZZ").is_err());
+        assert!(percent_decode("%A").is_err());
+    }
+}

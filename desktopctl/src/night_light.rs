@@ -352,4 +352,76 @@ mod tests {
         );
         assert_eq!(parse_temperature_from_args("hyprsunset"), None);
     }
+
+    #[test]
+    fn request_envelope_serialization_matches_socket_protocol() {
+        let ping = serde_json::to_value(RequestEnvelope::<()> {
+            method: "ping".to_owned(),
+            params: None,
+        })
+        .expect("ping request should serialize");
+        assert_eq!(ping, serde_json::json!({ "method": "ping" }));
+
+        let set_mode = serde_json::to_value(RequestEnvelope {
+            method: METHOD_NIGHT_LIGHT_SET.to_owned(),
+            params: Some(NightLightSetParams {
+                mode: NightLightMode::On,
+                temperature: Some(4500),
+            }),
+        })
+        .expect("set request should serialize");
+        assert_eq!(
+            set_mode,
+            serde_json::json!({
+                "method": "night_light.set",
+                "params": {
+                    "mode": "on",
+                    "temperature": 4500,
+                },
+            })
+        );
+    }
+
+    #[test]
+    fn response_envelope_deserializes_success_and_error_payloads() {
+        let success: ResponseEnvelope<NightLightStatus> = serde_json::from_str(
+            r#"{"ok":true,"data":{"mode":"auto","running":true,"temperature":4500,"target_temperature":4500,"dark_hint":false,"scheduled_running":true,"scheduled_dark_hint":false}}"#,
+        )
+        .expect("success response should deserialize");
+        assert!(success.ok);
+        assert_eq!(success.data.expect("status data").temperature, Some(4500));
+        assert!(success.error.is_none());
+
+        let error: ResponseEnvelope<serde_json::Value> =
+            serde_json::from_str(r#"{"ok":false,"error":"socket unavailable"}"#)
+                .expect("error response should deserialize");
+        assert!(!error.ok);
+        assert_eq!(error.error.as_deref(), Some("socket unavailable"));
+        assert!(error.data.is_none());
+    }
+
+    #[test]
+    fn socket_unavailable_only_matches_expected_io_errors() {
+        assert!(socket_unavailable(&io::Error::new(
+            io::ErrorKind::NotFound,
+            "missing socket",
+        )));
+        assert!(socket_unavailable(&io::Error::new(
+            io::ErrorKind::ConnectionRefused,
+            "refused",
+        )));
+        assert!(socket_unavailable(&io::Error::new(
+            io::ErrorKind::ConnectionReset,
+            "reset",
+        )));
+        assert!(socket_unavailable(&io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "denied",
+        )));
+        assert!(!socket_unavailable(&io::Error::new(
+            io::ErrorKind::AddrInUse,
+            "in use",
+        )));
+        assert!(!socket_unavailable(&io::Error::other("other failure")));
+    }
 }
