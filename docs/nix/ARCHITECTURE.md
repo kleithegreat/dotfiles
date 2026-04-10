@@ -12,7 +12,7 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-10.
 | Outputs | `flake.nix:24-104` exports `nixosConfigurations.vm`, `nixosConfigurations.laptop`, `nixosConfigurations.desktop`, plus `overlays.default`, `packages.x86_64-linux.desktopctl`, and `packages.x86_64-linux.helium` |
 | Host constructor | `mkHost` in `flake.nix:34-61` wraps `nixpkgs.lib.nixosSystem` |
 | Feature flags | `flake.nix:26-32` keeps both `enableMarchOptimizations` and `enableDistributedBuilds` in the shared host constructor, with distributed builds currently disabled by default |
-| Shared system layer | `system/configuration.nix:1-443` |
+| Shared system layer | `system/configuration.nix:1-446` |
 | Home Manager entry | `home/default.nix:1-350`, embedded through `home-manager.nixosModules.home-manager` in `flake.nix:49-59` |
 | Platform | `flake.nix:41-42` passes `system = "x86_64-linux"` directly to `nixosSystem` |
 
@@ -40,12 +40,14 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-10.
 | `home/shell.nix` | Shell submodule | Zsh, shell tools, Git, aliases, and shell helpers |
 | `home/gtk.nix` | GTK submodule | GTK packages and small dconf defaults |
 | `pkgs/helium/default.nix` | Prebuilt browser package | Fetches the upstream Helium release tarball, auto-patches the bundled ELFs, wraps the upstream launcher, and installs desktop assets using the pin from `pkgs/helium/source.nix:1-6` |
-| `overlays/local-packages.nix` | Local package overlay | Exposes the repo's `desktopctl` and `helium` derivations and carries small repo-local nixpkgs overrides such as the LM Studio AppImage fixups |
+| `overlays/local-packages.nix` | Local package overlay | Exposes the repo's `desktopctl` and `helium` derivations, carries the repo-local `sf-pro` font package, and applies small nixpkgs overrides such as the LM Studio AppImage fixups |
 
 ## Overlay Usage
 
-- `overlays/local-packages.nix:1-10` exposes `pkgs.desktopctl` from the local
-  `desktopctl/` derivation, `pkgs.helium` from `pkgs/helium/`, and a local
+- `overlays/local-packages.nix:1-73` exposes `pkgs.desktopctl` from the local
+  `desktopctl/` derivation, `pkgs.helium` from `pkgs/helium/`, defines a
+  repo-local `pkgs.sf-pro` derivation that fetches the current Apple
+  `SF-Pro.dmg` and unpacks `Payload~` via `cpio` when present, and carries the
   `pkgs.lmstudio` override that rewrites nixpkgs' stale AppImage icon path to
   the current upstream AppImage's real
   `resources/app/.webpack/Icon-512x512.png` asset and skips the bundled `lms`
@@ -54,8 +56,9 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-10.
   exposes `packages.x86_64-linux.desktopctl` and
   `packages.x86_64-linux.helium`.
 - `system/configuration.nix:5-9` imports both the `desktopctl` overlay and the
-  optional march-optimization overlay; `system/configuration.nix:198-202`
-  applies them globally.
+  optional march-optimization overlay; `system/configuration.nix:199-203`
+  applies them globally, and `system/configuration.nix:232-256` installs the
+  local `pkgs.sf-pro` derivation through the shared `fonts.packages` list.
 - `overlays/march-optimized.nix:167-169` optionally rebuilds `desktopctl` and
   other selected derivations with march tuning.
 - `system/configuration.nix:10-90` also defines a Hyprland-only helper that
@@ -76,7 +79,7 @@ though the repo currently ships with it disabled.
 | Surface | Current implementation |
 | --- | --- |
 | Flag state | `flake.nix:29-31` sets `enableDistributedBuilds = false`, so the distributed-build module evaluates but its host-specific `mkIf` payload stays inactive |
-| Shared module import | `system/configuration.nix:163-165` always imports `./distributed-builds.nix` |
+| Shared module import | `system/configuration.nix:164-166` always imports `./distributed-builds.nix` |
 | Host gating | `system/distributed-builds.nix:77-99` only activates the subsystem when the flag is true and `hostName` is `desktop` or `laptop` |
 | Cache URL | `system/distributed-builds.nix:25-27` falls back to `http://<homelab>:5000`, but `system/distributed-builds-data.nix:30-31` currently overrides that to `http://192.168.8.153:5050` |
 | Reference docs | `docs/nix/distributed-builds.md` documents the repo-side contract, and `docs/nix/homelab-builder-setup.md` documents the Ubuntu homelab setup that matches the current `5050` override |
@@ -104,7 +107,7 @@ This is the current base/generated split:
 Privileged desktop helper wiring currently bypasses Home Manager for one shared
 GUI package:
 
-- `system/configuration.nix:372-374` enables `programs.partition-manager`,
+- `system/configuration.nix:375-377` enables `programs.partition-manager`,
   which installs `kdePackages.partitionmanager` and `kdePackages.kpmcore`
   through the NixOS module so `kpmcore` lands in both
   `services.dbus.packages` and `environment.systemPackages`.

@@ -151,6 +151,7 @@ let
     "obsidian"
     "slack"
     "spotify"
+    "sf-pro"
     "steam"
     "steam-unwrapped"
     "symbola"
@@ -244,7 +245,7 @@ in
     noto-fonts
     cantarell-fonts
     source-sans
-    inputs.apple-fonts.packages.${system}.sf-pro
+    sf-pro
     # Quickshell menu fonts without a nixpkgs package in this revision:
     # Berkeley Mono, Outfit (would need custom derivations)
     noto-fonts-cjk-sans
