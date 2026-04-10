@@ -7,7 +7,7 @@ Current implementation map for the focus-time subsystem as of 2026-04-08.
 ## Runtime Topology
 
 1. Home Manager installs `desktopctl` into the user environment through
-   `home/default.nix:33-45`.
+   `home/default.nix:39-52`.
 2. Hyprland starts `desktopctl daemon` once per session through
    `config/hypr/autostart.conf:6-8`.
 3. `desktopctl/src/daemon/mod.rs:19-100` starts the focus tracker alongside the
@@ -23,7 +23,7 @@ Current implementation map for the focus-time subsystem as of 2026-04-08.
 
 | Path | Current role | Evidence |
 | --- | --- | --- |
-| `home/default.nix` | Installs `desktopctl` and the Hyprland config fragments that source `autostart.conf` | `home/default.nix:37-49`, `home/default.nix:196-211` |
+| `home/default.nix` | Installs `desktopctl` and the Hyprland config fragments that source `autostart.conf` | `home/default.nix:39-52`, `home/default.nix:204-209` |
 | `config/hypr/autostart.conf` | Starts `desktopctl daemon` during session startup | `config/hypr/autostart.conf:6-8` |
 | `desktopctl/src/daemon/mod.rs` | Builds the tokio runtime and starts focus, solar, and socket subsystems together | `desktopctl/src/daemon/mod.rs:19-100` |
 | `desktopctl/src/daemon/focus.rs` | Implements the full focus producer: shared-DB initialization, legacy focus-data migration, per-second accumulation, daily minute-table retention, reconnect seeding, socket re-resolution, desktop-file cache, summary building, and atomic JSON replacement | `desktopctl/src/daemon/focus.rs:20-577`, `desktopctl/src/daemon/focus.rs:618-800` |

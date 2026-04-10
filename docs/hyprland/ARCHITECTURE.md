@@ -32,7 +32,7 @@ its `hostName` through `specialArgs` to Home Manager (`flake.nix:42-44`,
 `flake.nix:55-57`).
 `home/default.nix` uses `if hostName == "laptop" ... else if hostName ==
 "desktop" ... else` conditionals to select host-specific fragments
-(`home/default.nix:202-235`). The `else` branch provides safe minimal defaults,
+(`home/default.nix:205-238`). The `else` branch provides safe minimal defaults,
 which is what the `vm` host and any future host without explicit handling
 receives.
 
@@ -46,11 +46,12 @@ receives.
 The remaining source-graph files — `hyprland.conf`, `appearance.conf`,
 `input.conf`, `keybinds.conf`, `rules.conf`, `plugins.conf`, `autostart.conf`,
 `hypridle.conf`, and `hyprlock.conf` — are deployed identically on all hosts
-from `config/hypr/` (`home/default.nix:199-219`).
+from `config/hypr/` (`home/default.nix:202-204`, `home/default.nix:210`,
+`home/default.nix:218-222`).
 
 Home Manager now also bootstraps an empty `~/.config/hypr/input-runtime.conf`
 on every host before running `desktopctl theme sync`
-(`home/default.nix:332-336`). `desktopctl hypr input set ...` rewrites that
+(`home/default.nix:333-337`). `desktopctl hypr input set ...` rewrites that
 file later when the Mouse settings page updates shared pointer defaults.
 
 Current host input fragments differ materially:
