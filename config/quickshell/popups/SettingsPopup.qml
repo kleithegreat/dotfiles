@@ -169,6 +169,7 @@ FocusScope {
         BrightnessService.refresh();
         DisplayService.refresh();
         PowerProfileService.detect();
+        HyprlandConfigService.refresh();
     }
 
     function loadThemeState() {
