@@ -1,6 +1,6 @@
 # Quickshell Review
 
-Reviewed on 2026-04-09.
+Reviewed on 2026-04-10.
 
 ## Verdict
 
@@ -11,7 +11,8 @@ plumbing, first-paint cleanup, and the settings affordances/layout fixes. The
 custom shell controls remain intentionally pointer-first rather than trying to
 overlay a repo-specific keyboard-navigation model on bar modules and popup
 tiles. The remaining issue is the older IPC completion gap below, plus runtime
-validation that still needs a live shell smoke test.
+validation that still needs a live shell smoke test on the revised popup
+animation path.
 
 ## Findings
 
@@ -21,11 +22,21 @@ validation that still needs a live shell smoke test.
 
 ## Checkpoint Notes
 
+- Calendar, Quick Settings, and the notification drawer now reserve popup
+  height up front and suppress host-height animation during visible open/close,
+  while Quick Settings no longer also animates `implicitHeight` inside the
+  panel. Settings now keeps its large subtree layered only for the animation
+  window, enables layer smoothing, and defers the broad service refresh batch
+  until after the entrance interval. The intended result is less geometry churn
+  and fewer expensive first-frame side effects on high-refresh displays.
+- The popup path above is still awaiting a real 144 Hz smoke test. `qmllint`
+  was present in the environment, but without the Quickshell/Qt import setup it
+  only produced generic missing-import warnings, so it did not provide a useful
+  semantic validation pass for these files.
 - The current checkpoint includes the shared bounce model, optimistic write
   staging, first-paint fixes for focus-time/app-usage charts, preset-editor
   wallpaper validation, responsive settings sizing, Quick Settings overflow
   scrolling, and a documented pointer-first policy for custom shell controls
   instead of custom focus rings or tab navigation.
-- Runtime validation is still pending. `qmllint` was not available in the
-  environment during this checkpoint, so the code changes should still be
+- Runtime validation is still pending, so the code changes should still be
   followed by an actual Quickshell smoke test.

@@ -190,6 +190,31 @@ Calendar:
 - `config/quickshell/NotifDrawer.qml`
 - `config/quickshell/popups/CalendarPopup.qml`
 
+The popup implementations are no longer uniform, however:
+
+- `config/quickshell/popups/CalendarPopup.qml` and
+  `config/quickshell/NotifDrawer.qml` now keep a placeholder-backed
+  `panelHeightHint`, suppress `Behavior on height` during open/close, and only
+  animate the loaded panel's `opacity` / `scale` while visible. Their host
+  height animation remains available only for later in-session content resizes.
+- `config/quickshell/popups/QuickSettingsPopup.qml` does the same outer
+  placeholder-height reservation and open/close suppression, and no longer
+  animates the panel's own `implicitHeight` on top of the host height.
+- `config/quickshell/popups/SettingsPopup.qml` keeps a fixed host size
+  (`panelWidth` / `panelHeight`) and only animates the loaded panel's
+  `opacity` and `scale`, but the root panel now enables its offscreen layer
+  only while the open/close animation is running, with `layer.smooth: true`,
+  and defers `refreshSystemServices()` through a timer instead of kicking the
+  full refresh batch off in the first entrance frame.
+- `config/quickshell/popups/TrayPopup.qml` and
+  `config/quickshell/popups/MprisPopup.qml` skip the async host-height path and
+  instead animate fixed-geometry panel rectangles directly with `opacity` /
+  `scale`; `TrayPopup.qml` also animates a small `y` offset.
+- `config/quickshell/PowerMenu.qml` avoids a popup-container open/close
+  transform entirely. The overlay host only fades the scrim, while the menu
+  buttons run staggered `opacity` / `scale` entrance animations inside a stable
+  layout.
+
 `NotifDrawer.qml` also records the largest already-rendered history `entryId`
 and only runs the staggered entrance animation for newly inserted history items,
 avoiding the old “history settles again on every open” behavior:
