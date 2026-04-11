@@ -8,11 +8,25 @@ Components.WheelFlickable {
     anchors.fill: parent
     contentHeight: displayCol.implicitHeight
     clip: true
+    interactive: !monitorLayout.hoveringMonitor
 
     property int selectedMonitorIdx: 0
     property string selectedResolution: ""
     property real selectedRate: -1
     readonly property int sliderValueWidth: Math.max(Theme.fontSize * 4, 40)
+
+    // ── Transform labels (Hyprland transform 0-7) ──
+    readonly property var transformLabels: [
+        "Normal", "90°", "180°", "270°",
+        "Flipped", "Flipped 90°", "Flipped 180°", "Flipped 270°"
+    ]
+    readonly property var vrrLabels: ["Off", "On", "Fullscreen only"]
+    readonly property var vrrValues: [0, 1, 2]
+
+    // ── Confirmation state ──
+    property bool confirmVisible: false
+    property int confirmSecondsLeft: 15
+    property var _preChangeSnapshot: null  // { monitors: [...] } before risky change
 
     readonly property var enabledMonitors: {
         let m = DisplayService.monitors;
@@ -60,11 +74,32 @@ Components.WheelFlickable {
     readonly property var resolutions: root.parsedModes.resolutions
     readonly property var currentRates: root.parsedModes.ratesByRes[root.selectedResolution] || []
 
+    // ── Mirror choices for current monitor ──
+    readonly property var mirrorChoices: {
+        let mon = root.currentMonitor;
+        if (!mon) return [];
+        let choices = [{ value: "none", label: "Off" }];
+        let all = DisplayService.monitors;
+        if (!all) return choices;
+        for (let i = 0; i < all.length; i++) {
+            if (all[i].name !== mon.name && !all[i].disabled)
+                choices.push({ value: all[i].name, label: all[i].name + " — " + (all[i].model || all[i].name) });
+        }
+        return choices;
+    }
+
     Connections {
         target: DisplayService
         function onMonitorsChanged() {
             if (!DisplayService.monitorApplyBusy && root.currentMonitor)
                 root.syncSelectionFromMonitor();
+        }
+    }
+
+    Connections {
+        target: HyprlandConfigService
+        function onMonitorUndoRequested(monitorName, state) {
+            root._applyMonitorState(monitorName, state);
         }
     }
 
@@ -114,7 +149,102 @@ Components.WheelFlickable {
         let mon = root.currentMonitor;
         if (!mon || root.selectedRate < 0) return;
         let parts = root.selectedResolution.split("x");
-        DisplayService.applyMonitorMode(mon.name, parseInt(parts[0]), parseInt(parts[1]), root.selectedRate, mon.scale);
+        DisplayService.applyMonitorConfig(
+            mon.name, parseInt(parts[0]), parseInt(parts[1]),
+            root.selectedRate, mon.x, mon.y, mon.scale, mon.transform, {}
+        );
+    }
+
+    // ── Full config apply (position, transform, extras) ──
+    function _snapshotMonitors() {
+        let snap = [];
+        let all = DisplayService.monitors;
+        if (!all) return snap;
+        for (let i = 0; i < all.length; i++)
+            snap.push({ name: all[i].name, x: all[i].x, y: all[i].y,
+                         width: all[i].width, height: all[i].height,
+                         refreshRate: all[i].refreshRate, scale: all[i].scale,
+                         transform: all[i].transform, vrr: all[i].vrr,
+                         mirrorOf: all[i].mirrorOf });
+        return snap;
+    }
+
+    function _monitorStateFor(mon) {
+        return { x: mon.x, y: mon.y, width: mon.width, height: mon.height,
+                 refreshRate: mon.refreshRate, scale: mon.scale,
+                 transform: mon.transform, vrr: mon.vrr, mirrorOf: mon.mirrorOf };
+    }
+
+    function _applyMonitorState(monitorName, state) {
+        let extras = {};
+        if (state.vrr !== undefined && state.vrr !== false && state.vrr !== 0)
+            extras.vrr = typeof state.vrr === "boolean" ? (state.vrr ? 1 : 0) : state.vrr;
+        if (state.mirrorOf && state.mirrorOf !== "none")
+            extras.mirror = state.mirrorOf;
+        DisplayService.applyMonitorConfig(
+            monitorName, state.width, state.height, state.refreshRate,
+            state.x, state.y, state.scale, state.transform, extras
+        );
+    }
+
+    function applyMonitorField(field, value) {
+        let mon = root.currentMonitor;
+        if (!mon) return;
+        let oldState = root._monitorStateFor(mon);
+        let newState = JSON.parse(JSON.stringify(oldState));
+        newState[field] = value;
+
+        let needsConfirm = (field === "x" || field === "y" || field === "transform");
+        if (needsConfirm) {
+            root._captureSnapshot();
+            root._showConfirmBanner();
+        }
+
+        HyprlandConfigService.pushMonitorUndo(mon.name, oldState, newState);
+        root._applyMonitorState(mon.name, newState);
+    }
+
+    // ── Confirmation countdown ──
+    // Capture the "safe" state before any risky change (only once per sequence)
+    function _captureSnapshot() {
+        if (!root._preChangeSnapshot)
+            root._preChangeSnapshot = root._snapshotMonitors();
+    }
+
+    // Show or reset the countdown banner
+    function _showConfirmBanner() {
+        root.confirmSecondsLeft = 15;
+        root.confirmVisible = true;
+        confirmTimer.restart();
+    }
+
+    function _confirmChanges() {
+        confirmTimer.stop();
+        root.confirmVisible = false;
+        root._preChangeSnapshot = null;
+    }
+
+    function _revertChanges() {
+        confirmTimer.stop();
+        root.confirmVisible = false;
+        if (!root._preChangeSnapshot) return;
+        let snap = root._preChangeSnapshot;
+        root._preChangeSnapshot = null;
+        // Apply each monitor's saved state
+        for (let i = 0; i < snap.length; i++) {
+            root._applyMonitorState(snap[i].name, snap[i]);
+        }
+    }
+
+    Timer {
+        id: confirmTimer
+        interval: 1000
+        repeat: true
+        onTriggered: {
+            root.confirmSecondsLeft--;
+            if (root.confirmSecondsLeft <= 0)
+                root._revertChanges();
+        }
     }
 
     function formatRate(rate, allRates) {
@@ -145,9 +275,81 @@ Components.WheelFlickable {
         RowLayout { Layout.fillWidth: true; spacing: 8
             Components.Icon { source: "../icons/monitor.svg"; color: Theme.fg }
             Text { text: "Display"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true; Layout.fillWidth: true }
+
+            // Undo / Redo (monitor entries)
+            Rectangle {
+                visible: HyprlandConfigService.canUndo
+                width: 28; height: Theme.btnHeight; radius: Theme.btnRadius
+                color: undoArea.containsMouse ? Theme.bg2 : Theme.bg1
+                border.width: 1; border.color: Theme.bg3
+                Behavior on color { Components.CAnim { duration: Theme.animHover } }
+                Text { anchors.centerIn: parent; text: "\u21b6"; color: Theme.fg; font.pixelSize: Theme.fontSize }
+                Components.HoverLayer { id: undoArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0; onClicked: HyprlandConfigService.undo() }
+            }
+            Rectangle {
+                visible: HyprlandConfigService.canRedo
+                width: 28; height: Theme.btnHeight; radius: Theme.btnRadius
+                color: redoArea.containsMouse ? Theme.bg2 : Theme.bg1
+                border.width: 1; border.color: Theme.bg3
+                Behavior on color { Components.CAnim { duration: Theme.animHover } }
+                Text { anchors.centerIn: parent; text: "\u21b7"; color: Theme.fg; font.pixelSize: Theme.fontSize }
+                Components.HoverLayer { id: redoArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0; onClicked: HyprlandConfigService.redo() }
+            }
         }
 
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+
+        // ── Confirmation Banner ──────────────────────────────
+
+        Rectangle {
+            visible: root.confirmVisible
+            Layout.fillWidth: true
+            height: visible ? confirmRow.implicitHeight + 16 : 0
+            radius: Theme.btnRadius + 2
+            color: root.confirmSecondsLeft <= 5 ? Qt.rgba(Theme.red.r, Theme.red.g, Theme.red.b, 0.15)
+                 : root.confirmSecondsLeft <= 10 ? Qt.rgba(Theme.yellow.r, Theme.yellow.g, Theme.yellow.b, 0.12)
+                 : Qt.rgba(Theme.fg.r, Theme.fg.g, Theme.fg.b, 0.06)
+            border.width: 1
+            border.color: root.confirmSecondsLeft <= 5 ? Qt.rgba(Theme.red.r, Theme.red.g, Theme.red.b, 0.4)
+                        : root.confirmSecondsLeft <= 10 ? Qt.rgba(Theme.yellow.r, Theme.yellow.g, Theme.yellow.b, 0.3)
+                        : Theme.bg3
+            Behavior on color { Components.CAnim { duration: Theme.animHover } }
+            Behavior on border.color { Components.CAnim { duration: Theme.animHover } }
+
+            RowLayout {
+                id: confirmRow
+                anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; margins: 8 }
+                spacing: 8
+
+                Text {
+                    text: "Reverting in " + root.confirmSecondsLeft + "s..."
+                    color: root.confirmSecondsLeft <= 5 ? Theme.redBright : Theme.fg
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                    Layout.fillWidth: true
+                }
+
+                Rectangle {
+                    width: keepLabel.implicitWidth + Theme.btnPaddingH * 2
+                    height: Theme.btnHeight; radius: Theme.btnRadius
+                    color: keepArea.containsMouse ? Theme.greenBright : Theme.green
+                    Behavior on color { Components.CAnim { duration: Theme.animHover } }
+
+                    Text { id: keepLabel; anchors.centerIn: parent; text: "Confirm"; color: Theme.bg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+                    Components.HoverLayer { id: keepArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0; onClicked: root._confirmChanges() }
+                }
+
+                Rectangle {
+                    width: revertLabel.implicitWidth + Theme.btnPaddingH * 2
+                    height: Theme.btnHeight; radius: Theme.btnRadius
+                    color: revertArea.containsMouse ? Theme.bg2 : Theme.bg1
+                    border.width: 1; border.color: Theme.bg3
+                    Behavior on color { Components.CAnim { duration: Theme.animHover } }
+
+                    Text { id: revertLabel; anchors.centerIn: parent; text: "Revert"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall }
+                    Components.HoverLayer { id: revertArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0; onClicked: root._revertChanges() }
+                }
+            }
+        }
 
         // ── Monitors ─────────────────────────────────────────
 
@@ -210,6 +412,96 @@ Components.WheelFlickable {
             }
         }
 
+        // ── Monitor Layout Canvas ────────────────────────────
+
+        Rectangle {
+            visible: root.enabledMonitors.length > 0
+            Layout.fillWidth: true
+            height: 180
+            radius: Theme.btnRadius + 2
+            color: Theme.bg
+            border.width: 1
+            border.color: Theme.bg3
+
+            Components.MonitorLayout {
+                id: monitorLayout
+                anchors.fill: parent
+                monitors: DisplayService.monitors || []
+                draggable: root.enabledMonitors.length > 1
+                selectedIndex: {
+                    // Map enabledMonitors index → full monitors array index
+                    let mon = root.currentMonitor;
+                    if (!mon) return -1;
+                    let all = DisplayService.monitors;
+                    if (!all) return -1;
+                    for (let i = 0; i < all.length; i++) {
+                        if (all[i].name === mon.name) return i;
+                    }
+                    return -1;
+                }
+
+                property var _dragUndoState: null
+
+                onMonitorClicked: (index) => {
+                    // Map to enabled-monitors index
+                    let mon = monitors[index];
+                    if (!mon) return;
+                    for (let i = 0; i < root.enabledMonitors.length; i++) {
+                        if (root.enabledMonitors[i].name === mon.name) {
+                            root.selectedMonitorIdx = i;
+                            break;
+                        }
+                    }
+                }
+
+                onDragStarted: {
+                    _dragUndoState = root._snapshotMonitors();
+                    root._captureSnapshot();
+                }
+
+                onPositionChanged: (index, newX, newY) => {
+                    // Live-apply position during drag
+                    let mon = monitors[index];
+                    if (!mon) return;
+                    DisplayService.applyMonitorConfig(
+                        mon.name, mon.width, mon.height, mon.refreshRate,
+                        newX, newY, mon.scale, mon.transform, {}
+                    );
+                }
+
+                onDragEnded: {
+                    if (_dragUndoState) {
+                        // Find which monitor moved and push undo
+                        let all = DisplayService.monitors;
+                        if (all) {
+                            for (let i = 0; i < _dragUndoState.length; i++) {
+                                let old = _dragUndoState[i];
+                                for (let j = 0; j < all.length; j++) {
+                                    if (all[j].name === old.name && (all[j].x !== old.x || all[j].y !== old.y)) {
+                                        HyprlandConfigService.pushMonitorUndo(old.name, old, root._monitorStateFor(all[j]));
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        _dragUndoState = null;
+                    }
+                    // Show confirm banner after drag completes
+                    root._showConfirmBanner();
+                }
+            }
+        }
+
+        Text {
+            visible: root.enabledMonitors.length > 1
+            text: "Drag monitors to reposition"
+            color: Theme.fg4
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSizeSmall
+        }
+
+        // ── Monitor Info ─────────────────────────────────────
+
         RowLayout {
             visible: root.currentMonitor !== null
             Layout.fillWidth: true
@@ -245,6 +537,8 @@ Components.WheelFlickable {
             }
         }
 
+        // ── Resolution ───────────────────────────────────────
+
         Text {
             visible: root.resolutions.length > 0
             text: "RESOLUTION"
@@ -265,11 +559,17 @@ Components.WheelFlickable {
             textForValue: function(resolution) { return root.formatResolution(resolution); }
             maxVisibleItems: 7
             onExpandedChanged: {
-                if (expanded)
+                if (expanded) {
                     rateSelect.expanded = false;
+                    transformSelect.expanded = false;
+                    vrrSelect.expanded = false;
+                    mirrorSelect.expanded = false;
+                }
             }
             onActivated: (resolution) => { root.selectResolution(resolution); }
         }
+
+        // ── Refresh Rate ─────────────────────────────────────
 
         Text {
             visible: root.currentRates.length > 0
@@ -291,8 +591,12 @@ Components.WheelFlickable {
             textForValue: function(rate) { return root.formatRate(rate, root.currentRates); }
             maxVisibleItems: 6
             onExpandedChanged: {
-                if (expanded)
+                if (expanded) {
                     resolutionSelect.expanded = false;
+                    transformSelect.expanded = false;
+                    vrrSelect.expanded = false;
+                    mirrorSelect.expanded = false;
+                }
             }
             onActivated: (rate) => { root.selectRate(rate); }
         }
@@ -311,6 +615,142 @@ Components.WheelFlickable {
 
         Rectangle {
             visible: root.enabledMonitors.length > 0
+            Layout.fillWidth: true
+            height: 1
+            color: Theme.bg3
+        }
+
+        // ── Transform ────────────────────────────────────────
+
+        Text {
+            visible: root.currentMonitor !== null
+            text: "TRANSFORM"
+            color: Theme.fg4
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSizeSmall
+            font.bold: true
+        }
+
+        Components.InlineDropdown {
+            visible: root.currentMonitor !== null
+            Layout.fillWidth: true
+            id: transformSelect
+            disabled: DisplayService.monitorApplyBusy
+            pending: DisplayService.monitorApplyBusy
+            model: root.transformLabels
+            currentValue: root.currentMonitor ? root.transformLabels[root.currentMonitor.transform || 0] : root.transformLabels[0]
+            maxVisibleItems: 8
+            onExpandedChanged: {
+                if (expanded) {
+                    resolutionSelect.expanded = false;
+                    rateSelect.expanded = false;
+                    vrrSelect.expanded = false;
+                    mirrorSelect.expanded = false;
+                }
+            }
+            onActivated: (label) => {
+                let idx = root.transformLabels.indexOf(label);
+                if (idx >= 0)
+                    root.applyMonitorField("transform", idx);
+            }
+        }
+
+        // ── VRR ──────────────────────────────────────────────
+
+        Text {
+            visible: root.currentMonitor !== null
+            text: "VARIABLE REFRESH RATE"
+            color: Theme.fg4
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSizeSmall
+            font.bold: true
+        }
+
+        Components.InlineDropdown {
+            visible: root.currentMonitor !== null
+            Layout.fillWidth: true
+            id: vrrSelect
+            disabled: DisplayService.monitorApplyBusy
+            pending: DisplayService.monitorApplyBusy
+            model: root.vrrLabels
+            currentValue: {
+                if (!root.currentMonitor) return root.vrrLabels[0];
+                let v = root.currentMonitor.vrr;
+                // vrr in JSON is boolean false or int
+                if (v === false || v === 0) return root.vrrLabels[0];
+                if (v === true || v === 1) return root.vrrLabels[1];
+                if (v === 2) return root.vrrLabels[2];
+                return root.vrrLabels[0];
+            }
+            maxVisibleItems: 3
+            onExpandedChanged: {
+                if (expanded) {
+                    resolutionSelect.expanded = false;
+                    rateSelect.expanded = false;
+                    transformSelect.expanded = false;
+                    mirrorSelect.expanded = false;
+                }
+            }
+            onActivated: (label) => {
+                let idx = root.vrrLabels.indexOf(label);
+                if (idx >= 0)
+                    root.applyMonitorField("vrr", root.vrrValues[idx]);
+            }
+        }
+
+        // ── Mirror ───────────────────────────────────────────
+
+        Text {
+            visible: root.enabledMonitors.length > 1
+            text: "MIRROR"
+            color: Theme.fg4
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSizeSmall
+            font.bold: true
+        }
+
+        Components.InlineDropdown {
+            visible: root.enabledMonitors.length > 1
+            Layout.fillWidth: true
+            id: mirrorSelect
+            disabled: DisplayService.monitorApplyBusy
+            pending: DisplayService.monitorApplyBusy
+            model: {
+                let labels = [];
+                for (let i = 0; i < root.mirrorChoices.length; i++)
+                    labels.push(root.mirrorChoices[i].label);
+                return labels;
+            }
+            currentValue: {
+                let mon = root.currentMonitor;
+                if (!mon || !mon.mirrorOf || mon.mirrorOf === "none") return "Off";
+                for (let i = 0; i < root.mirrorChoices.length; i++) {
+                    if (root.mirrorChoices[i].value === mon.mirrorOf)
+                        return root.mirrorChoices[i].label;
+                }
+                return "Off";
+            }
+            maxVisibleItems: 5
+            onExpandedChanged: {
+                if (expanded) {
+                    resolutionSelect.expanded = false;
+                    rateSelect.expanded = false;
+                    transformSelect.expanded = false;
+                    vrrSelect.expanded = false;
+                }
+            }
+            onActivated: (label) => {
+                for (let i = 0; i < root.mirrorChoices.length; i++) {
+                    if (root.mirrorChoices[i].label === label) {
+                        root.applyMonitorField("mirrorOf", root.mirrorChoices[i].value);
+                        return;
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            visible: root.currentMonitor !== null
             Layout.fillWidth: true
             height: 1
             color: Theme.bg3

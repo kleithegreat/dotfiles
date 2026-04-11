@@ -273,6 +273,8 @@ QtObject {
         _redoStack = redo;
         if (entry.type === "animation")
             _applyAnimationState(entry.name, entry.oldState);
+        else if (entry.type === "monitor")
+            monitorUndoRequested(entry.name, entry.oldState);
     }
 
     function redo() {
@@ -285,6 +287,16 @@ QtObject {
         _undoStack = undo;
         if (entry.type === "animation")
             _applyAnimationState(entry.name, entry.newState);
+        else if (entry.type === "monitor")
+            monitorUndoRequested(entry.name, entry.newState);
+    }
+
+    // Signal emitted when a monitor undo/redo needs to be applied.
+    // The display pane listens to this and calls DisplayService.applyMonitorConfig.
+    signal monitorUndoRequested(string monitorName, var state)
+
+    function pushMonitorUndo(monitorName, oldState, newState) {
+        _pushUndo({ type: "monitor", name: monitorName, oldState: _cloneObj(oldState), newState: _cloneObj(newState) });
     }
 
     // ── Internal helpers ──
@@ -297,9 +309,10 @@ QtObject {
         let stack = _undoStack.slice();
         if (stack.length > 0) {
             let top = stack[stack.length - 1];
-            if (top.type === "animation" && entry.type === "animation" && top.name === entry.name) {
+            if (top.type === entry.type && top.name === entry.name
+                    && (entry.type === "animation" || entry.type === "monitor")) {
                 stack[stack.length - 1] = {
-                    type: "animation", name: entry.name,
+                    type: entry.type, name: entry.name,
                     oldState: top.oldState, newState: entry.newState
                 };
                 _undoStack = stack;
