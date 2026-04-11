@@ -42,7 +42,10 @@ FocusScope {
         for (let i = 0; i < players.length; i++) {
             if (players[i].isPlaying) return players[i];
         }
-        return players.length > 0 ? players[0] : null;
+        for (let i = 0; i < players.length; i++) {
+            if (players[i].trackTitle) return players[i];
+        }
+        return null;
     }
     property real pos: player?.position ?? 0
     property real len: player?.length ?? 0
@@ -202,7 +205,7 @@ FocusScope {
                     ColumnLayout {
                         id: trackInfoCol; width: parent.width; spacing: 4
                         Text {
-                            text: mprisPop.player?.trackTitle ?? "Unknown"; color: Theme.fg
+                            text: mprisPop.player?.trackTitle ?? ""; color: Theme.fg
                             font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize; font.bold: true
                             elide: Text.ElideRight; Layout.fillWidth: true
                         }
