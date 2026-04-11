@@ -55,10 +55,9 @@ const MONO_FONT_TARGETS: [&str; 9] = [
 ];
 const ICON_THEME_TARGETS: [&str; 3] = ["gtk", "qt", "snappy_switcher"];
 const CURSOR_TARGETS: [&str; 1] = ["cursor"];
-const FONT_SIZE_TARGETS: [&str; 5] = ["chromium", "gtk", "qt", "quickshell", "snappy_switcher"];
-const MONO_FONT_SIZE_TARGETS: [&str; 7] = [
+const FONT_SIZE_TARGETS: [&str; 4] = ["gtk", "qt", "quickshell", "snappy_switcher"];
+const MONO_FONT_SIZE_TARGETS: [&str; 6] = [
     "alacritty",
-    "chromium",
     "ghostty",
     "gtk",
     "neovide",
@@ -214,7 +213,7 @@ fn dependency_targets(state_key: &str) -> &'static [&'static str] {
         "quickshell_font_size_offset" => &["quickshell"],
         "gtk_font_size_offset" => &["gtk"],
         "qt_font_size_offset" => &["qt"],
-        "chromium_font_size_offset" => &["chromium"],
+        "chromium_font_size_offset" => &[],
         "mono_font_size" => &MONO_FONT_SIZE_TARGETS,
         "alacritty_mono_font_size_offset" => &["alacritty"],
         "ghostty_mono_font_size_offset" => &["ghostty"],
@@ -687,11 +686,23 @@ mod tests {
     }
 
     #[test]
-    fn chromium_font_size_offset_targets_only_chromium() {
+    fn chromium_font_size_offset_has_no_targets() {
         let targets = targets_for_key("chromium_font_size_offset", None)
             .into_iter()
             .collect::<Vec<_>>();
-        assert_eq!(targets, vec!["chromium".to_owned()]);
+        assert!(targets.is_empty());
+    }
+
+    #[test]
+    fn font_size_does_not_target_chromium() {
+        let targets = targets_for_key("font_size", None);
+        assert!(!targets.contains("chromium"));
+    }
+
+    #[test]
+    fn mono_font_size_does_not_target_chromium() {
+        let targets = targets_for_key("mono_font_size", None);
+        assert!(!targets.contains("chromium"));
     }
 
     #[test]

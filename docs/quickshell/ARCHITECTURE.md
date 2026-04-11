@@ -125,10 +125,9 @@ behaviors:
   the shared-mouse snapshot, status loader, and write queue in
   `config/quickshell/popups/SettingsPopup.qml`.
 - Passing dedicated target lists into the Fonts and Presets panes so the shell
-  now exposes a Quickshell-only UI-size offset, labels the Chromium-specific
-  system-font offset as `Chromium pages` to reflect its web-content-only scope,
-  and keeps the full mono-offset set, including Neovide, while showing only
-  the signed delta beside each stepper:
+  now exposes only the active system-font size offsets (`Quickshell`, `GTK`,
+  `Qt`) and keeps the full mono-offset set, including Neovide, while showing
+  only the signed delta beside each stepper:
   `config/quickshell/popups/SettingsPopup.qml`,
   `config/quickshell/popups/settings/SettingsFontsPane.qml`,
   `config/quickshell/popups/settings/SettingsPresetsPane.qml`, and

@@ -47,7 +47,8 @@ fn write_active_preferences(config_dir: &Path, state: &ThemeState) -> crate::Res
 
 fn write_preferences(path: &Path, state: &ThemeState) -> crate::Result<()> {
     let mut root = load_preferences(path)?;
-    merge_value(&mut root, font_preferences(state)?);
+    merge_value(&mut root, font_preferences(state));
+    clear_managed_font_sizes(&mut root);
 
     let Value::Object(_) = root else {
         return Err(io::Error::new(
@@ -146,13 +147,7 @@ fn is_safe_profile_name(name: &str) -> bool {
     matches!(components.next(), Some(Component::Normal(_))) && components.next().is_none()
 }
 
-fn font_preferences(state: &ThemeState) -> crate::Result<Value> {
-    // Chromium persists these prefs using the same integer sizes it exposes in
-    // its UI, so writing the raw theme sizes avoids an extra point-to-pixel
-    // conversion that live Chromium sessions immediately normalize away.
-    let font_size = state.font_size_for(METADATA.name)?;
-    let fixed_font_size = state.mono_font_size;
-
+fn font_preferences(state: &ThemeState) -> Value {
     let mut standard = Map::new();
     standard.insert(
         COMMON_SCRIPT.to_owned(),
@@ -185,18 +180,27 @@ fn font_preferences(state: &ThemeState) -> crate::Result<Value> {
 
     let mut webprefs = Map::new();
     webprefs.insert("fonts".to_owned(), Value::Object(fonts));
-    webprefs.insert("default_font_size".to_owned(), Value::from(font_size));
-    webprefs.insert(
-        "default_fixed_font_size".to_owned(),
-        Value::from(fixed_font_size),
-    );
 
     let mut webkit = Map::new();
     webkit.insert("webprefs".to_owned(), Value::Object(webprefs));
 
     let mut root = Map::new();
     root.insert("webkit".to_owned(), Value::Object(webkit));
-    Ok(Value::Object(root))
+    Value::Object(root)
+}
+
+fn clear_managed_font_sizes(root: &mut Value) {
+    let Some(webprefs) = root
+        .get_mut("webkit")
+        .and_then(Value::as_object_mut)
+        .and_then(|webkit| webkit.get_mut("webprefs"))
+        .and_then(Value::as_object_mut)
+    else {
+        return;
+    };
+
+    webprefs.remove("default_font_size");
+    webprefs.remove("default_fixed_font_size");
 }
 
 fn merge_value(base: &mut Value, generated: Value) {
@@ -239,28 +243,23 @@ mod tests {
     #[test]
     fn write_preferences_creates_webkit_font_settings() {
         let path = temp_path("chromium-fonts-create");
-        let mut state = dummy_state();
-        state.chromium_font_size_offset = 2;
-
-        write_preferences(&path, &state).expect("write succeeds");
+        write_preferences(&path, &dummy_state()).expect("write succeeds");
         let written = read_json(&path);
 
         assert_eq!(
             written["webkit"]["webprefs"]["fonts"]["standard"][COMMON_SCRIPT],
-            Value::String(state.system_font.clone())
+            Value::String("Overpass".to_owned())
         );
         assert_eq!(
             written["webkit"]["webprefs"]["fonts"]["fixed"][COMMON_SCRIPT],
-            Value::String(state.mono_font.clone())
+            Value::String("JetBrains Mono Nerd Font".to_owned())
         );
-        assert_eq!(
-            written["webkit"]["webprefs"]["default_font_size"],
-            Value::from(13)
-        );
-        assert_eq!(
-            written["webkit"]["webprefs"]["default_fixed_font_size"],
-            Value::from(11)
-        );
+        assert!(written["webkit"]["webprefs"]
+            .get("default_font_size")
+            .is_none());
+        assert!(written["webkit"]["webprefs"]
+            .get("default_fixed_font_size")
+            .is_none());
 
         let _ = fs::remove_file(path);
     }
@@ -349,7 +348,7 @@ mod tests {
         let path = temp_path("chromium-fonts-merge");
         fs::write(
             &path,
-            r#"{"browser":{"show_home_button":true},"webkit":{"webprefs":{"javascript_enabled":true}}}"#,
+            r#"{"browser":{"show_home_button":true},"webkit":{"webprefs":{"javascript_enabled":true,"default_font_size":22,"default_fixed_font_size":18}}}"#,
         )
         .expect("fixture written");
 
@@ -365,29 +364,38 @@ mod tests {
             written["webkit"]["webprefs"]["fonts"]["sansserif"][COMMON_SCRIPT],
             Value::String("Overpass".to_owned())
         );
+        assert!(written["webkit"]["webprefs"]
+            .get("default_font_size")
+            .is_none());
+        assert!(written["webkit"]["webprefs"]
+            .get("default_fixed_font_size")
+            .is_none());
 
         let _ = fs::remove_file(path);
     }
 
     #[test]
-    fn write_preferences_keeps_theme_font_sizes_in_chromium_prefs_units() {
-        let path = temp_path("chromium-font-size-units");
+    fn write_preferences_clears_managed_font_sizes() {
+        let path = temp_path("chromium-clear-font-sizes");
         let mut state = dummy_state();
         state.font_size = 12;
         state.chromium_font_size_offset = 1;
         state.mono_font_size = 10;
+        fs::write(
+            &path,
+            r#"{"webkit":{"webprefs":{"default_font_size":13,"default_fixed_font_size":10}}}"#,
+        )
+        .expect("fixture written");
 
         write_preferences(&path, &state).expect("write succeeds");
         let written = read_json(&path);
 
-        assert_eq!(
-            written["webkit"]["webprefs"]["default_font_size"],
-            Value::from(13)
-        );
-        assert_eq!(
-            written["webkit"]["webprefs"]["default_fixed_font_size"],
-            Value::from(10)
-        );
+        assert!(written["webkit"]["webprefs"]
+            .get("default_font_size")
+            .is_none());
+        assert!(written["webkit"]["webprefs"]
+            .get("default_fixed_font_size")
+            .is_none());
 
         let _ = fs::remove_file(path);
     }
