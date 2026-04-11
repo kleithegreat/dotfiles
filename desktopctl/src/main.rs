@@ -163,6 +163,10 @@ enum HyprCommand {
     ToggleFloat,
     /// Inspect and update managed Hyprland input settings.
     Input(HyprInputArgs),
+    /// Persist or clear animation override state.
+    Animations(HyprAnimationsArgs),
+    /// Persist or clear keybind override state.
+    Keybinds(HyprKeybindsArgs),
 }
 
 #[derive(Debug, Args)]
@@ -187,6 +191,43 @@ struct HyprInputSetArgs {
     /// New value for the provided setting.
     #[arg(allow_hyphen_values = true)]
     value: String,
+}
+
+#[derive(Debug, Args)]
+#[command(arg_required_else_help = true, subcommand_required = true)]
+struct HyprAnimationsArgs {
+    #[command(subcommand)]
+    command: HyprAnimationsCommand,
+}
+
+#[derive(Debug, Subcommand)]
+enum HyprAnimationsCommand {
+    /// Write animation overrides from a JSON payload to the managed config file.
+    Save(HyprJsonPayloadArgs),
+    /// Clear all animation overrides and reload Hyprland.
+    Clear,
+}
+
+#[derive(Debug, Args)]
+#[command(arg_required_else_help = true, subcommand_required = true)]
+struct HyprKeybindsArgs {
+    #[command(subcommand)]
+    command: HyprKeybindsCommand,
+}
+
+#[derive(Debug, Subcommand)]
+enum HyprKeybindsCommand {
+    /// Write keybind overrides from a JSON payload to the managed config file.
+    Save(HyprJsonPayloadArgs),
+    /// Clear all keybind overrides and reload Hyprland.
+    Clear,
+}
+
+#[derive(Debug, Args)]
+struct HyprJsonPayloadArgs {
+    /// JSON payload describing the overrides.
+    #[arg(value_name = "JSON")]
+    payload: String,
 }
 
 #[derive(Debug, Args)]
@@ -293,6 +334,22 @@ fn run_hypr(args: HyprArgs) -> Result<()> {
     match args.command {
         HyprCommand::ToggleFloat => hypr::toggle_float(),
         HyprCommand::Input(args) => run_hypr_input(args),
+        HyprCommand::Animations(args) => run_hypr_animations(args),
+        HyprCommand::Keybinds(args) => run_hypr_keybinds(args),
+    }
+}
+
+fn run_hypr_animations(args: HyprAnimationsArgs) -> Result<()> {
+    match args.command {
+        HyprAnimationsCommand::Save(args) => hypr::save_animations(&args.payload),
+        HyprAnimationsCommand::Clear => hypr::clear_animations(),
+    }
+}
+
+fn run_hypr_keybinds(args: HyprKeybindsArgs) -> Result<()> {
+    match args.command {
+        HyprKeybindsCommand::Save(args) => hypr::save_keybinds(&args.payload),
+        HyprKeybindsCommand::Clear => hypr::clear_keybinds(),
     }
 }
 

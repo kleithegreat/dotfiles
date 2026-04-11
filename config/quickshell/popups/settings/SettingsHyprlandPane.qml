@@ -300,6 +300,30 @@ Item {
                 Text { anchors.centerIn: parent; text: "\u21b7"; color: Theme.fg; font.pixelSize: Theme.fontSize }
                 Components.HoverLayer { id: redoArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0; onClicked: HyprlandConfigService.redo() }
             }
+
+            // Clear overrides
+            Rectangle {
+                visible: HyprlandConfigService.hasAnimationOverrides || HyprlandConfigService.hasKeybindOverrides
+                width: clearLabel.implicitWidth + Theme.btnPaddingH * 2
+                height: Theme.btnHeight; radius: Theme.btnRadius
+                color: clearArea.containsMouse ? Theme.bg2 : Theme.bg1
+                border.width: 1; border.color: Theme.bg3
+                Behavior on color { Components.CAnim { duration: Theme.animHover } }
+                Text { id: clearLabel; anchors.centerIn: parent; text: "Clear"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall }
+                Components.HoverLayer { id: clearArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0; onClicked: HyprlandConfigService.clearAll() }
+            }
+
+            // Save to disk
+            Rectangle {
+                visible: HyprlandConfigService.hasAnimationOverrides || HyprlandConfigService.hasKeybindOverrides
+                width: saveLabel.implicitWidth + Theme.btnPaddingH * 2
+                height: Theme.btnHeight; radius: Theme.btnRadius
+                color: HyprlandConfigService.saving ? Theme.bg2 : (saveArea.containsMouse ? Theme.greenBright : Theme.accent)
+                border.width: 1; border.color: Theme.accent
+                Behavior on color { Components.CAnim { duration: Theme.animHover } }
+                Text { id: saveLabel; anchors.centerIn: parent; text: HyprlandConfigService.saving ? "Saving\u2026" : "Save"; color: Theme.bg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+                Components.HoverLayer { id: saveArea; enabled: !HyprlandConfigService.saving; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0; onClicked: HyprlandConfigService.saveAll() }
+            }
         }
 
         // ── Tab bar ──
