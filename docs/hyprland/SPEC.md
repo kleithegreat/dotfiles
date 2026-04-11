@@ -34,10 +34,12 @@ of the contract — later files may depend on variables defined by earlier ones.
 | 6 | `input-runtime.conf` | Generated runtime override |
 | 7 | `colors.conf` | Generated |
 | 8 | `appearance.conf` | Static base (sources generated `appearance-theme.conf`) |
-| 9 | `plugins.conf` | Static base |
-| 10 | `keybinds.conf` | Static base |
-| 11 | `rules.conf` | Static base |
-| 12 | `autostart.conf` | Static base (sources host-selected `autostart-host.conf`) |
+| 9 | `animations-override.conf` | Generated runtime override |
+| 10 | `plugins.conf` | Static base |
+| 11 | `keybinds.conf` | Static base |
+| 12 | `keybinds-override.conf` | Generated runtime override |
+| 13 | `rules.conf` | Static base |
+| 14 | `autostart.conf` | Static base (sources host-selected `autostart-host.conf`) |
 
 Constraints:
 
@@ -99,6 +101,8 @@ Files written by `desktopctl` at runtime. Never committed to the repo.
 | File | Owner | Content |
 | --- | --- | --- |
 | `input-runtime.conf` | `desktopctl hypr input` | Shared pointer defaults (`sensitivity`, `accel_profile`, `scroll_factor`) layered after `input.conf` and `input-devices.conf` |
+| `animations-override.conf` | `desktopctl hypr animations` | Bezier curves and per-animation overrides layered after `appearance.conf` |
+| `keybinds-override.conf` | `desktopctl hypr keybinds` | Unbind + rebind pairs layered after `keybinds.conf` |
 
 Constraints:
 
@@ -106,6 +110,10 @@ Constraints:
   runtime helper.
 - `desktopctl hypr input` may rewrite `input-runtime.conf`, but it must not
   edit `input.conf` or `input-devices.conf`.
+- `desktopctl hypr animations` may rewrite `animations-override.conf`, but it
+  must not edit `appearance.conf` or `appearance-theme.conf`.
+- `desktopctl hypr keybinds` may rewrite `keybinds-override.conf`, but it must
+  not edit `keybinds.conf`.
 - A missing runtime override file must be safe; Hyprland should still boot from
   the static and host-selected base config alone.
 
@@ -156,6 +164,8 @@ Invariants:
 | Source graph and compositor behavior | Hyprland config (`config/hypr/`) | Static base files define the session's behavior, bindings, rules, and idle policy. |
 | Theme-derived appearance | The theming pipeline | Generated `colors.conf`, `appearance-theme.conf`, and `cursor.conf` are the only theme write surfaces within the Hyprland config directory. |
 | Shared Hyprland mouse defaults | `desktopctl hypr input` | Writes generated `input-runtime.conf` and applies the same values live through `hyprctl keyword`, without editing `input.conf` or `input-devices.conf`. |
+| Animation overrides | `desktopctl hypr animations` | Writes generated `animations-override.conf` with bezier curves and per-animation overrides, sourced after `appearance.conf` so GUI changes layer on top of hand-edited base animations. |
+| Keybind overrides | `desktopctl hypr keybinds` | Writes generated `keybinds-override.conf` with unbind + rebind pairs, sourced after `keybinds.conf` so GUI remaps layer on top of the static base bindings. |
 | Wallpaper application | The theming pipeline | The `wallpaper` target owns `awww img` invocations. `autostart.conf` owns `awww-daemon` startup and may reapply persisted theme state by calling `desktopctl theme wallpaper` after the daemon is ready. |
 | Night-light automation | `desktopctl daemon` solar subsystem + night-light controller | `hyprsunset` lifecycle belongs to the daemon. Keybinds may request `desktopctl night-light toggle` or `desktopctl night-light auto`, but they do not start or stop `hyprsunset` directly. |
 | Shell UI and IPC | Quickshell | Keybinds trigger Quickshell via `qs ipc call`, with the repo path resolved through the same `DESKTOPCTL_REPO` / `~/repos/dotfiles` abstraction used elsewhere; Quickshell does not write Hyprland config files. |
@@ -170,5 +180,9 @@ Invariants:
   base config.
 - `desktopctl hypr input` only writes `input-runtime.conf`; it does not mutate
   static or host-selected fragments.
+- `desktopctl hypr animations` only writes `animations-override.conf`; it does
+  not mutate `appearance.conf` or other static fragments.
+- `desktopctl hypr keybinds` only writes `keybinds-override.conf`; it does not
+  mutate `keybinds.conf` or other static fragments.
 - `desktopctl daemon` owns all live `hyprsunset` lifecycle changes. Keybinds
   are request surfaces into the daemon, not a parallel scheduling system.

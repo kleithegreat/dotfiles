@@ -131,8 +131,13 @@ QtObject {
     property var keybinds: []           // Array of bind objects from hyprctl binds -j
     property bool keybindsLoading: false
 
+    // ── Keybind originals (for persistence) ──
+    // index -> { modmask, key } — tracks the pre-override state of changed binds
+    property var keybindOriginals: ({})
+
     property bool loading: false
     property string error: ""
+    property bool saving: false
 
     // ── Undo / redo ──
     property var _undoStack: []
@@ -272,6 +277,96 @@ QtObject {
         return "custom" + i;
     }
 
+    // ── Persistence ──
+
+    readonly property bool hasAnimationOverrides: {
+        let anims = animations;
+        let keys = Object.keys(anims);
+        for (let i = 0; i < keys.length; i++)
+            if (anims[keys[i]].overridden) return true;
+        return false;
+    }
+
+    readonly property bool hasKeybindOverrides: Object.keys(keybindOriginals).length > 0
+
+    function saveAll() {
+        if (saving) return;
+        saving = true;
+        _saveAnimations();
+        _saveKeybinds();
+    }
+
+    function clearAll() {
+        if (saving) return;
+        saving = true;
+        _clearKeybindsProc._pendingClear = true;
+        _clearAnimationsProc.running = true;
+    }
+
+    function _saveAnimations() {
+        let anims = animations;
+        let payload = { beziers: {}, animations: [] };
+
+        let keys = Object.keys(anims);
+        for (let i = 0; i < keys.length; i++) {
+            let a = anims[keys[i]];
+            if (!a.overridden) continue;
+
+            let curve = a.curve || "default";
+            // Include the curve control points if it's a named curve
+            if (curve !== "default" && curve !== "linear") {
+                let pts = getCurvePoints(curve);
+                if (pts) payload.beziers[curve] = [pts[0], pts[1], pts[2], pts[3]];
+            }
+
+            payload.animations.push({
+                name: keys[i],
+                enabled: a.enabled,
+                speed: a.speed,
+                curve: curve,
+                style: a.style || ""
+            });
+        }
+
+        if (payload.animations.length === 0) {
+            _clearAnimationsProc.running = true;
+            return;
+        }
+
+        _saveAnimationsProc.command = ["desktopctl", "hypr", "animations", "save",
+                                        JSON.stringify(payload)];
+        _saveAnimationsProc.running = true;
+    }
+
+    function _saveKeybinds() {
+        let originals = keybindOriginals;
+        let indices = Object.keys(originals);
+        if (indices.length === 0) return;
+
+        let payload = { overrides: [] };
+        for (let i = 0; i < indices.length; i++) {
+            let idx = parseInt(indices[i]);
+            let bind = keybinds[idx];
+            if (!bind) continue;
+            let orig = originals[indices[i]];
+
+            payload.overrides.push({
+                original_mods: _modmaskToString(orig.modmask),
+                original_key: orig.key,
+                new_mods: _modmaskToString(bind.modmask),
+                new_key: bind.key,
+                flags: _buildBindFlags(bind),
+                description: bind.description || "",
+                dispatcher: bind.dispatcher,
+                arg: bind.arg !== undefined ? bind.arg : ""
+            });
+        }
+
+        _saveKeybindsProc.command = ["desktopctl", "hypr", "keybinds", "save",
+                                      JSON.stringify(payload)];
+        _saveKeybindsProc.running = true;
+    }
+
     // ── Undo / redo ──
 
     function undo() {
@@ -324,6 +419,12 @@ QtObject {
         let oldModmask = bind.modmask;
         let oldKey = bind.key;
         let newModmask = _modsToMask(newModNames);
+
+        // Track the original state for persistence (first change wins)
+        let originals = _cloneObj(keybindOriginals);
+        if (originals[bindIndex] === undefined)
+            originals[bindIndex] = { modmask: oldModmask, key: oldKey };
+        keybindOriginals = originals;
 
         _pushUndo({
             type: "bind", name: String(bindIndex),
@@ -578,6 +679,65 @@ QtObject {
             }
             _fetchBindsProc.buf = "";
             root.keybindsLoading = false;
+        }
+    }
+
+    property Process _saveAnimationsProc: Process {
+        running: false
+        stderr: SplitParser {
+            onRead: (line) => { console.log("[HyprlandConfigService] save animations error:", line); }
+        }
+        onExited: (code) => {
+            if (code !== 0)
+                root.error = "Failed to save animation overrides";
+            if (!_saveKeybindsProc.running && !_clearKeybindsProc.running)
+                root.saving = false;
+        }
+    }
+
+    property Process _clearAnimationsProc: Process {
+        command: ["desktopctl", "hypr", "animations", "clear"]
+        running: false
+        stderr: SplitParser {
+            onRead: (line) => { console.log("[HyprlandConfigService] clear animations error:", line); }
+        }
+        onExited: (code) => {
+            if (code !== 0)
+                root.error = "Failed to clear animation overrides";
+            // If clearing all, chain to keybinds clear
+            if (_clearKeybindsProc._pendingClear) {
+                _clearKeybindsProc._pendingClear = false;
+                _clearKeybindsProc.running = true;
+            } else if (!_saveKeybindsProc.running) {
+                root.saving = false;
+            }
+        }
+    }
+
+    property Process _saveKeybindsProc: Process {
+        running: false
+        stderr: SplitParser {
+            onRead: (line) => { console.log("[HyprlandConfigService] save keybinds error:", line); }
+        }
+        onExited: (code) => {
+            if (code !== 0)
+                root.error = "Failed to save keybind overrides";
+            if (!_saveAnimationsProc.running)
+                root.saving = false;
+        }
+    }
+
+    property Process _clearKeybindsProc: Process {
+        command: ["desktopctl", "hypr", "keybinds", "clear"]
+        running: false
+        property bool _pendingClear: false
+        stderr: SplitParser {
+            onRead: (line) => { console.log("[HyprlandConfigService] clear keybinds error:", line); }
+        }
+        onExited: (code) => {
+            if (code !== 0)
+                root.error = "Failed to clear keybind overrides";
+            root.saving = false;
         }
     }
 

@@ -20,10 +20,12 @@ order:
 | 6 | `~/.config/hypr/input-runtime.conf` | `desktopctl`-managed shared pointer overrides |
 | 7 | `~/.config/hypr/colors.conf` | Generated `$theme_*` variables |
 | 8 | `~/.config/hypr/appearance.conf` | Stable appearance defaults plus generated appearance overrides |
-| 9 | `~/.config/hypr/plugins.conf` | Plugin loading and plugin theming |
-| 10 | `~/.config/hypr/keybinds.conf` | Keybinds and external dispatcher integration |
-| 11 | `~/.config/hypr/rules.conf` | Window and layer rules |
-| 12 | `~/.config/hypr/autostart.conf` | Session bootstrap plus `autostart-host.conf` include |
+| 9 | `~/.config/hypr/animations-override.conf` | `desktopctl`-managed animation and bezier overrides |
+| 10 | `~/.config/hypr/plugins.conf` | Plugin loading and plugin theming |
+| 11 | `~/.config/hypr/keybinds.conf` | Keybinds and external dispatcher integration |
+| 12 | `~/.config/hypr/keybinds-override.conf` | `desktopctl`-managed keybind overrides |
+| 13 | `~/.config/hypr/rules.conf` | Window and layer rules |
+| 14 | `~/.config/hypr/autostart.conf` | Session bootstrap plus `autostart-host.conf` include |
 
 ## Host Selection
 
@@ -50,7 +52,9 @@ The remaining source-graph files — `hyprland.conf`, `appearance.conf`,
 from `config/hypr/` via the shared `xdg.configFile` mappings in
 `home/default.nix`.
 
-Home Manager now also bootstraps an empty `~/.config/hypr/input-runtime.conf`
+Home Manager now also bootstraps empty `~/.config/hypr/input-runtime.conf`,
+`~/.config/hypr/animations-override.conf`, and
+`~/.config/hypr/keybinds-override.conf`
 on every host before running `desktopctl theme sync`
 through the `home.activation.applyTheme` hook in `home/default.nix`.
 `desktopctl hypr input set ...` rewrites that
@@ -77,6 +81,8 @@ Current host input fragments differ materially:
 | `colors.conf` | Generated palette, font, and semantic `$theme_*` variables |
 | `appearance-theme.conf` | Generated runtime appearance values such as gaps, borders, rounding, blur, and animation toggles |
 | `input-runtime.conf` | Generated runtime pointer overrides written by `desktopctl hypr input` |
+| `animations-override.conf` | Generated bezier curves and per-animation overrides written by `desktopctl hypr animations` |
+| `keybinds-override.conf` | Generated unbind + rebind pairs written by `desktopctl hypr keybinds` |
 | `appearance.conf` | Stable compositor defaults that source `appearance-theme.conf` |
 | `hyprlock.conf` | Sources `colors.conf` so the lock screen shares the compositor palette |
 | `plugins.conf` | Consumes the same theme variables for `hyprbars` and `hyprexpo` |
@@ -87,6 +93,8 @@ Current host input fragments differ materially:
 | --- | --- |
 | `input.conf` | Shared keyboard, pointer, cursor, and gesture defaults that remain the fallback when no runtime override exists |
 | `input-runtime.conf` | Shared mouse defaults written by `desktopctl hypr input`; the file is sourced after `input-devices.conf` in `config/hypr/hyprland.conf`, so it layers on top of the shared base config without editing static or host fragments. The rewrite logic lives in `desktopctl/src/hypr.rs`. |
+| `animations-override.conf` | Bezier curve definitions and per-animation overrides written by `desktopctl hypr animations`; sourced after `appearance.conf` so GUI-modified animations layer on top of hand-edited base animations. Only overridden animations are written; untouched animations keep their `appearance.conf` values. |
+| `keybinds-override.conf` | Unbind + rebind pairs written by `desktopctl hypr keybinds`; sourced after `keybinds.conf` so GUI-remapped keybinds replace their original combos. Uses concrete resolved values rather than `$mainMod` variables. |
 | `autostart.conf` and `autostart-host.conf` | Shared session bootstrap lives in `config/hypr/autostart.conf`, which starts `desktopctl daemon`, Quickshell, wallpaper bootstrap, `hypridle`, Vicinae, Snappy Switcher, Easy Effects, Bitwarden, and related helpers, then sources `~/.config/hypr/autostart-host.conf` for host-only additions such as the desktop's Logitech mouse tuning. Wallpaper selection itself remains owned by the theming pipeline's `wallpaper` target (`docs/theming/SPEC.md`). |
 | `keybinds.conf` | Primary modifier scheme, descriptive `bindd` / `bindde` bindings, media/brightness repeat binds, Quickshell IPC binds that resolve the shell path through `${DESKTOPCTL_REPO:-$HOME/repos/dotfiles}`, and external launcher/switcher actions |
 | `rules.conf` | Floating/dialog rules, app-specific geometry, layer rules, and plugin rule glue |

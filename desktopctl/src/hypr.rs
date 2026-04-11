@@ -11,6 +11,8 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>
 
 const INPUT_CONF_RELATIVE_PATH: &str = "hypr/input.conf";
 const INPUT_RUNTIME_RELATIVE_PATH: &str = "hypr/input-runtime.conf";
+const ANIMATIONS_OVERRIDE_RELATIVE_PATH: &str = "hypr/animations-override.conf";
+const KEYBINDS_OVERRIDE_RELATIVE_PATH: &str = "hypr/keybinds-override.conf";
 
 #[derive(Debug, Clone, Deserialize)]
 pub(crate) struct WindowInfo {
@@ -451,6 +453,159 @@ fn format_decimal(value: f64) -> String {
     rendered
 }
 
+// ── Animation override persistence ──────────────────────────────
+
+#[derive(Debug, Deserialize)]
+struct AnimationsPayload {
+    #[serde(default)]
+    beziers: std::collections::BTreeMap<String, [f64; 4]>,
+    #[serde(default)]
+    animations: Vec<AnimationEntry>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AnimationEntry {
+    name: String,
+    enabled: bool,
+    speed: f64,
+    curve: String,
+    #[serde(default)]
+    style: String,
+}
+
+fn animations_override_path() -> Result<PathBuf> {
+    Ok(paths::xdg_config_home()?.join(ANIMATIONS_OVERRIDE_RELATIVE_PATH))
+}
+
+fn render_animations_override(payload: &AnimationsPayload) -> String {
+    let mut out = String::from("# Managed by desktopctl — do not edit\nanimations {\n");
+
+    for (name, points) in &payload.beziers {
+        out.push_str(&format!(
+            "    bezier = {}, {}, {}, {}, {}\n",
+            name,
+            format_decimal(points[0]),
+            format_decimal(points[1]),
+            format_decimal(points[2]),
+            format_decimal(points[3]),
+        ));
+    }
+
+    if !payload.beziers.is_empty() && !payload.animations.is_empty() {
+        out.push('\n');
+    }
+
+    for anim in &payload.animations {
+        let enabled = if anim.enabled { "1" } else { "0" };
+        let speed = format_decimal(anim.speed);
+        if anim.style.is_empty() {
+            out.push_str(&format!(
+                "    animation = {}, {}, {}, {}\n",
+                anim.name, enabled, speed, anim.curve,
+            ));
+        } else {
+            out.push_str(&format!(
+                "    animation = {}, {}, {}, {}, {}\n",
+                anim.name, enabled, speed, anim.curve, anim.style,
+            ));
+        }
+    }
+
+    out.push_str("}\n");
+    out
+}
+
+/// Write animation overrides to the managed config file.
+pub(crate) fn save_animations(json: &str) -> Result<()> {
+    let payload: AnimationsPayload = serde_json::from_str(json).map_err(|e| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("invalid animations JSON: {e}"),
+        )
+    })?;
+
+    let contents = render_animations_override(&payload);
+    theme::atomic_write(&animations_override_path()?, contents.as_bytes())
+}
+
+/// Clear all animation overrides and reload Hyprland.
+pub(crate) fn clear_animations() -> Result<()> {
+    theme::atomic_write(&animations_override_path()?, b"")?;
+    hyprctl_output(&["reload"])?;
+    Ok(())
+}
+
+// ── Keybind override persistence ────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+struct KeybindsPayload {
+    overrides: Vec<KeybindOverride>,
+}
+
+#[derive(Debug, Deserialize)]
+struct KeybindOverride {
+    original_mods: String,
+    original_key: String,
+    new_mods: String,
+    new_key: String,
+    flags: String,
+    #[serde(default)]
+    description: String,
+    dispatcher: String,
+    #[serde(default)]
+    arg: String,
+}
+
+fn keybinds_override_path() -> Result<PathBuf> {
+    Ok(paths::xdg_config_home()?.join(KEYBINDS_OVERRIDE_RELATIVE_PATH))
+}
+
+fn render_keybinds_override(payload: &KeybindsPayload) -> String {
+    let mut out = String::from("# Managed by desktopctl — do not edit\n");
+
+    for ovr in &payload.overrides {
+        out.push_str(&format!("unbind = {}, {}\n", ovr.original_mods, ovr.original_key));
+
+        let bind_keyword = format!("bind{}", ovr.flags);
+        let has_desc = ovr.flags.contains('d');
+
+        if has_desc {
+            out.push_str(&format!(
+                "{} = {}, {}, {}, {}, {}\n\n",
+                bind_keyword, ovr.new_mods, ovr.new_key, ovr.description,
+                ovr.dispatcher, ovr.arg,
+            ));
+        } else {
+            out.push_str(&format!(
+                "{} = {}, {}, {}, {}\n\n",
+                bind_keyword, ovr.new_mods, ovr.new_key, ovr.dispatcher, ovr.arg,
+            ));
+        }
+    }
+
+    out
+}
+
+/// Write keybind overrides to the managed config file.
+pub(crate) fn save_keybinds(json: &str) -> Result<()> {
+    let payload: KeybindsPayload = serde_json::from_str(json).map_err(|e| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("invalid keybinds JSON: {e}"),
+        )
+    })?;
+
+    let contents = render_keybinds_override(&payload);
+    theme::atomic_write(&keybinds_override_path()?, contents.as_bytes())
+}
+
+/// Clear all keybind overrides and reload Hyprland.
+pub(crate) fn clear_keybinds() -> Result<()> {
+    theme::atomic_write(&keybinds_override_path()?, b"")?;
+    hyprctl_output(&["reload"])?;
+    Ok(())
+}
+
 fn hyprctl_output(args: &[&str]) -> Result<Output> {
     let output = Command::new("hyprctl").args(args).output()?;
     if output.status.success() {
@@ -490,8 +645,9 @@ impl IfEmpty for &str {
 #[cfg(test)]
 mod tests {
     use super::{
-        AccelProfile, InputSetting, InputState, format_decimal, parse_input_state_from_str,
-        parse_scroll_factor, parse_sensitivity, render_input_runtime_state,
+        AccelProfile, AnimationsPayload, InputSetting, InputState, KeybindsPayload,
+        format_decimal, parse_input_state_from_str, parse_scroll_factor, parse_sensitivity,
+        render_animations_override, render_input_runtime_state, render_keybinds_override,
     };
 
     #[test]
@@ -554,5 +710,85 @@ input {
         assert_eq!(format_decimal(1.0), "1.0");
         assert_eq!(format_decimal(0.755), "0.76");
         assert_eq!(format_decimal(-0.5), "-0.5");
+    }
+
+    #[test]
+    fn render_animations_override_produces_valid_hyprland_config() {
+        let payload: AnimationsPayload = serde_json::from_str(
+            r#"{
+                "beziers": {
+                    "custom1": [0.3, 0.5, 0.7, 1.0],
+                    "myBezier": [0.05, 0.9, 0.1, 1.05]
+                },
+                "animations": [
+                    {"name": "windows", "enabled": true, "speed": 6.0, "curve": "custom1", "style": ""},
+                    {"name": "windowsOut", "enabled": true, "speed": 4.0, "curve": "myBezier", "style": "popin 80%"}
+                ]
+            }"#,
+        )
+        .expect("payload should parse");
+
+        let rendered = render_animations_override(&payload);
+        assert!(rendered.starts_with("# Managed by desktopctl"));
+        assert!(rendered.contains("bezier = custom1, 0.3, 0.5, 0.7, 1.0"));
+        assert!(rendered.contains("bezier = myBezier, 0.05, 0.9, 0.1, 1.05"));
+        assert!(rendered.contains("animation = windows, 1, 6.0, custom1"));
+        assert!(rendered.contains("animation = windowsOut, 1, 4.0, myBezier, popin 80%"));
+    }
+
+    #[test]
+    fn render_animations_override_disabled_animation() {
+        let payload: AnimationsPayload = serde_json::from_str(
+            r#"{"beziers": {}, "animations": [{"name": "fade", "enabled": false, "speed": 4.0, "curve": "default", "style": ""}]}"#,
+        )
+        .expect("payload should parse");
+
+        let rendered = render_animations_override(&payload);
+        assert!(rendered.contains("animation = fade, 0, 4.0, default"));
+    }
+
+    #[test]
+    fn render_keybinds_override_produces_unbind_rebind_pairs() {
+        let payload: KeybindsPayload = serde_json::from_str(
+            r#"{
+                "overrides": [{
+                    "original_mods": "SUPER",
+                    "original_key": "Q",
+                    "new_mods": "SUPER SHIFT",
+                    "new_key": "Q",
+                    "flags": "d",
+                    "description": "Open terminal",
+                    "dispatcher": "exec",
+                    "arg": "alacritty"
+                }]
+            }"#,
+        )
+        .expect("payload should parse");
+
+        let rendered = render_keybinds_override(&payload);
+        assert!(rendered.contains("unbind = SUPER, Q"));
+        assert!(rendered.contains("bindd = SUPER SHIFT, Q, Open terminal, exec, alacritty"));
+    }
+
+    #[test]
+    fn render_keybinds_override_mouse_bind_without_description() {
+        let payload: KeybindsPayload = serde_json::from_str(
+            r#"{
+                "overrides": [{
+                    "original_mods": "SUPER",
+                    "original_key": "mouse:272",
+                    "new_mods": "SUPER ALT",
+                    "new_key": "mouse:272",
+                    "flags": "m",
+                    "dispatcher": "movewindow",
+                    "arg": ""
+                }]
+            }"#,
+        )
+        .expect("payload should parse");
+
+        let rendered = render_keybinds_override(&payload);
+        assert!(rendered.contains("unbind = SUPER, mouse:272"));
+        assert!(rendered.contains("bindm = SUPER ALT, mouse:272, movewindow, "));
     }
 }
