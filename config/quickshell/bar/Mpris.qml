@@ -8,7 +8,7 @@ Item {
     id: mprisRoot
     implicitWidth: row.implicitWidth
     implicitHeight: row.implicitHeight
-    visible: player !== null
+    visible: player !== null && (player.trackTitle ?? "") !== ""
     signal labelClicked()
 
     property var player: {
@@ -16,7 +16,10 @@ Item {
         for (let i = 0; i < players.length; i++) {
             if (players[i].isPlaying) return players[i];
         }
-        return players.length > 0 ? players[0] : null;
+        for (let i = 0; i < players.length; i++) {
+            if (players[i].trackTitle) return players[i];
+        }
+        return null;
     }
 
     RowLayout {
@@ -28,7 +31,7 @@ Item {
         Text {
             text: {
                 if (!mprisRoot.player) return "";
-                let t = mprisRoot.player.trackTitle || "Unknown";
+                let t = mprisRoot.player.trackTitle || "";
                 let a = mprisRoot.player.trackArtist || "";
                 return a ? a + " \u2014 " + t : t;
             }
