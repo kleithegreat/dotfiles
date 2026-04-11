@@ -98,6 +98,7 @@ in
     vscode
     lapce
     lmstudio
+    t3-code
     imv            # Wayland image viewer
     nautilus
     kdePackages.dolphin
@@ -334,6 +335,8 @@ in
     PATH="${lib.makeBinPath [pkgs.desktopctl]}:$PATH"
     mkdir -p "$HOME/.config/hypr"
     touch "$HOME/.config/hypr/input-runtime.conf"
+    touch "$HOME/.config/hypr/animations-override.conf"
+    touch "$HOME/.config/hypr/keybinds-override.conf"
     desktopctl theme sync
   '';
 
