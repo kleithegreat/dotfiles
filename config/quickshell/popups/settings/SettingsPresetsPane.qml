@@ -40,8 +40,7 @@ Components.WheelFlickable {
     readonly property var fontSizeOffsetKeys: [
         "quickshell_font_size_offset",
         "gtk_font_size_offset",
-        "qt_font_size_offset",
-        "chromium_font_size_offset"
+        "qt_font_size_offset"
     ]
     readonly property var fontOffsetKeys: root.monoFontOffsetKeys.concat(root.fontSizeOffsetKeys)
     readonly property var hyprIntKeys: [
