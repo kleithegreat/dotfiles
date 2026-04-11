@@ -178,6 +178,32 @@ QtObject {
         monitorApplyProc.running = true;
     }
 
+    // Full monitor config: position, transform, and inline extras (vrr, bitdepth, mirror).
+    // extras is an object, e.g. { vrr: 1, bitdepth: 10, mirror: "DP-1" }
+    function applyMonitorConfig(name, width, height, rate, x, y, scale, transform, extras) {
+        if (monitorApplyProc.running)
+            return;
+
+        let cmd = name + "," + width + "x" + height + "@" + rate.toFixed(2)
+                + "," + x + "x" + y + "," + scale;
+        if (transform !== undefined && transform !== null && transform !== 0)
+            cmd += ",transform," + transform;
+        if (extras) {
+            let keys = Object.keys(extras);
+            for (let i = 0; i < keys.length; i++) {
+                let k = keys[i];
+                let v = extras[k];
+                if (v !== undefined && v !== null && v !== "")
+                    cmd += "," + k + "," + v;
+            }
+        }
+
+        monitorApplyStatus = "applying";
+        monitorApplyStatusTimer.stop();
+        monitorApplyProc.command = ["hyprctl", "keyword", "monitor", cmd];
+        monitorApplyProc.running = true;
+    }
+
     property Process monitorsFetchProc: Process {
         command: ["hyprctl", "monitors", "-j"]
         running: false
