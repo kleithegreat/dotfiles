@@ -36,7 +36,7 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-10.
 | `hosts/laptop/system.nix` | Laptop overlay | Hybrid GPU policy, laptop-only services and overrides, GRUB, laptop hardware policy, and the laptop `tailscaled` stop-timeout override |
 | `hosts/laptop/fan-control.nix` | Laptop-only hardware submodule | Dell SMM kernel module wiring, BIOS fan-control handoff, `i8kmon.conf`, and the `i8kmon` systemd service |
 | `hosts/desktop/system.nix` | Desktop overlay | Dedicated NVIDIA policy, desktop-only packages/services, storage mounts, GRUB, desktop-only overlay imports, and the desktop `tailscaled` stop-timeout override |
-| `home/default.nix` | Shared user baseline | User packages that do not require system-scoped helper registration, `xdg.configFile` mappings, host-specific Hyprland file selection, desktop entry overrides, and theme activation |
+| `home/default.nix` | Shared user baseline | User packages that do not require system-scoped helper registration, host-specific user-package wrappers, `xdg.configFile` mappings, host-specific Hyprland file selection, desktop entry overrides, and theme activation |
 | `home/shell.nix` | Shell submodule | Zsh, shell tools, Git, aliases, and shell helpers |
 | `home/gtk.nix` | GTK submodule | GTK packages and small dconf defaults |
 | `pkgs/helium/default.nix` | Prebuilt browser package | Fetches the upstream Helium release tarball, auto-patches the bundled ELFs, wraps the upstream launcher, and installs desktop assets using the pin in `pkgs/helium/source.nix` |
