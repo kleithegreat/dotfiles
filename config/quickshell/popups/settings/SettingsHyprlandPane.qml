@@ -26,6 +26,7 @@ Item {
 
     // ── Keybind state ──
     property string keybindSearch: ""
+    property bool _animationsLoaded: false
     property bool _keybindsLoaded: false
     property int editingBindIndex: -1
     property bool captureActive: false
@@ -201,7 +202,7 @@ Item {
     property Process _submapSetupProc: Process {
         running: false
         stdout: SplitParser { onRead: (_) => {} }
-        onExited: (code) => { if (code === 0) root._submapEnterProc.running = true; }
+        onExited: (code) => { if (code === 0 && root.captureActive) root._submapEnterProc.running = true; }
     }
     property Process _submapEnterProc: Process {
         command: ["hyprctl", "dispatch", "submap", "hyprmod_capture"]
@@ -216,7 +217,8 @@ Item {
     }
 
     Component.onDestruction: {
-        if (captureActive || _submapEnterProc.running) {
+        if (captureActive || _submapSetupProc.running || _submapEnterProc.running) {
+            captureActive = false;
             _captureTimer.stop();
             _submapResetProc.running = true;
         }
@@ -372,6 +374,14 @@ Item {
         }
 
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+
+        // ── Error banner (visible on all tabs) ──
+        Text {
+            visible: HyprlandConfigService.error !== ""
+            text: HyprlandConfigService.error
+            color: Theme.redBright; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+            Layout.fillWidth: true; Layout.topMargin: 4; wrapMode: Text.WordWrap
+        }
 
         // ── Content area ──
         Item {
@@ -530,6 +540,13 @@ Item {
                 contentHeight: animCol.implicitHeight
                 clip: true
 
+                onVisibleChanged: {
+                    if (visible && !root._animationsLoaded) {
+                        root._animationsLoaded = true;
+                        HyprlandConfigService.refresh();
+                    }
+                }
+
                 ColumnLayout {
                     id: animCol
                     width: parent.width
@@ -539,13 +556,6 @@ Item {
                         visible: HyprlandConfigService.loading
                         text: "Loading animation state\u2026"
                         color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                    }
-
-                    Text {
-                        visible: HyprlandConfigService.error !== ""
-                        text: HyprlandConfigService.error
-                        color: Theme.redBright; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                        Layout.fillWidth: true; wrapMode: Text.WordWrap
                     }
 
                     Repeater {

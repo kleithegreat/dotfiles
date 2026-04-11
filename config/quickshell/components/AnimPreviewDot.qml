@@ -47,7 +47,7 @@ Canvas {
     }
 
     Timer {
-        interval: 16; running: true; repeat: true
+        interval: 16; running: root.visible; repeat: true
         onTriggered: {
             if (root._waiting) return;
             root._progress += 0.012;
