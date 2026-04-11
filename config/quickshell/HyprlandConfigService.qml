@@ -127,6 +127,10 @@ QtObject {
     property var bezierCurves: ({})     // name -> [x1, y1, x2, y2]
     property var userCurves: ({})       // name -> [x1, y1, x2, y2] (persisted)
 
+    // ── Keybind state ──
+    property var keybinds: []           // Array of bind objects from hyprctl binds -j
+    property bool keybindsLoading: false
+
     property bool loading: false
     property string error: ""
 
@@ -156,6 +160,13 @@ QtObject {
         error = "";
         _fetchProc.buf = "";
         _fetchProc.running = true;
+    }
+
+    function fetchKeybinds() {
+        if (_fetchBindsProc.running) return;
+        keybindsLoading = true;
+        _fetchBindsProc.buf = "";
+        _fetchBindsProc.running = true;
     }
 
     function getAnimInfo(name) {
@@ -275,6 +286,8 @@ QtObject {
             _applyAnimationState(entry.name, entry.oldState);
         else if (entry.type === "monitor")
             monitorUndoRequested(entry.name, entry.oldState);
+        else if (entry.type === "bind")
+            _applyBindSwitch(parseInt(entry.name), entry.newState, entry.oldState);
     }
 
     function redo() {
@@ -289,6 +302,8 @@ QtObject {
             _applyAnimationState(entry.name, entry.newState);
         else if (entry.type === "monitor")
             monitorUndoRequested(entry.name, entry.newState);
+        else if (entry.type === "bind")
+            _applyBindSwitch(parseInt(entry.name), entry.oldState, entry.newState);
     }
 
     // Signal emitted when a monitor undo/redo needs to be applied.
@@ -297,6 +312,91 @@ QtObject {
 
     function pushMonitorUndo(monitorName, oldState, newState) {
         _pushUndo({ type: "monitor", name: monitorName, oldState: _cloneObj(oldState), newState: _cloneObj(newState) });
+    }
+
+    // ── Keybind override ──
+
+    function applyBindOverride(bindIndex, newModNames, newKey) {
+        let binds = keybinds.slice();
+        let bind = binds[bindIndex];
+        if (!bind) return;
+
+        let oldModmask = bind.modmask;
+        let oldKey = bind.key;
+        let newModmask = _modsToMask(newModNames);
+
+        _pushUndo({
+            type: "bind", name: String(bindIndex),
+            oldState: _cloneObj({ modmask: oldModmask, key: oldKey }),
+            newState: _cloneObj({ modmask: newModmask, key: newKey })
+        });
+
+        let updated = _cloneObj(bind);
+        updated.modmask = newModmask;
+        updated.key = newKey;
+        binds[bindIndex] = updated;
+        keybinds = binds;
+
+        _queueCommand(_buildBindBatch(bind, oldModmask, oldKey, newModmask, newKey));
+    }
+
+    function _applyBindSwitch(bindIndex, fromState, toState) {
+        let binds = keybinds.slice();
+        let bind = binds[bindIndex];
+        if (!bind) return;
+
+        let updated = _cloneObj(bind);
+        updated.modmask = toState.modmask;
+        updated.key = toState.key;
+        binds[bindIndex] = updated;
+        keybinds = binds;
+
+        _queueCommand(_buildBindBatch(updated, fromState.modmask, fromState.key,
+                                       toState.modmask, toState.key));
+    }
+
+    function _buildBindBatch(bind, oldModmask, oldKey, newModmask, newKey) {
+        let oldModStr = _modmaskToString(oldModmask);
+        let newModStr = _modmaskToString(newModmask);
+        let batch = ["keyword unbind " + oldModStr + ", " + oldKey];
+        let flags = _buildBindFlags(bind);
+        let parts = [newModStr, newKey];
+        if (bind.has_description) parts.push(bind.description || "");
+        parts.push(bind.dispatcher);
+        parts.push(bind.arg !== undefined ? bind.arg : "");
+        batch.push("keyword bind" + flags + " " + parts.join(", "));
+        return batch;
+    }
+
+    function _modmaskToString(mask) {
+        let parts = [];
+        if (mask & 64) parts.push("SUPER");
+        if (mask & 4) parts.push("CTRL");
+        if (mask & 8) parts.push("ALT");
+        if (mask & 1) parts.push("SHIFT");
+        return parts.join(" ");
+    }
+
+    function _modsToMask(mods) {
+        let mask = 0;
+        for (let i = 0; i < mods.length; i++) {
+            if (mods[i] === "SUPER") mask |= 64;
+            else if (mods[i] === "SHIFT") mask |= 1;
+            else if (mods[i] === "CTRL") mask |= 4;
+            else if (mods[i] === "ALT") mask |= 8;
+        }
+        return mask;
+    }
+
+    function _buildBindFlags(bind) {
+        let f = "";
+        if (bind.has_description) f += "d";
+        if (bind.locked) f += "l";
+        if (bind.release) f += "r";
+        if (bind.repeat) f += "e";
+        if (bind.mouse) f += "m";
+        if (bind.non_consuming) f += "n";
+        return f;
     }
 
     // ── Internal helpers ──
@@ -310,7 +410,7 @@ QtObject {
         if (stack.length > 0) {
             let top = stack[stack.length - 1];
             if (top.type === entry.type && top.name === entry.name
-                    && (entry.type === "animation" || entry.type === "monitor")) {
+                    && (entry.type === "animation" || entry.type === "monitor" || entry.type === "bind")) {
                 stack[stack.length - 1] = {
                     type: entry.type, name: entry.name,
                     oldState: top.oldState, newState: entry.newState
@@ -463,6 +563,21 @@ QtObject {
                 }
             }
             _loadCurvesProc.buf = "";
+        }
+    }
+
+    property Process _fetchBindsProc: Process {
+        command: ["hyprctl", "binds", "-j"]
+        running: false
+        property string buf: ""
+        stdout: SplitParser { onRead: (line) => { _fetchBindsProc.buf += line + "\n"; } }
+        onExited: (code) => {
+            if (code === 0 && _fetchBindsProc.buf.trim() !== "") {
+                try { root.keybinds = JSON.parse(_fetchBindsProc.buf); }
+                catch (e) { console.log("[HyprlandConfigService] binds parse error:", e); }
+            }
+            _fetchBindsProc.buf = "";
+            root.keybindsLoading = false;
         }
     }
 
