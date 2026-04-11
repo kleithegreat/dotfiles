@@ -29,7 +29,7 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-10.
 
 | Path | Role | Current responsibilities |
 | --- | --- | --- |
-| `system/configuration.nix` | Shared system baseline | Nix settings, shared unfree allowlist, overlays, common users/groups, shared services, privileged desktop helper registrations, system packages, and Hyprland packaging |
+| `system/configuration.nix` | Shared system baseline | Nix settings, the shared unfree allowlist used by both NixOS and embedded Home Manager, overlays, common users/groups, shared services, privileged desktop helper registrations, system packages, and Hyprland packaging |
 | `system/distributed-builds.nix` | Optional shared distributed-build layer | When enabled, configures remote builders, the post-build cache push hook, `nix.sshServe`, and LAN-only SSH firewall rules |
 | `system/distributed-builds-data.nix` | Environment-specific builder/cache data | Authorized builder keys, host keys, current cache signing key, and the current cache URL override |
 | `hosts/vm/system.nix` | VM overlay | VM boot, guest profile, and virtual disk layout |
