@@ -92,7 +92,7 @@ in
     slack
     thunderbird
     obs-studio
-    libreoffice-fresh
+    onlyoffice-desktopeditors
     spotify
     zathura
     vscode
