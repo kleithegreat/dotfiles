@@ -10,6 +10,7 @@ FocusScope {
     property bool active: false; signal close()
     property bool closing: false
     property bool contentLoaded: false
+    property bool suppressHeightAnimation: false
     readonly property bool overlayVisible: active || closing
     readonly property Item panelItem: qsContentLoader.item
     readonly property Item focusTarget: qsPop
@@ -71,6 +72,7 @@ FocusScope {
 
     onActiveChanged: {
         if (active) {
+            suppressHeightAnimation = true;
             forceActiveFocus();
             contentLoaded = true;
             NetworkService.refreshSummary();
@@ -82,9 +84,11 @@ FocusScope {
                 qsOpenAnim.start();
         } else if (!closing) {
             if (qsContentLoader.item) {
+                suppressHeightAnimation = true;
                 closing = true;
                 qsCloseAnim.start();
             } else {
+                suppressHeightAnimation = false;
                 closing = false;
             }
         }
@@ -107,6 +111,10 @@ FocusScope {
                 }
             }
         }
+        onFinished: {
+            if (qsPop.active && !qsPop.closing)
+                qsPop.suppressHeightAnimation = false;
+        }
     }
 
     SequentialAnimation {
@@ -123,7 +131,12 @@ FocusScope {
                 easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveExit
             }
         }
-        ScriptAction { script: { qsPop.closing = false; } }
+        ScriptAction {
+            script: {
+                qsPop.closing = false;
+                qsPop.suppressHeightAnimation = false;
+            }
+        }
     }
 
     Keys.onEscapePressed: qsPop.close()
@@ -154,11 +167,12 @@ FocusScope {
         anchors.right: parent.right; anchors.top: parent.top
         anchors.topMargin: Theme.popupTopMargin; anchors.rightMargin: Theme.gapOut
         width: 360
-        height: qsPop.overlayVisible ? (item ? item.implicitHeight : qsPop.panelHeightHint) : 0
+        height: qsPop.overlayVisible ? qsPop.panelHeightHint : 0
         active: qsPop.contentLoaded || qsPop.active || qsPop.closing
         asynchronous: true
         sourceComponent: qsPanelComponent
         Behavior on height {
+            enabled: !qsPop.suppressHeightAnimation
             Components.Anim {
                 duration: Theme.animHeightResize
                 easing.type: Easing.BezierSpline
@@ -193,12 +207,6 @@ FocusScope {
             radius: Theme.popupRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
             opacity: 0; scale: 0.92
             transformOrigin: Item.TopRight
-            Behavior on implicitHeight {
-                Components.Anim {
-                    duration: Theme.animHeightResize
-                    easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
-                }
-            }
             MouseArea { anchors.fill: parent }
 
             Components.WheelFlickable {

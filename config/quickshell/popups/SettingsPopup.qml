@@ -144,11 +144,13 @@ FocusScope {
             forceActiveFocus();
             contentLoaded = true;
             loadState();
-            refreshSystemServices();
+            settingsRefreshTimer.stop();
+            settingsRefreshTimer.start();
             if (preparePanelForOpen())
                 settingsOpenAnim.start();
         }
         else if (!closing) {
+            settingsRefreshTimer.stop();
             closeDirectoryBrowser();
             if (settingsContentLoader.item) {
                 closing = true;
@@ -156,6 +158,16 @@ FocusScope {
             } else {
                 closing = false;
             }
+        }
+    }
+
+    Timer {
+        id: settingsRefreshTimer
+        interval: Theme.animPopupIn
+        repeat: false
+        onTriggered: {
+            if (settingsPop.active)
+                settingsPop.refreshSystemServices();
         }
     }
 
@@ -1100,7 +1112,8 @@ FocusScope {
             scale: 0.92
             transformOrigin: Item.Center
             clip: true
-            layer.enabled: true
+            layer.enabled: settingsOpenAnim.running || settingsCloseAnim.running
+            layer.smooth: true
 
             Row {
                 anchors.fill: parent

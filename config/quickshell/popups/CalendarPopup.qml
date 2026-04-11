@@ -9,6 +9,7 @@ FocusScope {
     signal close()
     property bool closing: false
     property bool contentLoaded: false
+    property bool suppressHeightAnimation: false
     readonly property bool overlayVisible: active || closing
     readonly property Item panelItem: calContentLoader.item
     readonly property Item focusTarget: cal
@@ -33,6 +34,7 @@ FocusScope {
 
     onActiveChanged: {
         if (active) {
+            suppressHeightAnimation = true;
             let today = new Date();
             viewYear = today.getFullYear();
             viewMonth = today.getMonth();
@@ -42,9 +44,11 @@ FocusScope {
                 calOpenAnim.start();
         } else if (!closing) {
             if (calContentLoader.item) {
+                suppressHeightAnimation = true;
                 closing = true;
                 calCloseAnim.start();
             } else {
+                suppressHeightAnimation = false;
                 closing = false;
             }
         }
@@ -73,6 +77,10 @@ FocusScope {
                 }
             }
         }
+        onFinished: {
+            if (cal.active && !cal.closing)
+                cal.suppressHeightAnimation = false;
+        }
     }
     SequentialAnimation {
         id: calCloseAnim
@@ -94,7 +102,12 @@ FocusScope {
                 easing.bezierCurve: Theme.animCurveExit
             }
         }
-        ScriptAction { script: { cal.closing = false; } }
+        ScriptAction {
+            script: {
+                cal.closing = false;
+                cal.suppressHeightAnimation = false;
+            }
+        }
     }
 
     property int viewYear: new Date().getFullYear()
@@ -141,11 +154,12 @@ FocusScope {
         anchors.top: parent.top
         anchors.topMargin: Theme.popupTopMargin
         width: Theme.calWidth
-        height: cal.overlayVisible ? (item ? item.implicitHeight : cal.panelHeightHint) : 0
+        height: cal.overlayVisible ? cal.panelHeightHint : 0
         active: cal.contentLoaded || cal.active || cal.closing
         asynchronous: true
         sourceComponent: calPanelComponent
         Behavior on height {
+            enabled: !cal.suppressHeightAnimation
             Components.Anim {
                 duration: Theme.animHeightResize
                 easing.type: Easing.BezierSpline

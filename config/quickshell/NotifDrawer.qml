@@ -10,6 +10,7 @@ FocusScope {
     property bool active: false; signal close()
     property bool closing: false
     property bool contentLoaded: false
+    property bool suppressHeightAnimation: false
     component StateLayer: Item {
         id: stateLayerRoot
 
@@ -86,15 +87,18 @@ FocusScope {
 
     onActiveChanged: {
         if (active) {
+            suppressHeightAnimation = true;
             forceActiveFocus();
             contentLoaded = true;
             if (preparePanelForOpen())
                 drawerOpenAnim.start();
         } else if (!closing) {
             if (drawerContentLoader.item) {
+                suppressHeightAnimation = true;
                 closing = true;
                 drawerCloseAnim.start();
             } else {
+                suppressHeightAnimation = false;
                 closing = false;
             }
         }
@@ -109,6 +113,10 @@ FocusScope {
                 Components.Anim { target: drawerContentLoader.item; property: "scale"; to: 1.0; duration: Theme.animPopupIn - 40; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveEmphasizedEnter }
             }
         }
+        onFinished: {
+            if (drawer.active && !drawer.closing)
+                drawer.suppressHeightAnimation = false;
+        }
     }
     SequentialAnimation {
         id: drawerCloseAnim
@@ -116,7 +124,12 @@ FocusScope {
             Components.Anim { target: drawerContentLoader.item; property: "opacity"; to: 0; duration: Theme.animPopupOut; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveExit }
             Components.Anim { target: drawerContentLoader.item; property: "scale"; to: 0.92; duration: Theme.animPopupOut; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveExit }
         }
-        ScriptAction { script: { drawer.closing = false; } }
+        ScriptAction {
+            script: {
+                drawer.closing = false;
+                drawer.suppressHeightAnimation = false;
+            }
+        }
     }
 
     Keys.onEscapePressed: drawer.close()
@@ -148,12 +161,13 @@ FocusScope {
         anchors.topMargin: Theme.popupTopMargin; anchors.rightMargin: Theme.gapOut
         width: Theme.drawerWidth
         height: drawer.overlayVisible
-            ? Math.min(item ? item.implicitHeight : drawer.panelHeightHint, parent.height - Theme.popupTopMargin - Theme.gapOut)
+            ? Math.min(drawer.panelHeightHint, parent.height - Theme.popupTopMargin - Theme.gapOut)
             : 0
         active: drawer.contentLoaded || drawer.active || drawer.closing
         asynchronous: true
         sourceComponent: drawerPanelComponent
         Behavior on height {
+            enabled: !drawer.suppressHeightAnimation
             Components.Anim {
                 duration: Theme.animHeightResize
                 easing.type: Easing.BezierSpline
