@@ -216,7 +216,27 @@ QtObject {
         let parentName = _animParents[name] || "";
         if (parentName === "") return;
         let parentEff = getEffective(parentName);
-        _applyAnimationState(name, parentEff);
+
+        // Apply parent's values via IPC so the live state is correct
+        let parts = [name];
+        parts.push(parentEff.enabled ? "1" : "0");
+        parts.push(String(parentEff.speed));
+        parts.push(parentEff.curve || "default");
+        if (parentEff.style) parts.push(parentEff.style);
+        let animCmd = "keyword animation " + parts.join(", ");
+        let curve = parentEff.curve || "default";
+        let curvePoints = getCurvePoints(curve);
+        let batch = [];
+        if (curve !== "default" && curve !== "linear" && curvePoints)
+            batch.push("keyword bezier " + curve + ", " + curvePoints.join(", "));
+        batch.push(animCmd);
+        _queueCommand(batch);
+
+        // Mark as not overridden locally so UI shows "inherited"
+        // and saveAll() won't include this animation
+        let nextAnims = _cloneObj(animations);
+        delete nextAnims[name];
+        animations = nextAnims;
     }
 
     // ── Curve management ──
@@ -287,7 +307,20 @@ QtObject {
         return false;
     }
 
-    readonly property bool hasKeybindOverrides: Object.keys(keybindOriginals).length > 0
+    readonly property bool hasKeybindOverrides: {
+        let originals = keybindOriginals;
+        let indices = Object.keys(originals);
+        let binds = keybinds;
+        for (let i = 0; i < indices.length; i++) {
+            let idx = parseInt(indices[i]);
+            let bind = binds[idx];
+            if (!bind) continue;
+            let orig = originals[indices[i]];
+            if (bind.modmask !== orig.modmask || bind.key !== orig.key)
+                return true;
+        }
+        return false;
+    }
 
     function saveAll() {
         if (saving) return;
@@ -301,6 +334,15 @@ QtObject {
         saving = true;
         _clearKeybindsProc._pendingClear = true;
         _clearAnimationsProc.running = true;
+    }
+
+    function _resetAfterClear() {
+        animations = ({});
+        keybindOriginals = ({});
+        _undoStack = [];
+        _redoStack = [];
+        refresh();
+        fetchKeybinds();
     }
 
     function _saveAnimations() {
@@ -328,11 +370,6 @@ QtObject {
             });
         }
 
-        if (payload.animations.length === 0) {
-            _clearAnimationsProc.running = true;
-            return;
-        }
-
         _saveAnimationsProc.command = ["desktopctl", "hypr", "animations", "save",
                                         JSON.stringify(payload)];
         _saveAnimationsProc.running = true;
@@ -350,6 +387,10 @@ QtObject {
             if (!bind) continue;
             let orig = originals[indices[i]];
 
+            // Skip no-op overrides (current matches original)
+            if (bind.modmask === orig.modmask && bind.key === orig.key)
+                continue;
+
             payload.overrides.push({
                 original_mods: _modmaskToString(orig.modmask),
                 original_key: orig.key,
@@ -361,6 +402,8 @@ QtObject {
                 arg: bind.arg !== undefined ? bind.arg : ""
             });
         }
+
+        if (payload.overrides.length === 0) return;
 
         _saveKeybindsProc.command = ["desktopctl", "hypr", "keybinds", "save",
                                       JSON.stringify(payload)];
@@ -654,7 +697,7 @@ QtObject {
     property Process _loadCurvesProc: Process {
         running: false
         property string buf: ""
-        stdout: SplitParser { onRead: (line) => { _loadCurvesProc.buf += line; } }
+        stdout: SplitParser { onRead: (line) => { _loadCurvesProc.buf += line + "\n"; } }
         onExited: (code) => {
             if (code === 0 && _loadCurvesProc.buf.trim() !== "") {
                 try {
@@ -690,7 +733,7 @@ QtObject {
         onExited: (code) => {
             if (code !== 0)
                 root.error = "Failed to save animation overrides";
-            if (!_saveKeybindsProc.running && !_clearKeybindsProc.running)
+            if (!_saveKeybindsProc.running)
                 root.saving = false;
         }
     }
@@ -738,6 +781,7 @@ QtObject {
             if (code !== 0)
                 root.error = "Failed to clear keybind overrides";
             root.saving = false;
+            root._resetAfterClear();
         }
     }
 
