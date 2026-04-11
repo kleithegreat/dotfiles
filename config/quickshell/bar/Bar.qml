@@ -21,6 +21,7 @@ PanelWindow {
         anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
         anchors.leftMargin: Theme.barPadding; spacing: Theme.barSpacing
         Workspaces {}
+        ExpoButton {}
         Rectangle { visible: mpris.visible; width: 1; height: Theme.barHeight * 0.4; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
         Mpris { id: mpris; onLabelClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleMpris(); } }
     }
