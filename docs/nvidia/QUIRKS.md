@@ -29,3 +29,9 @@
 **Cause:** The laptop needs Mesa-only EGL vendor selection for the hybrid path, while the dedicated desktop needs both the NVIDIA and Mesa ICDs.
 **Status:** Host split in place
 **Resolution:** `system/configuration.nix` leaves `__EGL_VENDOR_LIBRARY_FILENAMES` unset. `hosts/laptop/system.nix` sets the laptop's Mesa-only value through `environment.sessionVariables.__EGL_VENDOR_LIBRARY_FILENAMES`, and `hosts/desktop/system.nix` sets the desktop's dual-vendor list directly through the same variable.
+
+## Lapce 0.4.6 panics on the desktop's native Wayland/EGL path
+**Symptom:** Launching `lapce` on the dedicated NVIDIA desktop appears to do nothing; `~/.local/share/lapce-stable/logs/stderr.log` shows `AdapterNotFoundError`.
+**Cause:** On this desktop stack, Lapce/Floem's native Wayland renderer can initialize far enough to connect to Wayland, then fail adapter selection and panic inside `floem` after the Wayland/EGL path reports no usable config.
+**Status:** Workaround in place
+**Resolution:** `home/default.nix` wraps `pkgs.lapce` on `hostName == "desktop"` and forces the launcher onto Xwayland by unsetting `WAYLAND_DISPLAY` and setting `XDG_SESSION_TYPE=x11` plus `WINIT_UNIX_BACKEND=x11`. The laptop still uses the upstream package unchanged.
