@@ -7,20 +7,7 @@ let
       ../patches/snappy-switcher/workspace-scope-filter.patch
     ];
   });
-  lapce-pkg = if hostName == "desktop" then pkgs.symlinkJoin {
-    name = "lapce-x11-wrapper";
-    paths = [ pkgs.lapce ];
-    nativeBuildInputs = [ pkgs.makeWrapper ];
-    postBuild = ''
-      # The overlaid package carries the Vulkan loader fix; keep forcing the
-      # desktop launcher onto the known-good Xwayland path for now.
-      rm "$out/bin/lapce"
-      makeWrapper "${pkgs.lapce}/bin/lapce" "$out/bin/lapce" \
-        --unset WAYLAND_DISPLAY \
-        --set XDG_SESSION_TYPE x11 \
-        --set WINIT_UNIX_BACKEND x11
-    '';
-  } else pkgs.lapce;
+  lapce-pkg = pkgs.lapce;
 in
 {
   imports = [
