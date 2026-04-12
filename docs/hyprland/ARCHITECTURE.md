@@ -70,9 +70,9 @@ Current host input fragments differ materially:
 - `hosts/desktop/input-devices.conf` currently only adjusts per-device mouse
   sensitivity for the Logitech G Pro and MX Master 2S
   in the desktop input fragment.
-- `hosts/desktop/autostart.conf` keeps the Logitech MX Master 2S smart-shift
-  tweak in a desktop-only startup fragment instead of mixing it into
-  `hosts/desktop/env.conf`.
+- `hosts/desktop/autostart.conf` starts Solaar hidden for the desktop session
+  and keeps the Logitech MX Master 2S smart-shift tweak in that desktop-only
+  startup fragment instead of mixing either concern into `hosts/desktop/env.conf`.
 
 ## Theme And Runtime Integration
 
@@ -113,7 +113,9 @@ top edge only when a top decoration is part of the window. The matching
 `hyprbars/barDeco.cpp` on upstream's `DECORATION_LAYER_UNDER` and renders the
 bar background with top-only rounded corners instead of the old oversized
 rounded-rect fill hack, so the titlebar does not seep into the window sides
-while the main surface keeps its squared join.
+while the main surface keeps its squared join. For those square-top bars, the
+patch also skips the old stencil-dependent background path so `hyprexpo`'s
+offscreen workspace captures can keep the bar background visible.
 
 Monitor behavior follows the same host split as inputs:
 
