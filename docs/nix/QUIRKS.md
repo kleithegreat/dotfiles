@@ -54,6 +54,12 @@
 **Status:** Workaround in place
 **Resolution:** Install those apps through NixOS modules or `environment.systemPackages`. `system/configuration.nix` now enables `programs.partition-manager` so `kpmcore` is registered for both D-Bus activation and polkit, and `bitwarden-desktop` stays in `environment.systemPackages` for the same reason.
 
+## Wine 11 Ableton prefixes need fresh state and per-prefix WineASIO registration
+**Symptom:** Ableton Live 12 Lite launches without a usable ASIO device, or a reused older Wine prefix behaves inconsistently after moving to the current desktop Wine package set.
+**Cause:** The desktop host uses `wineWow64Packages`-based Wine 11 packages. nixpkgs notes that prefixes created against the deprecated `wineWowPackages` family are not backward compatible. Separately, `wineasio` installs its DLLs into the system profile, but each Wine prefix still needs the driver copied into `drive_c/windows/system32` and registered with `wine64 regsvr32`.
+**Status:** Expected manual setup
+**Resolution:** Keep Ableton in a dedicated fresh `WINEARCH=win64` prefix under the home directory, and rerun the documented WineASIO registration commands whenever that prefix is created or recreated.
+
 ## `tailscaled` can stall shutdown on physical hosts
 **Symptom:** Reboot or poweroff can occasionally sit on "A stop job is running for Tailscale node agent" long enough to hit most of systemd's default 90 second stop timeout.
 **Cause:** Upstream `tailscaled` shutdown is normally fast, but Linux `wgengine` teardown has had intermittent close/deadlock races. The current hosts use NetworkManager plus `resolvconf`/`openresolv`, so this repo does not rely on `systemd-resolved` staying up for Tailscale cleanup.

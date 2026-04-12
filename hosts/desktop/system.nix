@@ -1,6 +1,10 @@
 { config, pkgs, lib, ... }:
 
 {
+  imports = [
+    ./wine-ableton.nix
+  ];
+
   nixpkgs.overlays = [
     # Temporary desktop-only NVIDIA open-kernel workaround for PR #996.
     # Remove once a future driver release includes the resume-side reset.

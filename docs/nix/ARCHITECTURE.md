@@ -3,7 +3,7 @@
 ## Scope
 
 Current implementation map for the flake, shared NixOS modules, optional
-distributed-build wiring, and embedded Home Manager layer as of 2026-04-10.
+distributed-build wiring, and embedded Home Manager layer as of 2026-04-12.
 
 ## Flake Topology
 
@@ -35,7 +35,8 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-10.
 | `hosts/vm/system.nix` | VM overlay | VM boot, guest profile, and virtual disk layout |
 | `hosts/laptop/system.nix` | Laptop overlay | Hybrid GPU policy, laptop-only services and overrides, GRUB, laptop hardware policy, and the laptop `tailscaled` stop-timeout override |
 | `hosts/laptop/fan-control.nix` | Laptop-only hardware submodule | Dell SMM kernel module wiring, BIOS fan-control handoff, `i8kmon.conf`, and the `i8kmon` systemd service |
-| `hosts/desktop/system.nix` | Desktop overlay | Dedicated NVIDIA policy, desktop-only packages/services, storage mounts, GRUB, desktop-only overlay imports, and the desktop `tailscaled` stop-timeout override |
+| `hosts/desktop/system.nix` | Desktop overlay | Dedicated NVIDIA policy, desktop-only imports, storage mounts, GRUB, desktop-only overlay imports, and the desktop `tailscaled` stop-timeout override |
+| `hosts/desktop/wine-ableton.nix` | Desktop Wine/audio submodule | Loads the `ntsync` kernel module at boot, enables `services.pipewire.jack.enable`, and installs the desktop's Ableton-facing Wine toolchain (`wineWow64Packages.stableFull`, `wineasio`, and `winetricks`) |
 | `home/default.nix` | Shared user baseline | User packages that do not require system-scoped helper registration, host-specific user-package wrappers, `xdg.configFile` mappings, host-specific Hyprland file selection, desktop entry overrides, and theme activation |
 | `home/shell.nix` | Shell submodule | Zsh, shell tools, Git, aliases, and shell helpers |
 | `home/gtk.nix` | GTK submodule | GTK packages and small dconf defaults |
