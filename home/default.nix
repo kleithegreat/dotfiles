@@ -135,6 +135,7 @@ in
     krita
     kdePackages.kdenlive
     kdePackages.krdc
+    prismlauncher
     qbittorrent
     telegram-desktop
     pavucontrol    # PulseAudio/PipeWire volume control GUI
