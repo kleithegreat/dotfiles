@@ -40,7 +40,7 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-10.
 | `home/shell.nix` | Shell submodule | Zsh, shell tools, Git, aliases, and shell helpers |
 | `home/gtk.nix` | GTK submodule | GTK packages and small dconf defaults |
 | `pkgs/helium/default.nix` | Prebuilt browser package | Fetches the upstream Helium release tarball, auto-patches the bundled ELFs, wraps the upstream launcher, and installs desktop assets using the pin in `pkgs/helium/source.nix` |
-| `overlays/local-packages.nix` | Local package overlay | Exposes the repo's `desktopctl` and `helium` derivations, carries the repo-local `sf-pro` font package, and applies small nixpkgs overrides such as the LM Studio AppImage fixups |
+| `overlays/local-packages.nix` | Local package overlay | Exposes the repo's `desktopctl` and `helium` derivations, carries the repo-local `sf-pro` font package, and applies small nixpkgs overrides such as the Lapce Vulkan-loader runtime fix and the LM Studio AppImage fixups |
 
 ## Overlay Usage
 
@@ -48,7 +48,9 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-10.
   `desktopctl/` derivation, `pkgs.helium` from `pkgs/helium/`, defines a
   repo-local `pkgs.sf-pro` derivation that fetches Apple's stable-url
   `SF-Pro.dmg` with a repo-pinned hash and unpacks `Payload~` via `cpio` when
-  present, and carries the `pkgs.lmstudio` override that rewrites nixpkgs'
+  present, overrides `pkgs.lapce` so `bin/.lapce-wrapped` gains the
+  `pkgs.vulkan-loader` library directory in its runtime search path for
+  `wgpu`, and carries the `pkgs.lmstudio` override that rewrites nixpkgs'
   stale AppImage icon path to the current upstream AppImage's real
   `resources/app/.webpack/Icon-512x512.png` asset and skips the bundled `lms`
   post-install fixup when the release only ships an empty placeholder file.

@@ -12,8 +12,8 @@ let
     paths = [ pkgs.lapce ];
     nativeBuildInputs = [ pkgs.makeWrapper ];
     postBuild = ''
-      # Lapce 0.4.6 panics on this dedicated NVIDIA desktop when it picks
-      # Wayland/EGL directly, so force the working Xwayland path instead.
+      # The overlaid package carries the Vulkan loader fix; keep forcing the
+      # desktop launcher onto the known-good Xwayland path for now.
       rm "$out/bin/lapce"
       makeWrapper "${pkgs.lapce}/bin/lapce" "$out/bin/lapce" \
         --unset WAYLAND_DISPLAY \
