@@ -33,5 +33,5 @@
 ## Lapce 0.4.6 needs the Vulkan loader in its runtime search path
 **Symptom:** Launching `lapce` on the dedicated NVIDIA desktop appears to do nothing; `~/.local/share/lapce-stable/logs/stderr.log` shows `AdapterNotFoundError`.
 **Cause:** The nixpkgs `lapce` package exposes EGL and GLX userspace, but the wrapped GUI binary still cannot locate `libvulkan.so.1` at runtime. `wgpu` then fails adapter discovery before any window is created.
-**Status:** Workaround in place
-**Resolution:** `overlays/local-packages.nix` overrides `pkgs.lapce` so `bin/.lapce-wrapped` includes the `pkgs.vulkan-loader` library directory in its runtime search path, which lets the Vulkan loader discover `/run/opengl-driver/share/vulkan/icd.d/nvidia_icd.x86_64.json`. `home/default.nix` still wraps that overridden package on `hostName == "desktop"` and forces the launcher onto Xwayland by unsetting `WAYLAND_DISPLAY` and setting `XDG_SESSION_TYPE=x11` plus `WINIT_UNIX_BACKEND=x11`. The laptop still uses the overlaid package without the X11-only wrapper.
+**Status:** Fixed in local overlay
+**Resolution:** `overlays/local-packages.nix` overrides `pkgs.lapce` so `bin/.lapce-wrapped` includes the `pkgs.vulkan-loader` library directory in its runtime search path, which lets the Vulkan loader discover `/run/opengl-driver/share/vulkan/icd.d/nvidia_icd.x86_64.json`. With that override in place, `home/default.nix` now installs the overlaid package directly, so the desktop can use Lapce's native Wayland path again instead of forcing Xwayland.
