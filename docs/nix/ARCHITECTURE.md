@@ -70,6 +70,15 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-12.
   always appends `-O3 -march=native` to the flake-provided `hyprland`,
   `xdg-desktop-portal-hyprland`, `hyprbars`, and `hyprexpo` derivations,
   independent of the global `enableMarchOptimizations` flag.
+- Those Hyprland-family derivations also carry the repo-local patch stack from
+  `system/configuration.nix`: the compositor patch extends per-corner rounding
+  control to both texture and rect paths, and the `hyprbars` compatibility
+  patch now consumes that renderer support instead of the older oversized
+  rounded titlebar fill workaround. The same module also re-calls nixpkgs'
+  `pkgs/applications/window-managers/hyprwm/hyprland-plugins/default.nix`
+  with `hyprland = patchedHyprland` and passes that helper set back through the
+  upstream plugin overrides so `mkHyprlandPlugin` resolves the patched
+  Hyprland headers, not the unpatched package-set default.
 - The desktop host module's `nixpkgs.overlays` list in `hosts/desktop/system.nix`
   still appends
   `overlays/nvidia-open-pr996.nix` for the desktop-specific NVIDIA workaround.
