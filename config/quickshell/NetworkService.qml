@@ -15,8 +15,12 @@ QtObject {
     readonly property string connectedConnectionId: _connectedConnectionId
     readonly property string connectedConnectionUuid: _connectedConnectionUuid
     readonly property string connectivityState: _connectivityState
+    readonly property string activeInterface: _activeInterface
     readonly property string primaryConnectionType: _primaryConnectionType
     readonly property string primaryConnectionLabel: _primaryConnectionLabel
+    readonly property string ethernetLinkSpeed: _ethernetLinkSpeed
+    readonly property string ethernetDuplex: _ethernetDuplex
+    readonly property bool ethernetCarrierDetected: _ethernetCarrierDetected
     readonly property bool isCaptivePortal: _connectivityState === "portal" || _connectivityState === "limited"
     readonly property string connectError: _connectError
     readonly property bool disconnectPending: _disconnectPending
@@ -40,6 +44,9 @@ QtObject {
     readonly property string targetConnectionUuid: _targetConnectionUuid
 
     // ── Detail state ──
+    readonly property string activeIp: _activeIp
+    readonly property string activeGateway: _activeGateway
+    readonly property string activeDns: _activeDns
     readonly property string detailIp: _detailIp
     readonly property string detailGateway: _detailGateway
     readonly property string detailDns: _detailDns
@@ -100,9 +107,17 @@ QtObject {
     property string _connectedConnectionId: ""
     property string _connectedConnectionUuid: ""
     property string _connectivityState: ""
+    property string _activeInterface: ""
     property string _primaryConnectionType: ""
     property string _primaryConnectionLabel: ""
+    property string _ethernetLinkSpeed: ""
+    property string _ethernetDuplex: ""
+    property bool _ethernetCarrierDetected: false
     property string _connectError: ""
+    property var _pendingDefaultDevices: []
+    property string _pendingActiveDevice: ""
+    property string _pendingActiveType: ""
+    property string _pendingActiveStatusLabel: ""
 
     property string _targetSsid: ""
     property string _targetSecurity: ""
@@ -112,6 +127,9 @@ QtObject {
     property string _targetConnectionId: ""
     property string _targetConnectionUuid: ""
 
+    property string _activeIp: ""
+    property string _activeGateway: ""
+    property string _activeDns: ""
     property string _detailIp: ""
     property string _detailGateway: ""
     property string _detailDns: ""
@@ -192,34 +210,141 @@ QtObject {
     }
 
     function refreshConnection() {
+        if (!routeProc.running)
+            routeProc.running = true;
         if (!activeProc.running)
             activeProc.running = true;
-        if (!activeWifiSsidProc.running)
-            activeWifiSsidProc.running = true;
         if (!connectivityProc.running)
             connectivityProc.running = true;
     }
 
     function commitActiveConnectionState() {
-        if (activeProc.running || activeWifiSsidProc.running)
+        if (routeProc.running || activeProc.running || activeDetailProc.running || activeWifiSsidProc.running)
             return;
 
-        let connectionId = activeProc.sawWifi ? activeProc.pendingWifiId : "";
-        let connectionUuid = activeProc.sawWifi ? activeProc.pendingWifiUuid : "";
+        let connectionId = activeDetailProc.pendingConnectionId || _pendingActiveStatusLabel;
+        let connectionUuid = activeDetailProc.pendingConnectionUuid;
         let activeSsid = activeWifiSsidProc.pendingWifiSsid;
         if (activeSsid === "")
             activeSsid = fallbackSsidForConnection(connectionUuid, connectionId);
 
-        _connectedSsid = activeProc.sawWifi ? activeSsid : "";
+        _activeInterface = _pendingActiveDevice;
+        _connectedSsid = _pendingActiveType === "wifi" ? activeSsid : "";
         _connectedConnectionId = connectionId;
         _connectedConnectionUuid = connectionUuid;
-        _primaryConnectionType = activeProc.pendingPrimaryType;
-        _primaryConnectionLabel = activeProc.pendingPrimaryLabel;
+        _primaryConnectionType = _pendingActiveType;
+        _primaryConnectionLabel = connectionId !== "" ? connectionId : _pendingActiveStatusLabel;
+        _activeIp = activeDetailProc.pendingIp;
+        _activeGateway = activeDetailProc.pendingGateway;
+        _activeDns = activeDetailProc.pendingDns;
         if (_primaryConnectionType === "wifi")
             _primaryConnectionLabel = activeSsid !== "" ? activeSsid : (connectionId !== "" ? connectionId : "Wi-Fi");
+        else if (_primaryConnectionType === "ethernet")
+            _primaryConnectionLabel = _primaryConnectionLabel !== "" ? _primaryConnectionLabel : "Ethernet";
+
+        if (_primaryConnectionType === "ethernet") {
+            refreshEthernetLinkInfo();
+        } else {
+            clearEthernetLinkState();
+        }
 
         for (let i = 0; i < netModel.count; i++)
             netModel.setProperty(i, "active", activeSsid !== "" && netModel.get(i).ssid === activeSsid);
+    }
+
+    function clearEthernetLinkState() {
+        _ethernetLinkSpeed = "";
+        _ethernetDuplex = "";
+        _ethernetCarrierDetected = false;
+    }
+
+    function refreshEthernetLinkInfo() {
+        if (_activeInterface === "") {
+            clearEthernetLinkState();
+            return;
+        }
+        ethernetInfoProc.command = ["bash", "-c",
+            "iface=\"$1\"; base=\"/sys/class/net/$iface\"; " +
+            "speed=''; duplex=''; carrier=''; " +
+            "[ -r \"$base/carrier\" ] && carrier=$(tr -d '[:space:]' < \"$base/carrier\" 2>/dev/null); " +
+            "[ -r \"$base/speed\" ] && speed=$(tr -d '[:space:]' < \"$base/speed\" 2>/dev/null); " +
+            "[ -r \"$base/duplex\" ] && duplex=$(tr -d '[:space:]' < \"$base/duplex\" 2>/dev/null); " +
+            "[ \"$carrier\" = '0' ] && speed=''; " +
+            "[ \"$speed\" = '-1' ] && speed=''; " +
+            "echo \"ETH_SPEED=${speed:---}\"; " +
+            "echo \"ETH_DUPLEX=${duplex:---}\"; " +
+            "echo \"ETH_CARRIER=${carrier:-0}\"",
+            "--", _activeInterface
+        ];
+        ethernetInfoProc.running = true;
+    }
+
+    function clearActiveConnectionState() {
+        _activeInterface = "";
+        _connectedSsid = "";
+        _connectedConnectionId = "";
+        _connectedConnectionUuid = "";
+        _primaryConnectionType = "";
+        _primaryConnectionLabel = "";
+        _activeIp = "";
+        _activeGateway = "";
+        _activeDns = "";
+        clearEthernetLinkState();
+        for (let i = 0; i < netModel.count; i++)
+            netModel.setProperty(i, "active", false);
+    }
+
+    function resolveActiveConnectionState() {
+        if (routeProc.running || activeProc.running || activeDetailProc.running || activeWifiSsidProc.running)
+            return;
+
+        let connectedEntries = [];
+        for (let i = 0; i < activeProc.pendingEntries.length; i++) {
+            let entry = activeProc.pendingEntries[i];
+            if ((entry.type === "wifi" || entry.type === "ethernet") && entry.state.indexOf("connected") === 0)
+                connectedEntries.push(entry);
+        }
+
+        let selected = null;
+        for (let i = 0; i < _pendingDefaultDevices.length && !selected; i++) {
+            let preferredDevice = _pendingDefaultDevices[i];
+            for (let j = 0; j < connectedEntries.length; j++) {
+                if (connectedEntries[j].device === preferredDevice) {
+                    selected = connectedEntries[j];
+                    break;
+                }
+            }
+        }
+        if (!selected && connectedEntries.length > 0)
+            selected = connectedEntries[0];
+
+        activeDetailProc.pendingConnectionId = "";
+        activeDetailProc.pendingConnectionUuid = "";
+        activeWifiSsidProc.pendingWifiSsid = "";
+
+        if (!selected) {
+            _pendingActiveDevice = "";
+            _pendingActiveType = "";
+            _pendingActiveStatusLabel = "";
+            clearActiveConnectionState();
+            return;
+        }
+
+        _pendingActiveDevice = selected.device || "";
+        _pendingActiveType = selected.type === "wifi" ? "wifi" : "ethernet";
+        _pendingActiveStatusLabel = selected.connection || (_pendingActiveType === "ethernet" ? "Ethernet" : "Wi-Fi");
+
+        activeDetailProc.command = [
+            "nmcli", "-t", "-f",
+            "GENERAL.CONNECTION,GENERAL.CON-UUID,GENERAL.TYPE,GENERAL.DEVICE,IP4.ADDRESS,IP4.GATEWAY,IP4.DNS",
+            "dev", "show", _pendingActiveDevice
+        ];
+        activeDetailProc.running = true;
+
+        if (_pendingActiveType === "wifi") {
+            activeWifiSsidProc.command = ["nmcli", "-t", "-f", "ACTIVE,SSID", "dev", "wifi", "list", "ifname", _pendingActiveDevice];
+            activeWifiSsidProc.running = true;
+        }
     }
 
     function setWifiEnabled(enabled) {
@@ -233,8 +358,10 @@ QtObject {
         _wifiRadioReady = true;
         if (!enabled) {
             clearLiveWifiState();
-            _primaryConnectionType = "";
-            _primaryConnectionLabel = "";
+            if (_primaryConnectionType === "wifi") {
+                _primaryConnectionType = "";
+                _primaryConnectionLabel = "";
+            }
         }
         wifiRadioToggleProc.command = ["nmcli", "radio", "wifi", enabled ? "on" : "off"];
         wifiRadioToggleProc.running = true;
@@ -307,19 +434,17 @@ QtObject {
         let uuid = _connectedConnectionUuid;
         _disconnectRollbackState = snapshotConnectionState();
         _disconnectPending = true;
-        _connectedSsid = "";
-        _connectedConnectionId = "";
-        _connectedConnectionUuid = "";
+        clearActiveConnectionState();
         _connectivityState = "";
-        if (_primaryConnectionType === "wifi") {
-            _primaryConnectionType = "";
-            _primaryConnectionLabel = "";
-        }
         disconnectProc.command = ["nmcli", "con", "down", "uuid", uuid];
         disconnectProc.running = true;
     }
 
     function forgetNetwork() {
+        if (_primaryConnectionType === "ethernet"
+                && ((_targetConnectionUuid !== "" && _targetConnectionUuid === _connectedConnectionUuid)
+                    || (_targetConnectionUuid === "" && _targetConnectionId !== "" && _targetConnectionId === _connectedConnectionId)))
+            return;
         let uuid = _targetConnectionUuid;
         let id = _targetConnectionId;
         if (uuid !== "")
@@ -377,9 +502,12 @@ QtObject {
         _histGwPing = []; _histGwJitter = []; _histGwLoss = [];
         _histNetPing = []; _histNetJitter = []; _histNetLoss = [];
         _histDnsTime = [];
-        _diagLoading = true; _speedTestRunning = false;
+        _diagLoading = _primaryConnectionType === "wifi"; _speedTestRunning = false;
         _diagPolling = true;
-        wifiInfoProc.running = true;
+        if (_primaryConnectionType === "wifi")
+            wifiInfoProc.running = true;
+        else if (_primaryConnectionType === "ethernet")
+            refreshEthernetLinkInfo();
         gwPingProc.running = true;
         netPingProc.running = true;
         dnsProc.running = true;
@@ -422,20 +550,33 @@ QtObject {
             return v >= goodThresh ? "\uD83D\uDFE2" : (v >= warnThresh ? "\uD83D\uDFE1" : "\uD83D\uDD34");
         };
 
-        let report = "WHYFI DIAGNOSTIC REPORT\n";
+        let report = "NETWORK DIAGNOSTIC REPORT\n";
         report += "Generated: " + Qt.formatDateTime(new Date(), "yyyy-MM-dd hh:mm:ss") + "\n\n";
         report += "Legend: \uD83D\uDFE2 Good  \uD83D\uDFE1 Warning  \uD83D\uDD34 Poor\n\n";
 
         report += "NETWORK\n";
-        report += "  SSID: " + _connectedSsid + "\n";
-        report += "  Band: " + (_diagBand || "--") + "\n";
-        report += "  Standard: " + (_diagWifiStandard || "--") + "\n";
-        report += "  Channel: " + (_currentChannel || "--") + "\n\n";
+        report += "  Type: " + (_primaryConnectionType || "none") + "\n";
+        report += "  Connection: " + (_primaryConnectionLabel || "--") + "\n";
+        report += "  Interface: " + (_activeInterface || "--") + "\n";
+        report += "  IP: " + (_activeIp || "--") + "\n";
+        report += "  Gateway: " + (_activeGateway || "--") + "\n";
+        report += "  DNS: " + (_activeDns || "--") + "\n";
+        if (_primaryConnectionType === "wifi") {
+            report += "  Band: " + (_diagBand || "--") + "\n";
+            report += "  Standard: " + (_diagWifiStandard || "--") + "\n";
+            report += "  Channel: " + (_currentChannel || "--") + "\n\n";
 
-        report += "SIGNAL\n";
-        report += "  " + colorLabel(_diagSignal, -50, -70, false) + " Signal: " + (_diagSignal !== "" && _diagSignal !== "--" ? _diagSignal + " dBm" : "--") + "\n";
-        report += "  Noise: " + (_diagNoise !== "" && _diagNoise !== "--" ? _diagNoise + " dBm" : "--") + "\n";
-        report += "  Link Rate: " + (_diagLinkRate !== "" && _diagLinkRate !== "--" ? _diagLinkRate + " Mbps" : "--") + "\n\n";
+            report += "SIGNAL\n";
+            report += "  " + colorLabel(_diagSignal, -50, -70, false) + " Signal: " + (_diagSignal !== "" && _diagSignal !== "--" ? _diagSignal + " dBm" : "--") + "\n";
+            report += "  Noise: " + (_diagNoise !== "" && _diagNoise !== "--" ? _diagNoise + " dBm" : "--") + "\n";
+            report += "  Link Rate: " + (_diagLinkRate !== "" && _diagLinkRate !== "--" ? _diagLinkRate + " Mbps" : "--") + "\n\n";
+        } else if (_primaryConnectionType === "ethernet") {
+            report += "  Link Speed: " + (_ethernetLinkSpeed !== "" ? _ethernetLinkSpeed + " Mbps" : "--") + "\n";
+            report += "  Duplex: " + (_ethernetDuplex || "--") + "\n";
+            report += "  Carrier: " + (_ethernetCarrierDetected ? "Detected" : "Not detected") + "\n\n";
+        } else {
+            report += "\n";
+        }
 
         report += "ROUTER \u00B7 " + (_diagGateway || "--") + "\n";
         report += "  " + colorLabel(_diagGwPing, 10, 50, true) + " Ping: " + (_diagGwPing !== "" && _diagGwPing !== "--" ? _diagGwPing + " ms" : "--") + "\n";
@@ -479,9 +620,6 @@ QtObject {
     function clearLiveWifiState() {
         netModel.clear();
         _connectedSsid = "";
-        _connectedConnectionId = "";
-        _connectedConnectionUuid = "";
-        _connectivityState = "";
     }
 
     function snapshotConnectionState() {
@@ -490,8 +628,15 @@ QtObject {
             connectedConnectionId: _connectedConnectionId,
             connectedConnectionUuid: _connectedConnectionUuid,
             connectivityState: _connectivityState,
+            activeInterface: _activeInterface,
+            activeIp: _activeIp,
+            activeGateway: _activeGateway,
+            activeDns: _activeDns,
             primaryConnectionType: _primaryConnectionType,
             primaryConnectionLabel: _primaryConnectionLabel,
+            ethernetLinkSpeed: _ethernetLinkSpeed,
+            ethernetDuplex: _ethernetDuplex,
+            ethernetCarrierDetected: _ethernetCarrierDetected,
             targetSsid: _targetSsid,
             targetSecurity: _targetSecurity,
             targetSignal: _targetSignal,
@@ -512,8 +657,15 @@ QtObject {
         _connectedConnectionId = state.connectedConnectionId || "";
         _connectedConnectionUuid = state.connectedConnectionUuid || "";
         _connectivityState = state.connectivityState || "";
+        _activeInterface = state.activeInterface || "";
+        _activeIp = state.activeIp || "";
+        _activeGateway = state.activeGateway || "";
+        _activeDns = state.activeDns || "";
         _primaryConnectionType = state.primaryConnectionType || "";
         _primaryConnectionLabel = state.primaryConnectionLabel || "";
+        _ethernetLinkSpeed = state.ethernetLinkSpeed || "";
+        _ethernetDuplex = state.ethernetDuplex || "";
+        _ethernetCarrierDetected = state.ethernetCarrierDetected === true;
         _targetSsid = state.targetSsid || "";
         _targetSecurity = state.targetSecurity || "";
         _targetSignal = state.targetSignal || 0;
@@ -671,6 +823,42 @@ QtObject {
 
     // ── Radio processes ───────────────────────────────────────
 
+    property Process routeProc: Process {
+        running: false
+        command: ["bash", "-c",
+            "json=$(ip -j route show default 2>/dev/null || true); " +
+            "if [ -n \"$json\" ] && printf '%s' \"$json\" | grep -q '\"dev\"'; then " +
+            "  while IFS= read -r obj; do " +
+            "    [ -n \"$obj\" ] || continue; " +
+            "    dev=$(printf '%s\\n' \"$obj\" | sed -n 's/.*\"dev\":\"\\([^\"]*\\)\".*/\\1/p'); " +
+            "    metric=$(printf '%s\\n' \"$obj\" | sed -n 's/.*\"metric\":\\([0-9][0-9]*\\).*/\\1/p'); " +
+            "    [ -n \"$dev\" ] || continue; " +
+            "    [ -n \"$metric\" ] || metric=0; " +
+            "    printf '%s:%s\\n' \"$metric\" \"$dev\"; " +
+            "  done < <(printf '%s' \"$json\" | sed 's/^\\[//; s/\\]$//; s/},{/}\\n{/g') | sort -t: -k1,1n | cut -d: -f2 | while IFS= read -r dev; do [ -n \"$dev\" ] && printf 'IFACE=%s\\n' \"$dev\"; done; " +
+            "  exit 0; " +
+            "fi; " +
+            "ip route show default 2>/dev/null | awk '/default/ { dev=\"\"; metric=0; for (i=1; i<=NF; i++) { if ($i == \"dev\" && i+1 <= NF) dev=$(i+1); else if ($i == \"metric\" && i+1 <= NF) metric=$(i+1); } if (dev != \"\") print metric \":\" dev; }' | sort -t: -k1,1n | cut -d: -f2 | while IFS= read -r dev; do [ -n \"$dev\" ] && printf 'IFACE=%s\\n' \"$dev\"; done"
+        ]
+        stdout: SplitParser { onRead: (line) => {
+            if (!line.startsWith("IFACE="))
+                return;
+            let device = line.substring(6).trim();
+            if (device !== "") {
+                let devices = root._pendingDefaultDevices.slice();
+                devices.push(device);
+                root._pendingDefaultDevices = devices;
+            }
+        }}
+        onRunningChanged: {
+            if (running)
+                root._pendingDefaultDevices = [];
+        }
+        onExited: {
+            root.resolveActiveConnectionState();
+        }
+    }
+
     property Process wifiRadioCheckProc: Process {
         running: false
         command: ["nmcli", "radio", "wifi"]
@@ -772,44 +960,60 @@ QtObject {
 
     property Process activeProc: Process {
         id: activeProc
-        command: ["nmcli", "-t", "-f", "NAME,UUID,TYPE,DEVICE", "con", "show", "--active"]
+        command: ["nmcli", "-t", "-f", "TYPE,STATE,DEVICE,CONNECTION", "dev", "status"]
         running: false
-        property string pendingWifiId: ""
-        property string pendingWifiUuid: ""
-        property bool sawWifi: false
-        property string pendingPrimaryType: ""
-        property string pendingPrimaryLabel: ""
+        property var pendingEntries: []
         onRunningChanged: {
-            if (running) {
-                pendingWifiId = "";
-                pendingWifiUuid = "";
-                sawWifi = false;
-                pendingPrimaryType = "";
-                pendingPrimaryLabel = "";
-            }
+            if (running)
+                pendingEntries = [];
         }
         stdout: SplitParser { onRead: (line) => {
             let parts = root.parseNmcli(line);
             if (parts.length < 4)
                 return;
 
-            if (parts[2] === "802-3-ethernet") {
-                activeProc.pendingPrimaryType = "ethernet";
-                activeProc.pendingPrimaryLabel = "Ethernet";
-                return;
-            }
+            let entries = activeProc.pendingEntries.slice();
+            entries.push({
+                type: parts[0] || "",
+                state: parts[1] || "",
+                device: parts[2] || "",
+                connection: parts[3] || ""
+            });
+            activeProc.pendingEntries = entries;
+        } }
+        onExited: {
+            root.resolveActiveConnectionState();
+        }
+    }
 
-            if (parts[2] !== "802-11-wireless")
-                return;
-
-            let connectionId = parts[0] || "";
-            activeProc.sawWifi = true;
-            activeProc.pendingWifiId = connectionId;
-            activeProc.pendingWifiUuid = parts[1] || "";
-            if (activeProc.pendingPrimaryType !== "ethernet") {
-                activeProc.pendingPrimaryType = "wifi";
-                activeProc.pendingPrimaryLabel = connectionId !== "" ? connectionId : "Wi-Fi";
+    property Process activeDetailProc: Process {
+        id: activeDetailProc
+        running: false
+        property string pendingConnectionId: ""
+        property string pendingConnectionUuid: ""
+        property string pendingIp: ""
+        property string pendingGateway: ""
+        property string pendingDns: ""
+        onRunningChanged: {
+            if (running) {
+                pendingConnectionId = "";
+                pendingConnectionUuid = "";
+                pendingIp = "";
+                pendingGateway = "";
+                pendingDns = "";
             }
+        }
+        stdout: SplitParser { onRead: (line) => {
+            if (line.startsWith("GENERAL.CONNECTION:"))
+                activeDetailProc.pendingConnectionId = line.substring("GENERAL.CONNECTION:".length).trim();
+            else if (line.startsWith("GENERAL.CON-UUID:"))
+                activeDetailProc.pendingConnectionUuid = line.substring("GENERAL.CON-UUID:".length).trim();
+            else if (line.startsWith("IP4.ADDRESS") && activeDetailProc.pendingIp === "")
+                activeDetailProc.pendingIp = line.substring(line.indexOf(":") + 1).trim();
+            else if (line.startsWith("IP4.GATEWAY:"))
+                activeDetailProc.pendingGateway = line.substring("IP4.GATEWAY:".length).trim();
+            else if (line.startsWith("IP4.DNS") && activeDetailProc.pendingDns === "")
+                activeDetailProc.pendingDns = line.substring(line.indexOf(":") + 1).trim();
         } }
         onExited: {
             root.commitActiveConnectionState();
@@ -875,11 +1079,12 @@ QtObject {
         onExited: (code, status) => {
             if (code === 0) {
                 root._disconnectPending = false;
-                root._connectedSsid = "";
-                root._connectedConnectionId = "";
-                root._connectedConnectionUuid = "";
+                root.clearActiveConnectionState();
                 root.resetTarget();
-                root.scan();
+                if (root._wifiEnabled)
+                    root.scan();
+                else
+                    root.refreshConnection();
                 root.disconnected();
             } else {
                 root.restoreConnectionState(root._disconnectRollbackState);
@@ -916,12 +1121,33 @@ QtObject {
         } }
     }
 
+    property Process ethernetInfoProc: Process {
+        running: false
+        stdout: SplitParser { onRead: (line) => {
+            let idx = line.indexOf("=");
+            if (idx < 0)
+                return;
+            let key = line.substring(0, idx);
+            let val = line.substring(idx + 1).trim();
+            if (key === "ETH_SPEED")
+                root._ethernetLinkSpeed = val === "--" ? "" : val;
+            else if (key === "ETH_DUPLEX")
+                root._ethernetDuplex = val === "--" ? "" : val;
+            else if (key === "ETH_CARRIER")
+                root._ethernetCarrierDetected = val === "1";
+        } }
+        onExited: (code) => {
+            if (code !== 0)
+                root.clearEthernetLinkState();
+        }
+    }
+
     // ── Diagnostics processes ─────────────────────────────────
 
     property Process wifiInfoProc: Process {
         running: false
         command: ["bash", "-c",
-            "iface=$(nmcli -t -f DEVICE,TYPE dev | grep ':wifi' | head -1 | cut -d: -f1); " +
+            "iface=\"$1\"; " +
             "[ -z \"$iface\" ] && exit 1; " +
             "link=$(iw dev \"$iface\" link 2>/dev/null); " +
             "signal=$(echo \"$link\" | awk '/signal:/{print $2}'); " +
@@ -961,7 +1187,8 @@ QtObject {
             "echo \"NOISE=${noise:---}\"; " +
             "echo \"RATE=${rate:---}\"; " +
             "echo \"BAND=${band:-}\"; " +
-            "echo \"WIFI_STD=${wifi_std:-unknown}\""
+            "echo \"WIFI_STD=${wifi_std:-unknown}\"",
+            "--", root._activeInterface
         ]
         stdout: SplitParser { onRead: (line) => {
             let idx = line.indexOf("=");
@@ -1057,14 +1284,20 @@ QtObject {
     property Process dnsProc: Process {
         running: false
         command: ["bash", "-c",
-            "iface=$(nmcli -t -f DEVICE,TYPE dev | grep ':wifi' | head -1 | cut -d: -f1); " +
+            "iface=\"$1\"; " +
+            "if [ -z \"$iface\" ]; then " +
+            "  echo 'DNS_SERVER=--'; " +
+            "  echo 'DNS_TIME=0'; " +
+            "  exit 0; " +
+            "fi; " +
             "dns=$(nmcli -t -f IP4.DNS dev show \"$iface\" 2>/dev/null | head -1 | cut -d: -f2); " +
             "echo \"DNS_SERVER=${dns:---}\"; " +
             "start=$(date +%s%3N); " +
             "getent hosts example.com >/dev/null 2>&1 || true; " +
             "end=$(date +%s%3N); " +
             "elapsed=$((end - start)); " +
-            "echo \"DNS_TIME=${elapsed}\""
+            "echo \"DNS_TIME=${elapsed}\"",
+            "--", root._activeInterface
         ]
         stdout: SplitParser { onRead: (line) => {
             let idx = line.indexOf("=");
@@ -1088,15 +1321,15 @@ QtObject {
             "base_avg=$(echo \"$base_out\" | grep -E 'rtt|round-trip' | grep -oP '[\\d.]+' | sed -n '2p'); " +
             "[ -z \"$base_avg\" ] && base_avg=0; " +
             // Download test with concurrent router ping
-            "ping -c 30 -i 0.5 -W 1 \"$gw\" > /tmp/whyfi_load_ping 2>/dev/null & " +
+            "ping -c 60 -i 0.5 -W 1 \"$gw\" > /tmp/whyfi_load_ping 2>/dev/null & " +
             "ping_pid=$!; " +
             "down_bps=$(curl -o /dev/null -w '%{speed_download}' -s --max-time 15 " +
-            "'https://speed.cloudflare.com/__down?bytes=10000000'); " +
+            "'https://speed.cloudflare.com/__down?bytes=25000000'); " +
             "down_mbps=$(echo \"scale=1; $down_bps * 8 / 1000000\" | bc 2>/dev/null); " +
             "echo \"DOWN=${down_mbps:---}\"; " +
             // Upload test (continues while ping runs)
             "tmpf=$(mktemp); " +
-            "dd if=/dev/zero of=\"$tmpf\" bs=1M count=5 2>/dev/null; " +
+            "dd if=/dev/zero of=\"$tmpf\" bs=1M count=10 2>/dev/null; " +
             "up_bps=$(curl -X POST -w '%{speed_upload}' -s --max-time 15 " +
             "--data-binary @\"$tmpf\" " +
             "-H 'Content-Type: application/octet-stream' " +
@@ -1275,7 +1508,10 @@ QtObject {
         interval: 2000; repeat: true
         running: root._diagPolling
         onTriggered: {
-            if (!root.wifiInfoProc.running) root.wifiInfoProc.running = true;
+            if (root._primaryConnectionType === "wifi" && !root.wifiInfoProc.running)
+                root.wifiInfoProc.running = true;
+            else if (root._primaryConnectionType === "ethernet" && !root.ethernetInfoProc.running)
+                root.refreshEthernetLinkInfo();
             if (!root.gwPingProc.running) root.gwPingProc.running = true;
             if (!root.netPingProc.running) root.netPingProc.running = true;
             if (!root.dnsProc.running) root.dnsProc.running = true;

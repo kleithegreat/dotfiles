@@ -40,7 +40,7 @@ Managed popups mounted by the overlay host remain:
 | `BrightnessService.qml` | Backlight discovery, file watching, and direct `brightnessctl` writes for the Display pane | Display pane and any brightness slider UI |
 | `DisplayService.qml` | Monitor refresh/apply and daemon-backed night-light status / override requests | Display pane |
 | `HostCapabilities.qml` | Detects Wi-Fi, battery, and power-profile capabilities | Settings host category visibility and power-pane availability |
-| `NetworkService.qml` | Wi-Fi summary, scans, known networks, active SSID plus connection-profile tracking, diagnostics, DNS, captive portal, reporting | Bar network, quick settings, network pane |
+| `NetworkService.qml` | Active network summary for Wi-Fi or ethernet via the default-route interface, Wi-Fi scans/known networks, active-transport diagnostics, DNS, captive portal, reporting | Bar network, quick settings, network pane |
 | `NotificationService.qml` | Popup/history models, DND, dismissal, relative-time refresh | Root notifications, drawer, bar bell, Notifications settings pane, IPC |
 | `PowerProfileService.qml` | CPU profiles and supported battery controls | Power pane |
 | `Theme.qml` | Shell-facing facade over generated theme JSON | Imported throughout shell components |
@@ -63,8 +63,9 @@ Direct-upstream or local exceptions:
 
 Write-oriented services now also own their optimistic/pending state locally
 instead of waiting for subprocess completion before updating the touched
-control. `NetworkService.qml` stages Wi-Fi radio, disconnect, forget, and DNS
-changes before `nmcli` completes; `BluetoothService.qml` stages power and
+control. `NetworkService.qml` stages Wi-Fi radio, active-connection
+disconnect and DNS changes, plus Wi-Fi forget actions, before `nmcli`
+completes; `BluetoothService.qml` stages power and
 disconnect actions; `VpnService.qml` stages Mullvad/Tailscale connect-disconnect
 intent until the next real status refresh confirms it; and
 `DisplayService.qml` stages night-light mode / target temperature while
@@ -89,6 +90,22 @@ Quick Settings expand affordances are consumed by the overlay host:
 target settings category, and opens the full Settings popup, while the same
 file maps Wi-Fi, Bluetooth, VPN, DND, and power-profile expand requests to
 concrete category indices.
+
+The Network page now keys its summary and diagnostics off the active
+default-route interface instead of assuming Wi-Fi. `config/quickshell/NetworkService.qml`
+combines `ip -j route show default`, `nmcli -t -f TYPE,STATE,DEVICE,CONNECTION dev status`,
+and `nmcli dev show <ifname>` so `primaryConnectionType`,
+`primaryConnectionLabel`, `connectedConnectionId`, `connectedConnectionUuid`,
+`activeIp`, `activeGateway`, and `activeDns` follow the selected Wi-Fi or
+ethernet device. `config/quickshell/popups/settings/SettingsNetworkPane.qml`
+now shows an ethernet detail card in the list state when wired is active,
+keeps Wi-Fi radio/scan/password/channel flows gated on `HostCapabilities.hasWifi`,
+and still reuses `config/quickshell/popups/wifi/WifiDetail.qml` and
+`config/quickshell/popups/wifi/WifiDiagnostics.qml` with transport-specific
+visibility instead of splitting duplicate ethernet-only views. Wired link data
+comes from `/sys/class/net/<ifname>/speed`, `duplex`, and `carrier`, while the
+same diagnostics surface keeps the existing router/internet/DNS/speed-test
+sections for both transports.
 
 `SettingsPopup.qml` is now responsible for several additional settings-host
 behaviors:
