@@ -63,6 +63,12 @@ let
     }
   );
 
+  patchedHyprlandPluginHelpers = pkgs.callPackage
+    "${inputs.nixpkgs}/pkgs/applications/window-managers/hyprwm/hyprland-plugins/default.nix"
+    {
+      hyprland = patchedHyprland;
+    };
+
   hyprPluginPkgs =
     let
       upstreamHyprPluginPkgs = inputs.hyprland-plugins.packages.${system};
@@ -72,6 +78,7 @@ let
       hyprbars = optimizeHyprlandNativePackage (
         (upstreamHyprPluginPkgs.hyprbars.override {
           hyprland = patchedHyprland;
+          hyprlandPlugins = patchedHyprlandPluginHelpers;
         }).overrideAttrs (old: {
           patches = (old.patches or []) ++ [
             ../patches/hyprland-plugins/hyprbars-hyprland-0.54.patch
@@ -82,6 +89,7 @@ let
       hyprexpo = optimizeHyprlandNativePackage (
         (upstreamHyprPluginPkgs.hyprexpo.override {
           hyprland = patchedHyprland;
+          hyprlandPlugins = patchedHyprlandPluginHelpers;
         }).overrideAttrs (old: {
           patches = (old.patches or []) ++ [
             ../patches/hyprland-plugins/hyprexpo-hyprland-0.54.patch

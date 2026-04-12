@@ -1,7 +1,6 @@
-diff -ruN a/src/render/OpenGL.cpp b/src/render/OpenGL.cpp
 --- a/src/render/OpenGL.cpp
 +++ b/src/render/OpenGL.cpp
-@@ -1945,24 +1945,24 @@
+@@ -1945,23 +1945,24 @@
  
              glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
  
@@ -11,7 +10,6 @@ diff -ruN a/src/render/OpenGL.cpp b/src/render/OpenGL.cpp
 -                              .a                           = data.a,
 -                              .round                       = data.round,
 -                              .roundingPower               = data.roundingPower,
--                              .noAA                        = data.noAA,
 -                              .discardActive               = true,
 -                              .allowCustomUV               = true,
 -                              .wrapX                       = data.wrapX,
@@ -23,28 +21,28 @@ diff -ruN a/src/render/OpenGL.cpp b/src/render/OpenGL.cpp
 -                              .primarySurfaceUVTopLeft     = g_pHyprRenderer->m_renderData.primarySurfaceUVTopLeft,
 -                              .primarySurfaceUVBottomRight = g_pHyprRenderer->m_renderData.primarySurfaceUVBottomRight,
 -                          }); // discard opaque and alpha < discardOpacity
-+            auto stencilRenderData                          = STextureRenderData{};
-+            stencilRenderData.damage                        = &g_pHyprRenderer->m_renderData.damage;
-+            stencilRenderData.a                             = data.a;
-+            stencilRenderData.round                         = data.round;
-+            stencilRenderData.roundingPower                 = data.roundingPower;
-+            stencilRenderData.noAA                          = data.noAA;
-+            stencilRenderData.discardActive                 = true;
-+            stencilRenderData.allowCustomUV                 = true;
-+            stencilRenderData.wrapX                         = data.wrapX;
-+            stencilRenderData.wrapY                         = data.wrapY;
-+            stencilRenderData.discardMode                   = data.discardMode;
-+            stencilRenderData.discardOpacity                = data.discardOpacity;
-+            stencilRenderData.clipRegion                    = data.clipRegion;
-+            stencilRenderData.currentLS                     = data.currentLS;
-+            stencilRenderData.primarySurfaceUVTopLeft       = g_pHyprRenderer->m_renderData.primarySurfaceUVTopLeft;
-+            stencilRenderData.primarySurfaceUVBottomRight   = g_pHyprRenderer->m_renderData.primarySurfaceUVBottomRight;
++            auto stencilRenderData                        = STextureRenderData{};
++            stencilRenderData.damage                      = &g_pHyprRenderer->m_renderData.damage;
++            stencilRenderData.a                           = data.a;
++            stencilRenderData.round                       = data.round;
++            stencilRenderData.roundingPower               = data.roundingPower;
++            stencilRenderData.roundedCorners              = data.roundedCorners;
++            stencilRenderData.discardActive               = true;
++            stencilRenderData.allowCustomUV               = true;
++            stencilRenderData.wrapX                       = data.wrapX;
++            stencilRenderData.wrapY                       = data.wrapY;
++            stencilRenderData.discardMode                 = data.discardMode;
++            stencilRenderData.discardOpacity              = data.discardOpacity;
++            stencilRenderData.clipRegion                  = data.clipRegion;
++            stencilRenderData.currentLS                   = data.currentLS;
++            stencilRenderData.primarySurfaceUVTopLeft     = g_pHyprRenderer->m_renderData.primarySurfaceUVTopLeft;
++            stencilRenderData.primarySurfaceUVBottomRight = g_pHyprRenderer->m_renderData.primarySurfaceUVBottomRight;
 +
 +            renderTexture(tex, box, stencilRenderData); // discard opaque and alpha < discardOpacity
  
              glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
  
-@@ -1987,25 +1987,24 @@
+@@ -1986,25 +1987,24 @@
          if (!data.blockBlurOptimization)
              g_pHyprRenderer->m_renderData.renderModif.enabled = false;
  
@@ -54,9 +52,9 @@ diff -ruN a/src/render/OpenGL.cpp b/src/render/OpenGL.cpp
 -                                  .a              = (*PBLURIGNOREOPACITY ? data.blurA : data.a * data.blurA) * data.overallA,
 -                                  .round          = data.round,
 -                                  .roundingPower  = data.roundingPower,
--                                  .noAA           = data.noAA,
 -                                  .discardActive  = false,
 -                                  .allowCustomUV  = true,
+-                                  .noAA           = false,
 -                                  .wrapX          = data.wrapX,
 -                                  .wrapY          = data.wrapY,
 -                                  .discardMode    = data.discardMode,
@@ -72,7 +70,7 @@ diff -ruN a/src/render/OpenGL.cpp b/src/render/OpenGL.cpp
 +        blurredBGRenderData.a                           = (*PBLURIGNOREOPACITY ? data.blurA : data.a * data.blurA) * data.overallA;
 +        blurredBGRenderData.round                       = data.round;
 +        blurredBGRenderData.roundingPower               = data.roundingPower;
-+        blurredBGRenderData.noAA                        = data.noAA;
++        blurredBGRenderData.roundedCorners              = data.roundedCorners;
 +        blurredBGRenderData.discardActive               = false;
 +        blurredBGRenderData.allowCustomUV               = true;
 +        blurredBGRenderData.wrapX                       = data.wrapX;
@@ -88,7 +86,7 @@ diff -ruN a/src/render/OpenGL.cpp b/src/render/OpenGL.cpp
  
          g_pHyprRenderer->m_renderData.renderModif.enabled = renderModif;
          g_pHyprRenderer->popMonitorTransformEnabled();
-@@ -2015,28 +2014,27 @@
+@@ -2014,28 +2014,27 @@
      }
  
      // draw window
@@ -100,10 +98,10 @@ diff -ruN a/src/render/OpenGL.cpp b/src/render/OpenGL.cpp
 -                              .a              = data.a * data.overallA,
 -                              .round          = data.round,
 -                              .roundingPower  = data.roundingPower,
--                              .noAA           = data.noAA,
 -                              .discardActive  = *PBLEND && NEEDS_STENCIL,
 -                              .allowCustomUV  = true,
 -                              .allowDim       = true,
+-                              .noAA           = false,
 -                              .wrapX          = data.wrapX,
 -                              .wrapY          = data.wrapY,
 -                              .discardMode    = data.discardMode,
@@ -121,7 +119,7 @@ diff -ruN a/src/render/OpenGL.cpp b/src/render/OpenGL.cpp
 +    windowRenderData.a                           = data.a * data.overallA;
 +    windowRenderData.round                       = data.round;
 +    windowRenderData.roundingPower               = data.roundingPower;
-+    windowRenderData.noAA                        = data.noAA;
++    windowRenderData.roundedCorners              = data.roundedCorners;
 +    windowRenderData.discardActive               = *PBLEND && NEEDS_STENCIL;
 +    windowRenderData.allowCustomUV               = true;
 +    windowRenderData.allowDim                    = true;
@@ -138,7 +136,6 @@ diff -ruN a/src/render/OpenGL.cpp b/src/render/OpenGL.cpp
  
      GLFB(g_pHyprRenderer->m_renderData.currentFB)->invalidate({GL_STENCIL_ATTACHMENT});
      scissor(nullptr);
-diff -ruN a/src/render/gl/GLElementRenderer.cpp b/src/render/gl/GLElementRenderer.cpp
 --- a/src/render/gl/GLElementRenderer.cpp
 +++ b/src/render/gl/GLElementRenderer.cpp
 @@ -101,35 +101,31 @@
@@ -167,7 +164,7 @@ diff -ruN a/src/render/gl/GLElementRenderer.cpp b/src/render/gl/GLElementRendere
 -            .a                  = m_data.a,
 -            .round              = m_data.round,
 -            .roundingPower      = m_data.roundingPower,
--            .noAA               = m_data.squareTopCorners,
+-            .roundedCorners     = m_data.squareTopCorners ? 12 : 15,
 -            .discardActive      = m_data.discardActive,
 -            .allowCustomUV      = m_data.allowCustomUV,
 -            .cmBackToSRGB       = m_data.cmBackToSRGB,
@@ -181,7 +178,7 @@ diff -ruN a/src/render/gl/GLElementRenderer.cpp b/src/render/gl/GLElementRendere
 +    texRenderData.a                     = m_data.a;
 +    texRenderData.round                 = m_data.round;
 +    texRenderData.roundingPower         = m_data.roundingPower;
-+    texRenderData.noAA                  = m_data.squareTopCorners;
++    texRenderData.roundedCorners        = m_data.squareTopCorners ? 12 : 15;
 +    texRenderData.discardActive         = m_data.discardActive;
 +    texRenderData.allowCustomUV         = m_data.allowCustomUV;
 +    texRenderData.cmBackToSRGB          = m_data.cmBackToSRGB;

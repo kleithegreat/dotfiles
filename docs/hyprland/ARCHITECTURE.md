@@ -101,6 +101,20 @@ Current host input fragments differ materially:
 | `plugins.conf` | Loading `hyprbars` and `hyprexpo` from `HYPR_PLUGIN_DIR` plus their theme-facing settings |
 | `hypridle.conf` and `hyprlock.conf` | Idle, lock, DPMS, suspend, and lock-screen presentation |
 
+`system/configuration.nix` also wires the repo-local Hyprland patch stack into the
+installed compositor and plugin packages. The local
+`patches/hyprland/hyprland-floating-top-decoration-rounding-0.54.patch`
+extends the renderer's rounding shader so both texture and rect passes can
+select which corners stay rounded; `src/desktop/view/Window.cpp`
+`CWindow::shouldSquareTopCorners()` then uses
+`DecorationPositioner::getBoxWithIncludedDecos` to square the main surface's
+top edge only when a top decoration is part of the window. The matching
+`patches/hyprland-plugins/hyprbars-hyprland-0.54.patch` keeps
+`hyprbars/barDeco.cpp` on upstream's `DECORATION_LAYER_UNDER` and renders the
+bar background with top-only rounded corners instead of the old oversized
+rounded-rect fill hack, so the titlebar does not seep into the window sides
+while the main surface keeps its squared join.
+
 Monitor behavior follows the same host split as inputs:
 
 - The laptop pins `eDP-1` and keeps a fallback `monitor = , preferred, auto, 1`
