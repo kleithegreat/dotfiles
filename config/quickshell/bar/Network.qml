@@ -7,11 +7,13 @@ RowLayout {
     id: netRoot; spacing: 4; signal clicked()
     readonly property string connectionType: NetworkService.primaryConnectionType
     readonly property string networkName: NetworkService.primaryConnectionLabel
+    readonly property string displayName: connectionType === "ethernet"
+        ? "Ethernet"
+        : (networkName || "Wi-Fi")
     readonly property bool connected: connectionType !== ""
     property string tooltipText: {
         if (!connected) return "Not connected";
-        if (connectionType === "ethernet") return "Ethernet";
-        return networkName || "Wi-Fi connected";
+        return displayName;
     }
 
     Components.Icon {

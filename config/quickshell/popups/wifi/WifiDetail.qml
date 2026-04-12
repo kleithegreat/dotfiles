@@ -5,6 +5,8 @@ import "../../components" as Components
 
 ColumnLayout {
     id: root
+    required property string connectionType
+    required property string connectionLabel
     required property string targetSsid
     required property string targetSecurity
     required property int targetSignal
@@ -14,6 +16,8 @@ ColumnLayout {
     required property string detailGateway
     required property string detailDns
     required property string detailFreq
+    required property string detailLinkSpeed
+    required property string detailDuplex
     required property string connectError
 
     signal connectRequested(string ssid, string security)
@@ -74,7 +78,7 @@ ColumnLayout {
             Item { Layout.fillWidth: true }
 
             Components.Icon {
-                source: root.signalIcon(root.targetSignal)
+                source: root.connectionType === "ethernet" ? "../icons/ethernet.svg" : root.signalIcon(root.targetSignal)
                 color: root.targetIsConnected ? Theme.greenBright : Theme.fg4
                 iconSize: Theme.iconSize
                 Behavior on color {
@@ -96,12 +100,16 @@ ColumnLayout {
             anchors.fill: parent; anchors.margins: 10
             columns: 2; columnSpacing: 12; rowSpacing: 8
 
-            Text { text: "Security"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-            Text { text: root.targetSecurity || "Open"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+            Text { visible: root.connectionType === "ethernet"; text: "Connection"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+            Text { visible: root.connectionType === "ethernet"; text: root.connectionLabel || "Ethernet"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                 Layout.fillWidth: true; elide: Text.ElideRight; horizontalAlignment: Text.AlignRight }
 
-            Text { text: "Signal"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-            Text { text: root.targetSignal + "%"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+            Text { visible: root.connectionType === "wifi"; text: "Security"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+            Text { visible: root.connectionType === "wifi"; text: root.targetSecurity || "Open"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                Layout.fillWidth: true; elide: Text.ElideRight; horizontalAlignment: Text.AlignRight }
+
+            Text { visible: root.connectionType === "wifi"; text: "Signal"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+            Text { visible: root.connectionType === "wifi"; text: root.targetSignal + "%"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                 Layout.fillWidth: true; horizontalAlignment: Text.AlignRight }
 
             Rectangle { visible: root.targetIsConnected; Layout.columnSpan: 2; Layout.fillWidth: true; height: 1; color: Theme.bg3 }
@@ -118,8 +126,16 @@ ColumnLayout {
             Text { visible: root.targetIsConnected; text: root.detailDns || "\u2026"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                 Layout.fillWidth: true; elide: Text.ElideRight; horizontalAlignment: Text.AlignRight }
 
-            Text { visible: root.targetIsConnected && root.detailFreq !== ""; text: "Frequency"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-            Text { visible: root.targetIsConnected && root.detailFreq !== ""; text: root.detailFreq; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+            Text { visible: root.targetIsConnected && root.connectionType === "wifi" && root.detailFreq !== ""; text: "Frequency"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+            Text { visible: root.targetIsConnected && root.connectionType === "wifi" && root.detailFreq !== ""; text: root.detailFreq; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                Layout.fillWidth: true; elide: Text.ElideRight; horizontalAlignment: Text.AlignRight }
+
+            Text { visible: root.targetIsConnected && root.connectionType === "ethernet"; text: "Link Speed"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+            Text { visible: root.targetIsConnected && root.connectionType === "ethernet"; text: root.detailLinkSpeed !== "" ? root.detailLinkSpeed + " Mbps" : "\u2026"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                Layout.fillWidth: true; elide: Text.ElideRight; horizontalAlignment: Text.AlignRight }
+
+            Text { visible: root.targetIsConnected && root.connectionType === "ethernet"; text: "Duplex"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+            Text { visible: root.targetIsConnected && root.connectionType === "ethernet"; text: root.detailDuplex || "\u2026"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                 Layout.fillWidth: true; elide: Text.ElideRight; horizontalAlignment: Text.AlignRight }
         }
     }
@@ -142,7 +158,7 @@ ColumnLayout {
 
         // Connect button (not connected)
         Rectangle {
-            visible: !root.targetIsConnected
+            visible: !root.targetIsConnected && root.connectionType === "wifi"
             Layout.fillWidth: true; height: 32; radius: Theme.btnRadius
             color: connectArea.containsMouse ? Theme.blueBright : Theme.bg3
             Behavior on color {
@@ -182,7 +198,7 @@ ColumnLayout {
 
         // Forget button (known networks only)
         Rectangle {
-            visible: root.targetIsKnown
+            visible: root.targetIsKnown && root.connectionType === "wifi"
             Layout.fillWidth: true; height: 32; radius: Theme.btnRadius
             color: "transparent"
             Components.HoverLayer {

@@ -9,14 +9,16 @@ FocusScope {
     anchors.fill: parent
 
     property string paneState: "list"   // list | detail | password | enterprise | connecting | diagnostics | channels | vpnCountries | vpnCities
-    property bool listLoading: paneState === "list"
+    property bool wifiSectionsInitialized: false
+    property bool listLoading: paneState === "list" && HostCapabilities.hasWifi
         && ((!NetworkService.wifiRadioReady && NetworkService.wifiRadioBusy)
             || (NetworkService.wifiEnabled && NetworkService.scanning && NetworkService.networksModel.count === 0))
     property bool channelLoading: paneState === "channels" && NetworkService.channelScanning
     property string mullvadBrowseCountryCode: ""
     property string mullvadBrowseCountryName: ""
     property var mullvadBrowseCities: []
-    readonly property bool wifiPoweredOff: NetworkService.wifiRadioReady && !NetworkService.wifiEnabled
+    readonly property bool wifiPoweredOff: HostCapabilities.hasWifi && NetworkService.wifiRadioReady && !NetworkService.wifiEnabled
+    readonly property bool ethernetActive: NetworkService.primaryConnectionType === "ethernet"
     readonly property bool mullvadLocationView: paneState === "vpnCountries" || paneState === "vpnCities"
     readonly property bool mullvadLocationLoading: VpnService.mullvadRelayListLoading && VpnService.mullvadRelayCountries.length === 0
     readonly property bool mullvadLocationEmpty: paneState === "vpnCountries"
@@ -57,9 +59,18 @@ FocusScope {
         return "Stopped";
     }
 
-    Component.onCompleted: {
+    function initializeWifiSections(force) {
+        if (!HostCapabilities.hasWifi)
+            return;
+        if (wifiSectionsInitialized && !force)
+            return;
+        wifiSectionsInitialized = true;
         NetworkService.scan();
         NetworkService.loadKnown();
+    }
+
+    Component.onCompleted: {
+        root.initializeWifiSections(false);
         VpnService.refresh();
         VpnService.ensureMullvadRelayLocations();
     }
@@ -81,6 +92,16 @@ FocusScope {
         function onMullvadRelayCountriesChanged() {
             if (root.paneState === "vpnCities" && root.mullvadBrowseCountryCode)
                 root.openMullvadCities(root.mullvadBrowseCountryCode);
+        }
+    }
+
+    Connections {
+        target: HostCapabilities
+        function onHasWifiChanged() {
+            if (HostCapabilities.hasWifi)
+                root.initializeWifiSections(true);
+            else if (root.isWifiSubpane(root.paneState))
+                root.resetState();
         }
     }
 
@@ -209,6 +230,7 @@ FocusScope {
                     if (root.paneState === "enterprise")  return "../icons/certificate.svg";
                     if (root.paneState === "channels")    return "../icons/radar.svg";
                     if (root.paneState === "vpnCountries" || root.paneState === "vpnCities") return "../icons/shield-lock.svg";
+                    if (root.ethernetActive || (root.paneState === "list" && !HostCapabilities.hasWifi)) return "../icons/ethernet.svg";
                     return "../icons/wifi.svg";
                 }
                 color: Theme.fg
@@ -223,7 +245,7 @@ FocusScope {
                     if (root.paneState === "channels")    return "Channels";
                     if (root.paneState === "vpnCountries") return "Mullvad Locations";
                     if (root.paneState === "vpnCities")    return root.mullvadBrowseCountryName;
-                    return "Wi-Fi";
+                    return "Network";
                 }
                 color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true
                 Layout.fillWidth: true; elide: Text.ElideRight
@@ -260,7 +282,7 @@ FocusScope {
             }
 
             Rectangle {
-                visible: root.paneState === "list" && NetworkService.wifiEnabled
+                visible: root.paneState === "list" && HostCapabilities.hasWifi && NetworkService.wifiEnabled
                 width: rescanLabel.implicitWidth + Theme.btnPaddingH * 2; height: Theme.btnHeight; radius: Theme.btnRadius
                 color: "transparent"
                 Components.HoverLayer {
@@ -320,14 +342,46 @@ FocusScope {
                 anchors.fill: parent
                 spacing: 0
 
+                Wifi.WifiDetail {
+                    id: ethernetDetailCard
+                    visible: root.ethernetActive
+                    Layout.fillWidth: true
+                    Layout.topMargin: 4
+                    connectionType: "ethernet"
+                    connectionLabel: NetworkService.primaryConnectionLabel || "Ethernet"
+                    targetSsid: NetworkService.primaryConnectionLabel || "Ethernet"
+                    targetSecurity: ""
+                    targetSignal: 0
+                    targetIsConnected: true
+                    targetIsKnown: false
+                    detailIp: NetworkService.activeIp
+                    detailGateway: NetworkService.activeGateway
+                    detailDns: NetworkService.activeDns
+                    detailFreq: ""
+                    detailLinkSpeed: NetworkService.ethernetLinkSpeed
+                    detailDuplex: NetworkService.ethernetDuplex
+                    connectError: NetworkService.connectError
+                    onConnectRequested: (ssid, security) => {}
+                    onDisconnectRequested: NetworkService.disconnect()
+                    onForgetRequested: () => {}
+                    onDiagnosticsRequested: root.startDiagnostics()
+                }
+
                 Item {
+                    visible: root.ethernetActive && HostCapabilities.hasWifi
+                    Layout.fillWidth: true
+                    implicitHeight: 8
+                }
+
+                Item {
+                    visible: HostCapabilities.hasWifi
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     clip: true
 
                     Wifi.WifiList {
                         anchors.fill: parent
-                        visible: NetworkService.wifiEnabled || root.listLoading
+                        visible: HostCapabilities.hasWifi && (NetworkService.wifiEnabled || root.listLoading)
                         opacity: root.listLoading ? 0 : 1
                         enabled: opacity > 0.01
                         Behavior on opacity {
@@ -395,6 +449,20 @@ FocusScope {
                                 }
                             }
                         }
+                    }
+                }
+
+                Item {
+                    visible: !HostCapabilities.hasWifi && !root.ethernetActive
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "No Wi-Fi adapter detected"
+                        color: Theme.fg4
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeSmall
                     }
                 }
 
@@ -944,6 +1012,8 @@ FocusScope {
                 Components.Anim { duration: Theme.animContentSwap; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard }
             }
             Layout.fillWidth: true
+            connectionType: "wifi"
+            connectionLabel: NetworkService.targetSsid
             targetSsid: NetworkService.targetSsid
             targetSecurity: NetworkService.targetSecurity
             targetSignal: NetworkService.targetSignal
@@ -953,6 +1023,8 @@ FocusScope {
             detailGateway: NetworkService.detailGateway
             detailDns: NetworkService.detailDns
             detailFreq: NetworkService.detailFreq
+            detailLinkSpeed: ""
+            detailDuplex: ""
             connectError: NetworkService.connectError
             onConnectRequested: (ssid, security) => root.connectTo(ssid, security)
             onDisconnectRequested: NetworkService.disconnect()
@@ -1013,8 +1085,12 @@ FocusScope {
             }
             diagLoading: NetworkService.diagLoading
             speedTestRunning: NetworkService.speedTestRunning
-            connectedSsid: NetworkService.connectedSsid
+            connectionType: NetworkService.primaryConnectionType
+            connectedLabel: NetworkService.primaryConnectionLabel
             exportCopied: NetworkService.exportCopied
+            ethernetLinkSpeed: NetworkService.ethernetLinkSpeed
+            ethernetDuplex: NetworkService.ethernetDuplex
+            ethernetCarrierDetected: NetworkService.ethernetCarrierDetected
             diagBand: NetworkService.diagBand
             diagSignal: NetworkService.diagSignal
             diagNoise: NetworkService.diagNoise

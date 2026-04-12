@@ -8,8 +8,12 @@ Item {
 
     required property bool diagLoading
     required property bool speedTestRunning
-    required property string connectedSsid
+    required property string connectionType
+    required property string connectedLabel
     required property bool exportCopied
+    required property string ethernetLinkSpeed
+    required property string ethernetDuplex
+    required property bool ethernetCarrierDetected
 
     required property string diagBand
     required property string diagSignal
@@ -242,22 +246,27 @@ Item {
 
             // ── Network header ──────────────────
             RowLayout { Layout.fillWidth: true; spacing: 6
-                Text { text: root.connectedSsid; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true; Layout.fillWidth: true; elide: Text.ElideRight }
+                Text { text: root.connectedLabel; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true; Layout.fillWidth: true; elide: Text.ElideRight }
                 Rectangle {
-                    visible: root.diagBand !== "" && root.diagBand !== "unknown"
+                    visible: root.connectionType === "wifi" && root.diagBand !== "" && root.diagBand !== "unknown"
                     width: bandLabel.implicitWidth + 10; height: 18; radius: 4; color: Theme.bg3
                     Text { id: bandLabel; anchors.centerIn: parent; text: root.diagBand; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 2 }
+                }
+                Rectangle {
+                    visible: root.connectionType === "ethernet"
+                    width: ethLabel.implicitWidth + 10; height: 18; radius: 4; color: Theme.bg3
+                    Text { id: ethLabel; anchors.centerIn: parent; text: "Ethernet"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 2 }
                 }
             }
             // Wi-Fi standard
             Text {
-                visible: root.diagWifiStandard !== "" && root.diagWifiStandard !== "unknown"
+                visible: root.connectionType === "wifi" && root.diagWifiStandard !== "" && root.diagWifiStandard !== "unknown"
                 text: root.diagWifiStandard
                 color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
             }
             // Upgrade warning for old standards
             Rectangle {
-                visible: root.diagWifiStandard.indexOf("Wi-Fi 4") >= 0 || root.diagWifiStandard.indexOf("802.11g") >= 0
+                visible: root.connectionType === "wifi" && (root.diagWifiStandard.indexOf("Wi-Fi 4") >= 0 || root.diagWifiStandard.indexOf("802.11g") >= 0)
                 Layout.fillWidth: true; height: stdWarnText.implicitHeight + 8; radius: Theme.btnRadius
                 color: Theme.bg2; border.width: 1; border.color: Theme.yellowBright
                 Text {
@@ -272,7 +281,7 @@ Item {
             }
 
             // ── Link Rate ───────────────────────
-            RowLayout { Layout.fillWidth: true
+            RowLayout { visible: root.connectionType === "wifi"; Layout.fillWidth: true
                 Text { text: "Link Rate"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 50; Layout.fillWidth: true }
                 Text { text: (root.diagLinkRate && root.diagLinkRate !== "--") ? root.diagLinkRate + " Mbps" : "--"
                     color: (root.diagLinkRate && root.diagLinkRate !== "--") ? Theme.greenBright : Theme.fg4
@@ -281,7 +290,7 @@ Item {
             }
 
             // ── Signal ──────────────────────────
-            RowLayout { Layout.fillWidth: true; spacing: 6
+            RowLayout { visible: root.connectionType === "wifi"; Layout.fillWidth: true; spacing: 6
                 Text { text: "Signal"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                     Layout.preferredWidth: 50 }
                 Loader {
@@ -305,6 +314,8 @@ Item {
             }
             Text {
                 visible: {
+                    if (root.connectionType !== "wifi")
+                        return false;
                     let v = parseInt(root.diagSignal);
                     return !isNaN(v) && v < -50;
                 }
@@ -320,7 +331,7 @@ Item {
             }
 
             // ── Noise ───────────────────────────
-            RowLayout { Layout.fillWidth: true; spacing: 6
+            RowLayout { visible: root.connectionType === "wifi"; Layout.fillWidth: true; spacing: 6
                 Text { text: "Noise"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                     Layout.preferredWidth: 50 }
                 Loader {
@@ -341,6 +352,28 @@ Item {
                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                     Layout.preferredWidth: 65; horizontalAlignment: Text.AlignRight
                 }
+            }
+
+            RowLayout { visible: root.connectionType === "ethernet"; Layout.fillWidth: true
+                Text { text: "Link Speed"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 50; Layout.fillWidth: true }
+                Text { text: root.ethernetLinkSpeed !== "" ? root.ethernetLinkSpeed + " Mbps" : "--"
+                    color: root.ethernetLinkSpeed !== "" ? Theme.greenBright : Theme.fg4
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                    Layout.preferredWidth: 80; horizontalAlignment: Text.AlignRight }
+            }
+            RowLayout { visible: root.connectionType === "ethernet"; Layout.fillWidth: true
+                Text { text: "Duplex"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 50; Layout.fillWidth: true }
+                Text { text: root.ethernetDuplex || "--"
+                    color: root.ethernetDuplex !== "" ? Theme.greenBright : Theme.fg4
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                    Layout.preferredWidth: 80; horizontalAlignment: Text.AlignRight }
+            }
+            RowLayout { visible: root.connectionType === "ethernet"; Layout.fillWidth: true
+                Text { text: "Carrier"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 50; Layout.fillWidth: true }
+                Text { text: root.ethernetCarrierDetected ? "Detected" : "Not detected"
+                    color: root.ethernetCarrierDetected ? Theme.greenBright : Theme.redBright
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                    Layout.preferredWidth: 80; horizontalAlignment: Text.AlignRight }
             }
 
             // ── Router section ──────────────────
@@ -533,8 +566,9 @@ Item {
             }
 
             // ── Scan Channels ─────────────────
-            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3; Layout.topMargin: 4 }
+            Rectangle { visible: root.connectionType === "wifi"; Layout.fillWidth: true; height: 1; color: Theme.bg3; Layout.topMargin: 4 }
             Rectangle {
+                visible: root.connectionType === "wifi"
                 Layout.fillWidth: true; height: Theme.btnHeight; radius: Theme.btnRadius
                 color: "transparent"
                 Rectangle {
@@ -619,6 +653,66 @@ Item {
                         onClicked: root.speedTestRequested() }
                 }
             }
+
+            Rectangle {
+                visible: root.speedTestRunning
+                Layout.fillWidth: true
+                radius: Theme.btnRadius
+                color: Theme.bg2
+                border.width: 1
+                border.color: Theme.bg3
+                implicitHeight: speedStatusCol.implicitHeight + 14
+
+                ColumnLayout {
+                    id: speedStatusCol
+                    anchors.fill: parent
+                    anchors.margins: 7
+                    spacing: 3
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 6
+
+                        Rectangle {
+                            width: 8; height: 8; radius: 4
+                            color: Theme.blueBright
+                            SequentialAnimation on opacity {
+                                running: root.speedTestRunning
+                                loops: Animation.Infinite
+                                NumberAnimation { from: 1; to: 0.3; duration: 700 }
+                                NumberAnimation { from: 0.3; to: 1; duration: 700 }
+                            }
+                        }
+
+                        Text {
+                            text: "Running speed test"
+                            color: Theme.fg
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeSmall
+                            font.bold: true
+                        }
+
+                        Item { Layout.fillWidth: true }
+
+                        Text {
+                            text: "15-30s"
+                            color: Theme.fg4
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeSmall - 1
+                        }
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: "Measuring download, upload, and latency under load."
+                        color: Theme.fg4
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeSmall - 1
+                        wrapMode: Text.WordWrap
+                    }
+                }
+            }
+
             // Bufferbloat result
             RowLayout {
                 visible: root.diagBufferbloat !== "" && !root.speedTestRunning
@@ -651,7 +745,7 @@ Item {
                 }
                 Text {
                     id: speedBtnText; anchors.centerIn: parent
-                    text: root.speedTestRunning ? "Testing\u2026" : "Run Speed Test"
+                    text: root.speedTestRunning ? "Running Speed Test\u2026" : "Run Speed Test"
                     color: speedBtnA.containsMouse ? Theme.blueBright : Theme.fg4
                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                     Behavior on color {
