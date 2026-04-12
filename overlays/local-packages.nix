@@ -1,6 +1,15 @@
 final: prev: {
   desktopctl = final.callPackage ../desktopctl { };
   helium = final.callPackage ../pkgs/helium { };
+  lapce = prev.lapce.overrideAttrs (old: {
+    postFixup = (old.postFixup or "") + ''
+      # Lapce loads Vulkan through wgpu at runtime, so extend the wrapped GUI
+      # binary's search path to include the Vulkan loader on NixOS.
+      ${final.patchelf}/bin/patchelf \
+        --add-rpath "${final.lib.makeLibraryPath [ final.vulkan-loader ]}" \
+        "$out/bin/.lapce-wrapped"
+    '';
+  });
   t3-code = final.callPackage ../pkgs/t3-code { };
   sf-pro = final.stdenvNoCC.mkDerivation {
     pname = "sf-pro";
