@@ -701,8 +701,8 @@ mod tests {
                 "nord.ini",
                 "nord",
                 "nord-light",
-                "nord-dark",
-                None,
+                "Nord",
+                Some("arcticicestudio.nord-visual-studio-code"),
             ),
             (
                 "nord-light",
@@ -711,8 +711,8 @@ mod tests {
                 "catppuccin-latte.ini",
                 "nord-light",
                 "nord-light",
-                "nord-light",
-                None,
+                "Nord Light",
+                Some("huytd.nord-light"),
             ),
             (
                 "rose-pine",
@@ -742,7 +742,7 @@ mod tests {
                 "solarized-dark",
                 "solarized-light",
                 "Solarized Dark+",
-                None,
+                Some("ryanolsonx.solarized"),
             ),
             (
                 "solarized-light",
@@ -752,7 +752,7 @@ mod tests {
                 "solarized-light",
                 "solarized-light",
                 "Solarized Light+",
-                None,
+                Some("ryanolsonx.solarized"),
             ),
             (
                 "tokyo-night",
@@ -761,8 +761,8 @@ mod tests {
                 "tokyo-night.ini",
                 "tokyo-night",
                 "tokyo-night-light",
-                "tokyonight-night",
-                None,
+                "Tokyo Night",
+                Some("enkia.tokyo-night"),
             ),
             (
                 "tokyo-night-light",
@@ -771,8 +771,8 @@ mod tests {
                 "catppuccin-latte.ini",
                 "tokyo-night-light",
                 "tokyo-night-light",
-                "tokyonight-light",
-                None,
+                "Tokyo Night Light",
+                Some("enkia.tokyo-night"),
             ),
         ];
 

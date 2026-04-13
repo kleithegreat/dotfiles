@@ -10,7 +10,8 @@
       "light_name": "nord-light"
     },
     "vscode": {
-      "name": "nord-dark"
+      "name": "Nord",
+      "extension_id": "arcticicestudio.nord-visual-studio-code"
     }
   },
   "colors": {

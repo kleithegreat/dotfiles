@@ -10,7 +10,8 @@
       "light_name": "nord-light"
     },
     "vscode": {
-      "name": "nord-light"
+      "name": "Nord Light",
+      "extension_id": "huytd.nord-light"
     }
   },
   "colors": {
