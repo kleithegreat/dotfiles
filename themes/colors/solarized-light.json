@@ -10,7 +10,8 @@
       "light_name": "solarized-light"
     },
     "vscode": {
-      "name": "Solarized Light+"
+      "name": "Solarized Light+",
+      "extension_id": "ryanolsonx.solarized"
     }
   },
   "colors": {

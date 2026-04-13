@@ -10,7 +10,8 @@
       "light_name": "tokyo-night-light"
     },
     "vscode": {
-      "name": "tokyonight-night"
+      "name": "Tokyo Night",
+      "extension_id": "enkia.tokyo-night"
     }
   },
   "colors": {

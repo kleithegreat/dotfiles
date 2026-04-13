@@ -12,6 +12,12 @@
 **Status:** Deliberate exception
 **Resolution:** Treat the committed file as bootstrap state, not as a hand-edited source of truth. Theme changes still flow through `desktopctl theme`, and no other generated snapshot should be committed by default.
 
+## VS Code color-theme switches depend on exact settings labels and enabled extensions
+**Symptom:** `desktopctl theme apply` updates `~/.config/Code/User/settings.json`, but VS Code still starts on a fallback built-in theme.
+**Cause:** VS Code caches the last resolved theme in `~/.config/Code/User/globalStorage/state.vscdb` `ItemTable` under `colorThemeData`, but the workbench only reuses that cache when its stored `settingsId` still matches the current `workbench.colorTheme` setting. If the configured label does not exactly match an installed theme contribution, or the contributing extension is disabled, VS Code falls back during startup instead of honoring the requested scheme.
+**Status:** Current behavior
+**Resolution:** Keep `themes/colors/*.json` `app_themes.vscode.name` values aligned with the extension-contributed labels, and set `app_themes.vscode.extension_id` whenever `desktopctl` needs to auto-enable a disabled theme extension. `desktopctl` does not need to own `colorThemeData` itself.
+
 ## Kvantum SVG assets cap exact background matching
 **Symptom:** Some KDE surfaces stay slightly off from the active background color even after the generated Kvantum config applies.
 **Cause:** The reused KvGnome and KvGnomeDark SVGs have baked background shades that the generated kvconfig cannot fully override.
