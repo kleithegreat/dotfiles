@@ -104,6 +104,15 @@ until the prefix was forced to use the Microsoft VC++ runtime DLLs already
 installed by the Ableton setup chain. Keep those overrides in the prefix if you
 recreate it.
 
+### DPI Awareness Override
+
+Ableton's own log reported `Effective process DPI awareness: 0` under Wine even
+though the app expects per-monitor DPI awareness. The prefix now carries an
+Image File Execution Options override for `Ableton Live 12 Lite.exe` with
+`dpiAwareness=2`, which at least moves the process out of the fully DPI-unaware
+mode. This did not fully fix the click-target mismatch, but it is part of the
+current tested prefix state.
+
 ### Options.txt
 
 Create:
@@ -146,6 +155,49 @@ use the same command through the Home Manager override at
 `~/.local/share/applications/wine/Programs/Ableton Live 12 Lite.desktop` and the
 additional desktop entries under `~/.local/share/applications/`.
 
+## External Research
+
+The most useful current references found during debugging were:
+
+- `BEEFY-JOE/AbletonLiveOnLinux`:
+  <https://github.com/BEEFY-JOE/AbletonLiveOnLinux>
+  This is the closest public symptom match. It documents Live 12 on Wayland and
+  explicitly notes that non-fullscreen windowed mode has inaccurate mouse
+  coordinates, drawing/scaling issues, and effectively needs fullscreen.
+- `korewaChino/live-on-linux`:
+  <https://github.com/korewaChino/live-on-linux>
+  Practical current guide recommending a fresh prefix, `vcrun2015` /
+  `vcrun2017`, wrapper-based launching, and resetting Max preferences.
+- `nine7nine/Wine-NSPA issue #4`:
+  <https://github.com/nine7nine/Wine-NSPA/issues/4>
+  Strong technical notes from a pro-audio Wine maintainer. Documents Live 11/12
+  as usable on a custom Wine branch, recommends DXVK for some crashes, and calls
+  out `-DontCombineAPCs` and Tracker indexing issues.
+- `stotes/AbletonAuthorizeCloudWine`:
+  <https://gist.github.com/stotes/78ad62db297b9efcb4d36646ef8bd481>
+  Useful manual workaround when Ableton's browser-based authorization handoff is
+  broken and the app needs an `ableton://...` URI passed in directly.
+- Microsoft DPI-awareness docs:
+  <https://learn.microsoft.com/en-us/windows/win32/hidpi/setting-the-default-dpi-awareness-for-a-process>
+  and
+  <https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setprocessdpiawarenesscontext>
+  These matter because they explicitly recommend manifest-level DPI awareness,
+  not late API calls, and warn that the default process mode is DPI-unaware if
+  nothing sets it early.
+
+Research-backed takeaways:
+
+- The repo's overall approach is aligned with what current Linux/NixOS users are
+  actually doing: fresh `win64` prefix, current Wine, PipeWire JACK via
+  `pw-jack`, `WineASIO`, wrapper scripts, and no dependence on the plain
+  Wine-generated desktop entry.
+- The strongest remaining suspect is Wine's DPI/client-area handling for
+  Ableton, not NixOS package naming, PipeWire wiring, or Hyprland rules.
+- Windowed mode itself appears to be an upstream problem area for recent
+  Ableton-on-Wine setups. Fullscreen and virtual-desktop workarounds show up in
+  multiple current references, with the BEEFY-JOE guide matching this setup's
+  symptoms especially closely.
+
 Then in Ableton's audio settings choose:
 
 - Driver Type: `ASIO`
@@ -161,13 +213,21 @@ performance tuning.
 - The Wine Wayland path launches, but consistently clips some amount of the
   bottom UI and shifts click targeting enough to make editor split bars and note
   edge dragging unreliable.
+- External reports corroborate that recent Ableton-on-Wine setups can have
+  inaccurate mouse coordinates specifically in non-fullscreen windowed mode.
 - The Xwayland path avoids the bottom clipping and restores normal `Delete` key
   behavior, but click targeting is still misaligned in tested sessions.
 - The Xwayland path has also shown cases where the Ableton authorization notice
   popup appears but is difficult or impossible to interact with.
+- A tested X11-driver experiment with `Managed=N` and `Decorated=N` reduced
+  flicker and made the authorization popup easier to click, but made cursor
+  targeting substantially worse and was reverted from the live prefix.
 - The fixed-size Wine virtual desktop (`Ableton - Wine Desktop`, class
   `explorer.exe`) keeps the whole app inside one Xwayland host window, but did
   not eliminate the click-target misalignment.
+- The remaining click drift pattern is proportional to the vertical mouse
+  position, which strongly suggests a client-height or DPI-awareness mismatch
+  rather than a random compositor focus bug.
 - Keep Ableton floating in Hyprland; the repo has explicit rules for class
   `ableton live 12 lite.exe` and the virtual desktop host window
   `explorer.exe` titled `Ableton - Wine Desktop`.
