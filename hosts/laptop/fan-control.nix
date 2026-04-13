@@ -56,21 +56,23 @@ in
   '';
 
   # ── i8kmon configuration ────────────────────────────────────
-  # Conservative profile for XPS 15 9520 (Alder Lake + RTX 3050 Mobile).
-  # Fans ramp early and use wide hysteresis (10 C) to avoid oscillation.
+  # More aggressive profile for XPS 15 9520 (Alder Lake + RTX 3050 Mobile).
+  # The Dell SMM interface still only exposes the firmware fan states, so the
+  # best we can do is ramp into state 2 sooner and poll more frequently.
   #
   # Fan speeds: 0 = off, 1 = low (~2500 RPM), 2 = high (~4500 RPM)
   # Fields: {left right} temp_down_ac temp_up_ac temp_down_batt temp_up_batt
   environment.etc."i8kmon.conf".text = ''
     set config(daemon)  0
     set config(verbose) 0
-    set config(timeout) 5
+    set config(timeout) 2
     set config(unit)    C
+    set config(num_configs) 4
 
-    set config(0) {{0 0}  -1  55  -1  55}
-    set config(1) {{1 1}  45  65  45  65}
-    set config(2) {{1 2}  55  75  55  75}
-    set config(3) {{2 2}  65 128  65 128}
+    set config(0) {{0 0}  -1  50  -1  50}
+    set config(1) {{1 1}  40  60  40  60}
+    set config(2) {{1 2}  50  68  50  68}
+    set config(3) {{2 2}  58 128  58 128}
   '';
 
   # ── i8kmon systemd service ──────────────────────────────────
