@@ -35,8 +35,9 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-12.
 | `hosts/vm/system.nix` | VM overlay | VM boot, guest profile, and virtual disk layout |
 | `hosts/laptop/system.nix` | Laptop overlay | Hybrid GPU policy, laptop-only services and overrides, GRUB, laptop hardware policy, and the laptop `tailscaled` stop-timeout override |
 | `hosts/laptop/fan-control.nix` | Laptop-only hardware submodule | Dell SMM kernel module wiring, BIOS fan-control handoff, `i8kmon.conf`, and the `i8kmon` systemd service |
-| `hosts/desktop/system.nix` | Desktop overlay | Dedicated NVIDIA policy, desktop-only imports, storage mounts, GRUB, desktop-only overlay imports, and the desktop `tailscaled` stop-timeout override |
+| `hosts/desktop/system.nix` | Desktop overlay | Dedicated NVIDIA policy, desktop-only imports, storage mounts, GRUB, desktop-only overlay imports, the desktop Windows VM toggle, and the desktop `tailscaled` stop-timeout override |
 | `hosts/desktop/wine-ableton.nix` | Desktop Wine/audio submodule | Loads the `ntsync` kernel module at boot, enables `services.pipewire.jack.enable`, and installs the desktop's Ableton-facing Wine toolchain (`wineWow64Packages.stableFull`, `wineasio`, and `winetricks`) |
+| `hosts/desktop/windows-vm.nix` | Desktop Windows VM submodule | Defines `virtualisation.windowsVm`, seeds the desktop qcow2/OVMF/TPM state under `/var/lib/windows-vm/windows11` during activation, grants the desktop user `kvm` access, and installs the `windows-vm` QEMU launcher |
 | `home/default.nix` | Shared user baseline | User packages that do not require system-scoped helper registration, host-specific user-package wrappers, `xdg.configFile` mappings, host-specific Hyprland file selection, desktop entry overrides, and theme activation |
 | `home/shell.nix` | Shell submodule | Zsh, shell tools, Git, aliases, and shell helpers |
 | `home/gtk.nix` | GTK submodule | GTK packages and small dconf defaults |
@@ -82,6 +83,13 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-12.
 - The desktop host module's `nixpkgs.overlays` list in `hosts/desktop/system.nix`
   still appends
   `overlays/nvidia-open-pr996.nix` for the desktop-specific NVIDIA workaround.
+- The desktop host also imports `hosts/desktop/windows-vm.nix` and enables
+  `virtualisation.windowsVm`, which currently wraps a local QEMU + `swtpm`
+  Windows guest with Microsoft-keyed OVMF firmware from `pkgs.OVMFFull.fd`.
+  Activation seeds the writable `OVMF_VARS.ms.fd` copy and sparse
+  `system.qcow2` under `/var/lib/windows-vm/windows11`, while the generated
+  `windows-vm` launcher runs the guest as the desktop user instead of a root
+  systemd service. `docs/nix/windows-vm.md` documents the operational steps.
 - Both physical host modules set
   `systemd.services.tailscaled.serviceConfig.TimeoutStopSec = "15s"`, bounding
   rare upstream stop hangs without changing the shared VM profile.

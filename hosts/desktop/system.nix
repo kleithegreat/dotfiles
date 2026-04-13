@@ -3,6 +3,7 @@
 {
   imports = [
     ./wine-ableton.nix
+    ./windows-vm.nix
   ];
 
   nixpkgs.overlays = [
@@ -97,4 +98,6 @@
   environment.systemPackages = with pkgs; [
     nvidia-vaapi-driver  # VA-API backend for NVIDIA (LIBVA_DRIVER_NAME=nvidia)
   ];
+
+  virtualisation.windowsVm.enable = true;
 }

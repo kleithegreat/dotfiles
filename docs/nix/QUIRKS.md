@@ -60,6 +60,12 @@
 **Status:** Expected manual setup
 **Resolution:** Keep Ableton in a dedicated fresh `WINEARCH=win64` prefix under the home directory, and rerun the documented WineASIO registration commands whenever that prefix is created or recreated.
 
+## Declarative Windows VM media and guest state stay partly manual
+**Symptom:** The desktop Windows VM module evaluates and seeds `/var/lib/windows-vm/windows11`, but first boot can still land in UEFI or an existing guest keeps its old size, boot state, or TPM state after a Nix change.
+**Cause:** `hosts/desktop/windows-vm.nix` makes the host-side QEMU wrapper declarative, but the installer ISO plus the mutable guest-owned qcow2, NVRAM, and TPM directories intentionally live outside the Nix store.
+**Status:** Expected manual state
+**Resolution:** Copy a Windows ISO to `/var/lib/windows-vm/windows11/isos/windows11.iso` before the first launch. If you want a clean reinstall or to reset secure-boot/TPM state, delete `/var/lib/windows-vm/windows11/system.qcow2`, `/var/lib/windows-vm/windows11/OVMF_VARS.ms.fd`, and `/var/lib/windows-vm/windows11/tpm/`, then rebuild so activation recreates fresh state. If you later increase `virtualisation.windowsVm.diskSizeGiB`, resize the existing qcow2 manually because activation only creates the disk when it does not already exist.
+
 ## `tailscaled` can stall shutdown on physical hosts
 **Symptom:** Reboot or poweroff can occasionally sit on "A stop job is running for Tailscale node agent" long enough to hit most of systemd's default 90 second stop timeout.
 **Cause:** Upstream `tailscaled` shutdown is normally fast, but Linux `wgengine` teardown has had intermittent close/deadlock races. The current hosts use NetworkManager plus `resolvconf`/`openresolv`, so this repo does not rely on `systemd-resolved` staying up for Tailscale cleanup.

@@ -93,7 +93,6 @@ in
     slack
     thunderbird
     obs-studio
-    onlyoffice-desktopeditors
     spotify
     zathura
     vscode
