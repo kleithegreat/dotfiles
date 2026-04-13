@@ -8,6 +8,97 @@ let
     ];
   });
   lapce-pkg = pkgs.lapce;
+  ableton-prefix = "${config.home.homeDirectory}/.local/share/wineprefixes/ableton-live-12-lite";
+  ableton-launcher = pkgs.writeShellApplication {
+    name = "ableton-live-12-lite";
+    text = ''
+      export WINEPREFIX="${ableton-prefix}"
+      export WINEDLLOVERRIDES="winepulse.drv=d;winex11.drv=d"
+
+      exe='C:\ProgramData\Ableton\Live 12 Lite\Program\Ableton Live 12 Lite.exe'
+
+      if [ "$#" -eq 0 ]; then
+        exec ${pkgs.pipewire.jack}/bin/pw-jack \
+          ${pkgs.wineWow64Packages.stableFull}/bin/wine \
+          "$exe"
+      fi
+
+      converted_args=()
+      for arg in "$@"; do
+        if [ -e "$arg" ]; then
+          converted_args+=("$(${pkgs.wineWow64Packages.stableFull}/bin/winepath -w "$arg")")
+        else
+          converted_args+=("$arg")
+        fi
+      done
+
+      exec ${pkgs.pipewire.jack}/bin/pw-jack \
+        ${pkgs.wineWow64Packages.stableFull}/bin/wine \
+        "$exe" \
+        "''${converted_args[@]}"
+    '';
+  };
+  ableton-launcher-x11 = pkgs.writeShellApplication {
+    name = "ableton-live-12-lite-x11";
+    text = ''
+      export WINEPREFIX="${ableton-prefix}"
+      export WINEDLLOVERRIDES="winepulse.drv=d;winewayland.drv=d"
+
+      exe='C:\ProgramData\Ableton\Live 12 Lite\Program\Ableton Live 12 Lite.exe'
+
+      if [ "$#" -eq 0 ]; then
+        exec ${pkgs.pipewire.jack}/bin/pw-jack \
+          ${pkgs.wineWow64Packages.stableFull}/bin/wine \
+          "$exe"
+      fi
+
+      converted_args=()
+      for arg in "$@"; do
+        if [ -e "$arg" ]; then
+          converted_args+=("$(${pkgs.wineWow64Packages.stableFull}/bin/winepath -w "$arg")")
+        else
+          converted_args+=("$arg")
+        fi
+      done
+
+      exec ${pkgs.pipewire.jack}/bin/pw-jack \
+        ${pkgs.wineWow64Packages.stableFull}/bin/wine \
+        "$exe" \
+        "''${converted_args[@]}"
+    '';
+  };
+  ableton-launcher-x11-desktop = pkgs.writeShellApplication {
+    name = "ableton-live-12-lite-x11-desktop";
+    text = ''
+      export WINEPREFIX="${ableton-prefix}"
+      export WINEDLLOVERRIDES="winepulse.drv=d;winewayland.drv=d"
+
+      exe='C:\ProgramData\Ableton\Live 12 Lite\Program\Ableton Live 12 Lite.exe'
+      desktop='Ableton,1600x900'
+
+      if [ "$#" -eq 0 ]; then
+        exec ${pkgs.pipewire.jack}/bin/pw-jack \
+          ${pkgs.wineWow64Packages.stableFull}/bin/wine \
+          explorer /desktop="$desktop" \
+          "$exe"
+      fi
+
+      converted_args=()
+      for arg in "$@"; do
+        if [ -e "$arg" ]; then
+          converted_args+=("$(${pkgs.wineWow64Packages.stableFull}/bin/winepath -w "$arg")")
+        else
+          converted_args+=("$arg")
+        fi
+      done
+
+      exec ${pkgs.pipewire.jack}/bin/pw-jack \
+        ${pkgs.wineWow64Packages.stableFull}/bin/wine \
+        explorer /desktop="$desktop" \
+        "$exe" \
+        "''${converted_args[@]}"
+    '';
+  };
 in
 {
   imports = [
@@ -198,6 +289,10 @@ in
 
     claude-code
     codex
+  ] ++ lib.optionals (hostName == "desktop") [
+    ableton-launcher
+    ableton-launcher-x11
+    ableton-launcher-x11-desktop
   ];
 
   # ── Hyprland configs ─────────────────────────────────────────
@@ -302,6 +397,42 @@ in
         exec = "hyprctl dispatch exec -- code --new-window %F";
       };
     };
+  };
+
+  xdg.dataFile = lib.optionalAttrs (hostName == "desktop") {
+    "applications/wine/Programs/Ableton Live 12 Lite.desktop".text = ''
+      [Desktop Entry]
+      Name=Ableton Live 12 Lite
+      Exec=${ableton-launcher}/bin/ableton-live-12-lite %F
+      Type=Application
+      StartupNotify=true
+      Path=${ableton-prefix}/drive_c/ProgramData/Ableton/Live 12 Lite/Program
+      Icon=7D21_Ableton Live 12 Lite.0
+      StartupWMClass=ableton live 12 lite.exe
+      Categories=AudioVideo;Audio;Music;
+    '';
+    "applications/ableton-live-12-lite-x11.desktop".text = ''
+      [Desktop Entry]
+      Name=Ableton Live 12 Lite (XWayland)
+      Exec=${ableton-launcher-x11}/bin/ableton-live-12-lite-x11 %F
+      Type=Application
+      StartupNotify=true
+      Path=${ableton-prefix}/drive_c/ProgramData/Ableton/Live 12 Lite/Program
+      Icon=7D21_Ableton Live 12 Lite.0
+      StartupWMClass=ableton live 12 lite.exe
+      Categories=AudioVideo;Audio;Music;
+    '';
+    "applications/ableton-live-12-lite-x11-desktop.desktop".text = ''
+      [Desktop Entry]
+      Name=Ableton Live 12 Lite (XWayland Desktop)
+      Exec=${ableton-launcher-x11-desktop}/bin/ableton-live-12-lite-x11-desktop %F
+      Type=Application
+      StartupNotify=true
+      Path=${ableton-prefix}/drive_c/ProgramData/Ableton/Live 12 Lite/Program
+      Icon=7D21_Ableton Live 12 Lite.0
+      StartupWMClass=explorer.exe
+      Categories=AudioVideo;Audio;Music;
+    '';
   };
 
   # ── Default applications ────────────────────────────────────

@@ -60,6 +60,24 @@
 **Status:** Expected manual setup
 **Resolution:** Keep Ableton in a dedicated fresh `WINEARCH=win64` prefix under the home directory, and rerun the documented WineASIO registration commands whenever that prefix is created or recreated.
 
+## Wine-generated Ableton desktop entries miss the working launch environment
+**Symptom:** Launching Ableton Live 12 Lite from Vicinae or another app launcher falls back to the splash screen stuck on `Initializing MIDI inputs and outputs`, even though a manual terminal launch works.
+**Cause:** Wine's generated `~/.local/share/applications/wine/Programs/Ableton Live 12 Lite.desktop` only sets `WINEPREFIX` and runs plain `wine ...lnk`. The working setup also needs the current prefix's Wayland/JACK launch environment, specifically `WINEDLLOVERRIDES=winepulse.drv=d;winex11.drv=d` and a `pw-jack` wrapper around `wine`.
+**Status:** Workaround in place
+**Resolution:** `home/default.nix` now overrides that exact desktop entry path on the desktop host and points it at the `ableton-live-12-lite` wrapper command, so Vicinae launches the same working wrapper as a manual terminal start.
+
+## Ableton still depends on mutable prefix tweaks beyond the NixOS module
+**Symptom:** A fresh prefix created from only the documented WineASIO steps can still show stale rendering, background helper crashes, or rough UI behavior even though the app launches.
+**Cause:** The stable setup currently also relies on mutable per-prefix tweaks: DXVK DLL copies plus native overrides, native VC++ runtime overrides, and an Ableton `Options.txt` with `-DisableAutoBugReporting`.
+**Status:** Expected manual setup
+**Resolution:** Treat the Wine prefix as mutable app state in the home directory and reapply those documented post-install tweaks whenever the prefix is recreated.
+
+## Ableton display/backend tradeoffs are still unresolved
+**Symptom:** No tested Wine display path is fully correct yet. The Wine Wayland path clips the bottom of the Ableton UI, skews click targeting, and behaves differently for `Delete` versus `Backspace`. The Xwayland path removes the bottom clipping and restores the expected `Delete` key behavior, but click targeting is still off and the Ableton authorization popup can still be difficult to interact with. Wrapping Xwayland in a fixed-size Wine virtual desktop keeps the app in one host window but still does not fix the hit-testing mismatch.
+**Cause:** The remaining problems appear to be in Wine's client-area/input handling for Ableton rather than in the PipeWire or JACK path. Wayland and Xwayland both launch, but neither currently gives accurate editor hit-testing on this host.
+**Status:** Under investigation
+**Resolution:** Keep all three launcher variants documented (`ableton-live-12-lite`, `ableton-live-12-lite-x11`, and `ableton-live-12-lite-x11-desktop`) and continue testing against the same prefix so the backend-specific behavior stays comparable.
+
 ## Declarative Windows VM media and guest state stay partly manual
 **Symptom:** The desktop Windows VM module evaluates and seeds `/var/lib/windows-vm/windows11`, but first boot can still land in UEFI or an existing guest keeps its old size, boot state, or TPM state after a Nix change.
 **Cause:** `hosts/desktop/windows-vm.nix` makes the host-side QEMU wrapper declarative, but the installer ISO plus the mutable guest-owned qcow2, NVRAM, and TPM directories intentionally live outside the Nix store.
