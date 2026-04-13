@@ -3,7 +3,7 @@
 ## Scope
 
 Current implementation map for solar scheduling, location resolution, and
-cross-domain side effects as of 2026-04-07.
+cross-domain side effects as of 2026-04-13.
 
 ## Primary Implementation Surface
 
@@ -25,6 +25,7 @@ cross-domain side effects as of 2026-04-07.
 | Path | Current role | Evidence |
 | --- | --- | --- |
 | `config/quickshell/DisplayService.qml` | Polls `desktopctl night-light status --json` and requests `desktopctl night-light on/off/auto` instead of managing `hyprsunset` directly | The display status loaders and request handlers in `config/quickshell/DisplayService.qml` |
+| `config/quickshell/popups/CalendarPopup.qml` | Reuses `desktopctl sun status` as a read-only coordinate/sun-time surface for the calendar popup's toggleable weather view instead of reimplementing location resolution inside Quickshell | The popup-local `sunStatusProc`, `applySunStatus(...)`, and weather refresh path in `config/quickshell/popups/CalendarPopup.qml` |
 | `config/quickshell/popups/SettingsPopup.qml` | Reads theme state and exposes `dark_hint` controls through `desktopctl theme set dark_hint ...`, which persists and applies `dark_hint` directly without touching daemon mode | The theme-state loading path plus the `dark_hint` controls in `config/quickshell/popups/SettingsPopup.qml` |
 | `config/quickshell/popups/settings/SettingsPresetEditor.qml` | Allows presets to include `dark_hint`; preset application persists `dark_hint` directly via the theme pipeline without routing through the daemon | The preset-field editor and save flow in `config/quickshell/popups/settings/SettingsPresetEditor.qml` |
 | `config/quickshell/shell.qml` | Exposes a generic `theme.apply` IPC entry point that can reach `desktopctl theme ...`; `dark_hint` requests are handled directly by the theme pipeline | The `theme.apply` IPC handler in `config/quickshell/shell.qml` |
@@ -59,9 +60,12 @@ cross-domain side effects as of 2026-04-07.
    `desktopctl theme set dark_hint ...` and preset application persist
    `dark_hint` directly.
 9. The request handlers in `desktopctl/src/daemon/server.rs` serve the
-   daemon-owned status and
-   override methods so CLI callers and Quickshell can request `hyprsunset` mode
-   changes without becoming direct writers themselves.
+   daemon-owned status and override methods so CLI callers and Quickshell can
+   request `hyprsunset` mode changes without becoming direct writers
+   themselves.
+10. Independent read-only consumers such as `desktopctl sun status` and the
+    calendar popup's weather view reuse the same resolved coordinates and solar
+    timestamps without becoming their own location owners.
 
 ## Resource Map
 

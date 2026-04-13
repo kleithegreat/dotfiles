@@ -3,7 +3,7 @@
 ## Scope
 
 Current implementation map for `config/quickshell/` and its theme/runtime
-integration as of 2026-04-09.
+integration as of 2026-04-13.
 
 ## Shell Topology
 
@@ -53,6 +53,10 @@ Direct-upstream or local exceptions:
 - Battery state still comes from `Quickshell.Services.UPower`.
 - MPRIS, system tray, and workspace state still use upstream Quickshell
   services directly.
+- The calendar weather card stays popup-local instead of introducing a shared
+  weather service. `config/quickshell/popups/CalendarPopup.qml` resolves the
+  shell's current coordinates through `desktopctl sun status`, then fetches the
+  current forecast from Open-Meteo with `curl` only while the popup is active.
 - Focus Time still polls `${XDG_RUNTIME_DIR:-/run/user/$UID}/focustime_state.json`
   inside its pane and treats payloads older than 5 seconds as stale; see
   `docs/focus-time/SPEC.md`.
@@ -208,10 +212,17 @@ Calendar:
 
 The popup implementations are no longer uniform, however:
 
-- `config/quickshell/popups/CalendarPopup.qml` and
-  `config/quickshell/NotifDrawer.qml` now keep a placeholder-backed
-  `panelHeightHint`, suppress `Behavior on height` during open/close, and only
-  animate the loaded panel's `opacity` / `scale` while visible. Their host
+- `config/quickshell/popups/CalendarPopup.qml` now keeps one popup width and
+  switches between a month-grid page and a weather page through local toggle
+  pills instead of rendering both side by side. It still keeps a
+  placeholder-backed `panelHeightHint`, suppresses `Behavior on height` during
+  open/close, and only animates the loaded panel's `opacity` / `scale` while
+  visible. The weather page refreshes on demand and every 15 minutes while that
+  page is active, reusing `desktopctl sun status` for coordinates and
+  sunrise/sunset labels before calling Open-Meteo through `curl`.
+- `config/quickshell/NotifDrawer.qml` keeps the same placeholder-backed
+  `panelHeightHint`, suppresses `Behavior on height` during open/close, and
+  only animates the loaded panel's `opacity` / `scale` while visible. Its host
   height animation remains available only for later in-session content resizes.
 - `config/quickshell/popups/QuickSettingsPopup.qml` does the same outer
   placeholder-height reservation and open/close suppression, and no longer
@@ -253,4 +264,7 @@ the history watermark and insert-animation logic in `config/quickshell/NotifDraw
 - `${XDG_RUNTIME_DIR:-/run/user/$UID}/focustime_state.json` exists when the
   focus-time daemon is running.
 - CLI tools such as `nmcli`, `bluetoothctl`, `hyprctl`, `brightnessctl`,
-  `mullvad`, `tailscale`, `busctl`, and related helpers are on `PATH`.
+  `mullvad`, `tailscale`, `busctl`, `curl`, and related helpers are on `PATH`.
+- Outbound HTTPS access is available when the calendar weather card should show
+  a live forecast; otherwise the popup falls back to the last successful
+  weather payload or the locally resolved sunrise/sunset labels.
