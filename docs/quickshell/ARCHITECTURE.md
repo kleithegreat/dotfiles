@@ -219,7 +219,9 @@ The popup implementations are no longer uniform, however:
   open/close, and only animates the loaded panel's `opacity` / `scale` while
   visible. The weather page refreshes on demand and every 15 minutes while that
   page is active, reusing `desktopctl sun status` for coordinates and
-  sunrise/sunset labels before calling Open-Meteo through `curl`.
+  sunrise/sunset labels before calling Open-Meteo through `curl`. Its weather
+  card styling now sticks to direct `Theme.*` palette slots for fills, borders,
+  and accents instead of blending intermediate colors inside QML.
 - `config/quickshell/NotifDrawer.qml` keeps the same placeholder-backed
   `panelHeightHint`, suppresses `Behavior on height` during open/close, and
   only animates the loaded panel's `opacity` / `scale` while visible. Its host

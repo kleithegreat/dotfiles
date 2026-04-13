@@ -158,24 +158,6 @@ FocusScope {
     function firstDow(y, m) { return new Date(y, m, 1).getDay(); }
     function prevMonth() { gridVisible = false; swapTimer.action = function() { if (cal.viewMonth === 0) { cal.viewMonth = 11; cal.viewYear--; } else cal.viewMonth--; }; swapTimer.start(); }
     function nextMonth() { gridVisible = false; swapTimer.action = function() { if (cal.viewMonth === 11) { cal.viewMonth = 0; cal.viewYear++; } else cal.viewMonth++; }; swapTimer.start(); }
-    function blendColors(baseColor, tintColor, amount) {
-        let mix = Math.max(0, Math.min(1, amount));
-        return Qt.rgba(
-            baseColor.r * (1 - mix) + tintColor.r * mix,
-            baseColor.g * (1 - mix) + tintColor.g * mix,
-            baseColor.b * (1 - mix) + tintColor.b * mix,
-            1
-        );
-    }
-    function withAlpha(color, alpha) {
-        return Qt.rgba(color.r, color.g, color.b, alpha);
-    }
-    function weatherPanelColor(accentColor, amount) {
-        return blendColors(Theme.bg1, accentColor, amount);
-    }
-    function weatherPanelBorderColor(accentColor, amount) {
-        return blendColors(Theme.bg3, accentColor, amount);
-    }
     function formatTemperature(value) {
         return Math.round((value * 9 / 5) + 32) + "F";
     }
@@ -293,20 +275,12 @@ FocusScope {
             return Theme.blue;
         return isDay ? Theme.orangeBright : Theme.purpleBright;
     }
-    function weatherCardTopColor() {
-        return weatherPanelColor(weatherAccentColor(weatherCode, weatherIsDay), weatherIsDay ? 0.20 : 0.16);
+    function weatherCardColor() {
+        if (weatherCode === 45 || weatherCode === 48)
+            return Theme.bg2;
+        return weatherIsDay ? Theme.bg : Theme.bg0_h;
     }
-    function weatherCardBottomColor() {
-        return blendColors(Theme.bg0_h, weatherGlowColor(weatherCode, weatherIsDay), weatherIsDay ? 0.12 : 0.16);
-    }
-    function weatherBadgeColor() {
-        if (weatherLoading)
-            return weatherPanelColor(Theme.blueBright, 0.16);
-        if (weatherErrorText !== "")
-            return weatherPanelColor(weatherReady ? Theme.yellowBright : Theme.redBright, 0.16);
-        return weatherPanelColor(weatherAccentColor(weatherCode, weatherIsDay), 0.14);
-    }
-    function weatherBadgeTextColor() {
+    function weatherStatusColor() {
         if (weatherErrorText !== "" && !weatherReady)
             return Theme.redBright;
         if (weatherLoading)
@@ -416,9 +390,9 @@ FocusScope {
         required property color accentColor
 
         radius: 12
-        color: cal.weatherPanelColor(accentColor, 0.10)
+        color: Theme.bg
         border.width: 1
-        border.color: cal.weatherPanelBorderColor(accentColor, 0.26)
+        border.color: accentColor
         implicitHeight: chipCol.implicitHeight + 14
 
         Column {
@@ -452,17 +426,17 @@ FocusScope {
         readonly property bool selected: cal.currentView === viewValue
 
         radius: 999
-        color: selected ? cal.blendColors(Theme.bg2, accentColor, 0.20) : "transparent"
+        color: selected ? Theme.bg2 : "transparent"
         border.width: 1
-        border.color: selected ? cal.withAlpha(accentColor, 0.36) : Theme.bg3
+        border.color: selected ? accentColor : Theme.bg3
         implicitWidth: toggleLabel.implicitWidth + 18
         implicitHeight: toggleLabel.implicitHeight + 8
 
         Components.HoverLayer {
             anchors.fill: parent
-            color: toggle.selected ? cal.withAlpha(toggle.accentColor, 0.18) : Theme.bg2
-            hoverOpacity: toggle.selected ? 0.50 : 0.38
-            pressedOpacity: toggle.selected ? 0.72 : 0.62
+            color: toggle.selected ? Theme.bg3 : Theme.bg2
+            hoverOpacity: 1.0
+            pressedOpacity: 1.0
             pressedScale: 0.98
             onClicked: {
                 if (!toggle.selected)
@@ -502,7 +476,7 @@ FocusScope {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: parent.top
             anchors.topMargin: 2
-            color: cal.withAlpha(art.accentColor, art.isDay ? 0.18 : 0.14)
+            color: art.isDay ? Theme.bg1 : Theme.bg2
         }
 
         Rectangle {
@@ -514,7 +488,7 @@ FocusScope {
             y: parent.height * 0.10
             color: art.isDay ? art.accentColor : art.glowColor
             border.width: art.isDay ? 0 : 1
-            border.color: art.isDay ? "transparent" : cal.withAlpha(art.accentColor, 0.45)
+            border.color: art.isDay ? "transparent" : art.accentColor
         }
 
         Rectangle {
@@ -524,7 +498,7 @@ FocusScope {
             radius: width / 2
             x: orb.x + orb.width * 0.24
             y: orb.y + orb.height * 0.02
-            color: cal.weatherCardTopColor()
+            color: cal.weatherCardColor()
         }
 
         Rectangle {
@@ -534,7 +508,7 @@ FocusScope {
             radius: 2
             x: parent.width * 0.66
             y: parent.height * 0.18
-            color: cal.withAlpha(Theme.fg2, 0.9)
+            color: Theme.fg2
         }
 
         Rectangle {
@@ -544,7 +518,7 @@ FocusScope {
             radius: 3
             x: parent.width * 0.66
             y: parent.height * 0.18
-            color: cal.withAlpha(Theme.fg2, 0.85)
+            color: Theme.fg2
         }
 
         Rectangle {
@@ -554,7 +528,7 @@ FocusScope {
             radius: 2
             x: parent.width * 0.74
             y: parent.height * 0.28
-            color: cal.withAlpha(Theme.fg3, 0.8)
+            color: Theme.fg3
         }
 
         Item {
@@ -570,7 +544,7 @@ FocusScope {
                 width: parent.width * 0.60
                 height: parent.height * 0.42
                 radius: height / 2
-                color: cal.blendColors(Theme.fg2, art.glowColor, 0.18)
+                color: art.isDay ? Theme.fg2 : Theme.fg3
             }
             Rectangle {
                 x: parent.width * 0.18
@@ -578,7 +552,7 @@ FocusScope {
                 width: parent.height * 0.55
                 height: parent.height * 0.55
                 radius: width / 2
-                color: cal.blendColors(Theme.fg2, art.glowColor, 0.18)
+                color: Theme.fg2
             }
             Rectangle {
                 x: parent.width * 0.38
@@ -586,7 +560,7 @@ FocusScope {
                 width: parent.height * 0.72
                 height: parent.height * 0.72
                 radius: width / 2
-                color: cal.blendColors(Theme.fg2, art.glowColor, 0.14)
+                color: art.isDay ? Theme.fg3 : Theme.fg4
             }
         }
 
@@ -599,7 +573,7 @@ FocusScope {
                 radius: 2
                 x: parent.width * (0.38 + index * 0.10)
                 y: parent.height * 0.70 + (index % 2 === 0 ? 0 : 4)
-                color: cal.withAlpha(Theme.blueBright, 0.85)
+                color: Theme.blueBright
             }
         }
 
@@ -612,7 +586,7 @@ FocusScope {
                 radius: 3
                 x: parent.width * (0.40 + index * 0.11)
                 y: parent.height * 0.70 + (index % 2 === 0 ? 0 : 6)
-                color: cal.withAlpha(Theme.fg2, 0.95)
+                color: Theme.fg2
             }
         }
 
@@ -625,7 +599,7 @@ FocusScope {
                 radius: 2
                 x: parent.width * 0.30
                 y: parent.height * (0.68 + index * 0.09)
-                color: cal.withAlpha(Theme.fg3, 0.45)
+                color: Theme.fg4
             }
         }
 
@@ -979,9 +953,9 @@ FocusScope {
 
                             Rectangle {
                                 radius: 999
-                                color: cal.weatherBadgeColor()
+                                color: Theme.bg2
                                 border.width: 1
-                                border.color: cal.weatherPanelBorderColor(cal.weatherBadgeTextColor(), 0.22)
+                                border.color: cal.weatherStatusColor()
                                 implicitWidth: badgeLabel.implicitWidth + 12
                                 implicitHeight: badgeLabel.implicitHeight + 6
 
@@ -989,7 +963,7 @@ FocusScope {
                                     id: badgeLabel
                                     anchors.centerIn: parent
                                     text: cal.weatherBadgeText
-                                    color: cal.weatherBadgeTextColor()
+                                    color: cal.weatherStatusColor()
                                     font.family: Theme.systemFamily
                                     font.pixelSize: Theme.fontSizeSmall
                                     font.bold: true
@@ -1005,8 +979,8 @@ FocusScope {
                                 Components.HoverLayer {
                                     id: weatherRefreshHover
                                     color: Theme.bg2
-                                    hoverOpacity: 0.55
-                                    pressedOpacity: 0.9
+                                    hoverOpacity: 1.0
+                                    pressedOpacity: 1.0
                                     pressedScale: 0.97
                                     onClicked: cal.refreshWeather(true)
 
@@ -1024,12 +998,9 @@ FocusScope {
                             Layout.fillWidth: true
                             radius: 16
                             clip: true
+                            color: cal.weatherCardColor()
                             border.width: 1
-                            border.color: cal.weatherPanelBorderColor(cal.weatherAccentColor(cal.weatherCode, cal.weatherIsDay), 0.22)
-                            gradient: Gradient {
-                                GradientStop { position: 0.0; color: cal.weatherCardTopColor() }
-                                GradientStop { position: 1.0; color: cal.weatherCardBottomColor() }
-                            }
+                            border.color: cal.weatherAccentColor(cal.weatherCode, cal.weatherIsDay)
                             implicitHeight: 162
 
                             WeatherSkyArt {
@@ -1128,9 +1099,9 @@ FocusScope {
                         Rectangle {
                             Layout.fillWidth: true
                             radius: 14
-                            color: cal.weatherPanelColor(Theme.orangeBright, 0.06)
+                            color: Theme.bg
                             border.width: 1
-                            border.color: cal.weatherPanelBorderColor(Theme.orangeBright, 0.14)
+                            border.color: Theme.orangeBright
                             implicitHeight: solarRow.implicitHeight + 18
 
                             RowLayout {
@@ -1161,7 +1132,7 @@ FocusScope {
                                 Rectangle {
                                     width: 1
                                     Layout.fillHeight: true
-                                    color: cal.withAlpha(Theme.fg4, 0.18)
+                                    color: Theme.bg3
                                 }
 
                                 ColumnLayout {
