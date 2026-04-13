@@ -564,7 +564,10 @@ fn render_keybinds_override(payload: &KeybindsPayload) -> String {
     let mut out = String::from("# Managed by desktopctl — do not edit\n");
 
     for ovr in &payload.overrides {
-        out.push_str(&format!("unbind = {}, {}\n", ovr.original_mods, ovr.original_key));
+        out.push_str(&format!(
+            "unbind = {}, {}\n",
+            ovr.original_mods, ovr.original_key
+        ));
 
         let bind_keyword = format!("bind{}", ovr.flags);
         let has_desc = ovr.flags.contains('d');
@@ -572,8 +575,7 @@ fn render_keybinds_override(payload: &KeybindsPayload) -> String {
         if has_desc {
             out.push_str(&format!(
                 "{} = {}, {}, {}, {}, {}\n\n",
-                bind_keyword, ovr.new_mods, ovr.new_key, ovr.description,
-                ovr.dispatcher, ovr.arg,
+                bind_keyword, ovr.new_mods, ovr.new_key, ovr.description, ovr.dispatcher, ovr.arg,
             ));
         } else {
             out.push_str(&format!(
@@ -645,8 +647,8 @@ impl IfEmpty for &str {
 #[cfg(test)]
 mod tests {
     use super::{
-        AccelProfile, AnimationsPayload, InputSetting, InputState, KeybindsPayload,
-        format_decimal, parse_input_state_from_str, parse_scroll_factor, parse_sensitivity,
+        AccelProfile, AnimationsPayload, InputSetting, InputState, KeybindsPayload, format_decimal,
+        parse_input_state_from_str, parse_scroll_factor, parse_sensitivity,
         render_animations_override, render_input_runtime_state, render_keybinds_override,
     };
 

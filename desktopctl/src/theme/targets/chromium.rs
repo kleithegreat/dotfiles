@@ -254,12 +254,16 @@ mod tests {
             written["webkit"]["webprefs"]["fonts"]["fixed"][COMMON_SCRIPT],
             Value::String("JetBrains Mono Nerd Font".to_owned())
         );
-        assert!(written["webkit"]["webprefs"]
-            .get("default_font_size")
-            .is_none());
-        assert!(written["webkit"]["webprefs"]
-            .get("default_fixed_font_size")
-            .is_none());
+        assert!(
+            written["webkit"]["webprefs"]
+                .get("default_font_size")
+                .is_none()
+        );
+        assert!(
+            written["webkit"]["webprefs"]
+                .get("default_fixed_font_size")
+                .is_none()
+        );
 
         let _ = fs::remove_file(path);
     }
@@ -364,12 +368,16 @@ mod tests {
             written["webkit"]["webprefs"]["fonts"]["sansserif"][COMMON_SCRIPT],
             Value::String("Overpass".to_owned())
         );
-        assert!(written["webkit"]["webprefs"]
-            .get("default_font_size")
-            .is_none());
-        assert!(written["webkit"]["webprefs"]
-            .get("default_fixed_font_size")
-            .is_none());
+        assert!(
+            written["webkit"]["webprefs"]
+                .get("default_font_size")
+                .is_none()
+        );
+        assert!(
+            written["webkit"]["webprefs"]
+                .get("default_fixed_font_size")
+                .is_none()
+        );
 
         let _ = fs::remove_file(path);
     }
@@ -390,12 +398,16 @@ mod tests {
         write_preferences(&path, &state).expect("write succeeds");
         let written = read_json(&path);
 
-        assert!(written["webkit"]["webprefs"]
-            .get("default_font_size")
-            .is_none());
-        assert!(written["webkit"]["webprefs"]
-            .get("default_fixed_font_size")
-            .is_none());
+        assert!(
+            written["webkit"]["webprefs"]
+                .get("default_font_size")
+                .is_none()
+        );
+        assert!(
+            written["webkit"]["webprefs"]
+                .get("default_fixed_font_size")
+                .is_none()
+        );
 
         let _ = fs::remove_file(path);
     }
