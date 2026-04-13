@@ -99,6 +99,7 @@ in
     vscode
     lapce-pkg
     lmstudio
+    helium
     t3-code
     imv            # Wayland image viewer
     nautilus
