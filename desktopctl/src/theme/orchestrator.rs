@@ -13,7 +13,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-const COLOR_SCHEME_TARGETS: [&str; 18] = [
+const COLOR_SCHEME_TARGETS: [&str; 19] = [
     "alacritty",
     "ghostty",
     "gtksourceview",
@@ -32,6 +32,7 @@ const COLOR_SCHEME_TARGETS: [&str; 18] = [
     "vscode",
     "spicetify",
     "snappy_switcher",
+    "zsh",
 ];
 const WALLPAPER_TARGETS: [&str; 1] = ["wallpaper"];
 const SYSTEM_FONT_TARGETS: [&str; 6] = [
@@ -56,14 +57,8 @@ const MONO_FONT_TARGETS: [&str; 9] = [
 const ICON_THEME_TARGETS: [&str; 3] = ["gtk", "qt", "snappy_switcher"];
 const CURSOR_TARGETS: [&str; 1] = ["cursor"];
 const FONT_SIZE_TARGETS: [&str; 4] = ["gtk", "qt", "quickshell", "snappy_switcher"];
-const MONO_FONT_SIZE_TARGETS: [&str; 6] = [
-    "alacritty",
-    "ghostty",
-    "gtk",
-    "neovide",
-    "qt",
-    "vscode",
-];
+const MONO_FONT_SIZE_TARGETS: [&str; 6] =
+    ["alacritty", "ghostty", "gtk", "neovide", "qt", "vscode"];
 const DARK_HINT_TARGETS: [&str; 1] = ["gtk"];
 const HYPR_APPEARANCE_TARGETS: [&str; 1] = ["hypr_appearance"];
 
@@ -659,6 +654,13 @@ mod tests {
         let state = dummy_state(true);
         let targets = targets_for_key("color_scheme", Some(&state));
         assert!(targets.contains("opencode"));
+    }
+
+    #[test]
+    fn targets_for_color_scheme_include_zsh() {
+        let state = dummy_state(true);
+        let targets = targets_for_key("color_scheme", Some(&state));
+        assert!(targets.contains("zsh"));
     }
 
     #[test]

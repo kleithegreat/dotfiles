@@ -61,7 +61,7 @@ A tool should be configured purely in Nix (typically through Home Manager's
 `programs.*` or `services.*` modules) when:
 
 - The tool's entire useful configuration surface is covered by the Nix module
-  (e.g., Zsh, fzf, zoxide, eza).
+  (e.g., fzf, zoxide, eza).
 - The tool has no config file format of its own, or its config is trivially
   generated from Nix attributes.
 - Adding a `config/` directory would just duplicate what the Nix module already
@@ -71,6 +71,11 @@ Tools that have **both** a Nix module for package management and a `config/`
 directory for runtime behavior (e.g., Neovim, Starship) use Nix for the
 package and `config/` for the runtime config. The Nix module should not
 generate runtime config that conflicts with the repo-authored base.
+
+A Nix-authored tool may still source a generated theme fragment when the tool
+does not have a checked-in `config/<tool>/` base file of its own. `home/shell.nix`
+does this for Zsh by sourcing `~/.config/zsh/theme-colors` from
+`programs.zsh.initContent` while leaving the rest of shell behavior Nix-owned.
 
 ## Snapshot Policy
 

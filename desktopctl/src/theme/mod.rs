@@ -17,7 +17,7 @@ pub mod resolve;
 pub mod schema;
 pub mod targets;
 
-const BASE_COLOR_TARGETS: [&str; 16] = [
+const BASE_COLOR_TARGETS: [&str; 17] = [
     "alacritty",
     "ghostty",
     "gtksourceview",
@@ -34,6 +34,7 @@ const BASE_COLOR_TARGETS: [&str; 16] = [
     "snappy_switcher",
     "spicetify",
     "vscode",
+    "zsh",
 ];
 
 const FONT_TARGETS: [&str; 11] = [
@@ -1199,5 +1200,11 @@ mod tests {
         assert!(
             !dark_hint_for_repo_scheme_name("gruvbox-light").expect("light scheme should load")
         );
+    }
+
+    #[test]
+    fn color_targets_include_zsh() {
+        let state = schema::ThemeState::default_state_for_repo_root(&repo_root());
+        assert!(color_targets_for_state(&state).contains("zsh"));
     }
 }

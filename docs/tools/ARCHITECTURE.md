@@ -4,7 +4,7 @@
 
 Current map for the repo-managed tool configs under `config/`, the shell-side
 tooling in `home/shell.nix`, and the matching `desktopctl` theme targets as of
-2026-04-08.
+2026-04-13.
 
 ## Source Of Truth
 
@@ -17,7 +17,7 @@ Manager deploys.
 | Alacritty | `config/alacritty/alacritty.toml` | `~/.config/alacritty/theme.toml` | `import` | Base config imports the generated fragment |
 | Ghostty | `config/ghostty/base` | `~/.config/ghostty/config` | `concat` | Base file plus generated theme block written at apply time |
 | tmux | `config/tmux/tmux.conf` | `~/.config/tmux/colors.conf` | `import` | Base config sources the generated colors file |
-| Zsh | `home/shell.nix` | Home Manager-managed shell init | none | Shell behavior is Nix-authored; no direct theme target |
+| Zsh | `home/shell.nix` | `~/.config/zsh/theme-colors` | `import` | Home Manager authors the main shell init; `programs.zsh.initContent` sources the generated fragment for autosuggestion highlighting |
 | Starship | `config/starship/base.toml` | `~/.config/starship.toml` | `concat` | Base prompt config plus generated palette block written at apply time |
 | Zathura | `config/zathura/zathurarc` | `~/.config/zathura/colors` | `import` | Base config includes the generated colors file |
 | Vicinae | `config/vicinae/base.json` | `~/.config/vicinae/settings.json` | `concat` | Base settings plus generated theme block written at apply time; provider search paths remain literal because Vicinae only documents relative-path support for top-level `imports` |
@@ -51,6 +51,9 @@ Theme-only targets with no `config/` subdirectory:
   files, so both must exist for a working session.
 - Neovim and Quickshell theme targets similarly write generated state files
   into their Home Manager-symlinked config trees.
+- Zsh keeps its main config in `home/shell.nix`, but that Nix-authored init now
+  sources the generated `~/.config/zsh/theme-colors` fragment written by the
+  `zsh` theme target.
 - Quickshell is the only current committed generated-snapshot exception: the
   repo ships `config/quickshell/GeneratedTheme.json`, and the live file at
   `~/.config/quickshell/GeneratedTheme.json` is then overwritten by

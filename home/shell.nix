@@ -96,6 +96,7 @@ in
       zstyle ':completion:*:descriptions' format '%B%d%b'
 
       # ── Autosuggestion config ────────────────────────────────
+      [[ -f "$ZDOTDIR/theme-colors" ]] && source "$ZDOTDIR/theme-colors"
       ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
 
       # ── Key bindings ─────────────────────────────────────────
