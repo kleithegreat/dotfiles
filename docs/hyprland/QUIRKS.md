@@ -71,3 +71,19 @@ workspace overview, keep the binding on the core `gesture` keyword and use the
 `dispatcher` action to call `hyprexpo:expo toggle`
 from `hosts/laptop/input-devices.conf`. Reserve `hyprexpo-gesture` for files
 sourced after `plugins.conf`, or guard it with `hyprlang noerror`.
+
+## Ableton Live 12 Lite must float under the current Wine Wayland path
+
+**Symptom:** When Ableton Live 12 Lite runs through Wine's Wayland driver on the
+desktop host, a tiled Hyprland layout leaves parts of the lower UI clipped and
+some internal panes stop resizing correctly.
+
+**Cause:** The current Wine Wayland path does update swapchain sizes, but the
+Ableton window still behaves poorly when Hyprland keeps it tiled across the full
+workspace. Floating avoids the compositor/layout interaction that leaves the UI
+partially cut off.
+
+**Impact / workaround:** `config/hypr/rules.conf` floats and centers windows
+whose class is `ableton live 12 lite.exe` and also floats the fixed-size Wine
+virtual desktop host window `explorer.exe` titled `Ableton - Wine Desktop`.
+Keep Ableton floating for now instead of relying on Hyprland tiling.
