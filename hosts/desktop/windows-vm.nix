@@ -73,28 +73,28 @@ let
       qemu_args=(
         -enable-kvm
         -name "$vm_name"
-        -machine type=q35,accel=kvm,smm=on
-        -cpu host,hv_relaxed,hv_vapic,hv_spinlocks=0x1fff,hv_time
+        -machine "type=q35,accel=kvm,smm=on"
+        -cpu "host,hv_relaxed,hv_vapic,hv_spinlocks=0x1fff,hv_time"
         -smp ${toString cfg.vcpus}
         -m ${toString cfg.memoryMiB}
-        -rtc clock=host,base=localtime
-        -boot menu=on
+        -rtc "clock=host,base=localtime"
+        -boot "menu=on"
         -drive "if=pflash,format=raw,readonly=on,file=$firmware_code"
         -drive "if=pflash,format=raw,file=$ovmf_vars"
         -chardev "socket,id=chrtpm,path=$tpm_socket"
-        -tpmdev emulator,id=tpm0,chardev=chrtpm
-        -device tpm-tis,tpmdev=tpm0
-        -device qemu-xhci,id=usb
+        -tpmdev "emulator,id=tpm0,chardev=chrtpm"
+        -device "tpm-tis,tpmdev=tpm0"
+        -device "qemu-xhci,id=usb"
         -device usb-tablet
         -device ich9-intel-hda
         -device hda-duplex
         -netdev "user,id=net0,hostname=$vm_name"
-        -device e1000e,netdev=net0
+        -device "e1000e,netdev=net0"
         -device virtio-rng-pci
         -drive "if=none,id=system,file=$disk_path,format=qcow2,discard=unmap,detect-zeroes=unmap"
         -device "nvme,drive=system,serial=${cfg.name}-system"
         -vga std
-        -display gtk,show-tabs=off
+        -display "gtk,show-tabs=off"
       )
 
       if [[ -f "$windows_iso" ]]; then
