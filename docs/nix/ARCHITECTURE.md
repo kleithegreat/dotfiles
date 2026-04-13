@@ -3,7 +3,7 @@
 ## Scope
 
 Current implementation map for the flake, shared NixOS modules, optional
-distributed-build wiring, and embedded Home Manager layer as of 2026-04-12.
+distributed-build wiring, and embedded Home Manager layer as of 2026-04-13.
 
 ## Flake Topology
 
@@ -39,7 +39,7 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-12.
 | `hosts/desktop/wine-ableton.nix` | Desktop Wine/audio submodule | Loads the `ntsync` kernel module at boot, enables `services.pipewire.jack.enable`, and installs the desktop's Ableton-facing Wine toolchain (`wineWow64Packages.stableFull`, `wineasio`, and `winetricks`) |
 | `hosts/desktop/windows-vm.nix` | Desktop Windows VM submodule | Defines `virtualisation.windowsVm`, seeds the desktop qcow2/OVMF/TPM state under `/var/lib/windows-vm/windows11` during activation, grants the desktop user `kvm` access, and installs the `windows-vm` QEMU launcher |
 | `home/default.nix` | Shared user baseline | User packages that do not require system-scoped helper registration, host-specific user-package wrappers, `xdg.configFile` mappings, host-specific Hyprland file selection, desktop entry overrides including the desktop Ableton Wine launcher variants, and theme activation |
-| `home/shell.nix` | Shell submodule | Zsh, shell tools, Git, aliases, and shell helpers |
+| `home/shell.nix` | Shell submodule | Zsh, shell tools, Git, aliases, shell helpers, and sourcing the generated `~/.config/zsh/theme-colors` fragment from `programs.zsh.initContent` |
 | `home/gtk.nix` | GTK submodule | GTK packages and small dconf defaults |
 | `pkgs/helium/default.nix` | Prebuilt browser package | Fetches the upstream Helium release tarball, auto-patches the bundled ELFs, wraps the upstream launcher, and installs desktop assets using the pin in `pkgs/helium/source.nix` |
 | `overlays/local-packages.nix` | Local package overlay | Exposes the repo's `desktopctl` and `helium` derivations, carries the repo-local `sf-pro` font package, and applies small nixpkgs overrides such as the Lapce Vulkan-loader runtime fix and the LM Studio AppImage fixups |
@@ -120,7 +120,8 @@ This is the current base/generated split:
 
 - Home Manager deploys version-controlled entry files and static trees.
 - `desktopctl theme` writes mutable outputs such as `theme.toml`,
-  `colors.conf`, `appearance-theme.conf`, and the other generated theme files.
+  `colors.conf`, `appearance-theme.conf`, `theme-colors`, and the other
+  generated theme files.
 - The recursive Quickshell tree is the deliberate exception: Home Manager
   deploys `config/quickshell/` recursively, which includes the committed
   `config/quickshell/GeneratedTheme.json` bootstrap snapshot, and the

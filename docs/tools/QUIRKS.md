@@ -16,6 +16,7 @@ The one current repo-committed exception is Quickshell's
 | `~/.config/nvim/lua/theme-state.json` | `desktopctl` target `neovim` | `config/nvim/lua/plugins/colors.lua` |
 | `~/.config/nvim/lua/neovide-theme.lua` | `desktopctl` target `neovide` | Neovide reads it on startup |
 | `~/.config/quickshell/GeneratedTheme.json` | `desktopctl` target `quickshell` | `config/quickshell/Theme.qml` |
+| `~/.config/zsh/theme-colors` | `desktopctl` target `zsh` | `home/shell.nix` `programs.zsh.initContent` |
 
 If these generated files are missing (e.g., on a fresh clone before the first
 theme apply), the tools that source them will error or fall back to defaults.

@@ -204,6 +204,7 @@ Constraints:
 | `vscode` | `concat` | `~/.config/Code/User/settings.json` plus state DB adjustments |
 | `wallpaper` | `command` | `awww` apply and optional filtered wallpaper cache |
 | `zathura` | `import` | `~/.config/zathura/colors` |
+| `zsh` | `import` | `~/.config/zsh/theme-colors` |
 
 ## Target Selection
 
@@ -211,7 +212,7 @@ State changes fan out by ownership, not by CLI convenience.
 
 | State key(s) | Affected targets |
 | --- | --- |
-| `color_scheme` | `alacritty`, `bat`, `ghostty`, `gtk`, `gtksourceview`, `hyprland`, `neovim`, `opencode`, `qt`, `quickshell`, `snappy_switcher`, `spicetify`, `starship`, `tmux`, `vicinae`, `vscode`, `wallpaper`\*, `zathura` |
+| `color_scheme` | `alacritty`, `bat`, `ghostty`, `gtk`, `gtksourceview`, `hyprland`, `neovim`, `opencode`, `qt`, `quickshell`, `snappy_switcher`, `spicetify`, `starship`, `tmux`, `vicinae`, `vscode`, `wallpaper`\*, `zathura`, `zsh` |
 | `wallpaper`, `filter_wallpaper` | `wallpaper` |
 | `system_font` | `chromium`, `gtk`, `qt`, `quickshell`, `snappy_switcher`, `vicinae` |
 | `mono_font` | `alacritty`, `chromium`, `ghostty`, `gtk`, `neovide`, `qt`, `quickshell`, `tmux`, `vscode` |
@@ -244,6 +245,7 @@ The dependency map in code must remain a direct encoding of this table.
 | Hyprland | Reads `colors.conf` and `appearance-theme.conf` |
 | Neovim / Neovide | Read generated theme state files rather than embedding palette logic in Home Manager |
 | OpenCode | Reads the generated global `tui.json` theme selection and the generated `themes/desktopctl.json` palette under `~/.config/opencode/`; the target is intentionally color-only because upstream TUI theming exposes a `theme` selector plus theme-color JSON keys, while later project-local OpenCode config layers can still override the global theme by upstream precedence |
+| Zsh | `home/shell.nix` `programs.zsh.initContent` sources `~/.config/zsh/theme-colors`; the generated fragment only sets `ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE` |
 
 Constraint:
 

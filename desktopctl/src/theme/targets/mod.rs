@@ -1,6 +1,7 @@
 mod alacritty;
 mod bat;
 mod chromium;
+mod color_utils;
 mod cursor;
 mod ghostty;
 mod gtk;
@@ -20,6 +21,7 @@ mod vicinae;
 mod vscode;
 mod wallpaper;
 mod zathura;
+mod zsh;
 
 use crate::theme::schema::{ColorScheme, ThemeState};
 use std::{collections::BTreeMap, io};
@@ -307,6 +309,7 @@ pub fn build_registry() -> crate::Result<TargetRegistry> {
         Some(wallpaper::on_apply),
     )?;
     registry.register_function(zathura::METADATA, zathura::generate)?;
+    registry.register_function(zsh::METADATA, zsh::generate)?;
 
     Ok(registry)
 }
@@ -448,11 +451,12 @@ mod tests {
     fn registry_contains_all_python_targets() {
         let registry = build_registry().expect("registry builds");
         let names = registry.iter().map(|(name, _)| name).collect::<Vec<_>>();
-        assert_eq!(names.len(), 22);
+        assert_eq!(names.len(), 23);
         assert!(names.contains(&"chromium"));
         assert!(names.contains(&"cursor"));
         assert!(names.contains(&"gtksourceview"));
         assert!(names.contains(&"opencode"));
+        assert!(names.contains(&"zsh"));
         assert_eq!(
             registry
                 .get("cursor")
@@ -560,6 +564,12 @@ mod tests {
             output,
             "font-family = JetBrains Mono Nerd Font\nfont-size = 11\nbackground = #000000\nforeground = #f0f0f0\nselection-background = #040404\nselection-foreground = #f0f0f0\ncursor-color = #f0f0f0\ncursor-text = #000000\npalette = 0=#000000\npalette = 1=#111111\npalette = 2=#222222\npalette = 3=#333333\npalette = 4=#444444\npalette = 5=#555555\npalette = 6=#666666\npalette = 7=#777777\npalette = 8=#888888\npalette = 9=#999999\npalette = 10=#aaaaaa\npalette = 11=#bbbbbb\npalette = 12=#cccccc\npalette = 13=#dddddd\npalette = 14=#eeeeee\npalette = 15=#ffffff\n"
         );
+    }
+
+    #[test]
+    fn zsh_output_sets_autosuggest_highlight_style() {
+        let output = text(zsh::generate(&dummy_colors(), &dummy_state()));
+        assert_eq!(output, "ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=#c0c0c0'\n");
     }
 
     #[test]
