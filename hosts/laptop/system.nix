@@ -26,17 +26,13 @@
   hardware.enableRedistributableFirmware = true;
   hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
 
-  # Boot — GRUB with EFI and OS prober (for Arch + Windows dual-boot)
+  # Boot — GRUB with EFI (for Windows dual-boot)
   boot.loader.grub = {
     enable = true;
     efiSupport = true;
     device = "nodev";
     useOSProber = false;
     extraEntries = ''
-      menuentry "Arch Linux" {
-        search --set=root --file /EFI/Arch/grubx64.efi
-        chainloader /EFI/Arch/grubx64.efi
-      }
       menuentry "Windows Boot Manager" {
         search --set=root --file /EFI/Microsoft/Boot/bootmgfw.efi
         chainloader /EFI/Microsoft/Boot/bootmgfw.efi
