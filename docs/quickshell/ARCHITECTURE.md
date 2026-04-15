@@ -3,7 +3,7 @@
 ## Scope
 
 Current implementation map for `config/quickshell/` and its theme/runtime
-integration as of 2026-04-13.
+integration as of 2026-04-15.
 
 ## Shell Topology
 
@@ -40,6 +40,7 @@ Managed popups mounted by the overlay host remain:
 | `BrightnessService.qml` | Backlight discovery, file watching, and direct `brightnessctl` writes for the Display pane | Display pane and any brightness slider UI |
 | `DisplayService.qml` | Monitor refresh/apply and daemon-backed night-light status / override requests | Display pane |
 | `HostCapabilities.qml` | Detects Wi-Fi, battery, and power-profile capabilities | Settings host category visibility and power-pane availability |
+| `IdleInhibitService.qml` | Holds a transient `systemd-inhibit --what=idle` process so hypridle pauses its timers while the shell toggle is active | Quick Settings idle-inhibit tile |
 | `NetworkService.qml` | Active network summary for Wi-Fi or ethernet via the default-route interface, Wi-Fi scans/known networks, active-transport diagnostics, DNS, captive portal, reporting | Bar network, quick settings, network pane |
 | `NotificationService.qml` | Popup/history models, DND, dismissal, relative-time refresh | Root notifications, drawer, bar bell, Notifications settings pane, IPC |
 | `PowerProfileService.qml` | CPU profiles and supported battery controls | Power pane |
@@ -93,7 +94,9 @@ Quick Settings expand affordances are consumed by the overlay host:
 `config/quickshell/PopupOverlayHost.qml` closes the current popup, selects the
 target settings category, and opens the full Settings popup, while the same
 file maps Wi-Fi, Bluetooth, VPN, DND, and power-profile expand requests to
-concrete category indices.
+concrete category indices. The idle-inhibit tile stays popup-local and talks
+directly to `config/quickshell/IdleInhibitService.qml` instead of routing to a
+deeper Settings page.
 
 The Network page now keys its summary and diagnostics off the active
 default-route interface instead of assuming Wi-Fi. `config/quickshell/NetworkService.qml`
