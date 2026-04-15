@@ -1,5 +1,5 @@
 use crate::paths;
-use crate::theme::schema::{ColorScheme, ThemeState};
+use crate::theme::schema::{ColorScheme, ThemeState, canonicalize_theme_string_value};
 use rusqlite::{Connection, params};
 use serde_json::{Map, Value};
 use std::{
@@ -209,10 +209,33 @@ fn normalize_theme_state_value(value: Value, label: &str) -> crate::Result<(Valu
         }
     };
 
-    let backfilled_keys = backfill_missing_theme_state_keys(&mut object)?;
+    let mut changed_keys = backfill_missing_theme_state_keys(&mut object)?;
+    changed_keys.extend(canonicalize_theme_state_strings(&mut object));
+    changed_keys.sort_unstable();
+    changed_keys.dedup();
     let normalized = Value::Object(object);
     validate_theme_state(&normalized, label)?;
-    Ok((normalized, backfilled_keys))
+    Ok((normalized, changed_keys))
+}
+
+fn canonicalize_theme_state_strings(object: &mut Map<String, Value>) -> Vec<String> {
+    let mut changed = Vec::new();
+
+    for key in ThemeState::string_field_names() {
+        let Some(Value::String(value)) = object.get_mut(*key) else {
+            continue;
+        };
+
+        let canonical = canonicalize_theme_string_value(key, value);
+        if canonical == value.as_str() {
+            continue;
+        }
+
+        *value = canonical.into_owned();
+        changed.push((*key).to_owned());
+    }
+
+    changed
 }
 
 fn backfill_missing_theme_state_keys(
@@ -678,6 +701,34 @@ mod tests {
 
         remove_file_if_exists(&legacy_path)?;
         remove_file_if_exists(&db_path)?;
+        Ok(())
+    }
+
+    #[test]
+    fn theme_state_load_canonicalizes_legacy_mono_font_aliases() -> TestResult {
+        let db_path = temp_path("state-alias-db", "db");
+        let legacy_state_path = temp_path("missing-state", "json");
+
+        let mut rows = ThemeState::default_state_for_repo_root(&repo_root()).to_ordered_json_map();
+        rows.insert(
+            "mono_font".to_owned(),
+            Value::String("JetBrains Mono Nerd Font".to_owned()),
+        );
+        write_state_rows_to_db(&db_path, &rows)?;
+
+        let state = load_state_from_paths(&db_path, &legacy_state_path)?;
+        assert_eq!(state.mono_font, "JetBrainsMono Nerd Font");
+
+        let connection = open_state_db(&db_path)?;
+        let stored = connection.query_row(
+            "SELECT value FROM theme_state WHERE key = ?",
+            params!["mono_font"],
+            |row| row.get::<_, String>(0),
+        )?;
+        assert_eq!(stored, "\"JetBrainsMono Nerd Font\"");
+
+        remove_file_if_exists(&db_path)?;
+        remove_file_if_exists(&legacy_state_path)?;
         Ok(())
     }
 

@@ -820,7 +820,9 @@ fn coerce_theme_value(key: &str, value: Value) -> crate::Result<Value> {
 
     if schema::ThemeState::string_field_names().contains(&key) {
         return match value {
-            Value::String(text) if !text.is_empty() => Ok(Value::String(text)),
+            Value::String(text) if !text.is_empty() => Ok(Value::String(
+                schema::canonicalize_theme_string_value(key, &text).into_owned(),
+            )),
             _ => Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 format!("'{}' must be a non-empty string", key),
@@ -1161,6 +1163,23 @@ mod tests {
             coerce_theme_value("dark_hint", Value::String("light".to_owned()))
                 .expect("valid bool alias"),
             Value::Bool(false)
+        );
+    }
+
+    #[test]
+    fn mono_font_aliases_are_canonicalized() {
+        assert_eq!(
+            coerce_theme_value(
+                "mono_font",
+                Value::String("JetBrains Mono Nerd Font".to_owned())
+            )
+            .expect("valid mono font alias"),
+            Value::String("JetBrainsMono Nerd Font".to_owned())
+        );
+        assert_eq!(
+            coerce_theme_value("mono_font", Value::String("Commit Mono".to_owned()))
+                .expect("valid mono font alias"),
+            Value::String("CommitMono".to_owned())
         );
     }
 

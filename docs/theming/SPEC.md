@@ -55,6 +55,9 @@ Constraints:
 - Persisted `theme_state` rows or a leftover `themes/state.json` migration input
   that predate newly added required keys must backfill those keys from compiled
   defaults before validation and reuse.
+- Persisted `theme_state` rows, legacy `themes/state.json` imports, and new
+  string-valued theme writes may canonicalize known legacy font aliases to the
+  exact family names the repo now treats as authoritative.
 
 ## Ownership Boundaries
 
@@ -166,6 +169,8 @@ Constraints:
 - Persisted `theme_state` rows and legacy `themes/state.json` imports that are
   missing newly added required keys must be normalized with compiled defaults
   before validation, target apply, and any rewrite back to SQLite.
+- Legacy string aliases such as older mono-font labels may be normalized to the
+  canonical family names before validation, target apply, and persistence.
 - `color_scheme` mutations may also rewrite `dark_hint` during normalization;
   callers that need a different hint must set `dark_hint` explicitly.
 - Theme-state storage is row-oriented (`key` + JSON-encoded `value`), but

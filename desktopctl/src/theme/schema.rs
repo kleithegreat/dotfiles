@@ -1,7 +1,7 @@
 use crate::paths;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{Map, Value};
-use std::{io, path::Path};
+use std::{borrow::Cow, io, path::Path};
 
 pub const COLOR_FIELD_NAMES: [&str; 24] = [
     "bg",
@@ -129,6 +129,15 @@ pub const DEFAULT_HYPR_BLUR_ENABLED: bool = false;
 pub const DEFAULT_HYPR_BLUR_SIZE: i64 = 3;
 pub const DEFAULT_HYPR_BLUR_PASSES: i64 = 4;
 pub const DEFAULT_HYPR_ANIMATIONS_ENABLED: bool = true;
+
+pub fn canonicalize_theme_string_value<'a>(key: &str, value: &'a str) -> Cow<'a, str> {
+    match (key, value) {
+        ("mono_font", "JetBrains Mono Nerd Font") => Cow::Borrowed("JetBrainsMono Nerd Font"),
+        ("mono_font", "Fira Code Nerd Font") => Cow::Borrowed("FiraCode Nerd Font"),
+        ("mono_font", "Commit Mono") => Cow::Borrowed("CommitMono"),
+        _ => Cow::Borrowed(value),
+    }
+}
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
