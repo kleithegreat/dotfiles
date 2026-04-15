@@ -54,6 +54,12 @@
 **Status:** Workaround in place
 **Resolution:** Install those apps through NixOS modules or `environment.systemPackages`. `system/configuration.nix` now enables `programs.partition-manager` so `kpmcore` is registered for both D-Bus activation and polkit, and `bitwarden-desktop` stays in `environment.systemPackages` for the same reason.
 
+## Current OpenCode flake build misses `@tsconfig/bun` at the workspace root
+**Symptom:** `nixos-rebuild` fails while building the upstream `sst/opencode` flake package with Vite reporting `failed to resolve "extends":"@tsconfig/bun/tsconfig.json"` from `packages/shared/tsconfig.json`.
+**Cause:** The current upstream `nix/node_modules.nix` runs `bun install` with workspace filters that exclude the repo root. That still installs `@tsconfig/bun` under `packages/app/node_modules` and `packages/opencode/node_modules`, but not under the root `node_modules` path Vite uses while resolving `packages/shared/tsconfig.json`.
+**Status:** Workaround in place
+**Resolution:** `home/default.nix` wraps the upstream flake package with `overrideAttrs` and, during `postConfigure`, applies the two missing workspace-root fallbacks that the filtered install omitted: it rewrites `packages/shared/tsconfig.json` so its `extends` points at `packages/app/node_modules/@tsconfig/bun/tsconfig.json`, and it symlinks `node_modules/glob` to the already-installed `packages/opencode/node_modules/glob` before the OpenCode build runs.
+
 ## Wine 11 Ableton prefixes need fresh state and per-prefix WineASIO registration
 **Symptom:** Ableton Live 12 Lite launches without a usable ASIO device, or a reused older Wine prefix behaves inconsistently after moving to the current desktop Wine package set.
 **Cause:** The desktop host uses `wineWow64Packages`-based Wine 11 packages. nixpkgs notes that prefixes created against the deprecated `wineWowPackages` family are not backward compatible. Separately, `wineasio` installs its DLLs into the system profile, but each Wine prefix still needs the driver copied into `drive_c/windows/system32` and registered with `wine64 regsvr32`.

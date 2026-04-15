@@ -1,7 +1,19 @@
 { config, pkgs, lib, dotfilesPath, hostName, vicinae, snappy-switcher, opencode, ... }:
 
 let
-  opencode-pkg = opencode.packages.${pkgs.stdenv.hostPlatform.system}.default;
+  opencode-pkg = opencode.packages.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs (old: {
+    postConfigure = (old.postConfigure or "") + ''
+      if [ -e packages/app/node_modules/@tsconfig/bun/tsconfig.json ]; then
+        substituteInPlace packages/shared/tsconfig.json \
+          --replace-fail '"extends": "@tsconfig/bun/tsconfig.json"' '"extends": "../app/node_modules/@tsconfig/bun/tsconfig.json"'
+      fi
+
+      if [ ! -e node_modules/glob/package.json ] && [ -e packages/opencode/node_modules/glob/package.json ]; then
+        chmod u+w node_modules
+        ln -s "$PWD/packages/opencode/node_modules/glob" node_modules/glob
+      fi
+    '';
+  });
   snappy-switcher-pkg = snappy-switcher.packages.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs (old: {
     patches = (old.patches or []) ++ [
       ../patches/snappy-switcher/workspace-scope-filter.patch
