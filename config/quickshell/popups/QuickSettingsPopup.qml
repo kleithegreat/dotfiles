@@ -236,6 +236,7 @@ FocusScope {
                             tiles.push({ key: "bluetooth", label: "Bluetooth" });
                             tiles.push({ key: "vpn", label: "VPN" });
                             tiles.push({ key: "dnd", label: "Do Not Disturb" });
+                            tiles.push({ key: "idle", label: "Idle Inhibit", expandable: false });
                             if (HostCapabilities.hasPowerProfiles) tiles.push({ key: "power", label: "Power Profile" });
                             return tiles;
                         }
@@ -255,10 +256,13 @@ FocusScope {
                                 case "bluetooth": return BluetoothService.powered;
                                 case "vpn": return VpnService.mullvadState === "connected" || VpnService.mullvadState === "connecting";
                                 case "dnd": return NotificationService.doNotDisturb;
+                                case "idle": return IdleInhibitService.inhibited;
                                 case "power": return PowerProfileService.currentProfile !== "balanced" && PowerProfileService.currentProfile !== "unknown";
                                 default: return false;
                                 }
                             }
+
+                            readonly property bool canExpand: modelData.expandable !== false
 
                             property bool isPending: {
                                 switch (modelData.key) {
@@ -278,6 +282,7 @@ FocusScope {
                                     return BluetoothService.connectedName !== "" ? "../icons/bluetooth-connected.svg" : "../icons/bluetooth-on.svg";
                                 case "vpn": return "../icons/shield-lock.svg";
                                 case "dnd": return NotificationService.doNotDisturb ? "../icons/bell-off.svg" : "../icons/bell.svg";
+                                case "idle": return "../icons/zzz.svg";
                                 case "power":
                                     if (PowerProfileService.currentProfile === "performance") return "../icons/flame.svg";
                                     if (PowerProfileService.currentProfile === "power-saver") return "../icons/leaf.svg";
@@ -306,6 +311,7 @@ FocusScope {
                                     if (VpnService.mullvadState === "connecting") return "Connecting…";
                                     return "Off";
                                 case "dnd": return NotificationService.doNotDisturb ? "On" : "Off";
+                                case "idle": return IdleInhibitService.inhibited ? "On" : "Off";
                                 case "power":
                                     if (PowerProfileService.currentProfile === "performance") return "Performance";
                                     if (PowerProfileService.currentProfile === "power-saver") return "Power Saver";
@@ -318,6 +324,7 @@ FocusScope {
                             property color tileActiveColor: {
                                 switch (modelData.key) {
                                 case "dnd": return Theme.orangeBright;
+                                case "idle": return Theme.yellowBright;
                                 case "power":
                                     if (PowerProfileService.currentProfile === "performance") return Theme.redBright;
                                     if (PowerProfileService.currentProfile === "power-saver") return Theme.greenBright;
@@ -337,6 +344,7 @@ FocusScope {
                                         VpnService.mullvadConnect();
                                     break;
                                 case "dnd": NotificationService.toggleDnd(); break;
+                                case "idle": IdleInhibitService.toggle(); break;
                                 case "power": qsPop.cyclePowerProfile(); break;
                                 }
                             }
@@ -431,6 +439,7 @@ FocusScope {
 
                                 Rectangle {
                                     width: 22; height: 22; radius: 11
+                                    visible: tile.canExpand
                                     color: expandBtnArea.containsMouse
                                         ? (expandBtnArea.pressed ? Theme.bg3 : Qt.rgba(Theme.fg.r, Theme.fg.g, Theme.fg.b, 0.08))
                                         : "transparent"
@@ -446,7 +455,7 @@ FocusScope {
                                     MouseArea {
                                         id: expandBtnArea
                                         anchors.fill: parent
-                                        enabled: !tile.isPending
+                                        enabled: tile.canExpand && !tile.isPending
                                         hoverEnabled: true
                                         cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                                         onClicked: tile.tileExpand()

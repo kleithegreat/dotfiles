@@ -166,6 +166,7 @@ Invariants:
 | Shared Hyprland mouse defaults | `desktopctl hypr input` | Writes generated `input-runtime.conf` and applies the same values live through `hyprctl keyword`, without editing `input.conf` or `input-devices.conf`. |
 | Animation overrides | `desktopctl hypr animations` | Writes generated `animations-override.conf` with bezier curves and per-animation overrides, sourced after `appearance.conf` so GUI changes layer on top of hand-edited base animations. |
 | Keybind overrides | `desktopctl hypr keybinds` | Writes generated `keybinds-override.conf` with unbind + rebind pairs, sourced after `keybinds.conf` so GUI remaps layer on top of the static base bindings. |
+| Transient idle inhibition | Quickshell `IdleInhibitService.qml` | Holds or releases a runtime `systemd-inhibit --what=idle` inhibitor that hypridle respects, without editing `hypridle.conf`. |
 | Wallpaper application | The theming pipeline | The `wallpaper` target owns `awww img` invocations. `autostart.conf` owns `awww-daemon` startup and may reapply persisted theme state by calling `desktopctl theme wallpaper` after the daemon is ready. |
 | Night-light automation | `desktopctl daemon` solar subsystem + night-light controller | `hyprsunset` lifecycle belongs to the daemon. Keybinds may request `desktopctl night-light toggle` or `desktopctl night-light auto`, but they do not start or stop `hyprsunset` directly. |
 | Shell UI and IPC | Quickshell | Keybinds trigger Quickshell via `qs ipc call`, with the repo path resolved through the same `DESKTOPCTL_REPO` / `~/repos/dotfiles` abstraction used elsewhere; Quickshell does not write Hyprland config files. |
@@ -184,5 +185,7 @@ Invariants:
   not mutate `appearance.conf` or other static fragments.
 - `desktopctl hypr keybinds` only writes `keybinds-override.conf`; it does not
   mutate `keybinds.conf` or other static fragments.
+- Quickshell's idle-inhibit control uses a transient runtime inhibitor and does
+  not rewrite `hypridle.conf`.
 - `desktopctl daemon` owns all live `hyprsunset` lifecycle changes. Keybinds
   are request surfaces into the daemon, not a parallel scheduling system.
