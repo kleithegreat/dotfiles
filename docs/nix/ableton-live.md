@@ -29,6 +29,10 @@ prefix state:
   desktop host window.
 - Mutable in the prefix: the Wine prefix itself, the Ableton install, DXVK DLL
   copies, DLL overrides, and small Ableton/Wine preference files.
+- Local-only ad hoc test assets used during investigation are not declarative:
+  copied EXEs, temporary wrappers under `~/.local/bin/`, the extracted
+  `~/.cache/wine-nspa/` trees, and in-place source patches applied while trying
+  to build Wine-NSPA.
 
 ## Rebuild
 
@@ -112,6 +116,15 @@ Image File Execution Options override for `Ableton Live 12 Lite.exe` with
 `dpiAwareness=2`, which at least moves the process out of the fully DPI-unaware
 mode. This did not fully fix the click-target mismatch, but it is part of the
 current tested prefix state.
+
+### Embedded Manifest Experiment
+
+An external sidecar manifest placed next to `Ableton Live 12 Lite.exe` was not
+enough, because the EXE already ships an embedded `MANIFEST/1` resource and
+Wine 11 appears to prefer it. A copied test EXE with a patched embedded
+`PerMonitorV2` manifest did make Ableton's log report `Effective process DPI
+awareness: 2`, but the visible UI clipping and hit-testing problems remained
+unchanged.
 
 ### Options.txt
 
@@ -197,6 +210,130 @@ Research-backed takeaways:
   Ableton-on-Wine setups. Fullscreen and virtual-desktop workarounds show up in
   multiple current references, with the BEEFY-JOE guide matching this setup's
   symptoms especially closely.
+
+## Investigation Log
+
+The key confirmed findings from the hands-on investigation so far are:
+
+- System prerequisites are in place on the desktop host: the rebuilt kernel
+  exposes `/dev/ntsync`, nixpkgs already provides Wine 11+, `wineasio`,
+  `winetricks`, `steam-run`, and `buildFHSEnv`, and PipeWire itself is healthy.
+- The installer archive was `~/Downloads/ableton_live_lite_12.3.6_64.zip` and
+  contained `Ableton Live 12 Lite Installer.exe` plus adjacent `.bin` payloads.
+- WineASIO registration in the prefix worked and Ableton's own log reached the
+  ASIO device path, so audio-driver setup is not the first blocker.
+- The initial startup hang on `Initializing MIDI inputs and outputs` was solved
+  only after disabling `winepulse.drv` for the prefix launch environment.
+  Without that override, the app repeatedly stalled during MIDI enumeration.
+- Installing Ableton's optional USB audio driver inside Wine was not required
+  for this setup and was removed as a variable by recreating the prefix without
+  it. That did not solve the main hit-testing bug.
+- The background `Ableton Index.exe` helper crashed in a restart loop until the
+  prefix was forced to use native VC++ runtime DLLs and auto bug reporting was
+  suppressed with `Options.txt`.
+- DXVK was worth keeping for general stability. It reduced the earlier blank,
+  stale, or black UI behavior compared with the `wined3d` path, but it did not
+  solve the bottom clipping or input-coordinate mismatch.
+- The Wine Wayland path launches most reliably, but it consistently clips the
+  bottom of the window. The clipped region is the lower editor area under the
+  device chain / piano roll section.
+- The Xwayland path removes the bottom clipping and restores expected `Delete`
+  key behavior, but the click-target bug remains. The authorization popup is
+  often harder to interact with in the plain Xwayland path.
+- The Xwayland virtual desktop path (`explorer.exe` titled `Ableton - Wine
+  Desktop`) keeps the app inside one host window, but it still does not fix the
+  click-target bug.
+- The click-target mismatch is proportional to vertical position: the farther
+  down the visible cursor is in the window, the farther below the visible UI the
+  actual target lands. That pattern held across Wayland, Xwayland, and the Wine
+  virtual desktop.
+- Hyprland tiling was a secondary aggravator, not the root cause. Floating the
+  window is still necessary for usability, but rebuilding with the float rule,
+  disabling Hyprbars, disabling Quickshell, and temporarily removing Hyprland
+  gaps did not materially change the core hit-testing bug.
+- Hyprland fullscreen also did not solve the problem. `F11` inside Ableton was a
+  no-op in tested sessions, and compositor fullscreen still left the internal
+  client area wrong.
+- The strongest renderer-side clue so far came from DXVK logs: swapchain sizes
+  repeatedly overshot the visible output height, such as `1908x1096` or
+  `1920x1096` on a `1920x1080` output. That aligns closely with the clipped
+  bottom edge and the downward-growing input offset.
+- Ableton's own log initially reported `Effective process DPI awareness: 0`
+  while also reporting `ALF DPI awareness: pm-aware v2`. The registry override
+  and embedded-manifest experiment were both attempts to reconcile that mismatch.
+- Stable Wine 11 and staging Wine 11.5 behaved essentially the same for the GUI
+  problem on the tested prefix.
+
+## Custom Wine Experiments
+
+### Wine staging 11.5
+
+`wineWow64Packages.stagingFull` from the current nixpkgs input was available and
+testable with the same prefix. It did not materially change the clipping or the
+click-target bug compared with the stable Wine 11 package.
+
+### Wine-NSPA binary release
+
+The published `Wine-NSPA 8.19` release exists as an Arch package asset and can
+be downloaded directly from GitHub releases. On NixOS it is not a trivial A/B
+test because:
+
+- the package is an Arch binary package expecting FHS loaders at `/lib` and
+  `/lib64`
+- it depends on `librtpi.so.1`
+- mixing the published Arch binaries with locally built `librtpi` under
+  `steam-run` or a quick FHS env led to `allocatestack.c` glibc assertion
+  failures
+
+The binary-release path is therefore not the recommended way to continue.
+
+### Wine-NSPA source build
+
+The cleaner path is Wine-NSPA's own `wine-nspa-8x-git/non-makepkg-build.sh`
+source build route. A 64-bit-only, X11-only test build was started from source
+with an external config file under `~/.config/frogminer/wine-tkg.cfg` and a
+Nix-controlled build shell.
+
+That source build is demonstrably viable, but it has already become a local
+porting effort for this toolchain. The following classes of fixes were required
+just to move the build forward:
+
+- NixOS portability fixes for hardcoded `/usr/bin/perl` helpers in the Wine /
+  Wine-staging preparation scripts
+- GCC 15 compatibility fixes in patched sources such as
+  `dlls/kernelbase/process.c`
+- multiple `bool` / `true` / `false` identifier collisions in older patched
+  code, including `dlls/win32u/sysparams.c`, `programs/winhlp32/macro.h`, and
+  `dlls/http.sys/http.c`
+- compatibility fixes for Wine's stricter `CONTAINING_RECORD` macro in patched
+  code such as `dlls/combase/string.c`
+- linker and compiler flag fixes for `loader/wine64-preloader` to avoid modern
+  PIE-related relocation failures
+
+At the time of writing, the source build has gone deep into compilation but is
+still surfacing additional old-patch-vs-modern-toolchain failures. Treat it as
+an ongoing source-port exercise, not a quick runner download.
+
+## Roadmap
+
+The most useful next steps, in order, are:
+
+1. Keep the current system-level NixOS and Home Manager plumbing as-is. The
+   remaining problem is no longer in the host wiring.
+2. Choose whether to continue custom Wine work on `Wine-NSPA` or pivot to a
+   cleaner custom-Wine base such as `wine-tkg`. The current evidence suggests
+   Wine-NSPA is viable only through continued source-porting work.
+3. If continuing with Wine-NSPA, keep the current strategy:
+   64-bit only, X11-only build, same copied prefix for A/B testing, and patch
+   forward one blocker at a time until a usable `wine64` runner exists.
+4. If pivoting to `wine-tkg`, try to get a modern custom build first before
+   spending more time on the older Wine-NSPA tree. The current GUI symptom set
+   looks more like an upstream/window/input bug than an RT-scheduling bug.
+5. When a new custom Wine build is available, test it against a cloned prefix
+   rather than the primary working prefix so custom-build regressions stay
+   isolated.
+6. Keep local ad hoc wrappers and temporary test EXEs out of the declarative
+   repo until one approach actually improves the symptom cluster.
 
 Then in Ableton's audio settings choose:
 

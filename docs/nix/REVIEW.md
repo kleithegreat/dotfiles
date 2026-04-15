@@ -22,6 +22,7 @@ The remaining issues are mostly interface polish, not architectural defects.
 | --- | --- | --- |
 | Low | Host-specific Home Manager branching stays centralized in `home/default.nix`. | Fine at the current repo size, but it keeps host variance in one large shared file. |
 | Low | The recursive Quickshell tree plus writable generated sibling file remains a deliberate special case. | It works today, but it is less mechanically obvious than the import-style base/generated split used elsewhere. |
+| Medium | Ableton Live 12 Lite is still not in a reproducibly working state despite the current Wine/PipeWire plumbing. | The host wiring is largely correct, but the remaining GUI/input bug and the ongoing Wine-NSPA source-port effort mean the repo does not yet meet the original "launches, draws correctly, and is usable" goal. |
 
 Related low-level build and optimization caveats are tracked in
 `docs/nix/QUIRKS.md`.
