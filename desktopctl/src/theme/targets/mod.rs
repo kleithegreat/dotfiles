@@ -632,6 +632,19 @@ mod tests {
     }
 
     #[test]
+    fn vscode_terminal_prefers_mono_nerd_font_variant() {
+        let mut state = dummy_state();
+        state.mono_font = "JetBrainsMono Nerd Font".to_owned();
+        let output = text(vscode::generate(&dummy_colors(), &state));
+        assert!(
+            output.contains(
+                "\"terminal.integrated.fontFamily\": \"'JetBrainsMono Nerd Font Mono', 'JetBrainsMono Nerd Font', monospace\""
+            ),
+            "{output}"
+        );
+    }
+
+    #[test]
     fn scheme_metadata_matches_expected_app_theme_outputs() {
         let cases = [
             (

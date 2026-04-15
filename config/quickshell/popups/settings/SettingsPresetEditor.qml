@@ -54,6 +54,40 @@ Rectangle {
         return !root.installedFamilies[familyName.replace(/ /g, "").toLowerCase()];
     }
 
+    function monoFontValue(fontName) {
+        switch (fontName) {
+        case "JetBrains Mono Nerd Font":
+            return "JetBrainsMono Nerd Font";
+        case "Fira Code Nerd Font":
+            return "FiraCode Nerd Font";
+        case "Commit Mono":
+            return "CommitMono";
+        default:
+            return fontName;
+        }
+    }
+
+    function monoFontOptionMatchesCurrent(fontName, currentValue) {
+        return root.monoFontValue(fontName) === root.monoFontValue(currentValue);
+    }
+
+    function monoFontLabel(fontName) {
+        switch (root.monoFontValue(fontName)) {
+        case "JetBrainsMono Nerd Font":
+            return "JetBrains Mono";
+        case "FiraCode Nerd Font":
+            return "Fira Code";
+        case "CommitMono":
+            return "Commit Mono";
+        default:
+            return root.monoFontValue(fontName).replace(" Nerd Font", "");
+        }
+    }
+
+    function isMonoFontUnavailable(fontName) {
+        return root.isFontUnavailable(root.monoFontValue(fontName));
+    }
+
     readonly property var iconThemeOptions: [
         "Neuwaita",
         "Colloid",
@@ -1049,7 +1083,7 @@ Rectangle {
 
                 Components.ToggleSwitch {
                     checked: root.hasField("mono_font")
-                    onToggled: root.toggleFieldInclusion("mono_font", root.themeState.mono_font || "JetBrains Mono Nerd Font")
+                    onToggled: root.toggleFieldInclusion("mono_font", root.themeState.mono_font || root.monoFontValue("JetBrains Mono Nerd Font"))
                 }
             }
 
@@ -1059,17 +1093,18 @@ Rectangle {
                 Layout.fillWidth: true
                 model: root.monoFontOptions
                 currentValue: root.currentValue("mono_font")
-                currentText: root.currentValue("mono_font") ? root.currentValue("mono_font").replace(" Nerd Font", "") : ""
+                currentText: root.currentValue("mono_font") ? root.monoFontLabel(root.currentValue("mono_font")) : ""
                 secondaryText: root.monoFontOptions.length + " fonts"
-                isOptionDisabled: function(fontName) { return root.isFontUnavailable(fontName); }
+                matchesCurrent: function(fontName, currentValue) { return root.monoFontOptionMatchesCurrent(fontName, currentValue); }
+                isOptionDisabled: function(fontName) { return root.isMonoFontUnavailable(fontName); }
                 fontFamily: Theme.systemFamily
                 maxVisibleItems: 6
-                textForValue: function(fontName) { return fontName.replace(" Nerd Font", ""); }
+                textForValue: function(fontName) { return root.monoFontLabel(fontName); }
                 onExpandedChanged: {
                     if (expanded)
                         presetSystemFontSelect.expanded = false;
                 }
-                onActivated: (fontName) => root.setField("mono_font", fontName)
+                onActivated: (fontName) => root.setField("mono_font", root.monoFontValue(fontName))
             }
         }
 

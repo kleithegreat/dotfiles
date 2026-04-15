@@ -18,6 +18,12 @@
 **Status:** Current behavior
 **Resolution:** Keep `themes/colors/*.json` `app_themes.vscode.name` values aligned with the extension-contributed labels, and set `app_themes.vscode.extension_id` whenever `desktopctl` needs to auto-enable a disabled theme extension. `desktopctl` does not need to own `colorThemeData` itself.
 
+## VS Code integrated terminal prefers the mono Nerd Font subfamily
+**Symptom:** Some Nerd Font prompt glyphs show up as empty boxes in VS Code's integrated terminal even though the same prompt renders correctly in standalone terminals.
+**Cause:** Electron resolves `terminal.integrated.fontFamily` through a CSS font-family stack, and some patched Nerd Font families expose a terminal-safe `... Nerd Font Mono` face separately from the broader `... Nerd Font` family.
+**Status:** Workaround in place
+**Resolution:** Generate `terminal.integrated.fontFamily` with the mono subfamily first for Nerd Fonts, then fall back to the selected mono font and generic `monospace`. If you override the setting manually, keep the `... Nerd Font Mono` face first.
+
 ## Kvantum SVG assets cap exact background matching
 **Symptom:** Some KDE surfaces stay slightly off from the active background color even after the generated Kvantum config applies.
 **Cause:** The reused KvGnome and KvGnomeDark SVGs have baked background shades that the generated kvconfig cannot fully override.

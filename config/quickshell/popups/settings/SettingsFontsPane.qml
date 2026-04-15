@@ -51,6 +51,27 @@ Components.WheelFlickable {
         return !root.installedFamilies[familyName.replace(/ /g, "").toLowerCase()];
     }
 
+    function monoFontValue(fontName) {
+        switch (fontName) {
+        case "JetBrains Mono Nerd Font":
+            return "JetBrainsMono Nerd Font";
+        case "Fira Code Nerd Font":
+            return "FiraCode Nerd Font";
+        case "Commit Mono":
+            return "CommitMono";
+        default:
+            return fontName;
+        }
+    }
+
+    function monoFontOptionMatchesCurrent(fontName, currentValue) {
+        return root.monoFontValue(fontName) === root.monoFontValue(currentValue);
+    }
+
+    function isMonoFontUnavailable(fontName) {
+        return root.isFontUnavailable(root.monoFontValue(fontName));
+    }
+
     function monoFontBaseSize() {
         return root.themeState.mono_font_size || 11;
     }
@@ -98,7 +119,16 @@ Components.WheelFlickable {
     }
 
     function monoFontLabel(fontName) {
-        return fontName.replace(" Nerd Font", "");
+        switch (root.monoFontValue(fontName)) {
+        case "JetBrainsMono Nerd Font":
+            return "JetBrains Mono";
+        case "FiraCode Nerd Font":
+            return "Fira Code";
+        case "CommitMono":
+            return "Commit Mono";
+        default:
+            return root.monoFontValue(fontName).replace(" Nerd Font", "");
+        }
     }
 
     function adjustMonoFontSizeOffset(key, delta) {
@@ -145,14 +175,15 @@ Components.WheelFlickable {
             currentText: root.themeState.mono_font ? root.monoFontLabel(root.themeState.mono_font) : ""
             secondaryText: root.monoFontOptions.length + " fonts"
             textForValue: function(fontName) { return root.monoFontLabel(fontName); }
-            isOptionDisabled: function(fontName) { return root.isFontUnavailable(fontName); }
+            matchesCurrent: function(fontName, currentValue) { return root.monoFontOptionMatchesCurrent(fontName, currentValue); }
+            isOptionDisabled: function(fontName) { return root.isMonoFontUnavailable(fontName); }
             fontFamily: Theme.systemFamily
             maxVisibleItems: 6
             onExpandedChanged: {
                 if (expanded)
                     systemFontSelect.expanded = false;
             }
-            onActivated: (fontName) => { root.setRequested("mono_font", fontName); }
+            onActivated: (fontName) => { root.setRequested("mono_font", root.monoFontValue(fontName)); }
         }
 
         Row {

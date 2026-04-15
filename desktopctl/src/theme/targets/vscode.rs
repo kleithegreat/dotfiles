@@ -19,6 +19,22 @@ pub const METADATA: TargetMetadata = TargetMetadata {
 
 const STATE_DB: &str = "~/.config/Code/User/globalStorage/state.vscdb";
 
+fn css_font_family(name: &str) -> String {
+    format!("'{}'", name.replace('\\', "\\\\").replace('\'', "\\'"))
+}
+
+fn terminal_font_family(name: &str) -> String {
+    if name.contains("Nerd Font") && !name.contains("Nerd Font Mono") {
+        format!(
+            "{}, {}, monospace",
+            css_font_family(&format!("{name} Mono")),
+            css_font_family(name)
+        )
+    } else {
+        format!("{}, monospace", css_font_family(name))
+    }
+}
+
 pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<GeneratedContent> {
     let font_size = state.mono_font_size_for(METADATA.name)?;
 
@@ -34,7 +50,7 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Gener
     root.insert("editor.fontSize".to_owned(), Value::from(font_size));
     root.insert(
         "terminal.integrated.fontFamily".to_owned(),
-        Value::String(state.mono_font.clone()),
+        Value::String(terminal_font_family(&state.mono_font)),
     );
     root.insert(
         "terminal.integrated.fontSize".to_owned(),
