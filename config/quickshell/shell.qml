@@ -12,6 +12,8 @@ import "components" as Components
 Scope {
     id: root
 
+    Component.onCompleted: IdleInhibitService.applyBootDefault()
+
     // ── Popup state ──
     property QtObject popupVisibility: PopupVisibility {}
 

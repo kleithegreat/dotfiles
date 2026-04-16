@@ -3,7 +3,7 @@
 ## Scope
 
 Current implementation map for `config/quickshell/` and its theme/runtime
-integration as of 2026-04-15.
+integration as of 2026-04-16.
 
 ## Shell Topology
 
@@ -40,7 +40,7 @@ Managed popups mounted by the overlay host remain:
 | `BrightnessService.qml` | Backlight discovery, file watching, and direct `brightnessctl` writes for the Display pane | Display pane and any brightness slider UI |
 | `DisplayService.qml` | Monitor refresh/apply and daemon-backed night-light status / override requests | Display pane |
 | `HostCapabilities.qml` | Detects laptop-chassis, Wi-Fi, battery, power-profile, and fingerprint-reader capabilities | Settings host category visibility plus power/fingerprint pane availability |
-| `IdleInhibitService.qml` | Holds a transient `systemd-inhibit --what=idle` process so hypridle pauses its timers while the shell toggle is active | Quick Settings idle-inhibit tile |
+| `IdleInhibitService.qml` | Holds a transient `systemd-inhibit --what=idle` process so hypridle pauses its timers while the shell toggle is active, and auto-enables that inhibitor at shell startup when `DESKTOPCTL_IDLE_INHIBIT_DEFAULT` is truthy in the session environment | Quick Settings idle-inhibit tile |
 | `NetworkService.qml` | Active network summary for Wi-Fi or ethernet via the default-route interface, Wi-Fi scans/known networks, active-transport diagnostics, DNS, captive portal, reporting | Bar network, quick settings, network pane |
 | `NotificationService.qml` | Popup/history models, DND, dismissal, relative-time refresh | Root notifications, drawer, bar bell, Notifications settings pane, IPC |
 | `PowerProfileService.qml` | CPU profiles and supported battery controls | Power pane |
@@ -282,6 +282,9 @@ the history watermark and insert-animation logic in `config/quickshell/NotifDraw
 - A writable `${XDG_CONFIG_HOME:-~/.config}/hypr/input-runtime.conf` exists
   before the Mouse page issues any `desktopctl hypr input set ...` writes; Home
   Manager now bootstraps that file during activation.
+- Desktop sessions that should start with idle inhibit already active export a
+  truthy `DESKTOPCTL_IDLE_INHIBIT_DEFAULT`; `hosts/desktop/env.conf` now sets
+  that flag for the dedicated desktop host.
 - Keyboard-driven brightness OSD updates depend on `qs` plus repo-root
   resolution in `desktopctl`, not on a temp file.
 - A backlight is discoverable under `/sys/class/backlight` for the brightness

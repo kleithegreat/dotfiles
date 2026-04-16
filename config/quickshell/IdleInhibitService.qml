@@ -1,4 +1,5 @@
 pragma Singleton
+import Quickshell
 import QtQuick
 import Quickshell.Io
 
@@ -6,9 +7,22 @@ QtObject {
     id: root
 
     readonly property bool inhibited: inhibitorProc.running
+    readonly property bool bootEnabled: {
+        let value = Quickshell.env("DESKTOPCTL_IDLE_INHIBIT_DEFAULT");
+        if (value === null || value === undefined)
+            return false;
+
+        let text = String(value).trim().toLowerCase();
+        return text === "1" || text === "true" || text === "yes" || text === "on";
+    }
 
     property bool _stopRequested: false
     property bool _shuttingDown: false
+
+    function applyBootDefault() {
+        if (bootEnabled)
+            setInhibited(true);
+    }
 
     function toggle() {
         setInhibited(!inhibited);
