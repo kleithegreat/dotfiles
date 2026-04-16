@@ -3,7 +3,7 @@
 ## Scope
 
 Current implementation map for `config/hypr/`, the host-selected Hyprland
-fragments, and the generated theme inputs as of 2026-04-15.
+fragments, and the generated theme inputs as of 2026-04-16.
 
 ## Source Graph
 
@@ -70,6 +70,10 @@ Current host input fragments differ materially:
 - `hosts/desktop/input-devices.conf` currently only adjusts per-device mouse
   sensitivity for the Logitech G Pro and MX Master 2S
   in the desktop input fragment.
+- `hosts/desktop/env.conf` still carries the dedicated-NVIDIA session variables
+  and now also exports `DESKTOPCTL_IDLE_INHIBIT_DEFAULT=1`, which
+  `config/quickshell/IdleInhibitService.qml` reads at shell startup so the
+  desktop session boots with idle inhibit already active.
 - `hosts/desktop/autostart.conf` starts Solaar hidden for the desktop session
   and keeps the Logitech MX Master 2S smart-shift tweak in that desktop-only
   startup fragment instead of mixing either concern into `hosts/desktop/env.conf`.
