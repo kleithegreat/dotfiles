@@ -1,7 +1,15 @@
 { config, pkgs, lib, dotfilesPath, hostName, vicinae, snappy-switcher, opencode, ... }:
 
 let
-  opencode-pkg = opencode.packages.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs (old: {
+  opencode-node-modules = opencode.packages.${pkgs.stdenv.hostPlatform.system}.node_modules_updater.override {
+    # Upstream 1.4.6+8b3b608 currently ships a stale x86_64-linux node_modules
+    # fixed-output hash, so pin the hash that Bun actually produces.
+    hash = "sha256-NJAK+cPjwn+2ojDLyyDmBQyx2pD+rILetp7VCylgjek=";
+  };
+  opencode-base-pkg = opencode.packages.${pkgs.stdenv.hostPlatform.system}.default.override {
+    node_modules = opencode-node-modules;
+  };
+  opencode-pkg = opencode-base-pkg.overrideAttrs (old: {
     postConfigure = (old.postConfigure or "") + ''
       if [ -e packages/app/node_modules/@tsconfig/bun/tsconfig.json ]; then
         substituteInPlace packages/shared/tsconfig.json \
