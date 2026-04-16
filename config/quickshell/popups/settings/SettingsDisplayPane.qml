@@ -925,8 +925,9 @@ Components.WheelFlickable {
                 Components.HoverLayer {
                     id: nlSlider; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
                     disabled: DisplayService.nightLightBusy
-                    onClicked: (mouse) => { DisplayService.setNightLightTemperatureFromFraction(mouse.x / parent.width); }
+                    onPressed: (mouse) => { DisplayService.setNightLightTemperatureFromFraction(mouse.x / parent.width); }
                     onPositionChanged: (mouse) => { if (pressed) DisplayService.setNightLightTemperatureFromFraction(mouse.x / parent.width); }
+                    onReleased: { DisplayService.commitNightLightTemperature(); }
                 }
             }
 

@@ -44,7 +44,7 @@ QtObject {
     }
 
     function refreshNightLight() {
-        if (nightLightStatusProc.running)
+        if (nightLightStatusProc.running || nightLightCommandProc.running)
             return;
 
         nightLightStatusProc.buf = "";
@@ -97,7 +97,6 @@ QtObject {
             return;
 
         nightLightTargetTemperature = clamped;
-        nightLightApplyTimer.restart();
     }
 
     function setNightLightTemperatureFromFraction(value) {
@@ -106,11 +105,14 @@ QtObject {
         applyNightLightTemperature(temp);
     }
 
+    function commitNightLightTemperature() {
+        return requestNightLightTemperature(nightLightTargetTemperature);
+    }
+
     function toggleNightLight(enabled) {
         if (nightLightCommandProc.running)
             return;
 
-        nightLightApplyTimer.stop();
         requestNightLightMode(enabled ? "on" : "off", enabled ? nightLightTargetTemperature : undefined);
     }
 
@@ -245,14 +247,6 @@ QtObject {
         onTriggered: display.refreshNightLight()
     }
 
-    property Timer nightLightApplyTimer: Timer {
-        interval: 120
-        onTriggered: {
-            if (!display.requestNightLightTemperature(display.nightLightTargetTemperature))
-                display.nightLightApplyTimer.restart();
-        }
-    }
-
     property Process nightLightStatusProc: Process {
         command: ["desktopctl", "night-light", "status", "--json"]
         running: false
@@ -284,10 +278,14 @@ QtObject {
             if (code !== 0) {
                 display.restoreNightLightState(display._nightLightRollbackState);
                 display.clearPendingNightLightAction();
+                display.refreshNightLight();
             } else {
                 display.clearPendingNightLightAction();
+                // Hyprsunset restarts can report a brief false negative, so let
+                // the next poll confirm the settled state instead of forcing an
+                // immediate status read here.
+                display.nightLightPollTimer.restart();
             }
-            display.refreshNightLight();
         }
     }
 }
