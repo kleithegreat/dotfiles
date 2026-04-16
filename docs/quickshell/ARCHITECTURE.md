@@ -74,7 +74,12 @@ completes; `BluetoothService.qml` stages power and
 disconnect actions; `VpnService.qml` stages Mullvad/Tailscale connect-disconnect
 intent until the next real status refresh confirms it; and
 `DisplayService.qml` stages night-light mode / target temperature while
-preserving a rollback snapshot for failures.
+preserving a rollback snapshot for failures. Successful night-light writes now
+rely on the service poll timer for confirmation instead of forcing an immediate
+status read, which avoids transient `hyprsunset` restart gaps from flipping the
+toggle off mid-adjustment. The Display pane's temperature slider now stages the
+value locally while dragging and commits one `desktopctl night-light ... --temp`
+request on release so `hyprsunset` is not restarted on every pointer move.
 
 ## Settings System
 

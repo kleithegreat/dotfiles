@@ -54,8 +54,10 @@ cross-domain side effects as of 2026-04-13.
    `off` forces `hyprsunset` off, but neither touches `dark_hint`.
 7. The `Controller::reconcile` path in `desktopctl/src/daemon/night_light.rs`
    uses the `hyprsunset` and `dark_hint` helpers in `desktopctl/src/night_light.rs`
-   to inspect the current process, start or stop it as needed, and persist
-   scheduled `dark_hint` only when the effective value actually changes.
+   to inspect the current process, update a running `hyprsunset` instance
+   through its IPC socket when only the temperature changed, fall back to a
+   restart when IPC is unavailable, and persist scheduled `dark_hint` only when
+   the effective value actually changes.
 8. Independent of the daemon, `desktopctl/src/theme/mod.rs` still lets
    `desktopctl theme set dark_hint ...` and preset application persist
    `dark_hint` directly.
@@ -71,7 +73,7 @@ cross-domain side effects as of 2026-04-13.
 
 | Resource | Current writer path | Current reader path |
 | --- | --- | --- |
-| `hyprsunset` process | `desktopctl/src/daemon/night_light.rs` via the helper functions in `desktopctl/src/night_light.rs` | `desktopctl/src/night_light.rs` inspects it for status; Quickshell reads the daemon-reported status instead of polling the process directly |
+| `hyprsunset` process and IPC socket | `desktopctl/src/daemon/night_light.rs` via the helper functions in `desktopctl/src/night_light.rs` | `desktopctl/src/night_light.rs` inspects the process plus `~/.hyprsunset.sock` for live temperature state; Quickshell reads the daemon-reported status instead of polling either directly |
 | `$XDG_DATA_HOME/desktopctl/desktopctl.db` `theme_state.dark_hint` row | `desktopctl/src/theme/mod.rs`, called either by the daemon controller in `auto` mode or directly by `desktopctl theme` surfaces | `desktopctl theme` reloads it for every mutation; Quickshell settings reads it through `desktopctl theme status --json` |
 | GTK dconf interface keys | `desktopctl/src/theme/targets/gtk.rs` via `on_apply()` | GTK apps and any consumer honoring the desktop color-scheme hint |
 | `~/.config/quickshell/GeneratedTheme.json` | `desktopctl/src/theme/targets/quickshell.rs` | `config/quickshell/Theme.qml` watches the file. `dark_hint` does not flow through this file today |

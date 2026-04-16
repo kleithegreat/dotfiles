@@ -1,9 +1,13 @@
 use crate::{hypr, paths, solar, theme};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{
-    io::{self, BufRead, BufReader, Write},
+    env, fs,
+    io::{self, BufRead, BufReader, Read, Write},
+    net::Shutdown,
     os::unix::net::UnixStream,
+    path::{Path, PathBuf},
     process::Command,
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 pub const METHOD_NIGHT_LIGHT_STATUS: &str = "night_light.status";
@@ -138,7 +142,8 @@ pub(crate) fn hyprsunset_process_state() -> HyprsunsetProcessState {
 
     HyprsunsetProcessState {
         running: true,
-        temperature: parse_temperature_from_args(command_line),
+        temperature: hyprsunset_current_temperature()
+            .or_else(|| parse_temperature_from_args(command_line)),
     }
 }
 
@@ -150,6 +155,10 @@ pub(crate) fn ensure_hyprsunset_running(target_temperature: i32) -> crate::Resul
     }
 
     if state.running {
+        if set_hyprsunset_temperature(normalized).is_ok() {
+            return Ok(());
+        }
+
         stop_hyprsunset()?;
     }
 
@@ -303,6 +312,112 @@ fn socket_unavailable(error: &(dyn std::error::Error + 'static)) -> bool {
     })
 }
 
+fn hyprsunset_current_temperature() -> Option<i32> {
+    hyprsunset_ipc_request("temperature")
+        .ok()
+        .and_then(|reply| parse_temperature_reply(&reply).ok())
+}
+
+fn set_hyprsunset_temperature(temperature: i32) -> crate::Result<()> {
+    let normalized = normalize_temperature(temperature)?;
+    let reply = hyprsunset_ipc_request(&format!("temperature {normalized}"))?;
+    if reply.trim() == "ok" {
+        return Ok(());
+    }
+
+    Err(io::Error::other(format!(
+        "hyprsunset IPC rejected temperature update: {reply}"
+    ))
+    .into())
+}
+
+fn hyprsunset_ipc_request(request: &str) -> crate::Result<String> {
+    let socket_path = hyprsunset_socket_path()?;
+    let mut stream = UnixStream::connect(&socket_path).map_err(|error| {
+        io::Error::new(
+            error.kind(),
+            format!("failed to connect to {}: {error}", socket_path.display()),
+        )
+    })?;
+
+    stream.write_all(request.as_bytes())?;
+    stream.shutdown(Shutdown::Write)?;
+
+    let mut response = String::new();
+    BufReader::new(stream).read_to_string(&mut response)?;
+    Ok(response.trim().to_owned())
+}
+
+fn hyprsunset_socket_path() -> crate::Result<PathBuf> {
+    let root = paths::xdg_runtime_dir()?.join("hypr");
+
+    if let Some(signature) = hyprland_signature() {
+        let runtime_path = root.join(&signature).join(".hyprsunset.sock");
+        if runtime_path.exists() {
+            return Ok(runtime_path);
+        }
+    }
+
+    let fallback_path = root.join(".hyprsunset.sock");
+    if fallback_path.exists() {
+        return Ok(fallback_path);
+    }
+
+    if let Some(path) = find_hyprsunset_socket_candidates(&root)?
+        .into_iter()
+        .max_by_key(|(modified, _)| *modified)
+        .map(|(_, path)| path)
+    {
+        return Ok(path);
+    }
+
+    if let Some(signature) = hyprland_signature() {
+        return Ok(root.join(signature).join(".hyprsunset.sock"));
+    }
+
+    Ok(fallback_path)
+}
+
+fn hyprland_signature() -> Option<String> {
+    env::var("HYPRLAND_INSTANCE_SIGNATURE")
+        .ok()
+        .filter(|value| !value.is_empty())
+}
+
+fn find_hyprsunset_socket_candidates(root: &Path) -> io::Result<Vec<(SystemTime, PathBuf)>> {
+    let entries = match fs::read_dir(root) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => return Err(error),
+    };
+
+    let mut candidates = Vec::new();
+    for entry in entries {
+        let entry = entry?;
+        let path = entry.path().join(".hyprsunset.sock");
+        if !path.exists() {
+            continue;
+        }
+
+        let modified = fs::metadata(&path)
+            .and_then(|metadata| metadata.modified())
+            .unwrap_or(UNIX_EPOCH);
+        candidates.push((modified, path));
+    }
+
+    Ok(candidates)
+}
+
+fn parse_temperature_reply(reply: &str) -> crate::Result<i32> {
+    reply.trim().parse::<i32>().map_err(|error| {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("invalid hyprsunset IPC temperature reply '{reply}': {error}"),
+        )
+        .into()
+    })
+}
+
 fn parse_temperature_from_args(args: &str) -> Option<i32> {
     let tokens = args.split_whitespace().collect::<Vec<_>>();
     for (index, token) in tokens.iter().enumerate() {
@@ -351,6 +466,20 @@ mod tests {
             Some(5100)
         );
         assert_eq!(parse_temperature_from_args("hyprsunset"), None);
+    }
+
+    #[test]
+    fn parse_temperature_reply_accepts_numeric_responses() {
+        assert_eq!(parse_temperature_reply("4300").expect("valid reply"), 4300);
+        assert_eq!(
+            parse_temperature_reply(" 5100\n").expect("trimmed valid reply"),
+            5100
+        );
+    }
+
+    #[test]
+    fn parse_temperature_reply_rejects_non_numeric_responses() {
+        assert!(parse_temperature_reply("ok").is_err());
     }
 
     #[test]
