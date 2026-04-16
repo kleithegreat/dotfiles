@@ -168,7 +168,7 @@ PanelWindow {
         onWifiExpandRequested: overlayHost.openSettingsCategory(0)
         onBluetoothExpandRequested: overlayHost.openSettingsCategory(1)
         onVpnExpandRequested: overlayHost.openSettingsCategory(0)
-        onDndExpandRequested: overlayHost.openSettingsCategory(5)
+        onDndExpandRequested: overlayHost.openSettingsCategory(6)
         onPowerProfileExpandRequested: overlayHost.openSettingsCategory(4)
     }
 

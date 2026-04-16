@@ -99,13 +99,20 @@
     hyprlock.fprintAuth = false;
   };
 
-  # ── Polkit — password-free read of Dell battery charge config ─
+  # ── Polkit — local fingerprint management + Dell battery reads ─
+  # Allow the active local desktop user to enroll/delete their own fingerprints
+  # without bouncing through the external auth agent on every action.
   # smbios-battery-ctl needs root to read SMBIOS tables (WMI/dcdbas), but
   # --get-charging-cfg is read-only.  Auto-approve it so the Quickshell
   # power-profile popup doesn't trigger an auth dialog on every open.
   # --set-* operations are unaffected and still require authentication.
   security.polkit.extraConfig = ''
     polkit.addRule(function(action, subject) {
+      if (action.id === "net.reactivated.fprint.device.enroll" &&
+          subject.user === "kevin" && subject.local && subject.active) {
+        return polkit.Result.YES;
+      }
+
       if (action.id === "org.freedesktop.policykit.exec" &&
           /\/smbios-battery-ctl$/.test(action.lookup("program")) &&
           /\bsmbios-battery-ctl\s+--get-charging-cfg\s*$/.test(action.lookup("command_line")) &&

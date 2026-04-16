@@ -360,7 +360,12 @@ in
   services.geoclue2.enable = true;
 
   # ── Tailscale ────────────────────────────────────────────────
-  services.tailscale.enable = true;
+  services.tailscale = {
+    enable = true;
+    # Let the primary desktop user drive `tailscale up/down` from Quickshell
+    # without bouncing through sudo/polkit for simple connect-disconnect.
+    extraSetFlags = [ "--operator=kevin" ];
+  };
 
   # ── Mullvad VPN ──────────────────────────────────────────────
   services.mullvad-vpn = {
