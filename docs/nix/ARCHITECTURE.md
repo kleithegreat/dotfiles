@@ -29,11 +29,11 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-13.
 
 | Path | Role | Current responsibilities |
 | --- | --- | --- |
-| `system/configuration.nix` | Shared system baseline | Nix settings, the shared unfree allowlist used by both NixOS and embedded Home Manager, overlays, common users/groups, shared services, privileged desktop helper registrations, system packages, and Hyprland packaging |
+| `system/configuration.nix` | Shared system baseline | Nix settings, the shared unfree allowlist used by both NixOS and embedded Home Manager, overlays, common users/groups, shared services, privileged desktop helper registrations, shared Tailscale operator configuration, system packages, and Hyprland packaging |
 | `system/distributed-builds.nix` | Optional shared distributed-build layer | When enabled, configures remote builders, the post-build cache push hook, `nix.sshServe`, and LAN-only SSH firewall rules |
 | `system/distributed-builds-data.nix` | Environment-specific builder/cache data | Authorized builder keys, host keys, current cache signing key, and the current cache URL override |
 | `hosts/vm/system.nix` | VM overlay | VM boot, guest profile, and virtual disk layout |
-| `hosts/laptop/system.nix` | Laptop overlay | Hybrid GPU policy, laptop-only services and overrides, GRUB, laptop hardware policy, and the laptop `tailscaled` stop-timeout override |
+| `hosts/laptop/system.nix` | Laptop overlay | Hybrid GPU policy, laptop-only services and overrides, fingerprint/PAM policy, laptop-scoped polkit rules, GRUB, laptop hardware policy, and the laptop `tailscaled` stop-timeout override |
 | `hosts/laptop/fan-control.nix` | Laptop-only hardware submodule | Dell SMM kernel module wiring, BIOS fan-control handoff, the explicit four-state `i8kmon.conf` profile with aggressive ramp thresholds, and the `i8kmon` systemd service |
 | `hosts/desktop/system.nix` | Desktop overlay | Dedicated NVIDIA policy, desktop-only imports, storage mounts, GRUB, desktop-only overlay imports, the desktop Windows VM toggle, and the desktop `tailscaled` stop-timeout override |
 | `hosts/desktop/wine-ableton.nix` | Desktop Wine/audio submodule | Loads the `ntsync` kernel module at boot, enables `services.pipewire.jack.enable`, and installs the desktop's Ableton-facing Wine toolchain (`wineWow64Packages.stableFull`, `wineasio`, and `winetricks`) |
@@ -93,6 +93,16 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-13.
 - Both physical host modules set
   `systemd.services.tailscaled.serviceConfig.TimeoutStopSec = "15s"`, bounding
   rare upstream stop hangs without changing the shared VM profile.
+- The shared system baseline also sets
+  `services.tailscale.extraSetFlags = [ "--operator=kevin" ]` so
+  user-session Quickshell calls to `tailscale up` / `tailscale down` can manage
+  the local daemon without `sudo`.
+- `hosts/laptop/system.nix` enables `services.fprintd`, keeps the laptop PAM
+  `polkit-1.fprintAuth` path available for external apps that explicitly use
+  polkit system authentication, and also adds a narrow polkit rule granting the
+  active local user direct `net.reactivated.fprint.device.enroll` access so the
+  Quickshell fingerprint-management flow can enroll/delete prints without a
+  separate external auth-agent prompt.
 
 ## Distributed Builds
 

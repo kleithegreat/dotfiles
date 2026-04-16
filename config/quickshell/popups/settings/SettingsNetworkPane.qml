@@ -577,6 +577,12 @@ FocusScope {
                         color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                         elide: Text.ElideRight; Layout.fillWidth: true
                     }
+                    Text {
+                        visible: VpnService.tailscaleError !== ""
+                        text: VpnService.tailscaleError
+                        color: Theme.redBright; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
+                        wrapMode: Text.WordWrap; Layout.fillWidth: true
+                    }
                 }
             }
         }

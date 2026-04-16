@@ -39,7 +39,7 @@ Managed popups mounted by the overlay host remain:
 | `BluetoothService.qml` | Powered state, summary device data, full device/pairing flows | Bar Bluetooth, quick settings, Bluetooth pane |
 | `BrightnessService.qml` | Backlight discovery, file watching, and direct `brightnessctl` writes for the Display pane | Display pane and any brightness slider UI |
 | `DisplayService.qml` | Monitor refresh/apply and daemon-backed night-light status / override requests | Display pane |
-| `HostCapabilities.qml` | Detects Wi-Fi, battery, and power-profile capabilities | Settings host category visibility and power-pane availability |
+| `HostCapabilities.qml` | Detects laptop-chassis, Wi-Fi, battery, power-profile, and fingerprint-reader capabilities | Settings host category visibility plus power/fingerprint pane availability |
 | `IdleInhibitService.qml` | Holds a transient `systemd-inhibit --what=idle` process so hypridle pauses its timers while the shell toggle is active | Quick Settings idle-inhibit tile |
 | `NetworkService.qml` | Active network summary for Wi-Fi or ethernet via the default-route interface, Wi-Fi scans/known networks, active-transport diagnostics, DNS, captive portal, reporting | Bar network, quick settings, network pane |
 | `NotificationService.qml` | Popup/history models, DND, dismissal, relative-time refresh | Root notifications, drawer, bar bell, Notifications settings pane, IPC |
@@ -80,11 +80,11 @@ preserving a rollback snapshot for failures.
 
 | Area | Current implementation |
 | --- | --- |
-| Host-owned data | Theme snapshot, shared mouse-input snapshot, colors, presets, wallpapers, directories, icon/cursor/font choices, and Hyprland appearance draft state |
-| Host loaders | `Process` helpers call `desktopctl theme status --json`, `desktopctl hypr input status --json`, `desktopctl theme list-schemes --json`, `desktopctl theme list-presets --json`, and shell commands for wallpaper/directory browsing |
+| Host-owned data | Theme snapshot, shared mouse-input snapshot, fingerprint enrollment snapshot/status, colors, presets, wallpapers, directories, icon/cursor/font choices, and Hyprland appearance draft state |
+| Host loaders | `Process` helpers call `desktopctl theme status --json`, `desktopctl hypr input status --json`, `desktopctl theme list-schemes --json`, `desktopctl theme list-presets --json`, `fprintd-list`, `busctl` fingerprint-device property reads, and shell commands for wallpaper/directory browsing |
 | Service-driven panes | Network, Bluetooth, Audio, Display, Power, Notifications, Focus Time |
-| Host-driven panes | Presets, Colors, Fonts, Wallpaper, Icons, Mouse, Hyprland |
-| Category gating | `HostCapabilities.qml` plus the `hiddenCategories` / category-visibility logic in `config/quickshell/popups/SettingsPopup.qml` hide the Power category when neither battery nor power-profile support is present |
+| Host-driven panes | Fingerprint, Presets, Colors, Fonts, Wallpaper, Icons, Mouse, Hyprland |
+| Category gating | `HostCapabilities.qml` plus the `hiddenCategories` / category-visibility logic in `config/quickshell/popups/SettingsPopup.qml` hide Power when neither battery nor power-profile support is present, and hide Fingerprint unless the chassis is laptop-like and the `busctl tree net.reactivated.Fprint` probe reports a device |
 | General theme writes | Serialized `desktopctl theme set` and `desktopctl theme preset` requests, with host-local staging for individual `set` writes before process exit and toast-visible backend errors |
 | Mouse input writes | Serialized `desktopctl hypr input set` requests, with host-local staging for shared mouse settings before the backend reload confirms or rolls them back |
 | Preset writes | `desktopctl theme save-preset` and `desktopctl theme delete-preset` |
@@ -151,11 +151,26 @@ behaviors:
 - Passing dedicated target lists into the Fonts and Presets panes so the shell
   now exposes only the active system-font size offsets (`Quickshell`, `GTK`,
   `Qt`) and keeps the full mono-offset set, including Neovide, while showing
-  only the signed delta beside each stepper:
+  only the signed delta beside each stepper, and canonicalizing friendly
+  mono-font labels such as `JetBrains Mono Nerd Font` to the exact stored
+  family names before invoking `desktopctl theme set`:
   `config/quickshell/popups/SettingsPopup.qml`,
   `config/quickshell/popups/settings/SettingsFontsPane.qml`,
   `config/quickshell/popups/settings/SettingsPresetsPane.qml`, and
   `config/quickshell/popups/settings/SettingsPresetEditor.qml`.
+- Owning the fingerprint-management host flow: `fprintd-list` parses the
+  current device/name plus enrolled fingers, `fprintd-enroll $(id -un)` and
+  `fprintd-delete $(id -un)` run as host-managed same-user mutations with
+  inline status/error state, and the popup cancels an in-flight enroll when it
+  closes. Enrollment feedback now also reads `num-enroll-stages` and
+  `scan-type` from the default `net.reactivated.Fprint.Device`, then parses the
+  live line-buffered `fprintd-enroll` session output so the pane can show
+  capture progress plus retry guidance while the command is running. On
+  the laptop host, `hosts/laptop/system.nix` also grants the active local user
+  direct `net.reactivated.fprint.device.enroll` access so this flow does not
+  have to bounce through the external auth agent:
+  `config/quickshell/popups/SettingsPopup.qml` and
+  `config/quickshell/popups/settings/SettingsFingerprintPane.qml`.
 
 The Power pane remains lazy-loaded through the settings detail loader, so the
 privileged charge-limit probe is now deferred until `SettingsPowerPane.qml`
