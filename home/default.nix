@@ -2,9 +2,9 @@
 
 let
   opencode-node-modules = opencode.packages.${pkgs.stdenv.hostPlatform.system}.node_modules_updater.override {
-    # Upstream 1.4.6+8b3b608 currently ships a stale x86_64-linux node_modules
+    # Upstream 1.4.7+d995059 currently ships a stale x86_64-linux node_modules
     # fixed-output hash, so pin the hash that Bun actually produces.
-    hash = "sha256-NJAK+cPjwn+2ojDLyyDmBQyx2pD+rILetp7VCylgjek=";
+    hash = "sha256-OPbZUo/fQv2Xsf+NEZV08GLBMN/DXovhRvn2JkesFtY=";
   };
   opencode-base-pkg = opencode.packages.${pkgs.stdenv.hostPlatform.system}.default.override {
     node_modules = opencode-node-modules;
