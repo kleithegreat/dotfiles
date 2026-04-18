@@ -29,7 +29,7 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-13.
 
 | Path | Role | Current responsibilities |
 | --- | --- | --- |
-| `system/configuration.nix` | Shared system baseline | Nix settings, the shared unfree allowlist used by both NixOS and embedded Home Manager, overlays, common users/groups, shared services, privileged desktop helper registrations, shared Tailscale operator configuration, system packages, and Hyprland packaging |
+| `system/configuration.nix` | Shared system baseline | Nix settings, the shared unfree allowlist used by both NixOS and embedded Home Manager, overlays, common users/groups, shared services, privileged desktop helper registrations, shared Tailscale operator configuration, system packages, Hyprland packaging, and shared Qt plugin-path wiring |
 | `system/distributed-builds.nix` | Optional shared distributed-build layer | When enabled, configures remote builders, the post-build cache push hook, `nix.sshServe`, and LAN-only SSH firewall rules |
 | `system/distributed-builds-data.nix` | Environment-specific builder/cache data | Authorized builder keys, host keys, current cache signing key, and the current cache URL override |
 | `hosts/vm/system.nix` | VM overlay | VM boot, guest profile, and virtual disk layout |
@@ -97,6 +97,13 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-13.
   `services.tailscale.extraSetFlags = [ "--operator=kevin" ]` so
   user-session Quickshell calls to `tailscale up` / `tailscale down` can manage
   the local daemon without `sudo`.
+- The shared system baseline also enables NixOS `qt.enable`, exports
+-  `QT_QPA_PLATFORMTHEME=hyprqt6engine`, keeps the nonstandard `hyprqt6engine`
+-  `lib/qt-6` root on `QT_PLUGIN_PATH`, and installs `libsForQt5.qt5ct`,
+-  `qt6Packages.qt6ct`, plus the Qt5/Qt6 Kvantum style engines through
+-  `environment.systemPackages`, so user-launched Qt apps and
+-  D-Bus/systemd-activated helpers such as `xdg-desktop-portal-kde` resolve the
+-  same platform and style plugins.
 - `hosts/laptop/system.nix` enables `services.fprintd`, keeps the laptop PAM
   `polkit-1.fprintAuth` path available for external apps that explicitly use
   polkit system authentication, and also adds a narrow polkit rule granting the

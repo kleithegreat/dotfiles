@@ -3,7 +3,7 @@
 ## Scope
 
 Current implementation map for the migrated Rust theming pipeline as of
-2026-04-13.
+2026-04-18.
 
 ## Runtime Surface
 
@@ -51,7 +51,7 @@ Targets with notable extra behavior:
 | `gtk` | `desktopctl/src/theme/targets/gtk.rs` is command-only and does all real work in `on_apply()` through dconf writes, now routing both the normal UI font and monospace font through the shared offset helpers. |
 | `gtksourceview` | `desktopctl/src/theme/targets/gtksourceview.rs` writes the current GtkSourceView scheme to `desktopctl-current.xml`, mirrors the rest of the repo scheme catalog into `~/.local/share/libgedit-gtksourceview-300/styles/desktopctl-*.xml`, and updates gedit's dark/light source-style dconf keys at runtime. |
 | `opencode` | `desktopctl/src/theme/targets/opencode.rs` concatenates the repo-owned OpenCode TUI base config from `config/opencode/base.json` into `~/.config/opencode/tui.json` to select the managed `desktopctl` theme, then persists `~/.config/opencode/themes/desktopctl.json` with an ASCII-safe palette mapped onto OpenCode's upstream theme schema. |
-| `qt` | `desktopctl/src/theme/targets/qt.rs` mirrors the palette into qt5ct, qt6ct, KDE, hyprqt6engine, Kvantum, Kate, and KWrite. The target now writes `[Icons] Theme` into `kdeglobals`, drives KTextEditor from `ColorScheme.app_themes.ktexteditor`, uses the shared system-font and mono-font offset helpers for `hyprqt6engine`, and still uses the centralized `ColorScheme.appearance` metadata when only dark/light asset selection is needed. |
+| `qt` | `desktopctl/src/theme/targets/qt.rs` mirrors the palette into qt5ct, qt6ct, KDE, hyprqt6engine, Kvantum, Kate, and KWrite. The target now writes `[Icons] Theme` into `kdeglobals`, drives KTextEditor from `ColorScheme.app_themes.ktexteditor`, uses the shared system-font and mono-font offset helpers for `hyprqt6engine`, and still uses the centralized `ColorScheme.appearance` metadata when only dark/light asset selection is needed. The shared system baseline in `system/configuration.nix` now supplies the runtime half of that contract by enabling NixOS `qt.enable`, exporting `QT_QPA_PLATFORMTHEME=hyprqt6engine`, keeping hyprqt6engine's nonstandard plugin root visible, and installing qtct/Kvantum packages system-wide without a global `QT_STYLE_OVERRIDE`. |
 | `quickshell` | `desktopctl/src/theme/targets/quickshell.rs` writes `GeneratedTheme.json` for shell colors and fonts with Python-compatible JSON formatting, emits both `family` and `systemFamily`, and derives `size`, `sizeSmall`, and `sizeLarge` from `ThemeState.font_size + quickshell_font_size_offset`. |
 | `spicetify` | `desktopctl/src/theme/targets/spicetify.rs` ensures theme scaffolding exists and runs `spicetify update` on apply. |
 | `vicinae` | `desktopctl/src/theme/targets/vicinae.rs` still concatenates `config/vicinae/base.json` into `~/.config/vicinae/settings.json`, but its `persist()` hook now also writes custom TOML themes under `~/.local/share/vicinae/themes/` using the configured Vicinae theme IDs from `ColorScheme.app_themes.vicinae`. When a scheme declares a distinct Vicinae `light_name`, the hook loads that repo scheme too so the paired light file exists alongside the active theme. |
@@ -72,6 +72,14 @@ Targets with notable extra behavior:
 | OpenCode | `desktopctl/src/theme/targets/opencode.rs` and `config/opencode/base.json` now generate the global `~/.config/opencode/tui.json` theme selection plus `~/.config/opencode/themes/desktopctl.json`. The target is intentionally color-only because upstream OpenCode TUI theming consumes a theme name plus theme-color JSON, and project-local OpenCode config layers can still override the global `desktopctl` theme by name. |
 | Zsh | `home/shell.nix` sources `~/.config/zsh/theme-colors` from `programs.zsh.initContent`, while `desktopctl/src/theme/targets/zsh.rs` generates that fragment from the active `ColorScheme`. |
 | Tool configs | Import or concat targets still write under `~/.config` or app-specific config paths, keeping repo-authored base files read-only. Repo-authored concat bases now resolve through `paths::repo_root()` when the target declares a relative `base_path`. |
+
+- The shared NixOS baseline in `system/configuration.nix` now enables
+  `qt.enable`, exports `QT_QPA_PLATFORMTHEME=hyprqt6engine`, seeds
+  `QT_PLUGIN_PATH` with both hyprqt6engine's `lib/qt-6` root and the standard
+  profile-relative Qt plugin directories, and installs qt5ct/qt6ct plus the
+  Qt5/Qt6 Kvantum engines system-wide so generated Qt theme state is visible to
+  both direct app launches and D-Bus/systemd-activated helpers such as
+  `xdg-desktop-portal-kde`.
 
 ## Validation Notes
 
