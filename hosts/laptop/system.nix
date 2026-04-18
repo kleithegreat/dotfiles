@@ -112,6 +112,10 @@ in
   services.samba.enable = lib.mkForce false;
   services.openssh.enable = lib.mkForce false;
 
+  # Large local builds already saturate this laptop internally, so serialize
+  # derivations and let each one keep full core parallelism.
+  nix.settings.max-jobs = 1;
+
   services.power-profiles-daemon.enable = true;
 
   # Runs `powertop --auto-tune` at boot to enable runtime PM on devices that
