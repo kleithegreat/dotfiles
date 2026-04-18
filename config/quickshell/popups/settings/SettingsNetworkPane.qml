@@ -332,14 +332,17 @@ FocusScope {
 
         // ── LIST state: WiFi list + VPN ──────────────────────
 
-        Item {
+        Components.WheelFlickable {
+            id: listStateFlick
             visible: root.paneState === "list"
             Layout.fillWidth: true
             Layout.fillHeight: true
+            contentHeight: listStateCol.implicitHeight
             clip: true
 
             ColumnLayout {
-                anchors.fill: parent
+                id: listStateCol
+                width: listStateFlick.width
                 spacing: 0
 
                 Wifi.WifiDetail {
@@ -376,11 +379,19 @@ FocusScope {
                 Item {
                     visible: HostCapabilities.hasWifi
                     Layout.fillWidth: true
-                    Layout.fillHeight: true
+                    implicitHeight: Math.max(
+                        wifiList.visible ? wifiList.implicitHeight : 0,
+                        wifiPoweredOffState.visible ? wifiPoweredOffState.implicitHeight : 0,
+                        wifiLoadingState.visible ? wifiLoadingState.implicitHeight + 4 : 0
+                    )
                     clip: true
 
                     Wifi.WifiList {
-                        anchors.fill: parent
+                        id: wifiList
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        height: implicitHeight
                         visible: HostCapabilities.hasWifi && (NetworkService.wifiEnabled || root.listLoading)
                         opacity: root.listLoading ? 0 : 1
                         enabled: opacity > 0.01
@@ -396,7 +407,12 @@ FocusScope {
                     }
 
                     Item {
-                        anchors.fill: parent
+                        id: wifiPoweredOffState
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        height: implicitHeight
+                        implicitHeight: 40
                         visible: root.wifiPoweredOff && !root.listLoading
 
                         Text {
@@ -409,7 +425,10 @@ FocusScope {
                     }
 
                     Column {
-                        anchors.fill: parent; anchors.topMargin: 4
+                        id: wifiLoadingState
+                        width: parent.width
+                        anchors.top: parent.top
+                        anchors.topMargin: 4
                         spacing: 0
                         opacity: root.listLoading ? 1 : 0
                         visible: opacity > 0; z: 1
@@ -455,7 +474,7 @@ FocusScope {
                 Item {
                     visible: !HostCapabilities.hasWifi && !root.ethernetActive
                     Layout.fillWidth: true
-                    Layout.fillHeight: true
+                    implicitHeight: 40
 
                     Text {
                         anchors.centerIn: parent

@@ -117,7 +117,11 @@ and still reuses `config/quickshell/popups/wifi/WifiDetail.qml` and
 visibility instead of splitting duplicate ethernet-only views. Wired link data
 comes from `/sys/class/net/<ifname>/speed`, `duplex`, and `carrier`, while the
 same diagnostics surface keeps the existing router/internet/DNS/speed-test
-sections for both transports.
+sections for both transports. The list state now wraps the combined Wi-Fi and
+VPN stack in `components/WheelFlickable.qml`, and
+`config/quickshell/popups/wifi/WifiList.qml` reports its natural content height,
+so larger theme font sizes can scroll the full page instead of clipping the
+bottom VPN rows.
 
 `SettingsPopup.qml` is now responsible for several additional settings-host
 behaviors:

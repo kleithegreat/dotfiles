@@ -9,6 +9,8 @@ Item {
     required property string connectedSsid
     required property bool isCaptivePortal
 
+    implicitHeight: Math.max(netFlick.contentHeight, skeletonCol.visible ? skeletonCol.implicitHeight + 4 : 0)
+
     signal connectRequested(string ssid, string security)
     signal detailRequested(string ssid, string security, int signal, bool isActive)
     signal captiveLoginRequested()
@@ -23,6 +25,7 @@ Item {
     function isEnterprise(sec) { return sec.indexOf("802.1X") >= 0; }
 
     Components.WheelFlickable {
+        id: netFlick
         anchors.fill: parent
         contentHeight: netCol.implicitHeight; clip: true
 
@@ -170,6 +173,7 @@ Item {
 
     // ── Skeleton loading rows ─────────────────────
     Column {
+        id: skeletonCol
         visible: root.netModel.count === 0
         anchors.fill: parent; anchors.topMargin: 4
         spacing: 0
