@@ -21,7 +21,7 @@ Current implementation map for the migrated Rust theming pipeline as of
 | Command group | Commands | Current behavior |
 | --- | --- | --- |
 | Apply scopes | `all`, `colors`, `fonts`, `wallpaper`, `cursor`, `sync`, `target` | `sync` limits execution to `sync_safe` targets and skips runtime-only hooks. |
-| State mutation | `set`, `preset`, `save-preset`, `delete-preset` | `set` rewrites one key, applies only affected targets, then persists on success; `theme set color_scheme ...` also normalizes `dark_hint` to the selected scheme appearance before validation. `preset` merges a preset patch, applies all targets, then persists on success; presets that change `color_scheme` but omit `dark_hint` inherit the scheme appearance before apply, while explicit preset `dark_hint` values still take the direct theming path. Preset files preserve ordered JSON formatting and are atomically replaced. |
+| State mutation | `set`, `preset`, `save-preset`, `delete-preset` | `set` rewrites one key, applies only affected targets, then persists on success; `theme set color_scheme ...` now preserves the existing `dark_hint`. `preset` merges a preset patch, applies all targets, then persists on success; presets that omit `dark_hint` keep the current persisted hint even when they change `color_scheme`, while explicit preset `dark_hint` values still take the direct theming path. Preset files preserve ordered JSON formatting and are atomically replaced. |
 | Inspection | `list-schemes`, `list-presets`, `status` | Human-readable text by default, with Quickshell-facing `--json` modes that return deterministic array/object shapes and the canonical theme-state JSON order from SQLite-backed storage. |
 
 ## Registered Targets
@@ -90,8 +90,9 @@ Targets with notable extra behavior:
 - The tests in `desktopctl/src/theme/targets/gtksourceview.rs` cover the generated
   GtkSourceView XML shape and the current family-pairing policy for gedit's
   dark/light source-style keys.
-- The tests in `desktopctl/src/theme/mod.rs` cover the rule that `color_scheme`
-  changes realign `dark_hint` with scheme appearance before persistence.
+- The tests in `desktopctl/src/theme/mod.rs` cover the rule that
+  `color_scheme` changes preserve an explicit `dark_hint` instead of
+  realigning it to scheme appearance.
 - The tests in `desktopctl/src/theme/targets/chromium.rs` cover active-profile
   selection from `Local State`, fallback to `Default`, recursive Chromium prefs
   merging, web-font family writes, and removal of previously managed page-size

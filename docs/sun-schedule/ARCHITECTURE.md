@@ -48,32 +48,35 @@ cross-domain side effects as of 2026-04-13.
 5. `solar::run()` in `desktopctl/src/daemon/solar.rs` stores that scheduled state in the
    shared controller and immediately asks the controller to reconcile the
    effective mode.
-6. `desired_state()` and `apply_desired_state()` in `desktopctl/src/daemon/night_light.rs` derive the live desired
-   state from the current mode: `auto` follows the solar status for both
-   `hyprsunset` and scheduled `dark_hint`; `on` forces `hyprsunset` on and
-   `off` forces `hyprsunset` off, but neither touches `dark_hint`.
-7. The `Controller::reconcile` path in `desktopctl/src/daemon/night_light.rs`
+6. `Controller::update_solar_status` in `desktopctl/src/daemon/night_light.rs`
+   compares the new solar status with the previous one and marks a pending
+   `dark_hint` enable only when the scheduler has just entered the late-night
+   dark-on window.
+7. `desired_state()` and `apply_desired_state()` in `desktopctl/src/daemon/night_light.rs` derive the live desired
+   `hyprsunset` state from the current mode: `auto` follows the solar night
+   window, `on` forces `hyprsunset` on, and `off` forces `hyprsunset` off.
+8. The `Controller::reconcile` path in `desktopctl/src/daemon/night_light.rs`
    uses the `hyprsunset` and `dark_hint` helpers in `desktopctl/src/night_light.rs`
    to inspect the current process, update a running `hyprsunset` instance
    through its IPC socket when only the temperature changed, fall back to a
-   restart when IPC is unavailable, and persist scheduled `dark_hint` only when
-   the effective value actually changes.
-8. Independent of the daemon, `desktopctl/src/theme/mod.rs` still lets
+   restart when IPC is unavailable, and apply the pending late-night
+   `dark_hint` enable once without clearing it again at sunrise.
+9. Independent of the daemon, `desktopctl/src/theme/mod.rs` still lets
    `desktopctl theme set dark_hint ...` and preset application persist
    `dark_hint` directly.
-9. The request handlers in `desktopctl/src/daemon/server.rs` serve the
+10. The request handlers in `desktopctl/src/daemon/server.rs` serve the
    daemon-owned status and override methods so CLI callers and Quickshell can
    request `hyprsunset` mode changes without becoming direct writers
    themselves.
-10. Independent read-only consumers such as `desktopctl sun status` and the
-    calendar popup's weather view reuse the same resolved coordinates and solar
-    timestamps without becoming their own location owners.
+11. Independent read-only consumers such as `desktopctl sun status` and the
+     calendar popup's weather view reuse the same resolved coordinates and solar
+     timestamps without becoming their own location owners.
 
 ## Resource Map
 
 | Resource | Current writer path | Current reader path |
 | --- | --- | --- |
 | `hyprsunset` process and IPC socket | `desktopctl/src/daemon/night_light.rs` via the helper functions in `desktopctl/src/night_light.rs` | `desktopctl/src/night_light.rs` inspects the process plus `~/.hyprsunset.sock` for live temperature state; Quickshell reads the daemon-reported status instead of polling either directly |
-| `$XDG_DATA_HOME/desktopctl/desktopctl.db` `theme_state.dark_hint` row | `desktopctl/src/theme/mod.rs`, called either by the daemon controller in `auto` mode or directly by `desktopctl theme` surfaces | `desktopctl theme` reloads it for every mutation; Quickshell settings reads it through `desktopctl theme status --json` |
+| `$XDG_DATA_HOME/desktopctl/desktopctl.db` `theme_state.dark_hint` row | `desktopctl/src/theme/mod.rs`, called either by the daemon controller when the scheduler enters the late-night dark-on window or directly by `desktopctl theme` surfaces | `desktopctl theme` reloads it for every mutation; Quickshell settings reads it through `desktopctl theme status --json` |
 | GTK dconf interface keys | `desktopctl/src/theme/targets/gtk.rs` via `on_apply()` | GTK apps and any consumer honoring the desktop color-scheme hint |
 | `~/.config/quickshell/GeneratedTheme.json` | `desktopctl/src/theme/targets/quickshell.rs` | `config/quickshell/Theme.qml` watches the file. `dark_hint` does not flow through this file today |

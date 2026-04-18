@@ -47,8 +47,8 @@ Additional path rules:
 | --- | --- | --- |
 | Live `hyprsunset` process lifecycle | `desktopctl daemon` night-light controller | Quickshell and Hyprland request mode changes through `desktopctl night-light ...`; they do not spawn `hyprsunset` directly |
 | Persisted theme state | `desktopctl theme` | Stored in the `theme_state` table inside `desktopctl.db` |
-| Scheduled `dark_hint` changes in `auto` mode | `desktopctl daemon` via `theme::set_dark_hint()` | The daemon computes solar status and persists the scheduled value through the theming module |
-| Manual and preset `dark_hint` changes | `desktopctl theme set dark_hint ...` and `desktopctl theme preset ...` | Direct `dark_hint` writes still persist and apply directly; presets that omit `dark_hint` now inherit it from the selected `color_scheme` instead of preserving a stale hint |
+| Scheduled `dark_hint` enable at the nightly 23:00 threshold | `desktopctl daemon` via `theme::set_dark_hint()` | The daemon computes solar status, detects entry into the late-night dark-on window, and enables `dark_hint` through the theming module without tying that write to `hyprsunset` mode |
+| Manual and preset `dark_hint` changes | `desktopctl theme set dark_hint ...` and `desktopctl theme preset ...` | Direct `dark_hint` writes still persist and apply directly; presets that omit `dark_hint` preserve the current persisted hint even when they change `color_scheme` |
 | Persisted Hyprland mouse defaults | `desktopctl hypr input` | Stored in `~/.config/hypr/input-runtime.conf`, applied live through `hyprctl keyword`, and rolled back if the live apply fails |
 | Focus-time SQLite writes and JSON summaries | `desktopctl daemon` focus tracker | Quickshell is read-only for this data |
 | Generated theme outputs and runtime side effects | `desktopctl theme` targets | Includes files under `~/.config`, dconf writes, cursor updates, wallpaper apply, and editor/shell state files |
@@ -57,14 +57,14 @@ Additional path rules:
 Important current behavior:
 
 - `hyprsunset` has a single live arbiter in the daemon.
-- `dark_hint` does not: the daemon writes it for solar `auto` mode, but manual
-  theme surfaces can also write it directly.
+- `dark_hint` does not: the daemon issues a one-shot late-night enable, but
+  manual theme surfaces can also write it directly.
 - Persisted `theme_state` rows and legacy `themes/state.json` imports that are
   missing newly added required keys are backfilled from compiled defaults and
   then rewritten through the SQLite-backed theme-state path.
-- `theme set color_scheme ...` and presets that change `color_scheme` without
-  an explicit `dark_hint` normalize the persisted hint to the selected
-  scheme's dark/light appearance before applying targets.
+- `theme set color_scheme ...` and presets that change `color_scheme` preserve
+  the current persisted `dark_hint` unless `dark_hint` is set explicitly in the
+  same mutation.
 
 ## Command Surface
 
@@ -95,8 +95,8 @@ State mutation:
 
 | Command | Current behavior |
 | --- | --- |
-| `theme set <key> <value>` | Validates one state key, applies only the affected targets, and persists the new state only if that apply succeeds. Setting `color_scheme` also realigns `dark_hint` to that scheme's declared appearance before validation. |
-| `theme preset <name>` | Loads one preset patch, merges it into current state, applies all targets, and persists the merged state only if that apply succeeds. If the preset changes `color_scheme` and omits `dark_hint`, the merged state inherits the scheme appearance; an explicit preset `dark_hint` still applies directly through the theming module afterward. |
+| `theme set <key> <value>` | Validates one state key, applies only the affected targets, and persists the new state only if that apply succeeds. Setting `color_scheme` preserves the current `dark_hint` unless `dark_hint` is part of a separate explicit write. |
+| `theme preset <name>` | Loads one preset patch, merges it into current state, applies all targets, and persists the merged state only if that apply succeeds. If the preset omits `dark_hint`, the merged state preserves the current hint even when `color_scheme` changes; an explicit preset `dark_hint` still applies directly through the theming module afterward. |
 | `theme save-preset <name> <json>` | Writes one preset JSON object with canonical key ordering via atomic replacement |
 | `theme delete-preset <name>` | Removes one preset file |
 
@@ -119,9 +119,8 @@ Theming invariants:
 - Presets are partial patches, not full-state snapshots.
 - `theme sync` is the activation-time safe subset; it is intentionally narrower
   than `theme all`.
-- State mutations that change `color_scheme` without an explicit `dark_hint`
-  normalize `dark_hint` to the selected scheme appearance before target apply
-  and persistence.
+- State mutations that change `color_scheme` preserve the current `dark_hint`
+  unless `dark_hint` is part of the same explicit mutation.
 - `theme set`, `theme preset`, and `theme::set_dark_hint()` only persist state
   after the required target application succeeds; failed applies leave the
   stored state unchanged.
@@ -180,14 +179,17 @@ Brightness rules:
 Night-light rules:
 
 - Mode is in-memory only and resets to `auto` when the daemon restarts.
-- `auto` follows solar status for both `hyprsunset` and `dark_hint`.
-- `on` and `off` only change `hyprsunset`; they leave `dark_hint` unchanged.
+- `auto` follows solar status for `hyprsunset`.
+- `on` and `off` only change `hyprsunset`.
+- The separate 23:00 solar edge enables `dark_hint` once when the daemon
+  enters the late-night dark-on window, regardless of the current night-light
+  mode, and sunrise does not clear it.
 
 ### `desktopctl sun`
 
 | Command | Current behavior |
 | --- | --- |
-| `sun status` | Prints the resolved coordinates, sunrise/sunset, current `night` / `dark_hint` schedule state, and the next sunrise / sunset / dark-on events |
+| `sun status` | Prints the resolved coordinates, sunrise/sunset, current `night` / late-night dark-on window state, and the next sunrise / sunset / dark-on events |
 
 ## Socket Contract
 

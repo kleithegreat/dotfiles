@@ -48,7 +48,7 @@ Status meanings:
 | --- | --- | --- | --- |
 | Medium | Dependency selection is not fully aligned with real consumers. | partially addressed | The dependency tables in `desktopctl/src/theme/orchestrator.rs` now route `font_size` to `quickshell`, but `mono_font` still includes `tmux` even though `tmux` does not consume the mono font family. |
 | Low | `neovim` still consumes raw `family` and `variant` strings by design. | open | Centralized app-theme metadata now exists in `desktopctl/src/theme/schema.rs`, but `desktopctl/src/theme/targets/neovim.rs` still passes raw values through. |
-| Medium | `dark_hint` still has multiple policy initiators and no daemon-owned override model. | open | `desired_state()` / `apply_desired_state()` in `desktopctl/src/daemon/night_light.rs` apply scheduled `dark_hint` writes in `auto`, but `desktopctl/src/theme/mod.rs` still lets theme surfaces write `dark_hint` directly through `set_dark_hint()`, `cmd_set()`, and `cmd_preset()`. |
+| Medium | `dark_hint` still has multiple policy initiators and no daemon-owned override model. | open | `update_solar_status()` / `reconcile_locked()` in `desktopctl/src/daemon/night_light.rs` issue the nightly `dark_hint` enable, but `desktopctl/src/theme/mod.rs` still lets theme surfaces write `dark_hint` directly through `set_dark_hint()`, `cmd_set()`, and `cmd_preset()`. |
 
 ## Nix
 
@@ -62,7 +62,7 @@ Status meanings:
 
 | Severity | Finding | Status | Evidence |
 | --- | --- | --- | --- |
-| Medium | `dark_hint` still has multiple live policy initiators and no daemon-owned override model. | open | `desired_state()` / `apply_desired_state()` in `desktopctl/src/daemon/night_light.rs` apply scheduled `dark_hint` in `auto`, but `desktopctl/src/theme/mod.rs` still lets theme surfaces persist `dark_hint` directly through `set_dark_hint()`, `cmd_set()`, and `cmd_preset()`. |
+| Medium | `dark_hint` still has multiple live policy initiators and no daemon-owned override model. | open | `update_solar_status()` / `reconcile_locked()` in `desktopctl/src/daemon/night_light.rs` issue the nightly `dark_hint` enable, but `desktopctl/src/theme/mod.rs` still lets theme surfaces persist `dark_hint` directly through `set_dark_hint()`, `cmd_set()`, and `cmd_preset()`. |
 
 ## Focus Time
 
