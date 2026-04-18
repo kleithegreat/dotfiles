@@ -360,7 +360,6 @@ fn cmd_preset(args: crate::NamedArg) -> CliResult<()> {
         preset_value,
         &format!("preset '{}'", preset_name),
     ))?;
-    let preset_updates_color_scheme = preset.contains_key("color_scheme");
     let requested_dark_hint = preset.remove("dark_hint").and_then(|value| value.as_bool());
 
     let has_theme_changes = !preset.is_empty();
@@ -371,10 +370,6 @@ fn cmd_preset(args: crate::NamedArg) -> CliResult<()> {
         for (key, value) in &preset {
             state_map.insert(key.clone(), value.clone());
         }
-        if preset_updates_color_scheme && requested_dark_hint.is_none() {
-            map_user_err(align_dark_hint_with_color_scheme(&mut state_map))?;
-        }
-
         let new_state = map_user_err(validated_theme_state(state_map, "theme state"))?;
 
         println!("Loaded preset '{}', applying all targets...", preset_name);
@@ -612,28 +607,6 @@ fn color_targets_for_state(state: &schema::ThemeState) -> std::collections::BTre
     targets
 }
 
-fn dark_hint_for_scheme_name(scheme_name: &str) -> crate::Result<bool> {
-    let colors_dir = resolve::colors_dir()?;
-    Ok(resolve::load_colors(scheme_name, &colors_dir)?.is_dark())
-}
-
-fn align_dark_hint_with_color_scheme(state_map: &mut Map<String, Value>) -> crate::Result<()> {
-    let scheme_name = state_map
-        .get("color_scheme")
-        .and_then(Value::as_str)
-        .ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "theme state: 'color_scheme' must be a non-empty string",
-            )
-        })?;
-    state_map.insert(
-        "dark_hint".to_owned(),
-        Value::Bool(dark_hint_for_scheme_name(scheme_name)?),
-    );
-    Ok(())
-}
-
 fn set_state_key_internal(key: &str, raw_value: Value) -> crate::Result<StateUpdateOutcome> {
     let state = resolve::load_state()?;
     let mut state_map = state.to_ordered_json_map();
@@ -652,9 +625,6 @@ fn set_state_key_internal(key: &str, raw_value: Value) -> crate::Result<StateUpd
     };
 
     state_map.insert(key.to_owned(), value.clone());
-    if key == "color_scheme" {
-        align_dark_hint_with_color_scheme(&mut state_map)?;
-    }
     let new_state = validated_theme_state(state_map, "theme state")?;
     if current == value && new_state == state {
         return Ok(StateUpdateOutcome {
@@ -1139,6 +1109,7 @@ fn command_result(output: io::Result<std::process::Output>, program: &str) -> cr
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::{ScopedEnvVar, TempDir, env_lock};
     use std::path::{Path, PathBuf};
 
     fn repo_root() -> PathBuf {
@@ -1148,7 +1119,7 @@ mod tests {
             .to_path_buf()
     }
 
-    fn dark_hint_for_repo_scheme_name(scheme_name: &str) -> crate::Result<bool> {
+    fn repo_scheme_is_dark(scheme_name: &str) -> crate::Result<bool> {
         Ok(resolve::load_colors(scheme_name, &repo_root().join("themes/colors"))?.is_dark())
     }
 
@@ -1214,11 +1185,43 @@ mod tests {
     }
 
     #[test]
-    fn dark_hint_follows_scheme_appearance() {
-        assert!(dark_hint_for_repo_scheme_name("gruvbox-dark").expect("dark scheme should load"));
-        assert!(
-            !dark_hint_for_repo_scheme_name("gruvbox-light").expect("light scheme should load")
-        );
+    fn repo_scheme_appearance_metadata_is_available() {
+        assert!(repo_scheme_is_dark("gruvbox-dark").expect("dark scheme should load"));
+        assert!(!repo_scheme_is_dark("gruvbox-light").expect("light scheme should load"));
+    }
+
+    #[test]
+    fn color_scheme_changes_preserve_explicit_dark_hint() {
+        let _lock = env_lock();
+        let data_home = TempDir::new("desktopctl-theme-state").expect("temp dir");
+        let _data = ScopedEnvVar::set("XDG_DATA_HOME", data_home.path().as_os_str());
+        let _repo = ScopedEnvVar::set("DESKTOPCTL_REPO", repo_root().as_os_str());
+
+        let dark_hint_outcome =
+            set_state_key_internal("dark_hint", Value::Bool(false)).expect("set dark hint");
+        resolve::save_state(&dark_hint_outcome.new_state).expect("persist explicit dark hint");
+
+        let outcome =
+            set_state_key_internal("color_scheme", Value::String("catppuccin-mocha".to_owned()))
+                .expect("set color scheme");
+
+        assert_eq!(outcome.value, Value::String("catppuccin-mocha".to_owned()));
+        assert!(!outcome.new_state.dark_hint);
+    }
+
+    #[test]
+    fn light_scheme_changes_do_not_clear_dark_hint() {
+        let _lock = env_lock();
+        let data_home = TempDir::new("desktopctl-theme-state").expect("temp dir");
+        let _data = ScopedEnvVar::set("XDG_DATA_HOME", data_home.path().as_os_str());
+        let _repo = ScopedEnvVar::set("DESKTOPCTL_REPO", repo_root().as_os_str());
+
+        let outcome =
+            set_state_key_internal("color_scheme", Value::String("gruvbox-light".to_owned()))
+                .expect("set color scheme");
+
+        assert_eq!(outcome.value, Value::String("gruvbox-light".to_owned()));
+        assert!(outcome.new_state.dark_hint);
     }
 
     #[test]

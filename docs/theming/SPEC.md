@@ -40,9 +40,9 @@ Constraints:
 - Targets consume resolved `ColorScheme` and `ThemeState`; they do not invent
   alternate state stores.
 - Presets are partial patches, not separate full-state documents.
-- Presets or direct state writes that change `color_scheme` without explicitly
-  setting `dark_hint` must normalize `dark_hint` to the selected scheme's
-  `appearance` before validation and apply.
+- Presets or direct state writes that change `color_scheme` must preserve the
+  current `dark_hint` unless they also set `dark_hint` explicitly in the same
+  mutation.
 - `dark_hint` remains part of `ThemeState`, but another domain may own the live
   policy for that key as long as persistence still flows through the theming
   pipeline.
@@ -171,8 +171,8 @@ Constraints:
   before validation, target apply, and any rewrite back to SQLite.
 - Legacy string aliases such as older mono-font labels may be normalized to the
   canonical family names before validation, target apply, and persistence.
-- `color_scheme` mutations may also rewrite `dark_hint` during normalization;
-  callers that need a different hint must set `dark_hint` explicitly.
+- `color_scheme` mutations do not rewrite `dark_hint`; callers that need a
+  different hint must set `dark_hint` explicitly.
 - Theme-state storage is row-oriented (`key` + JSON-encoded `value`), but
   `desktopctl theme status --json` must preserve the canonical field order from
   `THEME_STATE_FIELD_ORDER`.
