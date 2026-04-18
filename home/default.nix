@@ -1,19 +1,21 @@
 { config, pkgs, lib, dotfilesPath, hostName, vicinae, snappy-switcher, opencode, ... }:
 
 let
-  opencode-node-modules = opencode.packages.${pkgs.stdenv.hostPlatform.system}.node_modules_updater.override {
-    # Upstream 1.4.7+d995059 currently ships a stale x86_64-linux node_modules
-    # fixed-output hash, so pin the hash that Bun actually produces.
-    hash = "sha256-OPbZUo/fQv2Xsf+NEZV08GLBMN/DXovhRvn2JkesFtY=";
-  };
-  opencode-base-pkg = opencode.packages.${pkgs.stdenv.hostPlatform.system}.default.override {
-    node_modules = opencode-node-modules;
-  };
-  opencode-pkg = opencode-base-pkg.overrideAttrs (old: {
+  opencode-pkg = opencode.packages.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs (old: {
     postConfigure = (old.postConfigure or "") + ''
       if [ -e packages/app/node_modules/@tsconfig/bun/tsconfig.json ]; then
         substituteInPlace packages/shared/tsconfig.json \
           --replace-fail '"extends": "@tsconfig/bun/tsconfig.json"' '"extends": "../app/node_modules/@tsconfig/bun/tsconfig.json"'
+      fi
+
+      if [ ! -e node_modules/prettier/package.json ]; then
+        for prettier in node_modules/.bun/prettier@*/node_modules/prettier; do
+          if [ -e "$prettier/package.json" ]; then
+            chmod u+w node_modules
+            ln -s "$PWD/$prettier" node_modules/prettier
+            break
+          fi
+        done
       fi
 
       if [ ! -e node_modules/glob/package.json ] && [ -e packages/opencode/node_modules/glob/package.json ]; then

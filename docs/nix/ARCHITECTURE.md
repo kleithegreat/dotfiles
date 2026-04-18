@@ -104,18 +104,20 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-13.
   Quickshell fingerprint-management flow can enroll/delete prints without a
   separate external auth-agent prompt.
 - `hosts/laptop/system.nix` also derives `boot.kernelPackages` from
-  `pkgs.linuxPackagesFor (pkgs.linuxPackages.kernel.overrideAttrs ...)` and
+  `pkgs.linuxPackagesFor ((pkgs.linuxPackages.kernel.override { ignoreConfigErrors = true; }).overrideAttrs ...)` and
   appends `KCFLAGS=-O3 -march=${march}` plus
   `KRUSTFLAGS=-Ctarget-cpu=${march}`
   from the laptop host's `march` special argument, so only the laptop rebuilds
   its kernel with CPU-specific code generation while the shared
-  `enableMarchOptimizations` overlay gate remains unchanged.
+  `enableMarchOptimizations` overlay gate remains unchanged. The local
+  `ignoreConfigErrors = true` override is there because the pinned nixpkgs
+  kernel config still carries a few stale Linux 6.18 symbols.
 - That same laptop host module also uses `boot.kernelPatches = [{ patch = null;
-  structuredExtraConfig = ...; }]` to disable non-Intel CPU/vendor support and
-  AMD-only platform/virtualization options such as `CPU_SUP_AMD`, `KVM_AMD`,
-  `AMD_IOMMU`, `AMD_MEM_ENCRYPT`, `AMD_PMC`, and `AMDTEE`, while also dropping
-  guest-only hypervisor support (`XEN`, `HYPERV`, `KVM_GUEST`) and
-  `DRM_NOUVEAU`; the Intel VM-host path (`kvm-intel`) remains intact.
+  structuredExtraConfig = ...; }]` to disable AMD-only platform/virtualization
+  options such as `KVM_AMD`, `AMD_IOMMU`, `AMD_MEM_ENCRYPT`, and `AMD_PMC`,
+  while also dropping guest-only hypervisor support (`XEN`, `HYPERV`,
+  `KVM_GUEST`) and `DRM_NOUVEAU`; the Intel VM-host path (`kvm-intel`) remains
+  intact.
 - `hosts/laptop/system.nix` also sets `nix.settings.max-jobs = 1`, so the
   laptop daemon builds one derivation at a time locally while leaving
   per-derivation core parallelism at Nix's default `cores = 0` behavior.

@@ -5,7 +5,12 @@ let
     if march == null then
       pkgs.linuxPackages
     else
-      pkgs.linuxPackagesFor (pkgs.linuxPackages.kernel.overrideAttrs (old: {
+      pkgs.linuxPackagesFor ((pkgs.linuxPackages.kernel.override {
+        # Linux 6.18 on this pinned nixpkgs revision still ships a few stale
+        # Kconfig symbols, so let Kconfig drop them while keeping our explicit
+        # laptop-only overrides below.
+        ignoreConfigErrors = true;
+      }).overrideAttrs (old: {
         extraMakeFlags = (old.extraMakeFlags or [ ]) ++ [
           "KCFLAGS=-O3 -march=${march}"
           "KRUSTFLAGS=-Ctarget-cpu=${march}"
@@ -26,18 +31,12 @@ in
       name = "laptop-intel-only-kernel-config";
       patch = null;
       structuredExtraConfig = {
-        CPU_SUP_AMD = lib.mkForce lib.kernel.no;
-        CPU_SUP_HYGON = lib.mkForce lib.kernel.no;
-        CPU_SUP_CENTAUR = lib.mkForce lib.kernel.no;
-        CPU_SUP_ZHAOXIN = lib.mkForce lib.kernel.no;
-
         # Keep Intel KVM host support, but drop AMD-only host features.
         KVM_AMD = lib.mkForce lib.kernel.no;
         X86_AMD_PLATFORM_DEVICE = lib.mkForce lib.kernel.no;
         AMD_MEM_ENCRYPT = lib.mkForce lib.kernel.no;
         AMD_PMC = lib.mkForce lib.kernel.no;
         AMD_IOMMU = lib.mkForce lib.kernel.no;
-        AMDTEE = lib.mkForce lib.kernel.no;
 
         # This host only runs on bare metal, so guest-hypervisor support is dead
         # weight even though it still hosts local KVM guests.
