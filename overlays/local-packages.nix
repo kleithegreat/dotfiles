@@ -10,7 +10,6 @@ final: prev: {
         "$out/bin/.lapce-wrapped"
     '';
   });
-  t3-code = final.callPackage ../pkgs/t3-code { };
   sf-pro = final.stdenvNoCC.mkDerivation {
     pname = "sf-pro";
     version = "2026-04-10";
