@@ -163,7 +163,6 @@ let
     "steam"
     "steam-unwrapped"
     "symbola"
-    "t3-code"
     "unrar"
     "vscode"
     "zoom"
