@@ -112,8 +112,10 @@ QtObject {
 
     // ── Animation constants ──
     // Shell chrome should feel instant/reactive, not floaty.
+    // Slightly favor 60 Hz displays so the motion samples read more continuously.
     // Opens are slightly slower (ease-in to land), close/nav are fast (get out of the way).
-    readonly property real animScale: 1.0
+    readonly property real animScale: 1.1
+    readonly property real popupStartScale: 0.97
 
     // Micro-interactions (press scale, icon color, hover bg)
     readonly property int animMicro:       Math.round(60  * animScale)
@@ -130,6 +132,7 @@ QtObject {
     // Popup close / navigation — snappy, get out of the way
     readonly property int animPopupOut:    Math.round(150 * animScale)
     readonly property int animMedium:      Math.round(250 * animScale)
+    readonly property int animPopupScaleLead: Math.round(40 * animScale)
 
     // Popup height resize
     readonly property int animHeightResize: Math.round(200 * animScale)

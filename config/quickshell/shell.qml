@@ -183,7 +183,7 @@ Scope {
                 Rectangle {
                     id: card; required property string appName; required property string summary; required property string body; required property int nid; required property int index
                     width: Theme.notifWidth; height: cardC.implicitHeight + Theme.notifPadding * 2; radius: Theme.notifRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
-                    opacity: 0; x: Theme.notifWidth * 0.5; scale: 0.92
+                    opacity: 0; x: Theme.notifWidth * 0.5; scale: Theme.popupStartScale
                     Component.onCompleted: { notifEnterAnim.start(); }
 
                     SequentialAnimation {
@@ -192,7 +192,7 @@ Scope {
                         ParallelAnimation {
                             NumberAnimation { target: card; property: "opacity"; from: 0; to: 1; duration: Theme.animNotifIn; easing.type: Easing.OutCubic }
                             NumberAnimation { target: card; property: "x"; from: Theme.notifWidth * 0.5; to: 0; duration: Theme.animNotifIn; easing.type: Easing.OutCubic }
-                            NumberAnimation { target: card; property: "scale"; from: 0.92; to: 1.0; duration: Theme.animNotifIn; easing.type: Easing.OutCubic }
+                            NumberAnimation { target: card; property: "scale"; from: Theme.popupStartScale; to: 1.0; duration: Theme.animNotifIn; easing.type: Easing.OutCubic }
                         }
                     }
                     ColumnLayout {
@@ -265,7 +265,7 @@ Scope {
                     Rectangle {
                         width: parent.width * (AudioService.osdValue / 100); radius: parent.radius; color: Theme.greenBright
                         anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
-                        Behavior on width { Components.Anim { duration: 80; easing.type: Easing.OutCubic } }
+                        Behavior on width { Components.Anim { duration: Theme.animFast; easing.type: Easing.OutCubic } }
                     }
                 }
                 Text {

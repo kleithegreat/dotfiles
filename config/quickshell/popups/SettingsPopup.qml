@@ -1,6 +1,4 @@
 import qs
-import Quickshell
-import Quickshell.Wayland
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Io
@@ -23,22 +21,6 @@ FocusScope {
     anchors.fill: parent
     focus: active
     Keys.priority: Keys.BeforeItem
-
-    /*
-    Legacy per-popup PanelWindow wrapper retained during the overlay-host migration:
-    anchors { top: true; bottom: true; left: true; right: true }
-    color: "transparent"
-    WlrLayershell.namespace: "quickshell:settings"
-    WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: active ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
-    exclusionMode: ExclusionMode.Ignore
-
-    MouseArea {
-        anchors.fill: parent; onClicked: settingsPop.close()
-        focus: settingsPop.active
-        Keys.onEscapePressed: settingsPop.close()
-    }
-    */
 
     // ── State ──
     property var themeState: ({})
@@ -152,7 +134,7 @@ FocusScope {
             return false;
 
         item.opacity = 0;
-        item.scale = 0.92;
+        item.scale = Theme.popupStartScale;
         return true;
     }
 
@@ -187,6 +169,15 @@ FocusScope {
             if (settingsPop.active)
                 settingsPop.refreshSystemServices();
         }
+    }
+
+    // Warm the heavy popup shell in the background so the first open can animate
+    // the real panel instead of showing the placeholder shell first.
+    Timer {
+        interval: 2500
+        running: !settingsPop.contentLoaded
+        repeat: false
+        onTriggered: settingsPop.contentLoaded = true
     }
 
     // ── Data loading ──
@@ -1418,12 +1409,12 @@ FocusScope {
                 easing.bezierCurve: Theme.animCurveEmphasizedEnter
             }
             SequentialAnimation {
-                PauseAnimation { duration: 40 }
+                PauseAnimation { duration: Theme.animPopupScaleLead }
                 Components.Anim {
                     target: settingsContentLoader.item
                     property: "scale"
                     to: 1.0
-                    duration: Theme.animPopupIn - 40
+                    duration: Math.max(0, Theme.animPopupIn - Theme.animPopupScaleLead)
                     easing.type: Easing.BezierSpline
                     easing.bezierCurve: Theme.animCurveEmphasizedEnter
                 }
@@ -1444,7 +1435,7 @@ FocusScope {
             Components.Anim {
                 target: settingsContentLoader.item
                 property: "scale"
-                to: 0.92
+                to: Theme.popupStartScale
                 duration: Theme.animPopupOut
                 easing.type: Easing.BezierSpline
                 easing.bezierCurve: Theme.animCurveExit
@@ -1457,13 +1448,12 @@ FocusScope {
         anchors.centerIn: parent
         width: settingsContentLoader.width
         height: settingsContentLoader.height
-        visible: settingsPop.overlayVisible && !settingsPop.closing && (!settingsContentLoader.item || settingsContentLoader.item.opacity < 1)
-        opacity: settingsContentLoader.item ? Math.max(0, 1 - settingsContentLoader.item.opacity) : 1
+        visible: settingsPop.overlayVisible && !settingsPop.closing && !settingsContentLoader.item
+        opacity: 1
         radius: Theme.popupRadius
         color: Theme.bg
         border.width: 1
         border.color: Theme.bg3
-        Behavior on opacity { Components.Anim { duration: Theme.animHover } }
 
         MouseArea {
             anchors.fill: parent
@@ -1482,7 +1472,7 @@ FocusScope {
 
         onLoaded: {
             item.opacity = 0;
-            item.scale = 0.92;
+            item.scale = Theme.popupStartScale;
             if (settingsPop.active)
                 settingsOpenAnim.start();
         }
@@ -1500,7 +1490,7 @@ FocusScope {
             border.width: 1
             border.color: Theme.bg3
             opacity: 0
-            scale: 0.92
+            scale: Theme.popupStartScale
             transformOrigin: Item.Center
             clip: true
             layer.enabled: settingsOpenAnim.running || settingsCloseAnim.running

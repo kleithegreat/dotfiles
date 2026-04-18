@@ -1,5 +1,4 @@
 import qs
-import Quickshell
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Services.UPower
@@ -66,7 +65,7 @@ FocusScope {
         if (!item)
             return false;
         item.opacity = 0;
-        item.scale = 0.92;
+        item.scale = Theme.popupStartScale;
         return true;
     }
 
@@ -75,14 +74,11 @@ FocusScope {
             suppressHeightAnimation = true;
             forceActiveFocus();
             contentLoaded = true;
-            NetworkService.refreshSummary();
-            BluetoothService.refreshSummary();
-            BrightnessService.refresh();
-            PowerProfileService.detect();
-            VpnService.refresh();
+            qsRefreshTimer.restart();
             if (preparePanelForOpen())
                 qsOpenAnim.start();
         } else if (!closing) {
+            qsRefreshTimer.stop();
             if (qsContentLoader.item) {
                 suppressHeightAnimation = true;
                 closing = true;
@@ -94,6 +90,29 @@ FocusScope {
         }
     }
 
+    Timer {
+        id: qsRefreshTimer
+        interval: Theme.animPopupIn
+        repeat: false
+        onTriggered: {
+            if (!qsPop.active)
+                return;
+
+            NetworkService.refreshSummary();
+            BluetoothService.refreshSummary();
+            BrightnessService.refresh();
+            PowerProfileService.detect();
+            VpnService.refresh();
+        }
+    }
+
+    Timer {
+        interval: 1400
+        running: !qsPop.contentLoaded
+        repeat: false
+        onTriggered: qsPop.contentLoaded = true
+    }
+
     SequentialAnimation {
         id: qsOpenAnim
         ParallelAnimation {
@@ -103,10 +122,10 @@ FocusScope {
                 easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveEmphasizedEnter
             }
             SequentialAnimation {
-                PauseAnimation { duration: 40 }
+                PauseAnimation { duration: Theme.animPopupScaleLead }
                 Components.Anim {
                     target: qsContentLoader.item; property: "scale"; to: 1.0
-                    duration: Theme.animPopupIn - 40
+                    duration: Math.max(0, Theme.animPopupIn - Theme.animPopupScaleLead)
                     easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveEmphasizedEnter
                 }
             }
@@ -126,7 +145,7 @@ FocusScope {
                 easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveExit
             }
             Components.Anim {
-                target: qsContentLoader.item; property: "scale"; to: 0.92
+                target: qsContentLoader.item; property: "scale"; to: Theme.popupStartScale
                 duration: Theme.animPopupOut
                 easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveExit
             }
@@ -148,13 +167,12 @@ FocusScope {
         anchors.rightMargin: Theme.gapOut
         width: qsContentLoader.width
         height: qsContentLoader.height
-        visible: qsPop.overlayVisible && !qsPop.closing && height > 0 && (!qsContentLoader.item || qsContentLoader.item.opacity < 1)
-        opacity: qsContentLoader.item ? Math.max(0, 1 - qsContentLoader.item.opacity) : 1
+        visible: qsPop.overlayVisible && !qsPop.closing && height > 0 && !qsContentLoader.item
+        opacity: 1
         radius: Theme.popupRadius
         color: Theme.bg1
         border.width: 1
         border.color: Theme.bg3
-        Behavior on opacity { Components.Anim { duration: Theme.animHover } }
 
         MouseArea {
             anchors.fill: parent
@@ -183,7 +201,7 @@ FocusScope {
         onLoaded: {
             qsPop.panelHeightHint = item.implicitHeight;
             item.opacity = 0;
-            item.scale = 0.92;
+            item.scale = Theme.popupStartScale;
             if (qsPop.active)
                 qsOpenAnim.start();
         }
@@ -205,8 +223,10 @@ FocusScope {
             anchors.fill: parent
             implicitHeight: Math.min(qsMainCol.implicitHeight + Theme.popupPadding * 2, qsPop.height - Theme.popupTopMargin - Theme.gapOut * 2)
             radius: Theme.popupRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
-            opacity: 0; scale: 0.92
+            opacity: 0; scale: Theme.popupStartScale
             transformOrigin: Item.TopRight
+            layer.enabled: qsOpenAnim.running || qsCloseAnim.running
+            layer.smooth: true
             MouseArea { anchors.fill: parent }
 
             Components.WheelFlickable {

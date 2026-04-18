@@ -37,10 +37,10 @@ RowLayout {
     Components.StyledIcon {
         id: batIcon
         animate: true
-        swapOpacityOutDuration: 100
-        swapScaleOutDuration: 100
-        swapOpacityInDuration: 250
-        swapScaleInDuration: 300
+        swapOpacityOutDuration: Theme.animFast
+        swapScaleOutDuration: Theme.animFast
+        swapOpacityInDuration: Theme.animMedium
+        swapScaleInDuration: Theme.animPopupIn
         source: {
             if (charging) return "../icons/battery-charging.svg";
             if (pct > 90) return "../icons/battery-full.svg";
@@ -56,7 +56,7 @@ RowLayout {
             return Theme.fg;
         }
 
-        Behavior on color { Components.CAnim { duration: 200 } }
+        Behavior on color { Components.CAnim { duration: Theme.animHover } }
     }
 
     Components.StyledText {
