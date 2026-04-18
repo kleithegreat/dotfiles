@@ -63,12 +63,13 @@ Components.WheelFlickable {
         stdout: SplitParser { onRead: (line) => { stateProc.buf += line; } }
         onExited: (code) => {
             let trimmed = buf.trim();
-            root.stateData = ({});
 
             if (code === 3) {
                 root.loadState = "missing";
+                root.stateData = ({});
             } else if (code !== 0 || trimmed === "") {
                 root.loadState = "parse_error";
+                root.stateData = ({});
             } else {
                 try {
                     let parsed = JSON.parse(trimmed);
@@ -79,9 +80,11 @@ Components.WheelFlickable {
                         root.loadState = "ready";
                     } else {
                         root.loadState = "stale";
+                        root.stateData = ({});
                     }
                 } catch (e) {
                     root.loadState = "parse_error";
+                    root.stateData = ({});
                 }
             }
             root.firstLoadDone = true;

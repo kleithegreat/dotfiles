@@ -189,10 +189,12 @@ custom tab-order or focused-outline layer on top of the popup shell. Evidence:
 `config/quickshell/popups/settings/SettingsSidebar.qml`.
 
 `SettingsFocusTimePane.qml` still consumes the JSON summary directly, but it no
-longer paints charts from placeholder geometry on first load. The pane now reads
-from the daemon's XDG-runtime fallback path, treats payloads older than 5
-seconds as stale, waits for the first fresh payload, and only then enables
-bar/heatmap/app-width animations after `chartVisualsReady` has been primed.
+longer paints charts from placeholder geometry on first load or tears down its
+models on each successful poll. The pane now reads from the daemon's
+XDG-runtime fallback path, treats payloads older than 5 seconds as stale, keeps
+the previous ready payload mounted until the next fresh payload parses, waits
+for the first fresh payload, and only then enables bar/heatmap/app-width
+animations after `chartVisualsReady` has been primed.
 Evidence:
 `config/quickshell/popups/settings/SettingsFocusTimePane.qml`.
 
