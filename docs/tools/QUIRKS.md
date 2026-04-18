@@ -67,6 +67,25 @@ rule. Keep the explanation in repo docs, not as inline comments in the JSON
 file, because the Vicinae concat target parses that base file as strict JSON
 during `desktopctl theme sync`.
 
+## Vicinae custom themes override built-ins from XDG data home
+
+**Symptom:** A built-in Vicinae theme such as `gruvbox-dark` or
+`solarized-light` can show desktopctl-managed colors even though the upstream
+package ships different colors or no file for that ID at all.
+
+**Cause:** Vicinae scans `${XDG_DATA_HOME:-~/.local/share}/vicinae/themes/`
+before its packaged theme directories. The desktopctl `vicinae` target now
+writes custom TOML themes there using the configured Vicinae theme IDs, so the
+generated files override packaged themes with the same name and also provide
+missing IDs such as `solarized-light`.
+
+**Status:** Workaround in place
+
+**Resolution:** Treat `~/.local/share/vicinae/themes/` as theme-owned output
+for the Vicinae target. If you want to inspect or debug the active Vicinae
+palette, check the generated TOML there before assuming the packaged theme file
+is what Vicinae is using.
+
 ## Snappy Switcher Theme Assets
 
 Home Manager deploys `snappy-switcher/themes` from the snappy-switcher
