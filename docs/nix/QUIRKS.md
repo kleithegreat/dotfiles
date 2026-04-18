@@ -30,6 +30,12 @@
 **Status:** Intentional exception
 **Resolution:** Keep using `enableMarchOptimizations` only for the optional nixpkgs overlay. If you later enable distributed builds for the Hyprland stack, make sure those derivations are built on CPUs compatible with the machine that will run them, because `-march=native` follows the builder's CPU.
 
+## Laptop kernel tuning is independent of `enableMarchOptimizations`
+**Symptom:** The laptop kernel rebuilds with host-specific code generation even while `flake.nix` leaves `enableMarchOptimizations = false`.
+**Cause:** `hosts/laptop/system.nix` overrides `boot.kernelPackages` directly and derives a new package set from `pkgs.linuxPackages.kernel.overrideAttrs`, appending `KCFLAGS=-O3 -march=${march}` and `KRUSTFLAGS=-Ctarget-cpu=${march}` from the laptop host's `march` argument. The same host module also applies a `boot.kernelPatches` entry with `structuredExtraConfig` to disable non-Intel CPU/vendor support, AMD-only platform features, guest-only hypervisor support, and `DRM_NOUVEAU`. That path does not go through `overlays/march-optimized.nix`.
+**Status:** Intentional exception
+**Resolution:** Keep this host-local override if the laptop should pay the source-build cost for a CPU-tuned kernel while the rest of nixpkgs stays cache-friendly. If you want the stock cached kernel back, remove the laptop `boot.kernelPackages` override; toggling `enableMarchOptimizations` will not affect it.
+
 ## Narrow unfree predicates must cover transitive module closures, not just package lists
 **Symptom:** Replacing `allowUnfree = true` with a small name allowlist still fails evaluation on packages that are not listed directly in `home.packages` or `environment.systemPackages`.
 **Cause:** NixOS and Home Manager evaluate the full module graph. Unfree packages can enter indirectly through options such as `fonts.packages`, `programs.steam.*`, or CUDA-enabled dependency closures.

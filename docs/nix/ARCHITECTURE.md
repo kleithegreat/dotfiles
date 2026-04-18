@@ -33,7 +33,7 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-13.
 | `system/distributed-builds.nix` | Optional shared distributed-build layer | When enabled, configures remote builders, the post-build cache push hook, `nix.sshServe`, and LAN-only SSH firewall rules |
 | `system/distributed-builds-data.nix` | Environment-specific builder/cache data | Authorized builder keys, host keys, current cache signing key, and the current cache URL override |
 | `hosts/vm/system.nix` | VM overlay | VM boot, guest profile, and virtual disk layout |
-| `hosts/laptop/system.nix` | Laptop overlay | Hybrid GPU policy, laptop-only services and overrides, fingerprint/PAM policy, laptop-scoped polkit rules, GRUB, laptop hardware policy, and the laptop `tailscaled` stop-timeout override |
+| `hosts/laptop/system.nix` | Laptop overlay | Laptop-specific kernel/compiler tuning, hybrid GPU policy, laptop-only services and overrides, fingerprint/PAM policy, laptop-scoped polkit rules, GRUB, laptop hardware policy, and the laptop `tailscaled` stop-timeout override |
 | `hosts/laptop/fan-control.nix` | Laptop-only hardware submodule | Dell SMM kernel module wiring, BIOS fan-control handoff, the explicit four-state `i8kmon.conf` profile with aggressive ramp thresholds, and the `i8kmon` systemd service |
 | `hosts/desktop/system.nix` | Desktop overlay | Dedicated NVIDIA policy, desktop-only imports, storage mounts, GRUB, desktop-only overlay imports, the desktop Windows VM toggle, and the desktop `tailscaled` stop-timeout override |
 | `hosts/desktop/wine-ableton.nix` | Desktop Wine/audio submodule | Loads the `ntsync` kernel module at boot, enables `services.pipewire.jack.enable`, and installs the desktop's Ableton-facing Wine toolchain (`wineWow64Packages.stableFull`, `wineasio`, and `winetricks`) |
@@ -103,6 +103,19 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-13.
   active local user direct `net.reactivated.fprint.device.enroll` access so the
   Quickshell fingerprint-management flow can enroll/delete prints without a
   separate external auth-agent prompt.
+- `hosts/laptop/system.nix` also derives `boot.kernelPackages` from
+  `pkgs.linuxPackagesFor (pkgs.linuxPackages.kernel.overrideAttrs ...)` and
+  appends `KCFLAGS=-O3 -march=${march}` plus
+  `KRUSTFLAGS=-Ctarget-cpu=${march}`
+  from the laptop host's `march` special argument, so only the laptop rebuilds
+  its kernel with CPU-specific code generation while the shared
+  `enableMarchOptimizations` overlay gate remains unchanged.
+- That same laptop host module also uses `boot.kernelPatches = [{ patch = null;
+  structuredExtraConfig = ...; }]` to disable non-Intel CPU/vendor support and
+  AMD-only platform/virtualization options such as `CPU_SUP_AMD`, `KVM_AMD`,
+  `AMD_IOMMU`, `AMD_MEM_ENCRYPT`, `AMD_PMC`, and `AMDTEE`, while also dropping
+  guest-only hypervisor support (`XEN`, `HYPERV`, `KVM_GUEST`) and
+  `DRM_NOUVEAU`; the Intel VM-host path (`kvm-intel`) remains intact.
 
 ## Distributed Builds
 
