@@ -36,6 +36,12 @@
 **Status:** Intentional exception
 **Resolution:** Keep this host-local override if the laptop should pay the source-build cost for a CPU-tuned kernel while the rest of nixpkgs stays cache-friendly. If you want the stock cached kernel back, remove the laptop `boot.kernelPackages` override; toggling `enableMarchOptimizations` will not affect it.
 
+## Laptop local builds are serialized on purpose
+**Symptom:** Local Nix builds on the laptop run one derivation at a time even though the machine has many CPU threads.
+**Cause:** `hosts/laptop/system.nix` sets `nix.settings.max-jobs = 1`. The repo leaves `cores = 0`, so a single heavy derivation can still use the full machine; this avoids stacking multiple already-parallel builds on top of each other on a 16 GiB laptop.
+**Status:** Intentional exception
+**Resolution:** Keep the laptop on `max-jobs = 1` unless measurement shows a real win from concurrent derivations. If you want more concurrency later, change that host-local setting rather than widening the shared Nix baseline.
+
 ## Narrow unfree predicates must cover transitive module closures, not just package lists
 **Symptom:** Replacing `allowUnfree = true` with a small name allowlist still fails evaluation on packages that are not listed directly in `home.packages` or `environment.systemPackages`.
 **Cause:** NixOS and Home Manager evaluate the full module graph. Unfree packages can enter indirectly through options such as `fonts.packages`, `programs.steam.*`, or CUDA-enabled dependency closures.
