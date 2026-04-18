@@ -6,6 +6,12 @@
 **Status:** Workaround in place
 **Resolution:** The Qt target uses the full `qt6ct`/`qt5ct` + `kdeglobals`/`current.colors` + Kvantum + `hyprqt6engine` chain; `qt6ct + Fusion` or `hyprqt6engine` alone were only partial fixes.
 
+## NixOS needs both hyprqt6engine's root and the standard Qt plugin roots
+**Symptom:** Qt/KDE apps can inherit the generated palette but still miss Kvantum styling or fall back to partially unthemed widgets, especially in D-Bus/systemd-activated processes such as `xdg-desktop-portal-kde`.
+**Cause:** `hyprqt6engine` installs under `lib/qt-6/`, not the normal `/lib/qt-*/plugins` tree. Pointing `QT_PLUGIN_PATH` only at hyprqt6engine exposes the platform theme itself but hides profile-installed style/platform plugins such as Kvantum and qtct, while a global `QT_STYLE_OVERRIDE` magnifies the fallback path.
+**Status:** Workaround in place
+**Resolution:** The shared system baseline now enables NixOS `qt.enable`, exports `QT_QPA_PLATFORMTHEME=hyprqt6engine`, keeps hyprqt6engine's root on `QT_PLUGIN_PATH`, installs qtct/Kvantum packages system-wide, and lets the generated qtct/hyprqt6engine configs choose the style instead of exporting a global `QT_STYLE_OVERRIDE`.
+
 ## Quickshell keeps one committed generated snapshot
 **Symptom:** `config/quickshell/GeneratedTheme.json` is checked into the repo even though generated outputs are usually kept out of version control.
 **Cause:** Home Manager deploys `config/quickshell/` recursively, so the repo carries one bootstrap snapshot for the live `${XDG_CONFIG_HOME:-~/.config}/quickshell/GeneratedTheme.json` path before `desktopctl theme sync` and later runtime theme applies overwrite it.

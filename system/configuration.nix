@@ -267,6 +267,10 @@ in
   # Electron apps: use Wayland backend
   environment.sessionVariables.NIXOS_OZONE_WL = "1";
   environment.sessionVariables.HYPR_PLUGIN_DIR = hyprPluginDir;
+  environment.sessionVariables.QT_QPA_PLATFORMTHEME = "hyprqt6engine";
+  # hyprqt6engine installs its platform theme outside the standard Qt plugin
+  # roots, so keep its qt-6 prefix visible while qt.enable wires the normal
+  # profile plugin and QML import paths.
   environment.sessionVariables.QT_PLUGIN_PATH = [
     "${hyprqt6engine}/lib/qt-6"
   ];
@@ -390,8 +394,11 @@ in
   programs.partition-manager.enable = true;
 
   # ── Qt theming ───────────────────────────────────────────────
-  # hyprqt6engine replaces qt6ct as the primary Qt6 platform theme (QT_QPA_PLATFORMTHEME=hyprqt6engine)
-  # qt6ct is kept for qt5ct backward compatibility (Qt5 apps still use it)
+  qt.enable = true;
+
+  # hyprqt6engine remains the primary Qt6 platform theme, while qt.enable makes
+  # profile-installed Qt plugins visible to both direct launches and
+  # D-Bus/systemd-activated helpers such as xdg-desktop-portal-kde.
   
   # ── Man pages ────────────────────────────────────────────────
   documentation.man.enable = true;
@@ -449,8 +456,11 @@ in
     cifs-utils       # SMB/CIFS mount support
     ntfs3g           # NTFS read/write (Windows dual-boot)
     dosfstools       # FAT filesystem tools (EFI partitions)
-    qt6Packages.qt6ct  # Qt5 configuration tool (kept for qt5ct backward compat)
-    hyprqt6engine  # Hyprland-native Qt6 theme engine (with KF6 for full KDE app theming)
+    libsForQt5.qt5ct  # Qt5 configuration utility/platform theme
+    qt6Packages.qt6ct  # Qt6 configuration utility; desktopctl still writes qt6ct state
+    kdePackages.qtstyleplugin-kvantum  # Kvantum Qt6 style engine for all Qt sessions
+    libsForQt5.qtstyleplugin-kvantum   # Kvantum Qt5 style engine for all Qt sessions
+    hyprqt6engine  # Hyprland-native Qt6 platform theme (reads generated qt/kde state)
     sddm-theme
     bitwarden-desktop  # must be system-level so polkit policy file is linked (nixpkgs#344073)
   ];

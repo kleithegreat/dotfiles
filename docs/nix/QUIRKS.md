@@ -66,6 +66,12 @@
 **Status:** Workaround in place
 **Resolution:** Install those apps through NixOS modules or `environment.systemPackages`. `system/configuration.nix` now enables `programs.partition-manager` so `kpmcore` is registered for both D-Bus activation and polkit, and `bitwarden-desktop` stays in `environment.systemPackages` for the same reason.
 
+## Qt plugin paths break if you only point `QT_PLUGIN_PATH` at hyprqt6engine
+**Symptom:** Qt and KDE apps can pick up the generated palette but still fall back to partially unstyled widgets or miss Kvantum styling, especially in D-Bus/systemd-activated helpers such as `xdg-desktop-portal-kde`.
+**Cause:** `hyprqt6engine` installs under `lib/qt-6/`, outside the standard `/lib/qt-*/plugins` roots. A hand-written `QT_PLUGIN_PATH=${hyprqt6engine}/lib/qt-6` exposes the Hyprland platform theme itself but hides profile-installed plugins like `qt5ct`, `qt6ct`, and `libkvantum.so` unless NixOS also wires the normal profile-relative plugin directories.
+**Status:** Workaround in place
+**Resolution:** `system/configuration.nix` now enables NixOS `qt.enable`, exports `QT_QPA_PLATFORMTHEME=hyprqt6engine`, keeps the hyprqt6engine root on `QT_PLUGIN_PATH`, and installs `qt5ct`, `qt6ct`, and Kvantum system-wide so both regular apps and user services resolve the same plugin set.
+
 ## Current OpenCode flake build misses root-level packages after the filtered Bun install
 **Symptom:** `nixos-rebuild` fails while building the upstream `sst/opencode` flake package with root-level resolution errors such as Vite reporting `failed to resolve "extends":"@tsconfig/bun/tsconfig.json"` from `packages/shared/tsconfig.json`, or Bun reporting `Could not resolve: "prettier"` from `packages/opencode/src/cli/cmd/generate.ts`.
 **Cause:** The current upstream `nix/node_modules.nix` runs `bun install` with workspace filters that exclude the repo root. That leaves the copied root `node_modules` tree with Bun's internal `.bun` store but without the top-level package links some build steps still resolve through.
