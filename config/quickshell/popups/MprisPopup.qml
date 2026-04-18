@@ -1,6 +1,4 @@
 import qs
-import Quickshell
-import Quickshell.Wayland
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Services.Mpris
@@ -20,22 +18,6 @@ FocusScope {
     anchors.fill: parent
     focus: active
     Keys.priority: Keys.BeforeItem
-
-    /*
-    Legacy per-popup PanelWindow wrapper retained during the overlay-host migration:
-    anchors { top: true; bottom: true; left: true; right: true }
-    color: "transparent"
-    WlrLayershell.namespace: "quickshell:mpris"
-    WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: active ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
-    exclusionMode: ExclusionMode.Ignore
-
-    Rectangle {
-        anchors.fill: parent; color: "transparent"; focus: true
-        Keys.onEscapePressed: mprisPop.close()
-        MouseArea { anchors.fill: parent; onClicked: mprisPop.close() }
-    }
-    */
 
     property var player: {
         let players = Mpris.players.values;
@@ -78,7 +60,7 @@ FocusScope {
         if (active) {
             forceActiveFocus();
             mprisPanel.opacity = 0;
-            mprisPanel.scale = 0.92;
+            mprisPanel.scale = Theme.popupStartScale;
             mprisOpenAnim.start();
         }
         else if (!closing) { closing = true; mprisCloseAnim.start(); }
@@ -97,12 +79,12 @@ FocusScope {
                 easing.bezierCurve: Theme.animCurveEmphasizedEnter
             }
             SequentialAnimation {
-                PauseAnimation { duration: 40 }
+                PauseAnimation { duration: Theme.animPopupScaleLead }
                 Components.Anim {
                     target: mprisPanel
                     property: "scale"
                     to: 1.0
-                    duration: Theme.animPopupIn - 40
+                    duration: Math.max(0, Theme.animPopupIn - Theme.animPopupScaleLead)
                     easing.type: Easing.BezierSpline
                     easing.bezierCurve: Theme.animCurveEmphasizedEnter
                 }
@@ -123,7 +105,7 @@ FocusScope {
             Components.Anim {
                 target: mprisPanel
                 property: "scale"
-                to: 0.92
+                to: Theme.popupStartScale
                 duration: Theme.animPopupOut
                 easing.type: Easing.BezierSpline
                 easing.bezierCurve: Theme.animCurveExit
@@ -138,8 +120,10 @@ FocusScope {
         anchors.topMargin: Theme.popupTopMargin; anchors.leftMargin: Theme.gapOut
         width: Theme.mprisPopupWidth; height: mprisCol.implicitHeight + Theme.popupPadding * 2
         radius: Theme.popupRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
-        opacity: 0; scale: 0.92
+        opacity: 0; scale: Theme.popupStartScale
         transformOrigin: Item.TopLeft
+        layer.enabled: mprisOpenAnim.running || mprisCloseAnim.running
+        layer.smooth: true
         MouseArea { anchors.fill: parent }
 
         ColumnLayout {
@@ -285,7 +269,7 @@ FocusScope {
                         radius: 2; color: Theme.greenBright
                         Behavior on width {
                             Components.Anim {
-                                duration: 300
+                                duration: Theme.animMedium
                                 easing.type: Easing.BezierSpline
                                 easing.bezierCurve: Theme.animCurveStandard
                             }

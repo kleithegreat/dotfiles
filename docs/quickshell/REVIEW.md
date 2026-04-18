@@ -29,10 +29,11 @@ animation path.
   window, enables layer smoothing, and defers the broad service refresh batch
   until after the entrance interval. The intended result is less geometry churn
   and fewer expensive first-frame side effects on high-refresh displays.
-- The popup path above is still awaiting a real 144 Hz smoke test. `qmllint`
-  was present in the environment, but without the Quickshell/Qt import setup it
-  only produced generic missing-import warnings, so it did not provide a useful
-  semantic validation pass for these files.
+- The popup and animation path above is still awaiting a real shell smoke test
+  on both low-refresh and high-refresh displays. `qmllint` was present in the
+  environment, but without the Quickshell/Qt import setup it only produced
+  generic missing-import warnings, so it did not provide a useful semantic
+  validation pass for these files.
 - The current checkpoint includes the shared bounce model, optimistic write
   staging, first-paint fixes for focus-time/app-usage charts, preset-editor
   wallpaper validation, responsive settings sizing, Quick Settings overflow

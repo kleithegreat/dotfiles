@@ -24,9 +24,9 @@ RowLayout {
         // Smooth icon swap: crossfade
         Behavior on source {
             SequentialAnimation {
-                Components.Anim { target: netIcon; property: "opacity"; to: 0; duration: 120; easing.type: Easing.InQuad }
+                Components.Anim { target: netIcon; property: "opacity"; to: 0; duration: Theme.animHover; easing.type: Easing.InQuad }
                 PropertyAction { target: netIcon; property: "source" }
-                Components.Anim { target: netIcon; property: "opacity"; to: 1; duration: 200; easing.type: Easing.OutCubic }
+                Components.Anim { target: netIcon; property: "opacity"; to: 1; duration: Theme.animNormal; easing.type: Easing.OutCubic }
             }
         }
         Behavior on color { Components.CAnim { duration: Theme.animHover } }

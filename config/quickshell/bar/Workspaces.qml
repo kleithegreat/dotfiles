@@ -32,7 +32,7 @@ RowLayout {
                     if (wsItem.hasWindows) return Theme.fg4;
                     return Theme.bg3;
                 }
-                Behavior on width { Components.Anim { duration: 150; easing.type: Easing.OutQuad } }
+                Behavior on width { Components.Anim { duration: Theme.animContentSwap; easing.type: Easing.OutQuad } }
             }
             MouseArea {
                 id: wsArea; anchors.fill: parent

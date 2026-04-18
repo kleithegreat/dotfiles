@@ -47,7 +47,7 @@ Managed popups mounted by the overlay host remain:
 | `Theme.qml` | Shell-facing facade over generated theme JSON | Imported throughout shell components |
 | `ToastService.qml` | Bounded toast queue | Shell toast window, IPC |
 | `TooltipService.qml` | Hover/linger tooltip state | Tooltip window and interactive modules |
-| `VpnService.qml` | Mullvad and Tailscale status plus relay selection | Optional bar VPN, quick settings tile, network pane |
+| `VpnService.qml` | Mullvad and Tailscale status plus relay selection | Quick Settings VPN tile and the Settings network pane |
 
 Direct-upstream or local exceptions:
 
@@ -217,7 +217,7 @@ tab stops or focus outlines layered onto those surfaces. Evidence:
 
 | Piece | Current role |
 | --- | --- |
-| `Theme.qml` | Watches the XDG-config-derived `GeneratedTheme.json` path, reparses on change, and exposes generated colors/fonts plus shell-owned layout constants |
+| `Theme.qml` | Watches the XDG-config-derived `GeneratedTheme.json` path, reparses on change, and exposes generated colors/fonts plus shell-owned layout constants, including the shared animation timing scale, popup start-scale, and popup scale-lead delay used by the shell popup surfaces |
 | `desktopctl/src/theme/targets/quickshell.rs` | Writes `GeneratedTheme.json`, maps theming names into Quickshell's `bg0_h` / `aqua` naming, emits both mono and system font families, and derives shell font sizes from `ThemeState.font_size + quickshell_font_size_offset` |
 | Recursive tree exception | `config/quickshell/GeneratedTheme.json` is committed in the repo as a bootstrap snapshot because Home Manager deploys the whole `config/quickshell/` tree recursively; activation/runtime theme applies still overwrite the live `${XDG_CONFIG_HOME:-~/.config}/quickshell/GeneratedTheme.json` path |
 | Settings host | Runs `desktopctl theme ...`, stages optimistic `themeState` updates for individual `set` writes, serializes general theme writes, shows toast-visible backend failures, then reloads or rolls back its local snapshot when the process exits |
@@ -230,9 +230,11 @@ surface in its fallback color/font object inside `config/quickshell/Theme.qml`.
 
 The async popup surfaces now keep their host containers sized from placeholder
 geometry while the loaded content fades/scales in, instead of snapping the host
-to the final implicit height before the styled content appears. The current
-pattern is shared across Quick Settings, Settings, the notification drawer, and
-Calendar:
+to the final implicit height before the styled content appears. Those popups
+also background-prewarm their loader items shortly after shell startup so the
+common first interactive open can animate the real panel directly instead of
+showing the empty shell while the loader instantiates. The current pattern is
+shared across Quick Settings, Settings, the notification drawer, and Calendar:
 
 - `config/quickshell/popups/QuickSettingsPopup.qml`
 - `config/quickshell/popups/SettingsPopup.qml`
@@ -245,33 +247,50 @@ The popup implementations are no longer uniform, however:
   switches between a month-grid page and a weather page through local toggle
   pills instead of rendering both side by side. It still keeps a
   placeholder-backed `panelHeightHint`, suppresses `Behavior on height` during
-  open/close, and only animates the loaded panel's `opacity` / `scale` while
-  visible. The weather page refreshes on demand and every 15 minutes while that
-  page is active, reusing `desktopctl sun status` for coordinates and
-  sunrise/sunset labels before calling Open-Meteo through `curl`. Its weather
-  card styling now sticks to direct `Theme.*` palette slots for fills, borders,
-  and accents instead of blending intermediate colors inside QML.
+  open/close, prewarms the loader in the background, and only shows the empty
+  placeholder shell before the real panel item exists. Once loaded, the popup
+  animates the real panel's `opacity` / `scale` directly with a gentler start
+  scale and a temporary layer during the transform. The weather page refreshes
+  on demand and every 15 minutes while that page is active, but opening the
+  weather view now defers its on-open refresh until after the entrance interval,
+  still reusing `desktopctl sun status` for coordinates and sunrise/sunset
+  labels before calling Open-Meteo through `curl`. Its weather card styling now
+  sticks to direct `Theme.*` palette slots for fills, borders, and accents
+  instead of blending intermediate colors inside QML.
 - `config/quickshell/NotifDrawer.qml` keeps the same placeholder-backed
-  `panelHeightHint`, suppresses `Behavior on height` during open/close, and
-  only animates the loaded panel's `opacity` / `scale` while visible. Its host
-  height animation remains available only for later in-session content resizes.
+  `panelHeightHint`, suppresses `Behavior on height` during open/close,
+  prewarms the loader in the background, only shows the empty placeholder shell
+  before the panel item exists, and animates the loaded panel's `opacity` /
+  `scale` with the same gentler start scale plus a temporary layer during the
+  transform. Its host height animation remains available only for later
+  in-session content resizes.
 - `config/quickshell/popups/QuickSettingsPopup.qml` does the same outer
-  placeholder-height reservation and open/close suppression, and no longer
-  animates the panel's own `implicitHeight` on top of the host height.
+  placeholder-height reservation and open/close suppression, background-prewarms
+  the popup loader, only shows the empty placeholder shell before the panel
+  item exists, and no longer animates the panel's own `implicitHeight` on top
+  of the host height. The popup now also delays its summary refresh batch until
+  after the entrance interval and enables a temporary layer during the popup
+  transform.
 - `config/quickshell/popups/SettingsPopup.qml` keeps a fixed host size
   (`panelWidth` / `panelHeight`) and only animates the loaded panel's
   `opacity` and `scale`, but the root panel now enables its offscreen layer
   only while the open/close animation is running, with `layer.smooth: true`,
-  and defers `refreshSystemServices()` through a timer instead of kicking the
-  full refresh batch off in the first entrance frame.
+  background-prewarms the popup loader after startup, only shows the empty
+  placeholder shell before the panel item exists, and defers
+  `refreshSystemServices()` through a timer instead of kicking the full refresh
+  batch off in the first entrance frame.
 - `config/quickshell/popups/TrayPopup.qml` and
   `config/quickshell/popups/MprisPopup.qml` skip the async host-height path and
   instead animate fixed-geometry panel rectangles directly with `opacity` /
-  `scale`; `TrayPopup.qml` also animates a small `y` offset.
+  `scale`, enabling their layers only during the open/close transform for
+  smoother low-refresh sampling; `TrayPopup.qml` also animates a small `y`
+  offset and now uses the shared popup start-scale plus theme timing tokens for
+  its tray-item stagger.
 - `config/quickshell/PowerMenu.qml` avoids a popup-container open/close
   transform entirely. The overlay host only fades the scrim, while the menu
-  buttons run staggered `opacity` / `scale` entrance animations inside a stable
-  layout.
+  prewarms its loader after startup and its buttons run staggered `opacity` /
+  `scale` entrance animations inside a stable layout using the shared popup
+  start-scale and theme timing tokens.
 
 `NotifDrawer.qml` also records the largest already-rendered history `entryId`
 and only runs the staggered entrance animation for newly inserted history items,

@@ -31,7 +31,13 @@ Item {
 
             scale: knobMouse.pressed ? 1.1 : 1.0
             Behavior on scale { NumberAnimation { duration: Root.Theme.animMicro; easing.type: Easing.OutCubic } }
-            Behavior on x { NumberAnimation { duration: Root.Theme.animSpring; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+            Behavior on x {
+                NumberAnimation {
+                    duration: Root.Theme.animSpring
+                    easing.type: Easing.BezierSpline
+                    easing.bezierCurve: Root.Theme.animCurveEmphasizedEnter
+                }
+            }
         }
     }
 

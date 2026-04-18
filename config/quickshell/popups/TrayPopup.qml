@@ -1,6 +1,5 @@
 import qs
 import Quickshell
-import Quickshell.Wayland
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Services.SystemTray
@@ -21,27 +20,11 @@ FocusScope {
     focus: active
     Keys.priority: Keys.BeforeItem
 
-    /*
-    Legacy per-popup PanelWindow wrapper retained during the overlay-host migration:
-    anchors { top: true; bottom: true; left: true; right: true }
-    color: "transparent"
-    WlrLayershell.namespace: "quickshell:tray"
-    WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: active ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
-    exclusionMode: ExclusionMode.Ignore
-
-    Rectangle {
-        anchors.fill: parent; color: "transparent"; focus: true
-        Keys.onEscapePressed: trayPop.close()
-        MouseArea { anchors.fill: parent; onClicked: trayPop.close() }
-    }
-    */
-
     onActiveChanged: {
         if (active) {
             forceActiveFocus();
             trayPanel.opacity = 0;
-            trayPanel.scale = 0.92;
+            trayPanel.scale = Theme.popupStartScale;
             trayOpenAnim.start();
         }
         else if (!closing) { closing = true; TooltipService.hide(); trayCloseAnim.start(); }
@@ -60,12 +43,12 @@ FocusScope {
                 easing.bezierCurve: Theme.animCurveEmphasizedEnter
             }
             SequentialAnimation {
-                PauseAnimation { duration: 40 }
+                PauseAnimation { duration: Theme.animPopupScaleLead }
                 Components.Anim {
                     target: trayPanel
                     property: "scale"
                     to: 1.0
-                    duration: Theme.animPopupIn - 40
+                    duration: Math.max(0, Theme.animPopupIn - Theme.animPopupScaleLead)
                     easing.type: Easing.BezierSpline
                     easing.bezierCurve: Theme.animCurveEmphasizedEnter
                 }
@@ -86,7 +69,7 @@ FocusScope {
             Components.Anim {
                 target: trayPanel
                 property: "scale"
-                to: 0.92
+                to: Theme.popupStartScale
                 duration: Theme.animPopupOut
                 easing.type: Easing.BezierSpline
                 easing.bezierCurve: Theme.animCurveExit
@@ -104,8 +87,10 @@ FocusScope {
         radius: Theme.popupRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
         MouseArea { anchors.fill: parent }
 
-        opacity: 0; scale: 0.92
+        opacity: 0; scale: Theme.popupStartScale
         transformOrigin: Item.TopRight
+        layer.enabled: trayOpenAnim.running || trayCloseAnim.running
+        layer.smooth: true
         y: trayPop.active ? anchors.topMargin : anchors.topMargin - 12
         Behavior on y {
             Components.Anim {
@@ -125,9 +110,9 @@ FocusScope {
 
                     // ── Staggered entrance animation ──
                     opacity: 0
-                    scale: 0.92
+                    scale: Theme.popupStartScale
                     Component.onCompleted: {
-                        staggerAnim.delay = index * 30;
+                        staggerAnim.delay = index * Theme.animStagger;
                         staggerAnim.start();
                     }
                     SequentialAnimation {
@@ -139,7 +124,7 @@ FocusScope {
                                 target: trayItem
                                 property: "opacity"
                                 to: 1
-                                duration: 200
+                                duration: Theme.animNormal
                                 easing.type: Easing.BezierSpline
                                 easing.bezierCurve: Theme.animCurveEnter
                             }
@@ -147,9 +132,9 @@ FocusScope {
                                 target: trayItem
                                 property: "scale"
                                 to: 1.0
-                                duration: 250
-                                easing.type: Easing.OutBack
-                                easing.overshoot: 1.07
+                                duration: Theme.animMedium
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveEmphasizedEnter
                             }
                         }
                     }

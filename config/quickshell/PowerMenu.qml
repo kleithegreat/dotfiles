@@ -1,6 +1,4 @@
 import qs
-import Quickshell
-import Quickshell.Wayland
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Io
@@ -22,21 +20,6 @@ FocusScope {
     focus: active
     Keys.priority: Keys.BeforeItem
 
-    /*
-    Legacy per-popup PanelWindow wrapper retained during the overlay-host migration:
-    anchors { top: true; bottom: true; left: true; right: true }
-    color: "transparent"
-    WlrLayershell.namespace: "quickshell:powermenu"
-    WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: active ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
-    exclusionMode: ExclusionMode.Ignore
-
-    Rectangle { anchors.fill: parent; color: Theme.bg0_h; opacity: powerMenu.active ? 0.72 : 0; focus: true
-        Keys.onEscapePressed: powerMenu.close()
-        MouseArea { anchors.fill: parent; onClicked: powerMenu.close() }
-    }
-    */
-
     onActiveChanged: {
         if (active) {
             forceActiveFocus();
@@ -46,6 +29,13 @@ FocusScope {
         }
     }
     Timer { id: pwrCloseTimer; interval: Theme.animPopupOut; onTriggered: powerMenu.closing = false }
+
+    Timer {
+        interval: 1200
+        running: !powerMenu.contentLoaded
+        repeat: false
+        onTriggered: powerMenu.contentLoaded = true
+    }
 
     Keys.onEscapePressed: powerMenu.close()
 
@@ -89,27 +79,27 @@ FocusScope {
                     }
 
                     opacity: 0
-                    scale: 0.92
+                    scale: Theme.popupStartScale
                     Component.onCompleted: { pwrEnterAnim.start(); }
                     SequentialAnimation {
                         id: pwrEnterAnim
-                        PauseAnimation { duration: pwrBtn.index * 50 }
+                        PauseAnimation { duration: pwrBtn.index * Theme.animStagger }
                         ParallelAnimation {
                             Components.Anim {
                                 target: pwrBtn
                                 property: "opacity"
                                 to: 1
-                                duration: 300
+                                duration: Theme.animMedium
                                 easing.type: Easing.BezierSpline
-                                easing.bezierCurve: Theme.animCurveEnter
+                                easing.bezierCurve: Theme.animCurveEmphasizedEnter
                             }
                             Components.Anim {
                                 target: pwrBtn
                                 property: "scale"
                                 to: 1.0
-                                duration: 400
-                                easing.type: Easing.OutBack
-                                easing.overshoot: 1.07
+                                duration: Theme.animPopupIn
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Theme.animCurveEmphasizedEnter
                             }
                         }
                     }

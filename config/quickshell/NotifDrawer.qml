@@ -1,6 +1,4 @@
 import qs
-import Quickshell
-import Quickshell.Wayland
 import QtQuick
 import QtQuick.Layouts
 import "components" as Components
@@ -49,20 +47,6 @@ FocusScope {
     focus: active
     Keys.priority: Keys.BeforeItem
 
-    /*
-    Legacy per-popup PanelWindow wrapper retained during the overlay-host migration:
-    anchors { top: true; bottom: true; left: true; right: true }
-    color: "transparent"
-    WlrLayershell.namespace: "quickshell:drawer"
-    WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: active ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
-    exclusionMode: ExclusionMode.Ignore
-
-    Rectangle { anchors.fill: parent; color: "transparent"; focus: true; Keys.onEscapePressed: drawer.close()
-        MouseArea { anchors.fill: parent; onClicked: drawer.close() }
-    }
-    */
-
     function currentHistoryMaxEntryId() {
         if (NotificationService.historyCount === 0)
             return 0;
@@ -81,7 +65,7 @@ FocusScope {
             return false;
 
         item.opacity = 0;
-        item.scale = 0.92;
+        item.scale = Theme.popupStartScale;
         return true;
     }
 
@@ -104,13 +88,20 @@ FocusScope {
         }
     }
 
+    Timer {
+        interval: 1600
+        running: !drawer.contentLoaded
+        repeat: false
+        onTriggered: drawer.contentLoaded = true
+    }
+
     SequentialAnimation {
         id: drawerOpenAnim
         ParallelAnimation {
             Components.Anim { target: drawerContentLoader.item; property: "opacity"; to: 1; duration: Theme.animPopupIn; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveEmphasizedEnter }
             SequentialAnimation {
-                PauseAnimation { duration: 40 }
-                Components.Anim { target: drawerContentLoader.item; property: "scale"; to: 1.0; duration: Theme.animPopupIn - 40; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveEmphasizedEnter }
+                PauseAnimation { duration: Theme.animPopupScaleLead }
+                Components.Anim { target: drawerContentLoader.item; property: "scale"; to: 1.0; duration: Math.max(0, Theme.animPopupIn - Theme.animPopupScaleLead); easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveEmphasizedEnter }
             }
         }
         onFinished: {
@@ -122,7 +113,7 @@ FocusScope {
         id: drawerCloseAnim
         ParallelAnimation {
             Components.Anim { target: drawerContentLoader.item; property: "opacity"; to: 0; duration: Theme.animPopupOut; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveExit }
-            Components.Anim { target: drawerContentLoader.item; property: "scale"; to: 0.92; duration: Theme.animPopupOut; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveExit }
+            Components.Anim { target: drawerContentLoader.item; property: "scale"; to: Theme.popupStartScale; duration: Theme.animPopupOut; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveExit }
         }
         ScriptAction {
             script: {
@@ -141,13 +132,12 @@ FocusScope {
         anchors.rightMargin: Theme.gapOut
         width: drawerContentLoader.width
         height: drawerContentLoader.height
-        visible: drawer.overlayVisible && !drawer.closing && height > 0 && (!drawerContentLoader.item || drawerContentLoader.item.opacity < 1)
-        opacity: drawerContentLoader.item ? Math.max(0, 1 - drawerContentLoader.item.opacity) : 1
+        visible: drawer.overlayVisible && !drawer.closing && height > 0 && !drawerContentLoader.item
+        opacity: 1
         radius: Theme.notifRadius
         color: Theme.bg1
         border.width: 1
         border.color: Theme.bg3
-        Behavior on opacity { Components.Anim { duration: Theme.animHover } }
 
         MouseArea {
             anchors.fill: parent
@@ -178,7 +168,7 @@ FocusScope {
         onLoaded: {
             drawer.panelHeightHint = Math.min(item.implicitHeight, drawer.height - Theme.popupTopMargin - Theme.gapOut);
             item.opacity = 0;
-            item.scale = 0.92;
+            item.scale = Theme.popupStartScale;
             if (drawer.active)
                 drawerOpenAnim.start();
         }
@@ -200,8 +190,10 @@ FocusScope {
             anchors.fill: parent
             implicitHeight: Math.max(drawerCol.implicitHeight + Theme.notifPadding * 2, 200)
             radius: Theme.notifRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
-            opacity: 0; scale: 0.92
+            opacity: 0; scale: Theme.popupStartScale
             transformOrigin: Item.TopRight
+            layer.enabled: drawerOpenAnim.running || drawerCloseAnim.running
+            layer.smooth: true
             MouseArea { anchors.fill: parent }
 
             ColumnLayout {
