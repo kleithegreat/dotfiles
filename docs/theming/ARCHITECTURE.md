@@ -54,6 +54,7 @@ Targets with notable extra behavior:
 | `qt` | `desktopctl/src/theme/targets/qt.rs` mirrors the palette into qt5ct, qt6ct, KDE, hyprqt6engine, Kvantum, Kate, and KWrite. The target now writes `[Icons] Theme` into `kdeglobals`, drives KTextEditor from `ColorScheme.app_themes.ktexteditor`, uses the shared system-font and mono-font offset helpers for `hyprqt6engine`, and still uses the centralized `ColorScheme.appearance` metadata when only dark/light asset selection is needed. |
 | `quickshell` | `desktopctl/src/theme/targets/quickshell.rs` writes `GeneratedTheme.json` for shell colors and fonts with Python-compatible JSON formatting, emits both `family` and `systemFamily`, and derives `size`, `sizeSmall`, and `sizeLarge` from `ThemeState.font_size + quickshell_font_size_offset`. |
 | `spicetify` | `desktopctl/src/theme/targets/spicetify.rs` ensures theme scaffolding exists and runs `spicetify update` on apply. |
+| `vicinae` | `desktopctl/src/theme/targets/vicinae.rs` still concatenates `config/vicinae/base.json` into `~/.config/vicinae/settings.json`, but its `persist()` hook now also writes custom TOML themes under `~/.local/share/vicinae/themes/` using the configured Vicinae theme IDs from `ColorScheme.app_themes.vicinae`. When a scheme declares a distinct Vicinae `light_name`, the hook loads that repo scheme too so the paired light file exists alongside the active theme. |
 | `vscode` | `desktopctl/src/theme/targets/vscode.rs` merges the repo base settings with theme-owned color and font keys, and now prefers a `'<mono font> Mono', '<mono font>', monospace` stack for `terminal.integrated.fontFamily` when the selected font is a Nerd Font so prompt glyphs render reliably in the integrated terminal. |
 | `wallpaper` | `desktopctl/src/theme/targets/wallpaper.rs` preserves the old `lutgen` cache-key behavior and `awww` runtime side effects while remaining `sync_safe = false`. |
 | `zsh` | `desktopctl/src/theme/targets/zsh.rs` writes `~/.config/zsh/theme-colors` with a scheme-aware `ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE`, choosing the most-muted foreground tier that still clears the target contrast against `ColorScheme.bg`. |
@@ -84,6 +85,9 @@ Targets with notable extra behavior:
   the same app-theme metadata, including the KTextEditor name, so Python-format
   target tests exercise the centralized lookup path instead of falling back to
   defaults.
+- The tests in `desktopctl/src/theme/targets/vicinae.rs` cover the generated
+  `settings.json` payload, the custom TOML theme-file shape, and atomic writes
+  of the active plus paired light Vicinae themes under `XDG_DATA_HOME`.
 - The tests in `desktopctl/src/theme/resolve.rs` cover default seeding, unknown
   field round-trips, upgrade-time backfill for older `theme_state` SQLite rows,
   and legacy `themes/state.json` imports that are missing newer required keys.

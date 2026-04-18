@@ -205,7 +205,7 @@ Constraints:
 | `spicetify` | `standalone` | Generated Spicetify theme files plus runtime apply |
 | `starship` | `concat` | `~/.config/starship.toml` |
 | `tmux` | `import` | `~/.config/tmux/colors.conf` |
-| `vicinae` | `concat` | `~/.config/vicinae/settings.json` |
+| `vicinae` | `concat` | `~/.config/vicinae/settings.json` plus generated custom themes under `~/.local/share/vicinae/themes/` |
 | `vscode` | `concat` | `~/.config/Code/User/settings.json` plus state DB adjustments |
 | `wallpaper` | `command` | `awww` apply and optional filtered wallpaper cache |
 | `zathura` | `import` | `~/.config/zathura/colors` |

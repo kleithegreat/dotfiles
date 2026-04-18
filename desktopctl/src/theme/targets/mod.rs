@@ -295,7 +295,12 @@ pub fn build_registry() -> crate::Result<TargetRegistry> {
         None,
         Some(tmux::on_apply),
     )?;
-    registry.register_function(vicinae::METADATA, vicinae::generate)?;
+    registry.register_function_with_hooks(
+        vicinae::METADATA,
+        vicinae::generate,
+        Some(vicinae::persist),
+        None,
+    )?;
     registry.register_function_with_hooks(
         vscode::METADATA,
         vscode::generate,
