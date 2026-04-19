@@ -28,6 +28,7 @@ FocusScope {
     property var colorFamilies: []
     property var presets: []
     property var wallpapers: []
+    property var wallpaperPreviewPaths: ({})
     property bool directoryBrowserOpen: false
     property string directoryBrowserPath: "/home/kevin/repos/dotfiles/wallpapers"
     property var directoryBrowserEntries: []
@@ -727,10 +728,30 @@ FocusScope {
 
     Process {
         id: listWallpapersProc; running: false
-        command: ["bash", "-c", "ls -- \"$1\" 2>/dev/null || true", "_", settingsPop.wallpaperDir]
-        property var items: []
-        stdout: SplitParser { onRead: (line) => { let t = line.trim(); if (t !== "") listWallpapersProc.items.push(t); } }
-        onExited: { settingsPop.wallpapers = items; items = []; }
+        command: ["desktopctl", "theme", "list-wallpapers", "--json", "--directory", settingsPop.wallpaperDir]
+        property string buf: ""
+        stdout: SplitParser { onRead: (line) => { listWallpapersProc.buf += line; } }
+        onExited: {
+            let items = [];
+            let previewPaths = {};
+            try {
+                let parsed = JSON.parse(buf);
+                if (Array.isArray(parsed)) {
+                    for (let i = 0; i < parsed.length; i++) {
+                        let entry = parsed[i] || {};
+                        let name = String(entry.name || "").trim();
+                        if (name === "")
+                            continue;
+                        items.push(name);
+                        if (entry.preview_path)
+                            previewPaths[name] = String(entry.preview_path);
+                    }
+                }
+            } catch (e) {}
+            settingsPop.wallpapers = items;
+            settingsPop.wallpaperPreviewPaths = previewPaths;
+            buf = "";
+        }
     }
 
     Process {
@@ -1696,6 +1717,7 @@ FocusScope {
             writePending: settingsPop.themeWritePending
             pendingKey: settingsPop.pendingThemeKey
             wallpapers: settingsPop.wallpapers
+            wallpaperPreviewPaths: settingsPop.wallpaperPreviewPaths
             wallpaperDir: settingsPop.wallpaperDir
             directoryBrowserOpen: settingsPop.directoryBrowserOpen
             directoryBrowserPath: settingsPop.directoryBrowserPath

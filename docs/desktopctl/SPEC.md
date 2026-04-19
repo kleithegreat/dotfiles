@@ -28,6 +28,7 @@ describing an intended future migration.
 | `/run/user/$UID/desktopctl.sock` | `desktopctl daemon` | Socket fallback when `XDG_RUNTIME_DIR` is unset |
 | `$XDG_RUNTIME_DIR/focustime_state.json` | `desktopctl daemon` | Focus-time summary consumed by Quickshell |
 | `$XDG_CACHE_HOME/sun-schedule/location.json` | `desktopctl sun` / daemon | Cached latitude/longitude for solar scheduling |
+| `$XDG_CACHE_HOME/desktopctl/wallpaper-previews/*.png` | `desktopctl theme list-wallpapers` | Cache-backed wallpaper preview images consumed by Quickshell |
 | `~/.config/hypr/input-runtime.conf` | `desktopctl hypr input` | Persisted shared Hyprland mouse defaults layered after `input.conf` and `input-devices.conf` |
 | `~/.config/hypr/animations-override.conf` | `desktopctl hypr animations` | Persisted animation overrides layered after `appearance.conf` |
 | `~/.config/hypr/keybinds-override.conf` | `desktopctl hypr keybinds` | Persisted keybind overrides layered after `keybinds.conf` |
@@ -39,6 +40,9 @@ Additional path rules:
   lowercase `desktopctl_REPO`, then falls back to `~/repos/dotfiles`.
 - `desktopctl hypr input status` layers `~/.config/hypr/input.conf` defaults
   with any managed overrides found in `~/.config/hypr/input-runtime.conf`.
+- `desktopctl theme list-wallpapers --json` caches scaled preview images under
+  `$XDG_CACHE_HOME/desktopctl/wallpaper-previews/`, keyed by wallpaper path,
+  file metadata, and the fixed preview bounds used for Quickshell cards.
 - `launch-quickshell`, brightness OSD notifications, and repo-relative concat
   target base paths all depend on that repo-root resolution when they need the
   repo's `config/` tree.
@@ -110,6 +114,7 @@ Inspection:
 | --- | --- |
 | `theme status [--json]` | Prints the current canonical theme state |
 | `theme list-schemes [--json]` | Lists color-scheme files; `--json` returns filename-ordered scheme preview objects with identity, appearance, named colors, and terminal palette entries for UI consumers |
+| `theme list-wallpapers [--json] [--directory <path>]` | Lists supported wallpaper files from the current wallpaper directory or an explicit directory; `--json` returns filename-ordered entries with absolute source paths plus cached preview paths for UI consumers |
 | `theme list-presets [--json]` | Lists preset files |
 
 Theming invariants:
@@ -120,6 +125,9 @@ Theming invariants:
   defaults before validation and rewrites the upgraded row set to SQLite.
 - `theme list-schemes --json` is the machine-readable scheme-preview inventory
   consumed by Quickshell theme selectors.
+- `theme list-wallpapers --json` is the machine-readable wallpaper inventory
+  consumed by the Quickshell wallpaper browser, and its preview paths point to
+  cache-backed scaled images rather than the original wallpaper files.
 - Presets are partial patches, not full-state snapshots.
 - `theme sync` is the activation-time safe subset; it is intentionally narrower
   than `theme all`.
