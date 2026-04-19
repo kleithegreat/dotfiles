@@ -153,6 +153,7 @@ in
   home.packages = with pkgs; [
     # CLI tools
     opencode-pkg
+    openchamber
     bat
     eza
     fd

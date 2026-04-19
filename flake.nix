@@ -71,6 +71,8 @@
       in {
         desktopctl = pkgs.desktopctl;
         helium = pkgs.helium;
+        openchamber = pkgs.openchamber;
+        openchamber-claude-bridge = pkgs.openchamber-claude-bridge;
       };
 
     nixosConfigurations.vm = mkHost {

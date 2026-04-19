@@ -1,0 +1,465 @@
+diff --git a/packages/ui/src/components/sections/openchamber/OpenCodeCliSettings.tsx b/packages/ui/src/components/sections/openchamber/OpenCodeCliSettings.tsx
+index 2dcc330..b183107 100644
+--- a/packages/ui/src/components/sections/openchamber/OpenCodeCliSettings.tsx
++++ b/packages/ui/src/components/sections/openchamber/OpenCodeCliSettings.tsx
+@@ -1,6 +1,7 @@
+ import * as React from 'react';
+ import { Button } from '@/components/ui/button';
+ import { Input } from '@/components/ui/input';
++import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+ import { RiFolderLine, RiInformationLine } from '@remixicon/react';
+ import { isDesktopShell, isTauriShell } from '@/lib/desktop';
+@@ -8,6 +9,7 @@ import { updateDesktopSettings } from '@/lib/persistence';
+ import { reloadOpenCodeConfiguration } from '@/stores/useAgentsStore';
+ 
+ export const OpenCodeCliSettings: React.FC = () => {
++  const [backend, setBackend] = React.useState<'opencode' | 'claude-code'>('opencode');
+   const [value, setValue] = React.useState('');
+   const [isLoading, setIsLoading] = React.useState(true);
+   const [isSaving, setIsSaving] = React.useState(false);
+@@ -23,11 +25,13 @@ export const OpenCodeCliSettings: React.FC = () => {
+         if (!response.ok) {
+           return;
+         }
+-        const data = (await response.json().catch(() => null)) as null | { opencodeBinary?: unknown };
++        const data = (await response.json().catch(() => null)) as null | { opencodeBinary?: unknown; backend?: unknown };
+         if (cancelled || !data) {
+           return;
+         }
++        const nextBackend = data.backend === 'claude-code' ? 'claude-code' : 'opencode';
+         const next = typeof data.opencodeBinary === 'string' ? data.opencodeBinary.trim() : '';
++        setBackend(nextBackend);
+         setValue(next);
+       } catch {
+         // ignore
+@@ -73,26 +77,30 @@ export const OpenCodeCliSettings: React.FC = () => {
+   const handleSaveAndReload = React.useCallback(async () => {
+     setIsSaving(true);
+     try {
+-      await updateDesktopSettings({ opencodeBinary: value.trim() });
+-      await reloadOpenCodeConfiguration({ message: 'Restarting OpenCode…', mode: 'projects', scopes: ['all'] });
++      await updateDesktopSettings({ backend, opencodeBinary: value.trim() });
++      await reloadOpenCodeConfiguration({
++        message: backend === 'claude-code' ? 'Switching to Claude Code…' : 'Restarting OpenCode…',
++        mode: 'projects',
++        scopes: ['all'],
++      });
+     } finally {
+       setIsSaving(false);
+     }
+-  }, [value]);
++  }, [backend, value]);
+ 
+   return (
+     <div className="mb-8">
+       <div className="mb-1 px-1">
+         <div className="flex items-center gap-2">
+           <h3 className="typography-ui-header font-medium text-foreground">
+-            OpenCode CLI
++            Backend
+           </h3>
+           <Tooltip delayDuration={1000}>
+             <TooltipTrigger asChild>
+               <RiInformationLine className="h-3.5 w-3.5 text-muted-foreground/60 cursor-help" />
+             </TooltipTrigger>
+             <TooltipContent sideOffset={8} className="max-w-xs">
+-              Optional absolute path to the <code className="font-mono text-xs">opencode</code> binary.
++              Choose whether OpenChamber manages a local OpenCode server or uses the built-in Claude Code bridge.
+             </TooltipContent>
+           </Tooltip>
+         </div>
+@@ -101,36 +109,63 @@ export const OpenCodeCliSettings: React.FC = () => {
+       <section className="px-2 pb-2 pt-0 space-y-0.5">
+         <div className="flex flex-col gap-2 py-1.5 sm:flex-row sm:items-center sm:gap-3">
+           <div className="flex min-w-0 flex-col shrink-0">
+-            <span className="typography-ui-label text-foreground">OpenCode Binary Path</span>
++            <span className="typography-ui-label text-foreground">Runtime Backend</span>
+           </div>
+           <div className="flex min-w-0 items-center gap-2 sm:w-[20rem]">
+-            <Input
+-              value={value}
+-              onChange={(e) => setValue(e.target.value)}
+-              placeholder="/Users/you/.bun/bin/opencode"
+-              disabled={isLoading || isSaving}
+-              className="h-7 min-w-0 flex-1 font-mono text-xs"
+-            />
+-            <Button
+-              type="button"
+-              variant="outline"
+-              size="xs"
+-              onClick={handleBrowse}
+-              disabled={isLoading || isSaving || !isDesktopShell() || !isTauriShell()}
+-              className="h-7 w-7 p-0"
+-              aria-label="Browse for OpenCode binary path"
+-              title="Browse"
+-            >
+-              <RiFolderLine className="h-4 w-4" />
+-            </Button>
++            <Select value={backend} onValueChange={(next) => setBackend(next === 'claude-code' ? 'claude-code' : 'opencode')}>
++              <SelectTrigger className="h-7 min-w-0 flex-1 text-xs">
++                <SelectValue />
++              </SelectTrigger>
++              <SelectContent>
++                <SelectItem value="opencode">OpenCode</SelectItem>
++                <SelectItem value="claude-code">Claude Code</SelectItem>
++              </SelectContent>
++            </Select>
+           </div>
+         </div>
+ 
+-        <div className="py-1.5">
+-          <div className="typography-micro text-muted-foreground/70">
+-            Tip: you can also use <span className="font-mono">OPENCODE_BINARY</span> env var, but this setting persists in <span className="font-mono">~/.config/openchamber/settings.json</span>.
++        {backend === 'opencode' ? (
++          <>
++            <div className="flex flex-col gap-2 py-1.5 sm:flex-row sm:items-center sm:gap-3">
++              <div className="flex min-w-0 flex-col shrink-0">
++                <span className="typography-ui-label text-foreground">OpenCode Binary Path</span>
++              </div>
++              <div className="flex min-w-0 items-center gap-2 sm:w-[20rem]">
++                <Input
++                  value={value}
++                  onChange={(e) => setValue(e.target.value)}
++                  placeholder="/Users/you/.bun/bin/opencode"
++                  disabled={isLoading || isSaving}
++                  className="h-7 min-w-0 flex-1 font-mono text-xs"
++                />
++                <Button
++                  type="button"
++                  variant="outline"
++                  size="xs"
++                  onClick={handleBrowse}
++                  disabled={isLoading || isSaving || !isDesktopShell() || !isTauriShell()}
++                  className="h-7 w-7 p-0"
++                  aria-label="Browse for OpenCode binary path"
++                  title="Browse"
++                >
++                  <RiFolderLine className="h-4 w-4" />
++                </Button>
++              </div>
++            </div>
++
++            <div className="py-1.5">
++              <div className="typography-micro text-muted-foreground/70">
++                Tip: you can also use <span className="font-mono">OPENCODE_BINARY</span> env var, but this setting persists in <span className="font-mono">~/.config/openchamber/settings.json</span>.
++              </div>
++            </div>
++          </>
++        ) : (
++          <div className="py-1.5">
++            <div className="typography-micro text-muted-foreground/70">
++              OpenChamber will start and manage the Claude Code bridge automatically. Claude Code just needs to already be installed and authenticated on this machine.
++            </div>
+           </div>
+-        </div>
++        )}
+ 
+         <div className="flex justify-start py-1.5">
+           <Button
+diff --git a/packages/ui/src/lib/desktop.ts b/packages/ui/src/lib/desktop.ts
+index 022e036..b0f2784 100644
+--- a/packages/ui/src/lib/desktop.ts
++++ b/packages/ui/src/lib/desktop.ts
+@@ -48,6 +48,7 @@ export type DesktopSettings = {
+   splashFgDark?: string;
+   lastDirectory?: string;
+   homeDirectory?: string;
++  backend?: 'opencode' | 'claude-code';
+   // Optional absolute path to `opencode` binary.
+   opencodeBinary?: string;
+   desktopLanAccessEnabled?: boolean;
+diff --git a/packages/ui/src/lib/persistence.ts b/packages/ui/src/lib/persistence.ts
+index 620f21d..9ad767e 100644
+--- a/packages/ui/src/lib/persistence.ts
++++ b/packages/ui/src/lib/persistence.ts
+@@ -518,6 +518,10 @@ const sanitizeWebSettings = (payload: unknown): DesktopSettings | null => {
+     result.homeDirectory = candidate.homeDirectory;
+   }
+ 
++  if (typeof candidate.backend === 'string' && (candidate.backend === 'opencode' || candidate.backend === 'claude-code')) {
++    result.backend = candidate.backend;
++  }
++
+   if (typeof candidate.opencodeBinary === 'string') {
+     const trimmed = candidate.opencodeBinary.trim();
+     result.opencodeBinary = trimmed.length > 0 ? trimmed : undefined;
+diff --git a/packages/web/server/index.js b/packages/web/server/index.js
+index ec8dcfd..68c7fa9 100644
+--- a/packages/web/server/index.js
++++ b/packages/web/server/index.js
+@@ -407,6 +407,7 @@ let lastOpenCodeError = null;
+ let isOpenCodeReady = false;
+ let openCodeNotReadySince = 0;
+ let isExternalOpenCode = false;
++let managedBackendKind = null;
+ let exitOnShutdown = true;
+ let uiAuthController = null;
+ let activeTunnelController = null;
+@@ -828,6 +829,7 @@ Object.defineProperties(openCodeLifecycleState, {
+   isOpenCodeReady: { get: () => isOpenCodeReady, set: (value) => { isOpenCodeReady = value; } },
+   openCodeNotReadySince: { get: () => openCodeNotReadySince, set: (value) => { openCodeNotReadySince = value; } },
+   isExternalOpenCode: { get: () => isExternalOpenCode, set: (value) => { isExternalOpenCode = value; } },
++  managedBackendKind: { get: () => managedBackendKind, set: (value) => { managedBackendKind = value; } },
+   isShuttingDown: { get: () => isShuttingDown, set: (value) => { isShuttingDown = value; } },
+   healthCheckInterval: { get: () => healthCheckInterval, set: (value) => { healthCheckInterval = value; } },
+   expressApp: { get: () => expressApp, set: (value) => { expressApp = value; } },
+@@ -846,6 +848,7 @@ const openCodeLifecycleRuntime = createOpenCodeLifecycleRuntime({
+     ENV_CONFIGURED_OPENCODE_HOSTNAME,
+     ENV_SKIP_OPENCODE_START,
+   },
++  readSettingsFromDiskMigrated,
+   syncToHmrState,
+   syncFromHmrState,
+   getOpenCodeAuthHeaders,
+@@ -1043,6 +1046,7 @@ async function main(options = {}) {
+       return {
+         openCodePort,
+         openCodeRunning: Boolean(openCodePort && isOpenCodeReady && !isRestartingOpenCode),
++        backend: managedBackendKind || (isExternalOpenCode ? 'external' : 'opencode'),
+         openCodeSecureConnection: isOpenCodeConnectionSecure(),
+         openCodeAuthSource: openCodeAuthSource || null,
+         openCodeApiPrefix: '',
+diff --git a/packages/web/server/lib/opencode/lifecycle.js b/packages/web/server/lib/opencode/lifecycle.js
+index a4be188..4d9bb4b 100644
+--- a/packages/web/server/lib/opencode/lifecycle.js
++++ b/packages/web/server/lib/opencode/lifecycle.js
+@@ -5,6 +5,7 @@ export const createOpenCodeLifecycleRuntime = (deps) => {
+   const {
+     state,
+     env,
++    readSettingsFromDiskMigrated,
+     syncToHmrState,
+     syncFromHmrState,
+     getOpenCodeAuthHeaders,
+@@ -176,6 +177,17 @@ export const createOpenCodeLifecycleRuntime = (deps) => {
+     await waitForChildProcessClose(child, 1000);
+   };
+ 
++  const normalizeManagedBackend = (value) => value === 'claude-code' ? 'claude-code' : 'opencode';
++
++  const readManagedBackendFromSettings = async () => {
++    try {
++      const settings = await readSettingsFromDiskMigrated();
++      return normalizeManagedBackend(settings?.backend);
++    } catch {
++      return 'opencode';
++    }
++  };
++
+   const createManagedOpenCodeServerProcess = async ({ hostname, port, timeout, cwd, env: processEnv }) => {
+     let binary = (process.env.OPENCODE_BINARY || 'opencode').trim() || 'opencode';
+     let args = ['serve', '--hostname', hostname, '--port', String(port)];
+@@ -279,6 +291,57 @@ export const createOpenCodeLifecycleRuntime = (deps) => {
+     };
+   };
+ 
++  const createManagedClaudeBridgeProcess = async ({ port, timeout, cwd }) => {
++    const binary = (process.env.OPENCHAMBER_CLAUDE_BRIDGE_BINARY || 'openchamber-claude-bridge').trim() || 'openchamber-claude-bridge';
++    const args = ['serve', '--host', '127.0.0.1', '--port', String(port)];
++    const child = spawn(binary, args, {
++      cwd,
++      env: process.env,
++      windowsHide: true,
++      stdio: ['ignore', 'pipe', 'pipe'],
++    });
++
++    let output = '';
++    child.stdout?.on('data', (chunk) => {
++      output += chunk.toString();
++    });
++    child.stderr?.on('data', (chunk) => {
++      output += chunk.toString();
++    });
++
++    const url = `http://127.0.0.1:${port}`;
++
++    try {
++      await Promise.race([
++        new Promise((_, reject) => {
++          child.once('exit', (code) => {
++            reject(new Error(`Claude bridge exited with code ${code}. Output: ${output}`));
++          });
++          child.once('error', reject);
++        }),
++        (async () => {
++          const healthy = await waitForReady(url, timeout);
++          if (!healthy) {
++            throw new Error(`Timeout waiting for Claude bridge to become ready after ${timeout}ms. Output: ${output}`);
++          }
++        })(),
++      ]);
++    } catch (error) {
++      try {
++        await closeManagedOpenCodeChild(child);
++      } catch {
++      }
++      throw error;
++    }
++
++    return {
++      url,
++      async close() {
++        await closeManagedOpenCodeChild(child);
++      },
++    };
++  };
++
+   const resolveManagedOpenCodePort = async (requestedPort, hostname = '127.0.0.1') => {
+     if (typeof requestedPort === 'number' && Number.isFinite(requestedPort) && requestedPort > 0) {
+       return requestedPort;
+@@ -373,8 +436,55 @@ export const createOpenCodeLifecycleRuntime = (deps) => {
+   };
+ 
+   const startOpenCode = async () => {
++    const backend = await readManagedBackendFromSettings();
+     const desiredPort = env.ENV_CONFIGURED_OPENCODE_PORT ?? 0;
+     const spawnPort = await resolveManagedOpenCodePort(desiredPort, env.ENV_CONFIGURED_OPENCODE_HOSTNAME);
++    state.managedBackendKind = backend;
++    state.isExternalOpenCode = false;
++    state.openCodeBaseUrl = null;
++
++    if (backend === 'claude-code') {
++      console.log(
++        desiredPort > 0
++          ? `Starting Claude Code bridge on requested port ${desiredPort}...`
++          : `Starting Claude Code bridge on allocated port ${spawnPort}...`
++      );
++
++      try {
++        const bridgeInstance = await createManagedClaudeBridgeProcess({
++          port: spawnPort,
++          timeout: 30000,
++          cwd: state.openCodeWorkingDirectory,
++        });
++
++        const url = new URL(bridgeInstance.url);
++        const port = parseInt(url.port, 10);
++        const prefix = normalizeApiPrefix(url.pathname);
++
++        if (await waitForReady(bridgeInstance.url, 10000)) {
++          setOpenCodePort(port);
++          setDetectedOpenCodeApiPrefix(prefix);
++          state.isOpenCodeReady = true;
++          state.lastOpenCodeError = null;
++          state.openCodeNotReadySince = 0;
++          return bridgeInstance;
++        }
++
++        try {
++          await bridgeInstance.close();
++        } catch {
++        }
++        throw new Error('Claude bridge started but health check failed (timeout)');
++      } catch (error) {
++        const message = error instanceof Error ? error.message : String(error);
++        state.lastOpenCodeError = message;
++        state.openCodePort = null;
++        syncToHmrState();
++        console.error(`Failed to start Claude bridge: ${message}`);
++        throw error;
++      }
++    }
++
+     console.log(
+       desiredPort > 0
+         ? `Starting OpenCode on requested port ${desiredPort}...`
+@@ -409,6 +519,7 @@ export const createOpenCodeLifecycleRuntime = (deps) => {
+         setOpenCodePort(port);
+         setDetectedOpenCodeApiPrefix(prefix);
+ 
++        state.managedBackendKind = 'opencode';
+         state.isOpenCodeReady = true;
+         state.lastOpenCodeError = null;
+         state.openCodeNotReadySince = 0;
+@@ -451,6 +562,7 @@ export const createOpenCodeLifecycleRuntime = (deps) => {
+         const healthy = await probeExternalOpenCode(probePort, probeOrigin);
+         if (healthy) {
+           console.log(`External OpenCode server on port ${probePort} is healthy`);
++          state.managedBackendKind = null;
+           setOpenCodePort(probePort);
+           state.isOpenCodeReady = true;
+           state.lastOpenCodeError = null;
+@@ -658,11 +770,32 @@ export const createOpenCodeLifecycleRuntime = (deps) => {
+   const bootstrapOpenCodeAtStartup = async () => {
+     try {
+       syncFromHmrState();
++      const configuredBackend = await readManagedBackendFromSettings();
++      let reusedHealthyProcess = false;
++
+       if (await isOpenCodeProcessHealthy()) {
+-        console.log(`[HMR] Reusing existing OpenCode process on port ${state.openCodePort}`);
+-      } else if (env.ENV_SKIP_OPENCODE_START && env.ENV_EFFECTIVE_PORT) {
++        if (!state.isExternalOpenCode && state.managedBackendKind && state.managedBackendKind !== configuredBackend) {
++          console.log(`Managed backend changed from ${state.managedBackendKind} to ${configuredBackend}, restarting managed backend...`);
++          try {
++            await state.openCodeProcess?.close();
++          } catch {
++          }
++          state.openCodeProcess = null;
++          state.openCodePort = null;
++          syncToHmrState();
++        } else {
++          console.log(`[HMR] Reusing existing OpenCode process on port ${state.openCodePort}`);
++          if (!state.isExternalOpenCode) {
++            state.managedBackendKind = configuredBackend;
++          }
++          reusedHealthyProcess = true;
++        }
++      }
++
++      if (!reusedHealthyProcess && env.ENV_SKIP_OPENCODE_START && env.ENV_EFFECTIVE_PORT) {
+         const label = env.ENV_CONFIGURED_OPENCODE_HOST ? env.ENV_CONFIGURED_OPENCODE_HOST.origin : `http://localhost:${env.ENV_EFFECTIVE_PORT}`;
+         console.log(`Using external OpenCode server at ${label} (skip-start mode)`);
++        state.managedBackendKind = null;
+         state.openCodeBaseUrl = env.ENV_CONFIGURED_OPENCODE_HOST?.origin ?? null;
+         setOpenCodePort(env.ENV_EFFECTIVE_PORT);
+         state.isOpenCodeReady = true;
+@@ -670,9 +803,10 @@ export const createOpenCodeLifecycleRuntime = (deps) => {
+         state.lastOpenCodeError = null;
+         state.openCodeNotReadySince = 0;
+         syncToHmrState();
+-      } else if (env.ENV_EFFECTIVE_PORT && await probeExternalOpenCode(env.ENV_EFFECTIVE_PORT, env.ENV_CONFIGURED_OPENCODE_HOST?.origin)) {
++      } else if (!reusedHealthyProcess && env.ENV_EFFECTIVE_PORT && await probeExternalOpenCode(env.ENV_EFFECTIVE_PORT, env.ENV_CONFIGURED_OPENCODE_HOST?.origin)) {
+         const label = env.ENV_CONFIGURED_OPENCODE_HOST ? env.ENV_CONFIGURED_OPENCODE_HOST.origin : `http://localhost:${env.ENV_EFFECTIVE_PORT}`;
+         console.log(`Auto-detected existing OpenCode server at ${label}`);
++        state.managedBackendKind = null;
+         state.openCodeBaseUrl = env.ENV_CONFIGURED_OPENCODE_HOST?.origin ?? null;
+         setOpenCodePort(env.ENV_EFFECTIVE_PORT);
+         state.isOpenCodeReady = true;
+@@ -680,15 +814,16 @@ export const createOpenCodeLifecycleRuntime = (deps) => {
+         state.lastOpenCodeError = null;
+         state.openCodeNotReadySince = 0;
+         syncToHmrState();
+-      } else if (!env.ENV_EFFECTIVE_PORT && await probeExternalOpenCode(4096)) {
++      } else if (!reusedHealthyProcess && configuredBackend === 'opencode' && !env.ENV_EFFECTIVE_PORT && await probeExternalOpenCode(4096)) {
+         console.log('Auto-detected existing OpenCode server on default port 4096');
++        state.managedBackendKind = null;
+         setOpenCodePort(4096);
+         state.isOpenCodeReady = true;
+         state.isExternalOpenCode = true;
+         state.lastOpenCodeError = null;
+         state.openCodeNotReadySince = 0;
+         syncToHmrState();
+-      } else {
++      } else if (!reusedHealthyProcess) {
+         if (env.ENV_EFFECTIVE_PORT) {
+           console.log(`Using OpenCode port from environment: ${env.ENV_EFFECTIVE_PORT}`);
+           setOpenCodePort(env.ENV_EFFECTIVE_PORT);
+diff --git a/packages/web/server/lib/opencode/settings-helpers.js b/packages/web/server/lib/opencode/settings-helpers.js
+index 5661ba1..cd21d04 100644
+--- a/packages/web/server/lib/opencode/settings-helpers.js
++++ b/packages/web/server/lib/opencode/settings-helpers.js
+@@ -85,6 +85,12 @@ export const createSettingsHelpers = (dependencies) => {
+       const normalized = normalizeDirectoryPath(candidate.opencodeBinary).trim();
+       result.opencodeBinary = normalized;
+     }
++    if (typeof candidate.backend === 'string') {
++      const normalized = candidate.backend.trim();
++      if (normalized === 'opencode' || normalized === 'claude-code') {
++        result.backend = normalized;
++      }
++    }
+     if (typeof candidate.desktopLanAccessEnabled === 'boolean') {
+       result.desktopLanAccessEnabled = candidate.desktopLanAccessEnabled;
+     }
