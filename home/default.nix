@@ -1,12 +1,17 @@
-{ config, pkgs, lib, dotfilesPath, hostName, vicinae, snappy-switcher, opencode, enableNativeOptimizations, ... }:
+{ config, pkgs, lib, dotfilesPath, hostName, vicinae, snappy-switcher, opencode, inputs, enableNativeOptimizations, ... }:
 
 let
   nativeOptimizations = import ../system/native-optimizations.nix {
     inherit lib hostName enableNativeOptimizations;
   };
-  stockPkgs = import pkgs.path {
-    system = pkgs.stdenv.hostPlatform.system;
+  optimizedPackages = import ../overlays/native-optimized.nix {
+    inherit lib inputs hostName enableNativeOptimizations;
   };
+  optimizedPkgs = pkgs.appendOverlays [ optimizedPackages.overlay ];
+  fd-pkg = optimizedPkgs.fd;
+  ripgrep-pkg = optimizedPkgs.ripgrep;
+  desktopctl-pkg = optimizedPkgs.desktopctl;
+  p7zip-pkg = optimizedPkgs.p7zip;
   opencode-pkg = nativeOptimizations.optimizeNativePackage (opencode.packages.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs (old: {
     postConfigure = (old.postConfigure or "") + ''
       if [ -e packages/app/node_modules/@tsconfig/bun/tsconfig.json ]; then
@@ -36,10 +41,22 @@ let
     ];
   }));
   vicinae-pkg = nativeOptimizations.optimizeNativePackage vicinae.packages.${pkgs.stdenv.hostPlatform.system}.default;
-  # Keep codex on stock nixpkgs so the native ripgrep overlay does not change
-  # its wrapped PATH and force a host-local rebuild.
-  codex-pkg = stockPkgs.codex;
-  lapce-pkg = pkgs.lapce;
+  lapce-pkg = optimizedPkgs.lapce;
+  quickshell-pkg = optimizedPkgs.quickshell;
+  easyeffects-pkg = optimizedPkgs.easyeffects;
+  lsp-plugins-pkg = optimizedPkgs.lsp-plugins;
+  pipewire-pkg = optimizedPkgs.pipewire;
+  texlive-pkg = optimizedPkgs.texlive.withPackages (ps: with ps; [
+    scheme-small
+    latexmk
+    tikz-cd
+    titlesec
+    tocloft
+    enumitem
+    mdframed
+    needspace
+    zref
+  ]);
   ableton-prefix = "${config.home.homeDirectory}/.local/share/wineprefixes/ableton-live-12-lite";
   ableton-launcher = pkgs.writeShellApplication {
     name = "ableton-live-12-lite";
@@ -50,7 +67,7 @@ let
       exe='C:\ProgramData\Ableton\Live 12 Lite\Program\Ableton Live 12 Lite.exe'
 
       if [ "$#" -eq 0 ]; then
-        exec ${pkgs.pipewire.jack}/bin/pw-jack \
+        exec ${pipewire-pkg.jack}/bin/pw-jack \
           ${pkgs.wineWow64Packages.stableFull}/bin/wine \
           "$exe"
       fi
@@ -64,7 +81,7 @@ let
         fi
       done
 
-      exec ${pkgs.pipewire.jack}/bin/pw-jack \
+      exec ${pipewire-pkg.jack}/bin/pw-jack \
         ${pkgs.wineWow64Packages.stableFull}/bin/wine \
         "$exe" \
         "''${converted_args[@]}"
@@ -79,7 +96,7 @@ let
       exe='C:\ProgramData\Ableton\Live 12 Lite\Program\Ableton Live 12 Lite.exe'
 
       if [ "$#" -eq 0 ]; then
-        exec ${pkgs.pipewire.jack}/bin/pw-jack \
+        exec ${pipewire-pkg.jack}/bin/pw-jack \
           ${pkgs.wineWow64Packages.stableFull}/bin/wine \
           "$exe"
       fi
@@ -93,7 +110,7 @@ let
         fi
       done
 
-      exec ${pkgs.pipewire.jack}/bin/pw-jack \
+      exec ${pipewire-pkg.jack}/bin/pw-jack \
         ${pkgs.wineWow64Packages.stableFull}/bin/wine \
         "$exe" \
         "''${converted_args[@]}"
@@ -109,7 +126,7 @@ let
       desktop='Ableton,1600x900'
 
       if [ "$#" -eq 0 ]; then
-        exec ${pkgs.pipewire.jack}/bin/pw-jack \
+        exec ${pipewire-pkg.jack}/bin/pw-jack \
           ${pkgs.wineWow64Packages.stableFull}/bin/wine \
           explorer /desktop="$desktop" \
           "$exe"
@@ -124,7 +141,7 @@ let
         fi
       done
 
-      exec ${pkgs.pipewire.jack}/bin/pw-jack \
+      exec ${pipewire-pkg.jack}/bin/pw-jack \
         ${pkgs.wineWow64Packages.stableFull}/bin/wine \
         explorer /desktop="$desktop" \
         "$exe" \
@@ -166,21 +183,21 @@ in
     openchamber
     bat
     eza
-    fd
-    ripgrep
+    fd-pkg
+    ripgrep-pkg
     fzf
     jq
     tree
     ncdu
     htop
-    desktopctl
+    desktopctl-pkg
     strace
     bc
     less
     file           # file type identification
     unzip
     zip
-    p7zip
+    p7zip-pkg
     unrar
     psmisc
     rsync
@@ -265,17 +282,7 @@ in
 
     # `scheme-medium` pulls in `asymptote` via `collection-binextra`, which
     # currently recurses during evaluation on this nixpkgs revision.
-    (texlive.withPackages (ps: with ps; [
-      scheme-small
-      latexmk
-      tikz-cd
-      titlesec
-      tocloft
-      enumitem
-      mdframed
-      needspace
-      zref
-    ]))
+    texlive-pkg
 
     # Hyprland ecosystem
     hypridle
@@ -291,12 +298,12 @@ in
     slurp
     wl-clipboard
     playerctl
-    easyeffects
-    lsp-plugins    # audio plugins for EasyEffects
+    easyeffects-pkg
+    lsp-plugins-pkg    # audio plugins for EasyEffects
     networkmanager # provides nmcli for Quickshell
     nwg-look       # GTK theme manager for Wayland
 
-    quickshell
+    quickshell-pkg
     snappy-switcher-pkg
     papirus-icon-theme
     rose-pine-cursor
@@ -318,7 +325,7 @@ in
     man-pages-posix    # POSIX man pages
 
     claude-code
-    codex-pkg
+    codex
   ] ++ lib.optionals (hostName == "desktop") [
     ableton-launcher
     ableton-launcher-x11
@@ -498,7 +505,7 @@ in
 
   # ── Theme activation ────────────────────────────────────────
   home.activation.applyTheme = lib.hm.dag.entryAfter ["writeBoundary"] ''
-    PATH="${lib.makeBinPath [pkgs.desktopctl]}:$PATH"
+    PATH="${lib.makeBinPath [desktopctl-pkg]}:$PATH"
     mkdir -p "$HOME/.config/hypr"
     touch "$HOME/.config/hypr/input-runtime.conf"
     touch "$HOME/.config/hypr/animations-override.conf"

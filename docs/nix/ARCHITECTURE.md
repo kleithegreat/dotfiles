@@ -29,7 +29,7 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-18.
 
 | Path | Role | Current responsibilities |
 | --- | --- | --- |
-| `system/configuration.nix` | Shared system baseline | Nix settings, the shared unfree allowlist used by both NixOS and embedded Home Manager, overlays, common users/groups, shared services, privileged desktop helper registrations, shared Tailscale operator configuration, system packages, Hyprland packaging, shared Qt plugin-path wiring, and the repo-wide fontconfig baseline |
+| `system/configuration.nix` | Shared system baseline | Nix settings, the shared unfree allowlist used by both NixOS and embedded Home Manager, overlays, common users/groups, shared services, privileged desktop helper registrations, shared Tailscale operator configuration, system packages, explicit PipeWire/WirePlumber native-package selection, Hyprland packaging, shared Qt plugin-path wiring, and the repo-wide fontconfig baseline |
 | `system/distributed-builds.nix` | Optional shared distributed-build layer | When enabled, configures remote builders, the post-build cache push hook, `nix.sshServe`, and LAN-only SSH firewall rules |
 | `system/distributed-builds-data.nix` | Environment-specific builder/cache data | Authorized builder keys, host keys, current cache signing key, and the current cache URL override |
 | `system/native-optimizations.nix` | Shared helper | Centralizes the `-O3 -march=native` / `target-cpu=native` flag sets, the per-host `native-optimized-<host>` feature marker, and the `overrideAttrs` helpers reused by the overlay, Hyprland-family packages, and Home Manager flake-input packages |
@@ -40,7 +40,7 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-18.
 | `hosts/desktop/system.nix` | Desktop overlay | Dedicated NVIDIA policy, shared native kernel/compiler tuning opt-in, local build-scheduling policy, desktop-only imports, storage mounts, GRUB, desktop-only overlay imports, the desktop Windows VM toggle, and the desktop `tailscaled` stop-timeout override |
 | `hosts/desktop/wine-ableton.nix` | Desktop Wine/audio submodule | Loads the `ntsync` kernel module at boot, enables `services.pipewire.jack.enable`, and installs the desktop's Ableton-facing Wine toolchain (`wineWow64Packages.stableFull`, `wineasio`, and `winetricks`) |
 | `hosts/desktop/windows-vm.nix` | Desktop Windows VM submodule | Defines `virtualisation.windowsVm`, seeds the desktop qcow2/OVMF/TPM state under `/var/lib/windows-vm/windows11` during activation, grants the desktop user `kvm` access, and installs the `windows-vm` QEMU launcher |
-| `home/default.nix` | Shared user baseline | User packages that do not require system-scoped helper registration, small package-level overrides such as the local OpenCode Nix build workarounds, `xdg.configFile` mappings, host-specific Hyprland file selection, desktop entry overrides including the desktop Ableton Wine launcher variants, and theme activation |
+| `home/default.nix` | Shared user baseline | User packages that do not require system-scoped helper registration, small package-level overrides such as the local OpenCode Nix build workarounds plus the explicit native-package aliases, `xdg.configFile` mappings, host-specific Hyprland file selection, desktop entry overrides including the desktop Ableton Wine launcher variants, and theme activation |
 | `home/shell.nix` | Shell submodule | Zsh, shell tools, Git, aliases, shell helpers, and sourcing the generated `~/.config/zsh/theme-colors` fragment from `programs.zsh.initContent` |
 | `home/gtk.nix` | GTK submodule | GTK packages and small dconf defaults |
 | `pkgs/helium/default.nix` | Prebuilt browser package | Fetches the upstream Helium release tarball, auto-patches the bundled ELFs, wraps the upstream launcher, and installs desktop assets using the pin in `pkgs/helium/source.nix` |
@@ -75,11 +75,14 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-18.
   itself and proxies the normal `/api` OpenCode traffic into Claude Code.
 - In `system/configuration.nix`, the local `let` block imports both the
   `desktopctl` overlay and the optional native-optimization overlay;
-  `nixpkgs.overlays` applies them globally, `fonts.packages` installs the local
-  `pkgs.sf-pro` derivation, and `fonts.fontconfig` enables RGB subpixel
-  rendering plus a local `SF Pro -> SF Pro Text` family-preference rule so the
-  generic Apple family resolves to the small-text cut instead of the bundled
-  catch-all variable face.
+  `nixpkgs.overlays` applies only the shared repo overlays globally, while the
+  native overlay is re-applied locally through `pkgs.appendOverlays` where the
+  config wants explicit native-package aliases. The same module also installs
+  the local `pkgs.sf-pro` derivation through `fonts.packages`, and
+  `fonts.fontconfig` enables RGB subpixel rendering plus a local
+  `SF Pro -> SF Pro Text` family-preference rule so the generic Apple family
+  resolves to the small-text cut instead of the bundled catch-all variable
+  face.
 - `overlays/native-optimized.nix` rebuilds selected nixpkgs derivations such as
   `desktopctl`, `lapce`, `pipewire`, `quickshell`, `fd`, `ripgrep`, and the
   repo's TeX Live environment with `-O3 -march=native` / `target-cpu=native`,
@@ -87,11 +90,18 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-18.
   `lz4` untouched.
 - `system/configuration.nix` reuses `system/native-optimizations.nix` directly
   for the flake-provided `hyprqt6engine`, `hyprland`,
-  `xdg-desktop-portal-hyprland`, `hyprbars`, and `hyprexpo` derivations, and
+  `xdg-desktop-portal-hyprland`, `hyprbars`, and `hyprexpo` derivations, while
   `home/default.nix` uses that same helper for the locally overridden
-  `opencode`, `snappy-switcher`, and Vicinae packages while importing stock
-  nixpkgs separately for `codex` so the native `ripgrep` overlay does not alter
-  its wrapped runtime PATH and force a local rebuild.
+  `opencode`, `snappy-switcher`, and Vicinae packages.
+- Native nixpkgs-package selection is now explicit instead of global:
+  `system/configuration.nix` builds a local `optimizedPkgs` set via
+  `pkgs.appendOverlays [ optimizedPackages.overlay ]` and uses it only for
+  `services.pipewire.package` plus `services.pipewire.wireplumber.package`, and
+  `home/default.nix` builds the same kind of local `optimizedPkgs` set for the
+  top-level user packages that are intentionally host-native (`fd`, `ripgrep`,
+  `desktopctl`, `p7zip`, `lapce`, the TeX Live environment, `easyeffects`,
+  `lsp-plugins`, `quickshell`, and the PipeWire JACK shim used by the Ableton
+  launchers). Other nixpkgs packages stay on the stock shared package set.
 - Those Hyprland-family derivations also carry the repo-local patch stack from
   `system/configuration.nix`: the compositor patch extends per-corner rounding
   control to both texture and rect paths, and the `hyprbars` compatibility
@@ -138,6 +148,9 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-18.
   `ignoreConfigErrors = true`, and the same host-specific
   `native-optimized-<host>` feature tag used by the rest of the native package
   set.
+- Both physical host modules also set `boot.kernelParams = [ "mitigations=off" ]`,
+  disabling the kernel's CPU side-channel mitigation set on the bare-metal
+  laptop and desktop while leaving the VM profile unchanged.
 - `hosts/laptop/system.nix` still also uses `boot.kernelPatches = [{ patch = null;
   structuredExtraConfig = ...; }]` to disable AMD-only platform/virtualization
   options such as `KVM_AMD`, `AMD_IOMMU`, `AMD_MEM_ENCRYPT`, and `AMD_PMC`,
