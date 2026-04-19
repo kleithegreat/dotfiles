@@ -6,6 +6,8 @@
   nodejs,
   openchamberClaudeBridge,
   pkg-config,
+  writeShellScript,
+  xdg-utils,
 }:
 
 let
@@ -20,6 +22,34 @@ let
   postPatch = ''
     cp ${./package.json} package.json
     cp ${./package-lock.json} package-lock.json
+  '';
+  launcherScript = writeShellScript "openchamber-launch" ''
+    set -eu
+
+    script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+    openchamber_bin="$script_dir/openchamber"
+
+    set +e
+    output="$($openchamber_bin "$@" 2>&1)"
+    status=$?
+    set -e
+
+    if [ "$status" -ne 0 ]; then
+      printf '%s\n' "$output" >&2
+      exit "$status"
+    fi
+
+    url=""
+    case "$output" in
+      *"visit: "*)
+        url="''${output#*"visit: "}"
+        url="''${url%%$'\n'*}"
+        ;;
+    esac
+
+    if [ -n "$url" ]; then
+      ${xdg-utils}/bin/xdg-open "$url" >/dev/null 2>&1 &
+    fi
   '';
 in
 buildNpmPackage {
@@ -77,12 +107,14 @@ buildNpmPackage {
       'Type=Application' \
       'Name=OpenChamber' \
       'Comment=Run OpenCode in your browser' \
-      "Exec=$out/bin/openchamber" \
+      "Exec=$out/bin/openchamber-launch" \
       'Icon=openchamber' \
       'Categories=Development;' \
       'Keywords=OpenCode;AI;Assistant;' \
       'Terminal=false' \
       > "$desktopFile"
+
+    install -m 0755 ${launcherScript} "$out/bin/openchamber-launch"
 
     runHook postInstall
   '';
