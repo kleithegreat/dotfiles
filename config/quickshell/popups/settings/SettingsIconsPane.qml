@@ -43,29 +43,32 @@ Components.WheelFlickable {
 
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
 
-        RowLayout {
-            Layout.fillWidth: true; spacing: 8
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: 8
 
             Text {
                 text: "Icon Theme"
                 color: Theme.fg3
                 font.family: Theme.systemFamily
                 font.pixelSize: Theme.fontSizeSmall
-                Layout.preferredWidth: Math.max(Theme.fontSize * 8, 104)
             }
 
-            Components.InlineSelect {
-                id: iconSelect
+            Text {
+                text: "Choose the icon pack GTK, Qt, and the app switcher should use. Cards show representative icons from each theme."
+                color: Theme.fg4
+                font.family: Theme.systemFamily
+                font.pixelSize: Theme.fontSizeSmall
                 Layout.fillWidth: true
-                Layout.alignment: Qt.AlignTop
+                wrapMode: Text.WordWrap
+            }
+
+            Components.IconThemeCards {
+                Layout.fillWidth: true
                 disabled: root.writePending
                 pending: root.isPending("icon_theme")
                 model: root.iconThemeOptions
-                currentValue: root.themeState.icon_theme
-                currentText: root.themeState.icon_theme || ""
-                secondaryText: root.iconThemeOptions.length + " themes"
-                fontFamily: Theme.systemFamily
-                maxVisibleItems: 7
+                currentValue: root.themeState.icon_theme || ""
                 onActivated: (value) => root.setRequested("icon_theme", value)
             }
         }

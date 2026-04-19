@@ -1324,20 +1324,11 @@ Rectangle {
                 }
             }
 
-            Components.InlineSelect {
-                id: presetIconThemeSelect
+            Components.IconThemeCards {
                 visible: root.hasField("icon_theme")
                 Layout.fillWidth: true
                 model: root.iconThemeOptions
-                currentValue: root.currentValue("icon_theme")
-                currentText: root.currentValue("icon_theme") || ""
-                secondaryText: root.iconThemeOptions.length + " themes"
-                fontFamily: Theme.systemFamily
-                maxVisibleItems: 7
-                onExpandedChanged: {
-                    if (expanded)
-                        presetCursorThemeSelect.expanded = false;
-                }
+                currentValue: root.currentValue("icon_theme") || ""
                 onActivated: (value) => root.setField("icon_theme", value)
             }
         }
@@ -1365,7 +1356,6 @@ Rectangle {
             }
 
             Components.InlineSelect {
-                id: presetCursorThemeSelect
                 visible: root.hasField("cursor_theme")
                 Layout.fillWidth: true
                 model: root.cursorThemeOptions
@@ -1374,10 +1364,6 @@ Rectangle {
                 secondaryText: root.cursorThemeOptions.length + " themes"
                 fontFamily: Theme.systemFamily
                 maxVisibleItems: 7
-                onExpandedChanged: {
-                    if (expanded)
-                        presetIconThemeSelect.expanded = false;
-                }
                 onActivated: (value) => root.setField("cursor_theme", value)
             }
         }
