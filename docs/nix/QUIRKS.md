@@ -134,15 +134,15 @@
 
 ## Wine 11 Ableton prefixes need fresh state and per-prefix WineASIO registration
 **Symptom:** Ableton Live 12 Lite launches without a usable ASIO device, or a reused older Wine prefix behaves inconsistently after moving to the current desktop Wine package set.
-**Cause:** The desktop host uses `wineWow64Packages`-based Wine 11 packages. nixpkgs notes that prefixes created against the deprecated `wineWowPackages` family are not backward compatible. Separately, `wineasio` installs its DLLs into the system profile, but each Wine prefix still needs the driver copied into `drive_c/windows/system32` and registered with `wine64 regsvr32`.
-**Status:** Expected manual setup
-**Resolution:** Keep Ableton in a dedicated fresh `WINEARCH=win64` prefix under the home directory, and rerun the documented WineASIO registration commands whenever that prefix is created or recreated.
+**Cause:** During the investigation, the desktop host used `wineWow64Packages`-based Wine 11 packages. nixpkgs notes that prefixes created against the deprecated `wineWowPackages` family are not backward compatible. Separately, `wineasio` installs its DLLs into the system profile, but each Wine prefix still needed the driver copied into `drive_c/windows/system32` and registered with `wine regsvr32`.
+**Status:** Historical investigation note
+**Resolution:** If this setup is ever revived, keep Ableton in a dedicated fresh `WINEARCH=win64` prefix under the home directory and rerun the documented WineASIO registration commands whenever that prefix is created or recreated.
 
 ## Wine-generated Ableton desktop entries miss the working launch environment
 **Symptom:** Launching Ableton Live 12 Lite from Vicinae or another app launcher falls back to the splash screen stuck on `Initializing MIDI inputs and outputs`, even though a manual terminal launch works.
-**Cause:** Wine's generated `~/.local/share/applications/wine/Programs/Ableton Live 12 Lite.desktop` only sets `WINEPREFIX` and runs plain `wine ...lnk`. The working setup also needs the current prefix's Wayland/JACK launch environment, specifically `WINEDLLOVERRIDES=winepulse.drv=d;winex11.drv=d` and a `pw-jack` wrapper around `wine`.
-**Status:** Workaround in place
-**Resolution:** `home/default.nix` now overrides that exact desktop entry path on the desktop host and points it at the `ableton-live-12-lite` wrapper command, so Vicinae launches the same working wrapper as a manual terminal start.
+**Cause:** During the investigation, Wine's generated `~/.local/share/applications/wine/Programs/Ableton Live 12 Lite.desktop` only set `WINEPREFIX` and ran plain `wine ...lnk`. The working setup also needed the prefix's Wayland/JACK launch environment, specifically `WINEDLLOVERRIDES=winepulse.drv=d;winex11.drv=d` and a `pw-jack` wrapper around `wine`.
+**Status:** Historical investigation note
+**Resolution:** If this setup is ever revived, override that exact desktop entry path or replace it locally so launchers use the wrapper command rather than plain `wine`.
 
 ## Ableton still depends on mutable prefix tweaks beyond the NixOS module
 **Symptom:** A fresh prefix created from only the documented WineASIO steps can still show stale rendering, background helper crashes, rough UI behavior, or DPI/input mismatches even though the app launches.
