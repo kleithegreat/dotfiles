@@ -29,7 +29,7 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-19.
 
 | Path | Role | Current responsibilities |
 | --- | --- | --- |
-| `system/configuration.nix` | Shared system baseline | Nix settings, the shared unfree allowlist used by both NixOS and embedded Home Manager, overlays, common users/groups, shared services, privileged desktop helper registrations, shared Tailscale operator configuration, system packages, explicit PipeWire/WirePlumber native-package selection, Hyprland packaging, shared Qt plugin-path wiring, and the repo-wide fontconfig baseline |
+| `system/configuration.nix` | Shared system baseline | Nix settings, the shared unfree allowlist used by both NixOS and embedded Home Manager, overlays, common users/groups, shared services, privileged desktop helper registrations, shared Tailscale operator configuration, root-only weekly `fstrim` scheduling, system packages, explicit PipeWire/WirePlumber native-package selection, Hyprland packaging, shared Qt plugin-path wiring, and the repo-wide fontconfig baseline |
 | `system/distributed-builds.nix` | Optional shared distributed-build layer | When enabled, configures remote builders, the post-build cache push hook, `nix.sshServe`, and LAN-only SSH firewall rules |
 | `system/distributed-builds-data.nix` | Environment-specific builder/cache data | Authorized builder keys, host keys, current cache signing key, and the current cache URL override |
 | `system/native-optimizations.nix` | Shared helper | Centralizes the userspace `-O3 -march=native` / `target-cpu=native` flag sets, the kernel-specific `KCFLAGS=-O2 -march=native` / `KRUSTFLAGS=-Ctarget-cpu=native` flags, the per-host `native-optimized-<host>` feature marker, and the `overrideAttrs` helpers reused by the overlay, Hyprland-family packages, and Home Manager flake-input packages |
@@ -145,6 +145,12 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-19.
   polkit system authentication, and also adds a narrow polkit rule granting the
   active local user direct `net.reactivated.fprint.device.enroll` access so the
   Quickshell fingerprint-management flow can enroll/delete prints without a
+- The shared system baseline no longer enables the stock NixOS
+  `services.fstrim` helper. Instead, `system/configuration.nix` defines a
+  custom `fstrim-root.service` plus `fstrim-root.timer` that run `fstrim` only
+  on `/`, preserving weekly discard on the Linux root filesystem without also
+  trimming a shared `/boot/efi` mount when that EFI system partition lives on a
+  separate Windows NVMe.
   separate external auth-agent prompt.
 - `hosts/laptop/system.nix` and `hosts/desktop/system.nix` both source
   `boot.kernelPackages` from `system/native-kernel-packages.nix`, so both
