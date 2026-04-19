@@ -99,9 +99,9 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-18.
   `services.pipewire.package` plus `services.pipewire.wireplumber.package`, and
   `home/default.nix` builds the same kind of local `optimizedPkgs` set for the
   top-level user packages that are intentionally host-native (`fd`, `ripgrep`,
-  `desktopctl`, `p7zip`, `lapce`, the TeX Live environment, `easyeffects`,
-  `lsp-plugins`, `quickshell`, and the PipeWire JACK shim used by the Ableton
-  launchers). Other nixpkgs packages stay on the stock shared package set.
+  `desktopctl`, `p7zip`, `lapce`, the TeX Live environment, `lsp-plugins`,
+  `quickshell`, and the PipeWire JACK shim used by the Ableton launchers).
+  Other nixpkgs packages stay on the stock shared package set.
 - Those Hyprland-family derivations also carry the repo-local patch stack from
   `system/configuration.nix`: the compositor patch extends per-corner rounding
   control to both texture and rect paths, and the `hyprbars` compatibility

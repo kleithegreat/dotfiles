@@ -43,7 +43,6 @@ let
   vicinae-pkg = nativeOptimizations.optimizeNativePackage vicinae.packages.${pkgs.stdenv.hostPlatform.system}.default;
   lapce-pkg = optimizedPkgs.lapce;
   quickshell-pkg = optimizedPkgs.quickshell;
-  easyeffects-pkg = optimizedPkgs.easyeffects;
   lsp-plugins-pkg = optimizedPkgs.lsp-plugins;
   pipewire-pkg = optimizedPkgs.pipewire;
   texlive-pkg = optimizedPkgs.texlive.withPackages (ps: with ps; [
@@ -298,7 +297,7 @@ in
     slurp
     wl-clipboard
     playerctl
-    easyeffects-pkg
+    easyeffects
     lsp-plugins-pkg    # audio plugins for EasyEffects
     networkmanager # provides nmcli for Quickshell
     nwg-look       # GTK theme manager for Wayland
