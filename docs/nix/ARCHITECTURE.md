@@ -3,13 +3,13 @@
 ## Scope
 
 Current implementation map for the flake, shared NixOS modules, optional
-distributed-build wiring, and embedded Home Manager layer as of 2026-04-13.
+distributed-build wiring, and embedded Home Manager layer as of 2026-04-18.
 
 ## Flake Topology
 
 | Piece | Current implementation |
 | --- | --- |
-| Outputs | The `outputs` attrset in `flake.nix` exports `nixosConfigurations.vm`, `nixosConfigurations.laptop`, `nixosConfigurations.desktop`, plus `overlays.default`, `packages.x86_64-linux.desktopctl`, and `packages.x86_64-linux.helium` |
+| Outputs | The `outputs` attrset in `flake.nix` exports `nixosConfigurations.vm`, `nixosConfigurations.laptop`, `nixosConfigurations.desktop`, plus `overlays.default`, `packages.x86_64-linux.desktopctl`, `packages.x86_64-linux.helium`, `packages.x86_64-linux.openchamber`, and `packages.x86_64-linux.openchamber-claude-bridge` |
 | Host constructor | `mkHost` in `flake.nix` wraps `nixpkgs.lib.nixosSystem` |
 | Feature flags | The top-level `enableMarchOptimizations` and `enableDistributedBuilds` bindings in `flake.nix` stay shared across all hosts, with distributed builds currently disabled by default |
 | Shared system layer | The top-level shared NixOS module in `system/configuration.nix` |
@@ -38,17 +38,21 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-13.
 | `hosts/desktop/system.nix` | Desktop overlay | Dedicated NVIDIA policy, desktop-only imports, storage mounts, GRUB, desktop-only overlay imports, the desktop Windows VM toggle, and the desktop `tailscaled` stop-timeout override |
 | `hosts/desktop/wine-ableton.nix` | Desktop Wine/audio submodule | Loads the `ntsync` kernel module at boot, enables `services.pipewire.jack.enable`, and installs the desktop's Ableton-facing Wine toolchain (`wineWow64Packages.stableFull`, `wineasio`, and `winetricks`) |
 | `hosts/desktop/windows-vm.nix` | Desktop Windows VM submodule | Defines `virtualisation.windowsVm`, seeds the desktop qcow2/OVMF/TPM state under `/var/lib/windows-vm/windows11` during activation, grants the desktop user `kvm` access, and installs the `windows-vm` QEMU launcher |
-| `home/default.nix` | Shared user baseline | User packages that do not require system-scoped helper registration, small package-level overrides such as the local OpenCode Nix build workarounds, host-specific user-package wrappers, `xdg.configFile` mappings, host-specific Hyprland file selection, desktop entry overrides including the desktop Ableton Wine launcher variants, and theme activation |
+| `home/default.nix` | Shared user baseline | User packages that do not require system-scoped helper registration, small package-level overrides such as the local OpenCode Nix build workarounds, `xdg.configFile` mappings, host-specific Hyprland file selection, desktop entry overrides including the desktop Ableton Wine launcher variants, and theme activation |
 | `home/shell.nix` | Shell submodule | Zsh, shell tools, Git, aliases, shell helpers, and sourcing the generated `~/.config/zsh/theme-colors` fragment from `programs.zsh.initContent` |
 | `home/gtk.nix` | GTK submodule | GTK packages and small dconf defaults |
 | `pkgs/helium/default.nix` | Prebuilt browser package | Fetches the upstream Helium release tarball, auto-patches the bundled ELFs, wraps the upstream launcher, and installs desktop assets using the pin in `pkgs/helium/source.nix` |
-| `overlays/local-packages.nix` | Local package overlay | Exposes the repo's `desktopctl` and `helium` derivations, carries the repo-local `sf-pro` font package, and applies small nixpkgs overrides such as the Lapce Vulkan-loader runtime fix and the LM Studio AppImage fixups |
+| `pkgs/openchamber/default.nix` | Source-built OpenChamber package | Fetches the upstream OpenChamber source tarball, applies the local `patches/openchamber/claude-backend-selector.patch`, restores the repo-pinned root `package.json` plus `package-lock.json` from `pkgs/openchamber/`, builds the `packages/web` workspace with npm workspace support, and wraps the CLI with the store path to `openchamber-claude-bridge` so the app can auto-manage the Claude backend |
+| `pkgs/openchamber-claude-bridge/default.nix` | Claude Code bridge package | Wraps the local `pkgs/openchamber-claude-bridge/index.mjs` compatibility server that exposes the OpenCode endpoint subset OpenChamber uses and forwards chat turns into the `claude` CLI |
+| `overlays/local-packages.nix` | Local package overlay | Exposes the repo's `desktopctl`, `helium`, `openchamber`, and `openchamber-claude-bridge` derivations, carries the repo-local `sf-pro` font package, and applies small nixpkgs overrides such as the Lapce Vulkan-loader runtime fix and the LM Studio AppImage fixups |
 
 ## Overlay Usage
 
 - `overlays/local-packages.nix` exposes `pkgs.desktopctl` from the local
-  `desktopctl/` derivation, `pkgs.helium` from `pkgs/helium/`, defines a
-  repo-local `pkgs.sf-pro` derivation that fetches Apple's stable-url
+  `desktopctl/` derivation, `pkgs.helium` from `pkgs/helium/`,
+  `pkgs.openchamber` from `pkgs/openchamber/`,
+  `pkgs.openchamber-claude-bridge` from `pkgs/openchamber-claude-bridge/`, defines a repo-local
+  `pkgs.sf-pro` derivation that fetches Apple's stable-url
   `SF-Pro.dmg` with a repo-pinned hash and unpacks `Payload~` via `cpio` when
   present, overrides `pkgs.lapce` so `bin/.lapce-wrapped` gains the
   `pkgs.vulkan-loader` library directory in its runtime search path for
@@ -58,8 +62,15 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-13.
   post-install fixup when the release only ships an empty placeholder file.
 - The `overlays.default` and `packages.x86_64-linux` exports in `flake.nix`
   expose that overlay and also
-  exposes `packages.x86_64-linux.desktopctl` and
-  `packages.x86_64-linux.helium`.
+  exposes `packages.x86_64-linux.desktopctl`,
+  `packages.x86_64-linux.helium`, and
+  `packages.x86_64-linux.openchamber`, and
+  `packages.x86_64-linux.openchamber-claude-bridge`.
+- `pkgs/openchamber/default.nix` now wraps the upstream CLI with
+  `OPENCHAMBER_CLAUDE_BRIDGE_BINARY=${lib.getExe pkgs.openchamber-claude-bridge}`.
+  The patched OpenChamber server reads the persisted backend selector from its
+  own settings, and when `backend = "claude-code"` it auto-starts that bridge
+  itself and proxies the normal `/api` OpenCode traffic into Claude Code.
 - In `system/configuration.nix`, the local `let` block imports both the
   `desktopctl` overlay and the optional march-optimization overlay;
   `nixpkgs.overlays` applies them globally, and `fonts.packages` installs the
@@ -98,12 +109,12 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-13.
   user-session Quickshell calls to `tailscale up` / `tailscale down` can manage
   the local daemon without `sudo`.
 - The shared system baseline also enables NixOS `qt.enable`, exports
--  `QT_QPA_PLATFORMTHEME=hyprqt6engine`, keeps the nonstandard `hyprqt6engine`
--  `lib/qt-6` root on `QT_PLUGIN_PATH`, and installs `libsForQt5.qt5ct`,
--  `qt6Packages.qt6ct`, plus the Qt5/Qt6 Kvantum style engines through
--  `environment.systemPackages`, so user-launched Qt apps and
--  D-Bus/systemd-activated helpers such as `xdg-desktop-portal-kde` resolve the
--  same platform and style plugins.
+  `QT_QPA_PLATFORMTHEME=hyprqt6engine`, keeps the nonstandard `hyprqt6engine`
+  `lib/qt-6` root on `QT_PLUGIN_PATH`, and installs `libsForQt5.qt5ct`,
+  `qt6Packages.qt6ct`, plus the Qt5/Qt6 Kvantum style engines through
+  `environment.systemPackages`, so user-launched Qt apps and
+  D-Bus/systemd-activated helpers such as `xdg-desktop-portal-kde` resolve the
+  same platform and style plugins.
 - `hosts/laptop/system.nix` enables `services.fprintd`, keeps the laptop PAM
   `polkit-1.fprintAuth` path available for external apps that explicitly use
   polkit system authentication, and also adds a narrow polkit rule granting the

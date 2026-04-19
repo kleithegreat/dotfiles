@@ -1,18 +1,21 @@
 {
   lib,
   buildNpmPackage,
-  fetchNpmDeps,
-  fetchurl,
+  fetchFromGitHub,
+  makeWrapper,
+  nodejs,
+  openchamberClaudeBridge,
   pkg-config,
-  python3,
 }:
 
 let
   pname = "openchamber";
   version = "1.9.6";
-  src = fetchurl {
-    url = "https://registry.npmjs.org/@openchamber/web/-/web-${version}.tgz";
-    hash = "sha512-vV9aAhSv/Y+Ms9/aTKVpku/9WLpv8x7wO3KdnnJayH5vQSijeIiXfMoUEGww3I7b90oM5SrXPAzPy4uhlGq3aQ==";
+  src = fetchFromGitHub {
+    owner = "openchamber";
+    repo = "openchamber";
+    tag = "v${version}";
+    hash = "sha256-J59zE1PbTvACcHLhHAarUp2fq9+le5O+7wkJXpPmvGo=";
   };
   postPatch = ''
     cp ${./package.json} package.json
@@ -22,19 +25,45 @@ in
 buildNpmPackage {
   inherit pname version src postPatch;
 
-  npmDeps = fetchNpmDeps {
-    name = "${pname}-${version}-npm-deps";
-    inherit src postPatch;
-    hash = "sha256-hk+rmUYbuq8OsW4km9lepVslVHI3CCmGM/k7+/+EnjE=";
-  };
-
-  nativeBuildInputs = [
-    pkg-config
-    python3
+  patches = [
+    ../../patches/openchamber/claude-backend-selector.patch
   ];
 
-  # The published npm package already ships its built dist/ assets.
-  dontNpmBuild = true;
+  npmDepsHash = "sha256-Gy1dxncCuMgpsom83lzBkoSYayBWiZfIS7LaHbnNzAA=";
+  npmDepsFetcherVersion = 2;
+  npmWorkspace = "packages/web";
+  npmFlags = [ "--install-links" ];
+
+  nativeBuildInputs = [
+    makeWrapper
+    pkg-config
+  ];
+
+  installPhase = ''
+    runHook preInstall
+
+    packageOut="$out/lib/node_modules/@openchamber/web"
+    mkdir -p "$packageOut"
+
+    cp packages/web/package.json "$packageOut/package.json"
+    cp packages/web/README.md "$packageOut/README.md"
+    cp -r packages/web/bin "$packageOut/bin"
+    cp -r packages/web/dist "$packageOut/dist"
+    cp -r packages/web/public "$packageOut/public"
+    cp -r packages/web/server "$packageOut/server"
+
+    npm prune --omit=dev --no-save --workspace="$npmWorkspace" --install-links
+
+    cp -r node_modules "$packageOut/node_modules"
+    find "$packageOut/node_modules" -xtype l -delete
+
+    mkdir -p "$out/bin"
+    makeWrapper ${lib.getExe nodejs} "$out/bin/openchamber" \
+      --add-flags "$packageOut/bin/cli.js" \
+      --set-default OPENCHAMBER_CLAUDE_BRIDGE_BINARY "${lib.getExe openchamberClaudeBridge}"
+
+    runHook postInstall
+  '';
 
   meta = with lib; {
     description = "Browser UI and remote interface for OpenCode";

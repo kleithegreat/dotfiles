@@ -1,6 +1,10 @@
 final: prev: {
   desktopctl = final.callPackage ../desktopctl { };
   helium = final.callPackage ../pkgs/helium { };
+  openchamber-claude-bridge = final.callPackage ../pkgs/openchamber-claude-bridge { };
+  openchamber = final.callPackage ../pkgs/openchamber {
+    openchamberClaudeBridge = final.openchamber-claude-bridge;
+  };
   lapce = prev.lapce.overrideAttrs (old: {
     postFixup = (old.postFixup or "") + ''
       # Lapce loads Vulkan through wgpu at runtime, so extend the wrapped GUI
