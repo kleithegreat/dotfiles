@@ -2,6 +2,7 @@
 
 let
   system = pkgs.stdenv.hostPlatform.system;
+  isPhysicalHost = lib.elem hostName [ "desktop" "laptop" ];
   claudeCodeOverlay = import ../overlays/claude-code.nix;
   localPackagesOverlay = import ../overlays/local-packages.nix;
   nativeOptimizations = import ./native-optimizations.nix {
@@ -184,6 +185,32 @@ in
   # ── Networking ───────────────────────────────────────────────
   networking.hostName = hostName;
   networking.networkmanager.enable = true;
+  boot.kernel.sysctl = lib.mkIf isPhysicalHost {
+    "kernel.sched_autogroup_enabled" = 1;
+    "net.core.default_qdisc" = "fq";
+    "net.ipv4.tcp_congestion_control" = "bbr";
+  };
+
+  systemd.services.mglru-tuning = lib.mkIf isPhysicalHost {
+    description = "Apply physical-host MGLRU tuning";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "local-fs.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    script = ''
+      # Use MGLRU's thrash-prevention knob as the MGLRU-friendly equivalent of
+      # LE9/LE10-style working-set and file-cache protection.
+      if [ -w /sys/kernel/mm/lru_gen/enabled ]; then
+        printf 'y' > /sys/kernel/mm/lru_gen/enabled
+      fi
+
+      if [ -w /sys/kernel/mm/lru_gen/min_ttl_ms ]; then
+        printf '1000' > /sys/kernel/mm/lru_gen/min_ttl_ms
+      fi
+    '';
+  };
 
   # ── PKI / TLS trust ────────────────────────────────────────
   security.pki.certificateFiles = [

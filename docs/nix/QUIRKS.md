@@ -55,10 +55,16 @@
 **Resolution:** `home/shell.nix` makes the `nrs` wrapper pass the target `system-features` list directly to `sudo nixos-rebuild switch` whenever native optimizations are enabled. That bootstraps the native-tagged derivations through the current daemon. Plain non-root `nix build --option system-features ...` is not sufficient here because `system-features` is a restricted setting for untrusted users.
 
 ## Physical-host kernels share one native helper
-**Symptom:** Desktop and laptop should both rebuild the stock kernel package set with native code generation while keeping only the laptop-specific Kconfig trimming on the laptop.
-**Cause:** `system/native-kernel-packages.nix` now derives the kernel package set once with `ignoreConfigErrors = true`, `KCFLAGS=-O2 -march=native`, `KRUSTFLAGS=-Ctarget-cpu=native`, and the host-specific native build feature, while the laptop host module still layers its `boot.kernelPatches` Intel-only config on top.
+**Symptom:** Desktop and laptop should both rebuild one shared tuned physical-host kernel while still keeping host-specific preemption and the laptop-only Intel Kconfig trim on top.
+**Cause:** `system/native-kernel-packages.nix` now derives the kernel package set once from the CachyOS `cachyos-6.18.23-1.tar.gz` source, builds it with Clang + LLD ThinLTO, applies the matching `6.18/sched/0001-bore-cachy.patch`, keeps `ignoreConfigErrors = true`, and layers `KCFLAGS=-O2 -march=native`, `KRUSTFLAGS=-Ctarget-cpu=native`, and the host-specific native build feature. The host modules then add the desktop/laptop preemption overrides and the laptop's Intel-only trim through `boot.kernelPatches`.
 **Status:** Intentional design
-**Resolution:** Keep both physical host modules on `system/native-kernel-packages.nix`. On the currently pinned nixpkgs revision, keep `ignoreConfigErrors = true` because the bundled Linux 6.18 config still includes stale symbols such as `DRM_HYPERV`, `KVM_AMD_SEV`, and `SEV_GUEST` that Kconfig now drops. If you want the stock cached kernel back on a host, disable native optimizations for that host or stop routing `boot.kernelPackages` through the helper.
+**Resolution:** Keep both physical host modules on `system/native-kernel-packages.nix`. Keep `ignoreConfigErrors = true` because the shared 6.18-based Kconfig still encounters dropped symbols on this nixpkgs revision. If you want the stock cached kernel back on a host, stop routing `boot.kernelPackages` through the helper instead of trying to partially undo the helper's BORE/BBR3/ThinLTO assumptions.
+
+## Physical-host working-set protection uses MGLRU `min_ttl_ms`
+**Symptom:** Desktop and laptop now ask for LE9/LE10-style working-set and file-cache protection, but the active tuning path is not an obvious `vm.*_kbytes` sysctl block in the host modules.
+**Cause:** The shared kernel config keeps `LRU_GEN=y` and `LRU_GEN_ENABLED=y`, and `system/configuration.nix` now applies the runtime policy through `systemd.services.mglru-tuning`, which writes `y` to `/sys/kernel/mm/lru_gen/enabled` and `1000` to `/sys/kernel/mm/lru_gen/min_ttl_ms`. Even though the CachyOS 6.18 base source also carries `le9uo`, the repo intentionally uses MGLRU's own thrash-prevention knob as the active protection path.
+**Status:** Intentional design
+**Resolution:** Tune `systemd.services.mglru-tuning.script` in `system/configuration.nix` if you want a different pressure-relief threshold, or remove that service if you want stock MGLRU behavior. Do not assume the older LE9 `vm.anon_min_kbytes` / `vm.clean_low_kbytes` / `vm.clean_min_kbytes` knobs are the active control surface in this repo.
 
 ## Physical hosts disable CPU vulnerability mitigations on purpose
 **Symptom:** `lscpu`, `/sys/devices/system/cpu/vulnerabilities/*`, or boot logs report that Spectre, Meltdown, and related CPU side-channel mitigations are disabled on the laptop and desktop.

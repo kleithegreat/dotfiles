@@ -15,12 +15,19 @@ in
   # Keep the stock kernel version/package set, but compile it for this host CPU.
   boot.kernelPackages = optimizedKernelPackages;
   # Disable the kernel's CPU side-channel mitigation set on this bare-metal host.
-  boot.kernelParams = [ "mitigations=off" ];
+  boot.kernelParams = [ "mitigations=off" "transparent_hugepage=madvise" ];
   boot.kernelPatches = [
     {
       name = "laptop-intel-only-kernel-config";
       patch = null;
       structuredExtraConfig = {
+        # Keep the laptop on voluntary preemption instead of the repo-wide
+        # BORE + full-preempt desktop policy.
+        PREEMPT_DYNAMIC = lib.mkForce lib.kernel.no;
+        PREEMPT = lib.mkForce lib.kernel.no;
+        PREEMPT_LAZY = lib.mkForce lib.kernel.no;
+        PREEMPT_VOLUNTARY = lib.mkForce lib.kernel.yes;
+
         # Keep Intel KVM host support, but drop AMD-only host features.
         KVM_AMD = lib.mkForce lib.kernel.no;
         X86_AMD_PLATFORM_DEVICE = lib.mkForce lib.kernel.no;

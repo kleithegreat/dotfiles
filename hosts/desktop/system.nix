@@ -20,9 +20,27 @@ in
 
   boot.initrd.availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usbhid" "usb_storage" "sd_mod" ];
   # Keep the stock kernel version/package set, but compile it for this host CPU.
+  boot.kernelPatches = [
+    {
+      name = "desktop-preempt-full-kernel-config";
+      patch = null;
+      structuredExtraConfig = with lib.kernel; {
+        PREEMPT_DYNAMIC = lib.mkForce no;
+        PREEMPT = lib.mkForce yes;
+        PREEMPT_LAZY = lib.mkForce no;
+        PREEMPT_VOLUNTARY = lib.mkForce no;
+      };
+    }
+  ];
   boot.kernelPackages = optimizedKernelPackages;
   # Disable the kernel's CPU side-channel mitigation set on this bare-metal host.
-  boot.kernelParams = [ "mitigations=off" ];
+  boot.kernelParams = [ "mitigations=off" "transparent_hugepage=madvise" ];
+  boot.kernel.sysctl = {
+    "vm.swappiness" = 10;
+    "vm.dirty_ratio" = 10;
+    "vm.dirty_background_ratio" = 5;
+    "vm.vfs_cache_pressure" = 50;
+  };
   boot.kernelModules = [ "kvm-intel" ];
   # Preserve VRAM across suspend/resume on this dedicated NVIDIA desktop.
   # /tmp is tmpfs-backed in shared config, so use disk-backed /var/tmp instead.
