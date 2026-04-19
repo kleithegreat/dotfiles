@@ -37,7 +37,7 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-19.
 | `hosts/vm/system.nix` | VM overlay | VM boot, guest profile, and virtual disk layout |
 | `hosts/laptop/system.nix` | Laptop overlay | Laptop-specific kernel/compiler tuning, the laptop's voluntary-preempt plus Intel-only Kconfig trim, local build-scheduling policy, hybrid GPU policy, laptop-only services and overrides, fingerprint/PAM policy, laptop-scoped polkit rules, GRUB, laptop hardware policy, and the laptop `tailscaled` stop-timeout override |
 | `hosts/laptop/fan-control.nix` | Laptop-only hardware submodule | Dell SMM kernel module wiring, BIOS fan-control handoff, the explicit four-state `i8kmon.conf` profile with aggressive ramp thresholds, and the `i8kmon` systemd service |
-| `hosts/desktop/system.nix` | Desktop overlay | Dedicated NVIDIA policy, shared native kernel/compiler tuning opt-in, the desktop's PREEMPT_FULL plus VM writeback/cache-pressure sysctls, local build-scheduling policy, desktop-only imports, storage mounts, GRUB, desktop-only overlay imports, the desktop Windows VM toggle, the desktop `tailscaled` stop-timeout override, and the desktop's forced `power-profiles-daemon` performance profile |
+| `hosts/desktop/system.nix` | Desktop overlay | Dedicated NVIDIA policy, shared native kernel/compiler tuning opt-in, the desktop's PREEMPT_FULL plus desktop-only dead-subsystem Kconfig culls and VM writeback/cache-pressure sysctls, local build-scheduling policy, desktop-only imports, storage mounts, GRUB, desktop-only overlay imports, the desktop Windows VM toggle, the desktop `tailscaled` stop-timeout override, and the desktop's forced `power-profiles-daemon` performance profile |
 | `hosts/desktop/windows-vm.nix` | Desktop Windows VM submodule | Defines `virtualisation.windowsVm`, seeds the desktop qcow2/OVMF/TPM state under `/var/lib/windows-vm/windows11` during activation, grants the desktop user `kvm` access, and installs the `windows-vm` QEMU launcher |
 | `home/default.nix` | Shared user baseline | User packages that do not require system-scoped helper registration, small package-level overrides such as the local OpenCode stale-`node_modules` hash pin plus the post-configure build workarounds and the explicit native-package aliases, `xdg.configFile` mappings, host-specific Hyprland file selection, desktop entry overrides, and theme activation |
 | `home/shell.nix` | Shell submodule | Zsh, shell tools, Git, aliases, shell helpers, and sourcing the generated `~/.config/zsh/theme-colors` fragment from `programs.zsh.initContent` |
@@ -188,8 +188,15 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-19.
   path (`kvm-intel`) remains intact.
 - `hosts/desktop/system.nix` now adds its own `boot.kernelPatches = [{ patch =
   null; structuredExtraConfig = ...; }]` entry to force the desktop onto full
-  preemption, and it also sets desktop-only `boot.kernel.sysctl` values for
-  `vm.swappiness = 10`, `vm.dirty_ratio = 10`,
+  preemption and drop desktop-local dead weight that this machine does not use:
+  AMD-only host features (`KVM_AMD`, `X86_AMD_PLATFORM_DEVICE`,
+  `AMD_MEM_ENCRYPT`, `AMD_PMC`, `AMD_IOMMU`), guest-only virtualization support
+  (`XEN`, `HYPERV`, `KVM_GUEST`, `NET_9P`), `DRM_NOUVEAU`, older storage/USB
+  controller drivers (`ATA_PIIX`, `PATA_MARVELL`, `SATA_SIS`, `SATA_ULI`,
+  `SATA_VIA`, `USB_EHCI_HCD`, `USB_OHCI_HCD`, `USB_UHCI_HCD`), and unused
+  fileserver/filesystem/image support (`BTRFS_FS`, `XFS_FS`, `SMB_SERVER`,
+  `SQUASHFS`). The same host module also sets desktop-only
+  `boot.kernel.sysctl` values for `vm.swappiness = 10`, `vm.dirty_ratio = 10`,
   `vm.dirty_background_ratio = 5`, and `vm.vfs_cache_pressure = 50`.
 - Both physical host modules set `nix.settings.max-jobs = 1`, so desktop and
   laptop each build one derivation at a time locally while leaving
