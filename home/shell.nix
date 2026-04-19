@@ -1,10 +1,21 @@
-{ config, pkgs, hostName, ... }:
+{ config, pkgs, lib, hostName, enableNativeOptimizations, ... }:
 
 let
   zshShareOnly = pkgs.runCommand "zsh-share-only" {} ''
     mkdir -p "$out/share"
     ln -s ${pkgs.zsh}/share/zsh "$out/share/zsh"
   '';
+  rebuildSystemFeatures = [
+    "benchmark"
+    "big-parallel"
+    "kvm"
+    "nixos-test"
+  ] ++ lib.optionals enableNativeOptimizations [ "native-optimized-${hostName}" ];
+  nixosRebuildCommand =
+    "sudo nixos-rebuild switch"
+    + lib.optionalString enableNativeOptimizations
+      " --option system-features ${lib.escapeShellArg (lib.concatStringsSep " " rebuildSystemFeatures)}"
+    + " --flake ~/repos/dotfiles#${hostName}";
 in
 
 {
@@ -49,7 +60,7 @@ in
       cat = "bat --paging=never --style=plain";
       catn = "/run/current-system/sw/bin/cat";
       grep = "grep --color=auto";
-      nrs = "hyprctl keyword misc:disable_autoreload true && sudo nixos-rebuild switch --flake ~/repos/dotfiles#${hostName}; hyprctl keyword misc:disable_autoreload false";
+      nrs = "hyprctl keyword misc:disable_autoreload true && ${nixosRebuildCommand}; hyprctl keyword misc:disable_autoreload false";
     };
 
     plugins = [
