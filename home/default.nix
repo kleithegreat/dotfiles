@@ -1,7 +1,10 @@
-{ config, pkgs, lib, dotfilesPath, hostName, vicinae, snappy-switcher, opencode, ... }:
+{ config, pkgs, lib, dotfilesPath, hostName, vicinae, snappy-switcher, opencode, enableNativeOptimizations, ... }:
 
 let
-  opencode-pkg = opencode.packages.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs (old: {
+  nativeOptimizations = import ../system/native-optimizations.nix {
+    inherit lib hostName enableNativeOptimizations;
+  };
+  opencode-pkg = nativeOptimizations.optimizeNativePackage (opencode.packages.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs (old: {
     postConfigure = (old.postConfigure or "") + ''
       if [ -e packages/app/node_modules/@tsconfig/bun/tsconfig.json ]; then
         substituteInPlace packages/shared/tsconfig.json \
@@ -23,12 +26,13 @@ let
         ln -s "$PWD/packages/opencode/node_modules/glob" node_modules/glob
       fi
     '';
-  });
-  snappy-switcher-pkg = snappy-switcher.packages.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs (old: {
+  }));
+  snappy-switcher-pkg = nativeOptimizations.optimizeNativePackage (snappy-switcher.packages.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs (old: {
     patches = (old.patches or []) ++ [
       ../patches/snappy-switcher/workspace-scope-filter.patch
     ];
-  });
+  }));
+  vicinae-pkg = nativeOptimizations.optimizeNativePackage vicinae.packages.${pkgs.stdenv.hostPlatform.system}.default;
   lapce-pkg = pkgs.lapce;
   ableton-prefix = "${config.home.homeDirectory}/.local/share/wineprefixes/ableton-live-12-lite";
   ableton-launcher = pkgs.writeShellApplication {
@@ -481,7 +485,10 @@ in
   };
 
   # ── Vicinae (app launcher) ──────────────────────────────────
-  services.vicinae.enable = true;
+  services.vicinae = {
+    enable = true;
+    package = vicinae-pkg;
+  };
 
   # ── Theme activation ────────────────────────────────────────
   home.activation.applyTheme = lib.hm.dag.entryAfter ["writeBoundary"] ''

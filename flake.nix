@@ -23,9 +23,10 @@
 
   outputs = { self, nixpkgs, home-manager, hyprland, hyprland-plugins, hyprqt6engine, vicinae, snappy-switcher, opencode, ... }:
   let
-    # Set to true to rebuild the targeted packages from source with host-
-    # specific march flags instead of using the stock nixpkgs binary cache.
-    enableMarchOptimizations = false;
+    # Set to true to rebuild the targeted native-code packages from source with
+    # `-O3 -march=native` / `target-cpu=native` instead of using stock cached
+    # nixpkgs builds.
+    enableNativeOptimizations = true;
 
     # Set to true to enable distributed builds, remote builders, and the
     # post-build-hook that pushes paths to the homelab binary cache.
@@ -34,13 +35,14 @@
     mkHost =
       {
         hostName,
-        march,
         hostModule,
+        enableHostNativeOptimizations ? enableNativeOptimizations,
       }:
       nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
         specialArgs = {
-          inherit hyprland hostName march enableMarchOptimizations enableDistributedBuilds;
+          inherit hyprland hostName enableDistributedBuilds;
+          enableNativeOptimizations = enableHostNativeOptimizations;
           inputs = { inherit nixpkgs hyprland hyprland-plugins hyprqt6engine vicinae snappy-switcher opencode home-manager; };
         };
         modules = [
@@ -55,6 +57,7 @@
             home-manager.extraSpecialArgs = {
               dotfilesPath = self;
               inherit hostName vicinae snappy-switcher opencode;
+              enableNativeOptimizations = enableHostNativeOptimizations;
             };
           }
         ];
@@ -77,17 +80,15 @@
 
     nixosConfigurations.vm = mkHost {
       hostName = "vm";
-      march = null;
       hostModule = ./hosts/vm/system.nix;
+      enableHostNativeOptimizations = false;
     };
     nixosConfigurations.laptop = mkHost {
       hostName = "laptop";
-      march = "alderlake";
       hostModule = ./hosts/laptop/system.nix;
     };
     nixosConfigurations.desktop = mkHost {
       hostName = "desktop";
-      march = "rocketlake";
       hostModule = ./hosts/desktop/system.nix;
     };
     devShells.x86_64-linux.default = let

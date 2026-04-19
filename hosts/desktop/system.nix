@@ -1,4 +1,10 @@
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, hostName, enableNativeOptimizations, ... }:
+
+let
+  optimizedKernelPackages = import ../../system/native-kernel-packages.nix {
+    inherit lib pkgs hostName enableNativeOptimizations;
+  };
+in
 
 {
   imports = [
@@ -13,6 +19,8 @@
   ];
 
   boot.initrd.availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usbhid" "usb_storage" "sd_mod" ];
+  # Keep the stock kernel version/package set, but compile it for this host CPU.
+  boot.kernelPackages = optimizedKernelPackages;
   boot.kernelModules = [ "kvm-intel" ];
   # Preserve VRAM across suspend/resume on this dedicated NVIDIA desktop.
   # /tmp is tmpfs-backed in shared config, so use disk-backed /var/tmp instead.
@@ -41,6 +49,10 @@
 
   hardware.enableRedistributableFirmware = true;
   hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
+
+  # Large local builds already saturate this desktop internally, so serialize
+  # derivations and let each one keep full core parallelism.
+  nix.settings.max-jobs = 1;
 
   boot.loader.grub = {
     enable = true;

@@ -1,54 +1,25 @@
-{ config, lib, pkgs, hyprland, hostName, inputs, march, enableMarchOptimizations, ... }:
+{ config, lib, pkgs, hyprland, hostName, inputs, enableNativeOptimizations, ... }:
 
 let
   system = pkgs.stdenv.hostPlatform.system;
   claudeCodeOverlay = import ../overlays/claude-code.nix;
   localPackagesOverlay = import ../overlays/local-packages.nix;
-  optimizedPackages = import ../overlays/march-optimized.nix {
-    inherit lib inputs march enableMarchOptimizations;
+  nativeOptimizations = import ./native-optimizations.nix {
+    inherit lib hostName enableNativeOptimizations;
   };
-  hyprlandNativeCFlags = [
-    "-O3"
-    "-march=native"
-  ];
+  optimizedPackages = import ../overlays/native-optimized.nix {
+    inherit lib inputs hostName enableNativeOptimizations;
+  };
 
-  joinFlags =
-    flags:
-    lib.concatStringsSep " " (lib.filter (flag: flag != null && flag != "") flags);
-
-  optimizeHyprlandNativePackage =
-    drv:
-    drv.overrideAttrs (
-      old:
-      let
-        oldEnv = old.env or { };
-        existingFlags =
-          if builtins.hasAttr "NIX_CFLAGS_COMPILE" oldEnv then
-            toString oldEnv.NIX_CFLAGS_COMPILE
-          else if builtins.hasAttr "NIX_CFLAGS_COMPILE" old then
-            toString old.NIX_CFLAGS_COMPILE
-          else
-            null;
-      in
-      {
-        env = oldEnv // {
-          NIX_CFLAGS_COMPILE = joinFlags [
-            existingFlags
-            (joinFlags hyprlandNativeCFlags)
-          ];
-        };
-      }
-    );
-
-  hyprqt6engine = inputs.hyprqt6engine.packages.${system}.default.overrideAttrs (old: {
+  hyprqt6engine = nativeOptimizations.optimizeCCPackage (inputs.hyprqt6engine.packages.${system}.default.overrideAttrs (old: {
     buildInputs = (old.buildInputs or []) ++ [
       pkgs.kdePackages.kcolorscheme
       pkgs.kdePackages.kconfig
       pkgs.kdePackages.kiconthemes
     ];
-  });
+  }));
 
-  patchedHyprland = optimizeHyprlandNativePackage (
+  patchedHyprland = nativeOptimizations.optimizeCCPackage (
     hyprland.packages.${system}.hyprland.overrideAttrs (old: {
       patches = (old.patches or []) ++ [
         ../patches/hyprland/hyprland-floating-top-decoration-rounding-0.54.patch
@@ -57,7 +28,7 @@ let
     })
   );
 
-  patchedHyprlandPortal = optimizeHyprlandNativePackage (
+  patchedHyprlandPortal = nativeOptimizations.optimizeCCPackage (
     hyprland.packages.${system}.xdg-desktop-portal-hyprland.override {
       hyprland = patchedHyprland;
     }
@@ -75,7 +46,7 @@ let
     in
     upstreamHyprPluginPkgs
     // {
-      hyprbars = optimizeHyprlandNativePackage (
+      hyprbars = nativeOptimizations.optimizeCCPackage (
         (upstreamHyprPluginPkgs.hyprbars.override {
           hyprland = patchedHyprland;
           hyprlandPlugins = patchedHyprlandPluginHelpers;
@@ -86,7 +57,7 @@ let
         })
       );
 
-      hyprexpo = optimizeHyprlandNativePackage (
+      hyprexpo = nativeOptimizations.optimizeCCPackage (
         (upstreamHyprPluginPkgs.hyprexpo.override {
           hyprland = patchedHyprland;
           hyprlandPlugins = patchedHyprlandPluginHelpers;

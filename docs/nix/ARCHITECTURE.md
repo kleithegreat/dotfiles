@@ -11,7 +11,7 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-18.
 | --- | --- |
 | Outputs | The `outputs` attrset in `flake.nix` exports `nixosConfigurations.vm`, `nixosConfigurations.laptop`, `nixosConfigurations.desktop`, plus `overlays.default`, `packages.x86_64-linux.desktopctl`, `packages.x86_64-linux.helium`, `packages.x86_64-linux.openchamber`, and `packages.x86_64-linux.openchamber-claude-bridge` |
 | Host constructor | `mkHost` in `flake.nix` wraps `nixpkgs.lib.nixosSystem` |
-| Feature flags | The top-level `enableMarchOptimizations` and `enableDistributedBuilds` bindings in `flake.nix` stay shared across all hosts, with distributed builds currently disabled by default |
+| Feature flags | The top-level `enableNativeOptimizations` and `enableDistributedBuilds` bindings in `flake.nix` stay shared across all hosts, with the VM explicitly opting out of native rebuilds and distributed builds currently disabled by default |
 | Shared system layer | The top-level shared NixOS module in `system/configuration.nix` |
 | Home Manager entry | `home/default.nix`, embedded through the inline Home Manager module inside `mkHost` in `flake.nix` |
 | Platform | `mkHost` in `flake.nix` passes `system = "x86_64-linux"` directly to `nixosSystem` |
@@ -32,10 +32,12 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-18.
 | `system/configuration.nix` | Shared system baseline | Nix settings, the shared unfree allowlist used by both NixOS and embedded Home Manager, overlays, common users/groups, shared services, privileged desktop helper registrations, shared Tailscale operator configuration, system packages, Hyprland packaging, and shared Qt plugin-path wiring |
 | `system/distributed-builds.nix` | Optional shared distributed-build layer | When enabled, configures remote builders, the post-build cache push hook, `nix.sshServe`, and LAN-only SSH firewall rules |
 | `system/distributed-builds-data.nix` | Environment-specific builder/cache data | Authorized builder keys, host keys, current cache signing key, and the current cache URL override |
+| `system/native-optimizations.nix` | Shared helper | Centralizes the `-O3 -march=native` / `target-cpu=native` flag sets, the per-host `native-optimized-<host>` feature marker, and the `overrideAttrs` helpers reused by the overlay, Hyprland-family packages, and Home Manager flake-input packages |
+| `system/native-kernel-packages.nix` | Shared helper | Derives a stock-version kernel package set with `ignoreConfigErrors = true`, host-local native `KCFLAGS` / `KRUSTFLAGS`, and the same per-host native build feature tag used by the rest of the optimized package set |
 | `hosts/vm/system.nix` | VM overlay | VM boot, guest profile, and virtual disk layout |
 | `hosts/laptop/system.nix` | Laptop overlay | Laptop-specific kernel/compiler tuning, local build-scheduling policy, hybrid GPU policy, laptop-only services and overrides, fingerprint/PAM policy, laptop-scoped polkit rules, GRUB, laptop hardware policy, and the laptop `tailscaled` stop-timeout override |
 | `hosts/laptop/fan-control.nix` | Laptop-only hardware submodule | Dell SMM kernel module wiring, BIOS fan-control handoff, the explicit four-state `i8kmon.conf` profile with aggressive ramp thresholds, and the `i8kmon` systemd service |
-| `hosts/desktop/system.nix` | Desktop overlay | Dedicated NVIDIA policy, desktop-only imports, storage mounts, GRUB, desktop-only overlay imports, the desktop Windows VM toggle, and the desktop `tailscaled` stop-timeout override |
+| `hosts/desktop/system.nix` | Desktop overlay | Dedicated NVIDIA policy, shared native kernel/compiler tuning opt-in, local build-scheduling policy, desktop-only imports, storage mounts, GRUB, desktop-only overlay imports, the desktop Windows VM toggle, and the desktop `tailscaled` stop-timeout override |
 | `hosts/desktop/wine-ableton.nix` | Desktop Wine/audio submodule | Loads the `ntsync` kernel module at boot, enables `services.pipewire.jack.enable`, and installs the desktop's Ableton-facing Wine toolchain (`wineWow64Packages.stableFull`, `wineasio`, and `winetricks`) |
 | `hosts/desktop/windows-vm.nix` | Desktop Windows VM submodule | Defines `virtualisation.windowsVm`, seeds the desktop qcow2/OVMF/TPM state under `/var/lib/windows-vm/windows11` during activation, grants the desktop user `kvm` access, and installs the `windows-vm` QEMU launcher |
 | `home/default.nix` | Shared user baseline | User packages that do not require system-scoped helper registration, small package-level overrides such as the local OpenCode Nix build workarounds, `xdg.configFile` mappings, host-specific Hyprland file selection, desktop entry overrides including the desktop Ableton Wine launcher variants, and theme activation |
@@ -72,16 +74,19 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-18.
   own settings, and when `backend = "claude-code"` it auto-starts that bridge
   itself and proxies the normal `/api` OpenCode traffic into Claude Code.
 - In `system/configuration.nix`, the local `let` block imports both the
-  `desktopctl` overlay and the optional march-optimization overlay;
+  `desktopctl` overlay and the optional native-optimization overlay;
   `nixpkgs.overlays` applies them globally, and `fonts.packages` installs the
   local `pkgs.sf-pro` derivation.
-- `overlays/march-optimized.nix` optionally rebuilds `desktopctl` and
-  other selected derivations with march tuning.
-- `system/configuration.nix` also defines the `optimizeHyprlandNativePackage`
-  helper that
-  always appends `-O3 -march=native` to the flake-provided `hyprland`,
-  `xdg-desktop-portal-hyprland`, `hyprbars`, and `hyprexpo` derivations,
-  independent of the global `enableMarchOptimizations` flag.
+- `overlays/native-optimized.nix` rebuilds selected nixpkgs derivations such as
+  `desktopctl`, `lapce`, `pipewire`, `quickshell`, `fd`, `ripgrep`, and the
+  repo's TeX Live environment with `-O3 -march=native` / `target-cpu=native`,
+  while deliberately leaving low-level rebuild multipliers such as `zstd` and
+  `lz4` untouched.
+- `system/configuration.nix` reuses `system/native-optimizations.nix` directly
+  for the flake-provided `hyprqt6engine`, `hyprland`,
+  `xdg-desktop-portal-hyprland`, `hyprbars`, and `hyprexpo` derivations, and
+  `home/default.nix` uses that same helper for the locally overridden
+  `opencode`, `snappy-switcher`, and Vicinae packages.
 - Those Hyprland-family derivations also carry the repo-local patch stack from
   `system/configuration.nix`: the compositor patch extends per-corner rounding
   control to both texture and rect paths, and the `hyprbars` compatibility
@@ -121,23 +126,21 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-18.
   active local user direct `net.reactivated.fprint.device.enroll` access so the
   Quickshell fingerprint-management flow can enroll/delete prints without a
   separate external auth-agent prompt.
-- `hosts/laptop/system.nix` also derives `boot.kernelPackages` from
-  `pkgs.linuxPackagesFor ((pkgs.linuxPackages.kernel.override { ignoreConfigErrors = true; }).overrideAttrs ...)` and
-  appends `KCFLAGS=-O3 -march=${march}` plus
-  `KRUSTFLAGS=-Ctarget-cpu=${march}`
-  from the laptop host's `march` special argument, so only the laptop rebuilds
-  its kernel with CPU-specific code generation while the shared
-  `enableMarchOptimizations` overlay gate remains unchanged. The local
-  `ignoreConfigErrors = true` override is there because the pinned nixpkgs
-  kernel config still carries a few stale Linux 6.18 symbols.
-- That same laptop host module also uses `boot.kernelPatches = [{ patch = null;
+- `hosts/laptop/system.nix` and `hosts/desktop/system.nix` both source
+  `boot.kernelPackages` from `system/native-kernel-packages.nix`, so both
+  physical hosts rebuild the stock kernel package set with
+  `KCFLAGS=-O3 -march=native`, `KRUSTFLAGS=-Ctarget-cpu=native`,
+  `ignoreConfigErrors = true`, and the same host-specific
+  `native-optimized-<host>` feature tag used by the rest of the native package
+  set.
+- `hosts/laptop/system.nix` still also uses `boot.kernelPatches = [{ patch = null;
   structuredExtraConfig = ...; }]` to disable AMD-only platform/virtualization
   options such as `KVM_AMD`, `AMD_IOMMU`, `AMD_MEM_ENCRYPT`, and `AMD_PMC`,
   while also dropping guest-only hypervisor support (`XEN`, `HYPERV`,
   `KVM_GUEST`) and `DRM_NOUVEAU`; the Intel VM-host path (`kvm-intel`) remains
   intact.
-- `hosts/laptop/system.nix` also sets `nix.settings.max-jobs = 1`, so the
-  laptop daemon builds one derivation at a time locally while leaving
+- Both physical host modules set `nix.settings.max-jobs = 1`, so desktop and
+  laptop each build one derivation at a time locally while leaving
   per-derivation core parallelism at Nix's default `cores = 0` behavior.
 
 ## Distributed Builds
