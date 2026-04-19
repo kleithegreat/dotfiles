@@ -3,7 +3,7 @@
 ## Scope
 
 Current implementation map for `config/quickshell/` and its theme/runtime
-integration as of 2026-04-16.
+integration as of 2026-04-19.
 
 ## Shell Topology
 
@@ -28,6 +28,7 @@ Managed popups mounted by the overlay host remain:
 | `components/HoverLayer.qml` | Shared pressed/hover visual layer for shell buttons and tile hit areas. It stays pointer-only and does not introduce an extra keyboard interaction contract on top of each caller. | `config/quickshell/components/HoverLayer.qml`, plus its use in `config/quickshell/popups/QuickSettingsPopup.qml` and `config/quickshell/PowerMenu.qml` |
 | `components/ToggleSwitch.qml` | Shared boolean control with mouse-driven activation plus disabled/pending opacity states. | `config/quickshell/components/ToggleSwitch.qml` |
 | `components/ColorSchemeCard.qml` and `components/ColorSchemeCards.qml` | Shared responsive scheme-preview cards for the Colors pane and preset editor. They consume `colorFamilies`, adapt the column count to available width, and highlight the active scheme without falling back to dropdown-only selection. | `config/quickshell/components/ColorSchemeCard.qml`, `config/quickshell/components/ColorSchemeCards.qml`, `config/quickshell/popups/settings/SettingsColorsPane.qml`, and `config/quickshell/popups/settings/SettingsPresetEditor.qml` |
+| `components/IconThemeCard.qml` and `components/IconThemeCards.qml` | Shared responsive icon-theme preview cards for the Icons pane and preset editor. They keep icon-theme selection pointer-first while replacing the old bare dropdown with family/variant labeling plus representative icons loaded from each installed icon theme. | `config/quickshell/components/IconThemeCard.qml`, `config/quickshell/components/IconThemeCards.qml`, `config/quickshell/popups/settings/SettingsIconsPane.qml`, and `config/quickshell/popups/settings/SettingsPresetEditor.qml` |
 | `components/InlineDropdown.qml` | Compact one-of-many selector with pointer-driven expansion, animated dropdown height, and `WheelFlickable`-backed option scrolling. | `config/quickshell/components/InlineDropdown.qml` |
 | `components/InlineSelect.qml` | Card-style one-of-many selector with the same pointer-first contract as `InlineDropdown`, plus current-option auto-scroll inside the shared flickable list. | `config/quickshell/components/InlineSelect.qml` |
 
@@ -87,7 +88,7 @@ request on release so `hyprsunset` is not restarted on every pointer move.
 | Area | Current implementation |
 | --- | --- |
 | Host-owned data | Theme snapshot, shared mouse-input snapshot, fingerprint enrollment snapshot/status, colors, presets, wallpapers, directories, icon/cursor/font choices, and Hyprland appearance draft state |
-| Host loaders | `Process` helpers call `desktopctl theme status --json`, `desktopctl hypr input status --json`, `desktopctl theme list-schemes --json`, `desktopctl theme list-presets --json`, `fprintd-list`, `busctl` fingerprint-device property reads, and shell commands for wallpaper/directory browsing |
+| Host loaders | `Process` helpers call `desktopctl theme status --json`, `desktopctl hypr input status --json`, `desktopctl theme list-schemes --json`, `desktopctl theme list-presets --json`, `desktopctl theme list-wallpapers --json`, `fprintd-list`, `busctl` fingerprint-device property reads, and shell commands for directory browsing |
 | Service-driven panes | Network, Bluetooth, Audio, Display, Power, Notifications, Focus Time, Hyprland |
 | Host-driven panes | Fingerprint, Presets, Colors, Fonts, Wallpaper, Icons, Mouse |
 | Category gating | `HostCapabilities.qml` plus the `hiddenCategories` / category-visibility logic in `config/quickshell/popups/SettingsPopup.qml` hide Power when neither battery nor power-profile support is present, and hide Fingerprint unless the chassis is laptop-like and the `busctl tree net.reactivated.Fprint` probe reports a device |
@@ -147,13 +148,23 @@ behaviors:
   `config/quickshell/popups/SettingsPopup.qml`,
   `config/quickshell/popups/settings/SettingsPresetsPane.qml`, and
   `config/quickshell/popups/settings/SettingsPresetEditor.qml`.
+- Loading wallpaper-grid previews through `desktopctl theme list-wallpapers
+  --json`, which now returns cached preview-image paths under
+  `$XDG_CACHE_HOME/desktopctl/wallpaper-previews/` so the pane reuses small
+  disk-backed previews instead of decoding each original 20-35 MB wallpaper on
+  every open:
+  `config/quickshell/popups/SettingsPopup.qml` and
+  `config/quickshell/popups/settings/SettingsWallpaperPane.qml`.
 - Keeping icon-theme selection separate from the Mouse page by routing it
-  through a dedicated Icons pane, while the Mouse pane now owns cursor
-  theme/size plus shared `desktopctl hypr input` controls for speed,
-  acceleration profile, and scroll factor:
+  through a dedicated Icons pane and reusing the same preview-card picker in
+  the preset editor, while the Mouse pane now owns cursor theme/size plus
+  shared `desktopctl hypr input` controls for speed, acceleration profile, and
+  scroll factor:
   `config/quickshell/popups/SettingsPopup.qml`,
+  `config/quickshell/components/IconThemeCards.qml`,
   `config/quickshell/popups/settings/SettingsIconsPane.qml`, and
-  `config/quickshell/popups/settings/SettingsMousePane.qml`.
+  `config/quickshell/popups/settings/SettingsMousePane.qml`, and
+  `config/quickshell/popups/settings/SettingsPresetEditor.qml`.
 - Owning a dedicated shared-mouse snapshot plus serialized
   `desktopctl hypr input` write queue alongside the existing theme-write path:
   the shared-mouse snapshot, status loader, and write queue in
