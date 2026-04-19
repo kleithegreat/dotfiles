@@ -40,7 +40,7 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-18.
 | `hosts/desktop/system.nix` | Desktop overlay | Dedicated NVIDIA policy, shared native kernel/compiler tuning opt-in, local build-scheduling policy, desktop-only imports, storage mounts, GRUB, desktop-only overlay imports, the desktop Windows VM toggle, and the desktop `tailscaled` stop-timeout override |
 | `hosts/desktop/wine-ableton.nix` | Desktop Wine/audio submodule | Loads the `ntsync` kernel module at boot, enables `services.pipewire.jack.enable`, and installs the desktop's Ableton-facing Wine toolchain (`wineWow64Packages.stableFull`, `wineasio`, and `winetricks`) |
 | `hosts/desktop/windows-vm.nix` | Desktop Windows VM submodule | Defines `virtualisation.windowsVm`, seeds the desktop qcow2/OVMF/TPM state under `/var/lib/windows-vm/windows11` during activation, grants the desktop user `kvm` access, and installs the `windows-vm` QEMU launcher |
-| `home/default.nix` | Shared user baseline | User packages that do not require system-scoped helper registration, small package-level overrides such as the local OpenCode Nix build workarounds plus the explicit native-package aliases, `xdg.configFile` mappings, host-specific Hyprland file selection, desktop entry overrides including the desktop Ableton Wine launcher variants, and theme activation |
+| `home/default.nix` | Shared user baseline | User packages that do not require system-scoped helper registration, small package-level overrides such as the local OpenCode stale-`node_modules` hash pin plus the post-configure build workarounds and the explicit native-package aliases, `xdg.configFile` mappings, host-specific Hyprland file selection, desktop entry overrides including the desktop Ableton Wine launcher variants, and theme activation |
 | `home/shell.nix` | Shell submodule | Zsh, shell tools, Git, aliases, shell helpers, and sourcing the generated `~/.config/zsh/theme-colors` fragment from `programs.zsh.initContent` |
 | `home/gtk.nix` | GTK submodule | GTK packages and small dconf defaults |
 | `pkgs/helium/default.nix` | Prebuilt browser package | Fetches the upstream Helium release tarball, auto-patches the bundled ELFs, wraps the upstream launcher, and installs desktop assets using the pin in `pkgs/helium/source.nix` |
@@ -92,7 +92,12 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-18.
   for the flake-provided `hyprqt6engine`, `hyprland`,
   `xdg-desktop-portal-hyprland`, `hyprbars`, and `hyprexpo` derivations, while
   `home/default.nix` uses that same helper for the locally overridden
-  `opencode`, `snappy-switcher`, and Vicinae packages.
+  `opencode`, `snappy-switcher`, and Vicinae packages. The OpenCode override
+  swaps in `packages.<system>.node_modules_updater.override { hash =
+  "sha256-i9TxYwWkJAR+kW6pbvhgQbRW9UYPtdrPQAGic4zPoa4="; }` before the existing
+  `postConfigure` fixes run, keeping the repo on upstream commit
+  `a546e88f37d1816adadf1e833a5fb4f39b7d56df` even when that commit ships a stale
+  `nix/hashes.json` entry for `x86_64-linux`.
 - Native nixpkgs-package selection is now explicit instead of global:
   `system/configuration.nix` builds a local `optimizedPkgs` set via
   `pkgs.appendOverlays [ optimizedPackages.overlay ]` and uses it only for
