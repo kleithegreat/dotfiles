@@ -8,7 +8,6 @@ in
 
 {
   imports = [
-    ./wine-ableton.nix
     ./windows-vm.nix
   ];
 
