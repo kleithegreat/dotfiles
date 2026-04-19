@@ -81,10 +81,22 @@ enum ThemeCommand {
     DeletePreset(NamedArg),
     /// List available color schemes.
     ListSchemes(JsonOutputArgs),
+    /// List wallpapers and cached preview paths.
+    ListWallpapers(ListWallpapersArgs),
     /// List available presets.
     ListPresets(JsonOutputArgs),
     /// Show the current theme state.
     Status(JsonOutputArgs),
+}
+
+#[derive(Debug, Args)]
+struct ListWallpapersArgs {
+    /// Print machine-readable JSON instead of human-readable text.
+    #[arg(long)]
+    json: bool,
+    /// Directory to scan for wallpaper files. Defaults to the current wallpaper directory.
+    #[arg(long, value_name = "DIR")]
+    directory: Option<String>,
 }
 
 #[derive(Debug, Args)]

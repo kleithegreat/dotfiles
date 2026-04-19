@@ -16,6 +16,7 @@ pub mod orchestrator;
 pub mod resolve;
 pub mod schema;
 pub mod targets;
+pub mod wallpaper_browser;
 
 const BASE_COLOR_TARGETS: [&str; 18] = [
     "alacritty",
@@ -217,6 +218,7 @@ fn run_cli(args: crate::ThemeArgs) -> CliResult<()> {
         crate::ThemeCommand::SavePreset(args) => cmd_save_preset(args),
         crate::ThemeCommand::DeletePreset(args) => cmd_delete_preset(args),
         crate::ThemeCommand::ListSchemes(args) => cmd_list_schemes(args.json),
+        crate::ThemeCommand::ListWallpapers(args) => cmd_list_wallpapers(args),
         crate::ThemeCommand::ListPresets(args) => cmd_list_presets(args.json),
         crate::ThemeCommand::Status(args) => cmd_status(args.json),
     }
@@ -548,6 +550,36 @@ fn cmd_list_presets(json_output: bool) -> CliResult<()> {
     }
 
     print_json_value(&Value::Array(items));
+    Ok(())
+}
+
+fn cmd_list_wallpapers(args: crate::ListWallpapersArgs) -> CliResult<()> {
+    let directory = if let Some(path) = args.directory.as_deref() {
+        map_user_err(expand_user_path(path))?
+    } else {
+        let state = map_user_err(resolve::load_state())?;
+        let current = PathBuf::from(state.wallpaper);
+        current
+            .parent()
+            .map(Path::to_path_buf)
+            .unwrap_or(map_user_err(paths::repo_path("wallpapers"))?)
+    };
+
+    let items = map_user_err(wallpaper_browser::list_wallpapers(&directory))?;
+
+    if !args.json {
+        if items.is_empty() {
+            println!("No wallpapers found.");
+            return Ok(());
+        }
+
+        for item in items {
+            println!("  {}", item.name);
+        }
+        return Ok(());
+    }
+
+    print_json_value(&wallpaper_browser::json_value(&items));
     Ok(())
 }
 

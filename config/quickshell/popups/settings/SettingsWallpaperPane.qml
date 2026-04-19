@@ -9,6 +9,7 @@ Components.WheelFlickable {
     required property bool writePending
     required property string pendingKey
     required property var wallpapers
+    required property var wallpaperPreviewPaths
     required property string wallpaperDir
     required property bool directoryBrowserOpen
     required property string directoryBrowserPath
@@ -22,6 +23,12 @@ Components.WheelFlickable {
 
     function isPending(key) {
         return root.writePending && root.pendingKey === key;
+    }
+
+    function previewSource(name) {
+        let previewPath = root.wallpaperPreviewPaths[name];
+        let path = previewPath ? String(previewPath) : root.wallpaperDir + "/" + name;
+        return "file://" + path;
     }
 
     readonly property real wallpaperCardMinWidth: Math.max(Theme.fontSize * 11, 140)
@@ -126,7 +133,7 @@ Components.WheelFlickable {
                             Image {
                                 anchors.fill: parent
                                 anchors.margins: 1
-                                source: "file://" + root.wallpaperDir + "/" + wpCard.modelData
+                                source: root.previewSource(wpCard.modelData)
                                 fillMode: Image.PreserveAspectCrop
                                 asynchronous: true
                             }
