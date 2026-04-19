@@ -297,7 +297,42 @@ in
   services.upower.enable = true;
 
   # ── SSD ────────────────────────────────────────────────────
-  services.fstrim.enable = true;
+  # `/boot/efi` is mounted from the Windows NVMe on dual-boot hosts, so the
+  # stock `services.fstrim` unit is too broad here. Trim only the Linux root
+  # filesystem.
+  services.fstrim.enable = false;
+
+  systemd.services.fstrim-root = {
+    description = "Discard unused blocks on the Linux root filesystem";
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${pkgs.util-linux}/sbin/fstrim --verbose /";
+      PrivateDevices = false;
+      PrivateNetwork = true;
+      PrivateUsers = false;
+      ProtectKernelTunables = true;
+      ProtectKernelModules = true;
+      ProtectControlGroups = true;
+      MemoryDenyWriteExecute = true;
+      SystemCallFilter = [ "@default" "@file-system" "@basic-io" "@system-service" ];
+    };
+  };
+
+  systemd.timers.fstrim-root = {
+    description = "Discard unused blocks on the Linux root filesystem once a week";
+    wantedBy = [ "timers.target" ];
+    unitConfig = {
+      ConditionVirtualization = "!container";
+      ConditionPathExists = "!/etc/initrd-release";
+    };
+    timerConfig = {
+      OnCalendar = "weekly";
+      AccuracySec = "1h";
+      Persistent = true;
+      RandomizedDelaySec = "100min";
+      Unit = "fstrim-root.service";
+    };
+  };
 
   # ── Audio (PipeWire) ─────────────────────────────────────────
   services.pipewire = {
