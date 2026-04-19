@@ -234,6 +234,29 @@ in
     symbola
   ];
 
+  fonts.fontconfig = {
+    # Most panels are standard RGB and SF Pro looks noticeably softer with the
+    # default grayscale-only stack.
+    subpixel.rgba = "rgb";
+    localConf = ''
+      <?xml version='1.0'?>
+      <!DOCTYPE fontconfig SYSTEM 'urn:fontconfig:fonts.dtd'>
+      <fontconfig>
+        <!-- Prefer the small-text optical cut when apps request the generic
+             SF Pro family; otherwise fontconfig resolves to Apple's catch-all
+             variable face first. -->
+        <match target="pattern">
+          <test name="family" qual="any">
+            <string>SF Pro</string>
+          </test>
+          <edit name="family" mode="prepend" binding="strong">
+            <string>SF Pro Text</string>
+          </edit>
+        </match>
+      </fontconfig>
+    '';
+  };
+
   # ── Session variables ────────────────────────────────────────
   # Electron apps: use Wayland backend
   environment.sessionVariables.NIXOS_OZONE_WL = "1";
