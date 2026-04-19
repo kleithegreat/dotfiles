@@ -43,7 +43,11 @@ buildNpmPackage {
     runHook preInstall
 
     packageOut="$out/lib/node_modules/@openchamber/web"
-    mkdir -p "$packageOut"
+    mkdir -p "$packageOut" \
+      "$out/bin" \
+      "$out/share/applications" \
+      "$out/share/icons/hicolor/192x192/apps" \
+      "$out/share/pixmaps"
 
     cp packages/web/package.json "$packageOut/package.json"
     cp packages/web/README.md "$packageOut/README.md"
@@ -57,10 +61,28 @@ buildNpmPackage {
     cp -r node_modules "$packageOut/node_modules"
     find "$packageOut/node_modules" -xtype l -delete
 
-    mkdir -p "$out/bin"
     makeWrapper ${lib.getExe nodejs} "$out/bin/openchamber" \
       --add-flags "$packageOut/bin/cli.js" \
       --set-default OPENCHAMBER_CLAUDE_BRIDGE_BINARY "${lib.getExe openchamberClaudeBridge}"
+
+    install -m 0644 packages/web/public/pwa-192.png \
+      "$out/share/icons/hicolor/192x192/apps/openchamber.png"
+    ln -s ../icons/hicolor/192x192/apps/openchamber.png \
+      "$out/share/pixmaps/openchamber.png"
+
+    desktopFile="$out/share/applications/openchamber.desktop"
+    printf '%s\n' \
+      '[Desktop Entry]' \
+      'Version=1.0' \
+      'Type=Application' \
+      'Name=OpenChamber' \
+      'Comment=Run OpenCode in your browser' \
+      "Exec=$out/bin/openchamber" \
+      'Icon=openchamber' \
+      'Categories=Development;' \
+      'Keywords=OpenCode;AI;Assistant;' \
+      'Terminal=false' \
+      > "$desktopFile"
 
     runHook postInstall
   '';
