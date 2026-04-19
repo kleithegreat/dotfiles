@@ -258,6 +258,27 @@ The key confirmed findings from the hands-on investigation so far are:
   repeatedly overshot the visible output height, such as `1908x1096` or
   `1920x1096` on a `1920x1080` output. That aligns closely with the clipped
   bottom edge and the downward-growing input offset.
+- Later custom-Wine instrumentation showed that the final `screen_to_client()`
+  conversion is internally consistent, but it is subtracting the top-left of a
+  top-level editor window that Wine already believes is too tall. In one traced
+  run the same window had a stable geometry around `(156,78)-(1764,1174)` while
+  earlier X11 `ConfigureNotify` events for that top-level window still reported
+  `1600x900` visible sizes. That means the bad click coordinates are likely a
+  consequence of stale top-level X11/window geometry state rather than the last
+  mouse-message transform itself.
+- Deeper child-window instrumentation also showed that the main editor child
+  itself was being selected correctly for reproduced clicks; the problem was not
+  a random child-window mismatch. The wrong final client coordinates were still
+  delivered to Ableton because the top-level/editor origin in Wine was already
+  wrong by a consistent amount.
+- Later `wine-tkg` producer-side tracing in `win32u/window.c` showed that the
+  earliest obvious corruption for the problematic editor child did not start in
+  the final `screen_to_client()` call. Instead, repeated `SetWindowPos` /
+  `calc_ncsize()` updates for a small child window pushed `new_client.top`
+  downward while `new_window` and `new_visible` stayed unchanged, and later
+  larger child-window updates still kept `new_client` and `new_visible` out of
+  sync. That means the geometry corruption is already present in the Win32
+  layout pipeline before the final input transform.
 - Ableton's own log initially reported `Effective process DPI awareness: 0`
   while also reporting `ALF DPI awareness: pm-aware v2`. The registry override
   and embedded-manifest experiment were both attempts to reconcile that mismatch.
@@ -271,6 +292,166 @@ The key confirmed findings from the hands-on investigation so far are:
 `wineWow64Packages.stagingFull` from the current nixpkgs input was available and
 testable with the same prefix. It did not materially change the clipping or the
 click-target bug compared with the stable Wine 11 package.
+
+### wine-tkg 11.6
+
+A local `wine-tkg` build based on `11.6.r2.gbb885a6c ( TkG Staging )` was built
+successfully under a Nix-managed shell and installed under
+`~/.cache/wine-tkg/non-makepkg-builds/wine-tkg-ableton-x11-64-git`. Compared
+with the stable/staging nixpkgs Wine packages it reduced some visual jank and
+launched cleanly with the proper runtime wrapper, but the core bug stayed the
+same:
+
+- the proportional click drift remained
+- piano-roll divider targeting was still wrong unless luck made the target line
+  up with the cursor
+- note-edge resize targeting was still unreliable
+- tiled mode still showed jitter and clipped lower regions
+
+This makes `wine-tkg` the best current debugging baseline, but not a functional
+fix by itself.
+
+The most useful debugging results on top of the `wine-tkg` baseline were:
+
+- `process_mouse_message()` showed the raw physical point and the mapped point
+  were identical, so the final mouse-message DPI mapping was not introducing the
+  proportional drift.
+- `screen_to_client()` / `client_to_screen()` then showed a consistent offset,
+  not a scaling curve. In one representative trace Wine subtracted `(-156,-78)`
+  from the screen point and delivered the resulting client point to Ableton.
+- Deeper child-window tracing showed the child/editor window under the cursor
+  was usually the expected one; wrong-child selection was not the main issue.
+- The decisive mismatch was earlier in geometry state: Wine still tracked the
+  main editor window at heights around `1096` while the observed X11 configure
+  events for the same top-level window were `1600x900`.
+- Producer-side `SetWindowPos` tracing then showed that the bad geometry first
+  becomes visible in the Win32 layout path itself. For the problematic editor
+  child, repeated no-size `calc_ncsize()` passes pushed `new_client.top`
+  downward (`30 -> 49 -> 67 -> 85 -> 103`) even while `new_window` and
+  `new_visible` stayed unchanged. Later, the larger editor child window still
+  showed `new_client != new_visible` after `WM_NCCALCSIZE`, with the wrong
+  geometry propagating downstream from there.
+- Boundary tracing around `send_message(hwnd, WM_NCCALCSIZE, TRUE, ...)` then
+  made the producer even more explicit: the bad client rect is already present
+  in `params.rgrc[0]` immediately after the callback returns. For the large
+  editor child, the returned client rect kept a sane left/right/bottom inset but
+  inflated the top inset compared with the previous visible rect, which suggests
+  the key regression may be in how Wine or Ableton computes the non-client top
+  inset for that child window.
+- Renderer-side tracing in `win32u/vulkan.c` later confirmed that the Vulkan
+  path is not inventing a separate wrong extent. `get_surface_rect()` always
+  chose `ClientRect` rather than `PresentRect` for the main editor window, and
+  the swapchain/image extent matched that client rect exactly. That means DXVK
+  is consuming the already-bad client geometry rather than creating the bug on
+  its own.
+
+Multiple env-gated local experiments were tried on the `wine-tkg` tree and all
+failed to materially fix the bug:
+
+- top-level `client := visible`
+- server-side child hit-testing using `visible_rect`
+- using `GetClientRect` instead of `GetPresentRect` for Vulkan surface sizing
+- disabling `present_rect`
+- using `window_rect` or `visible_rect` for client/screen origin offsets
+- forcing `WM_NCHITTEST` under the target window DPI context
+- freezing X11 `ConfigureNotify` origin updates
+- trusting X11 `ConfigureNotify` immediately
+- trusting `current_state.rect` directly for the main window
+- clamping child `SetWindowPos` size requests to the parent visible size
+- preserving child client rects on no-size updates
+- skipping child `WM_NCCALCSIZE` on suspicious no-size updates
+- forcing large child `client := visible` after `WM_NCCALCSIZE`
+- direct `WM_NCCALCSIZE` boundary tracing, which showed the bad client rect is
+  already returned at the callback boundary
+- multiple render-side overrides (`GetClientRect` vs `GetPresentRect`, exact
+  swapchain extent, no vertical surface rounding) which changed swapchain choice
+  but did not materially fix the input bug
+
+That set of negative results is useful: it rules out many easy rect/offset
+substitutions and points harder at the Win32 layout/render pipeline itself,
+especially the child-window `SetWindowPos` / `WM_NCCALCSIZE` path plus the final
+render-surface extent selection that DXVK consumes.
+
+## Upstream Bug Report Draft
+
+If the investigation needs to move upstream, the current best bug report should
+look roughly like this:
+
+### Title
+
+`Ableton Live 12 Lite under Wine shows proportional downward click offset and
+ oversized top-level geometry on X11/Wayland`
+
+### Environment
+
+- NixOS unstable, Hyprland compositor
+- PipeWire audio with JACK compatibility and WineASIO
+- NVIDIA RTX 3080, proprietary driver `595.58.3`
+- Ableton Live 12 Lite `12.3.6`
+- Reproduced on Wine stable 11, Wine staging 11.5, and a local wine-tkg 11.6
+  build
+- Reproduced on Wine Wayland, Xwayland, and X11 virtual desktop modes
+
+### Symptoms
+
+- In windowed mode, click targets drift farther downward the lower the visible
+  cursor is in the window.
+- The piano-roll divider and MIDI note-edge resize targets become unusable.
+- Wine Wayland also clips the bottom of the window; Xwayland removes that
+  clipping but not the click-target bug.
+- Popup/dialog windows often show stale black regions around or behind them.
+
+### Strong Evidence
+
+- DXVK logs show swapchain heights larger than the visible output height, for
+  example `1908x1096` on a `1908x1032` or `1920x1080` visible region.
+- `process_mouse_message()` logs show raw and mapped screen points are identical
+  at the message stage, so the proportional drift is not caused by the final
+  phys->mapped conversion.
+- `screen_to_client()` logs show a consistent client-space offset is applied,
+  but that offset corresponds to a top-level window origin that is already wrong.
+- For the same main editor window, Wine tracked a geometry around
+  `(156,78)-(1764,1174)` while earlier X11 `ConfigureNotify` events for that
+  top-level window still reported `1600x900` visible sizes.
+- Child-window selection under the cursor appeared sane in server-side tracing,
+  which weakens the "wrong child hit" theory.
+- `SetWindowPos` / `calc_ncsize()` tracing for the editor child showed client
+  geometry drift starting before later X11 bookkeeping stages. Repeated no-size
+  updates pushed the child `new_client.top` downward even when `new_window` and
+  `new_visible` did not move, which suggests the Win32 layout path itself is one
+  of the first concrete producer-side corruption points.
+
+### Current Hypothesis
+
+The bug is likely in the interaction between Wine's Win32 child layout path
+(`SetWindowPos` / `WM_NCCALCSIZE`) and the later render-surface extent chosen
+for the top-level/editor window. The final mouse-message coordinate transform is
+consistent, but it is operating on window geometry that has already diverged
+from the visible area by the time input reaches the app. Renderer-side tracing
+now suggests the Vulkan path is mostly a consumer of the bad geometry, not the
+original producer. The strongest current suspect is the child-window
+`WM_NCCALCSIZE` result itself, especially its growing top inset relative to the
+previous visible rect.
+
+### Likely Next Inspection Targets
+
+- `dlls/win32u/window.c`
+  - `calc_winpos()`
+  - `calc_ncsize()`
+  - `set_window_pos()`
+- `dlls/win32u/window.c`
+  - the exact `WM_NCCALCSIZE` boundary: `params.rgrc[0/1/2]` before and after
+    `send_message(hwnd, WM_NCCALCSIZE, TRUE, ...)`
+- `dlls/win32u/window.c`
+  - any local workaround that preserves the last sane visible insets when
+    `WM_NCCALCSIZE` returns a drifting top inset for the large editor child
+- `dlls/win32u/vulkan.c`
+  - `get_surface_rect()`
+  - `adjust_surface_capabilities()`
+  - `win32u_vkCreateSwapchainKHR()`
+- `dlls/winex11.drv/window.c`
+  - only as a later consumer / tracker of already bad geometry unless the
+    `WM_NCCALCSIZE` boundary tracing points back into X11 state reconstruction
 
 ### Wine-NSPA binary release
 
