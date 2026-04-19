@@ -36,6 +36,12 @@
 **Status:** Intentional design
 **Resolution:** `system/configuration.nix` and `home/default.nix` both import `system/native-optimizations.nix` directly, so the flake-input packages carry the same `-O3 -march=native` / `target-cpu=native` flags and per-host `requiredSystemFeatures` tag as the overlay-managed nixpkgs packages.
 
+## Stock packages can still miss cache hits through optimized wrapper inputs
+**Symptom:** A package that is not listed in `overlays/native-optimized.nix` still rebuilds locally and gets a different derivation path from plain nixpkgs.
+**Cause:** The global overlay also changes dependencies used during install-time wrapping. `pkgs.codex` wraps its launcher with `ripgrep` on `PATH`, so the native-optimized `pkgs.ripgrep` changes the resulting `codex` derivation even though `codex` itself is not directly optimized.
+**Status:** Workaround in place
+**Resolution:** When a package must stay on the stock cached path, import plain nixpkgs separately and source that package from the unoverlaid set. `home/default.nix` now installs `codex` from `import pkgs.path { ...; }` for exactly this reason.
+
 ## Native-tagged rebuilds need a client-side bootstrap during the switch that enables them
 **Symptom:** `nixos-rebuild switch` can fail before activation with `missing system features` even though the evaluated target config already includes `native-optimized-<host>` in `nix.settings.system-features`.
 **Cause:** The build runs through the currently active Nix daemon, and that daemon does not start advertising the new host-native feature until after the switch finishes and the rebuilt `nix.conf` is live.

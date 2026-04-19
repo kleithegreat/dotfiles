@@ -4,6 +4,9 @@ let
   nativeOptimizations = import ../system/native-optimizations.nix {
     inherit lib hostName enableNativeOptimizations;
   };
+  stockPkgs = import pkgs.path {
+    system = pkgs.stdenv.hostPlatform.system;
+  };
   opencode-pkg = nativeOptimizations.optimizeNativePackage (opencode.packages.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs (old: {
     postConfigure = (old.postConfigure or "") + ''
       if [ -e packages/app/node_modules/@tsconfig/bun/tsconfig.json ]; then
@@ -33,6 +36,9 @@ let
     ];
   }));
   vicinae-pkg = nativeOptimizations.optimizeNativePackage vicinae.packages.${pkgs.stdenv.hostPlatform.system}.default;
+  # Keep codex on stock nixpkgs so the native ripgrep overlay does not change
+  # its wrapped PATH and force a host-local rebuild.
+  codex-pkg = stockPkgs.codex;
   lapce-pkg = pkgs.lapce;
   ableton-prefix = "${config.home.homeDirectory}/.local/share/wineprefixes/ableton-live-12-lite";
   ableton-launcher = pkgs.writeShellApplication {
@@ -312,7 +318,7 @@ in
     man-pages-posix    # POSIX man pages
 
     claude-code
-    codex
+    codex-pkg
   ] ++ lib.optionals (hostName == "desktop") [
     ableton-launcher
     ableton-launcher-x11
