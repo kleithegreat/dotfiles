@@ -8,7 +8,7 @@ EFI boot with manually maintained chainloader entries.
 
 | Host | Current contract |
 | --- | --- |
-| `laptop` | EFI GRUB with manual entries for Arch Linux and Windows Boot Manager |
+| `laptop` | EFI GRUB with a manual entry for Windows Boot Manager |
 | `desktop` | EFI GRUB with a manual entry for Windows Boot Manager |
 
 ## Policy

@@ -40,6 +40,7 @@ Managed popups mounted by the overlay host remain:
 | `BrightnessService.qml` | Backlight discovery, file watching, and direct `brightnessctl` writes for the Display pane | Display pane and any brightness slider UI |
 | `DisplayService.qml` | Monitor refresh/apply and daemon-backed night-light status / override requests | Display pane |
 | `HostCapabilities.qml` | Detects laptop-chassis, Wi-Fi, battery, power-profile, and fingerprint-reader capabilities | Settings host category visibility plus power/fingerprint pane availability |
+| `HyprlandConfigService.qml` | Shared monitor-layout undo/redo state plus Hyprland animation/keybind override editing, save, and clear flows | Display pane, Hyprland pane, Settings host refresh path |
 | `IdleInhibitService.qml` | Holds a transient `systemd-inhibit --what=idle` process so hypridle pauses its timers while the shell toggle is active, and auto-enables that inhibitor at shell startup when `DESKTOPCTL_IDLE_INHIBIT_DEFAULT` is truthy in the session environment | Quick Settings idle-inhibit tile |
 | `NetworkService.qml` | Active network summary for Wi-Fi or ethernet via the default-route interface, Wi-Fi scans/known networks, active-transport diagnostics, DNS, captive portal, reporting | Bar network, quick settings, network pane |
 | `NotificationService.qml` | Popup/history models, DND, dismissal, relative-time refresh | Root notifications, drawer, bar bell, Notifications settings pane, IPC |
@@ -87,8 +88,8 @@ request on release so `hyprsunset` is not restarted on every pointer move.
 | --- | --- |
 | Host-owned data | Theme snapshot, shared mouse-input snapshot, fingerprint enrollment snapshot/status, colors, presets, wallpapers, directories, icon/cursor/font choices, and Hyprland appearance draft state |
 | Host loaders | `Process` helpers call `desktopctl theme status --json`, `desktopctl hypr input status --json`, `desktopctl theme list-schemes --json`, `desktopctl theme list-presets --json`, `fprintd-list`, `busctl` fingerprint-device property reads, and shell commands for wallpaper/directory browsing |
-| Service-driven panes | Network, Bluetooth, Audio, Display, Power, Notifications, Focus Time |
-| Host-driven panes | Fingerprint, Presets, Colors, Fonts, Wallpaper, Icons, Mouse, Hyprland |
+| Service-driven panes | Network, Bluetooth, Audio, Display, Power, Notifications, Focus Time, Hyprland |
+| Host-driven panes | Fingerprint, Presets, Colors, Fonts, Wallpaper, Icons, Mouse |
 | Category gating | `HostCapabilities.qml` plus the `hiddenCategories` / category-visibility logic in `config/quickshell/popups/SettingsPopup.qml` hide Power when neither battery nor power-profile support is present, and hide Fingerprint unless the chassis is laptop-like and the `busctl tree net.reactivated.Fprint` probe reports a device |
 | General theme writes | Serialized `desktopctl theme set` and `desktopctl theme preset` requests, with host-local staging for individual `set` writes before process exit and toast-visible backend errors |
 | Mouse input writes | Serialized `desktopctl hypr input set` requests, with host-local staging for shared mouse settings before the backend reload confirms or rolls them back |
@@ -217,11 +218,11 @@ tab stops or focus outlines layered onto those surfaces. Evidence:
 
 | Piece | Current role |
 | --- | --- |
-| `Theme.qml` | Watches the XDG-config-derived `GeneratedTheme.json` path, reparses on change, and exposes generated colors/fonts plus shell-owned layout constants, including the shared animation timing scale, popup start-scale, and popup scale-lead delay used by the shell popup surfaces |
+| `Theme.qml` | Watches the XDG-config-derived `GeneratedTheme.json` path, reparses on change, exposes the generated system-font shell baseline plus a separate mono-font alias for monospaced/glyph-oriented surfaces, and keeps shell-owned layout constants including the shared animation timing scale, popup start-scale, and popup scale-lead delay used by the shell popup surfaces |
 | `desktopctl/src/theme/targets/quickshell.rs` | Writes `GeneratedTheme.json`, maps theming names into Quickshell's `bg0_h` / `aqua` naming, emits both mono and system font families, and derives shell font sizes from `ThemeState.font_size + quickshell_font_size_offset` |
 | Recursive tree exception | `config/quickshell/GeneratedTheme.json` is committed in the repo as a bootstrap snapshot because Home Manager deploys the whole `config/quickshell/` tree recursively; activation/runtime theme applies still overwrite the live `${XDG_CONFIG_HOME:-~/.config}/quickshell/GeneratedTheme.json` path |
 | Settings host | Runs `desktopctl theme ...`, stages optimistic `themeState` updates for individual `set` writes, serializes general theme writes, shows toast-visible backend failures, then reloads or rolls back its local snapshot when the process exits |
-| Shell IPC | Provides a second command path into `desktopctl theme ...` through `theme.apply`, with shell-style tokenization and error toasts on failure |
+| Shell IPC | Provides a second command path into `desktopctl theme ...` through `theme.apply`, accepting either shell-quoted string payloads or structured argv arrays, with error toasts on failure |
 
 `Theme.qml` still keeps hardcoded Gruvbox Dark fallbacks for the generated JSON
 surface in its fallback color/font object inside `config/quickshell/Theme.qml`.

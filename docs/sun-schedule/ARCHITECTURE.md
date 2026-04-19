@@ -16,7 +16,7 @@ cross-domain side effects as of 2026-04-13.
 | `desktopctl/src/daemon/solar.rs` | Recomputes solar status at startup, on every solar event, on `SIGUSR1`, and on the 2-hour repair tick, then hands the result to the night-light controller for reconciliation | The scheduler loop in `desktopctl/src/daemon/solar.rs` |
 | `desktopctl/src/daemon/server.rs` | Exposes the daemon-owned `night_light.status`, `night_light.set`, and `night_light.toggle` methods over the Unix socket | The socket-method handlers in `desktopctl/src/daemon/server.rs` |
 | `desktopctl/src/night_light.rs` | Implements the `desktopctl night-light` CLI, socket client helpers, fallback status, and `hyprsunset` process inspection / start / stop helpers | The CLI commands and `hyprsunset` helper functions in `desktopctl/src/night_light.rs` |
-| `desktopctl/src/solar.rs` | Resolves coordinates, computes sunrise/sunset, derives the scheduled state, and exposes `desktopctl sun status` | The location-resolution helpers and `sun status` implementation in `desktopctl/src/solar.rs` |
+| `desktopctl/src/solar.rs` | Resolves coordinates, rejects non-finite or out-of-range cache/GeoClue coordinates, computes sunrise/sunset, derives the scheduled state, and exposes `desktopctl sun status` | The location-resolution helpers and `sun status` implementation in `desktopctl/src/solar.rs` |
 | `desktopctl/src/theme/mod.rs` | Handles `dark_hint` persistence and target application for both daemon-triggered writes and direct theme CLI writes | `set_dark_hint()` plus the theme command handlers in `desktopctl/src/theme/mod.rs` |
 | `desktopctl/src/theme/targets/gtk.rs` | Applies GTK dark-preference side effects through dconf when `dark_hint` changes | The `on_apply()` implementation in `desktopctl/src/theme/targets/gtk.rs` |
 
@@ -41,7 +41,8 @@ cross-domain side effects as of 2026-04-13.
    runtime.
 3. The coordinate-resolution helpers in `desktopctl/src/solar.rs` resolve from the cached
    `sun-schedule/location.json`, then `where-am-i`, then the hardcoded
-   fallback `30.6280, -96.3344`.
+   fallback `30.6280, -96.3344`, rejecting any non-finite or out-of-range
+   coordinates before treating them as authoritative.
 4. The schedule-derivation helpers in `desktopctl/src/solar.rs` derive sunrise, sunset, current night
    state, dark-hint schedule state, and the next event timestamps for the
    current location.

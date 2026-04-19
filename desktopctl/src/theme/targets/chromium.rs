@@ -15,6 +15,7 @@ pub const METADATA: TargetMetadata = TargetMetadata {
     output_path: None,
     base_path: None,
     extra_outputs: &[],
+    managed_paths: &["~/.config/chromium/<profile>/Preferences"],
     reload_cmd: None,
     comment: None,
     sync_safe: true,

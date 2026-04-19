@@ -11,6 +11,7 @@ pub const METADATA: TargetMetadata = TargetMetadata {
     output_path: Some("~/.config/spicetify/Themes/ApplyTheme/color.ini"),
     base_path: None,
     extra_outputs: &[],
+    managed_paths: &["~/.config/spicetify/Themes/ApplyTheme/user.css"],
     reload_cmd: None,
     comment: Some(";"),
     sync_safe: true,

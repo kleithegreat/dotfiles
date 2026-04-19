@@ -24,7 +24,7 @@ Item {
         id: refChar
         visible: false
         text: "0"
-        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; font.bold: true
+        font.family: Theme.monoFamily; font.pixelSize: Theme.fontSize; font.bold: true
         renderType: Text.NativeRendering
     }
 

@@ -61,6 +61,7 @@ pub struct TargetMetadata {
     pub output_path: Option<&'static str>,
     pub base_path: Option<&'static str>,
     pub extra_outputs: &'static [&'static str],
+    pub managed_paths: &'static [&'static str],
     pub reload_cmd: Option<&'static [&'static str]>,
     pub comment: Option<&'static str>,
     pub sync_safe: bool,
@@ -490,6 +491,31 @@ mod tests {
                 .expect("wallpaper target")
                 .metadata()
                 .sync_safe
+        );
+
+        assert_eq!(
+            registry
+                .get("chromium")
+                .expect("chromium target")
+                .metadata()
+                .managed_paths,
+            &["~/.config/chromium/<profile>/Preferences"]
+        );
+        assert_eq!(
+            registry
+                .get("opencode")
+                .expect("opencode target")
+                .metadata()
+                .managed_paths,
+            &["~/.config/opencode/themes/desktopctl.json"]
+        );
+        assert_eq!(
+            registry
+                .get("vscode")
+                .expect("vscode target")
+                .metadata()
+                .managed_paths,
+            &["~/.config/Code/User/globalStorage/state.vscdb"]
         );
     }
 

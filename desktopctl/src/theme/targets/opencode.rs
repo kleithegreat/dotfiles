@@ -12,6 +12,7 @@ pub const METADATA: TargetMetadata = TargetMetadata {
     output_path: Some("~/.config/opencode/tui.json"),
     base_path: Some("config/opencode/base.json"),
     extra_outputs: &[],
+    managed_paths: &["~/.config/opencode/themes/desktopctl.json"],
     reload_cmd: None,
     comment: None,
     sync_safe: true,

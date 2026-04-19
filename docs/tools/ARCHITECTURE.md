@@ -16,6 +16,7 @@ Manager deploys.
 | Neovim | `config/nvim/**/*` | `~/.config/nvim/lua/theme-state.json`, `~/.config/nvim/lua/neovide-theme.lua` | `standalone` | Home Manager symlinks the full tree; theming writes only state files; the runtime config sanitizes `background` to `dark`/`light` and otherwise falls back silently to the installed `gruvbox` scheme |
 | Alacritty | `config/alacritty/alacritty.toml` | `~/.config/alacritty/theme.toml` | `import` | Base config imports the generated fragment |
 | Ghostty | `config/ghostty/base` | `~/.config/ghostty/config` | `concat` | Base file plus generated theme block written at apply time |
+| OpenCode | `config/opencode/base.json` | `~/.config/opencode/tui.json` plus `~/.config/opencode/themes/desktopctl.json` | `concat` | Base config selects the managed global theme name; `persist()` writes the actual OpenCode palette JSON under `themes/` |
 | tmux | `config/tmux/tmux.conf` | `~/.config/tmux/colors.conf` | `import` | Base config sources the generated colors file |
 | Zsh | `home/shell.nix` | `~/.config/zsh/theme-colors` | `import` | Home Manager authors the main shell init; `programs.zsh.initContent` sources the generated fragment for autosuggestion highlighting |
 | Starship | `config/starship/base.toml` | `~/.config/starship.toml` | `concat` | Base prompt config plus generated palette block written at apply time |
@@ -32,8 +33,10 @@ Theme-only targets with no `config/` subdirectory:
 | Tool | Live theme-owned output | Assembly | Notes |
 | --- | --- | --- | --- |
 | Bat | `~/.config/bat/config` | `standalone` | Theme selector; reads config per invocation |
+| Chromium | Chromium active-profile `Preferences` web-font prefs | `command` | Patches active profiles in place by reading `Local State` and updating `webkit.webprefs.fonts` |
 | Cursor | `~/.local/share/icons/default/index.theme.generated` | `standalone` | Also writes `~/.config/hypr/cursor.conf`; live-updates dconf and hyprctl |
 | GTK | dconf live state only | `command` | Sets GTK theme, color-scheme, fonts, and icon theme via dconf |
+| GtkSourceView | `~/.local/share/libgedit-gtksourceview-300/styles/desktopctl-current.xml` and related generated style files | `standalone` | Also updates gedit's dark/light source-style dconf keys |
 | Qt | `~/.config/qt6ct/colors/current.conf` and others | `standalone` | Multi-file: qt6ct, qt5ct, kdeglobals, kcolorscheme, hyprqt6engine, Kvantum, Kate, KWrite |
 | Spicetify | `~/.config/spicetify/Themes/ApplyTheme/color.ini` | `standalone` | Runs `spicetify update` on apply |
 | Wallpaper | `awww` live state plus cached filtered wallpapers | `command` | Optional `lutgen` palette filtering; no persistent primary config file |

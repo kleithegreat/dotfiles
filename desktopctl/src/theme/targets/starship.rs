@@ -7,6 +7,7 @@ pub const METADATA: TargetMetadata = TargetMetadata {
     output_path: Some("~/.config/starship.toml"),
     base_path: Some("config/starship/base.toml"),
     extra_outputs: &[],
+    managed_paths: &[],
     reload_cmd: None,
     comment: Some("#"),
     sync_safe: true,

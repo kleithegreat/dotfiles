@@ -46,7 +46,7 @@ Status meanings:
 
 | Severity | Finding | Status | Evidence |
 | --- | --- | --- | --- |
-| Medium | Dependency selection is not fully aligned with real consumers. | partially addressed | The dependency tables in `desktopctl/src/theme/orchestrator.rs` now route `font_size` to `quickshell`, but `mono_font` still includes `tmux` even though `tmux` does not consume the mono font family. |
+| Medium | Dependency selection is not fully aligned with real consumers. | resolved | `desktopctl/src/theme/mod.rs` no longer routes `theme fonts` through `tmux`, and `desktopctl/src/theme/orchestrator.rs` no longer includes `tmux` in the `mono_font` dependency path. |
 | Low | `neovim` still consumes raw `family` and `variant` strings by design. | open | Centralized app-theme metadata now exists in `desktopctl/src/theme/schema.rs`, but `desktopctl/src/theme/targets/neovim.rs` still passes raw values through. |
 | Medium | `dark_hint` still has multiple policy initiators and no daemon-owned override model. | open | `update_solar_status()` / `reconcile_locked()` in `desktopctl/src/daemon/night_light.rs` issue the nightly `dark_hint` enable, but `desktopctl/src/theme/mod.rs` still lets theme surfaces write `dark_hint` directly through `set_dark_hint()`, `cmd_set()`, and `cmd_preset()`. |
 
@@ -68,4 +68,4 @@ Status meanings:
 
 | Severity | Finding | Status | Evidence |
 | --- | --- | --- | --- |
-| Medium | Startup recording still depends on at least one successful `hyprctl activewindow -j` seed or a later focus-change event. | open | The daemon seeds at startup and again after each successful socket reconnect in `desktopctl/src/daemon/focus.rs`, but if those seed attempts return empty and the focused window never changes, unlocked time is still skipped in the same file's per-second accumulation path. |
+| Medium | Startup recording still depends on at least one successful `hyprctl activewindow -j` seed or a later focus-change event. | resolved | `desktopctl/src/daemon/focus.rs` now retries `hyprctl activewindow -j` on unlocked ticks when the shared class is empty, so startup or reconnect seeds no longer need a later focus-change event to begin unlocked accumulation. |
