@@ -56,7 +56,7 @@
 
 ## Physical-host kernels share one native helper
 **Symptom:** Desktop and laptop should both rebuild one shared tuned physical-host kernel while still keeping host-specific preemption and the laptop-only Intel Kconfig trim on top.
-**Cause:** `system/native-kernel-packages.nix` now derives the kernel package set once from the CachyOS `cachyos-6.18.23-1.tar.gz` source, builds it with Clang + LLD ThinLTO, applies the matching `6.18/sched/0001-bore-cachy.patch`, keeps `ignoreConfigErrors = true`, and layers `KCFLAGS=-O2 -march=native`, `KRUSTFLAGS=-Ctarget-cpu=native`, and the host-specific native build feature. The host modules then add the desktop/laptop preemption overrides and the laptop's Intel-only trim through `boot.kernelPatches`.
+**Cause:** `system/native-kernel-packages.nix` now derives the kernel package set once from the stock nixpkgs `linux_6_18` source, builds it with Clang + LLD ThinLTO, applies an explicit BORE patch stack plus `tcp/bbr3`, keeps `ignoreConfigErrors = true`, and layers `KCFLAGS=-O2 -march=native`, `KRUSTFLAGS=-Ctarget-cpu=native`, and the host-specific native build feature. The host modules then add the desktop/laptop preemption overrides and the laptop's Intel-only trim through `boot.kernelPatches`.
 **Status:** Intentional design
 **Resolution:** Keep both physical host modules on `system/native-kernel-packages.nix`. Keep `ignoreConfigErrors = true` because the shared 6.18-based Kconfig still encounters dropped symbols on this nixpkgs revision. If you want the stock cached kernel back on a host, stop routing `boot.kernelPackages` through the helper instead of trying to partially undo the helper's BORE/BBR3/ThinLTO assumptions.
 
