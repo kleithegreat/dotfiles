@@ -10,6 +10,7 @@ let
   optimizedPackages = import ../overlays/native-optimized.nix {
     inherit lib inputs hostName enableNativeOptimizations;
   };
+  optimizedPkgs = pkgs.appendOverlays [ optimizedPackages.overlay ];
 
   hyprqt6engine = nativeOptimizations.optimizeCCPackage (inputs.hyprqt6engine.packages.${system}.default.overrideAttrs (old: {
     buildInputs = (old.buildInputs or []) ++ [
@@ -178,7 +179,6 @@ in
   nixpkgs.overlays = [
     claudeCodeOverlay
     localPackagesOverlay
-    optimizedPackages.overlay
   ];
 
   # ── Networking ───────────────────────────────────────────────
@@ -302,9 +302,13 @@ in
   # ── Audio (PipeWire) ─────────────────────────────────────────
   services.pipewire = {
     enable = true;
+    package = optimizedPkgs.pipewire;
     alsa.enable = true;
     pulse.enable = true;
-    wireplumber.enable = true;
+    wireplumber = {
+      enable = true;
+      package = optimizedPkgs.wireplumber;
+    };
   };
   services.pulseaudio.enable = false;
   security.rtkit.enable = true;  # realtime scheduling for PipeWire

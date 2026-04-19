@@ -57,6 +57,7 @@
             home-manager.extraSpecialArgs = {
               dotfilesPath = self;
               inherit hostName vicinae snappy-switcher opencode;
+              inputs = { inherit nixpkgs hyprland hyprland-plugins hyprqt6engine vicinae snappy-switcher opencode home-manager; };
               enableNativeOptimizations = enableHostNativeOptimizations;
             };
           }

@@ -38,9 +38,9 @@
 
 ## Stock packages can still miss cache hits through optimized wrapper inputs
 **Symptom:** A package that is not listed in `overlays/native-optimized.nix` still rebuilds locally and gets a different derivation path from plain nixpkgs.
-**Cause:** The global overlay also changes dependencies used during install-time wrapping. `pkgs.codex` wraps its launcher with `ripgrep` on `PATH`, so the native-optimized `pkgs.ripgrep` changes the resulting `codex` derivation even though `codex` itself is not directly optimized.
+**Cause:** A global overlay rewrites the shared `pkgs` set. Once a package inside that set is replaced with a native-optimized variant, any consumer that depends on it in build inputs, runtime closures, or wrapper paths also gets a new derivation path.
 **Status:** Workaround in place
-**Resolution:** When a package must stay on the stock cached path, import plain nixpkgs separately and source that package from the unoverlaid set. `home/default.nix` now installs `codex` from `import pkgs.path { ...; }` for exactly this reason.
+**Resolution:** Do not apply the native overlay to the global `pkgs` set. `system/configuration.nix` and `home/default.nix` now keep the shared package set stock and instead create local `optimizedPkgs = pkgs.appendOverlays [ optimizedPackages.overlay ]` aliases only for the top-level packages that are intentionally rebuilt with host-native codegen. That keeps unrelated packages such as `codex`, `bitwarden-desktop`, and `adw-gtk3` on the stock cache path.
 
 ## Native-tagged rebuilds need a client-side bootstrap during the switch that enables them
 **Symptom:** `nixos-rebuild switch` can fail before activation with `missing system features` even though the evaluated target config already includes `native-optimized-<host>` in `nix.settings.system-features`.
@@ -53,6 +53,12 @@
 **Cause:** `system/native-kernel-packages.nix` now derives the kernel package set once with `ignoreConfigErrors = true`, `KCFLAGS=-O3 -march=native`, `KRUSTFLAGS=-Ctarget-cpu=native`, and the host-specific native build feature, while the laptop host module still layers its `boot.kernelPatches` Intel-only config on top.
 **Status:** Intentional design
 **Resolution:** Keep both physical host modules on `system/native-kernel-packages.nix`. On the currently pinned nixpkgs revision, keep `ignoreConfigErrors = true` because the bundled Linux 6.18 config still includes stale symbols such as `DRM_HYPERV`, `KVM_AMD_SEV`, and `SEV_GUEST` that Kconfig now drops. If you want the stock cached kernel back on a host, disable native optimizations for that host or stop routing `boot.kernelPackages` through the helper.
+
+## Physical hosts disable CPU vulnerability mitigations on purpose
+**Symptom:** `lscpu`, `/sys/devices/system/cpu/vulnerabilities/*`, or boot logs report that Spectre, Meltdown, and related CPU side-channel mitigations are disabled on the laptop and desktop.
+**Cause:** `hosts/desktop/system.nix` and `hosts/laptop/system.nix` both set `boot.kernelParams = [ "mitigations=off" ]`.
+**Status:** Intentional exception
+**Resolution:** Keep the parameter in the physical-host modules only if the performance tradeoff is intentional. Remove that host-local kernel param to restore the kernel's default mitigation policy. The VM host stays on the default path because it does not set this parameter.
 
 ## Physical-host local builds are serialized on purpose
 **Symptom:** Local Nix builds on desktop and laptop run one derivation at a time even though the machines have many CPU threads.

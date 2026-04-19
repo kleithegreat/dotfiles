@@ -14,6 +14,8 @@ in
   boot.initrd.availableKernelModules = [ "xhci_pci" "thunderbolt" "vmd" "nvme" "rtsx_pci_sdmmc" ];
   # Keep the stock kernel version/package set, but compile it for this host CPU.
   boot.kernelPackages = optimizedKernelPackages;
+  # Disable the kernel's CPU side-channel mitigation set on this bare-metal host.
+  boot.kernelParams = [ "mitigations=off" ];
   boot.kernelPatches = [
     {
       name = "laptop-intel-only-kernel-config";
