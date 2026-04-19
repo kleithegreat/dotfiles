@@ -89,7 +89,9 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-18.
   for the flake-provided `hyprqt6engine`, `hyprland`,
   `xdg-desktop-portal-hyprland`, `hyprbars`, and `hyprexpo` derivations, and
   `home/default.nix` uses that same helper for the locally overridden
-  `opencode`, `snappy-switcher`, and Vicinae packages.
+  `opencode`, `snappy-switcher`, and Vicinae packages while importing stock
+  nixpkgs separately for `codex` so the native `ripgrep` overlay does not alter
+  its wrapped runtime PATH and force a local rebuild.
 - Those Hyprland-family derivations also carry the repo-local patch stack from
   `system/configuration.nix`: the compositor patch extends per-corner rounding
   control to both texture and rect paths, and the `hyprbars` compatibility
