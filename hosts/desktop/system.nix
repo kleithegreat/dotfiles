@@ -56,6 +56,13 @@ in
   # derivations and let each one keep full core parallelism.
   nix.settings.max-jobs = 1;
 
+  services.power-profiles-daemon.enable = true;
+  # Keep this desktop pinned to the top performance profile whenever the daemon
+  # comes up, including later restarts.
+  systemd.services.power-profiles-daemon.postStart = ''
+    ${config.services.power-profiles-daemon.package}/bin/powerprofilesctl set performance
+  '';
+
   boot.loader.grub = {
     enable = true;
     efiSupport = true;
