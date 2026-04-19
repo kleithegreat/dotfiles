@@ -1,7 +1,13 @@
 # Ableton Live 12 Lite on the Desktop Host
 
-This repo's desktop host configuration provides the system pieces needed to run
-Ableton Live 12 Lite through Wine with PipeWire audio:
+This document is kept as a historical investigation log and setup record. The
+active desktop host configuration and local user wiring for Ableton/Wine were
+removed from the machine-facing config, but the notes are retained so future
+investigation can resume from the current evidence instead of starting over.
+
+At the time of the investigation, the repo's desktop host configuration provided
+the system pieces needed to run Ableton Live 12 Lite through Wine with PipeWire
+audio:
 
 - `hosts/desktop/wine-ableton.nix` loads the `ntsync` kernel module at boot.
 - `hosts/desktop/wine-ableton.nix` enables `services.pipewire.jack.enable` so
@@ -23,10 +29,10 @@ graphics stack are unnecessary unless a future installer proves otherwise.
 The working setup is split between declarative host/user config and mutable
 prefix state:
 
-- Declarative in the repo: kernel/audio packages, the `ableton-live-12-lite`
-  launcher wrappers, the Wine desktop-entry override used by Vicinae, and the
-  Hyprland float rules for both direct Ableton windows and the Wine virtual
-  desktop host window.
+- Declarative at the time of the investigation: kernel/audio packages, the
+  `ableton-live-12-lite` launcher wrappers, the Wine desktop-entry override
+  used by Vicinae, and the Hyprland float rules for both direct Ableton windows
+  and the Wine virtual desktop host window.
 - Mutable in the prefix: the Wine prefix itself, the Ableton install, DXVK DLL
   copies, DLL overrides, and small Ableton/Wine preference files.
 - Local-only ad hoc test assets used during investigation are not declarative:
