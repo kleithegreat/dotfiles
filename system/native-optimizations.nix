@@ -15,7 +15,8 @@ let
   ];
 
   kernelExtraMakeFlags = lib.optionals enabled [
-    "KCFLAGS=-O3 -march=native"
+    # Keep userspace native rebuilds on -O3, but leave the kernel on -O2.
+    "KCFLAGS=-O2 -march=native"
     "KRUSTFLAGS=-Ctarget-cpu=native"
   ];
 

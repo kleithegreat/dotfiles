@@ -50,7 +50,7 @@
 
 ## Physical-host kernels share one native helper
 **Symptom:** Desktop and laptop should both rebuild the stock kernel package set with native code generation while keeping only the laptop-specific Kconfig trimming on the laptop.
-**Cause:** `system/native-kernel-packages.nix` now derives the kernel package set once with `ignoreConfigErrors = true`, `KCFLAGS=-O3 -march=native`, `KRUSTFLAGS=-Ctarget-cpu=native`, and the host-specific native build feature, while the laptop host module still layers its `boot.kernelPatches` Intel-only config on top.
+**Cause:** `system/native-kernel-packages.nix` now derives the kernel package set once with `ignoreConfigErrors = true`, `KCFLAGS=-O2 -march=native`, `KRUSTFLAGS=-Ctarget-cpu=native`, and the host-specific native build feature, while the laptop host module still layers its `boot.kernelPatches` Intel-only config on top.
 **Status:** Intentional design
 **Resolution:** Keep both physical host modules on `system/native-kernel-packages.nix`. On the currently pinned nixpkgs revision, keep `ignoreConfigErrors = true` because the bundled Linux 6.18 config still includes stale symbols such as `DRM_HYPERV`, `KVM_AMD_SEV`, and `SEV_GUEST` that Kconfig now drops. If you want the stock cached kernel back on a host, disable native optimizations for that host or stop routing `boot.kernelPackages` through the helper.
 
