@@ -3,7 +3,7 @@
 ## Scope
 
 Current implementation map for the flake, shared NixOS modules, optional
-distributed-build wiring, and embedded Home Manager layer as of 2026-04-18.
+distributed-build wiring, and embedded Home Manager layer as of 2026-04-19.
 
 ## Flake Topology
 
@@ -32,8 +32,8 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-18.
 | `system/configuration.nix` | Shared system baseline | Nix settings, the shared unfree allowlist used by both NixOS and embedded Home Manager, overlays, common users/groups, shared services, privileged desktop helper registrations, shared Tailscale operator configuration, system packages, explicit PipeWire/WirePlumber native-package selection, Hyprland packaging, shared Qt plugin-path wiring, and the repo-wide fontconfig baseline |
 | `system/distributed-builds.nix` | Optional shared distributed-build layer | When enabled, configures remote builders, the post-build cache push hook, `nix.sshServe`, and LAN-only SSH firewall rules |
 | `system/distributed-builds-data.nix` | Environment-specific builder/cache data | Authorized builder keys, host keys, current cache signing key, and the current cache URL override |
-| `system/native-optimizations.nix` | Shared helper | Centralizes the `-O3 -march=native` / `target-cpu=native` flag sets, the per-host `native-optimized-<host>` feature marker, and the `overrideAttrs` helpers reused by the overlay, Hyprland-family packages, and Home Manager flake-input packages |
-| `system/native-kernel-packages.nix` | Shared helper | Derives a stock-version kernel package set with `ignoreConfigErrors = true`, host-local native `KCFLAGS` / `KRUSTFLAGS`, and the same per-host native build feature tag used by the rest of the optimized package set |
+| `system/native-optimizations.nix` | Shared helper | Centralizes the userspace `-O3 -march=native` / `target-cpu=native` flag sets, the kernel-specific `KCFLAGS=-O2 -march=native` / `KRUSTFLAGS=-Ctarget-cpu=native` flags, the per-host `native-optimized-<host>` feature marker, and the `overrideAttrs` helpers reused by the overlay, Hyprland-family packages, and Home Manager flake-input packages |
+| `system/native-kernel-packages.nix` | Shared helper | Derives a stock-version kernel package set with `ignoreConfigErrors = true`, host-local `KCFLAGS=-O2 -march=native` / `KRUSTFLAGS=-Ctarget-cpu=native`, and the same per-host native build feature tag used by the rest of the optimized package set |
 | `hosts/vm/system.nix` | VM overlay | VM boot, guest profile, and virtual disk layout |
 | `hosts/laptop/system.nix` | Laptop overlay | Laptop-specific kernel/compiler tuning, local build-scheduling policy, hybrid GPU policy, laptop-only services and overrides, fingerprint/PAM policy, laptop-scoped polkit rules, GRUB, laptop hardware policy, and the laptop `tailscaled` stop-timeout override |
 | `hosts/laptop/fan-control.nix` | Laptop-only hardware submodule | Dell SMM kernel module wiring, BIOS fan-control handoff, the explicit four-state `i8kmon.conf` profile with aggressive ramp thresholds, and the `i8kmon` systemd service |
@@ -149,7 +149,7 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-18.
 - `hosts/laptop/system.nix` and `hosts/desktop/system.nix` both source
   `boot.kernelPackages` from `system/native-kernel-packages.nix`, so both
   physical hosts rebuild the stock kernel package set with
-  `KCFLAGS=-O3 -march=native`, `KRUSTFLAGS=-Ctarget-cpu=native`,
+  `KCFLAGS=-O2 -march=native`, `KRUSTFLAGS=-Ctarget-cpu=native`,
   `ignoreConfigErrors = true`, and the same host-specific
   `native-optimized-<host>` feature tag used by the rest of the native package
   set.
