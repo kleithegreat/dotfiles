@@ -12,7 +12,20 @@ let
   ripgrep-pkg = optimizedPkgs.ripgrep;
   desktopctl-pkg = optimizedPkgs.desktopctl;
   p7zip-pkg = optimizedPkgs.p7zip;
+  opencode-node-modules-pkg = opencode.packages.${pkgs.stdenv.hostPlatform.system}.node_modules_updater.override {
+    hash = "sha256-i9TxYwWkJAR+kW6pbvhgQbRW9UYPtdrPQAGic4zPoa4=";
+  };
   opencode-pkg = nativeOptimizations.optimizeNativePackage (opencode.packages.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs (old: {
+    node_modules = opencode-node-modules-pkg;
+    configurePhase = ''
+      runHook preConfigure
+
+      cp -R ${opencode-node-modules-pkg}/. .
+      patchShebangs node_modules
+      patchShebangs packages/*/node_modules
+
+      runHook postConfigure
+    '';
     postConfigure = (old.postConfigure or "") + ''
       if [ -e packages/app/node_modules/@tsconfig/bun/tsconfig.json ]; then
         substituteInPlace packages/shared/tsconfig.json \
