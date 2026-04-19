@@ -29,7 +29,7 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-18.
 
 | Path | Role | Current responsibilities |
 | --- | --- | --- |
-| `system/configuration.nix` | Shared system baseline | Nix settings, the shared unfree allowlist used by both NixOS and embedded Home Manager, overlays, common users/groups, shared services, privileged desktop helper registrations, shared Tailscale operator configuration, system packages, Hyprland packaging, and shared Qt plugin-path wiring |
+| `system/configuration.nix` | Shared system baseline | Nix settings, the shared unfree allowlist used by both NixOS and embedded Home Manager, overlays, common users/groups, shared services, privileged desktop helper registrations, shared Tailscale operator configuration, system packages, Hyprland packaging, shared Qt plugin-path wiring, and the repo-wide fontconfig baseline |
 | `system/distributed-builds.nix` | Optional shared distributed-build layer | When enabled, configures remote builders, the post-build cache push hook, `nix.sshServe`, and LAN-only SSH firewall rules |
 | `system/distributed-builds-data.nix` | Environment-specific builder/cache data | Authorized builder keys, host keys, current cache signing key, and the current cache URL override |
 | `system/native-optimizations.nix` | Shared helper | Centralizes the `-O3 -march=native` / `target-cpu=native` flag sets, the per-host `native-optimized-<host>` feature marker, and the `overrideAttrs` helpers reused by the overlay, Hyprland-family packages, and Home Manager flake-input packages |
@@ -75,8 +75,11 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-18.
   itself and proxies the normal `/api` OpenCode traffic into Claude Code.
 - In `system/configuration.nix`, the local `let` block imports both the
   `desktopctl` overlay and the optional native-optimization overlay;
-  `nixpkgs.overlays` applies them globally, and `fonts.packages` installs the
-  local `pkgs.sf-pro` derivation.
+  `nixpkgs.overlays` applies them globally, `fonts.packages` installs the local
+  `pkgs.sf-pro` derivation, and `fonts.fontconfig` enables RGB subpixel
+  rendering plus a local `SF Pro -> SF Pro Text` family-preference rule so the
+  generic Apple family resolves to the small-text cut instead of the bundled
+  catch-all variable face.
 - `overlays/native-optimized.nix` rebuilds selected nixpkgs derivations such as
   `desktopctl`, `lapce`, `pipewire`, `quickshell`, `fd`, `ripgrep`, and the
   repo's TeX Live environment with `-O3 -march=native` / `target-cpu=native`,
