@@ -9,6 +9,7 @@ pub const METADATA: TargetMetadata = TargetMetadata {
     output_path: Some("~/.config/hypr/colors.conf"),
     base_path: None,
     extra_outputs: &[],
+    managed_paths: &[],
     reload_cmd: Some(RELOAD_CMD),
     comment: Some("#"),
     sync_safe: true,

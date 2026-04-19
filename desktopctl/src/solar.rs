@@ -204,10 +204,7 @@ pub fn sun_times(latitude: f64, longitude: f64, date: NaiveDate) -> (DateTime<Ut
 fn read_cached_location(path: &std::path::Path) -> Option<Coordinates> {
     let contents = fs::read(path).ok()?;
     let cached: CachedLocation = serde_json::from_slice(&contents).ok()?;
-    Some(Coordinates {
-        latitude: cached.latitude,
-        longitude: cached.longitude,
-    })
+    validated_coordinates(cached.latitude, cached.longitude)
 }
 
 fn query_geoclue() -> Option<Coordinates> {
@@ -232,9 +229,20 @@ fn query_geoclue() -> Option<Coordinates> {
         }
     }
 
+    validated_coordinates(latitude?, longitude?)
+}
+
+fn validated_coordinates(latitude: f64, longitude: f64) -> Option<Coordinates> {
+    if !latitude.is_finite() || !longitude.is_finite() {
+        return None;
+    }
+    if !(-90.0..=90.0).contains(&latitude) || !(-180.0..=180.0).contains(&longitude) {
+        return None;
+    }
+
     Some(Coordinates {
-        latitude: latitude?,
-        longitude: longitude?,
+        latitude,
+        longitude,
     })
 }
 
@@ -337,6 +345,22 @@ mod tests {
 
         assert!((location.latitude - 12.34).abs() < f64::EPSILON);
         assert!((location.longitude - 56.78).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn read_cached_location_rejects_out_of_range_coordinates() {
+        let temp_dir = TempDir::new("desktopctl-solar-invalid-cache").expect("temp dir");
+        let cache_path = temp_dir.path().join("location.json");
+        fs::write(&cache_path, r#"{"latitude":123.45,"longitude":56.78}"#)
+            .expect("write cache");
+
+        assert!(read_cached_location(&cache_path).is_none());
+    }
+
+    #[test]
+    fn validated_coordinates_reject_non_finite_values() {
+        assert!(validated_coordinates(f64::NAN, 0.0).is_none());
+        assert!(validated_coordinates(0.0, f64::INFINITY).is_none());
     }
 
     #[test]

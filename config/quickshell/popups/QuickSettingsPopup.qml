@@ -468,7 +468,7 @@ FocusScope {
                                     Text {
                                         anchors.centerIn: parent; text: ">"
                                         color: expandBtnArea.containsMouse ? Theme.fg : Theme.fg4
-                                        font.family: Theme.fontFamily; font.pixelSize: 10
+                                        font.family: Theme.monoFamily; font.pixelSize: 10
                                         Behavior on color { Components.CAnim { duration: Theme.animHover } }
                                     }
 
@@ -670,7 +670,7 @@ FocusScope {
                             }
                             Text {
                                 text: ">"
-                                color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: 10
+                                color: Theme.fg4; font.family: Theme.monoFamily; font.pixelSize: 10
                             }
                         }
                     }

@@ -122,6 +122,7 @@ Optional surface:
 | `TargetMetadata.reload_cmd` | Best-effort live reload after writes |
 | `TargetMetadata.comment` | Generated-file header prefix |
 | `TargetMetadata.extra_outputs` | Mirror one generated output to additional paths |
+| `TargetMetadata.managed_paths` | Additional filesystem paths touched by `persist()` or `on_apply()` hooks |
 | `TargetMetadata.sync_safe` | Allow or forbid rebuild-time `sync` application |
 | `persist(colors, state)` | Required post-write persistence work |
 | `on_apply(colors, state)` | Runtime-only follow-up actions |
@@ -129,6 +130,9 @@ Optional surface:
 Constraints:
 
 - `generate()` is the declared output boundary for the target.
+- `output_path` and `extra_outputs` describe the primary generated-file surface,
+  while `managed_paths` declares any additional filesystem paths the target owns
+  through hooks.
 - Extra hooks must stay within the target's documented ownership boundary.
 - Runtime hooks may fail without invalidating successful file generation, but
   missing generated files are hard failures.
@@ -220,7 +224,7 @@ State changes fan out by ownership, not by CLI convenience.
 | `color_scheme` | `alacritty`, `bat`, `ghostty`, `gtk`, `gtksourceview`, `hyprland`, `neovim`, `opencode`, `qt`, `quickshell`, `snappy_switcher`, `spicetify`, `starship`, `tmux`, `vicinae`, `vscode`, `wallpaper`\*, `zathura`, `zsh` |
 | `wallpaper`, `filter_wallpaper` | `wallpaper` |
 | `system_font` | `chromium`, `gtk`, `qt`, `quickshell`, `snappy_switcher`, `vicinae` |
-| `mono_font` | `alacritty`, `chromium`, `ghostty`, `gtk`, `neovide`, `qt`, `quickshell`, `tmux`, `vscode` |
+| `mono_font` | `alacritty`, `chromium`, `ghostty`, `gtk`, `neovide`, `qt`, `quickshell`, `vscode` |
 | `icon_theme` | `gtk`, `qt`, `snappy_switcher` |
 | `font_size` | `gtk`, `qt`, `quickshell`, `snappy_switcher` |
 | `quickshell_font_size_offset` | `quickshell` |

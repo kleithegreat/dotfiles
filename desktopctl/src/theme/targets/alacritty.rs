@@ -7,6 +7,7 @@ pub const METADATA: TargetMetadata = TargetMetadata {
     output_path: Some("~/.config/alacritty/theme.toml"),
     base_path: None,
     extra_outputs: &[],
+    managed_paths: &[],
     reload_cmd: None,
     comment: Some("#"),
     sync_safe: true,

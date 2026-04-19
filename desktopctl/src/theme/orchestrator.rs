@@ -43,7 +43,7 @@ const SYSTEM_FONT_TARGETS: [&str; 6] = [
     "vicinae",
     "snappy_switcher",
 ];
-const MONO_FONT_TARGETS: [&str; 9] = [
+const MONO_FONT_TARGETS: [&str; 8] = [
     "alacritty",
     "chromium",
     "ghostty",
@@ -51,7 +51,6 @@ const MONO_FONT_TARGETS: [&str; 9] = [
     "neovide",
     "quickshell",
     "qt",
-    "tmux",
     "vscode",
 ];
 const ICON_THEME_TARGETS: [&str; 3] = ["gtk", "qt", "snappy_switcher"];
@@ -708,6 +707,12 @@ mod tests {
     }
 
     #[test]
+    fn mono_font_does_not_target_tmux() {
+        let targets = targets_for_key("mono_font", None);
+        assert!(!targets.contains("tmux"));
+    }
+
+    #[test]
     fn apply_all_filters_sync_safe_targets() -> crate::Result<()> {
         let mut registry = TargetRegistry::new();
         let out_dir = unique_path("sync-safe");
@@ -723,6 +728,7 @@ mod tests {
                 )),
                 base_path: None,
                 extra_outputs: &[],
+                managed_paths: &[],
                 reload_cmd: None,
                 comment: Some("#"),
                 sync_safe: true,
@@ -738,6 +744,7 @@ mod tests {
                 )),
                 base_path: None,
                 extra_outputs: &[],
+                managed_paths: &[],
                 reload_cmd: None,
                 comment: Some("#"),
                 sync_safe: false,

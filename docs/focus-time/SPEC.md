@@ -111,8 +111,9 @@ Write rules:
   three tables for the current local time bucket.
 - If the screen is unlocked and the current class is a non-empty string, the
   daemon increments that class in all three tables.
-- If the screen is unlocked and the current class is empty, the daemon skips the
-  SQLite write for that tick.
+- If the screen is unlocked and the current class is empty, the daemon makes one
+  fresh `hyprctl activewindow -j` reseed attempt for that tick before deciding
+  whether to skip the SQLite write.
 - Each tick uses a single explicit transaction: `BEGIN`, three UPSERTs, then
   `COMMIT`.
 - Only the focus tables move; the runtime JSON path and payload stay unchanged.

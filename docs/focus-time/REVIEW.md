@@ -5,16 +5,15 @@ Reviewed on 2026-04-03.
 ## Verdict
 
 The subsystem is small and understandable, and the 2026-04-03 reliability audit
-items around liveness, aggregate alignment, reconnect re-seeding, empty-state
-messaging, and minute-table retention are now addressed. One startup edge case
-still remains when every `hyprctl activewindow -j` seed attempt returns empty
-before the first focus-change event arrives.
+items around liveness, aggregate alignment, reconnect re-seeding, startup empty
+class handling, empty-state messaging, and minute-table retention are now
+addressed.
 
 ## Findings
 
 | Severity | Finding | Why it matters | Evidence |
 | --- | --- | --- | --- |
-| Medium | Startup recording still depends on at least one successful `hyprctl activewindow -j` seed or a later focus-change event. | The daemon now seeds at startup and again after each successful socket reconnect, but if both seed attempts return empty and the focused window never changes, unlocked time is still skipped while JSON rewrites continue. | The `hyprctl` snapshot helper in `desktopctl/src/hypr.rs` plus the startup tick and reconnect-seed paths in `desktopctl/src/daemon/focus.rs` |
+No open review findings in this domain as of 2026-04-18.
 
 ## Open Questions
 

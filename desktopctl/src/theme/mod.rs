@@ -17,7 +17,7 @@ pub mod resolve;
 pub mod schema;
 pub mod targets;
 
-const BASE_COLOR_TARGETS: [&str; 17] = [
+const BASE_COLOR_TARGETS: [&str; 18] = [
     "alacritty",
     "ghostty",
     "gtksourceview",
@@ -25,6 +25,7 @@ const BASE_COLOR_TARGETS: [&str; 17] = [
     "zathura",
     "quickshell",
     "neovim",
+    "opencode",
     "starship",
     "tmux",
     "gtk",
@@ -37,13 +38,12 @@ const BASE_COLOR_TARGETS: [&str; 17] = [
     "zsh",
 ];
 
-const FONT_TARGETS: [&str; 11] = [
+const FONT_TARGETS: [&str; 10] = [
     "alacritty",
     "chromium",
     "ghostty",
     "neovide",
     "quickshell",
-    "tmux",
     "gtk",
     "qt",
     "vicinae",
@@ -1228,5 +1228,16 @@ mod tests {
     fn color_targets_include_zsh() {
         let state = schema::ThemeState::default_state_for_repo_root(&repo_root());
         assert!(color_targets_for_state(&state).contains("zsh"));
+    }
+
+    #[test]
+    fn color_targets_include_opencode() {
+        let state = schema::ThemeState::default_state_for_repo_root(&repo_root());
+        assert!(color_targets_for_state(&state).contains("opencode"));
+    }
+
+    #[test]
+    fn font_targets_do_not_include_tmux() {
+        assert!(!FONT_TARGETS.contains(&"tmux"));
     }
 }

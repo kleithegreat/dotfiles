@@ -15,6 +15,7 @@ pub const METADATA: TargetMetadata = TargetMetadata {
     output_path: Some("~/.config/vicinae/settings.json"),
     base_path: Some("config/vicinae/base.json"),
     extra_outputs: &[],
+    managed_paths: &["~/.local/share/vicinae/themes/*.toml"],
     reload_cmd: None,
     comment: None,
     sync_safe: true,

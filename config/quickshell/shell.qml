@@ -418,7 +418,7 @@ Scope {
         target: "theme"
 
         function open(): void { root.popupVisibility.toggleSettings(); }
-        function apply(args: string): void {
+        function apply(args): void {
             let parsed = root.tokenizeThemeArgs(args);
             if (parsed.error !== "") {
                 ToastService.showError(parsed.error);

@@ -11,6 +11,7 @@ pub const METADATA: TargetMetadata = TargetMetadata {
     output_path: Some("~/.local/share/libgedit-gtksourceview-300/styles/desktopctl-current.xml"),
     base_path: None,
     extra_outputs: &[],
+    managed_paths: &["~/.local/share/libgedit-gtksourceview-300/styles/desktopctl-*.xml"],
     reload_cmd: None,
     comment: None,
     sync_safe: true,

@@ -47,11 +47,19 @@ pub fn run(shutdown: Arc<AtomicBool>) -> crate::Result<()> {
             cleanup_date = today;
         }
 
-        let class_name = current_class
+        let mut class_name = current_class
             .lock()
             .map(|class_name| class_name.clone())
             .unwrap_or_default();
         let locked = is_screen_locked();
+
+        if !locked {
+            let reseeded_class = refresh_unlocked_class_name(class_name.clone(), get_active_class);
+            if reseeded_class != class_name {
+                set_current_class(&current_class, reseeded_class.clone());
+                class_name = reseeded_class;
+            }
+        }
 
         if locked {
             accumulate(&mut connection, LOCKED_CLASS, &now)?;
@@ -519,6 +527,19 @@ fn get_active_class() -> String {
         .unwrap_or_default()
 }
 
+fn refresh_unlocked_class_name(current_class: String, seed: impl FnOnce() -> String) -> String {
+    if !current_class.is_empty() {
+        return current_class;
+    }
+
+    let reseeded_class = seed();
+    if reseeded_class.is_empty() {
+        current_class
+    } else {
+        reseeded_class
+    }
+}
+
 fn listen_for_focus(current_class: Arc<Mutex<String>>, shutdown: Arc<AtomicBool>) {
     while !shutdown.load(Ordering::SeqCst) {
         let socket_path = match hypr::socket2_path() {
@@ -612,6 +633,29 @@ fn signum(numerator: i64, denominator: i64) -> i64 {
         1
     } else {
         -1
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::refresh_unlocked_class_name;
+
+    #[test]
+    fn refresh_unlocked_class_name_reseeds_empty_classes() {
+        let class_name = refresh_unlocked_class_name(String::new(), || "firefox".to_owned());
+        assert_eq!(class_name, "firefox");
+    }
+
+    #[test]
+    fn refresh_unlocked_class_name_keeps_existing_classes() {
+        let class_name = refresh_unlocked_class_name("kitty".to_owned(), || "firefox".to_owned());
+        assert_eq!(class_name, "kitty");
+    }
+
+    #[test]
+    fn refresh_unlocked_class_name_keeps_empty_when_reseed_is_empty() {
+        let class_name = refresh_unlocked_class_name(String::new(), String::new);
+        assert!(class_name.is_empty());
     }
 }
 

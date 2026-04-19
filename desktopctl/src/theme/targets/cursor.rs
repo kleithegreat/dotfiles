@@ -14,6 +14,11 @@ pub const METADATA: TargetMetadata = TargetMetadata {
     output_path: Some("~/.local/share/icons/default/index.theme.generated"),
     base_path: None,
     extra_outputs: &[],
+    managed_paths: &[
+        "~/.config/hypr/cursor.conf",
+        "~/.local/share/icons/default/index.theme",
+        "~/.icons/default/index.theme",
+    ],
     reload_cmd: None,
     comment: Some("#"),
     sync_safe: true,

@@ -186,7 +186,7 @@ FocusScope {
                                 return id.length > 0 ? id.charAt(0).toUpperCase() : "?";
                             }
                             color: Theme.fg3
-                            font.family: Theme.fontFamily; font.pixelSize: Theme.iconSize; font.bold: true
+                            font.family: Theme.monoFamily; font.pixelSize: Theme.iconSize; font.bold: true
                         }
                     }
                 }

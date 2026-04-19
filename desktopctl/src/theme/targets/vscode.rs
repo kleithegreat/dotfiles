@@ -12,6 +12,7 @@ pub const METADATA: TargetMetadata = TargetMetadata {
     output_path: Some("~/.config/Code/User/settings.json"),
     base_path: Some("config/vscode/base.json"),
     extra_outputs: &[],
+    managed_paths: &["~/.config/Code/User/globalStorage/state.vscdb"],
     reload_cmd: None,
     comment: None,
     sync_safe: true,

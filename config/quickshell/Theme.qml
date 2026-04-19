@@ -70,8 +70,9 @@ QtObject {
     readonly property int gapOut: 6
 
     // ── Fonts ──
-    readonly property string fontFamily:    _fonts.family       || "JetBrainsMono Nerd Font"
+    readonly property string fontFamily:    _fonts.systemFamily || "Overpass"
     readonly property string systemFamily:  _fonts.systemFamily || "Overpass"
+    readonly property string monoFamily:    _fonts.family       || "JetBrainsMono Nerd Font"
     readonly property int fontSize:         _fonts.size         || 12
     readonly property int fontSizeSmall:    _fonts.sizeSmall    || 10
     readonly property int fontSizeLarge:    _fonts.sizeLarge    || 14

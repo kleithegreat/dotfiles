@@ -11,6 +11,7 @@ pub const METADATA: TargetMetadata = TargetMetadata {
     output_path: Some("~/.config/nvim/lua/theme-state.json"),
     base_path: None,
     extra_outputs: &[],
+    managed_paths: &[],
     reload_cmd: None,
     comment: None,
     sync_safe: true,
