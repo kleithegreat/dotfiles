@@ -9,7 +9,9 @@ QtObject {
     readonly property bool isLaptop: _isLaptop
     readonly property bool hasWifi: _hasWifi
     readonly property bool hasBattery: UPower.displayDevice.isPresent
-    readonly property bool hasPowerProfiles: _hasPowerProfiles
+    // The desktop host is pinned to performance in NixOS, so only laptop-like
+    // hosts expose interactive power-profile controls in the shell.
+    readonly property bool hasPowerProfiles: _isLaptop && _hasPowerProfiles
     readonly property bool hasFingerprintReader: _hasFingerprintReader
 
     property bool _isLaptop: false

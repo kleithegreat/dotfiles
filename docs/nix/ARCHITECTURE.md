@@ -37,7 +37,7 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-19.
 | `hosts/vm/system.nix` | VM overlay | VM boot, guest profile, and virtual disk layout |
 | `hosts/laptop/system.nix` | Laptop overlay | Laptop-specific kernel/compiler tuning, local build-scheduling policy, hybrid GPU policy, laptop-only services and overrides, fingerprint/PAM policy, laptop-scoped polkit rules, GRUB, laptop hardware policy, and the laptop `tailscaled` stop-timeout override |
 | `hosts/laptop/fan-control.nix` | Laptop-only hardware submodule | Dell SMM kernel module wiring, BIOS fan-control handoff, the explicit four-state `i8kmon.conf` profile with aggressive ramp thresholds, and the `i8kmon` systemd service |
-| `hosts/desktop/system.nix` | Desktop overlay | Dedicated NVIDIA policy, shared native kernel/compiler tuning opt-in, local build-scheduling policy, desktop-only imports, storage mounts, GRUB, desktop-only overlay imports, the desktop Windows VM toggle, and the desktop `tailscaled` stop-timeout override |
+| `hosts/desktop/system.nix` | Desktop overlay | Dedicated NVIDIA policy, shared native kernel/compiler tuning opt-in, local build-scheduling policy, desktop-only imports, storage mounts, GRUB, desktop-only overlay imports, the desktop Windows VM toggle, the desktop `tailscaled` stop-timeout override, and the desktop's forced `power-profiles-daemon` performance profile |
 | `hosts/desktop/wine-ableton.nix` | Desktop Wine/audio submodule | Loads the `ntsync` kernel module at boot, enables `services.pipewire.jack.enable`, and installs the desktop's Ableton-facing Wine toolchain (`wineWow64Packages.stableFull`, `wineasio`, and `winetricks`) |
 | `hosts/desktop/windows-vm.nix` | Desktop Windows VM submodule | Defines `virtualisation.windowsVm`, seeds the desktop qcow2/OVMF/TPM state under `/var/lib/windows-vm/windows11` during activation, grants the desktop user `kvm` access, and installs the `windows-vm` QEMU launcher |
 | `home/default.nix` | Shared user baseline | User packages that do not require system-scoped helper registration, small package-level overrides such as the local OpenCode stale-`node_modules` hash pin plus the post-configure build workarounds and the explicit native-package aliases, `xdg.configFile` mappings, host-specific Hyprland file selection, desktop entry overrides including the desktop Ableton Wine launcher variants, and theme activation |
@@ -126,6 +126,11 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-19.
   `system.qcow2` under `/var/lib/windows-vm/windows11`, while the generated
   `windows-vm` launcher runs the guest as the desktop user instead of a root
   systemd service. `docs/nix/windows-vm.md` documents the operational steps.
+- `hosts/desktop/system.nix` now also enables
+  `services.power-profiles-daemon` and appends a
+  `systemd.services.power-profiles-daemon.postStart` hook that runs
+  `powerprofilesctl set performance`, so the desktop host reasserts the
+  performance profile each time the daemon starts.
 - Both physical host modules set
   `systemd.services.tailscaled.serviceConfig.TimeoutStopSec = "15s"`, bounding
   rare upstream stop hangs without changing the shared VM profile.
@@ -140,17 +145,17 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-19.
   `environment.systemPackages`, so user-launched Qt apps and
   D-Bus/systemd-activated helpers such as `xdg-desktop-portal-kde` resolve the
   same platform and style plugins.
-- `hosts/laptop/system.nix` enables `services.fprintd`, keeps the laptop PAM
-  `polkit-1.fprintAuth` path available for external apps that explicitly use
-  polkit system authentication, and also adds a narrow polkit rule granting the
-  active local user direct `net.reactivated.fprint.device.enroll` access so the
-  Quickshell fingerprint-management flow can enroll/delete prints without a
 - The shared system baseline no longer enables the stock NixOS
   `services.fstrim` helper. Instead, `system/configuration.nix` defines a
   custom `fstrim-root.service` plus `fstrim-root.timer` that run `fstrim` only
   on `/`, preserving weekly discard on the Linux root filesystem without also
   trimming a shared `/boot/efi` mount when that EFI system partition lives on a
   separate Windows NVMe.
+- `hosts/laptop/system.nix` enables `services.fprintd`, keeps the laptop PAM
+  `polkit-1.fprintAuth` path available for external apps that explicitly use
+  polkit system authentication, and also adds a narrow polkit rule granting the
+  active local user direct `net.reactivated.fprint.device.enroll` access so the
+  Quickshell fingerprint-management flow can enroll/delete prints without a
   separate external auth-agent prompt.
 - `hosts/laptop/system.nix` and `hosts/desktop/system.nix` both source
   `boot.kernelPackages` from `system/native-kernel-packages.nix`, so both
