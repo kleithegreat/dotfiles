@@ -204,4 +204,7 @@ GUI package:
 4. `sync` materializes only `sync_safe` targets and skips runtime reload hooks.
 
 The `nrs` alias in `home/shell.nix` remains the preferred wrapper for this
-flow.
+flow. When native optimizations are enabled, that wrapper also passes the
+target `system-features` list to `nixos-rebuild` so the current daemon can
+schedule host-tagged `requiredSystemFeatures` derivations before the new
+`/etc/nix/nix.conf` is active.
