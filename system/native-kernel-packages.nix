@@ -5,6 +5,43 @@ let
     inherit lib hostName enableNativeOptimizations;
   };
 
+  boreBasePatch = pkgs.runCommand "0001-bore-stock.patch" {
+    nativeBuildInputs = [ pkgs.perl ];
+    src = pkgs.fetchurl {
+      url = "https://raw.githubusercontent.com/CachyOS/kernel-patches/master/6.18/sched/0001-bore.patch";
+      hash = "sha256-qirGswbEE1SpopM9FiY60uaZT/cd5hyBLa0OgUj2AYM=";
+    };
+  } ''
+    perl -0e '
+      local $/;
+      open my $src_fh, "<", $ENV{"src"} or die $!;
+      my $text = <$src_fh>;
+
+      $text =~ s/^\@\@ -698,6 \+723,9 \@\@ static void update_entity_lag\(struct cfs_rq \*cfs_rq, struct sched_entity \*se\)\n.*?(?=^\@\@ )//ms
+        or die "failed to strip the stock-incompatible BORE hunk\n";
+
+      print $text;
+    ' > "$out"
+  '';
+
+  boreFairCompatPatch = pkgs.writeText "0002-bore-stock-fair-compat.patch" (
+    lib.concatStringsSep "\n" [
+      "diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c"
+      "--- a/kernel/sched/fair.c"
+      "+++ b/kernel/sched/fair.c"
+      "@@ -799,6 +799,9 @@ static void update_entity_lag(struct cfs_rq *cfs_rq, struct sched_entity *se)"
+      " \tvlag = avg_vruntime(cfs_rq) - se->vruntime;"
+      " \tlimit = calc_delta_fair(max_slice, se);"
+      "+#ifdef CONFIG_SCHED_BORE"
+      "+\tlimit >>= !!sched_bore;"
+      "+#endif /* CONFIG_SCHED_BORE */"
+      " "
+      " \tse->vlag = clamp(vlag, -limit, limit);"
+      " }"
+      ""
+    ]
+  );
+
   sharedKernelConfig = with lib.kernel; {
     DEFAULT_BBR = lib.mkForce yes;
     DEFAULT_CUBIC = lib.mkForce no;
@@ -41,12 +78,6 @@ let
   patchedKernel = pkgs.linux_6_18.override {
     stdenv = pkgs.llvmPackages.stdenv;
     argsOverride = {
-      version = "6.18.23";
-      modDirVersion = "6.18.23";
-      src = pkgs.fetchurl {
-        url = "https://github.com/CachyOS/linux/releases/download/cachyos-6.18.23-1/cachyos-6.18.23-1.tar.gz";
-        hash = "sha256-xldhTP9ixBmLy9g2iGxazT0byDKf/9KyRXKNZt/MwHc=";
-      };
       ignoreConfigErrors = true;
       extraMakeFlags = [
         "LLVM=1"
@@ -55,15 +86,23 @@ let
       kernelPatches = [
         {
           name = "bore-scheduler";
+          patch = boreBasePatch;
+        }
+        {
+          name = "bore-stock-fair-compat";
+          patch = boreFairCompatPatch;
+        }
+        {
+          name = "bbr3";
           patch = pkgs.fetchurl {
-            url = "https://raw.githubusercontent.com/CachyOS/kernel-patches/master/6.18/sched/0001-bore-cachy.patch";
-            hash = "sha256-KQ3HeQBDcfcdI/J1iTBm3Xqo1oZKyfXQSEQ3m4VUygw=";
+            url = "https://github.com/CachyOS/linux/commit/9744acecba04.patch";
+            hash = "sha256-XDyDHLYr4/9vyDqmelMSrqGHcGiyD+fFxHGX6MWXDws=";
           };
         }
       ];
       structuredExtraConfig = sharedKernelConfig;
       extraMeta = {
-        branch = "6.18.23-cachyos-bore";
+        branch = "6.18-stock-bore-bbr3";
       };
     };
   };

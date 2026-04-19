@@ -33,7 +33,7 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-19.
 | `system/distributed-builds.nix` | Optional shared distributed-build layer | When enabled, configures remote builders, the post-build cache push hook, `nix.sshServe`, and LAN-only SSH firewall rules |
 | `system/distributed-builds-data.nix` | Environment-specific builder/cache data | Authorized builder keys, host keys, current cache signing key, and the current cache URL override |
 | `system/native-optimizations.nix` | Shared helper | Centralizes the userspace `-O3 -march=native` / `target-cpu=native` flag sets, the kernel-specific `KCFLAGS=-O2 -march=native` / `KRUSTFLAGS=-Ctarget-cpu=native` flags, the per-host `native-optimized-<host>` feature marker, and the `overrideAttrs` helpers reused by the overlay, Hyprland-family packages, and Home Manager flake-input packages |
-| `system/native-kernel-packages.nix` | Shared helper | Derives the physical-host kernel package set from the CachyOS `6.18.23-1` release source, rebuilds it with Clang + LLD ThinLTO, applies the matching `6.18/sched/0001-bore-cachy.patch`, bakes in the shared BORE/BBR3/HZ=1000/NO_HZ_IDLE/THP=madvise/MGLRU Kconfig overrides, layers host-local `KCFLAGS=-O2 -march=native` / `KRUSTFLAGS=-Ctarget-cpu=native`, and carries the same per-host native build feature tag used by the rest of the optimized package set |
+| `system/native-kernel-packages.nix` | Shared helper | Derives the physical-host kernel package set from the stock nixpkgs `linux_6_18` source, rebuilds it with Clang + LLD ThinLTO, applies an explicit BORE patch stack plus a `tcp/bbr3` patch on top, bakes in the shared BORE/BBR3/HZ=1000/NO_HZ_IDLE/THP=madvise/MGLRU Kconfig overrides, layers host-local `KCFLAGS=-O2 -march=native` / `KRUSTFLAGS=-Ctarget-cpu=native`, and carries the same per-host native build feature tag used by the rest of the optimized package set |
 | `hosts/vm/system.nix` | VM overlay | VM boot, guest profile, and virtual disk layout |
 | `hosts/laptop/system.nix` | Laptop overlay | Laptop-specific kernel/compiler tuning, the laptop's voluntary-preempt plus Intel-only Kconfig trim, local build-scheduling policy, hybrid GPU policy, laptop-only services and overrides, fingerprint/PAM policy, laptop-scoped polkit rules, GRUB, laptop hardware policy, and the laptop `tailscaled` stop-timeout override |
 | `hosts/laptop/fan-control.nix` | Laptop-only hardware submodule | Dell SMM kernel module wiring, BIOS fan-control handoff, the explicit four-state `i8kmon.conf` profile with aggressive ramp thresholds, and the `i8kmon` systemd service |
@@ -158,13 +158,13 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-19.
   separate external auth-agent prompt.
 - `hosts/laptop/system.nix` and `hosts/desktop/system.nix` both source
   `boot.kernelPackages` from `system/native-kernel-packages.nix`, so both
-  physical hosts rebuild a `6.18.23` kernel from the CachyOS
-  `cachyos-6.18.23-1.tar.gz` source with Clang + LLD ThinLTO, the matching
-  `6.18/sched/0001-bore-cachy.patch`, shared BORE/BBR3/HZ=1000/NO_HZ_IDLE /
-  THP=madvise / MGLRU Kconfig overrides, `ignoreConfigErrors = true`,
-  `KCFLAGS=-O2 -march=native`, `KRUSTFLAGS=-Ctarget-cpu=native`, and the same
-  host-specific `native-optimized-<host>` feature tag used by the rest of the
-  native package set.
+  physical hosts rebuild the stock nixpkgs `linux_6_18` kernel source with
+  Clang + LLD ThinLTO, an explicit BORE patch stack plus `tcp/bbr3` on top,
+  shared BORE/BBR3/HZ=1000/NO_HZ_IDLE / THP=madvise / MGLRU Kconfig
+  overrides, `ignoreConfigErrors = true`, `KCFLAGS=-O2 -march=native`,
+  `KRUSTFLAGS=-Ctarget-cpu=native`, and the same host-specific
+  `native-optimized-<host>` feature tag used by the rest of the native
+  package set.
 - The shared system baseline gates a physical-host-only kernel runtime tuning
   block on `hostName` and uses `boot.kernel.sysctl` to keep
   `kernel.sched_autogroup_enabled = 1`, `net.core.default_qdisc = "fq"`, and
