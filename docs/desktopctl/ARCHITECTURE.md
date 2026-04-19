@@ -32,7 +32,7 @@ integration as of 2026-04-13.
 
 | Surface | Current implementation |
 | --- | --- |
-| Nix overlay and package wiring | The local `let` imports plus `nixpkgs.overlays` in `system/configuration.nix` wire in the local-packages overlay, and `overlays/march-optimized.nix` optionally rebuilds `desktopctl` with march tuning. |
+| Nix overlay and package wiring | The local `let` imports plus `nixpkgs.overlays` in `system/configuration.nix` wire in the local-packages overlay, and `overlays/native-optimized.nix` rebuilds `desktopctl` with the shared host-native `-O3 -march=native` / `target-cpu=native` helper path. |
 | Home Manager install and activation | `home/default.nix` adds `desktopctl` to `home.packages`, and the `home.activation.applyTheme` hook now bootstraps `~/.config/hypr/input-runtime.conf` before running `desktopctl theme sync` during Home Manager activation. |
 | Quickshell settings host | `config/quickshell/popups/SettingsPopup.qml` loads theme state plus shared mouse defaults through `desktopctl theme ... --json` and `desktopctl hypr input status --json`, while `config/quickshell/DisplayService.qml` reads daemon-owned night-light status and sends `desktopctl night-light ...` requests. `SettingsPopup.qml` also serializes both theme mutations and `desktopctl hypr input set ...` writes, including the split Icons page and the expanded Mouse page. |
 | Quickshell shell IPC | The `tokenizeThemeArgs` helper plus `themeApplyProc` / `theme.apply` handler in `config/quickshell/shell.qml` route the shell-level IPC path to `desktopctl theme ...` with argv-safe tokenization and failure reporting. |

@@ -1,21 +1,9 @@
-{ config, pkgs, lib, march, ... }:
+{ config, pkgs, lib, hostName, enableNativeOptimizations, ... }:
 
 let
-  optimizedKernelPackages =
-    if march == null then
-      pkgs.linuxPackages
-    else
-      pkgs.linuxPackagesFor ((pkgs.linuxPackages.kernel.override {
-        # Linux 6.18 on this pinned nixpkgs revision still ships a few stale
-        # Kconfig symbols, so let Kconfig drop them while keeping our explicit
-        # laptop-only overrides below.
-        ignoreConfigErrors = true;
-      }).overrideAttrs (old: {
-        extraMakeFlags = (old.extraMakeFlags or [ ]) ++ [
-          "KCFLAGS=-O3 -march=${march}"
-          "KRUSTFLAGS=-Ctarget-cpu=${march}"
-        ];
-      }));
+  optimizedKernelPackages = import ../../system/native-kernel-packages.nix {
+    inherit lib pkgs hostName enableNativeOptimizations;
+  };
 in
 {
   imports = [
@@ -24,7 +12,7 @@ in
 
   # Hardware — from nixos-generate-config
   boot.initrd.availableKernelModules = [ "xhci_pci" "thunderbolt" "vmd" "nvme" "rtsx_pci_sdmmc" ];
-  # Keep the stock kernel version/package set, but compile it for the laptop CPU.
+  # Keep the stock kernel version/package set, but compile it for this host CPU.
   boot.kernelPackages = optimizedKernelPackages;
   boot.kernelPatches = [
     {

@@ -26,29 +26,14 @@ Environment-specific values live in `system/distributed-builds-data.nix`.
 - Adds a local cache substituter pointing at the homelab cache URL from
   `system/distributed-builds-data.nix`
 - Restricts the NixOS SSH builder port to `192.168.8.0/24`
-- Tags only the march-optimized derivations that actually execute build-time
-  target binaries with `requiredSystemFeatures = [ "march-..." ]`
+- Tags native-optimized derivations with
+  `requiredSystemFeatures = [ "native-optimized-<host>" ]`
 
-That last point is deliberate. In the current nixpkgs revision, these optimized
-derivations execute freshly built target binaries during their build:
-
-- `ripgrep`: `cargo test` runs target executables, and the derivation also runs
-  the built `rg` binary in `postFixup` and `installCheck`
-- `fd`: `cargo test` runs target executables, and the derivation also runs the
-  built `fd` binary to generate completions in `postInstall`
-- `ffmpeg`: enables `doCheck`, and `make check` runs the FATE targets against
-  the built `ffmpeg` and `ffprobe` programs
-- `pipewire`: Meson `doCheck` runs compiled SPA/PipeWire test and benchmark
-  executables
-- `texlive` environment builders such as
-  `texlive.combined.scheme-medium`: `build-tex-env.sh` exports `$out/bin` into
-  `PATH` and runs `fmtutil`, `updmap-sys`, ConTeXt generation, and related
-  helpers that drive the just-built TeX engines
-
-Other optimized packages stay untagged. In particular, `lsp-plugins` remains
-distributable because its derivation relies on stdenv's default check phase,
-but the top-level Makefile has no `check` or `test` target, so no target
-binaries are executed during the build.
+That last point is deliberate. With `-march=native` and `target-cpu=native`,
+desktop and laptop can produce different machine code even when the literal flag
+strings are identical, so the native-optimized derivations must stay pinned to
+their owning host. Generic `x86_64-linux` work remains shareable; the
+host-native rebuilds do not.
 
 ## One-time data to collect
 
@@ -95,5 +80,5 @@ curl http://192.168.8.153:5050/nix-cache-info
 ```
 
 After that, `nixos-rebuild` and `nix build` should start scheduling generic
-`x86_64-linux` work across the other two builders while leaving march-locked
-derivations on the matching CPU.
+`x86_64-linux` work across the other two builders while leaving
+`native-optimized-<host>` derivations on their owning machine.

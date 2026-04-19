@@ -1,4 +1,4 @@
-{ config, lib, pkgs, hostName, march, enableMarchOptimizations, enableDistributedBuilds, ... }:
+{ config, lib, pkgs, hostName, enableNativeOptimizations, enableDistributedBuilds, ... }:
 
 let
   defaults = {
@@ -21,7 +21,7 @@ let
 
   localLanCidr = "192.168.8.0/24";
   builderSshKey = "/root/.ssh/id_ed25519_nix_remote_build";
-  hostMarchFeature = lib.optional (enableMarchOptimizations && march != null) "march-${march}";
+  hostNativeFeature = lib.optional enableNativeOptimizations "native-optimized-${hostName}";
   cacheUrl =
     if data.cacheUrl != null then data.cacheUrl else "http://${data.connectHosts.homelab}:5000";
   homelabStore = "ssh-ng://nix-ssh@${data.connectHosts.homelab}?ssh-key=${builderSshKey}";
@@ -44,7 +44,7 @@ let
       # already parallelise internally and can be RAM-heavy.
       maxJobs = 2;
       speedFactor = 10;
-      supportedFeatures = commonNixosBuilderFeatures ++ lib.optionals enableMarchOptimizations [ "march-rocketlake" ];
+      supportedFeatures = commonNixosBuilderFeatures ++ lib.optionals enableNativeOptimizations [ "native-optimized-desktop" ];
       publicHostKey = data.publicHostKeys.desktop;
     };
 
@@ -56,7 +56,7 @@ let
       system = "x86_64-linux";
       maxJobs = 2;
       speedFactor = 20;
-      supportedFeatures = commonNixosBuilderFeatures ++ lib.optionals enableMarchOptimizations [ "march-alderlake" ];
+      supportedFeatures = commonNixosBuilderFeatures ++ lib.optionals enableNativeOptimizations [ "native-optimized-laptop" ];
       publicHostKey = data.publicHostKeys.laptop;
     };
 
@@ -80,10 +80,11 @@ let
   ];
 in
 lib.mkMerge [
-  # Advertise host-specific march capabilities only while the optimization
-  # overlay is active, so stock nixpkgs derivations stay fully cacheable.
-  (lib.mkIf (enableMarchOptimizations && march != null) {
-    nix.settings.system-features = lib.mkAfter hostMarchFeature;
+  # Advertise the current machine's native build feature only while native
+  # optimizations are enabled, so generic `x86_64-linux` derivations stay fully
+  # shareable.
+  (lib.mkIf enableNativeOptimizations {
+    nix.settings.system-features = lib.mkAfter hostNativeFeature;
   })
 
   (lib.mkIf enableDistributedBuilds' {

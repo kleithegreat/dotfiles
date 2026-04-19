@@ -10,37 +10,37 @@
 **Symptom:** A small `-march` overlay on `zstd` or `lz4` turns into huge rebuild cascades.
 **Cause:** Those libraries sit low in shared dependency chains, pulling rebuilds through `libarchive`/`cmake`/`llvm` or `systemd`/`nix`.
 **Status:** Workaround in place
-**Resolution:** `overlays/march-optimized.nix` deliberately leaves `zstd` and `lz4` unoptimized unless a separate opt-in path is added later.
+**Resolution:** `overlays/native-optimized.nix` deliberately leaves `zstd` and `lz4` unoptimized unless a separate opt-in path is added later.
 
-## `requiredSystemFeatures` only belongs on derivations that run target binaries
-**Symptom:** A distributed build can land on the wrong CPU class and then fail or be unsafe once the derivation executes freshly built binaries.
-**Cause:** Some optimized derivations run their own outputs during check, fixup, or install, so `-march` binaries are not safe on generic builders.
+## Native-optimized derivations must carry host-specific `requiredSystemFeatures`
+**Symptom:** Desktop and laptop can otherwise build different native outputs at the same store path, or remote scheduling can send a `-march=native` build to the wrong machine.
+**Cause:** `-march=native` and `target-cpu=native` depend on the builder CPU, so the literal flag strings are not enough to distinguish safe cache/scheduler boundaries across hosts.
 **Status:** Workaround in place
-**Resolution:** `overlays/march-optimized.nix` and `docs/nix/distributed-builds.md` tag only the audited derivations that actually execute target binaries.
+**Resolution:** `system/native-optimizations.nix`, `overlays/native-optimized.nix`, and `system/native-kernel-packages.nix` tag native derivations with `requiredSystemFeatures = [ "native-optimized-<host>" ]`, and `system/distributed-builds.nix` advertises only the current host's native feature while `enableNativeOptimizations` is enabled.
 
-## Host `system-features` must not advertise `march-*` unconditionally
-**Symptom:** Stock `x86_64-linux` builds stop behaving like generic cacheable builds when a host always claims `march-*` support.
+## Host `system-features` must not advertise `native-optimized-*` unconditionally
+**Symptom:** Stock `x86_64-linux` builds stop behaving like generic cacheable builds when a host always claims a native-only feature.
 **Cause:** Builder capability leakage changes scheduling and cacheability even when the optimization overlay is off.
 **Status:** Workaround in place
-**Resolution:** `system/distributed-builds.nix` appends the host `march-*` feature only while `enableMarchOptimizations` is enabled.
+**Resolution:** `system/distributed-builds.nix` appends `native-optimized-${hostName}` only while `enableNativeOptimizations` is enabled.
 
-## Hyprland-family builds ignore `enableMarchOptimizations`
-**Symptom:** `hyprland`, `xdg-desktop-portal-hyprland`, `hyprbars`, and `hyprexpo` still rebuild with `-O3 -march=native` even when `enableMarchOptimizations = false`.
-**Cause:** `system/configuration.nix` applies a dedicated local helper to those flake-provided derivations instead of routing them through `overlays/march-optimized.nix`. They already build from source in this repo because they come from flake inputs and/or carry local patches, so the global binary-cache tradeoff does not apply the same way it does for nixpkgs packages.
-**Status:** Intentional exception
-**Resolution:** Keep using `enableMarchOptimizations` only for the optional nixpkgs overlay. If you later enable distributed builds for the Hyprland stack, make sure those derivations are built on CPUs compatible with the machine that will run them, because `-march=native` follows the builder's CPU.
+## Flake-input package overrides share the native helper path
+**Symptom:** Hyprland, Hyprland plugins, `hyprqt6engine`, `opencode`, `snappy-switcher`, and Vicinae would otherwise diverge from the native optimization policy used for the selected nixpkgs packages.
+**Cause:** Those derivations come from flake inputs or local overrides rather than the nixpkgs package set targeted by `overlays/native-optimized.nix`.
+**Status:** Intentional design
+**Resolution:** `system/configuration.nix` and `home/default.nix` both import `system/native-optimizations.nix` directly, so the flake-input packages carry the same `-O3 -march=native` / `target-cpu=native` flags and per-host `requiredSystemFeatures` tag as the overlay-managed nixpkgs packages.
 
-## Laptop kernel tuning is independent of `enableMarchOptimizations`
-**Symptom:** The laptop kernel rebuilds with host-specific code generation even while `flake.nix` leaves `enableMarchOptimizations = false`.
-**Cause:** `hosts/laptop/system.nix` overrides `boot.kernelPackages` directly and derives a new package set from `pkgs.linuxPackagesFor ((pkgs.linuxPackages.kernel.override { ignoreConfigErrors = true; }).overrideAttrs ...)`, appending `KCFLAGS=-O3 -march=${march}` and `KRUSTFLAGS=-Ctarget-cpu=${march}` from the laptop host's `march` argument. The same host module also applies a `boot.kernelPatches` entry with `structuredExtraConfig` to disable AMD-only platform features, guest-only hypervisor support, and `DRM_NOUVEAU`. That path does not go through `overlays/march-optimized.nix`.
-**Status:** Intentional exception
-**Resolution:** Keep this host-local override if the laptop should pay the source-build cost for a CPU-tuned kernel while the rest of nixpkgs stays cache-friendly. On the currently pinned nixpkgs revision, keep `ignoreConfigErrors = true` in that kernel override because the bundled Linux 6.18 config still includes stale symbols such as `DRM_HYPERV`, `KVM_AMD_SEV`, and `SEV_GUEST` that Kconfig now drops. If you want the stock cached kernel back, remove the laptop `boot.kernelPackages` override; toggling `enableMarchOptimizations` will not affect it.
+## Physical-host kernels share one native helper
+**Symptom:** Desktop and laptop should both rebuild the stock kernel package set with native code generation while keeping only the laptop-specific Kconfig trimming on the laptop.
+**Cause:** `system/native-kernel-packages.nix` now derives the kernel package set once with `ignoreConfigErrors = true`, `KCFLAGS=-O3 -march=native`, `KRUSTFLAGS=-Ctarget-cpu=native`, and the host-specific native build feature, while the laptop host module still layers its `boot.kernelPatches` Intel-only config on top.
+**Status:** Intentional design
+**Resolution:** Keep both physical host modules on `system/native-kernel-packages.nix`. On the currently pinned nixpkgs revision, keep `ignoreConfigErrors = true` because the bundled Linux 6.18 config still includes stale symbols such as `DRM_HYPERV`, `KVM_AMD_SEV`, and `SEV_GUEST` that Kconfig now drops. If you want the stock cached kernel back on a host, disable native optimizations for that host or stop routing `boot.kernelPackages` through the helper.
 
-## Laptop local builds are serialized on purpose
-**Symptom:** Local Nix builds on the laptop run one derivation at a time even though the machine has many CPU threads.
-**Cause:** `hosts/laptop/system.nix` sets `nix.settings.max-jobs = 1`. The repo leaves `cores = 0`, so a single heavy derivation can still use the full machine; this avoids stacking multiple already-parallel builds on top of each other on a 16 GiB laptop.
+## Physical-host local builds are serialized on purpose
+**Symptom:** Local Nix builds on desktop and laptop run one derivation at a time even though the machines have many CPU threads.
+**Cause:** `hosts/desktop/system.nix` and `hosts/laptop/system.nix` both set `nix.settings.max-jobs = 1`. The repo leaves `cores = 0`, so a single heavy derivation can still use the full machine; this avoids stacking multiple already-parallel builds on top of each other.
 **Status:** Intentional exception
-**Resolution:** Keep the laptop on `max-jobs = 1` unless measurement shows a real win from concurrent derivations. If you want more concurrency later, change that host-local setting rather than widening the shared Nix baseline.
+**Resolution:** Keep the physical hosts on `max-jobs = 1` unless measurement shows a real win from concurrent derivations. If you want more concurrency later, change those host-local settings rather than widening the shared Nix baseline.
 
 ## Narrow unfree predicates must cover transitive module closures, not just package lists
 **Symptom:** Replacing `allowUnfree = true` with a small name allowlist still fails evaluation on packages that are not listed directly in `home.packages` or `environment.systemPackages`.
@@ -110,9 +110,9 @@
 
 ## Ableton display/backend tradeoffs are still unresolved
 **Symptom:** No tested Wine display path is fully correct yet. The Wine Wayland path clips the bottom of the Ableton UI, skews click targeting, and behaves differently for `Delete` versus `Backspace`. The Xwayland path removes the bottom clipping and restores the expected `Delete` key behavior, but click targeting is still off and the Ableton authorization popup can still be difficult to interact with. Wrapping Xwayland in a fixed-size Wine virtual desktop keeps the app in one host window but still does not fix the hit-testing mismatch. A tested X11 driver override with `Managed=N` and `Decorated=N` reduced flicker and helped the auth popup, but made cursor targeting even worse and is not recommended.
-**Cause:** The remaining problems appear to be in Wine's client-area/input handling for Ableton rather than in the PipeWire or JACK path. External research reinforces that diagnosis: current Live 12-on-Linux guides already document inaccurate mouse coordinates in non-fullscreen windowed mode, and Microsoft's DPI docs plus Ableton's own logs point at a DPI-awareness mismatch (`Effective process DPI awareness: 0` until the prefix override forced it higher). DXVK logs also showed swapchain heights larger than the visible output (for example `1920x1096` on a `1920x1080` display), which matches the clipped bottom edge and the progressively lower click targets. Later `wine-tkg` instrumentation sharpened that further: the final `screen_to_client()` transform was consistent, but it was using a top-level/editor window origin derived from geometry that Wine already believed was much taller than the visible X11 window.
+**Cause:** The remaining problems appear to be in Wine's client-area/input handling for Ableton rather than in the PipeWire or JACK path. External research reinforces that diagnosis: current Live 12-on-Linux guides already document inaccurate mouse coordinates in non-fullscreen windowed mode, and Microsoft's DPI docs plus Ableton's own logs point at a DPI-awareness mismatch (`Effective process DPI awareness: 0` until the prefix override forced it higher). DXVK logs also showed swapchain heights larger than the visible output (for example `1920x1096` on a `1920x1080` display), which matches the clipped bottom edge and the progressively lower click targets. Later `wine-tkg` instrumentation sharpened that further: the final `screen_to_client()` transform was consistent, but it was using a top-level/editor window origin derived from geometry that Wine already believed was much taller than the visible X11 window. Producer-side `SetWindowPos` traces then showed child `WM_NCCALCSIZE` updates mutating `new_client` even when `new_window` and `new_visible` stayed fixed, which points to corruption starting in the Win32 layout path before the final input transform.
 **Status:** Under investigation
-**Resolution:** Keep all three launcher variants documented (`ableton-live-12-lite`, `ableton-live-12-lite-x11`, and `ableton-live-12-lite-x11-desktop`) and continue testing against the same prefix so the backend-specific behavior stays comparable. Treat fullscreen and manifest-level DPI workarounds as the highest-value early experiments, then move to direct Wine geometry tracing. Current evidence now points most strongly at `dlls/winex11.drv/window.c` state tracking and top-level rect reconstruction rather than at the final mouse-message coordinate transform itself.
+**Resolution:** Keep all three launcher variants documented (`ableton-live-12-lite`, `ableton-live-12-lite-x11`, and `ableton-live-12-lite-x11-desktop`) and continue testing against the same prefix so the backend-specific behavior stays comparable. Treat fullscreen and manifest-level DPI workarounds as the highest-value early experiments, then move to direct Wine geometry tracing. Current evidence now points most strongly at the Win32 child layout path (`calc_winpos`, `calc_ncsize`, `set_window_pos`) plus the final Vulkan surface extent selection rather than at the final mouse-message coordinate transform itself.
 
 ## Wine-NSPA is currently a source-porting project on this toolchain
 **Symptom:** The published `Wine-NSPA 8.19` binary package is not a simple runner swap on this host, and a source build from `wine-nspa-8x-git/non-makepkg-build.sh` progresses only after multiple local compatibility fixes.
