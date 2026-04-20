@@ -138,6 +138,12 @@
 **Status:** Intentional design
 **Resolution:** Treat `desktopLocalPort` as desktop runtime state owned by the Tauri wrapper. If desktop launches get wedged on a stale port, stop the app and remove or edit that key; the next launch will retry the stored/default port sequence and can fall back to a fresh port when needed.
 
+## OpenChamber desktop needs WebKit dmabuf disabled on current Wayland stacks
+**Symptom:** Launching `openchamber-desktop` on the Hyprland/NVIDIA desktop can exit immediately with `Gdk-Message: Error 71 (Protocol error) dispatching to Wayland display`, often paired with `wp_linux_drm_syncobj_surface_v1 ... Missing acquire timeline`.
+**Cause:** The current `webkitgtk_4_1` Wayland renderer path can negotiate the dmabuf/syncobj protocol combination incorrectly on this stack, which crashes the Tauri shell before the OpenChamber UI becomes usable.
+**Status:** Workaround in place
+**Resolution:** `pkgs/openchamber-desktop/default.nix` now wraps `openchamber-desktop` with `WEBKIT_DISABLE_DMABUF_RENDERER=1`, which keeps the app on a stable WebKit rendering path under Wayland without forcing the whole launcher onto X11.
+
 ## Declarative Windows VM media and guest state stay partly manual
 **Symptom:** The desktop Windows VM module evaluates and seeds `/var/lib/windows-vm/windows11`, but first boot can still land in UEFI or an existing guest keeps its old size, boot state, or TPM state after a Nix change.
 **Cause:** `hosts/desktop/windows-vm.nix` makes the host-side QEMU wrapper declarative, but the installer ISO plus the mutable guest-owned qcow2, NVRAM, and TPM directories intentionally live outside the Nix store.
