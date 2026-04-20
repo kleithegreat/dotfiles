@@ -1,8 +1,10 @@
 final: prev: {
   desktopctl = final.callPackage ../desktopctl { };
   helium = final.callPackage ../pkgs/helium { };
+  openchamber-backend-mux = final.callPackage ../pkgs/openchamber-backend-mux { };
   openchamber-claude-bridge = final.callPackage ../pkgs/openchamber-claude-bridge { };
   openchamber-cli = final.callPackage ../pkgs/openchamber/cli.nix {
+    openchamberBackendMux = final.openchamber-backend-mux;
     openchamberClaudeBridge = final.openchamber-claude-bridge;
   };
   openchamber-desktop = final.callPackage ../pkgs/openchamber-desktop {

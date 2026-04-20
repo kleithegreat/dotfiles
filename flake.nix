@@ -109,6 +109,7 @@
           desktopctl
           helium
           openchamber
+          openchamber-backend-mux
           openchamber-claude-bridge
           ;
       };
