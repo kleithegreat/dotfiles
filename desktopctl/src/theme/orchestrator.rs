@@ -13,7 +13,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-const COLOR_SCHEME_TARGETS: [&str; 19] = [
+const COLOR_TARGETS: [&str; 18] = [
     "alacritty",
     "ghostty",
     "gtksourceview",
@@ -28,7 +28,6 @@ const COLOR_SCHEME_TARGETS: [&str; 19] = [
     "qt",
     "vicinae",
     "bat",
-    "wallpaper",
     "vscode",
     "spicetify",
     "snappy_switcher",
@@ -182,11 +181,28 @@ pub fn apply_all(
     apply_targets(registry, names, colors, state, runtime)
 }
 
+pub fn color_targets() -> BTreeSet<String> {
+    named_targets(COLOR_TARGETS)
+}
+
+pub fn font_targets() -> BTreeSet<String> {
+    named_targets(
+        SYSTEM_FONT_TARGETS
+            .iter()
+            .chain(MONO_FONT_TARGETS.iter())
+            .copied(),
+    )
+}
+
 pub fn targets_for_key(state_key: &str, state: Option<&ThemeState>) -> BTreeSet<String> {
-    let mut targets = dependency_targets(state_key)
-        .iter()
-        .map(|name| (*name).to_owned())
-        .collect::<BTreeSet<_>>();
+    let mut targets = match state_key {
+        "color_scheme" => named_targets(
+            COLOR_TARGETS
+                .into_iter()
+                .chain(std::iter::once("wallpaper")),
+        ),
+        _ => named_targets(dependency_targets(state_key).iter().copied()),
+    };
 
     if state_key == "color_scheme" && matches!(state, Some(state) if !state.filter_wallpaper) {
         targets.remove("wallpaper");
@@ -195,9 +211,15 @@ pub fn targets_for_key(state_key: &str, state: Option<&ThemeState>) -> BTreeSet<
     targets
 }
 
+fn named_targets<I>(names: I) -> BTreeSet<String>
+where
+    I: IntoIterator<Item = &'static str>,
+{
+    names.into_iter().map(str::to_owned).collect()
+}
+
 fn dependency_targets(state_key: &str) -> &'static [&'static str] {
     match state_key {
-        "color_scheme" => &COLOR_SCHEME_TARGETS,
         "wallpaper" | "filter_wallpaper" => &WALLPAPER_TARGETS,
         "system_font" => &SYSTEM_FONT_TARGETS,
         "mono_font" => &MONO_FONT_TARGETS,

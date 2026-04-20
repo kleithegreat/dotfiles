@@ -18,40 +18,6 @@ pub mod schema;
 pub mod targets;
 pub mod wallpaper_browser;
 
-const BASE_COLOR_TARGETS: [&str; 18] = [
-    "alacritty",
-    "ghostty",
-    "gtksourceview",
-    "hyprland",
-    "zathura",
-    "quickshell",
-    "neovim",
-    "opencode",
-    "starship",
-    "tmux",
-    "gtk",
-    "qt",
-    "vicinae",
-    "bat",
-    "snappy_switcher",
-    "spicetify",
-    "vscode",
-    "zsh",
-];
-
-const FONT_TARGETS: [&str; 10] = [
-    "alacritty",
-    "chromium",
-    "ghostty",
-    "neovide",
-    "quickshell",
-    "gtk",
-    "qt",
-    "vicinae",
-    "snappy_switcher",
-    "vscode",
-];
-
 enum CliFailure {
     Message(String),
     Reported,
@@ -304,7 +270,13 @@ fn cmd_fonts() -> CliResult<()> {
         "Applying font targets ({}, {})...",
         state.mono_font, state.system_font
     );
-    if orchestrator::apply_targets(&registry, FONT_TARGETS, &colors, &state, true) {
+    if orchestrator::apply_targets(
+        &registry,
+        orchestrator::font_targets(),
+        &colors,
+        &state,
+        true,
+    ) {
         Ok(())
     } else {
         Err(CliFailure::Reported)
@@ -627,10 +599,7 @@ fn apply_affected_targets(
 }
 
 fn color_targets_for_state(state: &schema::ThemeState) -> std::collections::BTreeSet<String> {
-    let mut targets = BASE_COLOR_TARGETS
-        .iter()
-        .map(|name| (*name).to_owned())
-        .collect::<std::collections::BTreeSet<_>>();
+    let mut targets = orchestrator::color_targets();
 
     if state.filter_wallpaper {
         targets.insert("wallpaper".to_owned());
@@ -1270,6 +1239,6 @@ mod tests {
 
     #[test]
     fn font_targets_do_not_include_tmux() {
-        assert!(!FONT_TARGETS.contains(&"tmux"));
+        assert!(!orchestrator::font_targets().contains("tmux"));
     }
 }

@@ -1,10 +1,4 @@
-{ config, pkgs, lib, hostName, enableNativeOptimizations, ... }:
-
-let
-  optimizedKernelPackages = import ../../system/native-kernel-packages.nix {
-    inherit lib pkgs hostName enableNativeOptimizations;
-  };
-in
+{ config, pkgs, lib, ... }:
 
 {
   imports = [
@@ -18,8 +12,6 @@ in
   ];
 
   boot.initrd.availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usbhid" "usb_storage" "sd_mod" ];
-  # Keep the stock kernel version/package set, but compile it for this host CPU.
-  boot.kernelPackages = optimizedKernelPackages;
   boot.kernelPatches = [
     {
       name = "desktop-preempt-full-kernel-config";
@@ -62,7 +54,6 @@ in
       };
     }
   ];
-  boot.kernelModules = [ "kvm-intel" ];
   boot.kernel.sysctl = {
     "vm.swappiness" = 10;
     "vm.dirty_ratio" = 10;
@@ -90,12 +81,6 @@ in
     device = "/dev/disk/by-uuid/426244fd-2b88-4eae-81fe-3466fc631d43";
     fsType = "ext4";
   };
-
-  zramSwap.enable = true;
-  zramSwap.memoryPercent = 50;
-
-  hardware.enableRedistributableFirmware = true;
-  hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
 
   services.power-profiles-daemon.enable = true;
   # Keep this desktop pinned to the top performance profile whenever the daemon

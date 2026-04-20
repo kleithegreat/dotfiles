@@ -1,6 +1,7 @@
 { config, pkgs, lib, dotfilesPath, hostName, vicinae, snappy-switcher, opencode, inputs, enableNativeOptimizations, ... }:
 
 let
+  system = pkgs.stdenv.hostPlatform.system;
   nativeOptimizations = import ../system/native-optimizations.nix {
     inherit lib hostName enableNativeOptimizations;
   };
@@ -8,6 +9,39 @@ let
     inherit lib inputs hostName enableNativeOptimizations;
   };
   optimizedPkgs = pkgs.appendOverlays [ optimizedPackages.overlay ];
+  inherit (optimizedPkgs)
+    desktopctl
+    fd
+    lapce
+    p7zip
+    quickshell
+    ripgrep
+    lsp-plugins
+    ;
+  staticConfigSources = lib.mapAttrs (_: source: { inherit source; }) {
+    "hypr/hyprland.conf" = "${dotfilesPath}/config/hypr/hyprland.conf";
+    "hypr/appearance.conf" = "${dotfilesPath}/config/hypr/appearance.conf";
+    "hypr/autostart.conf" = "${dotfilesPath}/config/hypr/autostart.conf";
+    "hypr/input.conf" = "${dotfilesPath}/config/hypr/input.conf";
+    "hypr/keybinds.conf" = "${dotfilesPath}/config/hypr/keybinds.conf";
+    "hypr/rules.conf" = "${dotfilesPath}/config/hypr/rules.conf";
+    "hypr/hypridle.conf" = "${dotfilesPath}/config/hypr/hypridle.conf";
+    "hypr/hyprlock.conf" = "${dotfilesPath}/config/hypr/hyprlock.conf";
+    "hypr/plugins.conf" = "${dotfilesPath}/config/hypr/plugins.conf";
+    "alacritty/alacritty.toml" = "${dotfilesPath}/config/alacritty/alacritty.toml";
+    "ghostty/config" = "${dotfilesPath}/config/ghostty/config";
+    "tmux/tmux.conf" = "${dotfilesPath}/config/tmux/tmux.conf";
+    "git/ignore" = "${dotfilesPath}/config/git/ignore";
+    "vicinae/settings.json" = "${dotfilesPath}/config/vicinae/settings.json";
+    "zathura/zathurarc" = "${dotfilesPath}/config/zathura/zathurarc";
+  };
+  recursiveConfigSources = lib.mapAttrs (_: source: {
+    inherit source;
+    recursive = true;
+  }) {
+    quickshell = "${dotfilesPath}/config/quickshell";
+    nvim = "${dotfilesPath}/config/nvim";
+  };
   hyprHostConfigs = {
     desktop = {
       autostartHost = "${dotfilesPath}/hosts/desktop/autostart.conf";
@@ -30,14 +64,10 @@ let
       { text = fallback; }
     else
       { source = path; };
-  fd-pkg = optimizedPkgs.fd;
-  ripgrep-pkg = optimizedPkgs.ripgrep;
-  desktopctl-pkg = optimizedPkgs.desktopctl;
-  p7zip-pkg = optimizedPkgs.p7zip;
-  opencode-node-modules-pkg = opencode.packages.${pkgs.stdenv.hostPlatform.system}.node_modules_updater.override {
+  opencode-node-modules-pkg = opencode.packages.${system}.node_modules_updater.override {
     hash = "sha256-i9TxYwWkJAR+kW6pbvhgQbRW9UYPtdrPQAGic4zPoa4=";
   };
-  opencode-pkg = nativeOptimizations.optimizeNativePackage (opencode.packages.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs (old: {
+  opencode-pkg = nativeOptimizations.optimizeNativePackage (opencode.packages.${system}.default.overrideAttrs (old: {
     node_modules = opencode-node-modules-pkg;
     configurePhase = ''
       runHook preConfigure
@@ -70,17 +100,13 @@ let
       fi
     '';
   }));
-  snappy-switcher-pkg = nativeOptimizations.optimizeNativePackage (snappy-switcher.packages.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs (old: {
+  snappy-switcher-pkg = nativeOptimizations.optimizeNativePackage (snappy-switcher.packages.${system}.default.overrideAttrs (old: {
     patches = (old.patches or []) ++ [
       ../patches/snappy-switcher/workspace-scope-filter.patch
     ];
   }));
-  vicinae-pkg = nativeOptimizations.optimizeNativePackage vicinae.packages.${pkgs.stdenv.hostPlatform.system}.default;
-  lapce-pkg = optimizedPkgs.lapce;
-  quickshell-pkg = optimizedPkgs.quickshell;
-  lsp-plugins-pkg = optimizedPkgs.lsp-plugins;
-  pipewire-pkg = optimizedPkgs.pipewire;
-  texlive-pkg = optimizedPkgs.texlive.withPackages (ps: with ps; [
+  vicinae-pkg = nativeOptimizations.optimizeNativePackage vicinae.packages.${system}.default;
+  texlive = optimizedPkgs.texlive.withPackages (ps: with ps; [
     scheme-small
     latexmk
     tikz-cd
@@ -126,21 +152,21 @@ in
     openchamber
     bat
     eza
-    fd-pkg
-    ripgrep-pkg
+    fd
+    ripgrep
     fzf
     jq
     tree
     ncdu
     htop
-    desktopctl-pkg
+    desktopctl
     strace
     bc
     less
     file           # file type identification
     unzip
     zip
-    p7zip-pkg
+    p7zip
     unrar
     psmisc
     rsync
@@ -180,7 +206,7 @@ in
     spotify
     zathura
     vscode
-    lapce-pkg
+    lapce
     lmstudio
     helium
     imv            # Wayland image viewer
@@ -225,7 +251,7 @@ in
 
     # `scheme-medium` pulls in `asymptote` via `collection-binextra`, which
     # currently recurses during evaluation on this nixpkgs revision.
-    texlive-pkg
+    texlive
 
     # Hyprland ecosystem
     hypridle
@@ -242,11 +268,11 @@ in
     wl-clipboard
     playerctl
     easyeffects
-    lsp-plugins-pkg    # audio plugins for EasyEffects
+    lsp-plugins    # audio plugins for EasyEffects
     networkmanager # provides nmcli for Quickshell
     nwg-look       # GTK theme manager for Wayland
 
-    quickshell-pkg
+    quickshell
     snappy-switcher-pkg
     papirus-icon-theme
     rose-pine-cursor
@@ -271,61 +297,33 @@ in
     codex
   ];
 
-  # ── Hyprland configs ─────────────────────────────────────────
-  # Shared configs from config/hypr/
-  xdg.configFile."hypr/hyprland.conf".source = "${dotfilesPath}/config/hypr/hyprland.conf";
-  xdg.configFile."hypr/appearance.conf".source = "${dotfilesPath}/config/hypr/appearance.conf";
-  xdg.configFile."hypr/autostart.conf".source = "${dotfilesPath}/config/hypr/autostart.conf";
-  xdg.configFile."hypr/autostart-host.conf" = mkHostConfigFile "autostartHost" "";
-  xdg.configFile."hypr/input.conf".source = "${dotfilesPath}/config/hypr/input.conf";
-  xdg.configFile."hypr/input-devices.conf" = mkHostConfigFile "inputDevices" "";
-  xdg.configFile."hypr/keybinds.conf".source = "${dotfilesPath}/config/hypr/keybinds.conf";
-  xdg.configFile."hypr/rules.conf".source = "${dotfilesPath}/config/hypr/rules.conf";
-  xdg.configFile."hypr/hypridle.conf".source = "${dotfilesPath}/config/hypr/hypridle.conf";
-  xdg.configFile."hypr/hyprlock.conf".source = "${dotfilesPath}/config/hypr/hyprlock.conf";
-  xdg.configFile."hypr/plugins.conf".source = "${dotfilesPath}/config/hypr/plugins.conf";
+  # ── Managed app configs ──────────────────────────────────────
+  xdg.configFile = staticConfigSources // recursiveConfigSources // {
+    # Host-specific — monitors and GPU env vars
+    "hypr/autostart-host.conf" = mkHostConfigFile "autostartHost" "";
+    "hypr/input-devices.conf" = mkHostConfigFile "inputDevices" "";
+    "hypr/monitors.conf" = mkHostConfigFile "monitors" "monitor = ,preferred,auto,1\n";
+    "hypr/env.conf" = mkHostConfigFile "env" "";
 
-  # Host-specific — monitors and GPU env vars
-  xdg.configFile."hypr/monitors.conf" = mkHostConfigFile "monitors" "monitor = ,preferred,auto,1\n";
-  xdg.configFile."hypr/env.conf" = mkHostConfigFile "env" "";
+    # Route file picker to KDE, everything else through Hyprland → GTK fallback
+    "xdg-desktop-portal/portals.conf".text = ''
+      [preferred]
+      default = hyprland;gtk
+      org.freedesktop.impl.portal.FileChooser = kde
+    '';
 
-  # ── XDG Desktop Portal config ───────────────────────────────
-  # Route file picker to KDE, everything else through Hyprland → GTK fallback
-  xdg.configFile."xdg-desktop-portal/portals.conf".text = ''
-    [preferred]
-    default = hyprland;gtk
-    org.freedesktop.impl.portal.FileChooser = kde
-  '';
+    # Snappy Switcher config.ini is generated by desktopctl; only the packaged
+    # themes stay symlinked.
+    "snappy-switcher/themes".source = "${snappy-switcher-pkg}/share/snappy-switcher/themes";
 
-  # ── Other app configs ────────────────────────────────────────
-  xdg.configFile."quickshell" = {
-    source = "${dotfilesPath}/config/quickshell";
-    recursive = true;
+    "wireplumber/wireplumber.conf.d/50-bluetooth.conf".text = ''
+      monitor.bluez.properties = {
+        bluez5.enable-sbc-xq = true
+        bluez5.enable-msbc = true
+        bluez5.enable-hw-volume = true
+      }
+    '';
   };
-
-  xdg.configFile."nvim" = {
-    source = "${dotfilesPath}/config/nvim";
-    recursive = true;
-  };
-
-  xdg.configFile."alacritty/alacritty.toml".source = "${dotfilesPath}/config/alacritty/alacritty.toml";
-  xdg.configFile."ghostty/config".source = "${dotfilesPath}/config/ghostty/config";
-  xdg.configFile."tmux/tmux.conf".source = "${dotfilesPath}/config/tmux/tmux.conf";
-  xdg.configFile."git/ignore".source = "${dotfilesPath}/config/git/ignore";
-  xdg.configFile."vicinae/settings.json".source = "${dotfilesPath}/config/vicinae/settings.json";
-  xdg.configFile."zathura/zathurarc".source = "${dotfilesPath}/config/zathura/zathurarc";
-  # ── Snappy-switcher (alt-tab window switcher) ──────────────
-  # config.ini is generated by desktopctl; only the packaged themes stay symlinked
-  xdg.configFile."snappy-switcher/themes".source = "${snappy-switcher-pkg}/share/snappy-switcher/themes";
-
-  # ── WirePlumber Bluetooth codecs ─────────────────────────────
-  xdg.configFile."wireplumber/wireplumber.conf.d/50-bluetooth.conf".text = ''
-    monitor.bluez.properties = {
-      bluez5.enable-sbc-xq = true
-      bluez5.enable-msbc = true
-      bluez5.enable-hw-volume = true
-    }
-  '';
 
   # ── Git credential helper (uses gnome-keyring via libsecret) ──
   programs.git.settings.credential.helper =
@@ -388,7 +386,7 @@ in
 
   # ── Theme activation ────────────────────────────────────────
   home.activation.applyTheme = lib.hm.dag.entryAfter ["writeBoundary"] ''
-    PATH="${lib.makeBinPath [desktopctl-pkg]}:$PATH"
+    PATH="${lib.makeBinPath [desktopctl]}:$PATH"
     mkdir -p "$HOME/.config/hypr"
     touch "$HOME/.config/hypr/input-runtime.conf"
     touch "$HOME/.config/hypr/animations-override.conf"
