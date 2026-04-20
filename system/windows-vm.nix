@@ -21,6 +21,7 @@ let
       disk_path=${lib.escapeShellArg diskPath}
       windows_iso=${lib.escapeShellArg cfg.windowsIsoPath}
       unattend_iso=${lib.escapeShellArg unattendIsoPath}
+      iso_dir=${lib.escapeShellArg isoDir}
       tpm_dir=${lib.escapeShellArg tpmStateDir}
       ovmf_vars=${lib.escapeShellArg ovmfVarsPath}
       firmware_code=${lib.escapeShellArg firmwareCode}
@@ -88,6 +89,7 @@ let
         -device "tpm-tis,tpmdev=tpm0"
         -device "qemu-xhci,id=usb"
         -device usb-tablet
+        -device "ich9-ahci,id=sata"
         -device ich9-intel-hda
         -device hda-duplex
         -netdev "user,id=net0,hostname=$vm_name"
@@ -100,9 +102,26 @@ let
       )
 
       if [[ -f "$windows_iso" ]]; then
-        qemu_args+=( -drive "file=$windows_iso,media=cdrom,readonly=on" )
+        qemu_args+=(
+          -drive "if=none,id=installer,file=$windows_iso,media=cdrom,format=raw,readonly=on"
+          -device "ide-cd,bus=sata.0,drive=installer,bootindex=1"
+        )
       else
-        echo "windows-vm: installer ISO not found at $windows_iso; booting disk only." >&2
+        shopt -s nullglob
+        fallback_isos=( "$iso_dir"/*.iso "$iso_dir"/*.ISO )
+        shopt -u nullglob
+
+        if (( ''${#fallback_isos[@]} == 1 )); then
+          echo "windows-vm: configured ISO not found at $windows_iso; using ''${fallback_isos[0]} instead." >&2
+          qemu_args+=(
+            -drive "if=none,id=installer,file=''${fallback_isos[0]},media=cdrom,format=raw,readonly=on"
+            -device "ide-cd,bus=sata.0,drive=installer,bootindex=1"
+          )
+        elif (( ''${#fallback_isos[@]} > 1 )); then
+          echo "windows-vm: configured ISO not found at $windows_iso and multiple ISOs exist in $iso_dir; set virtualisation.windowsVm.windowsIsoPath explicitly. Booting disk only." >&2
+        else
+          echo "windows-vm: installer ISO not found at $windows_iso; booting disk only." >&2
+        fi
       fi
 
       if [[ -f "$unattend_iso" ]]; then

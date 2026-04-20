@@ -30,8 +30,11 @@ The current physical-host baseline enables the module with these defaults:
 
 ## First Boot
 
-1. Copy a Windows ISO to
-   `/var/lib/windows-vm/windows11/isos/windows11.iso`.
+1. Copy a Windows ISO into `/var/lib/windows-vm/windows11/isos/`.
+   The launcher prefers the configured
+   `/var/lib/windows-vm/windows11/isos/windows11.iso` path when present, but if
+   that file is missing it will also auto-attach a lone `.iso` staged in the
+   directory.
 2. If you want unattended setup, also copy an answer-file ISO to
    `/var/lib/windows-vm/windows11/isos/unattend.iso`.
 3. Rebuild if you have not already run `nixos-rebuild switch` since enabling the
@@ -44,15 +47,24 @@ The generated QEMU command already enables:
 - Q35 machine type
 - UEFI boot via OVMF
 - TPM 2.0 via `swtpm`
+- An AHCI-attached installer CD-ROM when an ISO is staged
 - An NVMe system disk
 - User-mode NAT networking via `e1000e`
 - GTK display output
 
 ## Notes
 
-- If the ISO path does not exist, `windows-vm` still starts and boots the disk
-  only. That is useful after Windows is installed, but a fresh VM will land in
-  UEFI until you stage an installer ISO.
+- If the configured ISO path does not exist but there is exactly one `.iso` in
+  `/var/lib/windows-vm/windows11/isos/`, `windows-vm` auto-attaches that file.
+- If the configured ISO path does not exist and there are multiple `.iso` files
+  in `/var/lib/windows-vm/windows11/isos/`, `windows-vm` warns and boots the
+  disk only; set `virtualisation.windowsVm.windowsIsoPath` explicitly if you
+  want a specific image.
+- The installer ISO is attached explicitly as a SATA CD-ROM with boot priority
+  so OVMF can see it reliably on the Q35 machine type.
+- If no installer ISO is available, `windows-vm` still starts and boots the
+  disk only. That is useful after Windows is installed, but a fresh VM will
+  land in UEFI until you stage an installer ISO.
 - If `/var/lib/windows-vm/windows11/isos/unattend.iso` exists, `windows-vm`
   also attaches it automatically as a second virtual CD-ROM.
 - The qcow2 disk is created only once. Changing `diskSizeGiB` later does not
