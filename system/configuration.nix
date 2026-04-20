@@ -12,6 +12,17 @@ let
     inherit lib inputs hostName enableNativeOptimizations;
   };
   optimizedPkgs = pkgs.appendOverlays [ optimizedPackages.overlay ];
+  appendPatches = patches: drv:
+    drv.overrideAttrs (old: {
+      patches = (old.patches or []) ++ patches;
+    });
+  mkPatchedHyprPlugin = plugin: patches:
+    nativeOptimizations.optimizeCCPackage (
+      appendPatches patches (plugin.override {
+        hyprland = patchedHyprland;
+        hyprlandPlugins = patchedHyprlandPluginHelpers;
+      })
+    );
 
   hyprqt6engine = nativeOptimizations.optimizeCCPackage (inputs.hyprqt6engine.packages.${system}.default.overrideAttrs (old: {
     buildInputs = (old.buildInputs or []) ++ [
@@ -22,12 +33,10 @@ let
   }));
 
   patchedHyprland = nativeOptimizations.optimizeCCPackage (
-    hyprland.packages.${system}.hyprland.overrideAttrs (old: {
-      patches = (old.patches or []) ++ [
-        ../patches/hyprland/hyprland-floating-top-decoration-rounding-0.54.patch
-        ../patches/hyprland/hyprland-gcc15-designated-initializer-fix-0.54.patch
-      ];
-    })
+    appendPatches [
+      ../patches/hyprland/hyprland-floating-top-decoration-rounding-0.54.patch
+      ../patches/hyprland/hyprland-gcc15-designated-initializer-fix-0.54.patch
+    ] hyprland.packages.${system}.hyprland
   );
 
   patchedHyprlandPortal = nativeOptimizations.optimizeCCPackage (
@@ -48,27 +57,13 @@ let
     in
     upstreamHyprPluginPkgs
     // {
-      hyprbars = nativeOptimizations.optimizeCCPackage (
-        (upstreamHyprPluginPkgs.hyprbars.override {
-          hyprland = patchedHyprland;
-          hyprlandPlugins = patchedHyprlandPluginHelpers;
-        }).overrideAttrs (old: {
-          patches = (old.patches or []) ++ [
-            ../patches/hyprland-plugins/hyprbars-hyprland-0.54.patch
-          ];
-        })
-      );
+      hyprbars = mkPatchedHyprPlugin upstreamHyprPluginPkgs.hyprbars [
+        ../patches/hyprland-plugins/hyprbars-hyprland-0.54.patch
+      ];
 
-      hyprexpo = nativeOptimizations.optimizeCCPackage (
-        (upstreamHyprPluginPkgs.hyprexpo.override {
-          hyprland = patchedHyprland;
-          hyprlandPlugins = patchedHyprlandPluginHelpers;
-        }).overrideAttrs (old: {
-          patches = (old.patches or []) ++ [
-            ../patches/hyprland-plugins/hyprexpo-hyprland-0.54.patch
-          ];
-        })
-      );
+      hyprexpo = mkPatchedHyprPlugin upstreamHyprPluginPkgs.hyprexpo [
+        ../patches/hyprland-plugins/hyprexpo-hyprland-0.54.patch
+      ];
     };
   hyprPluginDir = pkgs.symlinkJoin {
     name = "hyprland-plugins";
@@ -146,71 +141,73 @@ in
     ./distributed-builds.nix
   ];
 
-  boot.tmp.useTmpfs = true;
+  config = lib.mkMerge [
+    {
+      boot.tmp.useTmpfs = true;
 
-  nix.settings = {
-    experimental-features = [ "nix-command" "flakes" ];
-    substituters = [
-      "https://cache.nixos.org"
-      "https://hyprland.cachix.org"
-      "https://vicinae.cachix.org"
-    ];
-    trusted-public-keys = [
-      "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
-      "hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc="
-      "vicinae.cachix.org-1:1kDrfienkGHPYbkpNj1mWTr7Fm1+zcenzgTizIcI3oc="
-    ];
-    auto-optimise-store = true;
-  };
-  nix.gc = {
-    automatic = true;
-    dates = "weekly";
-    options = "--delete-older-than 30d";
-  };
-  nix.registry = {
-    nixpkgs.flake = inputs.nixpkgs;
-    hyprland.flake = inputs.hyprland;
-    vicinae.flake = inputs.vicinae;
-  };
-  # Home Manager reuses the system package set in this flake, so keep the
-  # unfree allowlist on the shared `pkgs` instance rather than duplicating it
-  # in multiple module layers.
-  nixpkgs.config.allowUnfreePredicate = pkg:
-    builtins.elem (lib.getName pkg) allowedUnfreePackageNames;
-  nixpkgs.overlays = [
-    claudeCodeOverlay
-    localPackagesOverlay
-  ];
+      nix.settings = {
+        experimental-features = [ "nix-command" "flakes" ];
+        substituters = [
+          "https://cache.nixos.org"
+          "https://hyprland.cachix.org"
+          "https://vicinae.cachix.org"
+        ];
+        trusted-public-keys = [
+          "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+          "hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc="
+          "vicinae.cachix.org-1:1kDrfienkGHPYbkpNj1mWTr7Fm1+zcenzgTizIcI3oc="
+        ];
+        auto-optimise-store = true;
+      };
+      nix.gc = {
+        automatic = true;
+        dates = "weekly";
+        options = "--delete-older-than 30d";
+      };
+      nix.registry = {
+        nixpkgs.flake = inputs.nixpkgs;
+        hyprland.flake = inputs.hyprland;
+        vicinae.flake = inputs.vicinae;
+      };
+      # Home Manager reuses the system package set in this flake, so keep the
+      # unfree allowlist on the shared `pkgs` instance rather than duplicating it
+      # in multiple module layers.
+      nixpkgs.config.allowUnfreePredicate = pkg:
+        builtins.elem (lib.getName pkg) allowedUnfreePackageNames;
+      nixpkgs.overlays = [
+        claudeCodeOverlay
+        localPackagesOverlay
+      ];
 
-  # ── Networking ───────────────────────────────────────────────
-  networking.hostName = hostName;
-  networking.networkmanager.enable = true;
-  boot.kernel.sysctl = lib.mkIf isPhysicalHost {
-    "kernel.sched_autogroup_enabled" = 1;
-    "net.core.default_qdisc" = "fq";
-    "net.ipv4.tcp_congestion_control" = "bbr";
-  };
+      # ── Networking ───────────────────────────────────────────────
+      networking.hostName = hostName;
+      networking.networkmanager.enable = true;
+      boot.kernel.sysctl = lib.mkIf isPhysicalHost {
+        "kernel.sched_autogroup_enabled" = 1;
+        "net.core.default_qdisc" = "fq";
+        "net.ipv4.tcp_congestion_control" = "bbr";
+      };
 
-  systemd.services.mglru-tuning = lib.mkIf isPhysicalHost {
-    description = "Apply physical-host MGLRU tuning";
-    wantedBy = [ "multi-user.target" ];
-    after = [ "local-fs.target" ];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-    };
-    script = ''
-      # Use MGLRU's thrash-prevention knob as the MGLRU-friendly equivalent of
-      # LE9/LE10-style working-set and file-cache protection.
-      if [ -w /sys/kernel/mm/lru_gen/enabled ]; then
-        printf 'y' > /sys/kernel/mm/lru_gen/enabled
-      fi
+      systemd.services.mglru-tuning = lib.mkIf isPhysicalHost {
+        description = "Apply physical-host MGLRU tuning";
+        wantedBy = [ "multi-user.target" ];
+        after = [ "local-fs.target" ];
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+        };
+        script = ''
+          # Use MGLRU's thrash-prevention knob as the MGLRU-friendly equivalent of
+          # LE9/LE10-style working-set and file-cache protection.
+          if [ -w /sys/kernel/mm/lru_gen/enabled ]; then
+            printf 'y' > /sys/kernel/mm/lru_gen/enabled
+          fi
 
-      if [ -w /sys/kernel/mm/lru_gen/min_ttl_ms ]; then
-        printf '1000' > /sys/kernel/mm/lru_gen/min_ttl_ms
-      fi
-    '';
-  };
+          if [ -w /sys/kernel/mm/lru_gen/min_ttl_ms ]; then
+            printf '1000' > /sys/kernel/mm/lru_gen/min_ttl_ms
+          fi
+        '';
+      };
 
   # ── PKI / TLS trust ────────────────────────────────────────
   security.pki.certificateFiles = [
@@ -525,5 +522,33 @@ in
     bitwarden-desktop  # must be system-level so polkit policy file is linked (nixpkgs#344073)
   ];
 
-  system.stateVersion = "25.05";
+      system.stateVersion = "25.05";
+    }
+    (lib.mkIf isPhysicalHost {
+      boot.kernelParams = [ "mitigations=off" "transparent_hugepage=madvise" ];
+      boot.loader.grub = {
+        enable = true;
+        efiSupport = true;
+        device = "nodev";
+        useOSProber = false;
+        extraEntries = ''
+          menuentry "Windows Boot Manager" {
+            search --set=root --file /EFI/Microsoft/Boot/bootmgfw.efi
+            chainloader /EFI/Microsoft/Boot/bootmgfw.efi
+          }
+        '';
+      };
+      boot.loader.efi = {
+        canTouchEfiVariables = true;
+        efiSysMountPoint = "/boot/efi";
+      };
+
+      nix.settings.max-jobs = 1;
+      networking.useDHCP = lib.mkDefault true;
+
+      # Bound rare upstream tailscaled shutdown hangs so reboot does not wait
+      # for the full systemd default stop timeout.
+      systemd.services.tailscaled.serviceConfig.TimeoutStopSec = "15s";
+    })
+  ];
 }

@@ -3,9 +3,9 @@ use crate::theme::schema::{ColorScheme, ThemeState};
 
 pub const METADATA: TargetMetadata = TargetMetadata {
     name: "ghostty",
-    assembly: Assembly::Concat,
-    output_path: Some("~/.config/ghostty/config"),
-    base_path: Some("config/ghostty/base"),
+    assembly: Assembly::Import,
+    output_path: Some("~/.config/ghostty/theme.conf"),
+    base_path: None,
     extra_outputs: &[],
     managed_paths: &[],
     reload_cmd: None,

@@ -29,17 +29,17 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-19.
 
 | Path | Role | Current responsibilities |
 | --- | --- | --- |
-| `system/configuration.nix` | Shared system baseline | Nix settings, the shared unfree allowlist used by both NixOS and embedded Home Manager, overlays, common users/groups, shared services, privileged desktop helper registrations, shared Tailscale operator configuration, root-only weekly `fstrim` scheduling, system packages, explicit PipeWire/WirePlumber native-package selection, Hyprland packaging, shared Qt plugin-path wiring, the repo-wide fontconfig baseline, and the physical-host runtime kernel tuning (`bbr`/`fq`, autogroup, and MGLRU `min_ttl_ms`) |
+| `system/configuration.nix` | Shared system baseline | Nix settings, the shared unfree allowlist used by both NixOS and embedded Home Manager, overlays, common users/groups, shared services, privileged desktop helper registrations, shared Tailscale operator configuration, root-only weekly `fstrim` scheduling, system packages, explicit PipeWire/WirePlumber native-package selection, Hyprland packaging, shared Qt plugin-path wiring, the repo-wide fontconfig baseline, and the shared physical-host defaults for GRUB/EFI bootloader setup, `mitigations=off` plus `transparent_hugepage=madvise`, serialized local build scheduling, DHCP fallback, tailscaled stop-timeout bounding, and runtime kernel tuning (`bbr`/`fq`, autogroup, and MGLRU `min_ttl_ms`) |
 | `system/distributed-builds.nix` | Optional shared distributed-build layer | When enabled, configures remote builders, the post-build cache push hook, `nix.sshServe`, and LAN-only SSH firewall rules |
 | `system/distributed-builds-data.nix` | Environment-specific builder/cache data | Authorized builder keys, host keys, current cache signing key, and the current cache URL override |
 | `system/native-optimizations.nix` | Shared helper | Centralizes the userspace `-O3 -march=native` / `target-cpu=native` flag sets, the kernel-specific `KCFLAGS=-O2 -march=native` / `KRUSTFLAGS=-Ctarget-cpu=native` flags, the per-host `native-optimized-<host>` feature marker, and the `overrideAttrs` helpers reused by the overlay, Hyprland-family packages, and Home Manager flake-input packages |
 | `system/native-kernel-packages.nix` | Shared helper | Derives the physical-host kernel package set from the stock nixpkgs `linux_6_18` source, rebuilds it with Clang + LLD ThinLTO, applies an explicit BORE patch stack plus a `tcp/bbr3` patch on top, bakes in the shared BORE/BBR3/HZ=1000/NO_HZ_IDLE/THP=madvise/MGLRU Kconfig overrides, layers host-local `KCFLAGS=-O2 -march=native` / `KRUSTFLAGS=-Ctarget-cpu=native`, and carries the same per-host native build feature tag used by the rest of the optimized package set |
 | `hosts/vm/system.nix` | VM overlay | VM boot, guest profile, and virtual disk layout |
-| `hosts/laptop/system.nix` | Laptop overlay | Laptop-specific kernel/compiler tuning, the laptop's voluntary-preempt plus Intel-only Kconfig trim, local build-scheduling policy, hybrid GPU policy, laptop-only services and overrides, fingerprint/PAM policy, laptop-scoped polkit rules, GRUB, laptop hardware policy, and the laptop `tailscaled` stop-timeout override |
+| `hosts/laptop/system.nix` | Laptop overlay | Laptop-specific kernel/compiler tuning, the laptop's voluntary-preempt plus Intel-only Kconfig trim, hybrid GPU policy, laptop-only services and overrides, fingerprint/PAM policy, laptop-scoped polkit rules, and laptop hardware policy |
 | `hosts/laptop/fan-control.nix` | Laptop-only hardware submodule | Dell SMM kernel module wiring, BIOS fan-control handoff, the explicit four-state `i8kmon.conf` profile with aggressive ramp thresholds, and the `i8kmon` systemd service |
-| `hosts/desktop/system.nix` | Desktop overlay | Dedicated NVIDIA policy, shared native kernel/compiler tuning opt-in, the desktop's PREEMPT_FULL plus desktop-only dead-subsystem Kconfig culls and VM writeback/cache-pressure sysctls, local build-scheduling policy, desktop-only imports, storage mounts, GRUB, desktop-only overlay imports, the desktop Windows VM toggle, the desktop `tailscaled` stop-timeout override, and the desktop's forced `power-profiles-daemon` performance profile |
+| `hosts/desktop/system.nix` | Desktop overlay | Dedicated NVIDIA policy, shared native kernel/compiler tuning opt-in, the desktop's PREEMPT_FULL plus desktop-only dead-subsystem Kconfig culls and VM writeback/cache-pressure sysctls, desktop-only imports, storage mounts, desktop-only overlay imports, the desktop Windows VM toggle, and the desktop's forced `power-profiles-daemon` performance profile |
 | `hosts/desktop/windows-vm.nix` | Desktop Windows VM submodule | Defines `virtualisation.windowsVm`, seeds the desktop qcow2/OVMF/TPM state under `/var/lib/windows-vm/windows11` during activation, grants the desktop user `kvm` access, and installs the `windows-vm` QEMU launcher |
-| `home/default.nix` | Shared user baseline | User packages that do not require system-scoped helper registration, small package-level overrides such as the local OpenCode stale-`node_modules` hash pin plus the post-configure build workarounds and the explicit native-package aliases, `xdg.configFile` mappings, host-specific Hyprland file selection, desktop entry overrides, and theme activation |
+| `home/default.nix` | Shared user baseline | User packages that do not require system-scoped helper registration, small package-level overrides such as the local OpenCode stale-`node_modules` hash pin plus the post-configure build workarounds and the explicit native-package aliases, `xdg.configFile` mappings including the Home Manager-owned Ghostty/Vicinae base configs, host-specific Hyprland file selection through the local host-to-path map, desktop entry overrides, and theme activation |
 | `home/shell.nix` | Shell submodule | Zsh, shell tools, Git, aliases, shell helpers, and sourcing the generated `~/.config/zsh/theme-colors` fragment from `programs.zsh.initContent` |
 | `home/gtk.nix` | GTK submodule | GTK packages and small dconf defaults |
 | `pkgs/helium/default.nix` | Prebuilt browser package | Fetches the upstream Helium release tarball, auto-patches the bundled ELFs, wraps the upstream launcher, and installs desktop assets using the pin in `pkgs/helium/source.nix` |
@@ -130,9 +130,10 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-19.
   `systemd.services.power-profiles-daemon.postStart` hook that runs
   `powerprofilesctl set performance`, so the desktop host reasserts the
   performance profile each time the daemon starts.
-- Both physical host modules set
-  `systemd.services.tailscaled.serviceConfig.TimeoutStopSec = "15s"`, bounding
-  rare upstream stop hangs without changing the shared VM profile.
+- The shared system baseline now applies
+  `systemd.services.tailscaled.serviceConfig.TimeoutStopSec = "15s"` on the
+  physical-host gate, bounding rare upstream stop hangs without changing the
+  shared VM profile.
 - The shared system baseline also sets
   `services.tailscale.extraSetFlags = [ "--operator=kevin" ]` so
   user-session Quickshell calls to `tailscale up` / `tailscale down` can manage
@@ -174,11 +175,11 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-19.
   `/sys/kernel/mm/lru_gen/min_ttl_ms` during boot so the physical hosts use
   MGLRU's thrash-prevention path as the repo's LE9/LE10-style working-set /
   file-cache protection.
-- Both physical host modules also set
-  `boot.kernelParams = [ "mitigations=off" "transparent_hugepage=madvise" ]`,
-  disabling the kernel's CPU side-channel mitigation set and forcing THP to
-  the `madvise` runtime mode on the bare-metal laptop and desktop while
-  leaving the VM profile unchanged.
+- The shared system baseline now applies
+  `boot.kernelParams = [ "mitigations=off" "transparent_hugepage=madvise" ]`
+  on the physical-host gate, disabling the kernel's CPU side-channel
+  mitigation set and forcing THP to the `madvise` runtime mode on the bare-metal
+  laptop and desktop while leaving the VM profile unchanged.
 - `hosts/laptop/system.nix` still uses `boot.kernelPatches = [{ patch = null;
   structuredExtraConfig = ...; }]`, but that patch block now also forces the
   laptop onto `PREEMPT_VOLUNTARY` before disabling AMD-only
@@ -198,9 +199,15 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-19.
   `SQUASHFS`). The same host module also sets desktop-only
   `boot.kernel.sysctl` values for `vm.swappiness = 10`, `vm.dirty_ratio = 10`,
   `vm.dirty_background_ratio = 5`, and `vm.vfs_cache_pressure = 50`.
-- Both physical host modules set `nix.settings.max-jobs = 1`, so desktop and
-  laptop each build one derivation at a time locally while leaving
-  per-derivation core parallelism at Nix's default `cores = 0` behavior.
+- The shared system baseline now applies `nix.settings.max-jobs = 1` on the
+  physical-host gate, so desktop and laptop each build one derivation at a
+  time locally while leaving per-derivation core parallelism at Nix's default
+  `cores = 0` behavior.
+- The shared system baseline also owns the repo's common physical-host
+  bootloader and network fallback defaults: `boot.loader.grub`,
+  `boot.loader.efi`, and `networking.useDHCP = lib.mkDefault true` now live in
+  `system/configuration.nix` instead of being duplicated in each bare-metal host
+  module.
 
 ## Distributed Builds
 
@@ -219,7 +226,7 @@ though the repo currently ships with it disabled.
 
 | Pattern | Current use |
 | --- | --- |
-| Base files via `xdg.configFile` | Hyprland base files, Alacritty, tmux, Zathura, recursive `quickshell/`, recursive `nvim/`, Git ignore, and packaged Snappy Switcher themes |
+| Base files via `xdg.configFile` | Hyprland base files, Alacritty, Ghostty, tmux, Vicinae, Zathura, recursive `quickshell/`, recursive `nvim/`, Git ignore, and packaged Snappy Switcher themes |
 | Host-selected symlinks | `hypr/autostart-host.conf`, `hypr/monitors.conf`, `hypr/input-devices.conf`, and `hypr/env.conf` vary by `hostName` |
 | Generated theme outputs | Written at activation/runtime by `desktopctl theme`, not by store symlinks |
 | Runtime executables | `desktopctl` is installed as a Nix package; the old `home.file`-managed session scripts are gone |

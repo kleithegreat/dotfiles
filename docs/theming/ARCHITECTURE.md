@@ -28,9 +28,9 @@ Current implementation map for the migrated Rust theming pipeline as of
 
 | Assembly | Targets |
 | --- | --- |
-| `import` | `alacritty`, `tmux`, `zathura`, `zsh` |
+| `import` | `alacritty`, `ghostty`, `tmux`, `vicinae`, `zathura`, `zsh` |
 | `standalone` | `bat`, `cursor`, `gtksourceview`, `hypr_appearance`, `hyprland`, `neovide`, `neovim`, `qt`, `quickshell`, `spicetify` |
-| `concat` | `ghostty`, `opencode`, `snappy_switcher`, `starship`, `vicinae`, `vscode` |
+| `concat` | `opencode`, `snappy_switcher`, `starship`, `vscode` |
 | `command` | `chromium`, `gtk`, `wallpaper` |
 
 Per-scheme theme-name translation now lives in `themes/colors/*.json` and is
@@ -54,7 +54,7 @@ Targets with notable extra behavior:
 | `qt` | `desktopctl/src/theme/targets/qt.rs` mirrors the palette into qt5ct, qt6ct, KDE, hyprqt6engine, Kvantum, Kate, and KWrite. The target now writes `[Icons] Theme` into `kdeglobals`, drives KTextEditor from `ColorScheme.app_themes.ktexteditor`, uses the shared system-font and mono-font offset helpers for `hyprqt6engine`, and still uses the centralized `ColorScheme.appearance` metadata when only dark/light asset selection is needed. The shared system baseline in `system/configuration.nix` now supplies the runtime half of that contract by enabling NixOS `qt.enable`, exporting `QT_QPA_PLATFORMTHEME=hyprqt6engine`, keeping hyprqt6engine's nonstandard plugin root visible, installing qtct/Kvantum packages system-wide without a global `QT_STYLE_OVERRIDE`, and applying the shared fontconfig tuning that gives `system_font = "SF Pro"` RGB subpixel AA plus an `SF Pro Text` preference. |
 | `quickshell` | `desktopctl/src/theme/targets/quickshell.rs` writes `GeneratedTheme.json` for shell colors and fonts with Python-compatible JSON formatting, emits both mono and system font families, and derives `size`, `sizeSmall`, and `sizeLarge` from `ThemeState.font_size + quickshell_font_size_offset`. `config/quickshell/Theme.qml` now routes the shell UI baseline through the generated system family and keeps a separate `monoFamily` alias for monospaced surfaces such as the bar clock and small glyph-only affordances. |
 | `spicetify` | `desktopctl/src/theme/targets/spicetify.rs` ensures theme scaffolding exists and runs `spicetify update` on apply. |
-| `vicinae` | `desktopctl/src/theme/targets/vicinae.rs` still concatenates `config/vicinae/base.json` into `~/.config/vicinae/settings.json`, but its `persist()` hook now also writes custom TOML themes under `~/.local/share/vicinae/themes/` using the configured Vicinae theme IDs from `ColorScheme.app_themes.vicinae`. When a scheme declares a distinct Vicinae `light_name`, the hook loads that repo scheme too so the paired light file exists alongside the active theme. |
+| `vicinae` | `desktopctl/src/theme/targets/vicinae.rs` now writes only `~/.config/vicinae/settings.theme.json`, while Home Manager deploys `config/vicinae/settings.json` as the base file that imports that fragment. Its `persist()` hook still writes custom TOML themes under `~/.local/share/vicinae/themes/` using the configured Vicinae theme IDs from `ColorScheme.app_themes.vicinae`. When a scheme declares a distinct Vicinae `light_name`, the hook loads that repo scheme too so the paired light file exists alongside the active theme. |
 | `vscode` | `desktopctl/src/theme/targets/vscode.rs` merges the repo base settings with theme-owned color and font keys, and now prefers a `'<mono font> Mono', '<mono font>', monospace` stack for `terminal.integrated.fontFamily` when the selected font is a Nerd Font so prompt glyphs render reliably in the integrated terminal. |
 | `wallpaper` | `desktopctl/src/theme/targets/wallpaper.rs` preserves the old `lutgen` cache-key behavior and `awww` runtime side effects while remaining `sync_safe = false`. |
 | `zsh` | `desktopctl/src/theme/targets/zsh.rs` writes `~/.config/zsh/theme-colors` with a scheme-aware `ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE`, choosing the most-muted foreground tier that still clears the target contrast against `ColorScheme.bg`. |
@@ -94,8 +94,8 @@ Targets with notable extra behavior:
   target tests exercise the centralized lookup path instead of falling back to
   defaults.
 - The tests in `desktopctl/src/theme/targets/vicinae.rs` cover the generated
-  `settings.json` payload, the custom TOML theme-file shape, and atomic writes
-  of the active plus paired light Vicinae themes under `XDG_DATA_HOME`.
+  `settings.theme.json` payload, the custom TOML theme-file shape, and atomic
+  writes of the active plus paired light Vicinae themes under `XDG_DATA_HOME`.
 - The tests in `desktopctl/src/theme/resolve.rs` cover default seeding, unknown
   field round-trips, upgrade-time backfill for older `theme_state` SQLite rows,
   and legacy `themes/state.json` imports that are missing newer required keys.

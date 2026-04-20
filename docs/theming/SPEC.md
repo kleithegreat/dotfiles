@@ -195,7 +195,7 @@ Constraints:
 | `bat` | `standalone` | `~/.config/bat/config` |
 | `chromium` | `command` | Chromium active-profile `Preferences` web-font preferences |
 | `cursor` | `standalone` | Cursor indexes, Hyprland cursor env, runtime cursor apply |
-| `ghostty` | `concat` | `~/.config/ghostty/config` |
+| `ghostty` | `import` | `~/.config/ghostty/theme.conf` |
 | `gtk` | `command` | GTK interface settings |
 | `gtksourceview` | `standalone` | GtkSourceView style files under `~/.local/share/libgedit-gtksourceview-300/styles/` plus gedit source-style dconf keys |
 | `hypr_appearance` | `standalone` | `~/.config/hypr/appearance-theme.conf` |
@@ -209,7 +209,7 @@ Constraints:
 | `spicetify` | `standalone` | Generated Spicetify theme files plus runtime apply |
 | `starship` | `concat` | `~/.config/starship.toml` |
 | `tmux` | `import` | `~/.config/tmux/colors.conf` |
-| `vicinae` | `concat` | `~/.config/vicinae/settings.json` plus generated custom themes under `~/.local/share/vicinae/themes/` |
+| `vicinae` | `import` | `~/.config/vicinae/settings.theme.json` plus generated custom themes under `~/.local/share/vicinae/themes/` |
 | `vscode` | `concat` | `~/.config/Code/User/settings.json` plus state DB adjustments |
 | `wallpaper` | `command` | `awww` apply and optional filtered wallpaper cache |
 | `zathura` | `import` | `~/.config/zathura/colors` |

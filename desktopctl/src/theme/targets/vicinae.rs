@@ -11,9 +11,9 @@ use std::{fmt::Write as _, path::PathBuf};
 
 pub const METADATA: TargetMetadata = TargetMetadata {
     name: "vicinae",
-    assembly: Assembly::Concat,
-    output_path: Some("~/.config/vicinae/settings.json"),
-    base_path: Some("config/vicinae/base.json"),
+    assembly: Assembly::Import,
+    output_path: Some("~/.config/vicinae/settings.theme.json"),
+    base_path: None,
     extra_outputs: &[],
     managed_paths: &["~/.local/share/vicinae/themes/*.toml"],
     reload_cmd: None,

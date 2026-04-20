@@ -51,7 +51,7 @@ Manager — it is consumed only by the theme pipeline's concat step.
 
 ## Vicinae provider search paths stay literal
 
-**Symptom:** `config/vicinae/base.json` still contains `/home/kevin/...` and
+**Symptom:** `config/vicinae/settings.json` still contains `/home/kevin/...` and
 `/etc/profiles/per-user/kevin/...` entries instead of `~`, `$XDG_*`, or other
 derived paths.
 
@@ -62,10 +62,10 @@ variable expansion for `providers.*.preferences.paths`.
 **Status:** Limitation documented
 
 **Resolution:** Keep the provider search paths as literal strings in
-`config/vicinae/base.json` rather than guessing at an unsupported expansion
+`config/vicinae/settings.json` rather than guessing at an unsupported expansion
 rule. Keep the explanation in repo docs, not as inline comments in the JSON
-file, because the Vicinae concat target parses that base file as strict JSON
-during `desktopctl theme sync`.
+file, because the deployed Vicinae base settings file must stay strict JSON for
+the app's own config loader.
 
 ## Vicinae custom themes override built-ins from XDG data home
 

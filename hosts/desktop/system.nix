@@ -62,8 +62,6 @@ in
       };
     }
   ];
-  # Disable the kernel's CPU side-channel mitigation set on this bare-metal host.
-  boot.kernelParams = [ "mitigations=off" "transparent_hugepage=madvise" ];
   boot.kernelModules = [ "kvm-intel" ];
   boot.kernel.sysctl = {
     "vm.swappiness" = 10;
@@ -99,33 +97,12 @@ in
   hardware.enableRedistributableFirmware = true;
   hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
 
-  # Large local builds already saturate this desktop internally, so serialize
-  # derivations and let each one keep full core parallelism.
-  nix.settings.max-jobs = 1;
-
   services.power-profiles-daemon.enable = true;
   # Keep this desktop pinned to the top performance profile whenever the daemon
   # comes up, including later restarts.
   systemd.services.power-profiles-daemon.postStart = ''
     ${config.services.power-profiles-daemon.package}/bin/powerprofilesctl set performance
   '';
-
-  boot.loader.grub = {
-    enable = true;
-    efiSupport = true;
-    device = "nodev";
-    useOSProber = false;
-    extraEntries = ''
-      menuentry "Windows Boot Manager" {
-        search --set=root --file /EFI/Microsoft/Boot/bootmgfw.efi
-        chainloader /EFI/Microsoft/Boot/bootmgfw.efi
-      }
-    '';
-  };
-  boot.loader.efi = {
-    canTouchEfiVariables = true;
-    efiSysMountPoint = "/boot/efi";
-  };
 
   hardware.graphics.enable = true;
   hardware.nvidia = {
@@ -143,11 +120,6 @@ in
   # Load both the NVIDIA and Mesa EGL ICDs on this dedicated-GPU desktop.
   environment.sessionVariables.__EGL_VENDOR_LIBRARY_FILENAMES =
     "/run/opengl-driver/share/glvnd/egl_vendor.d/10_nvidia.json:/run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json";
-
-  networking.useDHCP = lib.mkDefault true;
-  # Bound rare upstream tailscaled shutdown hangs so reboot does not wait for
-  # the full systemd default stop timeout.
-  systemd.services.tailscaled.serviceConfig.TimeoutStopSec = "15s";
 
   hardware.logitech.wireless = {
     enable = true;

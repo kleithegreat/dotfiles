@@ -1,5 +1,8 @@
 {
   "$schema": "https://vicinae.com/schemas/config.json",
+  "imports": [
+    "settings.theme.json"
+  ],
   "providers": {
     "applications": {
       "preferences": {
