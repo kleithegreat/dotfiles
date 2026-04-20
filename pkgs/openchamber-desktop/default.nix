@@ -56,6 +56,7 @@ rustPlatform.buildRustPackage {
     gappsWrapperArgs+=(
       --set-default OPENCHAMBER_BINARY "${lib.getExe openchamberCli}"
       --set-default GIO_MODULE_DIR "${glib-networking}/lib/gio/modules"
+      --set-default WEBKIT_DISABLE_DMABUF_RENDERER 1
     )
   '';
 
