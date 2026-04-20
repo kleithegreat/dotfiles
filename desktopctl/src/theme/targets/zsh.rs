@@ -1,18 +1,10 @@
 use super::{Assembly, GeneratedContent, TargetMetadata, color_utils::contrast_ratio};
 use crate::theme::schema::{ColorScheme, ThemeState};
 
-pub const METADATA: TargetMetadata = TargetMetadata {
-    name: "zsh",
-    assembly: Assembly::Import,
-    output_path: Some("~/.config/zsh/theme-colors"),
-    base_path: None,
-    extra_outputs: &[],
-    managed_paths: &[],
-    state_keys: &["color_scheme"],
-    reload_cmd: None,
-    comment: Some("#"),
-    sync_safe: true,
-};
+pub const METADATA: TargetMetadata =
+    TargetMetadata::new("zsh", Assembly::Import, &["color_scheme"])
+        .output("~/.config/zsh/theme-colors")
+        .comment("#");
 
 const MIN_HINT_CONTRAST: f64 = 3.0;
 

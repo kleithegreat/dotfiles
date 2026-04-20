@@ -61,6 +61,9 @@ Targets with notable extra behavior:
 
 ## Consumer Integration
 
+Nix/Home Manager ownership for base config deployment and activation is
+documented in `docs/nix/ARCHITECTURE.md`.
+
 | Consumer | Current integration |
 | --- | --- |
 | Home Manager | `home/xdg.nix` deploys the repo-owned base configs, and the `home.activation.applyTheme` hook in `home/default.nix` runs `desktopctl theme sync` after those managed files are written so generated fragments exist before the next session. |
@@ -72,14 +75,6 @@ Targets with notable extra behavior:
 | OpenCode | `desktopctl/src/theme/targets/opencode.rs` and `config/opencode/base.json` now generate the global `~/.config/opencode/tui.json` theme selection plus `~/.config/opencode/themes/desktopctl.json`. The target is intentionally color-only because upstream OpenCode TUI theming consumes a theme name plus theme-color JSON, and project-local OpenCode config layers can still override the global `desktopctl` theme by name. |
 | Zsh | `home/shell.nix` sources `~/.config/zsh/theme-colors` from `programs.zsh.initContent`, while `desktopctl/src/theme/targets/zsh.rs` generates that fragment from the active `ColorScheme`. |
 | Tool configs | Import or concat targets still write under `~/.config` or app-specific config paths, keeping repo-authored base files read-only. Repo-authored concat bases now resolve through `paths::repo_root()` when the target declares a relative `base_path`. |
-
-- The shared NixOS baseline in `system/configuration.nix` now enables
-  `qt.enable`, exports `QT_QPA_PLATFORMTHEME=hyprqt6engine`, seeds
-  `QT_PLUGIN_PATH` with both hyprqt6engine's `lib/qt-6` root and the standard
-  profile-relative Qt plugin directories, and installs qt5ct/qt6ct plus the
-  Qt5/Qt6 Kvantum engines system-wide so generated Qt theme state is visible to
-  both direct app launches and D-Bus/systemd-activated helpers such as
-  `xdg-desktop-portal-kde`.
 
 ## Validation Notes
 

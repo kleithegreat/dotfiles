@@ -9,18 +9,13 @@ use crate::{
 use serde_json::{Map, Value};
 use std::{fmt::Write as _, path::PathBuf};
 
-pub const METADATA: TargetMetadata = TargetMetadata {
-    name: "vicinae",
-    assembly: Assembly::Import,
-    output_path: Some("~/.config/vicinae/settings.theme.json"),
-    base_path: None,
-    extra_outputs: &[],
-    managed_paths: &["~/.local/share/vicinae/themes/*.toml"],
-    state_keys: &["color_scheme", "system_font"],
-    reload_cmd: None,
-    comment: None,
-    sync_safe: true,
-};
+pub const METADATA: TargetMetadata = TargetMetadata::new(
+    "vicinae",
+    Assembly::Import,
+    &["color_scheme", "system_font"],
+)
+.output("~/.config/vicinae/settings.theme.json")
+.managed_paths(&["~/.local/share/vicinae/themes/*.toml"]);
 
 const THEME_OUTPUT_DIR: &str = "vicinae/themes";
 

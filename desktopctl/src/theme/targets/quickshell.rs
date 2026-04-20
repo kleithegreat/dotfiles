@@ -5,24 +5,18 @@ use crate::theme::{
 };
 use serde_json::{Map, Value};
 
-pub const METADATA: TargetMetadata = TargetMetadata {
-    name: "quickshell",
-    assembly: Assembly::Standalone,
-    output_path: Some("~/.config/quickshell/GeneratedTheme.json"),
-    base_path: None,
-    extra_outputs: &[],
-    managed_paths: &[],
-    state_keys: &[
+pub const METADATA: TargetMetadata = TargetMetadata::new(
+    "quickshell",
+    Assembly::Standalone,
+    &[
         "color_scheme",
         "system_font",
         "mono_font",
         "font_size",
         "quickshell_font_size_offset",
     ],
-    reload_cmd: None,
-    comment: None,
-    sync_safe: true,
-};
+)
+.output("~/.config/quickshell/GeneratedTheme.json");
 
 pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<GeneratedContent> {
     let font_size = state.font_size_for("quickshell")?.max(1);

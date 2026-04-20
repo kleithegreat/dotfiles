@@ -2,14 +2,10 @@ use super::{Assembly, GeneratedContent, TargetMetadata};
 use crate::theme::schema::{ColorScheme, ThemeState};
 use std::process::Command;
 
-pub const METADATA: TargetMetadata = TargetMetadata {
-    name: "gtk",
-    assembly: Assembly::Command,
-    output_path: None,
-    base_path: None,
-    extra_outputs: &[],
-    managed_paths: &[],
-    state_keys: &[
+pub const METADATA: TargetMetadata = TargetMetadata::new(
+    "gtk",
+    Assembly::Command,
+    &[
         "dark_hint",
         "system_font",
         "mono_font",
@@ -19,10 +15,8 @@ pub const METADATA: TargetMetadata = TargetMetadata {
         "mono_font_size",
         "gtk_mono_font_size_offset",
     ],
-    reload_cmd: None,
-    comment: None,
-    sync_safe: false,
-};
+)
+.sync_safe(false);
 
 fn dconf_set(key: &str, value: &str) -> crate::Result<()> {
     let output = Command::new("dconf")

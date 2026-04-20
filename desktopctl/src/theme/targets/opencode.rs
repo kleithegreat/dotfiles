@@ -6,18 +6,11 @@ use crate::theme::{
 use serde_json::{Map, Value};
 use std::path::Path;
 
-pub const METADATA: TargetMetadata = TargetMetadata {
-    name: "opencode",
-    assembly: Assembly::Concat,
-    output_path: Some("~/.config/opencode/tui.json"),
-    base_path: Some("config/opencode/base.json"),
-    extra_outputs: &[],
-    managed_paths: &["~/.config/opencode/themes/desktopctl.json"],
-    state_keys: &["color_scheme"],
-    reload_cmd: None,
-    comment: None,
-    sync_safe: true,
-};
+pub const METADATA: TargetMetadata =
+    TargetMetadata::new("opencode", Assembly::Concat, &["color_scheme"])
+        .output("~/.config/opencode/tui.json")
+        .base("config/opencode/base.json")
+        .managed_paths(&["~/.config/opencode/themes/desktopctl.json"]);
 
 const THEME_NAME: &str = "desktopctl";
 const THEME_OUTPUT_PATH: &str = "~/.config/opencode/themes/desktopctl.json";

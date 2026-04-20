@@ -1,23 +1,18 @@
 use super::{Assembly, GeneratedContent, TargetMetadata};
 use crate::theme::schema::{ColorScheme, ThemeState};
 
-pub const METADATA: TargetMetadata = TargetMetadata {
-    name: "ghostty",
-    assembly: Assembly::Import,
-    output_path: Some("~/.config/ghostty/theme.conf"),
-    base_path: None,
-    extra_outputs: &[],
-    managed_paths: &[],
-    state_keys: &[
+pub const METADATA: TargetMetadata = TargetMetadata::new(
+    "ghostty",
+    Assembly::Import,
+    &[
         "color_scheme",
         "mono_font",
         "mono_font_size",
         "ghostty_mono_font_size_offset",
     ],
-    reload_cmd: None,
-    comment: Some("#"),
-    sync_safe: true,
-};
+)
+.output("~/.config/ghostty/theme.conf")
+.comment("#");
 
 pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<GeneratedContent> {
     let mut lines = vec![

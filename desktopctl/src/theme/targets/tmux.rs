@@ -4,18 +4,10 @@ use crate::theme::{
     schema::{ColorScheme, ThemeState},
 };
 
-pub const METADATA: TargetMetadata = TargetMetadata {
-    name: "tmux",
-    assembly: Assembly::Import,
-    output_path: Some("~/.config/tmux/colors.conf"),
-    base_path: None,
-    extra_outputs: &[],
-    managed_paths: &[],
-    state_keys: &["color_scheme"],
-    reload_cmd: None,
-    comment: Some("#"),
-    sync_safe: true,
-};
+pub const METADATA: TargetMetadata =
+    TargetMetadata::new("tmux", Assembly::Import, &["color_scheme"])
+        .output("~/.config/tmux/colors.conf")
+        .comment("#");
 
 pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<GeneratedContent> {
     Ok(GeneratedContent::text(format!(

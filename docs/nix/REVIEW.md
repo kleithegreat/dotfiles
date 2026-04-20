@@ -21,7 +21,9 @@ The remaining issues are mostly interface polish, not architectural defects.
 | Severity | Finding | Why it matters |
 | --- | --- | --- |
 | Low | The recursive Quickshell tree plus writable generated sibling file remains a deliberate special case. | It works today, but it is less mechanically obvious than the import-style base/generated split used elsewhere. |
-| Medium | Ableton Live 12 Lite is still not in a reproducibly working state despite the current Wine/PipeWire plumbing. | The host wiring is largely correct, but the remaining GUI/input bug and the ongoing Wine-NSPA source-port effort mean the repo does not yet meet the original "launches, draws correctly, and is usable" goal. |
 
 Related low-level build and optimization caveats are tracked in
 `docs/nix/QUIRKS.md`.
+
+The retained Ableton Live 12 Lite investigation is documented separately in
+`docs/nix/ableton-live.md` as historical, not actively pursued work.

@@ -6,23 +6,19 @@ use crate::theme::{
 use rusqlite::{Connection, params};
 use serde_json::{Map, Value};
 
-pub const METADATA: TargetMetadata = TargetMetadata {
-    name: "vscode",
-    assembly: Assembly::Concat,
-    output_path: Some("~/.config/Code/User/settings.json"),
-    base_path: Some("config/vscode/base.json"),
-    extra_outputs: &[],
-    managed_paths: &["~/.config/Code/User/globalStorage/state.vscdb"],
-    state_keys: &[
+pub const METADATA: TargetMetadata = TargetMetadata::new(
+    "vscode",
+    Assembly::Concat,
+    &[
         "color_scheme",
         "mono_font",
         "mono_font_size",
         "vscode_mono_font_size_offset",
     ],
-    reload_cmd: None,
-    comment: None,
-    sync_safe: true,
-};
+)
+.output("~/.config/Code/User/settings.json")
+.base("config/vscode/base.json")
+.managed_paths(&["~/.config/Code/User/globalStorage/state.vscdb"]);
 
 const STATE_DB: &str = "~/.config/Code/User/globalStorage/state.vscdb";
 

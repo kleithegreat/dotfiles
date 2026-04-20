@@ -31,14 +31,14 @@ integration as of 2026-04-19.
 
 ## Repo Integration
 
+Nix/Home Manager ownership for package export, installation, and activation is
+documented in `docs/nix/ARCHITECTURE.md`.
+
 | Surface | Current implementation |
 | --- | --- |
-| Nix overlay and package wiring | The local `let` imports plus `nixpkgs.overlays` in `system/configuration.nix` wire in the local-packages overlay, and `overlays/native-optimized.nix` rebuilds `desktopctl` with the shared host-native `-O3 -march=native` / `target-cpu=native` helper path. |
-| Home Manager install and activation | `home/packages.nix` adds `desktopctl` to `home.packages`, and the `home.activation.applyTheme` hook in `home/default.nix` now bootstraps `~/.config/hypr/input-runtime.conf` before running `desktopctl theme sync` during Home Manager activation. |
-| Quickshell settings host | `config/quickshell/popups/SettingsPopup.qml` loads theme state, color-scheme previews, preset lists, wallpaper preview entries, and shared mouse defaults through `desktopctl theme ... --json` and `desktopctl hypr input status --json`, while `config/quickshell/DisplayService.qml` reads daemon-owned night-light status and sends `desktopctl night-light ...` requests. The shell's `HyprlandConfigService.qml` also drives `desktopctl hypr animations ...` and `desktopctl hypr keybinds ...` for the Hyprland pane. `SettingsPopup.qml` serializes both theme mutations and `desktopctl hypr input set ...` writes, including the split Icons page and the expanded Mouse page. |
-| Quickshell shell IPC | The `tokenizeThemeArgs` helper plus `themeApplyProc` / `theme.apply` handler in `config/quickshell/shell.qml` route the shell-level IPC path to `desktopctl theme ...` with argv-safe tokenization and failure reporting. |
-| Hyprland autostart | `config/hypr/autostart.conf` launches `desktopctl daemon`, launches Quickshell through `desktopctl launch-quickshell`, and reapplies the persisted wallpaper via `desktopctl theme wallpaper` after `awww-daemon` starts. It no longer seeds any brightness cache. |
-| Hyprland keybinds and idle hooks | `config/hypr/keybinds.conf` now uses descriptive `bindd` / `bindde` bindings around `desktopctl hypr toggle-float`, `desktopctl brightness`, `desktopctl night-light`, and `desktopctl launch-quickshell`; `config/hypr/hypridle.conf` uses `desktopctl brightness dim` / `restore`. |
+| Package and activation surface | `overlays/local-packages.nix` exports the packaged binary, `home/packages.nix` installs it, and the `home.activation.applyTheme` hook in `home/default.nix` bootstraps the mutable Hyprland fragments before running `desktopctl theme sync`. |
+| Quickshell integration | `config/quickshell/popups/SettingsPopup.qml`, `config/quickshell/DisplayService.qml`, and `config/quickshell/HyprlandConfigService.qml` use the JSON and command surfaces for theme state, wallpaper previews, night-light control, and Hyprland settings, while `config/quickshell/shell.qml` exposes the shell-level `theme.apply` IPC bridge with argv-safe tokenization. |
+| Hyprland integration | `config/hypr/autostart.conf` launches `desktopctl daemon`, launches Quickshell through `desktopctl launch-quickshell`, and reapplies the persisted wallpaper after `awww-daemon` starts; `config/hypr/keybinds.conf` and `config/hypr/hypridle.conf` use the `hypr`, `brightness`, and `night-light` subcommands directly. |
 
 ## Migration Status
 

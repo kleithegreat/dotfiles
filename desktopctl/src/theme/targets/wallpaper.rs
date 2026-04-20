@@ -10,18 +10,12 @@ use std::{
     time::UNIX_EPOCH,
 };
 
-pub const METADATA: TargetMetadata = TargetMetadata {
-    name: "wallpaper",
-    assembly: Assembly::Command,
-    output_path: None,
-    base_path: None,
-    extra_outputs: &[],
-    managed_paths: &[],
-    state_keys: &["color_scheme", "wallpaper", "filter_wallpaper"],
-    reload_cmd: None,
-    comment: None,
-    sync_safe: false,
-};
+pub const METADATA: TargetMetadata = TargetMetadata::new(
+    "wallpaper",
+    Assembly::Command,
+    &["color_scheme", "wallpaper", "filter_wallpaper"],
+)
+.sync_safe(false);
 
 const CACHE_VERSION: &str = "lutgen-apply-v1";
 

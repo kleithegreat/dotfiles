@@ -1,9 +1,22 @@
-# Ableton Live 12 Lite on the Desktop Host
+# Ableton Live 12 Lite Investigation
 
-This document is kept as a historical investigation log and setup record. The
-active desktop host configuration and local user wiring for Ableton/Wine were
-removed from the machine-facing config, but the notes are retained so future
-investigation can resume from the current evidence instead of starting over.
+This document is the canonical retained record for the repo's Ableton-on-Wine
+work. The active desktop host configuration and local user wiring for
+Ableton/Wine were removed from the machine-facing config, and this work is not
+currently being pursued, but the notes are kept so future investigation can
+resume from the current evidence instead of starting over.
+
+## Status
+
+| Item | Current state |
+| --- | --- |
+| Repo status | Historical investigation only; not actively pursued |
+| Last known verdict | Not reproducibly working yet |
+| Main blocker | Wine GUI/input geometry and hit-testing, not the basic PipeWire/JACK or package wiring |
+| Related experiments | Wine Wayland, Xwayland, Xwayland in a Wine virtual desktop, DPI manifest overrides, DXVK, native VC++ runtime overrides, and Wine-NSPA source builds |
+
+The Nix review and quirks docs now link here instead of carrying separate
+Ableton-specific copies of the same investigation state.
 
 At the time of the investigation, the repo's desktop host configuration provided
 the system pieces needed to run Ableton Live 12 Lite through Wine with PipeWire

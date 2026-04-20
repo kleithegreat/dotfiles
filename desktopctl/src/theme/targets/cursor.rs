@@ -8,22 +8,18 @@ use std::{collections::BTreeMap, fs, path::Path, process::Command};
 #[cfg(unix)]
 use std::os::unix::fs::symlink;
 
-pub const METADATA: TargetMetadata = TargetMetadata {
-    name: "cursor",
-    assembly: Assembly::Standalone,
-    output_path: Some("~/.local/share/icons/default/index.theme.generated"),
-    base_path: None,
-    extra_outputs: &[],
-    managed_paths: &[
-        "~/.config/hypr/cursor.conf",
-        "~/.local/share/icons/default/index.theme",
-        "~/.icons/default/index.theme",
-    ],
-    state_keys: &["cursor_theme", "cursor_size"],
-    reload_cmd: None,
-    comment: Some("#"),
-    sync_safe: true,
-};
+pub const METADATA: TargetMetadata = TargetMetadata::new(
+    "cursor",
+    Assembly::Standalone,
+    &["cursor_theme", "cursor_size"],
+)
+.output("~/.local/share/icons/default/index.theme.generated")
+.managed_paths(&[
+    "~/.config/hypr/cursor.conf",
+    "~/.local/share/icons/default/index.theme",
+    "~/.icons/default/index.theme",
+])
+.comment("#");
 
 const HYPR_CURSOR_CONF: &str = "~/.config/hypr/cursor.conf";
 const XCURSOR_INDEX: &str = "~/.local/share/icons/default/index.theme";

@@ -17,7 +17,7 @@ match fragility in app-specific rules.
 | Rules | Active files already use current `windowrule` and `layerrule` forms |
 | Monitors | Each host keeps the wiki-recommended fallback `monitor = , preferred, auto, 1` rule |
 | Idle/lock | `hypridle` and `hyprlock` follow the common lock-before-sleep pattern |
-| VM fallback | `home/xdg.nix` provides safe minimal defaults when a host record omits Hyprland-specific fragment paths |
+| Host fallback | `home/xdg.nix` provides safe minimal defaults when a host record omits Hyprland-specific fragment paths |
 
 ## Findings
 
