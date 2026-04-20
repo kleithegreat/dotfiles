@@ -37,21 +37,9 @@
         ;
     };
     hosts = {
-      vm = {
-        name = "vm";
-        isPhysical = false;
-        distributedBuilds = false;
-        hyprland = {
-          autostartHost = null;
-          inputDevices = null;
-          monitors = null;
-          env = null;
-        };
-      };
       laptop = {
         name = "laptop";
         isPhysical = true;
-        distributedBuilds = true;
         hyprland = {
           autostartHost = null;
           inputDevices = "hosts/laptop/input-devices.conf";
@@ -62,7 +50,6 @@
       desktop = {
         name = "desktop";
         isPhysical = true;
-        distributedBuilds = true;
         hyprland = {
           autostartHost = "hosts/desktop/autostart.conf";
           inputDevices = "hosts/desktop/input-devices.conf";
@@ -77,10 +64,6 @@
     # nixpkgs builds.
     enableNativeOptimizations = true;
 
-    # Set to true to enable distributed builds, remote builders, and the
-    # post-build-hook that pushes paths to the homelab binary cache.
-    enableDistributedBuilds = false;
-
     mkHost =
       {
         host,
@@ -90,7 +73,7 @@
       nixpkgs.lib.nixosSystem {
         inherit system;
         specialArgs = {
-          inherit hyprland host enableDistributedBuilds;
+          inherit hyprland host;
           enableNativeOptimizations = enableHostNativeOptimizations;
           inputs = sharedInputs;
         };
@@ -130,11 +113,6 @@
           ;
       };
 
-    nixosConfigurations.vm = mkHost {
-      host = hosts.vm;
-      hostModule = ./hosts/vm/system.nix;
-      enableHostNativeOptimizations = false;
-    };
     nixosConfigurations.laptop = mkHost {
       host = hosts.laptop;
       hostModule = ./hosts/laptop/system.nix;

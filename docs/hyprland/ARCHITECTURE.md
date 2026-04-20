@@ -29,15 +29,15 @@ order:
 
 ## Host Selection
 
-`flake.nix` defines three hosts — `vm`, `laptop`, and `desktop` — and now
+`flake.nix` defines two hosts — `laptop` and `desktop` — and now
 passes a structured `host` record through both `specialArgs` and
 `home-manager.extraSpecialArgs`.
 `home/xdg.nix` selects the host-specific Hyprland fragments through
 `host.hyprland.*` path facts instead of string-matching the host name. Null host
-paths fall back to safe minimal defaults, which is what the `vm` host and any
-future host without explicit Hyprland fragments receives.
+paths fall back to safe minimal defaults for any future host without explicit
+Hyprland fragments.
 
-| Target path | Laptop | Desktop | Fallback (VM and others) |
+| Target path | Laptop | Desktop | Fallback |
 | --- | --- | --- | --- |
 | `~/.config/hypr/autostart-host.conf` | Empty file | `hosts/desktop/autostart.conf` | Empty file |
 | `~/.config/hypr/input-devices.conf` | `hosts/laptop/input-devices.conf` | `hosts/desktop/input-devices.conf` | Empty file |
