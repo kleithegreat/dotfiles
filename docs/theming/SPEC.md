@@ -253,7 +253,7 @@ the documented wallpaper filter exception above.
 | `xdg.configFile` | May deploy base config and static trees, not mutable generated outputs |
 | Recursive trees | Allowed when generated sibling files remain writable, as with `quickshell/` and `nvim/` |
 | Activation hook | Rebuild-time sync writes only outputs safe to materialize during activation |
-| Quickshell | Reads `GeneratedTheme.json`; `system_font` and `font_size` define the shell UI baseline, `quickshell_font_size_offset` can refine the shell target without changing GTK/Qt/snappy-switcher, and `mono_font` remains for monospaced or glyph-oriented surfaces; see `docs/quickshell/SPEC.md` for shell-side constraints |
+| Quickshell | Reads `GeneratedTheme.json`; the font-key contract is defined above, and shell-side behavior lives in `docs/quickshell/SPEC.md` |
 | Chromium | Reads the active profile `Preferences` web-font prefs patched by the `chromium` target; the target uses `Local State` `profile.last_active_profiles` when present and falls back to `Default`, manages web font families only, clears any previously managed page-size prefs so Chromium falls back to its own defaults, and leaves browser chrome following GTK/Qt integration outside that prefs surface |
 | Gedit / GtkSourceView | Reads generated styles from `~/.local/share/libgedit-gtksourceview-300/styles/`; gedit's light/dark source-style selection is theme-owned |
 | Hyprland | Reads `colors.conf` and `appearance-theme.conf` |
