@@ -64,6 +64,7 @@ let
     nautilus
     gedit
     haruna
+    ffmpeg
     zoom-us
     tor-browser
     f3d
