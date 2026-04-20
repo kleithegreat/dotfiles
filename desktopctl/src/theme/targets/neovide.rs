@@ -8,6 +8,7 @@ pub const METADATA: TargetMetadata = TargetMetadata {
     base_path: None,
     extra_outputs: &[],
     managed_paths: &[],
+    state_keys: &["mono_font", "mono_font_size", "neovide_mono_font_size_offset"],
     reload_cmd: None,
     comment: Some("--"),
     sync_safe: true,

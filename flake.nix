@@ -36,6 +36,41 @@
         opencode
         ;
     };
+    hosts = {
+      vm = {
+        name = "vm";
+        isPhysical = false;
+        distributedBuilds = false;
+        hyprland = {
+          autostartHost = null;
+          inputDevices = null;
+          monitors = null;
+          env = null;
+        };
+      };
+      laptop = {
+        name = "laptop";
+        isPhysical = true;
+        distributedBuilds = true;
+        hyprland = {
+          autostartHost = null;
+          inputDevices = "hosts/laptop/input-devices.conf";
+          monitors = "hosts/laptop/monitors.conf";
+          env = "config/hypr/env.conf";
+        };
+      };
+      desktop = {
+        name = "desktop";
+        isPhysical = true;
+        distributedBuilds = true;
+        hyprland = {
+          autostartHost = "hosts/desktop/autostart.conf";
+          inputDevices = "hosts/desktop/input-devices.conf";
+          monitors = "hosts/desktop/monitors.conf";
+          env = "hosts/desktop/env.conf";
+        };
+      };
+    };
 
     # Set to true to rebuild the targeted native-code packages from source with
     # `-O3 -march=native` / `target-cpu=native` instead of using stock cached
@@ -48,14 +83,14 @@
 
     mkHost =
       {
-        hostName,
+        host,
         hostModule,
         enableHostNativeOptimizations ? enableNativeOptimizations,
       }:
       nixpkgs.lib.nixosSystem {
         inherit system;
         specialArgs = {
-          inherit hyprland hostName enableDistributedBuilds;
+          inherit hyprland host enableDistributedBuilds;
           enableNativeOptimizations = enableHostNativeOptimizations;
           inputs = sharedInputs;
         };
@@ -70,7 +105,7 @@
             home-manager.users.kevin = import ./home;
             home-manager.extraSpecialArgs = {
               dotfilesPath = self;
-              inherit hostName vicinae snappy-switcher opencode;
+              inherit host vicinae snappy-switcher opencode;
               inputs = sharedInputs;
               enableNativeOptimizations = enableHostNativeOptimizations;
             };
@@ -96,16 +131,16 @@
       };
 
     nixosConfigurations.vm = mkHost {
-      hostName = "vm";
+      host = hosts.vm;
       hostModule = ./hosts/vm/system.nix;
       enableHostNativeOptimizations = false;
     };
     nixosConfigurations.laptop = mkHost {
-      hostName = "laptop";
+      host = hosts.laptop;
       hostModule = ./hosts/laptop/system.nix;
     };
     nixosConfigurations.desktop = mkHost {
-      hostName = "desktop";
+      host = hosts.desktop;
       hostModule = ./hosts/desktop/system.nix;
     };
     devShells.${system}.default = let

@@ -1,4 +1,4 @@
-{ config, lib, pkgs, hostName, enableNativeOptimizations, enableDistributedBuilds, ... }:
+{ config, lib, pkgs, host, enableNativeOptimizations, enableDistributedBuilds, ... }:
 
 let
   defaults = {
@@ -21,7 +21,7 @@ let
 
   localLanCidr = "192.168.8.0/24";
   builderSshKey = "/root/.ssh/id_ed25519_nix_remote_build";
-  hostNativeFeature = lib.optional enableNativeOptimizations "native-optimized-${hostName}";
+  hostNativeFeature = lib.optional enableNativeOptimizations "native-optimized-${host.name}";
   cacheUrl =
     if data.cacheUrl != null then data.cacheUrl else "http://${data.connectHosts.homelab}:5000";
   homelabStore = "ssh-ng://nix-ssh@${data.connectHosts.homelab}?ssh-key=${builderSshKey}";
@@ -74,10 +74,7 @@ let
     };
   };
 
-  enableDistributedBuilds' = enableDistributedBuilds && builtins.elem hostName [
-    "desktop"
-    "laptop"
-  ];
+  enableDistributedBuilds' = enableDistributedBuilds && host.distributedBuilds;
 in
 lib.mkMerge [
   # Advertise the current machine's native build feature only while native
@@ -91,7 +88,7 @@ lib.mkMerge [
   nix.distributedBuilds = true;
   nix.buildMachines = lib.mapAttrsToList (
     _: machine: machine
-  ) (lib.filterAttrs (name: _: name != hostName) buildMachinesByHost);
+  ) (lib.filterAttrs (name: _: name != host.name) buildMachinesByHost);
 
   nix.settings = {
     builders-use-substitutes = true;

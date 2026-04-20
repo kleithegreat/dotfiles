@@ -11,11 +11,11 @@
   flake, so `system/configuration.nix` and `home/default.nix` apply the same
   helper directly to those derivations.
 */
-{ lib, inputs, hostName, enableNativeOptimizations ? false }:
+{ lib, inputs, host, enableNativeOptimizations ? false }:
 
 let
   nativeOptimizations = import ../system/native-optimizations.nix {
-    inherit lib hostName enableNativeOptimizations;
+    inherit lib host enableNativeOptimizations;
   };
 
   inherit (nativeOptimizations)

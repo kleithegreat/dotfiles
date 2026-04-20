@@ -1,8 +1,8 @@
-{ lib, pkgs, hostName, enableNativeOptimizations }:
+{ lib, pkgs, host, enableNativeOptimizations }:
 
 let
   nativeOptimizations = import ./native-optimizations.nix {
-    inherit lib hostName enableNativeOptimizations;
+    inherit lib host enableNativeOptimizations;
   };
 
   boreBasePatch = pkgs.runCommand "0001-bore-stock.patch" {

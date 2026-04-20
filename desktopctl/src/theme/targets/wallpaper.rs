@@ -17,6 +17,7 @@ pub const METADATA: TargetMetadata = TargetMetadata {
     base_path: None,
     extra_outputs: &[],
     managed_paths: &[],
+    state_keys: &["color_scheme", "wallpaper", "filter_wallpaper"],
     reload_cmd: None,
     comment: None,
     sync_safe: false,

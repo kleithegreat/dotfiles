@@ -19,6 +19,7 @@ pub const METADATA: TargetMetadata = TargetMetadata {
         "~/.local/share/icons/default/index.theme",
         "~/.icons/default/index.theme",
     ],
+    state_keys: &["cursor_theme", "cursor_size"],
     reload_cmd: None,
     comment: Some("#"),
     sync_safe: true,

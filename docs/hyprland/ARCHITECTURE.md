@@ -29,15 +29,13 @@ order:
 
 ## Host Selection
 
-`flake.nix` defines three hosts — `vm`, `laptop`, and `desktop` — each passing
-its `hostName` through `specialArgs` and `home-manager.extraSpecialArgs` in
-`flake.nix`.
-`home/default.nix` uses `if hostName == "laptop" ... else if hostName ==
-"desktop" ... else` conditionals to select host-specific fragments
-through the `xdg.configFile."hypr/*"` assignments in `home/default.nix`. The
-`else` branch provides safe minimal defaults,
-which is what the `vm` host and any future host without explicit handling
-receives.
+`flake.nix` defines three hosts — `vm`, `laptop`, and `desktop` — and now
+passes a structured `host` record through both `specialArgs` and
+`home-manager.extraSpecialArgs`.
+`home/xdg.nix` selects the host-specific Hyprland fragments through
+`host.hyprland.*` path facts instead of string-matching the host name. Null host
+paths fall back to safe minimal defaults, which is what the `vm` host and any
+future host without explicit Hyprland fragments receives.
 
 | Target path | Laptop | Desktop | Fallback (VM and others) |
 | --- | --- | --- | --- |
@@ -49,8 +47,7 @@ receives.
 The remaining source-graph files — `hyprland.conf`, `appearance.conf`,
 `input.conf`, `keybinds.conf`, `rules.conf`, `plugins.conf`, `autostart.conf`,
 `hypridle.conf`, and `hyprlock.conf` — are deployed identically on all hosts
-from `config/hypr/` via the shared `xdg.configFile` mappings in
-`home/default.nix`.
+from `config/hypr/` via the shared `xdg.configFile` mappings in `home/xdg.nix`.
 
 Home Manager now also bootstraps empty `~/.config/hypr/input-runtime.conf`,
 `~/.config/hypr/animations-override.conf`, and

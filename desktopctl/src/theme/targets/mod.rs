@@ -62,6 +62,7 @@ pub struct TargetMetadata {
     pub base_path: Option<&'static str>,
     pub extra_outputs: &'static [&'static str],
     pub managed_paths: &'static [&'static str],
+    pub state_keys: &'static [&'static str],
     pub reload_cmd: Option<&'static [&'static str]>,
     pub comment: Option<&'static str>,
     pub sync_safe: bool,

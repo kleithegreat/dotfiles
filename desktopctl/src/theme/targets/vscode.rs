@@ -13,6 +13,12 @@ pub const METADATA: TargetMetadata = TargetMetadata {
     base_path: Some("config/vscode/base.json"),
     extra_outputs: &[],
     managed_paths: &["~/.config/Code/User/globalStorage/state.vscdb"],
+    state_keys: &[
+        "color_scheme",
+        "mono_font",
+        "mono_font_size",
+        "vscode_mono_font_size_offset",
+    ],
     reload_cmd: None,
     comment: None,
     sync_safe: true,

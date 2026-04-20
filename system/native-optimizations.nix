@@ -1,8 +1,8 @@
-{ lib, hostName, enableNativeOptimizations ? false }:
+{ lib, host, enableNativeOptimizations ? false }:
 
 let
   enabled = enableNativeOptimizations;
-  hostFeature = if enabled then "native-optimized-${hostName}" else null;
+  hostFeature = if enabled then "native-optimized-${host.name}" else null;
 
   cFlags = lib.optionals enabled [
     "-O3"

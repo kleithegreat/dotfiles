@@ -1,12 +1,12 @@
-{ config, pkgs, lib, dotfilesPath, hostName, vicinae, snappy-switcher, opencode, inputs, enableNativeOptimizations, ... }:
+{ config, pkgs, lib, dotfilesPath, host, vicinae, snappy-switcher, opencode, inputs, enableNativeOptimizations, ... }:
 
 let
   system = pkgs.stdenv.hostPlatform.system;
   nativeOptimizations = import ../system/native-optimizations.nix {
-    inherit lib hostName enableNativeOptimizations;
+    inherit lib host enableNativeOptimizations;
   };
   optimizedPackages = import ../overlays/native-optimized.nix {
-    inherit lib inputs hostName enableNativeOptimizations;
+    inherit lib inputs host enableNativeOptimizations;
   };
   optimizedPkgs = pkgs.appendOverlays [ optimizedPackages.overlay ];
   inherit (optimizedPkgs)
@@ -16,63 +16,17 @@ let
     p7zip
     quickshell
     ripgrep
-    lsp-plugins
     ;
-  staticConfigSources = lib.mapAttrs (_: source: { inherit source; }) {
-    "hypr/hyprland.conf" = "${dotfilesPath}/config/hypr/hyprland.conf";
-    "hypr/appearance.conf" = "${dotfilesPath}/config/hypr/appearance.conf";
-    "hypr/autostart.conf" = "${dotfilesPath}/config/hypr/autostart.conf";
-    "hypr/input.conf" = "${dotfilesPath}/config/hypr/input.conf";
-    "hypr/keybinds.conf" = "${dotfilesPath}/config/hypr/keybinds.conf";
-    "hypr/rules.conf" = "${dotfilesPath}/config/hypr/rules.conf";
-    "hypr/hypridle.conf" = "${dotfilesPath}/config/hypr/hypridle.conf";
-    "hypr/hyprlock.conf" = "${dotfilesPath}/config/hypr/hyprlock.conf";
-    "hypr/plugins.conf" = "${dotfilesPath}/config/hypr/plugins.conf";
-    "alacritty/alacritty.toml" = "${dotfilesPath}/config/alacritty/alacritty.toml";
-    "ghostty/config" = "${dotfilesPath}/config/ghostty/config";
-    "tmux/tmux.conf" = "${dotfilesPath}/config/tmux/tmux.conf";
-    "git/ignore" = "${dotfilesPath}/config/git/ignore";
-    "vicinae/settings.json" = "${dotfilesPath}/config/vicinae/settings.json";
-    "zathura/zathurarc" = "${dotfilesPath}/config/zathura/zathurarc";
-  };
-  recursiveConfigSources = lib.mapAttrs (_: source: {
-    inherit source;
-    recursive = true;
-  }) {
-    quickshell = "${dotfilesPath}/config/quickshell";
-    nvim = "${dotfilesPath}/config/nvim";
-  };
-  hyprHostConfigs = {
-    desktop = {
-      autostartHost = "${dotfilesPath}/hosts/desktop/autostart.conf";
-      inputDevices = "${dotfilesPath}/hosts/desktop/input-devices.conf";
-      monitors = "${dotfilesPath}/hosts/desktop/monitors.conf";
-      env = "${dotfilesPath}/hosts/desktop/env.conf";
-    };
-    laptop = {
-      inputDevices = "${dotfilesPath}/hosts/laptop/input-devices.conf";
-      monitors = "${dotfilesPath}/hosts/laptop/monitors.conf";
-      env = "${dotfilesPath}/config/hypr/env.conf";
-    };
-  };
-  hyprHostConfig = hyprHostConfigs.${hostName} or { };
-  mkHostConfigFile = key: fallback:
-    let
-      path = hyprHostConfig.${key} or null;
-    in
-    if path == null then
-      { text = fallback; }
-    else
-      { source = path; };
-  opencode-node-modules-pkg = opencode.packages.${system}.node_modules_updater.override {
+  lspPlugins = optimizedPkgs.lsp-plugins;
+  opencodeNodeModulesPkg = opencode.packages.${system}.node_modules_updater.override {
     hash = "sha256-i9TxYwWkJAR+kW6pbvhgQbRW9UYPtdrPQAGic4zPoa4=";
   };
-  opencode-pkg = nativeOptimizations.optimizeNativePackage (opencode.packages.${system}.default.overrideAttrs (old: {
-    node_modules = opencode-node-modules-pkg;
+  opencodePkg = nativeOptimizations.optimizeNativePackage (opencode.packages.${system}.default.overrideAttrs (old: {
+    node_modules = opencodeNodeModulesPkg;
     configurePhase = ''
       runHook preConfigure
 
-      cp -R ${opencode-node-modules-pkg}/. .
+      cp -R ${opencodeNodeModulesPkg}/. .
       patchShebangs node_modules
       patchShebangs packages/*/node_modules
 
@@ -100,12 +54,12 @@ let
       fi
     '';
   }));
-  snappy-switcher-pkg = nativeOptimizations.optimizeNativePackage (snappy-switcher.packages.${system}.default.overrideAttrs (old: {
+  snappySwitcherPkg = nativeOptimizations.optimizeNativePackage (snappy-switcher.packages.${system}.default.overrideAttrs (old: {
     patches = (old.patches or []) ++ [
       ../patches/snappy-switcher/workspace-scope-filter.patch
     ];
   }));
-  vicinae-pkg = nativeOptimizations.optimizeNativePackage vicinae.packages.${system}.default;
+  vicinaePkg = nativeOptimizations.optimizeNativePackage vicinae.packages.${system}.default;
   texlive = optimizedPkgs.texlive.withPackages (ps: with ps; [
     scheme-small
     latexmk
@@ -124,12 +78,20 @@ in
     ./gtk.nix
     ./fastfetch.nix
     vicinae.homeManagerModules.default
+    (import ./packages.nix {
+      inherit pkgs desktopctl fd lapce p7zip quickshell ripgrep opencodePkg vicinaePkg texlive;
+      inherit lspPlugins;
+      snappySwitcherPkg = snappySwitcherPkg;
+    })
+    (import ./xdg.nix {
+      inherit config lib pkgs dotfilesPath host;
+      snappySwitcherPkg = snappySwitcherPkg;
+    })
   ];
 
   home.username = "kevin";
   home.homeDirectory = "/home/kevin";
 
-  # ── XDG ──────────────────────────────────────────────────────
   xdg = {
     enable = true;
     userDirs = {
@@ -145,248 +107,11 @@ in
     };
   };
 
-  # ── Packages ─────────────────────────────────────────────────
-  home.packages = with pkgs; [
-    # CLI tools
-    opencode-pkg
-    openchamber
-    bat
-    eza
-    fd
-    ripgrep
-    fzf
-    jq
-    tree
-    ncdu
-    htop
-    desktopctl
-    strace
-    bc
-    less
-    file           # file type identification
-    unzip
-    zip
-    p7zip
-    unrar
-    psmisc
-    rsync
-    usbutils
-    lm_sensors
-    nvtopPackages.full
-
-    # Network diagnostic tools
-    nmap
-    dnsutils       # provides dig, nslookup
-    traceroute
-    inetutils      # provides telnet, ftp, hostname, etc.
-    iw
-    netcat-openbsd
-
-    # Editors
-    neovim
-    neovide
-
-    # Neovim LSP servers (managed by Nix, not Mason)
-    lua-language-server
-    pyright
-    texlab
-    ltex-ls
-
-    # Terminals
-    alacritty
-    ghostty
-    tmux
-
-    # GUI apps
-    discord
-    obsidian
-    slack
-    thunderbird
-    obs-studio
-    spotify
-    zathura
-    vscode
-    lapce
-    lmstudio
-    helium
-    imv            # Wayland image viewer
-    nautilus
-    kdePackages.dolphin
-    kdePackages.ark
-    kdePackages.plasma-systemmonitor
-    gedit
-    kdePackages.kate
-    kdePackages.gwenview
-    kdePackages.filelight
-    kdePackages.kdeconnect-kde
-    kdePackages.kcharselect
-    kdePackages.isoimagewriter
-    kdePackages.kompare
-    haruna
-    zoom-us
-    tor-browser
-    f3d            # 3D file viewer
-    anki
-    gimp
-    krita
-    kdePackages.kdenlive
-    kdePackages.krdc
-    prismlauncher
-    qbittorrent
-    telegram-desktop
-    pavucontrol    # PulseAudio/PipeWire volume control GUI
-    pkgs.gnome-secrets
-    # KDE Partition Manager is enabled in system/configuration.nix via
-    # programs.partition-manager so kpmcore's D-Bus service and polkit action
-    # are registered system-wide.
-    # bitwarden-desktop is in environment.systemPackages (system/configuration.nix)
-    # so its polkit policy file gets linked into the system-wide polkit actions dir.
-    # Home Manager doesn't do this, which breaks "Unlock with system authentication".
-
-    # 3D printing
-    orca-slicer
-
-    # Document tools
-    pandoc
-
-    # `scheme-medium` pulls in `asymptote` via `collection-binextra`, which
-    # currently recurses during evaluation on this nixpkgs revision.
-    texlive
-
-    # Hyprland ecosystem
-    hypridle
-    hyprpolkitagent
-    hyprsunset
-    geoclue2-with-demo-agent
-
-    # Desktop utilities
-    awww
-    lutgen
-    brightnessctl
-    grim
-    slurp
-    wl-clipboard
-    playerctl
-    easyeffects
-    lsp-plugins    # audio plugins for EasyEffects
-    networkmanager # provides nmcli for Quickshell
-    nwg-look       # GTK theme manager for Wayland
-
-    quickshell
-    snappy-switcher-pkg
-    papirus-icon-theme
-    rose-pine-cursor
-    rose-pine-hyprcursor
-    bibata-cursors
-
-    # Dev tools (lightweight baseline — heavy stuff goes in devshells)
-    python3
-    nodejs
-    qt6.qtdeclarative # qmllint for Quickshell QML configs
-    uv             # Python package/project manager
-    gh             # GitHub CLI
-
-    # Theming / desktop integration
-    libsecret      # Secret Service client (git credential helpers, etc.)
-
-    # Man pages
-    man-pages          # Linux man pages (sections 2-7)
-    man-pages-posix    # POSIX man pages
-
-    claude-code
-    codex
-  ];
-
-  # ── Managed app configs ──────────────────────────────────────
-  xdg.configFile = staticConfigSources // recursiveConfigSources // {
-    # Host-specific — monitors and GPU env vars
-    "hypr/autostart-host.conf" = mkHostConfigFile "autostartHost" "";
-    "hypr/input-devices.conf" = mkHostConfigFile "inputDevices" "";
-    "hypr/monitors.conf" = mkHostConfigFile "monitors" "monitor = ,preferred,auto,1\n";
-    "hypr/env.conf" = mkHostConfigFile "env" "";
-
-    # Route file picker to KDE, everything else through Hyprland → GTK fallback
-    "xdg-desktop-portal/portals.conf".text = ''
-      [preferred]
-      default = hyprland;gtk
-      org.freedesktop.impl.portal.FileChooser = kde
-    '';
-
-    # Snappy Switcher config.ini is generated by desktopctl; only the packaged
-    # themes stay symlinked.
-    "snappy-switcher/themes".source = "${snappy-switcher-pkg}/share/snappy-switcher/themes";
-
-    "wireplumber/wireplumber.conf.d/50-bluetooth.conf".text = ''
-      monitor.bluez.properties = {
-        bluez5.enable-sbc-xq = true
-        bluez5.enable-msbc = true
-        bluez5.enable-hw-volume = true
-      }
-    '';
-  };
-
-  # ── Git credential helper (uses gnome-keyring via libsecret) ──
   programs.git.settings.credential.helper =
     "${pkgs.gitFull}/bin/git-credential-libsecret";
 
-  # ── Desktop entry overrides ───────────────────────────────
-  # Launch VS Code via hyprctl so Hyprland tracks the correct workspace
-  xdg.desktopEntries.code = {
-    name = "Visual Studio Code";
-    comment = "Code Editing. Redefined.";
-    genericName = "Text Editor";
-    icon = "vscode";
-    exec = "hyprctl dispatch exec code %F";
-    categories = ["Utility" "TextEditor" "Development" "IDE"];
-    startupNotify = true;
-    settings = {
-      Keywords = "vscode";
-      StartupWMClass = "Code";
-      Version = "1.5";
-    };
-    actions = {
-      new-empty-window = {
-        name = "New Empty Window";
-        icon = "vscode";
-        exec = "hyprctl dispatch exec -- code --new-window %F";
-      };
-    };
-  };
-
-  # ── Default applications ────────────────────────────────────
-  xdg.mimeApps = {
-    enable = true;
-    defaultApplications = {
-      "text/html" = "chromium-browser.desktop";
-      "x-scheme-handler/http" = "chromium-browser.desktop";
-      "x-scheme-handler/https" = "chromium-browser.desktop";
-      "application/pdf" = "chromium-browser.desktop";
-      "inode/directory" = "org.gnome.Nautilus.desktop";
-      "image/png" = "imv.desktop";
-      "image/jpeg" = "imv.desktop";
-      "image/jpg" = "imv.desktop";
-      "image/gif" = "imv.desktop";
-      "image/webp" = "imv.desktop";
-      "image/svg+xml" = "imv.desktop";
-      "video/mp4" = "org.kde.haruna.desktop";
-      "video/x-matroska" = "org.kde.haruna.desktop";
-      "video/x-msvideo" = "org.kde.haruna.desktop";
-      "video/webm" = "org.kde.haruna.desktop";
-      "text/plain" = "org.gnome.gedit.desktop";
-      "x-scheme-handler/mailto" = "thunderbird.desktop";
-      "x-scheme-handler/terminal" = "Alacritty.desktop";
-    };
-  };
-
-  # ── Vicinae (app launcher) ──────────────────────────────────
-  services.vicinae = {
-    enable = true;
-    package = vicinae-pkg;
-  };
-
-  # ── Theme activation ────────────────────────────────────────
-  home.activation.applyTheme = lib.hm.dag.entryAfter ["writeBoundary"] ''
-    PATH="${lib.makeBinPath [desktopctl]}:$PATH"
+  home.activation.applyTheme = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    PATH="${lib.makeBinPath [ desktopctl ]}:$PATH"
     mkdir -p "$HOME/.config/hypr"
     touch "$HOME/.config/hypr/input-runtime.conf"
     touch "$HOME/.config/hypr/animations-override.conf"
@@ -394,14 +119,13 @@ in
     desktopctl theme sync
   '';
 
-  # ── Chromium ───────────────────────────────────────────────
   programs.chromium = {
     enable = true;
     extensions = [
-      "ddkjiahejlhfcafbddmgiahcphecmpfh" # uBlock Origin Lite
-      "nngceckbapebfimnlniiiahkandclblb"  # Bitwarden
-      "nkbihfbeogaeaoehlefnkodbefgpgknn"  # MetaMask
-      "bfnaelmomeimhlpmgjnjophhpkkoljpa"  # Phantom
+      "ddkjiahejlhfcafbddmgiahcphecmpfh"
+      "nngceckbapebfimnlniiiahkandclblb"
+      "nkbihfbeogaeaoehlefnkodbefgpgknn"
+      "bfnaelmomeimhlpmgjnjophhpkkoljpa"
     ];
   };
 

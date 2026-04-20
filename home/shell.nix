@@ -1,4 +1,4 @@
-{ config, pkgs, lib, hostName, enableNativeOptimizations, ... }:
+{ config, pkgs, lib, host, enableNativeOptimizations, ... }:
 
 let
   zshShareOnly = pkgs.runCommand "zsh-share-only" {} ''
@@ -10,12 +10,12 @@ let
     "big-parallel"
     "kvm"
     "nixos-test"
-  ] ++ lib.optionals enableNativeOptimizations [ "native-optimized-${hostName}" ];
+  ] ++ lib.optionals enableNativeOptimizations [ "native-optimized-${host.name}" ];
   nixosRebuildCommand =
     "sudo nixos-rebuild switch"
     + lib.optionalString enableNativeOptimizations
       " --option system-features ${lib.escapeShellArg (lib.concatStringsSep " " rebuildSystemFeatures)}"
-    + " --flake ~/repos/dotfiles#${hostName}";
+    + " --flake ~/repos/dotfiles#${host.name}";
 in
 
 {

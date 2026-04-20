@@ -12,6 +12,13 @@ pub const METADATA: TargetMetadata = TargetMetadata {
     base_path: None,
     extra_outputs: &[],
     managed_paths: &[],
+    state_keys: &[
+        "color_scheme",
+        "system_font",
+        "mono_font",
+        "font_size",
+        "quickshell_font_size_offset",
+    ],
     reload_cmd: None,
     comment: None,
     sync_safe: true,

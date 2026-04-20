@@ -10,10 +10,10 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-19.
 | Piece | Current implementation |
 | --- | --- |
 | Outputs | The `outputs` attrset in `flake.nix` exports `nixosConfigurations.vm`, `nixosConfigurations.laptop`, `nixosConfigurations.desktop`, plus `overlays.default`, `packages.x86_64-linux.desktopctl`, `packages.x86_64-linux.helium`, `packages.x86_64-linux.openchamber`, and `packages.x86_64-linux.openchamber-claude-bridge` |
-| Host constructor | `mkHost` in `flake.nix` wraps `nixpkgs.lib.nixosSystem` |
+| Host constructor | `mkHost` in `flake.nix` wraps `nixpkgs.lib.nixosSystem` and passes the shared `host` fact record into both the NixOS and Home Manager module graphs |
 | Feature flags | The top-level `enableNativeOptimizations` and `enableDistributedBuilds` bindings in `flake.nix` stay shared across all hosts, with the VM explicitly opting out of native rebuilds and distributed builds currently disabled by default |
-| Shared system layer | The top-level shared NixOS module in `system/configuration.nix` |
-| Home Manager entry | `home/default.nix`, embedded through the inline Home Manager module inside `mkHost` in `flake.nix` |
+| Shared system layer | The top-level shared NixOS root module in `system/configuration.nix`, which imports the concern-specific shared modules under `system/` |
+| Home Manager entry | `home/default.nix`, embedded through the inline Home Manager module inside `mkHost` in `flake.nix`, which imports the concern-specific shared modules under `home/` |
 | Platform | `mkHost` in `flake.nix` passes `system = "x86_64-linux"` directly to `nixosSystem` |
 
 `mkHost` currently assembles this module stack:
@@ -29,7 +29,11 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-19.
 
 | Path | Role | Current responsibilities |
 | --- | --- | --- |
-| `system/configuration.nix` | Shared system baseline | Nix settings, the shared unfree allowlist used by both NixOS and embedded Home Manager, overlays, common users/groups, shared services, privileged desktop helper registrations, shared Tailscale operator configuration, root-only weekly `fstrim` scheduling, system packages, explicit PipeWire/WirePlumber native-package selection, Hyprland packaging, shared Qt plugin-path wiring, the repo-wide fontconfig baseline, and the shared physical-host defaults for the native kernel package set, `kvm-intel`, zram, Intel firmware/microcode, GRUB/EFI bootloader setup, `mitigations=off` plus `transparent_hugepage=madvise`, serialized local build scheduling, DHCP fallback, tailscaled stop-timeout bounding, and runtime kernel tuning (`bbr`/`fq`, autogroup, and MGLRU `min_ttl_ms`) |
+| `system/configuration.nix` | Shared system root module | Nix settings, the shared unfree allowlist used by both NixOS and embedded Home Manager, overlays, Hyprland packaging, the repo-wide fontconfig baseline, shared non-Qt session env, base system packages, locale/docs, and imports of the concern-specific shared system modules |
+| `system/physical-host.nix` | Shared physical-host module | Shared physical-host defaults for the native kernel package set, `kvm-intel`, zram, Intel firmware/microcode, GRUB/EFI bootloader setup, `mitigations=off` plus `transparent_hugepage=madvise`, serialized local build scheduling, DHCP fallback, tailscaled stop-timeout bounding, and runtime kernel tuning (`bbr`/`fq`, autogroup, and MGLRU `min_ttl_ms`) |
+| `system/qt.nix` | Shared Qt module | The optimized `hyprqt6engine` derivation, NixOS `qt.enable`, Qt platform/plugin env, and the shared qtct/Kvantum/hyprqt6engine system packages |
+| `system/users.nix` | Shared user/admin module | The shared `programs.zsh` baseline, the `kevin` user declaration, and shared OpenSSH policy |
+| `system/services.nix` | Shared service module | PKI trust, firewall defaults, XDG portals, SDDM, root-only weekly `fstrim`, PipeWire/WirePlumber, Bluetooth, printing, Samba, Docker/libvirt, GeoClue, Tailscale, Mullvad, gnome-keyring, GVFS, dconf, Partition Manager, and the system-level Bitwarden install required for polkit wiring |
 | `system/distributed-builds.nix` | Optional shared distributed-build layer | When enabled, configures remote builders, the post-build cache push hook, `nix.sshServe`, and LAN-only SSH firewall rules |
 | `system/distributed-builds-data.nix` | Environment-specific builder/cache data | Authorized builder keys, host keys, current cache signing key, and the current cache URL override |
 | `system/native-optimizations.nix` | Shared helper | Centralizes the userspace `-O3 -march=native` / `target-cpu=native` flag sets, the kernel-specific `KCFLAGS=-O2 -march=native` / `KRUSTFLAGS=-Ctarget-cpu=native` flags, the per-host `native-optimized-<host>` feature marker, and the `overrideAttrs` helpers reused by the overlay, Hyprland-family packages, and Home Manager flake-input packages |
@@ -39,7 +43,9 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-19.
 | `hosts/laptop/fan-control.nix` | Laptop-only hardware submodule | Dell SMM kernel module wiring, BIOS fan-control handoff, the explicit four-state `i8kmon.conf` profile with aggressive ramp thresholds, and the `i8kmon` systemd service |
 | `hosts/desktop/system.nix` | Desktop overlay | Dedicated NVIDIA policy, the desktop's PREEMPT_FULL plus desktop-only dead-subsystem Kconfig culls and VM writeback/cache-pressure sysctls, desktop-only imports, storage mounts, desktop-only overlay imports, the desktop Windows VM toggle, and the desktop's forced `power-profiles-daemon` performance profile |
 | `hosts/desktop/windows-vm.nix` | Desktop Windows VM submodule | Defines `virtualisation.windowsVm`, seeds the desktop qcow2/OVMF/TPM state under `/var/lib/windows-vm/windows11` during activation, grants the desktop user `kvm` access, and installs the `windows-vm` QEMU launcher |
-| `home/default.nix` | Shared user baseline | User packages that do not require system-scoped helper registration, small package-level overrides such as the local OpenCode stale-`node_modules` hash pin plus the post-configure build workarounds and the explicit native-package aliases, data-driven `xdg.configFile` source maps including the Home Manager-owned Ghostty/Vicinae base configs, host-specific Hyprland file selection through the local host-to-path map, desktop entry overrides, and theme activation |
+| `home/default.nix` | Shared Home Manager root module | Shared optimized package derivations, the shared XDG user-dir policy, small activation/git/chromium glue, and imports of the concern-specific Home Manager modules |
+| `home/packages.nix` | Shared package module | The `home.packages` list plus the Home Manager-managed Vicinae service package wiring |
+| `home/xdg.nix` | Shared XDG module | Data-driven `xdg.configFile` source maps including the Home Manager-owned Ghostty/Vicinae base configs, host-specific Hyprland file selection through `host.hyprland.*`, the VS Code desktop-entry override, and MIME defaults |
 | `home/shell.nix` | Shell submodule | Zsh, shell tools, Git, aliases, shell helpers, and sourcing the generated `~/.config/zsh/theme-colors` fragment from `programs.zsh.initContent` |
 | `home/gtk.nix` | GTK submodule | GTK packages and small dconf defaults |
 | `pkgs/helium/default.nix` | Prebuilt browser package | Fetches the upstream Helium release tarball, auto-patches the bundled ELFs, wraps the upstream launcher, and installs desktop assets using the pin in `pkgs/helium/source.nix` |
@@ -233,7 +239,7 @@ though the repo currently ships with it disabled.
 | Pattern | Current use |
 | --- | --- |
 | Base files via `xdg.configFile` | Hyprland base files, Alacritty, Ghostty, tmux, Vicinae, Zathura, recursive `quickshell/`, recursive `nvim/`, Git ignore, and packaged Snappy Switcher themes |
-| Host-selected symlinks | `hypr/autostart-host.conf`, `hypr/monitors.conf`, `hypr/input-devices.conf`, and `hypr/env.conf` vary by `hostName` |
+| Host-selected symlinks | `hypr/autostart-host.conf`, `hypr/monitors.conf`, `hypr/input-devices.conf`, and `hypr/env.conf` vary by the `host.hyprland.*` facts passed from `flake.nix` |
 | Generated theme outputs | Written at activation/runtime by `desktopctl theme`, not by store symlinks |
 | Runtime executables | `desktopctl` is installed as a Nix package; the old `home.file`-managed session scripts are gone |
 
@@ -257,7 +263,7 @@ GUI package:
   which installs `kdePackages.partitionmanager` and `kdePackages.kpmcore`
   through the NixOS module so `kpmcore` lands in both
   `services.dbus.packages` and `environment.systemPackages`.
-- The `home.packages` list in `home/default.nix` no longer lists
+- The `home.packages` list in `home/packages.nix` no longer lists
   `kdePackages.partitionmanager`
   directly; the nearby comment documents that the move is required because the
   helper depends on system-wide D-Bus and polkit registration.

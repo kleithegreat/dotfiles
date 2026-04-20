@@ -12,12 +12,13 @@ document; see `docs/nix/ARCHITECTURE.md` for the current implementation map.
 | Host inventory | Hosts are added at the flake output layer, not by creating extra flakes or repo roots. |
 | `mkHost` role | Shared plumbing only: common module stack, shared arguments, Home Manager embedding, and repo-wide toggles. |
 | `mkHost` non-role | It must not hide host policy, hardware choices, package selection, or user config. |
+| Host facts | `mkHost` passes a structured `host` record through the module args. Modules may use `host.name` for identity, but behavior gates should read explicit fact fields such as `host.isPhysical` or `host.hyprland.*` instead of string-matching host names. |
 
 ## Layer Boundaries
 
 | Layer | Owns | Must not own |
 | --- | --- | --- |
-| `system/configuration.nix` | Shared privileged policy, shared services, desktop packaging, system packages, `/etc`-style config, and shared physical-host boot/runtime defaults | Machine-specific hardware or host-only overrides |
+| `system/configuration.nix` and `system/*.nix` | Shared privileged policy, shared services, desktop packaging, system packages, `/etc`-style config, and shared physical-host boot/runtime defaults | Machine-specific hardware or host-only overrides |
 | `hosts/<name>/system.nix` | Hardware, filesystems, GPU layout, host-only services/packages, privileged per-host overrides, and boot policy that differs from the shared physical-host baseline | Shared system defaults |
 | `home/default.nix` and `home/*.nix` | User packages, XDG config deployment, desktop entries, MIME defaults, user scripts, session hooks | Root-owned boot or service policy |
 | `config/` | Version-controlled application config that Home Manager deploys into the home directory | Mutable generated outputs |

@@ -15,6 +15,7 @@ pub const METADATA: TargetMetadata = TargetMetadata {
     base_path: Some("config/snappy-switcher/base.ini"),
     extra_outputs: &[],
     managed_paths: &[],
+    state_keys: &["color_scheme", "system_font", "icon_theme", "font_size"],
     reload_cmd: None,
     comment: Some("#"),
     sync_safe: true,

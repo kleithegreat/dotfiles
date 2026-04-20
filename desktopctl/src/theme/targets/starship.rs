@@ -8,6 +8,7 @@ pub const METADATA: TargetMetadata = TargetMetadata {
     base_path: Some("config/starship/base.toml"),
     extra_outputs: &[],
     managed_paths: &[],
+    state_keys: &["color_scheme"],
     reload_cmd: None,
     comment: Some("#"),
     sync_safe: true,
