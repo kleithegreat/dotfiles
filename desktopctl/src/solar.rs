@@ -7,6 +7,7 @@ pub const DEFAULT_LATITUDE: f64 = 30.6280;
 pub const DEFAULT_LONGITUDE: f64 = -96.3344;
 pub const HYPRSUNSET_TEMP: i32 = 4500;
 pub const DARK_ON_HOUR: u32 = 23;
+pub const DARK_OFF_HOUR: u32 = 6;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Coordinates {
@@ -29,6 +30,7 @@ pub struct SolarStatus {
     pub next_sunrise: DateTime<Local>,
     pub next_sunset: DateTime<Local>,
     pub next_dark_on: DateTime<Local>,
+    pub next_dark_off: DateTime<Local>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -55,10 +57,11 @@ pub fn print_status() -> crate::Result<()> {
         status.is_night, status.is_dark
     );
     println!(
-        "Next:     sunrise={}  sunset={}  dark_on={}",
+        "Next:     sunrise={}  sunset={}  dark_on={}  dark_off={}",
         status.next_sunrise.format("%m-%d %H:%M"),
         status.next_sunset.format("%m-%d %H:%M"),
-        status.next_dark_on.format("%m-%d %H:%M")
+        status.next_dark_on.format("%m-%d %H:%M"),
+        status.next_dark_off.format("%m-%d %H:%M")
     );
 
     Ok(())
@@ -108,10 +111,16 @@ pub fn status_for_now(now: DateTime<Local>, location: Coordinates) -> SolarStatu
     let sunset_next = sunset_next_utc.with_timezone(&Local);
 
     let dark_on_today = local_datetime(today, DARK_ON_HOUR, 0, 0);
+    let dark_off_today = local_datetime(today, DARK_OFF_HOUR, 0, 0);
     let next_dark_on = if dark_on_today > now {
         dark_on_today
     } else {
         dark_on_today + Duration::days(1)
+    };
+    let next_dark_off = if dark_off_today > now {
+        dark_off_today
+    } else {
+        dark_off_today + Duration::days(1)
     };
 
     let next_sunrise = if sunrise > now { sunrise } else { sunrise_next };
@@ -122,10 +131,11 @@ pub fn status_for_now(now: DateTime<Local>, location: Coordinates) -> SolarStatu
         sunrise,
         sunset,
         is_night: now < sunrise || now >= sunset,
-        is_dark: now >= dark_on_today || now < sunrise,
+        is_dark: now >= dark_on_today || now < dark_off_today,
         next_sunrise,
         next_sunset,
         next_dark_on,
+        next_dark_off,
     }
 }
 
@@ -142,6 +152,11 @@ pub fn next_event(status: &SolarStatus) -> SolarEvent {
     if status.next_dark_on < next.when {
         next = SolarEvent {
             when: status.next_dark_on,
+        };
+    }
+    if status.next_dark_off < next.when {
+        next = SolarEvent {
+            when: status.next_dark_off,
         };
     }
 
@@ -301,17 +316,32 @@ mod tests {
     }
 
     #[test]
-    fn status_for_now_before_sunrise_is_night_and_dark() {
-        let date = NaiveDate::from_ymd_opt(2026, 4, 10).expect("valid date");
+    fn status_for_now_before_dark_off_is_night_and_dark() {
+        let date = NaiveDate::from_ymd_opt(2026, 1, 10).expect("valid date");
         let location = sample_location(date);
-        let (sunrise_utc, _) = sun_times(location.latitude, location.longitude, date);
-        let sunrise = sunrise_utc.with_timezone(&Local);
-        let now = sunrise - Duration::minutes(30);
+        let dark_off = local_datetime(date, DARK_OFF_HOUR, 0, 0);
+        let now = dark_off - Duration::minutes(30);
 
         let status = status_for_now(now, location);
 
         assert!(status.is_night);
         assert!(status.is_dark);
+        assert_eq!(status.next_dark_off, dark_off);
+        assert_eq!(next_event(&status).when, dark_off);
+    }
+
+    #[test]
+    fn status_for_now_after_dark_off_before_sunrise_is_night_but_not_dark() {
+        let date = NaiveDate::from_ymd_opt(2026, 1, 10).expect("valid date");
+        let location = sample_location(date);
+        let (sunrise_utc, _) = sun_times(location.latitude, location.longitude, date);
+        let sunrise = sunrise_utc.with_timezone(&Local);
+        let now = local_datetime(date, DARK_OFF_HOUR, 30, 0);
+
+        let status = status_for_now(now, location);
+
+        assert!(status.is_night);
+        assert!(!status.is_dark);
         assert_eq!(next_event(&status).when, sunrise);
     }
 
@@ -351,8 +381,7 @@ mod tests {
     fn read_cached_location_rejects_out_of_range_coordinates() {
         let temp_dir = TempDir::new("desktopctl-solar-invalid-cache").expect("temp dir");
         let cache_path = temp_dir.path().join("location.json");
-        fs::write(&cache_path, r#"{"latitude":123.45,"longitude":56.78}"#)
-            .expect("write cache");
+        fs::write(&cache_path, r#"{"latitude":123.45,"longitude":56.78}"#).expect("write cache");
 
         assert!(read_cached_location(&cache_path).is_none());
     }

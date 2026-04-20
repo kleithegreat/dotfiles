@@ -53,7 +53,7 @@ Additional path rules:
 | --- | --- | --- |
 | Live `hyprsunset` process lifecycle | `desktopctl daemon` night-light controller | Quickshell and Hyprland request mode changes through `desktopctl night-light ...`; they do not spawn `hyprsunset` directly |
 | Persisted theme state | `desktopctl theme` | Stored in the `theme_state` table inside `desktopctl.db` |
-| Scheduled `dark_hint` enable at the nightly 23:00 threshold | `desktopctl daemon` via `theme::set_dark_hint()` | The daemon computes solar status, detects entry into the late-night dark-on window, and enables `dark_hint` through the theming module without tying that write to `hyprsunset` mode |
+| Scheduled `dark_hint` edges at 23:00 and 06:00 local time | `desktopctl daemon` via `theme::set_dark_hint()` | The daemon computes solar status, detects entry into the late-night dark-on window, and enables `dark_hint` through the theming module; when the local clock reaches 06:00, it disables `dark_hint` through the same path without tying either write to `hyprsunset` mode |
 | Manual and preset `dark_hint` changes | `desktopctl theme set dark_hint ...` and `desktopctl theme preset ...` | Direct `dark_hint` writes still persist and apply directly; presets that omit `dark_hint` preserve the current persisted hint even when they change `color_scheme` |
 | Persisted Hyprland mouse defaults | `desktopctl hypr input` | Stored in `~/.config/hypr/input-runtime.conf`, applied live through `hyprctl keyword`, and rolled back if the live apply fails |
 | Persisted Hyprland animation overrides | `desktopctl hypr animations` | Stored in `~/.config/hypr/animations-override.conf` and reloaded through `hyprctl reload` |
@@ -65,8 +65,8 @@ Additional path rules:
 Important current behavior:
 
 - `hyprsunset` has a single live arbiter in the daemon.
-- `dark_hint` does not: the daemon issues a one-shot late-night enable, but
-  manual theme surfaces can also write it directly.
+- `dark_hint` does not: the daemon issues scheduled 23:00 enable and 06:00
+  disable writes, but manual theme surfaces can also write it directly.
 - Persisted `theme_state` rows and legacy `themes/state.json` imports that are
   missing newly added required keys are backfilled from compiled defaults and
   then rewritten through the SQLite-backed theme-state path.
@@ -198,14 +198,14 @@ Night-light rules:
 - `auto` follows solar status for `hyprsunset`.
 - `on` and `off` only change `hyprsunset`.
 - The separate 23:00 solar edge enables `dark_hint` once when the daemon
-  enters the late-night dark-on window, regardless of the current night-light
-  mode, and sunrise does not clear it.
+  enters the late-night dark-on window, and the separate 06:00 local-time edge
+  disables it once, regardless of the current night-light mode.
 
 ### `desktopctl sun`
 
 | Command | Current behavior |
 | --- | --- |
-| `sun status` | Prints the resolved coordinates, sunrise/sunset, current `night` / late-night dark-on window state, and the next sunrise / sunset / dark-on events |
+| `sun status` | Prints the resolved coordinates, sunrise/sunset, current `night` / late-night dark-on window state, and the next sunrise / sunset / dark-on / dark-off events |
 
 ## Socket Contract
 

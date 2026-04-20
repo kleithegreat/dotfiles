@@ -7,7 +7,7 @@
 **Resolution:** Delete or invalidate the cache file to force a fresh `where-am-i` lookup on the next scheduler recompute.
 
 ## GeoClue lookup fails open to the hardcoded Texas fallback
-**Symptom:** Sunrise, sunset, and the 23:00 dark-hint behavior follow College Station, TX even though the machine is elsewhere.
+**Symptom:** Sunrise, sunset, and the 23:00/06:00 dark-hint behavior follow College Station, TX even though the machine is elsewhere.
 **Cause:** If the cache is missing or invalid and `where-am-i` is missing, times out, exits nonzero, or produces unparsable latitude/longitude lines, `desktopctl/src/solar.rs` silently falls back to `30.6280, -96.3344`.
 **Status:** Fallback in place
 **Resolution:** Verify that `where-am-i` works under the user session and inspect or clear the cache file before assuming the schedule is using live coordinates.

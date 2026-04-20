@@ -8,8 +8,8 @@ and where the present ownership split around `dark_hint` still exists.
 
 - Reconcile solar state without requiring Quickshell to be running.
 - Drive `hyprsunset` from sunrise and sunset in local time.
-- Persist the nightly `dark_hint` enable through the same theme-state store
-  used by the rest of the theming pipeline.
+- Persist the scheduled `dark_hint` enable/disable edges through the same
+  theme-state store used by the rest of the theming pipeline.
 - Keep night-light override mode non-persistent and deterministic.
 - Keep schedule repair and coordinate fallback deterministic.
 
@@ -26,7 +26,7 @@ Non-goals:
 | Solar-time policy | `desktopctl daemon` solar subsystem | The scheduler decides when sunrise, sunset, and the nightly dark-hint threshold occur, and keeps that schedule current even while an override is active |
 | Night-light override policy | `desktopctl daemon` night-light controller | The daemon owns the live override mode (`auto`, `on`, `off`) plus the in-session manual temperature. The override resets to `auto` on daemon restart |
 | Live `hyprsunset` lifecycle | `desktopctl daemon` night-light controller | The daemon is the only supported live writer of the `hyprsunset` process. Other components issue requests through `desktopctl`; they do not start, stop, or restart `hyprsunset` directly |
-| Scheduled `dark_hint` enable | `desktopctl daemon` via the theming module | When the scheduler enters the nightly 23:00 dark-on window, the daemon enables `dark_hint` once through `theme::set_dark_hint()` without tying that write to `hyprsunset` mode |
+| Scheduled `dark_hint` edges | `desktopctl daemon` via the theming module | When the scheduler enters the nightly 23:00 dark-on window, the daemon enables `dark_hint` once through `theme::set_dark_hint()`. When the local clock reaches 06:00, it disables `dark_hint` once through the same theming path, still without tying either write to `hyprsunset` mode |
 | Manual and preset `dark_hint` writes | The theming pipeline via `desktopctl theme` | `desktopctl theme set dark_hint ...` and preset application still persist and apply `dark_hint` directly |
 | GTK dark-preference side effects | The theming pipeline | The `gtk` target owns the resulting dconf writes for `gtk-theme` and `color-scheme` |
 | Shell and keybind surfaces | Quickshell and Hyprland config | The shell and keybinds may surface status or request supported mutations, but they are not authoritative state owners |
@@ -45,9 +45,9 @@ Invariants:
 
 | Mode | `hyprsunset` | `dark_hint` |
 | --- | --- | --- |
-| `auto` | Follows the scheduled time window below | Unchanged except for the separate nightly 23:00 enable |
-| `on` | On at the current manual target temperature | Unchanged except for the separate nightly 23:00 enable |
-| `off` | Off | Unchanged except for the separate nightly 23:00 enable |
+| `auto` | Follows the scheduled time window below | Unchanged except for the separate scheduled 23:00 enable and 06:00 disable |
+| `on` | On at the current manual target temperature | Unchanged except for the separate scheduled 23:00 enable and 06:00 disable |
+| `off` | Off | Unchanged except for the separate scheduled 23:00 enable and 06:00 disable |
 
 Rules:
 
@@ -56,24 +56,26 @@ Rules:
 - Switching to `auto` applies the current scheduled state immediately.
 - The override mode is not written to disk and does not survive daemon restarts.
 - Night-light mode changes do not set, clear, or suppress `dark_hint`; only the
-  separate nightly scheduler edge can enable it.
+  separate scheduled 23:00/06:00 edges can toggle it.
 
 ## `auto` Schedule Contract
 
 | Time window | `hyprsunset` | `dark_hint` |
 | --- | --- | --- |
+| `06:00 <= now < sunrise` | On at `4500K` | Disable once when entering this window |
 | `sunrise <= now < sunset` | Off | No scheduled write |
 | `sunset <= now < 23:00` | On at `4500K` | No scheduled write |
-| `23:00 <= now < next sunrise` | On at `4500K` | Enable once when entering this window; no scheduled off |
+| `23:00 <= now < 06:00` | On at `4500K` | Enable once when entering this window |
 
 Rules:
 
 - The scheduler computes the current scheduled state immediately before waiting
   for the next event.
 - `sunset` only starts `hyprsunset`.
-- `sunrise` stops `hyprsunset` and does not clear `dark_hint`.
-- `dark-on` only enables `dark_hint`; later reconciles in the same late-night
-  window must not keep reapplying it just because the window remains active.
+- `sunrise` stops `hyprsunset` and does not touch `dark_hint`.
+- `dark-on` only enables `dark_hint`, and `dark-off` only disables it; later
+  reconciles in the same window must not keep reapplying the same value just
+  because the window remains active.
 
 ## Scheduler Lifecycle
 
@@ -83,7 +85,7 @@ The active implementation uses one long-lived in-process scheduler inside
 | Trigger | Owner | Contract |
 | --- | --- | --- |
 | Initial reconcile | `desktopctl daemon` solar subsystem + night-light controller | Computes the current solar status immediately when the daemon starts, stores it, and reconciles the effective mode |
-| Next solar event sleep | `desktopctl daemon` solar subsystem | Waits until the next sunrise, sunset, or 23:00 dark-on event, then recomputes solar status and lets the controller reconcile the effective mode |
+| Next solar event sleep | `desktopctl daemon` solar subsystem | Waits until the next sunrise, sunset, 23:00 dark-on, or 06:00 dark-off event, then recomputes solar status and lets the controller reconcile the effective mode |
 | Periodic repair tick | `desktopctl daemon` solar subsystem + night-light controller | Recomputes solar status every 2 hours to repair missed time or external drift, then reapplies the effective mode |
 | `SIGUSR1` recompute | `desktopctl daemon` solar subsystem | Forces an early recompute without restarting the daemon |
 
