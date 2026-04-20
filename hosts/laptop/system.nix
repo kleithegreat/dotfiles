@@ -14,8 +14,6 @@ in
   boot.initrd.availableKernelModules = [ "xhci_pci" "thunderbolt" "vmd" "nvme" "rtsx_pci_sdmmc" ];
   # Keep the stock kernel version/package set, but compile it for this host CPU.
   boot.kernelPackages = optimizedKernelPackages;
-  # Disable the kernel's CPU side-channel mitigation set on this bare-metal host.
-  boot.kernelParams = [ "mitigations=off" "transparent_hugepage=madvise" ];
   boot.kernelPatches = [
     {
       name = "laptop-intel-only-kernel-config";
@@ -65,24 +63,6 @@ in
   hardware.enableRedistributableFirmware = true;
   hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
 
-  # Boot — GRUB with EFI (for Windows dual-boot)
-  boot.loader.grub = {
-    enable = true;
-    efiSupport = true;
-    device = "nodev";
-    useOSProber = false;
-    extraEntries = ''
-      menuentry "Windows Boot Manager" {
-        search --set=root --file /EFI/Microsoft/Boot/bootmgfw.efi
-        chainloader /EFI/Microsoft/Boot/bootmgfw.efi
-      }
-    '';
-  };
-  boot.loader.efi = {
-    canTouchEfiVariables = true;
-    efiSysMountPoint = "/boot/efi";
-  };
-
   # NVIDIA hybrid graphics (Intel Iris Xe + RTX 3050 Mobile)
   hardware.graphics.enable = true;
   hardware.nvidia = {
@@ -108,20 +88,11 @@ in
   services.samba.enable = lib.mkForce false;
   services.openssh.enable = lib.mkForce false;
 
-  # Large local builds already saturate this laptop internally, so serialize
-  # derivations and let each one keep full core parallelism.
-  nix.settings.max-jobs = 1;
-
   services.power-profiles-daemon.enable = true;
 
   # Runs `powertop --auto-tune` at boot to enable runtime PM on devices that
   # don't default to it (NVMe, audio codec, sensor hub, etc.)
   powerManagement.powertop.enable = true;
-  networking.useDHCP = lib.mkDefault true;
-  # Bound rare upstream tailscaled shutdown hangs so reboot does not wait for
-  # the full systemd default stop timeout.
-  systemd.services.tailscaled.serviceConfig.TimeoutStopSec = "15s";
-
   # ── Fingerprint auth ────────────────────────────────────────
   # Goodix 27c6:63ac is supported by upstream libfprint, so keep TOD disabled.
   services.fprintd = {

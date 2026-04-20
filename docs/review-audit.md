@@ -12,7 +12,7 @@ Status meanings:
 
 | Severity | Finding | Status | Evidence |
 | --- | --- | --- | --- |
-| Medium | Not every tool uses the application's own split-file mechanism even when one exists. | open | Ghostty and Vicinae still use concat assembly in `desktopctl/src/theme/targets/ghostty.rs` and `desktopctl/src/theme/targets/vicinae.rs` instead of native include/import surfaces. |
+| Medium | Not every tool uses the application's own split-file mechanism even when one exists. | resolved | `config/ghostty/config` now delegates to `~/.config/ghostty/theme.conf` through Ghostty's native `config-file` directive, and `config/vicinae/settings.json` now imports `settings.theme.json` while `desktopctl/src/theme/targets/ghostty.rs` and `desktopctl/src/theme/targets/vicinae.rs` write only the generated fragments. |
 | High | Neovim's generated theme state is wider than the installed theme surface: raw `variant` values do not always map to valid `background` values, and only `gruvbox` is guaranteed to exist locally. | resolved | `config/nvim/lua/plugins/colors.lua` now accepts only `dark`/`light` `background` values and silently falls back to `gruvbox` unless the generated scheme name is already `gruvbox`. |
 | Medium | `vimtex` is lazy-loaded even though upstream recommends loading it eagerly under `lazy.nvim`. | resolved | `config/nvim/lua/plugins/lang.lua` now sets `lazy = false` for `lervag/vimtex`. |
 | Medium | The Neovim 0.12 Treesitter path is much thinner than the 0.11 path and would change behavior materially if activated. | open | The legacy Treesitter setup path in `config/nvim/lua/plugins/lang.lua` still configures parser installation, highlight, indent, and textobjects, while the 0.12 path still only sets `install_dir`. |
@@ -55,7 +55,7 @@ Status meanings:
 | Severity | Finding | Status | Evidence |
 | --- | --- | --- | --- |
 | Low | The `specialArgs` / `extraSpecialArgs` surface is broader than current modules need. | resolved | `flake.nix` now keeps Home Manager `extraSpecialArgs` to `dotfilesPath`, `hostName`, `vicinae`, `snappy-switcher`, and `opencode`; `home/default.nix` is the only current consumer surface under `home/`. |
-| Low | Host-specific Home Manager branching stays centralized in `home/default.nix`. | open | `home/default.nix` still selects `hypr/autostart-host.conf`, `hypr/input-devices.conf`, `hypr/monitors.conf`, and `hypr/env.conf` with one centralized `if hostName == ... else if ... else` block. |
+| Low | Host-specific Home Manager branching stays centralized in `home/default.nix`. | resolved | `home/default.nix` now resolves the Hyprland host-specific files through the local `hyprHostConfigs` attrset plus `mkHostConfigFile`, instead of repeating an `if hostName == ... else if ... else` chain for each path. |
 | Low | The recursive Quickshell tree plus writable generated sibling file remains a deliberate special case. | partially addressed | The implementation is still the same special case in `home/default.nix` and `desktopctl/src/theme/targets/quickshell.rs`, but the docs now describe the committed `config/quickshell/GeneratedTheme.json` bootstrap snapshot and the runtime overwrite path explicitly. |
 
 ## Sun Schedule

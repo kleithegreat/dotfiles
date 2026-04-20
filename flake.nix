@@ -23,6 +23,20 @@
 
   outputs = { self, nixpkgs, home-manager, hyprland, hyprland-plugins, hyprqt6engine, vicinae, snappy-switcher, opencode, ... }:
   let
+    system = "x86_64-linux";
+    sharedInputs = {
+      inherit
+        nixpkgs
+        home-manager
+        hyprland
+        hyprland-plugins
+        hyprqt6engine
+        vicinae
+        snappy-switcher
+        opencode
+        ;
+    };
+
     # Set to true to rebuild the targeted native-code packages from source with
     # `-O3 -march=native` / `target-cpu=native` instead of using stock cached
     # nixpkgs builds.
@@ -39,11 +53,11 @@
         enableHostNativeOptimizations ? enableNativeOptimizations,
       }:
       nixpkgs.lib.nixosSystem {
-        system = "x86_64-linux";
+        inherit system;
         specialArgs = {
           inherit hyprland hostName enableDistributedBuilds;
           enableNativeOptimizations = enableHostNativeOptimizations;
-          inputs = { inherit nixpkgs hyprland hyprland-plugins hyprqt6engine vicinae snappy-switcher opencode home-manager; };
+          inputs = sharedInputs;
         };
         modules = [
           ./system/configuration.nix
@@ -57,7 +71,7 @@
             home-manager.extraSpecialArgs = {
               dotfilesPath = self;
               inherit hostName vicinae snappy-switcher opencode;
-              inputs = { inherit nixpkgs hyprland hyprland-plugins hyprqt6engine vicinae snappy-switcher opencode home-manager; };
+              inputs = sharedInputs;
               enableNativeOptimizations = enableHostNativeOptimizations;
             };
           }
@@ -66,17 +80,19 @@
   in {
     overlays.default = import ./overlays/local-packages.nix;
 
-    packages.x86_64-linux =
+    packages.${system} =
       let
         pkgs = import nixpkgs {
-          system = "x86_64-linux";
+          inherit system;
           overlays = [ self.overlays.default ];
         };
       in {
-        desktopctl = pkgs.desktopctl;
-        helium = pkgs.helium;
-        openchamber = pkgs.openchamber;
-        openchamber-claude-bridge = pkgs.openchamber-claude-bridge;
+        inherit (pkgs)
+          desktopctl
+          helium
+          openchamber
+          openchamber-claude-bridge
+          ;
       };
 
     nixosConfigurations.vm = mkHost {
@@ -92,8 +108,8 @@
       hostName = "desktop";
       hostModule = ./hosts/desktop/system.nix;
     };
-    devShells.x86_64-linux.default = let
-      pkgs = import nixpkgs { system = "x86_64-linux"; };
+    devShells.${system}.default = let
+      pkgs = import nixpkgs { inherit system; };
     in pkgs.mkShell {
       nativeBuildInputs = with pkgs; [
         cargo

@@ -1,0 +1,3 @@
+# Ghostty base config — non-theming settings only
+# Theme-managed font and palette settings live in the generated fragment below.
+config-file = "theme.conf"

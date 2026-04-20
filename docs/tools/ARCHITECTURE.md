@@ -4,7 +4,7 @@
 
 Current map for the repo-managed tool configs under `config/`, the shell-side
 tooling in `home/shell.nix`, and the matching `desktopctl` theme targets as of
-2026-04-13.
+2026-04-19.
 
 ## Source Of Truth
 
@@ -15,13 +15,13 @@ Manager deploys.
 | --- | --- | --- | --- | --- |
 | Neovim | `config/nvim/**/*` | `~/.config/nvim/lua/theme-state.json`, `~/.config/nvim/lua/neovide-theme.lua` | `standalone` | Home Manager symlinks the full tree; theming writes only state files; the runtime config sanitizes `background` to `dark`/`light` and otherwise falls back silently to the installed `gruvbox` scheme |
 | Alacritty | `config/alacritty/alacritty.toml` | `~/.config/alacritty/theme.toml` | `import` | Base config imports the generated fragment |
-| Ghostty | `config/ghostty/base` | `~/.config/ghostty/config` | `concat` | Base file plus generated theme block written at apply time |
+| Ghostty | `config/ghostty/config` | `~/.config/ghostty/theme.conf` | `import` | Home Manager deploys the base config at `~/.config/ghostty/config`, and that base file uses Ghostty's native `config-file` directive to load the generated fragment |
 | OpenCode | `config/opencode/base.json` | `~/.config/opencode/tui.json` plus `~/.config/opencode/themes/desktopctl.json` | `concat` | Base config selects the managed global theme name; `persist()` writes the actual OpenCode palette JSON under `themes/` |
 | tmux | `config/tmux/tmux.conf` | `~/.config/tmux/colors.conf` | `import` | Base config sources the generated colors file |
 | Zsh | `home/shell.nix` | `~/.config/zsh/theme-colors` | `import` | Home Manager authors the main shell init; `programs.zsh.initContent` sources the generated fragment for autosuggestion highlighting |
 | Starship | `config/starship/base.toml` | `~/.config/starship.toml` | `concat` | Base prompt config plus generated palette block written at apply time |
 | Zathura | `config/zathura/zathurarc` | `~/.config/zathura/colors` | `import` | Base config includes the generated colors file |
-| Vicinae | `config/vicinae/base.json` | `~/.config/vicinae/settings.json` plus `~/.local/share/vicinae/themes/*.toml` | `concat` | Base settings plus generated theme block written at apply time; the target also writes custom theme TOMLs that override or supplement Vicinae's built-ins, while provider search paths remain literal because Vicinae only documents relative-path support for top-level `imports` |
+| Vicinae | `config/vicinae/settings.json` | `~/.config/vicinae/settings.theme.json` plus `~/.local/share/vicinae/themes/*.toml` | `import` | Home Manager deploys the base settings file at `~/.config/vicinae/settings.json`, that base file imports the generated fragment through Vicinae's top-level `imports` support, and the target also writes custom theme TOMLs that override or supplement Vicinae's built-ins while provider search paths remain literal |
 | VS Code | `config/vscode/base.json` | `~/.config/Code/User/settings.json` | `concat` | Base JSON merged with generated theme/font block; `persist()` also syncs extension state in `state.vscdb` |
 | Snappy Switcher | `config/snappy-switcher/base.ini` | `~/.config/snappy-switcher/config.ini` | `concat` | Base INI plus generated theme/icon/font section; daemon restarts on apply |
 | Hyprland | `config/hypr/*.conf` | `~/.config/hypr/colors.conf`, `~/.config/hypr/appearance-theme.conf`, `~/.config/hypr/cursor.conf` | `standalone` | Modular repo configs deployed by Home Manager; three theme targets write standalone files into the same `~/.config/hypr/` tree |

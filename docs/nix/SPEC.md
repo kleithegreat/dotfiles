@@ -17,15 +17,16 @@ document; see `docs/nix/ARCHITECTURE.md` for the current implementation map.
 
 | Layer | Owns | Must not own |
 | --- | --- | --- |
-| `system/configuration.nix` | Shared privileged policy, shared services, desktop packaging, system packages, `/etc`-style config | Machine-specific hardware or host-only overrides |
-| `hosts/<name>/system.nix` | Hardware, boot, filesystems, GPU layout, host-only services/packages, privileged per-host overrides | Shared system defaults |
+| `system/configuration.nix` | Shared privileged policy, shared services, desktop packaging, system packages, `/etc`-style config, and shared physical-host boot/runtime defaults | Machine-specific hardware or host-only overrides |
+| `hosts/<name>/system.nix` | Hardware, filesystems, GPU layout, host-only services/packages, privileged per-host overrides, and boot policy that differs from the shared physical-host baseline | Shared system defaults |
 | `home/default.nix` and `home/*.nix` | User packages, XDG config deployment, desktop entries, MIME defaults, user scripts, session hooks | Root-owned boot or service policy |
 | `config/` | Version-controlled application config that Home Manager deploys into the home directory | Mutable generated outputs |
 
 ## Placement Rules
 
 - Put a change in the shared system layer when it is privileged and expected on
-  every host.
+  every host, or on every host in a shared hardware class already modeled in
+  shared config.
 - Put it in a host module when it is privileged and tied to one machine or
   hardware class.
 - Put it in Home Manager when it produces user-home state or user-session
