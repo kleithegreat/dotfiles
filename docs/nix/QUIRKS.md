@@ -56,9 +56,9 @@
 
 ## Physical-host kernels share one native helper
 **Symptom:** Desktop and laptop should both rebuild one shared tuned physical-host kernel while still keeping host-specific preemption and each host's own Kconfig trim on top.
-**Cause:** `system/native-kernel-packages.nix` now derives the kernel package set once from the CachyOS `cachyos-6.18.23-1.tar.gz` source, builds it with Clang + LLD ThinLTO, applies the matching `6.18/sched/0001-bore-cachy.patch`, keeps `ignoreConfigErrors = true`, and layers `KCFLAGS=-O2 -march=native`, `KRUSTFLAGS=-Ctarget-cpu=native`, and the host-specific native build feature. The host modules then add the desktop/laptop preemption overrides, the laptop's Intel-only trim, and the desktop's dead-subsystem culls through `boot.kernelPatches`.
+**Cause:** `system/native-kernel-packages.nix` now derives the kernel package set once from the CachyOS `cachyos-6.18.23-1.tar.gz` source, builds it with Clang + LLD ThinLTO, applies the matching `6.18/sched/0001-bore-cachy.patch`, keeps `ignoreConfigErrors = true`, and layers `KCFLAGS=-O2 -march=native`, `KRUSTFLAGS=-Ctarget-cpu=native`, and the host-specific native build feature. `system/configuration.nix` routes both physical hosts through that helper, then the host modules add the desktop/laptop preemption overrides, the laptop's Intel-only trim, and the desktop's dead-subsystem culls through `boot.kernelPatches`.
 **Status:** Intentional design
-**Resolution:** Keep both physical host modules on `system/native-kernel-packages.nix`. Keep `ignoreConfigErrors = true` because the shared 6.18-based Kconfig still encounters dropped symbols on this nixpkgs revision. If you want the stock cached kernel back on a host, stop routing `boot.kernelPackages` through the helper instead of trying to partially undo the helper's BORE/BBR3/ThinLTO assumptions.
+**Resolution:** Keep the shared physical-host baseline in `system/configuration.nix` on `system/native-kernel-packages.nix`. Keep `ignoreConfigErrors = true` because the shared 6.18-based Kconfig still encounters dropped symbols on this nixpkgs revision. If you want the stock cached kernel back on a host, stop routing the physical-host `boot.kernelPackages` path through the helper instead of trying to partially undo the helper's BORE/BBR3/ThinLTO assumptions.
 
 ## Physical-host working-set protection uses MGLRU `min_ttl_ms`
 **Symptom:** Desktop and laptop now ask for LE9/LE10-style working-set and file-cache protection, but the active tuning path is not an obvious `vm.*_kbytes` sysctl block in the host modules.
@@ -68,15 +68,15 @@
 
 ## Physical hosts disable CPU vulnerability mitigations on purpose
 **Symptom:** `lscpu`, `/sys/devices/system/cpu/vulnerabilities/*`, or boot logs report that Spectre, Meltdown, and related CPU side-channel mitigations are disabled on the laptop and desktop.
-**Cause:** `hosts/desktop/system.nix` and `hosts/laptop/system.nix` both set `boot.kernelParams = [ "mitigations=off" ]`.
+**Cause:** `system/configuration.nix` now sets `boot.kernelParams = [ "mitigations=off" ]` on the shared physical-host gate.
 **Status:** Intentional exception
-**Resolution:** Keep the parameter in the physical-host modules only if the performance tradeoff is intentional. Remove that host-local kernel param to restore the kernel's default mitigation policy. The VM host stays on the default path because it does not set this parameter.
+**Resolution:** Keep the parameter on the shared physical-host baseline only if the performance tradeoff is intentional. Remove that physical-host kernel param in `system/configuration.nix` to restore the kernel's default mitigation policy. The VM host stays on the default path because it is outside that gate.
 
 ## Physical-host local builds are serialized on purpose
 **Symptom:** Local Nix builds on desktop and laptop run one derivation at a time even though the machines have many CPU threads.
-**Cause:** `hosts/desktop/system.nix` and `hosts/laptop/system.nix` both set `nix.settings.max-jobs = 1`. The repo leaves `cores = 0`, so a single heavy derivation can still use the full machine; this avoids stacking multiple already-parallel builds on top of each other.
+**Cause:** `system/configuration.nix` now sets `nix.settings.max-jobs = 1` on the shared physical-host gate. The repo leaves `cores = 0`, so a single heavy derivation can still use the full machine; this avoids stacking multiple already-parallel builds on top of each other.
 **Status:** Intentional exception
-**Resolution:** Keep the physical hosts on `max-jobs = 1` unless measurement shows a real win from concurrent derivations. If you want more concurrency later, change those host-local settings rather than widening the shared Nix baseline.
+**Resolution:** Keep the physical hosts on `max-jobs = 1` unless measurement shows a real win from concurrent derivations. If you want more concurrency later, change that shared physical-host setting in `system/configuration.nix` rather than widening the VM profile too.
 
 ## Narrow unfree predicates must cover transitive module closures, not just package lists
 **Symptom:** Replacing `allowUnfree = true` with a small name allowlist still fails evaluation on packages that are not listed directly in `home.packages` or `environment.systemPackages`.

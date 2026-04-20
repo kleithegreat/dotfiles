@@ -11,6 +11,9 @@ let
   optimizedPackages = import ../overlays/native-optimized.nix {
     inherit lib inputs hostName enableNativeOptimizations;
   };
+  optimizedKernelPackages = import ./native-kernel-packages.nix {
+    inherit lib pkgs hostName enableNativeOptimizations;
+  };
   optimizedPkgs = pkgs.appendOverlays [ optimizedPackages.overlay ];
   appendPatches = patches: drv:
     drv.overrideAttrs (old: {
@@ -525,7 +528,10 @@ in
       system.stateVersion = "25.05";
     }
     (lib.mkIf isPhysicalHost {
+      # Keep the stock kernel version/package set, but compile it for this host CPU.
+      boot.kernelPackages = optimizedKernelPackages;
       boot.kernelParams = [ "mitigations=off" "transparent_hugepage=madvise" ];
+      boot.kernelModules = [ "kvm-intel" ];
       boot.loader.grub = {
         enable = true;
         efiSupport = true;
@@ -545,6 +551,14 @@ in
 
       nix.settings.max-jobs = 1;
       networking.useDHCP = lib.mkDefault true;
+      zramSwap = {
+        enable = true;
+        memoryPercent = 50;
+      };
+
+      hardware.enableRedistributableFirmware = true;
+      hardware.cpu.intel.updateMicrocode =
+        lib.mkDefault config.hardware.enableRedistributableFirmware;
 
       # Bound rare upstream tailscaled shutdown hangs so reboot does not wait
       # for the full systemd default stop timeout.

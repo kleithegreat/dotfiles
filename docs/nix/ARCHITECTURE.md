@@ -29,17 +29,17 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-19.
 
 | Path | Role | Current responsibilities |
 | --- | --- | --- |
-| `system/configuration.nix` | Shared system baseline | Nix settings, the shared unfree allowlist used by both NixOS and embedded Home Manager, overlays, common users/groups, shared services, privileged desktop helper registrations, shared Tailscale operator configuration, root-only weekly `fstrim` scheduling, system packages, explicit PipeWire/WirePlumber native-package selection, Hyprland packaging, shared Qt plugin-path wiring, the repo-wide fontconfig baseline, and the shared physical-host defaults for GRUB/EFI bootloader setup, `mitigations=off` plus `transparent_hugepage=madvise`, serialized local build scheduling, DHCP fallback, tailscaled stop-timeout bounding, and runtime kernel tuning (`bbr`/`fq`, autogroup, and MGLRU `min_ttl_ms`) |
+| `system/configuration.nix` | Shared system baseline | Nix settings, the shared unfree allowlist used by both NixOS and embedded Home Manager, overlays, common users/groups, shared services, privileged desktop helper registrations, shared Tailscale operator configuration, root-only weekly `fstrim` scheduling, system packages, explicit PipeWire/WirePlumber native-package selection, Hyprland packaging, shared Qt plugin-path wiring, the repo-wide fontconfig baseline, and the shared physical-host defaults for the native kernel package set, `kvm-intel`, zram, Intel firmware/microcode, GRUB/EFI bootloader setup, `mitigations=off` plus `transparent_hugepage=madvise`, serialized local build scheduling, DHCP fallback, tailscaled stop-timeout bounding, and runtime kernel tuning (`bbr`/`fq`, autogroup, and MGLRU `min_ttl_ms`) |
 | `system/distributed-builds.nix` | Optional shared distributed-build layer | When enabled, configures remote builders, the post-build cache push hook, `nix.sshServe`, and LAN-only SSH firewall rules |
 | `system/distributed-builds-data.nix` | Environment-specific builder/cache data | Authorized builder keys, host keys, current cache signing key, and the current cache URL override |
 | `system/native-optimizations.nix` | Shared helper | Centralizes the userspace `-O3 -march=native` / `target-cpu=native` flag sets, the kernel-specific `KCFLAGS=-O2 -march=native` / `KRUSTFLAGS=-Ctarget-cpu=native` flags, the per-host `native-optimized-<host>` feature marker, and the `overrideAttrs` helpers reused by the overlay, Hyprland-family packages, and Home Manager flake-input packages |
 | `system/native-kernel-packages.nix` | Shared helper | Derives the physical-host kernel package set from the stock nixpkgs `linux_6_18` source, rebuilds it with Clang + LLD ThinLTO, applies an explicit BORE patch stack plus a `tcp/bbr3` patch on top, bakes in the shared BORE/BBR3/HZ=1000/NO_HZ_IDLE/THP=madvise/MGLRU Kconfig overrides, layers host-local `KCFLAGS=-O2 -march=native` / `KRUSTFLAGS=-Ctarget-cpu=native`, and carries the same per-host native build feature tag used by the rest of the optimized package set |
 | `hosts/vm/system.nix` | VM overlay | VM boot, guest profile, and virtual disk layout |
-| `hosts/laptop/system.nix` | Laptop overlay | Laptop-specific kernel/compiler tuning, the laptop's voluntary-preempt plus Intel-only Kconfig trim, hybrid GPU policy, laptop-only services and overrides, fingerprint/PAM policy, laptop-scoped polkit rules, and laptop hardware policy |
+| `hosts/laptop/system.nix` | Laptop overlay | The laptop's voluntary-preempt plus Intel-only Kconfig trim, hybrid GPU policy, laptop-only services and overrides, fingerprint/PAM policy, laptop-scoped polkit rules, and laptop hardware policy |
 | `hosts/laptop/fan-control.nix` | Laptop-only hardware submodule | Dell SMM kernel module wiring, BIOS fan-control handoff, the explicit four-state `i8kmon.conf` profile with aggressive ramp thresholds, and the `i8kmon` systemd service |
-| `hosts/desktop/system.nix` | Desktop overlay | Dedicated NVIDIA policy, shared native kernel/compiler tuning opt-in, the desktop's PREEMPT_FULL plus desktop-only dead-subsystem Kconfig culls and VM writeback/cache-pressure sysctls, desktop-only imports, storage mounts, desktop-only overlay imports, the desktop Windows VM toggle, and the desktop's forced `power-profiles-daemon` performance profile |
+| `hosts/desktop/system.nix` | Desktop overlay | Dedicated NVIDIA policy, the desktop's PREEMPT_FULL plus desktop-only dead-subsystem Kconfig culls and VM writeback/cache-pressure sysctls, desktop-only imports, storage mounts, desktop-only overlay imports, the desktop Windows VM toggle, and the desktop's forced `power-profiles-daemon` performance profile |
 | `hosts/desktop/windows-vm.nix` | Desktop Windows VM submodule | Defines `virtualisation.windowsVm`, seeds the desktop qcow2/OVMF/TPM state under `/var/lib/windows-vm/windows11` during activation, grants the desktop user `kvm` access, and installs the `windows-vm` QEMU launcher |
-| `home/default.nix` | Shared user baseline | User packages that do not require system-scoped helper registration, small package-level overrides such as the local OpenCode stale-`node_modules` hash pin plus the post-configure build workarounds and the explicit native-package aliases, `xdg.configFile` mappings including the Home Manager-owned Ghostty/Vicinae base configs, host-specific Hyprland file selection through the local host-to-path map, desktop entry overrides, and theme activation |
+| `home/default.nix` | Shared user baseline | User packages that do not require system-scoped helper registration, small package-level overrides such as the local OpenCode stale-`node_modules` hash pin plus the post-configure build workarounds and the explicit native-package aliases, data-driven `xdg.configFile` source maps including the Home Manager-owned Ghostty/Vicinae base configs, host-specific Hyprland file selection through the local host-to-path map, desktop entry overrides, and theme activation |
 | `home/shell.nix` | Shell submodule | Zsh, shell tools, Git, aliases, shell helpers, and sourcing the generated `~/.config/zsh/theme-colors` fragment from `programs.zsh.initContent` |
 | `home/gtk.nix` | GTK submodule | GTK packages and small dconf defaults |
 | `pkgs/helium/default.nix` | Prebuilt browser package | Fetches the upstream Helium release tarball, auto-patches the bundled ELFs, wraps the upstream launcher, and installs desktop assets using the pin in `pkgs/helium/source.nix` |
@@ -157,15 +157,15 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-19.
   active local user direct `net.reactivated.fprint.device.enroll` access so the
   Quickshell fingerprint-management flow can enroll/delete prints without a
   separate external auth-agent prompt.
-- `hosts/laptop/system.nix` and `hosts/desktop/system.nix` both source
-  `boot.kernelPackages` from `system/native-kernel-packages.nix`, so both
-  physical hosts rebuild the stock nixpkgs `linux_6_18` kernel source with
-  Clang + LLD ThinLTO, an explicit BORE patch stack plus `tcp/bbr3` on top,
-  shared BORE/BBR3/HZ=1000/NO_HZ_IDLE / THP=madvise / MGLRU Kconfig
-  overrides, `ignoreConfigErrors = true`, `KCFLAGS=-O2 -march=native`,
+- The shared system baseline now sources `boot.kernelPackages` from
+  `system/native-kernel-packages.nix` on the physical-host gate, so desktop and
+  laptop both rebuild the stock nixpkgs `linux_6_18` kernel source with Clang +
+  LLD ThinLTO, an explicit BORE patch stack plus `tcp/bbr3` on top, shared
+  BORE/BBR3/HZ=1000/NO_HZ_IDLE / THP=madvise / MGLRU Kconfig overrides,
+  `ignoreConfigErrors = true`, `KCFLAGS=-O2 -march=native`,
   `KRUSTFLAGS=-Ctarget-cpu=native`, and the same host-specific
-  `native-optimized-<host>` feature tag used by the rest of the native
-  package set.
+  `native-optimized-<host>` feature tag used by the rest of the native package
+  set.
 - The shared system baseline gates a physical-host-only kernel runtime tuning
   block on `hostName` and uses `boot.kernel.sysctl` to keep
   `kernel.sched_autogroup_enabled = 1`, `net.core.default_qdisc = "fq"`, and
@@ -180,6 +180,12 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-19.
   on the physical-host gate, disabling the kernel's CPU side-channel
   mitigation set and forcing THP to the `madvise` runtime mode on the bare-metal
   laptop and desktop while leaving the VM profile unchanged.
+- That same physical-host block also owns `boot.kernelModules = [ "kvm-intel" ]`,
+  `zramSwap = { enable = true; memoryPercent = 50; }`,
+  `hardware.enableRedistributableFirmware = true`, and
+  `hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware`,
+  keeping the two Intel bare-metal hosts on one shared kernel/module/firmware
+  baseline.
 - `hosts/laptop/system.nix` still uses `boot.kernelPatches = [{ patch = null;
   structuredExtraConfig = ...; }]`, but that patch block now also forces the
   laptop onto `PREEMPT_VOLUNTARY` before disabling AMD-only

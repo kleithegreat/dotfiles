@@ -1,10 +1,5 @@
-{ config, pkgs, lib, hostName, enableNativeOptimizations, ... }:
+{ config, pkgs, lib, ... }:
 
-let
-  optimizedKernelPackages = import ../../system/native-kernel-packages.nix {
-    inherit lib pkgs hostName enableNativeOptimizations;
-  };
-in
 {
   imports = [
     ./fan-control.nix
@@ -12,8 +7,6 @@ in
 
   # Hardware — from nixos-generate-config
   boot.initrd.availableKernelModules = [ "xhci_pci" "thunderbolt" "vmd" "nvme" "rtsx_pci_sdmmc" ];
-  # Keep the stock kernel version/package set, but compile it for this host CPU.
-  boot.kernelPackages = optimizedKernelPackages;
   boot.kernelPatches = [
     {
       name = "laptop-intel-only-kernel-config";
@@ -44,7 +37,6 @@ in
       };
     }
   ];
-  boot.kernelModules = [ "kvm-intel" ];
 
   fileSystems."/" = {
     device = "/dev/disk/by-uuid/b570af09-b288-4994-8373-f87cbe7ec964";
@@ -56,12 +48,6 @@ in
     fsType = "vfat";
     options = [ "fmask=0077" "dmask=0077" ];
   };
-
-  zramSwap.enable = true;
-  zramSwap.memoryPercent = 50;
-
-  hardware.enableRedistributableFirmware = true;
-  hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
 
   # NVIDIA hybrid graphics (Intel Iris Xe + RTX 3050 Mobile)
   hardware.graphics.enable = true;
