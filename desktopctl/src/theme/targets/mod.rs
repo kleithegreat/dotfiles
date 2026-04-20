@@ -10,6 +10,7 @@ mod hypr_appearance;
 mod hyprland;
 mod neovide;
 mod neovim;
+mod openchamber;
 mod opencode;
 mod qt;
 mod quickshell;
@@ -416,6 +417,7 @@ const TARGET_REGISTRATIONS: &[TargetRegistration] = &[
     target_registration!(hyprland),
     target_registration!(neovide),
     target_registration!(neovim),
+    target_registration!(openchamber, persist),
     target_registration!(opencode, persist),
     target_registration!(qt, persist),
     target_registration!(quickshell),
@@ -577,10 +579,11 @@ mod tests {
     fn registry_contains_all_python_targets() {
         let registry = build_registry().expect("registry builds");
         let names = registry.iter().map(|(name, _)| name).collect::<Vec<_>>();
-        assert_eq!(names.len(), 23);
+        assert_eq!(names.len(), 24);
         assert!(names.contains(&"chromium"));
         assert!(names.contains(&"cursor"));
         assert!(names.contains(&"gtksourceview"));
+        assert!(names.contains(&"openchamber"));
         assert!(names.contains(&"opencode"));
         assert!(names.contains(&"zsh"));
         assert_eq!(
@@ -620,6 +623,17 @@ mod tests {
                 .metadata()
                 .managed_paths,
             &["~/.config/chromium/<profile>/Preferences"]
+        );
+        assert_eq!(
+            registry
+                .get("openchamber")
+                .expect("openchamber target")
+                .metadata()
+                .managed_paths,
+            &[
+                "~/.config/openchamber/settings.json",
+                "~/.config/openchamber/themes/desktopctl.json"
+            ]
         );
         assert_eq!(
             registry
@@ -727,6 +741,11 @@ mod tests {
     fn opencode_output_sets_managed_theme() {
         let output = text(opencode::generate(&dummy_colors(), &dummy_state()));
         assert_eq!(output, "{\n  \"theme\": \"desktopctl\"\n}");
+    }
+
+    #[test]
+    fn openchamber_generate_returns_no_commands() {
+        assert!(commands(openchamber::generate(&dummy_colors(), &dummy_state())).is_empty());
     }
 
     #[test]

@@ -206,6 +206,7 @@ Constraints:
 | `hyprland` | `standalone` | `~/.config/hypr/colors.conf` |
 | `neovide` | `standalone` | `~/.config/nvim/lua/neovide-theme.lua` |
 | `neovim` | `standalone` | `~/.config/nvim/lua/theme-state.json` |
+| `openchamber` | `command` | `~/.config/openchamber/settings.json` theme selection keys plus `~/.config/openchamber/themes/desktopctl.json` |
 | `opencode` | `concat` | `~/.config/opencode/tui.json` plus `~/.config/opencode/themes/desktopctl.json` |
 | `qt` | `standalone` | qtct, KDE, Kvantum, and editor theme files |
 | `quickshell` | `standalone` | `~/.config/quickshell/GeneratedTheme.json` |
@@ -225,10 +226,10 @@ State changes fan out by ownership, not by CLI convenience.
 
 | State key(s) | Affected targets |
 | --- | --- |
-| `color_scheme` | `alacritty`, `bat`, `ghostty`, `gtksourceview`, `hyprland`, `neovim`, `opencode`, `qt`, `quickshell`, `snappy_switcher`, `spicetify`, `starship`, `tmux`, `vicinae`, `vscode`, `wallpaper`\*, `zathura`, `zsh` |
+| `color_scheme` | `alacritty`, `bat`, `ghostty`, `gtksourceview`, `hyprland`, `neovim`, `openchamber`, `opencode`, `qt`, `quickshell`, `snappy_switcher`, `spicetify`, `starship`, `tmux`, `vicinae`, `vscode`, `wallpaper`\*, `zathura`, `zsh` |
 | `wallpaper`, `filter_wallpaper` | `wallpaper` |
-| `system_font` | `chromium`, `gtk`, `hyprland`, `qt`, `quickshell`, `snappy_switcher`, `vicinae` |
-| `mono_font` | `alacritty`, `chromium`, `ghostty`, `gtk`, `hyprland`, `neovide`, `qt`, `quickshell`, `vscode` |
+| `system_font` | `chromium`, `gtk`, `hyprland`, `openchamber`, `qt`, `quickshell`, `snappy_switcher`, `vicinae` |
+| `mono_font` | `alacritty`, `chromium`, `ghostty`, `gtk`, `hyprland`, `neovide`, `openchamber`, `qt`, `quickshell`, `vscode` |
 | `icon_theme` | `gtk`, `qt`, `snappy_switcher` |
 | `font_size` | `gtk`, `hyprland`, `qt`, `quickshell`, `snappy_switcher` |
 | `quickshell_font_size_offset` | `quickshell` |
@@ -258,6 +259,7 @@ the documented wallpaper filter exception above.
 | Gedit / GtkSourceView | Reads generated styles from `~/.local/share/libgedit-gtksourceview-300/styles/`; gedit's light/dark source-style selection is theme-owned |
 | Hyprland | Reads `colors.conf` and `appearance-theme.conf` |
 | Neovim / Neovide | Read generated theme state files rather than embedding palette logic in Home Manager |
+| OpenChamber | Reads desktop-managed `themeId` / `themeVariant` keys from `~/.config/openchamber/settings.json` and the generated `~/.config/openchamber/themes/desktopctl.json`; the target patches only those theme-owned settings keys so OpenChamber keeps owning the rest of `settings.json` |
 | OpenCode | Reads the generated global `tui.json` theme selection and the generated `themes/desktopctl.json` palette under `~/.config/opencode/`; the target is intentionally color-only because upstream TUI theming exposes a `theme` selector plus theme-color JSON keys, while later project-local OpenCode config layers can still override the global theme by upstream precedence |
 | Zsh | `home/shell.nix` `programs.zsh.initContent` sources `~/.config/zsh/theme-colors`; the generated fragment only sets `ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE` |
 

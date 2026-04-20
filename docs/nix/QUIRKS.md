@@ -150,6 +150,12 @@
 **Status:** Workaround in place
 **Resolution:** `pkgs/openchamber-desktop/default.nix` now wraps `openchamber-desktop` with `WEBKIT_DISABLE_DMABUF_RENDERER=1`, which keeps the app on a stable WebKit rendering path under Wayland without forcing the whole launcher onto X11.
 
+## OpenChamber desktop popup interactions are sluggish on WebKitGTK without a lighter UI path
+**Symptom:** In the local Tauri desktop shell, opening OpenChamber selects, dropdowns, and similar popup UI can feel delayed enough to make the whole app seem unresponsive, even when the backend endpoints themselves respond quickly.
+**Cause:** The packaged desktop runtime is WebKitGTK rather than Chromium. The shared popup scroll chrome was doing more work than necessary at menu-open time by installing eager per-child resize observation in `packages/ui/src/components/ui/OverlayScrollbar.tsx` and by leaving mutation tracking enabled for the static option lists rendered by `packages/ui/src/components/ui/select.tsx`.
+**Status:** Workaround in place
+**Resolution:** `patches/openchamber/desktop-popup-performance.patch` now keeps the same UI behavior but reduces popup overhead by shrinking `OverlayScrollbar` observation to the scroll container itself and by disabling mutation observation for the static `Select` viewport content. Keep the patch local until upstream ships an equivalent WebKitGTK-oriented optimization.
+
 ## Declarative Windows VM media and guest state stay partly manual
 **Symptom:** The shared physical-host Windows VM module evaluates and seeds `/var/lib/windows-vm/windows11`, but first boot can still land in UEFI or an existing guest keeps its old size, boot state, or TPM state after a Nix change.
 **Cause:** `system/windows-vm.nix` makes the host-side QEMU wrapper declarative, but the installer ISO plus the mutable guest-owned qcow2, NVRAM, and TPM directories intentionally live outside the Nix store.

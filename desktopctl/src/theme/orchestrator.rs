@@ -633,6 +633,14 @@ mod tests {
     }
 
     #[test]
+    fn targets_for_color_scheme_include_openchamber() {
+        let registry = registry();
+        let state = dummy_state(true);
+        let targets = targets_for_key(&registry, "color_scheme", Some(&state));
+        assert!(targets.contains("openchamber"));
+    }
+
+    #[test]
     fn targets_for_color_scheme_include_zsh() {
         let registry = registry();
         let state = dummy_state(true);
