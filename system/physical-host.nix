@@ -10,6 +10,7 @@ in
     boot.kernelPackages = optimizedKernelPackages;
     boot.kernelParams = [ "mitigations=off" "transparent_hugepage=madvise" ];
     boot.kernelModules = [ "kvm-intel" ];
+    virtualisation.windowsVm.enable = true;
     boot.loader.grub = {
       enable = true;
       efiSupport = true;

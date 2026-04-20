@@ -1,7 +1,7 @@
 # Windows VM
 
-The desktop host now ships a declarative `virtualisation.windowsVm` module in
-`hosts/desktop/windows-vm.nix`.
+The physical hosts now ship a declarative `virtualisation.windowsVm` module in
+`system/windows-vm.nix`.
 
 This path is active work in progress, not abandoned documentation. The module is
 live today, but the guest media and mutable VM-owned state still require manual
@@ -13,12 +13,12 @@ operator steps.
 - A sparse qcow2 system disk at `/var/lib/windows-vm/windows11/system.qcow2`.
 - Microsoft-keyed OVMF NVRAM seeded from `pkgs.OVMFFull.fd`.
 - A writable TPM state directory for `swtpm`.
-- `kvm` group access for the desktop user so QEMU can use hardware
+- `kvm` group access for the configured normal user so QEMU can use hardware
   acceleration without running the VM as root.
 
 ## Defaults
 
-The current desktop host enables the module with these defaults:
+The current physical-host baseline enables the module with these defaults:
 
 - VM name: `windows11`
 - State dir: `/var/lib/windows-vm/windows11`

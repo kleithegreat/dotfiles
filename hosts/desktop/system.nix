@@ -1,9 +1,6 @@
 { config, pkgs, lib, ... }:
 
 {
-  imports = [
-    ./windows-vm.nix
-  ];
 
   nixpkgs.overlays = [
     # Temporary desktop-only NVIDIA open-kernel workaround for PR #996.
@@ -123,6 +120,4 @@
   environment.systemPackages = with pkgs; [
     nvidia-vaapi-driver  # VA-API backend for NVIDIA (LIBVA_DRIVER_NAME=nvidia)
   ];
-
-  virtualisation.windowsVm.enable = true;
 }
