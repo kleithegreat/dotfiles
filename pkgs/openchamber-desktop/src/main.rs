@@ -7,7 +7,7 @@ use std::env;
 use std::fs;
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -79,6 +79,7 @@ fn create_main_window(app: &tauri::AppHandle, url: &str) -> Result<()> {
         .title(WINDOW_TITLE)
         .inner_size(1280.0, 800.0)
         .min_inner_size(960.0, 640.0)
+        .decorations(false)
         .resizable(true)
         .build()
         .map(|_| ())
@@ -191,12 +192,25 @@ fn stop_local_server(app: &tauri::AppHandle) {
         return;
     }
 
-    let port = *state.port.lock().expect("server state mutex");
+    let port = state.port.lock().expect("server state mutex").take();
     if let Some(port) = port {
         if let Ok(openchamber) = resolve_openchamber_binary() {
-            let _ = stop_server(&openchamber, port);
+            let _ = request_stop_server(&openchamber, port);
         }
     }
+}
+
+fn request_stop_server(openchamber: &Path, port: u16) -> Result<()> {
+    // Let the window close immediately while the CLI drains its own shutdown path.
+    Command::new(openchamber)
+        .args(["stop", "--port", &port.to_string(), "--quiet"])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .with_context(|| format!("failed to request stop for {} on port {port}", openchamber.display()))?;
+
+    Ok(())
 }
 
 fn stop_server(openchamber: &Path, port: u16) -> Result<()> {
