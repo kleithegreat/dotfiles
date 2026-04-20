@@ -41,7 +41,7 @@ Home Manager layer as of 2026-04-19.
 | `hosts/desktop/system.nix` | Desktop overlay | Dedicated NVIDIA policy, the desktop's PREEMPT_FULL plus desktop-only dead-subsystem Kconfig culls and VM writeback/cache-pressure sysctls, desktop-only imports, storage mounts, desktop-only overlay imports, the desktop Windows VM toggle, and the desktop's forced `power-profiles-daemon` performance profile |
 | `hosts/desktop/windows-vm.nix` | Desktop Windows VM submodule | Defines `virtualisation.windowsVm`, seeds the desktop qcow2/OVMF/TPM state under `/var/lib/windows-vm/windows11` during activation, grants the desktop user `kvm` access, and installs the `windows-vm` QEMU launcher |
 | `home/default.nix` | Shared Home Manager root module | Shared optimized package derivations, the shared XDG user-dir policy, small activation/git/chromium glue, and imports of the concern-specific Home Manager modules |
-| `home/packages.nix` | Shared package module | The `home.packages` list plus the Home Manager-managed Vicinae service package wiring |
+| `home/packages.nix` | Shared package module | The shared `home.packages` selection for CLI tools, desktop apps, and media tooling plus the Home Manager-managed Vicinae service package wiring |
 | `home/xdg.nix` | Shared XDG module | Data-driven `xdg.configFile` source maps including the Home Manager-owned Ghostty/Vicinae base configs, host-specific Hyprland file selection through `host.hyprland.*`, the VS Code desktop-entry override, and MIME defaults |
 | `home/shell.nix` | Shell submodule | Zsh, shell tools, Git, aliases, shell helpers, and sourcing the generated `~/.config/zsh/theme-colors` fragment from `programs.zsh.initContent` |
 | `home/gtk.nix` | GTK submodule | GTK packages and small dconf defaults |
