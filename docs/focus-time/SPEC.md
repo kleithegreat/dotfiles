@@ -45,7 +45,7 @@ Additional read-only runtime inputs:
 
 | Concern | Writer | Reader |
 | --- | --- | --- |
-| Session installation | Home Manager (`home/default.nix`) plus Hyprland autostart | Hyprland session startup |
+| Session installation | Home Manager (`home/packages.nix` plus `home/default.nix` activation) plus Hyprland autostart | Hyprland session startup |
 | Hyprland socket | Hyprland | Focus daemon listener thread |
 | SQLite tables | Focus daemon only | No repo consumer reads them directly today |
 | JSON summary file | Focus daemon only | `SettingsFocusTimePane.qml` |

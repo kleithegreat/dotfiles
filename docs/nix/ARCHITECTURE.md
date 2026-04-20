@@ -2,16 +2,16 @@
 
 ## Scope
 
-Current implementation map for the flake, shared NixOS modules, optional
-distributed-build wiring, and embedded Home Manager layer as of 2026-04-19.
+Current implementation map for the flake, shared NixOS modules, and embedded
+Home Manager layer as of 2026-04-19.
 
 ## Flake Topology
 
 | Piece | Current implementation |
 | --- | --- |
-| Outputs | The `outputs` attrset in `flake.nix` exports `nixosConfigurations.vm`, `nixosConfigurations.laptop`, `nixosConfigurations.desktop`, plus `overlays.default`, `packages.x86_64-linux.desktopctl`, `packages.x86_64-linux.helium`, `packages.x86_64-linux.openchamber`, and `packages.x86_64-linux.openchamber-claude-bridge` |
+| Outputs | The `outputs` attrset in `flake.nix` exports `nixosConfigurations.laptop`, `nixosConfigurations.desktop`, plus `overlays.default`, `packages.x86_64-linux.desktopctl`, `packages.x86_64-linux.helium`, `packages.x86_64-linux.openchamber`, and `packages.x86_64-linux.openchamber-claude-bridge` |
 | Host constructor | `mkHost` in `flake.nix` wraps `nixpkgs.lib.nixosSystem` and passes the shared `host` fact record into both the NixOS and Home Manager module graphs |
-| Feature flags | The top-level `enableNativeOptimizations` and `enableDistributedBuilds` bindings in `flake.nix` stay shared across all hosts, with the VM explicitly opting out of native rebuilds and distributed builds currently disabled by default |
+| Feature flags | The top-level `enableNativeOptimizations` binding in `flake.nix` stays shared across both hosts |
 | Shared system layer | The top-level shared NixOS root module in `system/configuration.nix`, which imports the concern-specific shared modules under `system/` |
 | Home Manager entry | `home/default.nix`, embedded through the inline Home Manager module inside `mkHost` in `flake.nix`, which imports the concern-specific shared modules under `home/` |
 | Platform | `mkHost` in `flake.nix` passes `system = "x86_64-linux"` directly to `nixosSystem` |
@@ -34,11 +34,8 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-19.
 | `system/qt.nix` | Shared Qt module | The optimized `hyprqt6engine` derivation, NixOS `qt.enable`, Qt platform/plugin env, and the shared qtct/Kvantum/hyprqt6engine system packages |
 | `system/users.nix` | Shared user/admin module | The shared `programs.zsh` baseline, the `kevin` user declaration, and shared OpenSSH policy |
 | `system/services.nix` | Shared service module | PKI trust, firewall defaults, XDG portals, SDDM, root-only weekly `fstrim`, PipeWire/WirePlumber, Bluetooth, printing, Samba, Docker/libvirt, GeoClue, Tailscale, Mullvad, gnome-keyring, GVFS, dconf, Partition Manager, and the system-level Bitwarden install required for polkit wiring |
-| `system/distributed-builds.nix` | Optional shared distributed-build layer | When enabled, configures remote builders, the post-build cache push hook, `nix.sshServe`, and LAN-only SSH firewall rules |
-| `system/distributed-builds-data.nix` | Environment-specific builder/cache data | Authorized builder keys, host keys, current cache signing key, and the current cache URL override |
 | `system/native-optimizations.nix` | Shared helper | Centralizes the userspace `-O3 -march=native` / `target-cpu=native` flag sets, the kernel-specific `KCFLAGS=-O2 -march=native` / `KRUSTFLAGS=-Ctarget-cpu=native` flags, the per-host `native-optimized-<host>` feature marker, and the `overrideAttrs` helpers reused by the overlay, Hyprland-family packages, and Home Manager flake-input packages |
 | `system/native-kernel-packages.nix` | Shared helper | Derives the physical-host kernel package set from the stock nixpkgs `linux_6_18` source, rebuilds it with Clang + LLD ThinLTO, applies an explicit BORE patch stack plus a `tcp/bbr3` patch on top, bakes in the shared BORE/BBR3/HZ=1000/NO_HZ_IDLE/THP=madvise/MGLRU Kconfig overrides, layers host-local `KCFLAGS=-O2 -march=native` / `KRUSTFLAGS=-Ctarget-cpu=native`, and carries the same per-host native build feature tag used by the rest of the optimized package set |
-| `hosts/vm/system.nix` | VM overlay | VM boot, guest profile, and virtual disk layout |
 | `hosts/laptop/system.nix` | Laptop overlay | The laptop's voluntary-preempt plus Intel-only Kconfig trim, hybrid GPU policy, laptop-only services and overrides, fingerprint/PAM policy, laptop-scoped polkit rules, and laptop hardware policy |
 | `hosts/laptop/fan-control.nix` | Laptop-only hardware submodule | Dell SMM kernel module wiring, BIOS fan-control handoff, the explicit four-state `i8kmon.conf` profile with aggressive ramp thresholds, and the `i8kmon` systemd service |
 | `hosts/desktop/system.nix` | Desktop overlay | Dedicated NVIDIA policy, the desktop's PREEMPT_FULL plus desktop-only dead-subsystem Kconfig culls and VM writeback/cache-pressure sysctls, desktop-only imports, storage mounts, desktop-only overlay imports, the desktop Windows VM toggle, and the desktop's forced `power-profiles-daemon` performance profile |
@@ -138,8 +135,7 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-19.
   performance profile each time the daemon starts.
 - The shared system baseline now applies
   `systemd.services.tailscaled.serviceConfig.TimeoutStopSec = "15s"` on the
-  physical-host gate, bounding rare upstream stop hangs without changing the
-  shared VM profile.
+  physical-host gate, bounding rare upstream stop hangs on both current hosts.
 - The shared system baseline also sets
   `services.tailscale.extraSetFlags = [ "--operator=kevin" ]` so
   user-session Quickshell calls to `tailscale up` / `tailscale down` can manage
@@ -173,7 +169,7 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-19.
   `native-optimized-<host>` feature tag used by the rest of the native package
   set.
 - The shared system baseline gates a physical-host-only kernel runtime tuning
-  block on `hostName` and uses `boot.kernel.sysctl` to keep
+  block on `host.isPhysical` and uses `boot.kernel.sysctl` to keep
   `kernel.sched_autogroup_enabled = 1`, `net.core.default_qdisc = "fq"`, and
   `net.ipv4.tcp_congestion_control = "bbr"` on desktop and laptop only. The
   same module also defines `systemd.services.mglru-tuning`, which writes `y`
@@ -184,8 +180,8 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-19.
 - The shared system baseline now applies
   `boot.kernelParams = [ "mitigations=off" "transparent_hugepage=madvise" ]`
   on the physical-host gate, disabling the kernel's CPU side-channel
-  mitigation set and forcing THP to the `madvise` runtime mode on the bare-metal
-  laptop and desktop while leaving the VM profile unchanged.
+  mitigation set and forcing THP to the `madvise` runtime mode on both current
+  hosts.
 - That same physical-host block also owns `boot.kernelModules = [ "kvm-intel" ]`,
   `zramSwap = { enable = true; memoryPercent = 50; }`,
   `hardware.enableRedistributableFirmware = true`, and
@@ -220,19 +216,6 @@ distributed-build wiring, and embedded Home Manager layer as of 2026-04-19.
   `boot.loader.efi`, and `networking.useDHCP = lib.mkDefault true` now live in
   `system/configuration.nix` instead of being duplicated in each bare-metal host
   module.
-
-## Distributed Builds
-
-The distributed-build subsystem is present in the shared module graph even
-though the repo currently ships with it disabled.
-
-| Surface | Current implementation |
-| --- | --- |
-| Flag state | The `enableDistributedBuilds = false` binding in `flake.nix` leaves the distributed-build module evaluated but inactive |
-| Shared module import | `system/configuration.nix` always imports `./distributed-builds.nix` |
-| Host gating | `system/distributed-builds.nix` only activates the subsystem inside the `enableDistributedBuilds'` host gate for `desktop` or `laptop` |
-| Cache URL | The `cacheUrl` fallback in `system/distributed-builds.nix` points at `http://<homelab>:5000`, but `system/distributed-builds-data.nix` currently overrides it to `http://192.168.8.153:5050` |
-| Reference docs | `docs/nix/distributed-builds.md` documents the repo-side contract, and `docs/nix/homelab-builder-setup.md` documents the Ubuntu homelab setup that matches the current `5050` override |
 
 ## Home Manager Deployment Model
 

@@ -4,11 +4,11 @@
 **Symptom:** Evaluation blows up if the TeX Live package set pulls in `scheme-medium`.
 **Cause:** On this pinned nixpkgs revision, `scheme-medium` pulls `asymptote` through `collection-binextra` and the evaluation recurses.
 **Status:** Workaround in place
-**Resolution:** `home/default.nix` uses `scheme-small` plus explicit extras like `latexmk` and `tikz-cd`.
+**Resolution:** `home/default.nix` builds the shared TeX Live environment with `scheme-small` plus explicit extras like `latexmk` and `tikz-cd`.
 
 ## The shared `kevin` account keeps a checked-in bootstrap password on purpose
 **Symptom:** Audits keep flagging `users.users.kevin.initialPassword` in `system/configuration.nix` as if it were an accidental secret leak.
-**Cause:** The shared baseline intentionally keeps a reproducible local bootstrap login path for fresh installs and VM bring-up, while SSH password auth remains disabled separately in the same shared system module.
+**Cause:** The shared baseline intentionally keeps a reproducible local bootstrap login path for fresh installs, while SSH password auth remains disabled separately in the same shared system module.
 **Status:** Intentional bootstrap state
 **Resolution:** Treat the checked-in `initialPassword` as deliberate bootstrap behavior, not as undocumented drift. If the bootstrap path changes, document the replacement in this domain instead of silently removing it and leaving future agents to guess whether it was accidental.
 
@@ -25,16 +25,16 @@
 **Resolution:** `overlays/native-optimized.nix` deliberately leaves `zstd` and `lz4` unoptimized unless a separate opt-in path is added later.
 
 ## Native-optimized derivations must carry host-specific `requiredSystemFeatures`
-**Symptom:** Desktop and laptop can otherwise build different native outputs at the same store path, or remote scheduling can send a `-march=native` build to the wrong machine.
+**Symptom:** Desktop and laptop can otherwise build different native outputs at the same store path even when the literal optimization flags match.
 **Cause:** `-march=native` and `target-cpu=native` depend on the builder CPU, so the literal flag strings are not enough to distinguish safe cache/scheduler boundaries across hosts.
 **Status:** Workaround in place
-**Resolution:** `system/native-optimizations.nix`, `overlays/native-optimized.nix`, and `system/native-kernel-packages.nix` tag native derivations with `requiredSystemFeatures = [ "native-optimized-<host>" ]`, and `system/distributed-builds.nix` advertises only the current host's native feature while `enableNativeOptimizations` is enabled.
+**Resolution:** `system/native-optimizations.nix`, `overlays/native-optimized.nix`, and `system/native-kernel-packages.nix` tag native derivations with `requiredSystemFeatures = [ "native-optimized-<host>" ]`, and `system/configuration.nix` advertises only the current host's native feature through `nix.settings.system-features` while `enableNativeOptimizations` is enabled.
 
 ## Host `system-features` must not advertise `native-optimized-*` unconditionally
 **Symptom:** Stock `x86_64-linux` builds stop behaving like generic cacheable builds when a host always claims a native-only feature.
 **Cause:** Builder capability leakage changes scheduling and cacheability even when the optimization overlay is off.
 **Status:** Workaround in place
-**Resolution:** `system/distributed-builds.nix` appends `native-optimized-${hostName}` only while `enableNativeOptimizations` is enabled.
+**Resolution:** `system/configuration.nix` appends `native-optimized-${host.name}` only while `enableNativeOptimizations` is enabled.
 
 ## Flake-input package overrides share the native helper path
 **Symptom:** Hyprland, Hyprland plugins, `hyprqt6engine`, `opencode`, `snappy-switcher`, and Vicinae would otherwise diverge from the native optimization policy used for the selected nixpkgs packages.
@@ -70,13 +70,13 @@
 **Symptom:** `lscpu`, `/sys/devices/system/cpu/vulnerabilities/*`, or boot logs report that Spectre, Meltdown, and related CPU side-channel mitigations are disabled on the laptop and desktop.
 **Cause:** `system/configuration.nix` now sets `boot.kernelParams = [ "mitigations=off" ]` on the shared physical-host gate.
 **Status:** Intentional exception
-**Resolution:** Keep the parameter on the shared physical-host baseline only if the performance tradeoff is intentional. Remove that physical-host kernel param in `system/configuration.nix` to restore the kernel's default mitigation policy. The VM host stays on the default path because it is outside that gate.
+**Resolution:** Keep the parameter on the shared physical-host baseline only if the performance tradeoff is intentional. Remove that physical-host kernel param in `system/configuration.nix` to restore the kernel's default mitigation policy.
 
 ## Physical-host local builds are serialized on purpose
 **Symptom:** Local Nix builds on desktop and laptop run one derivation at a time even though the machines have many CPU threads.
 **Cause:** `system/configuration.nix` now sets `nix.settings.max-jobs = 1` on the shared physical-host gate. The repo leaves `cores = 0`, so a single heavy derivation can still use the full machine; this avoids stacking multiple already-parallel builds on top of each other.
 **Status:** Intentional exception
-**Resolution:** Keep the physical hosts on `max-jobs = 1` unless measurement shows a real win from concurrent derivations. If you want more concurrency later, change that shared physical-host setting in `system/configuration.nix` rather than widening the VM profile too.
+**Resolution:** Keep the physical hosts on `max-jobs = 1` unless measurement shows a real win from concurrent derivations. If you want more concurrency later, change that shared physical-host setting in `system/configuration.nix` directly.
 
 ## Narrow unfree predicates must cover transitive module closures, not just package lists
 **Symptom:** Replacing `allowUnfree = true` with a small name allowlist still fails evaluation on packages that are not listed directly in `home.packages` or `environment.systemPackages`.

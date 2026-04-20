@@ -107,7 +107,6 @@ let
 in
 {
   imports = [
-    ./distributed-builds.nix
     (import ./physical-host.nix {
       inherit config lib pkgs host enableNativeOptimizations;
     })
@@ -128,6 +127,7 @@ in
 
       nix.settings = {
         experimental-features = [ "nix-command" "flakes" ];
+        system-features = lib.mkIf enableNativeOptimizations (lib.mkAfter [ nativeOptimizations.hostFeature ]);
         substituters = [
           "https://cache.nixos.org"
           "https://hyprland.cachix.org"
