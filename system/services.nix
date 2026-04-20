@@ -161,6 +161,7 @@ in
   programs.partition-manager.enable = true;
 
   environment.systemPackages = [
+    sddmTheme
     pkgs.bitwarden-desktop
   ];
 }
