@@ -1,6 +1,132 @@
 { config, pkgs, lib, ... }:
 
-{
+let
+  laptopPowerProfile = pkgs.writeShellApplication {
+    name = "laptop-power-profile";
+    runtimeInputs = with pkgs; [ coreutils gnugrep gnused config.services.power-profiles-daemon.package ];
+    text = ''
+      set -euo pipefail
+
+      profile_root=/sys/devices/system/cpu
+
+      cpu_numbers() {
+        for cpu_dir in "$profile_root"/cpu[0-9]*; do
+          cpu_name=''${cpu_dir##*/cpu}
+          printf '%s\n' "$cpu_name"
+        done | sort -n
+      }
+
+      thread_sibling_count() {
+        tr ',' '\n' < "$1" | wc -l
+      }
+
+      p_core_cpus() {
+        for cpu in $(cpu_numbers); do
+          siblings="$profile_root/cpu$cpu/topology/thread_siblings_list"
+          [ -f "$siblings" ] || continue
+          if [ "$(thread_sibling_count "$siblings")" -gt 1 ]; then
+            printf '%s\n' "$cpu"
+          fi
+        done
+      }
+
+      all_hotpluggable_cpus() {
+        for cpu in $(cpu_numbers); do
+          online_path="$profile_root/cpu$cpu/online"
+          [ -f "$online_path" ] && printf '%s\n' "$cpu"
+        done
+      }
+
+      is_efficiency_mode() {
+        local cpu online_path
+        local saw_hotpluggable_p_core=0
+
+        for cpu in $(p_core_cpus); do
+          online_path="$profile_root/cpu$cpu/online"
+          if [ -f "$online_path" ]; then
+            saw_hotpluggable_p_core=1
+            if [ "$(cat "$online_path")" != "0" ]; then
+              return 1
+            fi
+          fi
+        done
+
+        [ "$saw_hotpluggable_p_core" -eq 1 ]
+      }
+
+      set_cpu_online() {
+        local cpu="$1"
+        local value="$2"
+        local online_path="$profile_root/cpu$cpu/online"
+
+        [ -f "$online_path" ] || return 0
+        printf '%s' "$value" > "$online_path"
+      }
+
+      enable_all_hotpluggable_cpus() {
+        local cpu
+        for cpu in $(all_hotpluggable_cpus); do
+          set_cpu_online "$cpu" 1
+        done
+      }
+
+      enable_standard_profile() {
+        local profile="$1"
+
+        enable_all_hotpluggable_cpus
+        powerprofilesctl set "$profile"
+      }
+
+      enable_efficiency_profile() {
+        local cpu
+
+        enable_all_hotpluggable_cpus
+        powerprofilesctl set power-saver
+
+        for cpu in $(p_core_cpus); do
+          set_cpu_online "$cpu" 0
+        done
+      }
+
+      get_profile() {
+        if is_efficiency_mode; then
+          printf 'e-core-only\n'
+        else
+          powerprofilesctl get
+        fi
+      }
+
+      usage() {
+        printf 'usage: laptop-power-profile get | set <performance|balanced|power-saver|e-core-only>\n' >&2
+        exit 2
+      }
+
+      case "''${1:-}" in
+        get)
+          [ "$#" -eq 1 ] || usage
+          get_profile
+          ;;
+        set)
+          [ "$#" -eq 2 ] || usage
+          case "$2" in
+            performance|balanced|power-saver)
+              enable_standard_profile "$2"
+              ;;
+            e-core-only)
+              enable_efficiency_profile
+              ;;
+            *)
+              usage
+              ;;
+          esac
+          ;;
+        *)
+          usage
+          ;;
+      esac
+    '';
+  };
+in {
   imports = [
     ./fan-control.nix
   ];
@@ -104,8 +230,9 @@
   # without bouncing through the external auth agent on every action.
   # smbios-battery-ctl needs root to read SMBIOS tables (WMI/dcdbas), but
   # --get-charging-cfg is read-only.  Auto-approve it so the Quickshell
-  # power-profile popup doesn't trigger an auth dialog on every open.
-  # --set-* operations are unaffected and still require authentication.
+  # power-profile popup doesn't trigger an auth dialog on every open. The
+  # laptop-only power-profile helper also runs through pkexec so the shell can
+  # switch the P-core mask without prompting.
   security.polkit.extraConfig = ''
     polkit.addRule(function(action, subject) {
       if (action.id === "net.reactivated.fprint.device.enroll" &&
@@ -117,6 +244,12 @@
           /\/smbios-battery-ctl$/.test(action.lookup("program")) &&
           /\bsmbios-battery-ctl\s+--get-charging-cfg\s*$/.test(action.lookup("command_line")) &&
           subject.isInGroup("users")) {
+        return polkit.Result.YES;
+      }
+
+      if (action.id === "org.freedesktop.policykit.exec" &&
+          /\/laptop-power-profile$/.test(action.lookup("program")) &&
+          subject.user === "kevin" && subject.local && subject.active) {
         return polkit.Result.YES;
       }
     });
@@ -133,5 +266,6 @@
 
   environment.systemPackages = with pkgs; [
     libsmbios
+    laptopPowerProfile
   ];
 }

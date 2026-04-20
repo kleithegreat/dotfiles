@@ -156,6 +156,12 @@
 **Status:** Workaround in place
 **Resolution:** `hosts/laptop/system.nix` and `hosts/desktop/system.nix` set `systemd.services.tailscaled.serviceConfig.TimeoutStopSec = "15s";`, which stays above observed normal stop times while bounding worst-case shutdown stalls.
 
+## The laptop's `e-core-only` profile still keeps `cpu0` online
+**Symptom:** Selecting the laptop's `e-core-only` power profile from Quickshell does not fully remove every P-core thread; one P-core thread remains online.
+**Cause:** On this XPS 15 9520 kernel/runtime combination, `cpu0` has no `/sys/devices/system/cpu/cpu0/online` control, so Linux does not expose hot-unplug for the boot CPU even though the other P-core sibling threads are hotpluggable.
+**Status:** Intentional limitation
+**Resolution:** `hosts/laptop/system.nix` installs `laptop-power-profile`, which detects P-cores from `topology/thread_siblings_list`, re-enables all hotpluggable CPUs for the normal `performance` / `balanced` / `power-saver` modes, and offlines only the hotpluggable P-core threads for `e-core-only`. Treat that mode as an E-core-biased profile, not a literal "all P-cores gone" state.
+
 ## Helium tarballs need manual Qt wrapper handling
 **Symptom:** The Helium package fails during the Qt pre-hook with "depends on qtbase, but no wrapping behavior was specified", or `autoPatchelfHook` complains about missing Qt5 SONAMEs from the bundled compatibility shim.
 **Cause:** Upstream `helium-linux` releases currently ship both a Qt6 integration shim that the browser still uses and a dormant `libqt5_shim.so` that is no longer backed by runtime Qt5 libraries. The package also launches through the upstream `helium-wrapper` shell script, so it is not a normal `wrapQtAppsHook` target.

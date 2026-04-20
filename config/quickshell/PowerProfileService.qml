@@ -8,6 +8,16 @@ QtObject {
     property string currentProfile: "unknown"
     property string pendingProfile: ""
     property string backend: "none"
+    readonly property var availableProfiles: {
+        let profiles = [
+            { name: "performance", label: "Performance", icon: "../icons/flame.svg" },
+            { name: "balanced", label: "Balanced", icon: "../icons/speed.svg" },
+            { name: "power-saver", label: "Power Saver", icon: "../icons/leaf.svg" }
+        ];
+        if (backend === "laptop-helper")
+            profiles.push({ name: "e-core-only", label: "E-Cores", icon: "../icons/leaf-filled.svg" });
+        return profiles;
+    }
     property string chargeMode: "unknown"
     property int chargeStart: -1
     property int chargeStop: -1
@@ -43,7 +53,7 @@ QtObject {
     }
     onCurrentProfileChanged: pendingProfile = ""
 
-    function detect() { ppctlProc.running = true; }
+    function detect() { helperProc.running = true; }
     function detectChargeLimit() {
         if (chargeCfgProc.running || chargeSetProc.running) return;
         chargeLimitError = "";
@@ -89,7 +99,9 @@ QtObject {
 
     function setProfile(profile) {
         pendingProfile = profile;
-        if (backend === "ppctl") {
+        if (backend === "laptop-helper") {
+            setProc.command = ["pkexec", "laptop-power-profile", "set", profile];
+        } else if (backend === "ppctl") {
             setProc.command = ["powerprofilesctl", "set", profile];
         } else {
             let m = profile === "performance" ? "performance" : (profile === "power-saver" ? "powersave" : "reset");
@@ -135,6 +147,11 @@ QtObject {
     property Timer refreshTimer: Timer { interval: 1500; onTriggered: root.detect() }
     property Timer pendingTimeout: Timer { interval: 3000; onTriggered: root.pendingProfile = "" }
 
+    property Process helperProc: Process {
+        command: ["laptop-power-profile", "get"]; running: false
+        stdout: SplitParser { onRead: (line) => { root.backend = "laptop-helper"; root.currentProfile = line.trim(); } }
+        onExited: (code) => { if (code !== 0) ppctlProc.running = true; }
+    }
     property Process ppctlProc: Process {
         command: ["powerprofilesctl", "get"]; running: false
         stdout: SplitParser { onRead: (line) => { root.backend = "ppctl"; root.currentProfile = line.trim(); } }

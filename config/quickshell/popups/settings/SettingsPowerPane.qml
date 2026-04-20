@@ -44,11 +44,7 @@ Components.WheelFlickable {
             spacing: 6
 
             Repeater {
-                model: [
-                    { name: "performance", label: "Performance", icon: "../icons/flame.svg" },
-                    { name: "balanced",    label: "Balanced",    icon: "../icons/speed.svg" },
-                    { name: "power-saver", label: "Power Saver", icon: "../icons/leaf.svg" }
-                ]
+                model: PowerProfileService.availableProfiles
                 Rectangle {
                     id: ppBtn
                     required property var modelData
@@ -109,6 +105,16 @@ Components.WheelFlickable {
                     }
                 }
             }
+        }
+
+        Text {
+            visible: PowerProfileService.backend === "laptop-helper"
+            text: "E-Cores leaves the boot P-core online because Linux does not expose cpu0 hot-unplug on this host."
+            color: Theme.fg4
+            font.family: Theme.systemFamily
+            font.pixelSize: Theme.fontSizeSmall - 1
+            wrapMode: Text.WordWrap
+            Layout.fillWidth: true
         }
 
         // ── Battery ──────────────────────────────────────────
