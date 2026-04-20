@@ -3,7 +3,7 @@
 ## Scope
 
 Current implementation map for solar scheduling, location resolution, and
-cross-domain side effects as of 2026-04-13.
+cross-domain side effects as of 2026-04-20.
 
 For package installation and Hyprland session startup ownership, see
 `docs/nix/ARCHITECTURE.md` and `docs/hyprland/ARCHITECTURE.md`.
@@ -14,12 +14,12 @@ For package installation and Hyprland session startup ownership, see
 | --- | --- | --- |
 | `config/hypr/autostart.conf` | Starts `desktopctl daemon` as part of the Hyprland session | The `exec-once = desktopctl daemon &` entry |
 | `desktopctl/src/daemon/mod.rs` | Starts the solar scheduler and socket server with one shared night-light controller alongside the focus tracker | The daemon `run()` / `run_async()` bootstrap |
-| `desktopctl/src/daemon/night_light.rs` | Stores the live `auto` / `on` / `off` mode, remembers the manual temperature, derives the effective state from solar status, and is the only live writer of `hyprsunset` | `Controller`, `desired_state()`, and `apply_desired_state()` in `desktopctl/src/daemon/night_light.rs` |
+| `desktopctl/src/daemon/night_light.rs` | Stores the live `auto` / `on` / `off` mode, remembers the manual temperature, derives the effective state from solar status, tracks pending scheduled `dark_hint` edge transitions, and is the only live writer of `hyprsunset` | `Controller`, `dark_hint_transition()`, `desired_state()`, and `apply_desired_state()` in `desktopctl/src/daemon/night_light.rs` |
 | `desktopctl/src/daemon/solar.rs` | Recomputes solar status at startup, on every solar event, on `SIGUSR1`, and on the 2-hour repair tick, then hands the result to the night-light controller for reconciliation | The scheduler loop in `desktopctl/src/daemon/solar.rs` |
 | `desktopctl/src/daemon/server.rs` | Exposes the daemon-owned `night_light.status`, `night_light.set`, and `night_light.toggle` methods over the Unix socket | The socket-method handlers in `desktopctl/src/daemon/server.rs` |
 | `desktopctl/src/night_light.rs` | Implements the `desktopctl night-light` CLI, socket client helpers, fallback status, and `hyprsunset` process inspection / start / stop helpers | The CLI commands and `hyprsunset` helper functions in `desktopctl/src/night_light.rs` |
-| `desktopctl/src/solar.rs` | Resolves coordinates, rejects non-finite or out-of-range cache/GeoClue coordinates, computes sunrise/sunset, derives the scheduled state, and exposes `desktopctl sun status` | The location-resolution helpers and `sun status` implementation in `desktopctl/src/solar.rs` |
-| `desktopctl/src/theme/mod.rs` | Handles `dark_hint` persistence and target application for both daemon-triggered writes and direct theme CLI writes | `set_dark_hint()` plus the theme command handlers in `desktopctl/src/theme/mod.rs` |
+| `desktopctl/src/solar.rs` | Resolves coordinates, rejects non-finite or out-of-range cache/GeoClue coordinates, computes sunrise/sunset, derives the separate night-light and `dark_hint` schedules, and exposes `desktopctl sun status` | The location-resolution helpers and `sun status` implementation in `desktopctl/src/solar.rs` |
+| `desktopctl/src/theme/mod.rs` | Handles `dark_hint` persistence and target application for both daemon-triggered scheduled writes and direct theme CLI writes | `set_dark_hint()` plus the theme command handlers in `desktopctl/src/theme/mod.rs` |
 | `desktopctl/src/theme/targets/gtk.rs` | Applies GTK dark-preference side effects through dconf when `dark_hint` changes | The `on_apply()` implementation in `desktopctl/src/theme/targets/gtk.rs` |
 
 ## Neighbor And Requester Surfaces
@@ -45,16 +45,17 @@ For package installation and Hyprland session startup ownership, see
    `sun-schedule/location.json`, then `where-am-i`, then the hardcoded
    fallback `30.6280, -96.3344`, rejecting any non-finite or out-of-range
    coordinates before treating them as authoritative.
-4. The schedule-derivation helpers in `desktopctl/src/solar.rs` derive sunrise, sunset, current night
-   state, dark-hint schedule state, and the next event timestamps for the
-   current location.
+4. The schedule-derivation helpers in `desktopctl/src/solar.rs` derive sunrise,
+   sunset, current night state, the local-clock `dark_hint` window state, and
+   the next sunrise / sunset / dark-on / dark-off timestamps for the current
+   location.
 5. `solar::run()` in `desktopctl/src/daemon/solar.rs` stores that scheduled state in the
    shared controller and immediately asks the controller to reconcile the
    effective mode.
 6. `Controller::update_solar_status` in `desktopctl/src/daemon/night_light.rs`
    compares the new solar status with the previous one and marks a pending
-   `dark_hint` enable only when the scheduler has just entered the late-night
-   dark-on window.
+   `dark_hint` update only when the scheduler has just crossed a 23:00 dark-on
+   or 06:00 dark-off edge.
 7. `desired_state()` and `apply_desired_state()` in `desktopctl/src/daemon/night_light.rs` derive the live desired
    `hyprsunset` state from the current mode: `auto` follows the solar night
    window, `on` forces `hyprsunset` on, and `off` forces `hyprsunset` off.
@@ -62,8 +63,9 @@ For package installation and Hyprland session startup ownership, see
    uses the `hyprsunset` and `dark_hint` helpers in `desktopctl/src/night_light.rs`
    to inspect the current process, update a running `hyprsunset` instance
    through its IPC socket when only the temperature changed, fall back to a
-   restart when IPC is unavailable, and apply the pending late-night
-   `dark_hint` enable once without clearing it again at sunrise.
+   restart when IPC is unavailable, and apply the pending scheduled
+   `dark_hint` edge once without reapplying the same value throughout the rest
+   of that window.
 9. Independent of the daemon, `desktopctl/src/theme/mod.rs` still lets
    `desktopctl theme set dark_hint ...` and preset application persist
    `dark_hint` directly.
@@ -80,6 +82,6 @@ For package installation and Hyprland session startup ownership, see
 | Resource | Current writer path | Current reader path |
 | --- | --- | --- |
 | `hyprsunset` process and IPC socket | `desktopctl/src/daemon/night_light.rs` via the helper functions in `desktopctl/src/night_light.rs` | `desktopctl/src/night_light.rs` inspects the process plus `~/.hyprsunset.sock` for live temperature state; Quickshell reads the daemon-reported status instead of polling either directly |
-| `$XDG_DATA_HOME/desktopctl/desktopctl.db` `theme_state.dark_hint` row | `desktopctl/src/theme/mod.rs`, called either by the daemon controller when the scheduler enters the late-night dark-on window or directly by `desktopctl theme` surfaces | `desktopctl theme` reloads it for every mutation; Quickshell settings reads it through `desktopctl theme status --json` |
+| `$XDG_DATA_HOME/desktopctl/desktopctl.db` `theme_state.dark_hint` row | `desktopctl/src/theme/mod.rs`, called either by the daemon controller when the scheduler crosses the 23:00 dark-on or 06:00 dark-off edge or directly by `desktopctl theme` surfaces | `desktopctl theme` reloads it for every mutation; Quickshell settings reads it through `desktopctl theme status --json` |
 | GTK dconf interface keys | `desktopctl/src/theme/targets/gtk.rs` via `on_apply()` | GTK apps and any consumer honoring the desktop color-scheme hint |
 | `~/.config/quickshell/GeneratedTheme.json` | `desktopctl/src/theme/targets/quickshell.rs` | `config/quickshell/Theme.qml` watches the file. `dark_hint` does not flow through this file today |
