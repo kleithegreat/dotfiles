@@ -3,7 +3,7 @@ use crate::{
     theme::{
         self, json,
         schema::{ColorScheme, ThemeState},
-        targets::{Assembly, GeneratedContent, Target, TargetRegistry},
+        targets::{Assembly, GeneratedContent, Target, TargetMetadata, TargetRegistry},
     },
 };
 use serde_json::{Map, Value};
@@ -13,52 +13,21 @@ use std::{
     path::{Path, PathBuf},
 };
 
-const COLOR_TARGETS: [&str; 18] = [
-    "alacritty",
-    "ghostty",
-    "gtksourceview",
-    "hyprland",
-    "zathura",
-    "quickshell",
-    "neovim",
-    "opencode",
-    "starship",
-    "tmux",
-    "gtk",
-    "qt",
-    "vicinae",
-    "bat",
-    "vscode",
-    "spicetify",
-    "snappy_switcher",
-    "zsh",
+const FONT_SCOPE_KEYS: [&str; 13] = [
+    "system_font",
+    "mono_font",
+    "font_size",
+    "mono_font_size",
+    "quickshell_font_size_offset",
+    "gtk_font_size_offset",
+    "qt_font_size_offset",
+    "alacritty_mono_font_size_offset",
+    "ghostty_mono_font_size_offset",
+    "gtk_mono_font_size_offset",
+    "neovide_mono_font_size_offset",
+    "qt_mono_font_size_offset",
+    "vscode_mono_font_size_offset",
 ];
-const WALLPAPER_TARGETS: [&str; 1] = ["wallpaper"];
-const SYSTEM_FONT_TARGETS: [&str; 6] = [
-    "chromium",
-    "quickshell",
-    "gtk",
-    "qt",
-    "vicinae",
-    "snappy_switcher",
-];
-const MONO_FONT_TARGETS: [&str; 8] = [
-    "alacritty",
-    "chromium",
-    "ghostty",
-    "gtk",
-    "neovide",
-    "quickshell",
-    "qt",
-    "vscode",
-];
-const ICON_THEME_TARGETS: [&str; 3] = ["gtk", "qt", "snappy_switcher"];
-const CURSOR_TARGETS: [&str; 1] = ["cursor"];
-const FONT_SIZE_TARGETS: [&str; 4] = ["gtk", "qt", "quickshell", "snappy_switcher"];
-const MONO_FONT_SIZE_TARGETS: [&str; 6] =
-    ["alacritty", "ghostty", "gtk", "neovide", "qt", "vscode"];
-const DARK_HINT_TARGETS: [&str; 1] = ["gtk"];
-const HYPR_APPEARANCE_TARGETS: [&str; 1] = ["hypr_appearance"];
 
 pub fn header(colors: &ColorScheme, comment: &str) -> String {
     format!(
@@ -181,73 +150,50 @@ pub fn apply_all(
     apply_targets(registry, names, colors, state, runtime)
 }
 
-pub fn color_targets() -> BTreeSet<String> {
-    named_targets(COLOR_TARGETS)
+pub fn color_targets(registry: &TargetRegistry, state: &ThemeState) -> BTreeSet<String> {
+    targets_for_key(registry, "color_scheme", Some(state))
 }
 
-pub fn font_targets() -> BTreeSet<String> {
-    named_targets(
-        SYSTEM_FONT_TARGETS
-            .iter()
-            .chain(MONO_FONT_TARGETS.iter())
-            .copied(),
-    )
+pub fn font_targets(registry: &TargetRegistry) -> BTreeSet<String> {
+    targets_for_keys(registry, FONT_SCOPE_KEYS, None)
 }
 
-pub fn targets_for_key(state_key: &str, state: Option<&ThemeState>) -> BTreeSet<String> {
-    let mut targets = match state_key {
-        "color_scheme" => named_targets(
-            COLOR_TARGETS
-                .into_iter()
-                .chain(std::iter::once("wallpaper")),
-        ),
-        _ => named_targets(dependency_targets(state_key).iter().copied()),
-    };
+pub fn targets_for_key(
+    registry: &TargetRegistry,
+    state_key: &str,
+    state: Option<&ThemeState>,
+) -> BTreeSet<String> {
+    targets_for_keys(registry, [state_key], state)
+}
 
-    if state_key == "color_scheme" && matches!(state, Some(state) if !state.filter_wallpaper) {
+pub fn targets_for_keys<'a, I>(
+    registry: &TargetRegistry,
+    state_keys: I,
+    state: Option<&ThemeState>,
+) -> BTreeSet<String>
+where
+    I: IntoIterator<Item = &'a str>,
+{
+    let state_keys = state_keys.into_iter().collect::<Vec<_>>();
+    let mut targets = registry
+        .iter()
+        .filter_map(|(name, target)| {
+            target_consumes_any_key(target.metadata(), &state_keys).then(|| name.to_owned())
+        })
+        .collect::<BTreeSet<_>>();
+
+    if state_keys.contains(&"color_scheme") && matches!(state, Some(state) if !state.filter_wallpaper) {
         targets.remove("wallpaper");
     }
 
     targets
 }
 
-fn named_targets<I>(names: I) -> BTreeSet<String>
-where
-    I: IntoIterator<Item = &'static str>,
-{
-    names.into_iter().map(str::to_owned).collect()
-}
-
-fn dependency_targets(state_key: &str) -> &'static [&'static str] {
-    match state_key {
-        "wallpaper" | "filter_wallpaper" => &WALLPAPER_TARGETS,
-        "system_font" => &SYSTEM_FONT_TARGETS,
-        "mono_font" => &MONO_FONT_TARGETS,
-        "icon_theme" => &ICON_THEME_TARGETS,
-        "cursor_theme" | "cursor_size" => &CURSOR_TARGETS,
-        "font_size" => &FONT_SIZE_TARGETS,
-        "quickshell_font_size_offset" => &["quickshell"],
-        "gtk_font_size_offset" => &["gtk"],
-        "qt_font_size_offset" => &["qt"],
-        "chromium_font_size_offset" => &[],
-        "mono_font_size" => &MONO_FONT_SIZE_TARGETS,
-        "alacritty_mono_font_size_offset" => &["alacritty"],
-        "ghostty_mono_font_size_offset" => &["ghostty"],
-        "gtk_mono_font_size_offset" => &["gtk"],
-        "neovide_mono_font_size_offset" => &["neovide"],
-        "qt_mono_font_size_offset" => &["qt"],
-        "vscode_mono_font_size_offset" => &["vscode"],
-        "dark_hint" => &DARK_HINT_TARGETS,
-        "hypr_gaps_in"
-        | "hypr_gaps_out"
-        | "hypr_border_size"
-        | "hypr_rounding"
-        | "hypr_blur_enabled"
-        | "hypr_blur_size"
-        | "hypr_blur_passes"
-        | "hypr_animations_enabled" => &HYPR_APPEARANCE_TARGETS,
-        _ => &[],
-    }
+fn target_consumes_any_key(metadata: &TargetMetadata, state_keys: &[&str]) -> bool {
+    metadata
+        .state_keys
+        .iter()
+        .any(|key| state_keys.iter().any(|wanted| key == wanted))
 }
 
 fn apply_target_quiet(
@@ -656,37 +602,46 @@ mod tests {
         std::env::temp_dir().join(format!("desktopctl-theme-{name}-{nanos}"))
     }
 
+    fn registry() -> TargetRegistry {
+        crate::theme::targets::build_registry().expect("registry builds")
+    }
+
     #[test]
     fn targets_for_color_scheme_skips_wallpaper_when_filtering_is_disabled() {
+        let registry = registry();
         let state = dummy_state(false);
-        let targets = targets_for_key("color_scheme", Some(&state));
+        let targets = targets_for_key(&registry, "color_scheme", Some(&state));
         assert!(!targets.contains("wallpaper"));
     }
 
     #[test]
     fn targets_for_color_scheme_keeps_wallpaper_when_filtering_is_enabled() {
+        let registry = registry();
         let state = dummy_state(true);
-        let targets = targets_for_key("color_scheme", Some(&state));
+        let targets = targets_for_key(&registry, "color_scheme", Some(&state));
         assert!(targets.contains("wallpaper"));
     }
 
     #[test]
     fn targets_for_color_scheme_include_opencode() {
+        let registry = registry();
         let state = dummy_state(true);
-        let targets = targets_for_key("color_scheme", Some(&state));
+        let targets = targets_for_key(&registry, "color_scheme", Some(&state));
         assert!(targets.contains("opencode"));
     }
 
     #[test]
     fn targets_for_color_scheme_include_zsh() {
+        let registry = registry();
         let state = dummy_state(true);
-        let targets = targets_for_key("color_scheme", Some(&state));
+        let targets = targets_for_key(&registry, "color_scheme", Some(&state));
         assert!(targets.contains("zsh"));
     }
 
     #[test]
     fn quickshell_font_size_offset_targets_only_quickshell() {
-        let targets = targets_for_key("quickshell_font_size_offset", None)
+        let registry = registry();
+        let targets = targets_for_key(&registry, "quickshell_font_size_offset", None)
             .into_iter()
             .collect::<Vec<_>>();
         assert_eq!(targets, vec!["quickshell".to_owned()]);
@@ -694,7 +649,8 @@ mod tests {
 
     #[test]
     fn gtk_font_size_offset_targets_only_gtk() {
-        let targets = targets_for_key("gtk_font_size_offset", None)
+        let registry = registry();
+        let targets = targets_for_key(&registry, "gtk_font_size_offset", None)
             .into_iter()
             .collect::<Vec<_>>();
         assert_eq!(targets, vec!["gtk".to_owned()]);
@@ -702,7 +658,8 @@ mod tests {
 
     #[test]
     fn qt_font_size_offset_targets_only_qt() {
-        let targets = targets_for_key("qt_font_size_offset", None)
+        let registry = registry();
+        let targets = targets_for_key(&registry, "qt_font_size_offset", None)
             .into_iter()
             .collect::<Vec<_>>();
         assert_eq!(targets, vec!["qt".to_owned()]);
@@ -710,7 +667,8 @@ mod tests {
 
     #[test]
     fn chromium_font_size_offset_has_no_targets() {
-        let targets = targets_for_key("chromium_font_size_offset", None)
+        let registry = registry();
+        let targets = targets_for_key(&registry, "chromium_font_size_offset", None)
             .into_iter()
             .collect::<Vec<_>>();
         assert!(targets.is_empty());
@@ -718,19 +676,22 @@ mod tests {
 
     #[test]
     fn font_size_does_not_target_chromium() {
-        let targets = targets_for_key("font_size", None);
+        let registry = registry();
+        let targets = targets_for_key(&registry, "font_size", None);
         assert!(!targets.contains("chromium"));
     }
 
     #[test]
     fn mono_font_size_does_not_target_chromium() {
-        let targets = targets_for_key("mono_font_size", None);
+        let registry = registry();
+        let targets = targets_for_key(&registry, "mono_font_size", None);
         assert!(!targets.contains("chromium"));
     }
 
     #[test]
     fn mono_font_does_not_target_tmux() {
-        let targets = targets_for_key("mono_font", None);
+        let registry = registry();
+        let targets = targets_for_key(&registry, "mono_font", None);
         assert!(!targets.contains("tmux"));
     }
 
@@ -751,6 +712,7 @@ mod tests {
                 base_path: None,
                 extra_outputs: &[],
                 managed_paths: &[],
+                state_keys: &[],
                 reload_cmd: None,
                 comment: Some("#"),
                 sync_safe: true,
@@ -767,6 +729,7 @@ mod tests {
                 base_path: None,
                 extra_outputs: &[],
                 managed_paths: &[],
+                state_keys: &[],
                 reload_cmd: None,
                 comment: Some("#"),
                 sync_safe: false,

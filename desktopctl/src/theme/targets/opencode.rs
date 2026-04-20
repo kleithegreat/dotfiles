@@ -13,6 +13,7 @@ pub const METADATA: TargetMetadata = TargetMetadata {
     base_path: Some("config/opencode/base.json"),
     extra_outputs: &[],
     managed_paths: &["~/.config/opencode/themes/desktopctl.json"],
+    state_keys: &["color_scheme"],
     reload_cmd: None,
     comment: None,
     sync_safe: true,

@@ -16,6 +16,7 @@ pub const METADATA: TargetMetadata = TargetMetadata {
     base_path: None,
     extra_outputs: &[],
     managed_paths: &["~/.local/share/vicinae/themes/*.toml"],
+    state_keys: &["color_scheme", "system_font"],
     reload_cmd: None,
     comment: None,
     sync_safe: true,

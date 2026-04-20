@@ -56,7 +56,7 @@ Constraints:
 ### Static base config
 
 Files committed to `config/hypr/` and deployed via `xdg.configFile` in
-`home/default.nix`. These are the same across all hosts.
+`home/xdg.nix`. These are the same across all hosts.
 
 | File | Concern |
 | --- | --- |
@@ -119,7 +119,7 @@ Constraints:
 
 ### Host-specific overrides
 
-Files selected per host by `home/default.nix` conditionals based on `hostName`.
+Files selected per host by the `host.hyprland.*` facts consumed in `home/xdg.nix`.
 
 | File | Laptop | Desktop | Fallback |
 | --- | --- | --- | --- |
@@ -135,14 +135,14 @@ Constraints:
   per-host session bootstrap commands that cannot live in the shared base file.
 - The fallback branch must provide safe minimal defaults so the compositor
   starts on any host.
-- Adding a new host requires adding its branches to `home/default.nix` or
-  relying on the fallback path.
+- Adding a new host requires adding the relevant `host.hyprland.*` facts in
+  `flake.nix` or relying on the fallback path.
 
 ## Host Selection Contract
 
-`flake.nix` defines the set of known hosts. Each host passes `hostName` through
-`specialArgs` to Home Manager. `home/default.nix` uses `hostName` in
-`if`/`else if`/`else` conditionals to select fragments.
+`flake.nix` defines the set of known hosts. Each host passes a structured `host`
+record through `specialArgs` to Home Manager. `home/xdg.nix` uses the explicit
+`host.hyprland.*` facts to select fragments.
 
 Invariants:
 
@@ -171,7 +171,7 @@ Invariants:
 | Night-light automation | `desktopctl daemon` solar subsystem + night-light controller | `hyprsunset` lifecycle belongs to the daemon. Keybinds may request `desktopctl night-light toggle` or `desktopctl night-light auto`, but they do not start or stop `hyprsunset` directly. |
 | Shell UI and IPC | Quickshell | Keybinds trigger Quickshell via `qs ipc call`, with the repo path resolved through the same `DESKTOPCTL_REPO` / `~/repos/dotfiles` abstraction used elsewhere; Quickshell does not write Hyprland config files. |
 | Plugin loading | `plugins.conf` | Plugins are loaded from `HYPR_PLUGIN_DIR` (set in NixOS `system/configuration.nix`). Plugin visual settings consume theme variables but are declared in the static config. |
-| Package installation | Nix / Home Manager | Hyprland, plugins, and ecosystem tools are installed via `home/default.nix` packages. |
+| Package installation | Nix / Home Manager | Hyprland ecosystem tools are installed via `home/packages.nix` while the shared Hyprland config graph is deployed through `home/xdg.nix`. |
 
 Invariants:
 

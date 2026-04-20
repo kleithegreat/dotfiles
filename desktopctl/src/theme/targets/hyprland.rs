@@ -10,6 +10,7 @@ pub const METADATA: TargetMetadata = TargetMetadata {
     base_path: None,
     extra_outputs: &[],
     managed_paths: &[],
+    state_keys: &["color_scheme", "mono_font", "system_font", "font_size"],
     reload_cmd: Some(RELOAD_CMD),
     comment: Some("#"),
     sync_safe: true,

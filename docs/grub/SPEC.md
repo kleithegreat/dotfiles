@@ -17,11 +17,11 @@ EFI boot with manually maintained chainloader entries.
 | --- | --- |
 | Bootloader | Use GRUB in EFI mode with `device = "nodev"` |
 | Other EFI installs | Keep `useOSProber = false` and add explicit `extraEntries` instead |
-| Ownership | Host modules own their own `boot.loader.grub` blocks because the chainloader targets differ by machine |
+| Ownership | The shared physical-host module (`system/physical-host.nix`, imported by `system/configuration.nix`) owns the shared `boot.loader.grub` block because the current laptop and desktop chainloader targets are intentionally identical |
 
 Invariants:
 
-- GRUB policy is host-specific, not shared in `system/configuration.nix`.
+- GRUB policy is shared across the current physical hosts through the shared physical-host module imported by `system/configuration.nix`.
 - The repo does not rely on `os-prober` discovery for Arch or Windows entries.
 - Chainloader paths are part of the host contract and must be updated when EFI
   loader locations change.

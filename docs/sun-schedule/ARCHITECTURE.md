@@ -9,7 +9,7 @@ cross-domain side effects as of 2026-04-13.
 
 | Path | Current role | Evidence |
 | --- | --- | --- |
-| `home/default.nix` | Installs `desktopctl`, `hyprsunset`, and `geoclue2-with-demo-agent` into the user environment | The `home.packages` entries in `home/default.nix` |
+| `home/packages.nix` | Installs `desktopctl`, `hyprsunset`, and `geoclue2-with-demo-agent` into the user environment | The `home.packages` entries in `home/packages.nix` |
 | `config/hypr/autostart.conf` | Starts `desktopctl daemon` as part of the Hyprland session | The `exec-once = desktopctl daemon &` entry |
 | `desktopctl/src/daemon/mod.rs` | Starts the solar scheduler and socket server with one shared night-light controller alongside the focus tracker | The daemon `run()` / `run_async()` bootstrap |
 | `desktopctl/src/daemon/night_light.rs` | Stores the live `auto` / `on` / `off` mode, remembers the manual temperature, derives the effective state from solar status, and is the only live writer of `hyprsunset` | `Controller`, `desired_state()`, and `apply_desired_state()` in `desktopctl/src/daemon/night_light.rs` |

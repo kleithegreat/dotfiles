@@ -227,7 +227,7 @@ fn cmd_colors() -> CliResult<()> {
     );
     if orchestrator::apply_targets(
         &registry,
-        color_targets_for_state(&state).iter(),
+        orchestrator::color_targets(&registry, &state),
         &colors,
         &state,
         true,
@@ -272,7 +272,7 @@ fn cmd_fonts() -> CliResult<()> {
     );
     if orchestrator::apply_targets(
         &registry,
-        orchestrator::font_targets(),
+        orchestrator::font_targets(&registry),
         &colors,
         &state,
         true,
@@ -598,16 +598,6 @@ fn apply_affected_targets(
     }
 }
 
-fn color_targets_for_state(state: &schema::ThemeState) -> std::collections::BTreeSet<String> {
-    let mut targets = orchestrator::color_targets();
-
-    if state.filter_wallpaper {
-        targets.insert("wallpaper".to_owned());
-    }
-
-    targets
-}
-
 fn set_state_key_internal(key: &str, raw_value: Value) -> crate::Result<StateUpdateOutcome> {
     let state = resolve::load_state()?;
     let mut state_map = state.to_ordered_json_map();
@@ -635,7 +625,8 @@ fn set_state_key_internal(key: &str, raw_value: Value) -> crate::Result<StateUpd
             affected_targets: std::collections::BTreeSet::new(),
         });
     }
-    let affected_targets = orchestrator::targets_for_key(key, Some(&new_state));
+    let registry = targets::build_registry()?;
+    let affected_targets = orchestrator::targets_for_key(&registry, key, Some(&new_state));
 
     Ok(StateUpdateOutcome {
         changed: true,
@@ -1227,18 +1218,21 @@ mod tests {
 
     #[test]
     fn color_targets_include_zsh() {
+        let registry = targets::build_registry().expect("registry builds");
         let state = schema::ThemeState::default_state_for_repo_root(&repo_root());
-        assert!(color_targets_for_state(&state).contains("zsh"));
+        assert!(orchestrator::color_targets(&registry, &state).contains("zsh"));
     }
 
     #[test]
     fn color_targets_include_opencode() {
+        let registry = targets::build_registry().expect("registry builds");
         let state = schema::ThemeState::default_state_for_repo_root(&repo_root());
-        assert!(color_targets_for_state(&state).contains("opencode"));
+        assert!(orchestrator::color_targets(&registry, &state).contains("opencode"));
     }
 
     #[test]
     fn font_targets_do_not_include_tmux() {
-        assert!(!orchestrator::font_targets().contains("tmux"));
+        let registry = targets::build_registry().expect("registry builds");
+        assert!(!orchestrator::font_targets(&registry).contains("tmux"));
     }
 }
