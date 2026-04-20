@@ -124,13 +124,19 @@
 **Symptom:** A straight npm-based build of upstream `openchamber/openchamber` fails before dependency resolution finishes, typically with npm rejecting the root `overrides` versus direct dependency ranges or choking on the VS Code package's `workspace:*` dependency.
 **Cause:** Upstream develops against Bun, and the full monorepo metadata currently assumes Bun's workspace/override behavior. The web workspace itself builds fine under npm once the root manifest is trimmed to the `packages/ui` and `packages/web` workspaces and the overridden CodeMirror versions are pinned exactly.
 **Status:** Workaround in place
-**Resolution:** `pkgs/openchamber/default.nix` now source-builds OpenChamber from the upstream Git tag, but it replaces the root manifest with `pkgs/openchamber/package.json` and uses the generated `pkgs/openchamber/package-lock.json` so npm only sees the web-facing workspaces and their exact override pins.
+**Resolution:** `pkgs/openchamber/cli.nix` now source-builds OpenChamber from the upstream Git tag, but it replaces the root manifest with `pkgs/openchamber/package.json` and uses the generated `pkgs/openchamber/package-lock.json` so npm only sees the web-facing workspaces and their exact override pins.
 
 ## The Claude bridge only implements the OpenCode API subset OpenChamber currently needs
 **Symptom:** OpenChamber works against the local Claude bridge for health checks, provider/model selection, session creation, session history, and basic streamed chat, but deeper OpenCode-only features such as true snapshot reverts, project sync history replay, or richer permission/question flows are still conservative stubs.
 **Cause:** `pkgs/openchamber-claude-bridge/index.mjs` is intentionally a compatibility layer around the `claude` CLI, not a full OpenCode reimplementation.
 **Status:** Intentional limitation
 **Resolution:** Keep the bridge focused on the endpoint surface OpenChamber actively consumes. The local `patches/openchamber/claude-backend-selector.patch` teaches OpenChamber to manage the bridge as an alternate backend from the normal in-app settings screen, but it still relies on the bridge's OpenCode-compatibility subset rather than a full backend reimplementation.
+
+## OpenChamber desktop launch state lives in `settings.json`
+**Symptom:** `~/.config/openchamber/settings.json` now grows a `desktopLocalPort` key, the desktop launcher prefers reusing that port on the next launch, and repeated Vicinae launches refocus the existing app instead of spawning more local OpenChamber servers.
+**Cause:** `pkgs/openchamber-desktop/src/main.rs` is a thin Tauri shell around the packaged `openchamber` CLI. It persists the last known desktop port in the shared OpenChamber settings file, falls back to port `57123` before picking a new ephemeral port, and rejects ports already claimed by the CLI runtime by probing `/api/system/info`. The Tauri app itself uses `tauri-plugin-single-instance`, so the duplicate-launch guard now lives at the desktop-process level instead of the old browser-launch wrapper.
+**Status:** Intentional design
+**Resolution:** Treat `desktopLocalPort` as desktop runtime state owned by the Tauri wrapper. If desktop launches get wedged on a stale port, stop the app and remove or edit that key; the next launch will retry the stored/default port sequence and can fall back to a fresh port when needed.
 
 ## Declarative Windows VM media and guest state stay partly manual
 **Symptom:** The desktop Windows VM module evaluates and seeds `/var/lib/windows-vm/windows11`, but first boot can still land in UEFI or an existing guest keeps its old size, boot state, or TPM state after a Nix change.

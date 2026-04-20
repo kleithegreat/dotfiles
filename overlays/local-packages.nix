@@ -2,8 +2,15 @@ final: prev: {
   desktopctl = final.callPackage ../desktopctl { };
   helium = final.callPackage ../pkgs/helium { };
   openchamber-claude-bridge = final.callPackage ../pkgs/openchamber-claude-bridge { };
-  openchamber = final.callPackage ../pkgs/openchamber {
+  openchamber-cli = final.callPackage ../pkgs/openchamber/cli.nix {
     openchamberClaudeBridge = final.openchamber-claude-bridge;
+  };
+  openchamber-desktop = final.callPackage ../pkgs/openchamber-desktop {
+    openchamberCli = final.openchamber-cli;
+  };
+  openchamber = final.callPackage ../pkgs/openchamber {
+    openchamberCli = final.openchamber-cli;
+    openchamberDesktop = final.openchamber-desktop;
   };
   lapce = prev.lapce.overrideAttrs (old: {
     postFixup = (old.postFixup or "") + ''
