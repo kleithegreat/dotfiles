@@ -53,10 +53,17 @@ FocusScope {
 
     // ── Power profile cycling ──
     function cyclePowerProfile() {
-        let cur = PowerProfileService.currentProfile;
-        if (cur === "balanced") PowerProfileService.setProfile("performance");
-        else if (cur === "performance") PowerProfileService.setProfile("power-saver");
-        else PowerProfileService.setProfile("balanced");
+        let profiles = PowerProfileService.availableProfiles;
+        if (!profiles.length)
+            return;
+
+        let currentIndex = profiles.findIndex((profile) => profile.name === PowerProfileService.currentProfile);
+        if (currentIndex === -1)
+            currentIndex = profiles.findIndex((profile) => profile.name === "balanced");
+        if (currentIndex === -1)
+            currentIndex = 0;
+
+        PowerProfileService.setProfile(profiles[(currentIndex + 1) % profiles.length].name);
     }
 
     // ── Standard popup lifecycle ──
@@ -305,6 +312,7 @@ FocusScope {
                                 case "idle": return "../icons/zzz.svg";
                                 case "power":
                                     if (PowerProfileService.currentProfile === "performance") return "../icons/flame.svg";
+                                    if (PowerProfileService.currentProfile === "e-core-only") return "../icons/leaf-filled.svg";
                                     if (PowerProfileService.currentProfile === "power-saver") return "../icons/leaf.svg";
                                     return "../icons/speed.svg";
                                 default: return "";
@@ -334,6 +342,7 @@ FocusScope {
                                 case "idle": return IdleInhibitService.inhibited ? "On" : "Off";
                                 case "power":
                                     if (PowerProfileService.currentProfile === "performance") return "Performance";
+                                    if (PowerProfileService.currentProfile === "e-core-only") return "E-Cores";
                                     if (PowerProfileService.currentProfile === "power-saver") return "Power Saver";
                                     if (PowerProfileService.currentProfile === "balanced") return "Balanced";
                                     return PowerProfileService.currentProfile;
@@ -347,6 +356,7 @@ FocusScope {
                                 case "idle": return Theme.yellowBright;
                                 case "power":
                                     if (PowerProfileService.currentProfile === "performance") return Theme.redBright;
+                                    if (PowerProfileService.currentProfile === "e-core-only") return Theme.green;
                                     if (PowerProfileService.currentProfile === "power-saver") return Theme.greenBright;
                                     return Theme.blueBright;
                                 default: return Theme.blueBright;

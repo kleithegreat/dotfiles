@@ -47,7 +47,7 @@ Managed popups mounted by the overlay host remain:
 | `IdleInhibitService.qml` | Holds a transient `systemd-inhibit --what=idle` process so hypridle pauses its timers while the shell toggle is active, and auto-enables that inhibitor at shell startup when `DESKTOPCTL_IDLE_INHIBIT_DEFAULT` is truthy in the session environment | Quick Settings idle-inhibit tile |
 | `NetworkService.qml` | Active network summary for Wi-Fi or ethernet via the default-route interface, Wi-Fi scans/known networks, active-transport diagnostics, DNS, captive portal, reporting | Bar network, quick settings, network pane |
 | `NotificationService.qml` | Popup/history models, DND, dismissal, relative-time refresh | Root notifications, drawer, bar bell, Notifications settings pane, IPC |
-| `PowerProfileService.qml` | CPU profiles and supported battery controls | Power pane |
+| `PowerProfileService.qml` | CPU profiles and supported battery controls, including the laptop-only `e-core-only` profile when the `laptop-power-profile` helper is present | Power pane |
 | `Theme.qml` | Shell-facing facade over generated theme JSON | Imported throughout shell components |
 | `ToastService.qml` | Bounded toast queue | Shell toast window, IPC |
 | `TooltipService.qml` | Hover/linger tooltip state | Tooltip window and interactive modules |
@@ -66,9 +66,15 @@ Direct-upstream or local exceptions:
   inside its pane and treats payloads older than 5 seconds as stale; see
   `docs/focus-time/SPEC.md`.
 - The shell brightness OSD no longer reads `/tmp/quickshell-brightness`.
-  `config/quickshell/shell.qml` exposes a `brightness` IPC handler for OSD
-  events, and `desktopctl/src/brightness.rs` drives it with
-  `qs -p <repo>/config/quickshell ipc call brightness osd ...`.
+`config/quickshell/shell.qml` exposes a `brightness` IPC handler for OSD
+events, and `desktopctl/src/brightness.rs` drives it with
+`qs -p <repo>/config/quickshell ipc call brightness osd ...`.
+- The laptop power-profile path stays outside `desktopctl`: `config/quickshell/PowerProfileService.qml`
+  now prefers the host-installed `laptop-power-profile get` helper when it is
+  present, falls back to plain `powerprofilesctl get` otherwise, and uses
+  `pkexec laptop-power-profile set ...` for the laptop's extra `e-core-only`
+  mode while still falling back to the existing `powerprofilesctl` /
+  `auto-cpufreq` paths on other hosts.
 
 Write-oriented services now also own their optimistic/pending state locally
 instead of waiting for subprocess completion before updating the touched
@@ -106,6 +112,13 @@ file maps Wi-Fi, Bluetooth, VPN, DND, and power-profile expand requests to
 concrete category indices. The idle-inhibit tile stays popup-local and talks
 directly to `config/quickshell/IdleInhibitService.qml` instead of routing to a
 deeper Settings page.
+
+The Power surfaces now derive their profile inventory from
+`config/quickshell/PowerProfileService.qml` instead of hardcoding the three
+standard `powerprofilesctl` modes in each pane. On the laptop host, that lets
+the Quick Settings power tile and `config/quickshell/popups/settings/SettingsPowerPane.qml`
+show the extra `e-core-only` mode exposed by `laptop-power-profile`, while the
+Power pane also explains the host-specific `cpu0` hot-unplug limitation.
 
 The Network page now keys its summary and diagnostics off the active
 default-route interface instead of assuming Wi-Fi. `config/quickshell/NetworkService.qml`
