@@ -1,0 +1,294 @@
+diff --git a/packages/ui/src/components/sections/openchamber/OpenCodeCliSettings.tsx b/packages/ui/src/components/sections/openchamber/OpenCodeCliSettings.tsx
+--- a/packages/ui/src/components/sections/openchamber/OpenCodeCliSettings.tsx
++++ b/packages/ui/src/components/sections/openchamber/OpenCodeCliSettings.tsx
+@@ -9,7 +9,7 @@
+ import { reloadOpenCodeConfiguration } from '@/stores/useAgentsStore';
+ 
+ export const OpenCodeCliSettings: React.FC = () => {
+-  const [backend, setBackend] = React.useState<'opencode' | 'claude-code'>('opencode');
++  const [backend, setBackend] = React.useState<'opencode' | 'claude-code' | 'mixed'>('opencode');
+   const [value, setValue] = React.useState('');
+   const [isLoading, setIsLoading] = React.useState(true);
+   const [isSaving, setIsSaving] = React.useState(false);
+@@ -29,7 +29,9 @@
+         if (cancelled || !data) {
+           return;
+         }
+-        const nextBackend = data.backend === 'claude-code' ? 'claude-code' : 'opencode';
++        const nextBackend = data.backend === 'claude-code'
++          ? 'claude-code'
++          : data.backend === 'mixed' ? 'mixed' : 'opencode';
+         const next = typeof data.opencodeBinary === 'string' ? data.opencodeBinary.trim() : '';
+         setBackend(nextBackend);
+         setValue(next);
+@@ -78,8 +80,13 @@
+     setIsSaving(true);
+     try {
+       await updateDesktopSettings({ backend, opencodeBinary: value.trim() });
++      const message = backend === 'claude-code'
++        ? 'Switching to Claude Code…'
++        : backend === 'mixed'
++          ? 'Starting OpenCode + Claude Code…'
++          : 'Restarting OpenCode…';
+       await reloadOpenCodeConfiguration({
+-        message: backend === 'claude-code' ? 'Switching to Claude Code…' : 'Restarting OpenCode…',
++        message,
+         mode: 'projects',
+         scopes: ['all'],
+       });
+@@ -100,7 +107,7 @@
+               <RiInformationLine className="h-3.5 w-3.5 text-muted-foreground/60 cursor-help" />
+             </TooltipTrigger>
+             <TooltipContent sideOffset={8} className="max-w-xs">
+-              Choose whether OpenChamber manages a local OpenCode server or uses the built-in Claude Code bridge.
++              Choose whether OpenChamber manages OpenCode only, Claude Code only, or a mixed runtime that supports both per chat.
+             </TooltipContent>
+           </Tooltip>
+         </div>
+@@ -112,11 +119,12 @@
+             <span className="typography-ui-label text-foreground">Runtime Backend</span>
+           </div>
+           <div className="flex min-w-0 items-center gap-2 sm:w-[20rem]">
+-            <Select value={backend} onValueChange={(next) => setBackend(next === 'claude-code' ? 'claude-code' : 'opencode')}>
++            <Select value={backend} onValueChange={(next) => setBackend(next === 'claude-code' || next === 'mixed' ? next : 'opencode')}>
+               <SelectTrigger className="h-7 min-w-0 flex-1 text-xs">
+                 <SelectValue />
+               </SelectTrigger>
+               <SelectContent>
++                <SelectItem value="mixed">OpenCode + Claude Code</SelectItem>
+                 <SelectItem value="opencode">OpenCode</SelectItem>
+                 <SelectItem value="claude-code">Claude Code</SelectItem>
+               </SelectContent>
+@@ -124,7 +132,7 @@
+           </div>
+         </div>
+ 
+-        {backend === 'opencode' ? (
++        {backend !== 'claude-code' ? (
+           <>
+             <div className="flex flex-col gap-2 py-1.5 sm:flex-row sm:items-center sm:gap-3">
+               <div className="flex min-w-0 flex-col shrink-0">
+@@ -158,6 +166,14 @@
+                 Tip: you can also use <span className="font-mono">OPENCODE_BINARY</span> env var, but this setting persists in <span className="font-mono">~/.config/openchamber/settings.json</span>.
+               </div>
+             </div>
++
++            {backend === 'mixed' ? (
++              <div className="py-1.5">
++                <div className="typography-micro text-muted-foreground/70">
++                  OpenChamber will start both OpenCode and the Claude Code bridge. Each new chat binds to the backend implied by the model/provider you selected when the chat is created.
++                </div>
++              </div>
++            ) : null}
+           </>
+         ) : (
+           <div className="py-1.5">
+diff --git a/packages/ui/src/lib/desktop.ts b/packages/ui/src/lib/desktop.ts
+--- a/packages/ui/src/lib/desktop.ts
++++ b/packages/ui/src/lib/desktop.ts
+@@ -48,7 +48,7 @@
+   splashFgDark?: string;
+   lastDirectory?: string;
+   homeDirectory?: string;
+-  backend?: 'opencode' | 'claude-code';
++  backend?: 'opencode' | 'claude-code' | 'mixed';
+   // Optional absolute path to `opencode` binary.
+   opencodeBinary?: string;
+   desktopLanAccessEnabled?: boolean;
+diff --git a/packages/ui/src/lib/persistence.ts b/packages/ui/src/lib/persistence.ts
+--- a/packages/ui/src/lib/persistence.ts
++++ b/packages/ui/src/lib/persistence.ts
+@@ -515,7 +515,7 @@
+     result.homeDirectory = candidate.homeDirectory;
+   }
+ 
+-  if (typeof candidate.backend === 'string' && (candidate.backend === 'opencode' || candidate.backend === 'claude-code')) {
++  if (typeof candidate.backend === 'string' && (candidate.backend === 'opencode' || candidate.backend === 'claude-code' || candidate.backend === 'mixed')) {
+     result.backend = candidate.backend;
+   }
+ 
+diff --git a/packages/ui/src/sync/session-actions.ts b/packages/ui/src/sync/session-actions.ts
+--- a/packages/ui/src/sync/session-actions.ts
++++ b/packages/ui/src/sync/session-actions.ts
+@@ -138,12 +138,46 @@
+   parentID?: string | null,
+ ): Promise<Session | null> {
+   try {
+-    const result = await sdk().session.create({
+-      directory: directoryOverride ?? dir(),
++    const configState = useConfigStore.getState()
++    const scopedDirectoryKey = typeof directoryOverride === 'string' && directoryOverride.trim().length > 0
++      ? directoryOverride.trim()
++      : '__global__'
++    const scopedConfig = configState.directoryScoped?.[scopedDirectoryKey]
++    const providerID = scopedConfig?.currentProviderId || configState.currentProviderId
++    const modelID = scopedConfig?.currentModelId || configState.currentModelId
++    const variant = scopedConfig?.currentVariant || configState.currentVariant
++    const agent = scopedConfig?.currentAgentName || configState.currentAgentName
++
++    const directory = directoryOverride ?? dir()
++
++    const payload = {
+       title,
+       parentID: parentID ?? undefined,
+-    })
+-    const session = result.data
++      ...(providerID && modelID ? { model: { providerID, modelID } } : {}),
++      ...(variant ? { variant } : {}),
++      ...(agent ? { agent } : {}),
++    }
++
++    const baseUrl = `${opencodeClient.getBaseUrl().replace(/\/+$/, '')}/session`
++    const url = new URL(baseUrl, typeof window !== 'undefined' ? window.location.href : 'http://127.0.0.1')
++    if (directory) {
++      url.searchParams.set('directory', directory)
++    }
++
++    const response = await fetch(url.toString(), {
++      method: 'POST',
++      headers: {
++        accept: 'application/json',
++        'content-type': 'application/json',
++      },
++      body: JSON.stringify(payload),
++    })
++    const session = await response.json().catch(() => null)
++
++    if (!response.ok) {
++      console.error('[session-actions] createSession failed', response.status, session)
++      return null
++    }
+     if (!session) return null
+ 
+       const sessionDirectory = (session as { directory?: string }).directory ?? directoryOverride ?? null
+diff --git a/packages/web/server/lib/opencode/lifecycle.js b/packages/web/server/lib/opencode/lifecycle.js
+--- a/packages/web/server/lib/opencode/lifecycle.js
++++ b/packages/web/server/lib/opencode/lifecycle.js
+@@ -177,7 +177,7 @@
+     await waitForChildProcessClose(child, 1000);
+   };
+ 
+-  const normalizeManagedBackend = (value) => value === 'claude-code' ? 'claude-code' : 'opencode';
++  const normalizeManagedBackend = (value) => value === 'claude-code' ? 'claude-code' : value === 'mixed' ? 'mixed' : 'opencode';
+ 
+   const readManagedBackendFromSettings = async () => {
+     try {
+@@ -291,6 +291,57 @@
+     };
+   };
+ 
++  const createManagedBackendMuxProcess = async ({ port, timeout, cwd }) => {
++    const binary = (process.env.OPENCHAMBER_BACKEND_MUX_BINARY || 'openchamber-backend-mux').trim() || 'openchamber-backend-mux';
++    const args = ['serve', '--host', '127.0.0.1', '--port', String(port)];
++    const child = spawn(binary, args, {
++      cwd,
++      env: process.env,
++      windowsHide: true,
++      stdio: ['ignore', 'pipe', 'pipe'],
++    });
++
++    let output = '';
++    child.stdout?.on('data', (chunk) => {
++      output += chunk.toString();
++    });
++    child.stderr?.on('data', (chunk) => {
++      output += chunk.toString();
++    });
++
++    const url = `http://127.0.0.1:${port}`;
++
++    try {
++      await Promise.race([
++        new Promise((_, reject) => {
++          child.once('exit', (code) => {
++            reject(new Error(`Backend mux exited with code ${code}. Output: ${output}`));
++          });
++          child.once('error', reject);
++        }),
++        (async () => {
++          const healthy = await waitForReady(url, timeout);
++          if (!healthy) {
++            throw new Error(`Timeout waiting for backend mux to become ready after ${timeout}ms. Output: ${output}`);
++          }
++        })(),
++      ]);
++    } catch (error) {
++      try {
++        await closeManagedOpenCodeChild(child);
++      } catch {
++      }
++      throw error;
++    }
++
++    return {
++      url,
++      async close() {
++        await closeManagedOpenCodeChild(child);
++      },
++    };
++  };
++
+   const createManagedClaudeBridgeProcess = async ({ port, timeout, cwd }) => {
+     const binary = (process.env.OPENCHAMBER_CLAUDE_BRIDGE_BINARY || 'openchamber-claude-bridge').trim() || 'openchamber-claude-bridge';
+     const args = ['serve', '--host', '127.0.0.1', '--port', String(port)];
+@@ -443,6 +494,48 @@
+     state.isExternalOpenCode = false;
+     state.openCodeBaseUrl = null;
+ 
++    if (backend === 'mixed') {
++      console.log(
++        desiredPort > 0
++          ? `Starting mixed backend mux on requested port ${desiredPort}...`
++          : `Starting mixed backend mux on allocated port ${spawnPort}...`
++      );
++
++      try {
++        const muxInstance = await createManagedBackendMuxProcess({
++          port: spawnPort,
++          timeout: 30000,
++          cwd: state.openCodeWorkingDirectory,
++        });
++
++        const url = new URL(muxInstance.url);
++        const port = parseInt(url.port, 10);
++        const prefix = normalizeApiPrefix(url.pathname);
++
++        if (await waitForReady(muxInstance.url, 10000)) {
++          setOpenCodePort(port);
++          setDetectedOpenCodeApiPrefix(prefix);
++          state.isOpenCodeReady = true;
++          state.lastOpenCodeError = null;
++          state.openCodeNotReadySince = 0;
++          return muxInstance;
++        }
++
++        try {
++          await muxInstance.close();
++        } catch {
++        }
++        throw new Error('Backend mux started but health check failed (timeout)');
++      } catch (error) {
++        const message = error instanceof Error ? error.message : String(error);
++        state.lastOpenCodeError = message;
++        state.openCodePort = null;
++        syncToHmrState();
++        console.error(`Failed to start backend mux: ${message}`);
++        throw error;
++      }
++    }
++
+     if (backend === 'claude-code') {
+       console.log(
+         desiredPort > 0
+diff --git a/packages/web/server/lib/opencode/settings-helpers.js b/packages/web/server/lib/opencode/settings-helpers.js
+--- a/packages/web/server/lib/opencode/settings-helpers.js
++++ b/packages/web/server/lib/opencode/settings-helpers.js
+@@ -87,7 +87,7 @@
+     }
+     if (typeof candidate.backend === 'string') {
+       const normalized = candidate.backend.trim();
+-      if (normalized === 'opencode' || normalized === 'claude-code') {
++      if (normalized === 'opencode' || normalized === 'claude-code' || normalized === 'mixed') {
+         result.backend = normalized;
+       }
+     }

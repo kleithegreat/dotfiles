@@ -4,6 +4,7 @@
   fetchFromGitHub,
   makeWrapper,
   nodejs,
+  openchamberBackendMux,
   openchamberClaudeBridge,
   pkg-config,
 }:
@@ -27,6 +28,7 @@ buildNpmPackage {
 
   patches = [
     ../../patches/openchamber/claude-backend-selector.patch
+    ../../patches/openchamber/mixed-backend-mux.patch
   ];
 
   npmDepsHash = "sha256-Gy1dxncCuMgpsom83lzBkoSYayBWiZfIS7LaHbnNzAA=";
@@ -59,6 +61,7 @@ buildNpmPackage {
 
     makeWrapper ${lib.getExe nodejs} "$out/bin/openchamber" \
       --add-flags "$packageOut/bin/cli.js" \
+      --set-default OPENCHAMBER_BACKEND_MUX_BINARY "${lib.getExe openchamberBackendMux}" \
       --set-default OPENCHAMBER_CLAUDE_BRIDGE_BINARY "${lib.getExe openchamberClaudeBridge}"
 
     runHook postInstall

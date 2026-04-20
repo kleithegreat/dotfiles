@@ -127,10 +127,16 @@
 **Resolution:** `pkgs/openchamber/cli.nix` now source-builds OpenChamber from the upstream Git tag, but it replaces the root manifest with `pkgs/openchamber/package.json` and uses the generated `pkgs/openchamber/package-lock.json` so npm only sees the web-facing workspaces and their exact override pins.
 
 ## The Claude bridge only implements the OpenCode API subset OpenChamber currently needs
-**Symptom:** OpenChamber works against the local Claude bridge for health checks, provider/model selection, session creation, session history, and basic streamed chat, but deeper OpenCode-only features such as true snapshot reverts, project sync history replay, or richer permission/question flows are still conservative stubs.
-**Cause:** `pkgs/openchamber-claude-bridge/index.mjs` is intentionally a compatibility layer around the `claude` CLI, not a full OpenCode reimplementation.
+**Symptom:** Claude-backed chats work in both `claude-code` and `mixed` runtime modes for health checks, provider/model selection, session creation, session history, and basic streamed chat, but deeper OpenCode-only features such as true snapshot reverts, project sync history replay, or richer permission/question flows are still conservative stubs.
+**Cause:** `pkgs/openchamber-claude-bridge/index.mjs` is intentionally a compatibility layer around the `claude` CLI, not a full OpenCode reimplementation. `pkgs/openchamber-backend-mux/index.mjs` only multiplexes between real OpenCode and that bridge; it does not add missing OpenCode semantics to Claude-backed sessions.
 **Status:** Intentional limitation
-**Resolution:** Keep the bridge focused on the endpoint surface OpenChamber actively consumes. The local `patches/openchamber/claude-backend-selector.patch` teaches OpenChamber to manage the bridge as an alternate backend from the normal in-app settings screen, but it still relies on the bridge's OpenCode-compatibility subset rather than a full backend reimplementation.
+**Resolution:** Keep the bridge focused on the endpoint surface OpenChamber actively consumes. The local OpenChamber patches now add a `mixed` backend mode in addition to the single-backend OpenCode and Claude-only modes, and `pkgs/openchamber-backend-mux/index.mjs` binds each new chat to the backend implied by the selected model/provider at session creation time. Existing chats stay pinned to the backend they were created on.
+
+## Mixed backend mode binds sessions at creation time
+**Symptom:** In `mixed` mode, changing the selected model after a chat already exists does not migrate that chat from OpenCode to Claude Code, or vice versa.
+**Cause:** `patches/openchamber/mixed-backend-mux.patch` changes OpenChamber so session creation carries the selected provider/model, and `pkgs/openchamber-backend-mux/index.mjs` records the resulting session ID to backend mapping. After that point, all session-specific routes are sent back to the original backend for that chat.
+**Status:** Intentional design
+**Resolution:** Treat backend choice as part of chat creation rather than a live per-message toggle. To move a conversation to the other backend, start a new chat while the desired provider/model is selected, then continue there or fork/copy the prompt into the new session.
 
 ## OpenChamber desktop launch state lives in `settings.json`
 **Symptom:** `~/.config/openchamber/settings.json` now grows a `desktopLocalPort` key, the desktop launcher prefers reusing that port on the next launch, and repeated Vicinae launches refocus the existing app instead of spawning more local OpenChamber servers.
