@@ -145,8 +145,10 @@ behaviors:
   `config/quickshell/components/ColorSchemeCard.qml`,
   `config/quickshell/popups/settings/SettingsColorsPane.qml`, and
   `config/quickshell/popups/settings/SettingsPresetEditor.qml`.
-- Passing wallpaper-directory metadata into the preset editor so wallpaper
-  fields can validate and commit separately from freeform typing:
+- Seeding the wallpaper browser from the persisted `themeState.wallpaper`
+  parent directory, then passing that wallpaper-directory metadata into the
+  preset editor so wallpaper fields can validate and commit separately from
+  freeform typing:
   `config/quickshell/popups/SettingsPopup.qml`,
   `config/quickshell/popups/settings/SettingsPresetsPane.qml`, and
   `config/quickshell/popups/settings/SettingsPresetEditor.qml`.

@@ -30,7 +30,7 @@ FocusScope {
     property var wallpapers: []
     property var wallpaperPreviewPaths: ({})
     property bool directoryBrowserOpen: false
-    property string directoryBrowserPath: "/home/kevin/repos/dotfiles/wallpapers"
+    property string directoryBrowserPath: ""
     property var directoryBrowserEntries: []
     property var fontSizeOffsetTargets: [
         { label: "Quickshell", key: "quickshell_font_size_offset" },
@@ -53,7 +53,7 @@ FocusScope {
         if (!HostCapabilities.isLaptop || !HostCapabilities.hasFingerprintReader) h.push(5);
         return h;
     }
-    property string wallpaperDir: "/home/kevin/repos/dotfiles/wallpapers"
+    property string wallpaperDir: ""
     property var categoryNames: ["Network", "Bluetooth", "Audio", "Display", "Power", "Fingerprint", "Notifications", "Screen Time", "Presets", "Colors", "Fonts", "Wallpaper", "Icons", "Mouse", "Hyprland"]
     property var categoryIcons: ["../icons/wifi.svg", "../icons/bluetooth-on.svg", "../icons/volume-high.svg", "../icons/monitor.svg", "../icons/bolt.svg", "../icons/shield-lock.svg", "../icons/bell.svg", "../icons/hourglass.svg", "../icons/adjustments.svg", "../icons/palette.svg", "../icons/typography.svg", "../icons/photo.svg", "../icons/certificate.svg", "../icons/cursor.svg", "../icons/layout.svg"]
     property var hyprOptionInfo: ({
@@ -143,6 +143,8 @@ FocusScope {
         if (active) {
             forceActiveFocus();
             contentLoaded = true;
+            wallpaperDir = "";
+            directoryBrowserPath = "";
             loadState();
             settingsRefreshTimer.stop();
             settingsRefreshTimer.start();
@@ -223,7 +225,6 @@ FocusScope {
         loadFingerprintState();
         refreshColorFamilies();
         refreshPresets();
-        refreshWallpapers();
     }
 
     function fingerprintDisplayName(finger) {
@@ -531,6 +532,9 @@ FocusScope {
                 if (code === 0 && trimmed !== "") {
                     settingsPop.themeState = JSON.parse(buf);
                     settingsPop.syncHyprDraftState();
+                    settingsPop.syncWallpaperDirectoryFromThemeState();
+                    if (!listWallpapersProc.running)
+                        settingsPop.refreshWallpapers();
                     parsed = true;
                 }
             } catch(e) {
@@ -728,7 +732,9 @@ FocusScope {
 
     Process {
         id: listWallpapersProc; running: false
-        command: ["desktopctl", "theme", "list-wallpapers", "--json", "--directory", settingsPop.wallpaperDir]
+        command: settingsPop.wallpaperDir !== ""
+            ? ["desktopctl", "theme", "list-wallpapers", "--json", "--directory", settingsPop.wallpaperDir]
+            : ["desktopctl", "theme", "list-wallpapers", "--json"]
         property string buf: ""
         stdout: SplitParser { onRead: (line) => { listWallpapersProc.buf += line; } }
         onExited: {
@@ -825,7 +831,7 @@ FocusScope {
     }
 
     function refreshWallpapers() {
-        listWallpapersProc.items = [];
+        listWallpapersProc.buf = "";
         listWallpapersProc.running = true;
     }
 
@@ -844,6 +850,25 @@ FocusScope {
         listDirectoriesProc.running = true;
     }
 
+    function wallpaperDirectoryFromThemeState() {
+        let wallpaperPath = String(settingsPop.themeState.wallpaper || "").trim();
+        if (wallpaperPath === "")
+            return "";
+        return parentDirectory(wallpaperPath);
+    }
+
+    function syncWallpaperDirectoryFromThemeState() {
+        if (settingsPop.wallpaperDir !== "")
+            return;
+
+        let currentDir = wallpaperDirectoryFromThemeState();
+        if (currentDir === "")
+            return;
+
+        settingsPop.wallpaperDir = currentDir;
+        settingsPop.directoryBrowserPath = currentDir;
+    }
+
     function parentDirectory(path) {
         if (!path || path === "/") return "/";
         let normalized = path;
@@ -858,7 +883,13 @@ FocusScope {
     }
 
     function openDirectoryBrowser() {
-        settingsPop.directoryBrowserPath = settingsPop.wallpaperDir;
+        let nextPath = settingsPop.wallpaperDir;
+        if (nextPath === "")
+            nextPath = settingsPop.wallpaperDirectoryFromThemeState();
+        if (nextPath === "")
+            return;
+
+        settingsPop.directoryBrowserPath = nextPath;
         settingsPop.directoryBrowserOpen = true;
         refreshDirectoryBrowser();
     }
