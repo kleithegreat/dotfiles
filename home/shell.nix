@@ -166,6 +166,9 @@ in
     BROWSER = "chromium";
     PAGER = "less";
 
+    # XDG path redirects
+    GOPATH = "${config.xdg.dataHome}/go";
+
     # XDG history redirects
     PYTHON_HISTORY = "${config.xdg.stateHome}/python/history";
     NODE_REPL_HISTORY = "${config.xdg.stateHome}/node/history";
