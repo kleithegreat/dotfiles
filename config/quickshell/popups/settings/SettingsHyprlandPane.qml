@@ -271,60 +271,75 @@ Item {
         return false;
     }
 
+    Component {
+        id: hyprIntOptionDelegate
+
+        RowLayout {
+            required property string modelData
+            property var meta: root.hyprOptionMeta(modelData)
+
+            Layout.fillWidth: true
+            spacing: 8
+
+            Components.ValueStepper {
+                Layout.fillWidth: true
+                label: meta.label
+                labelColor: Theme.fg
+                labelFontFamily: Theme.fontFamily
+                valueFontFamily: Theme.fontFamily
+                buttonFontFamily: Theme.fontFamily
+                valueText: String(root.hyprIntValue(modelData))
+                valueWidth: 36
+                decreaseEnabled: meta.minimum === undefined || root.hyprIntValue(modelData) > meta.minimum
+                onDecrement: root.hyprOptionAdjusted(modelData, -1)
+                onIncrement: root.hyprOptionAdjusted(modelData, 1)
+            }
+        }
+    }
+
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
 
         // ── Header ──
-        RowLayout {
-            Layout.fillWidth: true
+        Components.SettingsPaneHeader {
+            title: "Hyprland"
+            iconSource: "../../icons/layout.svg"
             Layout.bottomMargin: 10
-            spacing: 8
-            Components.Icon { source: "../../icons/layout.svg"; color: Theme.fg }
-            Text { text: "Hyprland"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true; Layout.fillWidth: true }
 
-            // Undo / Redo
-            Rectangle {
+            Components.ActionButton {
                 visible: HyprlandConfigService.canUndo
-                width: 28; height: Theme.btnHeight; radius: Theme.btnRadius
-                color: undoArea.containsMouse ? Theme.bg2 : Theme.bg1
-                border.width: 1; border.color: Theme.bg3
-                Behavior on color { Components.CAnim { duration: Theme.animHover } }
-                Text { anchors.centerIn: parent; text: "\u21b6"; color: Theme.fg; font.pixelSize: Theme.fontSize }
-                Components.HoverLayer { id: undoArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0; onClicked: HyprlandConfigService.undo() }
+                fixedWidth: 28
+                text: "\u21b6"
+                fontPixelSize: Theme.fontSize
+                onClicked: HyprlandConfigService.undo()
             }
-            Rectangle {
+
+            Components.ActionButton {
                 visible: HyprlandConfigService.canRedo
-                width: 28; height: Theme.btnHeight; radius: Theme.btnRadius
-                color: redoArea.containsMouse ? Theme.bg2 : Theme.bg1
-                border.width: 1; border.color: Theme.bg3
-                Behavior on color { Components.CAnim { duration: Theme.animHover } }
-                Text { anchors.centerIn: parent; text: "\u21b7"; color: Theme.fg; font.pixelSize: Theme.fontSize }
-                Components.HoverLayer { id: redoArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0; onClicked: HyprlandConfigService.redo() }
+                fixedWidth: 28
+                text: "\u21b7"
+                fontPixelSize: Theme.fontSize
+                onClicked: HyprlandConfigService.redo()
             }
 
-            // Clear overrides
-            Rectangle {
+            Components.ActionButton {
                 visible: HyprlandConfigService.hasAnimationOverrides || HyprlandConfigService.hasKeybindOverrides
-                width: clearLabel.implicitWidth + Theme.btnPaddingH * 2
-                height: Theme.btnHeight; radius: Theme.btnRadius
-                color: clearArea.containsMouse ? Theme.bg2 : Theme.bg1
-                border.width: 1; border.color: Theme.bg3
-                Behavior on color { Components.CAnim { duration: Theme.animHover } }
-                Text { id: clearLabel; anchors.centerIn: parent; text: "Clear"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall }
-                Components.HoverLayer { id: clearArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0; onClicked: HyprlandConfigService.clearAll() }
+                text: "Clear"
+                onClicked: HyprlandConfigService.clearAll()
             }
 
-            // Save to disk
-            Rectangle {
+            Components.ActionButton {
                 visible: HyprlandConfigService.hasAnimationOverrides || HyprlandConfigService.hasKeybindOverrides
-                width: saveLabel.implicitWidth + Theme.btnPaddingH * 2
-                height: Theme.btnHeight; radius: Theme.btnRadius
-                color: HyprlandConfigService.saving ? Theme.bg2 : (saveArea.containsMouse ? Theme.greenBright : Theme.accent)
-                border.width: 1; border.color: Theme.accent
-                Behavior on color { Components.CAnim { duration: Theme.animHover } }
-                Text { id: saveLabel; anchors.centerIn: parent; text: HyprlandConfigService.saving ? "Saving\u2026" : "Save"; color: Theme.bg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
-                Components.HoverLayer { id: saveArea; enabled: !HyprlandConfigService.saving; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0; onClicked: HyprlandConfigService.saveAll() }
+                text: HyprlandConfigService.saving ? "Saving\u2026" : "Save"
+                baseColor: HyprlandConfigService.saving ? Theme.bg2 : Theme.accent
+                hoverColor: HyprlandConfigService.saving ? Theme.bg2 : Theme.greenBright
+                borderColor: Theme.accent
+                textColor: Theme.bg
+                fontBold: true
+                enabled: !HyprlandConfigService.saving
+                disabledOpacity: 1
+                onClicked: HyprlandConfigService.saveAll()
             }
         }
 
@@ -342,33 +357,16 @@ Item {
                     { key: "keybinds", label: "Keybinds" }
                 ]
 
-                delegate: Rectangle {
+                delegate: Components.ActionButton {
                     required property var modelData
-                    property bool isActive: root.activeTab === modelData.key
+                    readonly property bool isActive: root.activeTab === modelData.key
 
-                    width: tabLabel.implicitWidth + Theme.btnPaddingH * 2
-                    height: Theme.btnHeight
-                    radius: Theme.btnRadius
-                    color: isActive ? Theme.accent : (tabArea.containsMouse ? Theme.bg2 : Theme.bg1)
-                    border.width: 1
-                    border.color: isActive ? Theme.accent : Theme.bg3
-                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-
-                    Text {
-                        id: tabLabel
-                        anchors.centerIn: parent
-                        text: modelData.label
-                        color: isActive ? Theme.bg : Theme.fg
-                        font.family: Theme.systemFamily
-                        font.pixelSize: Theme.fontSizeSmall
-                        Behavior on color { Components.CAnim { duration: Theme.animHover } }
-                    }
-
-                    Components.HoverLayer {
-                        id: tabArea
-                        hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
-                        onClicked: root.activeTab = modelData.key
-                    }
+                    text: modelData.label
+                    baseColor: isActive ? Theme.accent : Theme.bg1
+                    hoverColor: isActive ? Theme.accent : Theme.bg2
+                    borderColor: isActive ? Theme.accent : Theme.bg3
+                    textColor: isActive ? Theme.bg : Theme.fg
+                    onClicked: root.activeTab = modelData.key
                 }
             }
         }
@@ -416,30 +414,7 @@ Item {
 
                     Repeater {
                         model: root.hyprGeneralOptions
-                        delegate: RowLayout {
-                            required property string modelData
-                            property var meta: root.hyprOptionMeta(modelData)
-                            Layout.fillWidth: true; spacing: 8
-                            Text { text: meta.label; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.fillWidth: true; Layout.alignment: Qt.AlignVCenter }
-                            Rectangle {
-                                property bool canDec: meta.minimum === undefined || root.hyprIntValue(modelData) > meta.minimum
-                                Layout.preferredWidth: 28; Layout.preferredHeight: Theme.btnHeight; radius: Theme.btnRadius
-                                color: decArea.containsMouse && canDec ? Theme.bg2 : Theme.bg1; opacity: canDec ? 1 : 0.45
-                                border.width: 1; border.color: Theme.bg3
-                                Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                                Text { anchors.centerIn: parent; text: "\u2212"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
-                                Components.HoverLayer { id: decArea; enabled: parent.canDec; cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0; onClicked: root.hyprOptionAdjusted(modelData, -1) }
-                            }
-                            Text { text: String(root.hyprIntValue(modelData)); color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; Layout.preferredWidth: 36; horizontalAlignment: Text.AlignHCenter }
-                            Rectangle {
-                                Layout.preferredWidth: 28; Layout.preferredHeight: Theme.btnHeight; radius: Theme.btnRadius
-                                color: incArea.containsMouse ? Theme.bg2 : Theme.bg1
-                                border.width: 1; border.color: Theme.bg3
-                                Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                                Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
-                                Components.HoverLayer { id: incArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0; onClicked: root.hyprOptionAdjusted(modelData, 1) }
-                            }
-                        }
+                        delegate: hyprIntOptionDelegate
                     }
 
                     Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
@@ -449,30 +424,7 @@ Item {
 
                     Repeater {
                         model: root.hyprDecorationOptions
-                        delegate: RowLayout {
-                            required property string modelData
-                            property var meta: root.hyprOptionMeta(modelData)
-                            Layout.fillWidth: true; spacing: 8
-                            Text { text: meta.label; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.fillWidth: true; Layout.alignment: Qt.AlignVCenter }
-                            Rectangle {
-                                property bool canDec: meta.minimum === undefined || root.hyprIntValue(modelData) > meta.minimum
-                                Layout.preferredWidth: 28; Layout.preferredHeight: Theme.btnHeight; radius: Theme.btnRadius
-                                color: decDecArea.containsMouse && canDec ? Theme.bg2 : Theme.bg1; opacity: canDec ? 1 : 0.45
-                                border.width: 1; border.color: Theme.bg3
-                                Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                                Text { anchors.centerIn: parent; text: "\u2212"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
-                                Components.HoverLayer { id: decDecArea; enabled: parent.canDec; cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0; onClicked: root.hyprOptionAdjusted(modelData, -1) }
-                            }
-                            Text { text: String(root.hyprIntValue(modelData)); color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; Layout.preferredWidth: 36; horizontalAlignment: Text.AlignHCenter }
-                            Rectangle {
-                                Layout.preferredWidth: 28; Layout.preferredHeight: Theme.btnHeight; radius: Theme.btnRadius
-                                color: decIncArea.containsMouse ? Theme.bg2 : Theme.bg1
-                                border.width: 1; border.color: Theme.bg3
-                                Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                                Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
-                                Components.HoverLayer { id: decIncArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0; onClicked: root.hyprOptionAdjusted(modelData, 1) }
-                            }
-                        }
+                        delegate: hyprIntOptionDelegate
                     }
 
                     Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
@@ -489,30 +441,7 @@ Item {
 
                     Repeater {
                         model: root.hyprBlurOptions
-                        delegate: RowLayout {
-                            required property string modelData
-                            property var meta: root.hyprOptionMeta(modelData)
-                            Layout.fillWidth: true; spacing: 8
-                            Text { text: meta.label; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.fillWidth: true; Layout.alignment: Qt.AlignVCenter }
-                            Rectangle {
-                                property bool canDec: meta.minimum === undefined || root.hyprIntValue(modelData) > meta.minimum
-                                Layout.preferredWidth: 28; Layout.preferredHeight: Theme.btnHeight; radius: Theme.btnRadius
-                                color: blurDecArea.containsMouse && canDec ? Theme.bg2 : Theme.bg1; opacity: canDec ? 1 : 0.45
-                                border.width: 1; border.color: Theme.bg3
-                                Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                                Text { anchors.centerIn: parent; text: "\u2212"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
-                                Components.HoverLayer { id: blurDecArea; enabled: parent.canDec; cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0; onClicked: root.hyprOptionAdjusted(modelData, -1) }
-                            }
-                            Text { text: String(root.hyprIntValue(modelData)); color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; Layout.preferredWidth: 36; horizontalAlignment: Text.AlignHCenter }
-                            Rectangle {
-                                Layout.preferredWidth: 28; Layout.preferredHeight: Theme.btnHeight; radius: Theme.btnRadius
-                                color: blurIncArea.containsMouse ? Theme.bg2 : Theme.bg1
-                                border.width: 1; border.color: Theme.bg3
-                                Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                                Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize }
-                                Components.HoverLayer { id: blurIncArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0; onClicked: root.hyprOptionAdjusted(modelData, 1) }
-                            }
-                        }
+                        delegate: hyprIntOptionDelegate
                     }
 
                     Text { text: "Blur size and passes must stay at 1 or above."; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.fillWidth: true; wrapMode: Text.WordWrap }

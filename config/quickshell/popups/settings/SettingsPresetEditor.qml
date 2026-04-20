@@ -21,93 +21,6 @@ Rectangle {
     required property string busyTargetName
     required property string errorMessage
 
-    readonly property var systemFontOptions: [
-        "Overpass",
-        "Inter",
-        "Geist",
-        "IBM Plex Sans",
-        "Rubik",
-        "Noto Sans",
-        "Cantarell",
-        "Source Sans 3",
-        "Outfit",
-        "SF Pro"
-    ]
-    readonly property var monoFontOptions: [
-        "JetBrains Mono Nerd Font",
-        "Berkeley Mono",
-        "Commit Mono",
-        "Recursive Mono",
-        "Fira Code Nerd Font",
-        "Iosevka Nerd Font"
-    ]
-
-    readonly property var installedFamilies: {
-        let families = Qt.fontFamilies();
-        let normalized = {};
-        for (let i = 0; i < families.length; i++)
-            normalized[families[i].replace(/ /g, "").toLowerCase()] = true;
-        return normalized;
-    }
-
-    function isFontUnavailable(familyName) {
-        return !root.installedFamilies[familyName.replace(/ /g, "").toLowerCase()];
-    }
-
-    function monoFontValue(fontName) {
-        switch (fontName) {
-        case "JetBrains Mono Nerd Font":
-            return "JetBrainsMono Nerd Font";
-        case "Fira Code Nerd Font":
-            return "FiraCode Nerd Font";
-        case "Commit Mono":
-            return "CommitMono";
-        default:
-            return fontName;
-        }
-    }
-
-    function monoFontOptionMatchesCurrent(fontName, currentValue) {
-        return root.monoFontValue(fontName) === root.monoFontValue(currentValue);
-    }
-
-    function monoFontLabel(fontName) {
-        switch (root.monoFontValue(fontName)) {
-        case "JetBrainsMono Nerd Font":
-            return "JetBrains Mono";
-        case "FiraCode Nerd Font":
-            return "Fira Code";
-        case "CommitMono":
-            return "Commit Mono";
-        default:
-            return root.monoFontValue(fontName).replace(" Nerd Font", "");
-        }
-    }
-
-    function isMonoFontUnavailable(fontName) {
-        return root.isFontUnavailable(root.monoFontValue(fontName));
-    }
-
-    readonly property var iconThemeOptions: [
-        "Neuwaita",
-        "Colloid",
-        "Colloid-Dark",
-        "Colloid-Light",
-        "Papirus-Dark",
-        "Papirus",
-        "Papirus-Light",
-        "Adwaita",
-        "hicolor"
-    ]
-    readonly property var cursorThemeOptions: [
-        "Adwaita",
-        "BreezeX-RosePine-Linux",
-        "BreezeX-RosePineDawn-Linux",
-        "Bibata-Modern-Classic",
-        "Bibata-Modern-Ice",
-        "Bibata-Original-Classic",
-        "Bibata-Original-Ice"
-    ]
     property string wallpaperDraftPath: ""
     property string wallpaperValidationRequestedPath: ""
     property string wallpaperValidationRunningPath: ""
@@ -379,42 +292,13 @@ Rectangle {
                 }
             }
 
-            Rectangle {
-                width: cancelTopLabel.implicitWidth + 20
-                height: Theme.btnHeight
-                radius: Theme.btnRadius
-                color: cancelTopArea.containsMouse ? Theme.bg2 : Theme.bg
-                border.width: 1
-                border.color: Theme.bg3
-                opacity: root.busy ? 0.5 : 1
-                Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                scale: cancelTopArea.pressed ? 0.95 : 1.0
-                Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                transformOrigin: Item.Center
-
-                Text {
-                    id: cancelTopLabel
-                    anchors.centerIn: parent
-                    text: "Cancel"
-                    color: Theme.fg
-                    font.family: Theme.systemFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                }
-
-                Components.HoverLayer {
-                    id: cancelTopArea
-                    anchors.fill: parent
-                    enabled: !root.busy
-                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                    hoverEnabled: true
-
-                    hoverOpacity: 0
-
-                    pressedOpacity: 0
-
-                    pressedScale: 1.0
-                    onClicked: root.cancelRequested()
-                }
+            Components.ActionButton {
+                text: "Cancel"
+                baseColor: Theme.bg
+                hoverColor: Theme.bg2
+                disabledOpacity: 0.5
+                enabled: !root.busy
+                onClicked: root.cancelRequested()
             }
         }
 
@@ -860,11 +744,11 @@ Rectangle {
                 id: presetSystemFontSelect
                 visible: root.hasField("system_font")
                 Layout.fillWidth: true
-                model: root.systemFontOptions
+                model: ShellOptions.systemFontOptions
                 currentValue: root.currentValue("system_font")
                 currentText: root.currentValue("system_font") || ""
-                secondaryText: root.systemFontOptions.length + " fonts"
-                isOptionDisabled: function(fontName) { return root.isFontUnavailable(fontName); }
+                secondaryText: ShellOptions.systemFontOptions.length + " fonts"
+                isOptionDisabled: function(fontName) { return ShellOptions.isFontUnavailable(fontName); }
                 fontFamily: Theme.systemFamily
                 maxVisibleItems: 7
                 onExpandedChanged: {
@@ -897,72 +781,13 @@ Rectangle {
                 }
             }
 
-            Row {
+            Components.ValueStepper {
                 visible: root.hasField("font_size")
-                spacing: 8
-
-                Rectangle {
-                    width: 28
-                    height: Theme.btnHeight
-                    radius: Theme.btnRadius
-                    color: fontSizeMinus.containsMouse ? Theme.bg2 : Theme.bg
-                    border.width: 1
-                    border.color: Theme.bg3
-                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-
-                    Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
-
-                    Components.HoverLayer {
-                        id: fontSizeMinus
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        hoverEnabled: true
-
-                        hoverOpacity: 0
-
-                        pressedOpacity: 0
-
-                        pressedScale: 1.0
-                        onClicked: root.stepField("font_size", -1, 6, 24)
-                    }
-                }
-
-                Text {
-                    text: String(root.currentIntValue("font_size", 11))
-                    color: Theme.fg
-                    font.family: Theme.systemFamily
-                    font.pixelSize: Theme.fontSize
-                    width: 28
-                    horizontalAlignment: Text.AlignHCenter
-                    height: Theme.btnHeight
-                    verticalAlignment: Text.AlignVCenter
-                }
-
-                Rectangle {
-                    width: 28
-                    height: Theme.btnHeight
-                    radius: Theme.btnRadius
-                    color: fontSizePlus.containsMouse ? Theme.bg2 : Theme.bg
-                    border.width: 1
-                    border.color: Theme.bg3
-                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-
-                    Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
-
-                    Components.HoverLayer {
-                        id: fontSizePlus
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        hoverEnabled: true
-
-                        hoverOpacity: 0
-
-                        pressedOpacity: 0
-
-                        pressedScale: 1.0
-                        onClicked: root.stepField("font_size", 1, 6, 24)
-                    }
-                }
+                baseColor: Theme.bg
+                valueText: String(root.currentIntValue("font_size", 11))
+                valueWidth: 28
+                onDecrement: root.stepField("font_size", -1, 6, 24)
+                onIncrement: root.stepField("font_size", 1, 6, 24)
             }
         }
 
@@ -995,72 +820,13 @@ Rectangle {
                     }
                 }
 
-                Row {
+                Components.ValueStepper {
                     visible: root.hasField(fieldKey)
-                    spacing: 8
-
-                    Rectangle {
-                        width: 28
-                        height: Theme.btnHeight
-                        radius: Theme.btnRadius
-                        color: systemOffsetMinus.containsMouse ? Theme.bg2 : Theme.bg
-                        border.width: 1
-                        border.color: Theme.bg3
-                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-
-                        Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
-
-                        Components.HoverLayer {
-                            id: systemOffsetMinus
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            hoverEnabled: true
-
-                            hoverOpacity: 0
-
-                            pressedOpacity: 0
-
-                            pressedScale: 1.0
-                            onClicked: root.stepField(fieldKey, -1)
-                        }
-                    }
-
-                    Text {
-                        text: String(root.currentIntValue(fieldKey, 0))
-                        color: Theme.fg
-                        font.family: Theme.systemFamily
-                        font.pixelSize: Theme.fontSize
-                        width: 28
-                        horizontalAlignment: Text.AlignHCenter
-                        height: Theme.btnHeight
-                        verticalAlignment: Text.AlignVCenter
-                    }
-
-                    Rectangle {
-                        width: 28
-                        height: Theme.btnHeight
-                        radius: Theme.btnRadius
-                        color: systemOffsetPlus.containsMouse ? Theme.bg2 : Theme.bg
-                        border.width: 1
-                        border.color: Theme.bg3
-                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-
-                        Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
-
-                        Components.HoverLayer {
-                            id: systemOffsetPlus
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            hoverEnabled: true
-
-                            hoverOpacity: 0
-
-                            pressedOpacity: 0
-
-                            pressedScale: 1.0
-                            onClicked: root.stepField(fieldKey, 1)
-                        }
-                    }
+                    baseColor: Theme.bg
+                    valueText: String(root.currentIntValue(fieldKey, 0))
+                    valueWidth: 28
+                    onDecrement: root.stepField(fieldKey, -1)
+                    onIncrement: root.stepField(fieldKey, 1)
                 }
             }
         }
@@ -1083,7 +849,7 @@ Rectangle {
 
                 Components.ToggleSwitch {
                     checked: root.hasField("mono_font")
-                    onToggled: root.toggleFieldInclusion("mono_font", root.themeState.mono_font || root.monoFontValue("JetBrains Mono Nerd Font"))
+                    onToggled: root.toggleFieldInclusion("mono_font", root.themeState.mono_font || ShellOptions.monoFontValue("JetBrains Mono Nerd Font"))
                 }
             }
 
@@ -1091,20 +857,20 @@ Rectangle {
                 id: presetMonoFontSelect
                 visible: root.hasField("mono_font")
                 Layout.fillWidth: true
-                model: root.monoFontOptions
+                model: ShellOptions.presetMonoFontOptions
                 currentValue: root.currentValue("mono_font")
-                currentText: root.currentValue("mono_font") ? root.monoFontLabel(root.currentValue("mono_font")) : ""
-                secondaryText: root.monoFontOptions.length + " fonts"
-                matchesCurrent: function(fontName, currentValue) { return root.monoFontOptionMatchesCurrent(fontName, currentValue); }
-                isOptionDisabled: function(fontName) { return root.isMonoFontUnavailable(fontName); }
+                currentText: root.currentValue("mono_font") ? ShellOptions.monoFontLabel(root.currentValue("mono_font")) : ""
+                secondaryText: ShellOptions.presetMonoFontOptions.length + " fonts"
+                matchesCurrent: function(fontName, currentValue) { return ShellOptions.monoFontOptionMatchesCurrent(fontName, currentValue); }
+                isOptionDisabled: function(fontName) { return ShellOptions.isMonoFontUnavailable(fontName); }
                 fontFamily: Theme.systemFamily
                 maxVisibleItems: 6
-                textForValue: function(fontName) { return root.monoFontLabel(fontName); }
+                textForValue: function(fontName) { return ShellOptions.monoFontLabel(fontName); }
                 onExpandedChanged: {
                     if (expanded)
                         presetSystemFontSelect.expanded = false;
                 }
-                onActivated: (fontName) => root.setField("mono_font", root.monoFontValue(fontName))
+                onActivated: (fontName) => root.setField("mono_font", ShellOptions.monoFontValue(fontName))
             }
         }
 
@@ -1130,72 +896,13 @@ Rectangle {
                 }
             }
 
-            Row {
+            Components.ValueStepper {
                 visible: root.hasField("mono_font_size")
-                spacing: 8
-
-                Rectangle {
-                    width: 28
-                    height: Theme.btnHeight
-                    radius: Theme.btnRadius
-                    color: monoFontSizeMinus.containsMouse ? Theme.bg2 : Theme.bg
-                    border.width: 1
-                    border.color: Theme.bg3
-                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-
-                    Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
-
-                    Components.HoverLayer {
-                        id: monoFontSizeMinus
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        hoverEnabled: true
-
-                        hoverOpacity: 0
-
-                        pressedOpacity: 0
-
-                        pressedScale: 1.0
-                        onClicked: root.stepField("mono_font_size", -1, 6, 24)
-                    }
-                }
-
-                Text {
-                    text: String(root.currentIntValue("mono_font_size", 11))
-                    color: Theme.fg
-                    font.family: Theme.systemFamily
-                    font.pixelSize: Theme.fontSize
-                    width: 28
-                    horizontalAlignment: Text.AlignHCenter
-                    height: Theme.btnHeight
-                    verticalAlignment: Text.AlignVCenter
-                }
-
-                Rectangle {
-                    width: 28
-                    height: Theme.btnHeight
-                    radius: Theme.btnRadius
-                    color: monoFontSizePlus.containsMouse ? Theme.bg2 : Theme.bg
-                    border.width: 1
-                    border.color: Theme.bg3
-                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-
-                    Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
-
-                    Components.HoverLayer {
-                        id: monoFontSizePlus
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        hoverEnabled: true
-
-                        hoverOpacity: 0
-
-                        pressedOpacity: 0
-
-                        pressedScale: 1.0
-                        onClicked: root.stepField("mono_font_size", 1, 6, 24)
-                    }
-                }
+                baseColor: Theme.bg
+                valueText: String(root.currentIntValue("mono_font_size", 11))
+                valueWidth: 28
+                onDecrement: root.stepField("mono_font_size", -1, 6, 24)
+                onIncrement: root.stepField("mono_font_size", 1, 6, 24)
             }
         }
 
@@ -1228,72 +935,13 @@ Rectangle {
                     }
                 }
 
-                Row {
+                Components.ValueStepper {
                     visible: root.hasField(fieldKey)
-                    spacing: 8
-
-                    Rectangle {
-                        width: 28
-                        height: Theme.btnHeight
-                        radius: Theme.btnRadius
-                        color: offsetMinus.containsMouse ? Theme.bg2 : Theme.bg
-                        border.width: 1
-                        border.color: Theme.bg3
-                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-
-                        Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
-
-                        Components.HoverLayer {
-                            id: offsetMinus
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            hoverEnabled: true
-
-                            hoverOpacity: 0
-
-                            pressedOpacity: 0
-
-                            pressedScale: 1.0
-                            onClicked: root.stepField(fieldKey, -1)
-                        }
-                    }
-
-                    Text {
-                        text: String(root.currentIntValue(fieldKey, 0))
-                        color: Theme.fg
-                        font.family: Theme.systemFamily
-                        font.pixelSize: Theme.fontSize
-                        width: 28
-                        horizontalAlignment: Text.AlignHCenter
-                        height: Theme.btnHeight
-                        verticalAlignment: Text.AlignVCenter
-                    }
-
-                    Rectangle {
-                        width: 28
-                        height: Theme.btnHeight
-                        radius: Theme.btnRadius
-                        color: offsetPlus.containsMouse ? Theme.bg2 : Theme.bg
-                        border.width: 1
-                        border.color: Theme.bg3
-                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-
-                        Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
-
-                        Components.HoverLayer {
-                            id: offsetPlus
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            hoverEnabled: true
-
-                            hoverOpacity: 0
-
-                            pressedOpacity: 0
-
-                            pressedScale: 1.0
-                            onClicked: root.stepField(fieldKey, 1)
-                        }
-                    }
+                    baseColor: Theme.bg
+                    valueText: String(root.currentIntValue(fieldKey, 0))
+                    valueWidth: 28
+                    onDecrement: root.stepField(fieldKey, -1)
+                    onIncrement: root.stepField(fieldKey, 1)
                 }
             }
         }
@@ -1327,7 +975,7 @@ Rectangle {
             Components.IconThemeCards {
                 visible: root.hasField("icon_theme")
                 Layout.fillWidth: true
-                model: root.iconThemeOptions
+                model: ShellOptions.iconThemeOptions
                 currentValue: root.currentValue("icon_theme") || ""
                 onActivated: (value) => root.setField("icon_theme", value)
             }
@@ -1358,10 +1006,10 @@ Rectangle {
             Components.InlineSelect {
                 visible: root.hasField("cursor_theme")
                 Layout.fillWidth: true
-                model: root.cursorThemeOptions
+                model: ShellOptions.cursorThemeOptions
                 currentValue: root.currentValue("cursor_theme")
                 currentText: root.currentValue("cursor_theme") || ""
-                secondaryText: root.cursorThemeOptions.length + " themes"
+                secondaryText: ShellOptions.cursorThemeOptions.length + " themes"
                 fontFamily: Theme.systemFamily
                 maxVisibleItems: 7
                 onActivated: (value) => root.setField("cursor_theme", value)
@@ -1390,72 +1038,13 @@ Rectangle {
                 }
             }
 
-            Row {
+            Components.ValueStepper {
                 visible: root.hasField("cursor_size")
-                spacing: 8
-
-                Rectangle {
-                    width: 28
-                    height: Theme.btnHeight
-                    radius: Theme.btnRadius
-                    color: cursorSizeMinus.containsMouse ? Theme.bg2 : Theme.bg
-                    border.width: 1
-                    border.color: Theme.bg3
-                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-
-                    Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
-
-                    Components.HoverLayer {
-                        id: cursorSizeMinus
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        hoverEnabled: true
-
-                        hoverOpacity: 0
-
-                        pressedOpacity: 0
-
-                        pressedScale: 1.0
-                        onClicked: root.stepField("cursor_size", -4, 16, 48)
-                    }
-                }
-
-                Text {
-                    text: String(root.currentIntValue("cursor_size", 24))
-                    color: Theme.fg
-                    font.family: Theme.systemFamily
-                    font.pixelSize: Theme.fontSize
-                    width: 28
-                    horizontalAlignment: Text.AlignHCenter
-                    height: Theme.btnHeight
-                    verticalAlignment: Text.AlignVCenter
-                }
-
-                Rectangle {
-                    width: 28
-                    height: Theme.btnHeight
-                    radius: Theme.btnRadius
-                    color: cursorSizePlus.containsMouse ? Theme.bg2 : Theme.bg
-                    border.width: 1
-                    border.color: Theme.bg3
-                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-
-                    Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
-
-                    Components.HoverLayer {
-                        id: cursorSizePlus
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        hoverEnabled: true
-
-                        hoverOpacity: 0
-
-                        pressedOpacity: 0
-
-                        pressedScale: 1.0
-                        onClicked: root.stepField("cursor_size", 4, 16, 48)
-                    }
-                }
+                baseColor: Theme.bg
+                valueText: String(root.currentIntValue("cursor_size", 24))
+                valueWidth: 28
+                onDecrement: root.stepField("cursor_size", -4, 16, 48)
+                onIncrement: root.stepField("cursor_size", 4, 16, 48)
             }
         }
 
@@ -1501,72 +1090,13 @@ Rectangle {
                     }
                 }
 
-                Row {
+                Components.ValueStepper {
                     visible: root.hasField(modelData.key)
-                    spacing: 8
-
-                    Rectangle {
-                        width: 28
-                        height: Theme.btnHeight
-                        radius: Theme.btnRadius
-                        color: hyprIntMinus.containsMouse ? Theme.bg2 : Theme.bg
-                        border.width: 1
-                        border.color: Theme.bg3
-                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-
-                        Text { anchors.centerIn: parent; text: "−"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
-
-                        Components.HoverLayer {
-                            id: hyprIntMinus
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            hoverEnabled: true
-
-                            hoverOpacity: 0
-
-                            pressedOpacity: 0
-
-                            pressedScale: 1.0
-                            onClicked: root.stepField(modelData.key, -(modelData.step || 1), modelData.minimum)
-                        }
-                    }
-
-                    Text {
-                        text: String(root.currentIntValue(modelData.key, modelData.minimum))
-                        color: Theme.fg
-                        font.family: Theme.systemFamily
-                        font.pixelSize: Theme.fontSize
-                        width: 28
-                        horizontalAlignment: Text.AlignHCenter
-                        height: Theme.btnHeight
-                        verticalAlignment: Text.AlignVCenter
-                    }
-
-                    Rectangle {
-                        width: 28
-                        height: Theme.btnHeight
-                        radius: Theme.btnRadius
-                        color: hyprIntPlus.containsMouse ? Theme.bg2 : Theme.bg
-                        border.width: 1
-                        border.color: Theme.bg3
-                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-
-                        Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize }
-
-                        Components.HoverLayer {
-                            id: hyprIntPlus
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            hoverEnabled: true
-
-                            hoverOpacity: 0
-
-                            pressedOpacity: 0
-
-                            pressedScale: 1.0
-                            onClicked: root.stepField(modelData.key, modelData.step || 1, modelData.minimum)
-                        }
-                    }
+                    baseColor: Theme.bg
+                    valueText: String(root.currentIntValue(modelData.key, modelData.minimum))
+                    valueWidth: 28
+                    onDecrement: root.stepField(modelData.key, -(modelData.step || 1), modelData.minimum)
+                    onIncrement: root.stepField(modelData.key, modelData.step || 1, modelData.minimum)
                 }
             }
         }
@@ -1701,82 +1231,25 @@ Rectangle {
                 Layout.fillWidth: true
             }
 
-            Rectangle {
-                width: cancelBottomLabel.implicitWidth + 20
-                height: Theme.btnHeight
-                radius: Theme.btnRadius
-                color: cancelBottomArea.containsMouse ? Theme.bg2 : Theme.bg
-                border.width: 1
-                border.color: Theme.bg3
-                opacity: root.busy ? 0.5 : 1
-                Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                scale: cancelBottomArea.pressed ? 0.95 : 1.0
-                Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                transformOrigin: Item.Center
-
-                Text {
-                    id: cancelBottomLabel
-                    anchors.centerIn: parent
-                    text: "Cancel"
-                    color: Theme.fg
-                    font.family: Theme.systemFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                }
-
-                Components.HoverLayer {
-                    id: cancelBottomArea
-                    anchors.fill: parent
-                    enabled: !root.busy
-                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                    hoverEnabled: true
-
-                    hoverOpacity: 0
-
-                    pressedOpacity: 0
-
-                    pressedScale: 1.0
-                    onClicked: root.cancelRequested()
-                }
+            Components.ActionButton {
+                text: "Cancel"
+                baseColor: Theme.bg
+                hoverColor: Theme.bg2
+                disabledOpacity: 0.5
+                enabled: !root.busy
+                onClicked: root.cancelRequested()
             }
 
-            Rectangle {
-                width: saveLabel.implicitWidth + 24
-                height: Theme.btnHeight
-                radius: Theme.btnRadius
-                color: root.canSave() ? (saveArea.containsMouse ? Theme.greenBright : Theme.accent) : Theme.bg2
-                border.width: 1
-                border.color: root.canSave() ? Theme.accent : Theme.bg3
-                Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                Behavior on border.color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                scale: saveArea.pressed ? 0.95 : 1.0
-                Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                transformOrigin: Item.Center
-
-                Text {
-                    id: saveLabel
-                    anchors.centerIn: parent
-                    text: root.busy ? "Working..." : (root.mode === "edit" ? "Save Changes" : "Create Preset")
-                    color: root.canSave() ? Theme.bg : Theme.fg4
-                    font.family: Theme.systemFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                    font.bold: root.canSave()
-                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                }
-
-                Components.HoverLayer {
-                    id: saveArea
-                    anchors.fill: parent
-                    enabled: root.canSave()
-                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                    hoverEnabled: true
-
-                    hoverOpacity: 0
-
-                    pressedOpacity: 0
-
-                    pressedScale: 1.0
-                    onClicked: root.submit()
-                }
+            Components.ActionButton {
+                text: root.busy ? "Working..." : (root.mode === "edit" ? "Save Changes" : "Create Preset")
+                baseColor: root.canSave() ? Theme.accent : Theme.bg2
+                hoverColor: root.canSave() ? Theme.greenBright : Theme.bg2
+                borderColor: root.canSave() ? Theme.accent : Theme.bg3
+                textColor: root.canSave() ? Theme.bg : Theme.fg4
+                disabledOpacity: 1
+                fontBold: root.canSave()
+                enabled: root.canSave()
+                onClicked: root.submit()
             }
         }
     }

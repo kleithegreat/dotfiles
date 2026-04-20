@@ -27,6 +27,8 @@ Managed popups mounted by the overlay host remain:
 | `components/WheelFlickable.qml` | Shared wheel + drag scroll surface for settings panes, dropdown option lists, notification history, Wi-Fi lists, and Quick Settings overflow. It now uses one elastic overscroll model (`FollowBoundsBehavior` + `DragAndOvershootBounds`) and lets `returnToBounds()` handle rebound instead of timer-driven snap-back bookkeeping. | `config/quickshell/components/WheelFlickable.qml`, plus its use sites in `config/quickshell/popups/QuickSettingsPopup.qml`, `config/quickshell/NotifDrawer.qml`, and `config/quickshell/popups/settings/SettingsSidebar.qml` |
 | `components/HoverLayer.qml` | Shared pressed/hover visual layer for shell buttons and tile hit areas. It stays pointer-only and does not introduce an extra keyboard interaction contract on top of each caller. | `config/quickshell/components/HoverLayer.qml`, plus its use in `config/quickshell/popups/QuickSettingsPopup.qml` and `config/quickshell/PowerMenu.qml` |
 | `components/ToggleSwitch.qml` | Shared boolean control with mouse-driven activation plus disabled/pending opacity states. | `config/quickshell/components/ToggleSwitch.qml` |
+| `ShellOptions.qml` | Shared static option catalogs plus canonical mono-font normalization/label helpers for the Fonts, Icons, Mouse, and Presets surfaces. | `config/quickshell/ShellOptions.qml`, `config/quickshell/popups/settings/SettingsFontsPane.qml`, `config/quickshell/popups/settings/SettingsIconsPane.qml`, `config/quickshell/popups/settings/SettingsMousePane.qml`, and `config/quickshell/popups/settings/SettingsPresetEditor.qml` |
+| `components/SettingsPaneHeader.qml`, `components/ActionButton.qml`, `components/StepperButton.qml`, and `components/ValueStepper.qml` | Shared header, button, and numeric-stepper chrome for settings panes and the preset editor, replacing repeated local `Rectangle` + `HoverLayer` control scaffolding. | `config/quickshell/components/SettingsPaneHeader.qml`, `config/quickshell/components/ActionButton.qml`, `config/quickshell/components/StepperButton.qml`, `config/quickshell/components/ValueStepper.qml`, plus their use in `config/quickshell/popups/settings/SettingsFontsPane.qml`, `config/quickshell/popups/settings/SettingsMousePane.qml`, `config/quickshell/popups/settings/SettingsHyprlandPane.qml`, `config/quickshell/popups/settings/SettingsIconsPane.qml`, and `config/quickshell/popups/settings/SettingsPresetEditor.qml` |
 | `components/ColorSchemeCard.qml` and `components/ColorSchemeCards.qml` | Shared responsive scheme-preview cards for the Colors pane and preset editor. They consume `colorFamilies`, adapt the column count to available width, and highlight the active scheme without falling back to dropdown-only selection. | `config/quickshell/components/ColorSchemeCard.qml`, `config/quickshell/components/ColorSchemeCards.qml`, `config/quickshell/popups/settings/SettingsColorsPane.qml`, and `config/quickshell/popups/settings/SettingsPresetEditor.qml` |
 | `components/IconThemeCard.qml` and `components/IconThemeCards.qml` | Shared responsive icon-theme preview cards for the Icons pane and preset editor. They keep icon-theme selection pointer-first while replacing the old bare dropdown with family/variant labeling plus representative icons loaded from each installed icon theme. | `config/quickshell/components/IconThemeCard.qml`, `config/quickshell/components/IconThemeCards.qml`, `config/quickshell/popups/settings/SettingsIconsPane.qml`, and `config/quickshell/popups/settings/SettingsPresetEditor.qml` |
 | `components/InlineDropdown.qml` | Compact one-of-many selector with pointer-driven expansion, animated dropdown height, and `WheelFlickable`-backed option scrolling. | `config/quickshell/components/InlineDropdown.qml` |
@@ -214,16 +216,10 @@ animations after `chartVisualsReady` has been primed.
 Evidence:
 `config/quickshell/popups/settings/SettingsFocusTimePane.qml`.
 
-Shell chrome remains deliberately pointer-first after the frontend-polish pass.
-Quick Settings tiles and footer actions, bar modules, and power-menu actions
-all use mouse/touch hit areas plus hover/pressed feedback, without repo-local
-tab stops or focus outlines layered onto those surfaces. Evidence:
-`config/quickshell/popups/QuickSettingsPopup.qml`,
-`config/quickshell/bar/Bar.qml`,
-`config/quickshell/bar/Clock.qml`,
-`config/quickshell/bar/Mpris.qml`,
-`config/quickshell/bar/Workspaces.qml`, and
-`config/quickshell/PowerMenu.qml`.
+Custom shell chrome remains pointer-first; see `docs/quickshell/SPEC.md` for
+the policy and `config/quickshell/popups/QuickSettingsPopup.qml`,
+`config/quickshell/bar/`, and `config/quickshell/PowerMenu.qml` for the current
+implementation.
 
 ## Theme Integration
 
