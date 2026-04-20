@@ -29,6 +29,7 @@ buildNpmPackage {
   patches = [
     ../../patches/openchamber/claude-backend-selector.patch
     ../../patches/openchamber/mixed-backend-mux.patch
+    ../../patches/openchamber/desktop-popup-performance.patch
   ];
 
   npmDepsHash = "sha256-Gy1dxncCuMgpsom83lzBkoSYayBWiZfIS7LaHbnNzAA=";

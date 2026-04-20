@@ -37,6 +37,7 @@ Theme-only targets with no `config/` subdirectory:
 | Cursor | `~/.local/share/icons/default/index.theme.generated` | `standalone` | Also writes `~/.config/hypr/cursor.conf`; live-updates dconf and hyprctl |
 | GTK | dconf live state only | `command` | Sets GTK theme, color-scheme, fonts, and icon theme via dconf |
 | GtkSourceView | `~/.local/share/libgedit-gtksourceview-300/styles/desktopctl-current.xml` and related generated style files | `standalone` | Also updates gedit's dark/light source-style dconf keys |
+| OpenChamber | `~/.config/openchamber/settings.json` plus `~/.config/openchamber/themes/desktopctl.json` | `command` | Patches only OpenChamber's theme-owned settings keys and writes a generated custom theme file; the rest of `settings.json` stays app-owned |
 | Qt | `~/.config/qt6ct/colors/current.conf` and others | `standalone` | Multi-file: qt6ct, qt5ct, kdeglobals, kcolorscheme, hyprqt6engine, Kvantum, Kate, KWrite |
 | Spicetify | `~/.config/spicetify/Themes/ApplyTheme/color.ini` | `standalone` | Runs `spicetify update` on apply |
 | Wallpaper | `awww` live state plus cached filtered wallpapers | `command` | Optional `lutgen` palette filtering; no persistent primary config file |

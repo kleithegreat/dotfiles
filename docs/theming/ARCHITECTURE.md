@@ -13,7 +13,7 @@ Current implementation map for the migrated Rust theming pipeline as of
 | Schema | `desktopctl/src/theme/schema.rs` defines `ColorScheme`, required `appearance`, centralized per-target app-theme metadata including KTextEditor theme names, `ThemeState`, canonical field ordering, compiled default theme-state values, the per-target system-font and mono-font offset contract, and the shared font-size / mono-font-size helpers. The default-state logic there still derives `dark_hint` from the default scheme's declared appearance instead of a detached constant. |
 | Resolution | `desktopctl/src/theme/resolve.rs` resolves `themes/colors/`, rejects schemes that omit `appearance`, persists theme state in the shared `desktopctl.db` `theme_state` table, backfills missing required `ThemeState` keys from compiled defaults when older SQLite rows or legacy `themes/state.json` inputs are reused, canonicalizes known legacy string aliases such as older mono-font labels before validation/persistence, imports the legacy JSON on first access, and serializes canonical JSON for CLI output. |
 | JSON compatibility | `desktopctl/src/theme/json.rs` preserves Python-compatible object ordering and ASCII escaping for generated JSON files and `--json` CLI output. |
-| Registry | `desktopctl/src/theme/targets/mod.rs` defines target metadata, including primary generated outputs, additional hook-managed filesystem paths, and the consumed `ThemeState` key list for each target, exposes the hook surfaces, and registers all 23 current targets explicitly. |
+| Registry | `desktopctl/src/theme/targets/mod.rs` defines target metadata, including primary generated outputs, additional hook-managed filesystem paths, and the consumed `ThemeState` key list for each target, exposes the hook surfaces, and registers all 24 current targets explicitly. |
 | Orchestrator | `desktopctl/src/theme/orchestrator.rs` handles dependency selection, target ordering, file assembly, atomic file replacement, concat merges, repo-relative `base_path` resolution, post-write hooks, reload hooks, and sync-safe filtering. Color/font apply scopes plus per-key fanout now derive from each target's declared `TargetMetadata.state_keys`, with the existing wallpaper filter exception still handled there when `filter_wallpaper` is false. |
 
 ## CLI Surface
@@ -31,7 +31,7 @@ Current implementation map for the migrated Rust theming pipeline as of
 | `import` | `alacritty`, `ghostty`, `tmux`, `vicinae`, `zathura`, `zsh` |
 | `standalone` | `bat`, `cursor`, `gtksourceview`, `hypr_appearance`, `hyprland`, `neovide`, `neovim`, `qt`, `quickshell`, `spicetify` |
 | `concat` | `opencode`, `snappy_switcher`, `starship`, `vscode` |
-| `command` | `chromium`, `gtk`, `wallpaper` |
+| `command` | `chromium`, `gtk`, `openchamber`, `wallpaper` |
 
 Per-scheme theme-name translation now lives in `themes/colors/*.json` and is
 surfaced through `ColorScheme` helpers in `desktopctl/src/theme/schema.rs`.
@@ -50,6 +50,7 @@ Targets with notable extra behavior:
 | `cursor` | `desktopctl/src/theme/targets/cursor.rs` writes cursor index files plus `~/.config/hypr/cursor.conf`, updates dconf, updates Hyprland cursor env, and imports cursor vars into the user environment. |
 | `gtk` | `desktopctl/src/theme/targets/gtk.rs` is command-only and does all real work in `on_apply()` through dconf writes, now routing both the normal UI font and monospace font through the shared offset helpers. |
 | `gtksourceview` | `desktopctl/src/theme/targets/gtksourceview.rs` writes the current GtkSourceView scheme to `desktopctl-current.xml`, mirrors the rest of the repo scheme catalog into `~/.local/share/libgedit-gtksourceview-300/styles/desktopctl-*.xml`, and updates gedit's dark/light source-style dconf keys at runtime. |
+| `openchamber` | `desktopctl/src/theme/targets/openchamber.rs` is command-only and writes `~/.config/openchamber/themes/desktopctl.json` with a generated OpenChamber custom theme while patching only the theme-owned keys in `~/.config/openchamber/settings.json` (`themeId`, `themeVariant`, `useSystemTheme`, and the matching light/dark theme pointer) so the rest of the app settings remain OpenChamber-owned. |
 | `opencode` | `desktopctl/src/theme/targets/opencode.rs` concatenates the repo-owned OpenCode TUI base config from `config/opencode/base.json` into `~/.config/opencode/tui.json` to select the managed `desktopctl` theme, then persists `~/.config/opencode/themes/desktopctl.json` with an ASCII-safe palette mapped onto OpenCode's upstream theme schema. |
 | `qt` | `desktopctl/src/theme/targets/qt.rs` mirrors the palette into qt5ct, qt6ct, KDE, hyprqt6engine, Kvantum, Kate, and KWrite. The target now writes `[Icons] Theme` into `kdeglobals`, drives KTextEditor from `ColorScheme.app_themes.ktexteditor`, uses the shared system-font and mono-font offset helpers for `hyprqt6engine`, and still uses the centralized `ColorScheme.appearance` metadata when only dark/light asset selection is needed. The shared system baseline in `system/configuration.nix` now supplies the runtime half of that contract by enabling NixOS `qt.enable`, exporting `QT_QPA_PLATFORMTHEME=hyprqt6engine`, keeping hyprqt6engine's nonstandard plugin root visible, installing qtct/Kvantum packages system-wide without a global `QT_STYLE_OVERRIDE`, and applying the shared fontconfig tuning that gives `system_font = "SF Pro"` RGB subpixel AA plus an `SF Pro Text` preference. |
 | `quickshell` | `desktopctl/src/theme/targets/quickshell.rs` writes `GeneratedTheme.json` for shell colors and fonts with Python-compatible JSON formatting, emits both mono and system font families, and derives `size`, `sizeSmall`, and `sizeLarge` from `ThemeState.font_size + quickshell_font_size_offset`. |
@@ -72,6 +73,7 @@ documented in `docs/nix/ARCHITECTURE.md`.
 | Hyprland | `config/hypr/hyprland.conf` and `config/hypr/appearance.conf` source generated `colors.conf`, `cursor.conf`, and `appearance-theme.conf`. The `awww-daemon` startup block in `config/hypr/autostart.conf` re-applies the wallpaper target from persisted theme state once the daemon is ready. |
 | Quickshell | `config/quickshell/Theme.qml`, `config/quickshell/popups/SettingsPopup.qml`, the Fonts/Presets panes, `config/quickshell/ShellOptions.qml`, and `config/quickshell/shell.qml` call or route `desktopctl theme` through argv-safe command construction instead of hardcoded repo scripts. The settings host still stages individual `theme set` writes optimistically, serializes queued `set` / `preset` requests, and reloads or rolls back on process exit. Shell-side pane structure, shared UI primitives, and the committed `config/quickshell/GeneratedTheme.json` bootstrap snapshot are documented in `docs/quickshell/ARCHITECTURE.md`. |
 | Neovim / Neovide | Generated `theme-state.json` and `neovide-theme.lua` are still written inside the Home Manager-symlinked `~/.config/nvim` tree. |
+| OpenChamber | `desktopctl/src/theme/targets/openchamber.rs` now patches `~/.config/openchamber/settings.json` theme selection keys and persists `~/.config/openchamber/themes/desktopctl.json`, letting the desktop app keep its normal settings file while still consuming a generated desktopctl theme. |
 | OpenCode | `desktopctl/src/theme/targets/opencode.rs` and `config/opencode/base.json` now generate the global `~/.config/opencode/tui.json` theme selection plus `~/.config/opencode/themes/desktopctl.json`. The target is intentionally color-only because upstream OpenCode TUI theming consumes a theme name plus theme-color JSON, and project-local OpenCode config layers can still override the global `desktopctl` theme by name. |
 | Zsh | `home/shell.nix` sources `~/.config/zsh/theme-colors` from `programs.zsh.initContent`, while `desktopctl/src/theme/targets/zsh.rs` generates that fragment from the active `ColorScheme`. |
 | Tool configs | Import or concat targets still write under `~/.config` or app-specific config paths, keeping repo-authored base files read-only. Repo-authored concat bases now resolve through `paths::repo_root()` when the target declares a relative `base_path`. |
@@ -109,6 +111,10 @@ documented in `docs/nix/ARCHITECTURE.md`.
   names, and atomic replacement of the generated custom-theme file, while
   the tests in `desktopctl/src/theme/orchestrator.rs` cover the OpenCode
   `color_scheme` dependency fanout.
+- The tests in `desktopctl/src/theme/targets/openchamber.rs` cover the generated
+  OpenChamber theme-file shape, ASCII-safe JSON rendering, and settings-file
+  merge behavior, while the tests in `desktopctl/src/theme/orchestrator.rs`
+  and `desktopctl/src/theme/mod.rs` cover the new color-target fanout.
 - The tests in `desktopctl/src/theme/targets/qt.rs` cover the declared
   KTextEditor theme metadata and Kvantum dark/light asset selection behavior.
 - The tests in `desktopctl/src/theme/targets/zsh.rs` cover the autosuggestion

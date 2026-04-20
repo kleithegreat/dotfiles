@@ -1231,6 +1231,13 @@ mod tests {
     }
 
     #[test]
+    fn color_targets_include_openchamber() {
+        let registry = targets::build_registry().expect("registry builds");
+        let state = schema::ThemeState::default_state_for_repo_root(&repo_root());
+        assert!(orchestrator::color_targets(&registry, &state).contains("openchamber"));
+    }
+
+    #[test]
     fn font_targets_do_not_include_tmux() {
         let registry = targets::build_registry().expect("registry builds");
         assert!(!orchestrator::font_targets(&registry).contains("tmux"));
