@@ -12,24 +12,10 @@ use std::{
 #[cfg(unix)]
 use std::os::unix::fs::symlink;
 
-pub const METADATA: TargetMetadata = TargetMetadata {
-    name: "qt",
-    assembly: Assembly::Standalone,
-    output_path: Some("~/.config/qt6ct/colors/current.conf"),
-    base_path: None,
-    extra_outputs: &["~/.config/qt5ct/colors/current.conf"],
-    managed_paths: &[
-        "~/.config/qt6ct/qt6ct.conf",
-        "~/.config/qt5ct/qt5ct.conf",
-        "~/.config/kdeglobals",
-        "~/.local/share/color-schemes/current.colors",
-        "~/.config/hypr/hyprqt6engine.conf",
-        "~/.config/Kvantum/kvantum.kvconfig",
-        "~/.config/Kvantum/GeneratedTheme/",
-        "~/.config/katerc",
-        "~/.config/kwriterc",
-    ],
-    state_keys: &[
+pub const METADATA: TargetMetadata = TargetMetadata::new(
+    "qt",
+    Assembly::Standalone,
+    &[
         "color_scheme",
         "system_font",
         "mono_font",
@@ -39,10 +25,21 @@ pub const METADATA: TargetMetadata = TargetMetadata {
         "mono_font_size",
         "qt_mono_font_size_offset",
     ],
-    reload_cmd: None,
-    comment: Some(";"),
-    sync_safe: true,
-};
+)
+.output("~/.config/qt6ct/colors/current.conf")
+.extra_outputs(&["~/.config/qt5ct/colors/current.conf"])
+.managed_paths(&[
+    "~/.config/qt6ct/qt6ct.conf",
+    "~/.config/qt5ct/qt5ct.conf",
+    "~/.config/kdeglobals",
+    "~/.local/share/color-schemes/current.colors",
+    "~/.config/hypr/hyprqt6engine.conf",
+    "~/.config/Kvantum/kvantum.kvconfig",
+    "~/.config/Kvantum/GeneratedTheme/",
+    "~/.config/katerc",
+    "~/.config/kwriterc",
+])
+.comment(";");
 
 const QT6CT_CONF: &str = "~/.config/qt6ct/qt6ct.conf";
 const QT5CT_CONF: &str = "~/.config/qt5ct/qt5ct.conf";

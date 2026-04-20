@@ -3,14 +3,10 @@ use crate::theme::schema::{ColorScheme, ThemeState};
 
 const RELOAD_CMD: &[&str] = &["hyprctl", "reload"];
 
-pub const METADATA: TargetMetadata = TargetMetadata {
-    name: "hypr_appearance",
-    assembly: Assembly::Standalone,
-    output_path: Some("~/.config/hypr/appearance-theme.conf"),
-    base_path: None,
-    extra_outputs: &[],
-    managed_paths: &[],
-    state_keys: &[
+pub const METADATA: TargetMetadata = TargetMetadata::new(
+    "hypr_appearance",
+    Assembly::Standalone,
+    &[
         "hypr_gaps_in",
         "hypr_gaps_out",
         "hypr_border_size",
@@ -20,10 +16,10 @@ pub const METADATA: TargetMetadata = TargetMetadata {
         "hypr_blur_passes",
         "hypr_animations_enabled",
     ],
-    reload_cmd: Some(RELOAD_CMD),
-    comment: Some("#"),
-    sync_safe: true,
-};
+)
+.output("~/.config/hypr/appearance-theme.conf")
+.reload_cmd(RELOAD_CMD)
+.comment("#");
 
 fn bool_word(value: bool) -> &'static str {
     if value { "true" } else { "false" }

@@ -68,6 +68,132 @@ pub struct TargetMetadata {
     pub sync_safe: bool,
 }
 
+impl TargetMetadata {
+    pub const fn new(
+        name: &'static str,
+        assembly: Assembly,
+        state_keys: &'static [&'static str],
+    ) -> Self {
+        Self {
+            name,
+            assembly,
+            output_path: None,
+            base_path: None,
+            extra_outputs: &[],
+            managed_paths: &[],
+            state_keys,
+            reload_cmd: None,
+            comment: None,
+            sync_safe: true,
+        }
+    }
+
+    pub const fn output(self, output_path: &'static str) -> Self {
+        Self {
+            name: self.name,
+            assembly: self.assembly,
+            output_path: Some(output_path),
+            base_path: self.base_path,
+            extra_outputs: self.extra_outputs,
+            managed_paths: self.managed_paths,
+            state_keys: self.state_keys,
+            reload_cmd: self.reload_cmd,
+            comment: self.comment,
+            sync_safe: self.sync_safe,
+        }
+    }
+
+    pub const fn base(self, base_path: &'static str) -> Self {
+        Self {
+            name: self.name,
+            assembly: self.assembly,
+            output_path: self.output_path,
+            base_path: Some(base_path),
+            extra_outputs: self.extra_outputs,
+            managed_paths: self.managed_paths,
+            state_keys: self.state_keys,
+            reload_cmd: self.reload_cmd,
+            comment: self.comment,
+            sync_safe: self.sync_safe,
+        }
+    }
+
+    pub const fn extra_outputs(self, extra_outputs: &'static [&'static str]) -> Self {
+        Self {
+            name: self.name,
+            assembly: self.assembly,
+            output_path: self.output_path,
+            base_path: self.base_path,
+            extra_outputs,
+            managed_paths: self.managed_paths,
+            state_keys: self.state_keys,
+            reload_cmd: self.reload_cmd,
+            comment: self.comment,
+            sync_safe: self.sync_safe,
+        }
+    }
+
+    pub const fn managed_paths(self, managed_paths: &'static [&'static str]) -> Self {
+        Self {
+            name: self.name,
+            assembly: self.assembly,
+            output_path: self.output_path,
+            base_path: self.base_path,
+            extra_outputs: self.extra_outputs,
+            managed_paths,
+            state_keys: self.state_keys,
+            reload_cmd: self.reload_cmd,
+            comment: self.comment,
+            sync_safe: self.sync_safe,
+        }
+    }
+
+    pub const fn reload_cmd(self, reload_cmd: &'static [&'static str]) -> Self {
+        Self {
+            name: self.name,
+            assembly: self.assembly,
+            output_path: self.output_path,
+            base_path: self.base_path,
+            extra_outputs: self.extra_outputs,
+            managed_paths: self.managed_paths,
+            state_keys: self.state_keys,
+            reload_cmd: Some(reload_cmd),
+            comment: self.comment,
+            sync_safe: self.sync_safe,
+        }
+    }
+
+    pub const fn comment(self, comment: &'static str) -> Self {
+        Self {
+            name: self.name,
+            assembly: self.assembly,
+            output_path: self.output_path,
+            base_path: self.base_path,
+            extra_outputs: self.extra_outputs,
+            managed_paths: self.managed_paths,
+            state_keys: self.state_keys,
+            reload_cmd: self.reload_cmd,
+            comment: Some(comment),
+            sync_safe: self.sync_safe,
+        }
+    }
+
+    pub const fn sync_safe(self, sync_safe: bool) -> Self {
+        Self {
+            name: self.name,
+            assembly: self.assembly,
+            output_path: self.output_path,
+            base_path: self.base_path,
+            extra_outputs: self.extra_outputs,
+            managed_paths: self.managed_paths,
+            state_keys: self.state_keys,
+            reload_cmd: self.reload_cmd,
+            comment: self.comment,
+            sync_safe,
+        }
+    }
+}
+
 pub trait Target: Send + Sync {
     fn metadata(&self) -> &TargetMetadata;
     fn generate(&self, colors: &ColorScheme, state: &ThemeState)
@@ -236,87 +362,80 @@ fn validate_metadata(metadata: &TargetMetadata) -> crate::Result<()> {
     Ok(())
 }
 
+type TargetRegistration = (
+    &'static TargetMetadata,
+    GenerateFn,
+    Option<HookFn>,
+    Option<HookFn>,
+);
+
+macro_rules! target_registration {
+    ($module:ident) => {
+        (
+            &$module::METADATA,
+            $module::generate as GenerateFn,
+            None,
+            None,
+        )
+    };
+    ($module:ident, persist) => {
+        (
+            &$module::METADATA,
+            $module::generate as GenerateFn,
+            Some($module::persist as HookFn),
+            None,
+        )
+    };
+    ($module:ident, on_apply) => {
+        (
+            &$module::METADATA,
+            $module::generate as GenerateFn,
+            None,
+            Some($module::on_apply as HookFn),
+        )
+    };
+    ($module:ident, persist, on_apply) => {
+        (
+            &$module::METADATA,
+            $module::generate as GenerateFn,
+            Some($module::persist as HookFn),
+            Some($module::on_apply as HookFn),
+        )
+    };
+}
+
+const TARGET_REGISTRATIONS: &[TargetRegistration] = &[
+    target_registration!(alacritty),
+    target_registration!(bat),
+    target_registration!(chromium, persist),
+    target_registration!(cursor, persist, on_apply),
+    target_registration!(ghostty),
+    target_registration!(gtk, on_apply),
+    target_registration!(gtksourceview, persist, on_apply),
+    target_registration!(hypr_appearance),
+    target_registration!(hyprland),
+    target_registration!(neovide),
+    target_registration!(neovim),
+    target_registration!(opencode, persist),
+    target_registration!(qt, persist),
+    target_registration!(quickshell),
+    target_registration!(snappy_switcher, on_apply),
+    target_registration!(spicetify, persist, on_apply),
+    target_registration!(starship),
+    target_registration!(tmux, on_apply),
+    target_registration!(vicinae, persist),
+    target_registration!(vscode, persist),
+    target_registration!(wallpaper, on_apply),
+    target_registration!(zathura),
+    target_registration!(zsh),
+];
+
 pub fn build_registry() -> crate::Result<TargetRegistry> {
     let mut registry = TargetRegistry::new();
 
-    registry.register_function(alacritty::METADATA, alacritty::generate)?;
-    registry.register_function(bat::METADATA, bat::generate)?;
-    registry.register_function_with_hooks(
-        chromium::METADATA,
-        chromium::generate,
-        Some(chromium::persist),
-        None,
-    )?;
-    registry.register_function_with_hooks(
-        cursor::METADATA,
-        cursor::generate,
-        Some(cursor::persist),
-        Some(cursor::on_apply),
-    )?;
-    registry.register_function(ghostty::METADATA, ghostty::generate)?;
-    registry.register_function_with_hooks(
-        gtk::METADATA,
-        gtk::generate,
-        None,
-        Some(gtk::on_apply),
-    )?;
-    registry.register_function_with_hooks(
-        gtksourceview::METADATA,
-        gtksourceview::generate,
-        Some(gtksourceview::persist),
-        Some(gtksourceview::on_apply),
-    )?;
-    registry.register_function(hypr_appearance::METADATA, hypr_appearance::generate)?;
-    registry.register_function(hyprland::METADATA, hyprland::generate)?;
-    registry.register_function(neovide::METADATA, neovide::generate)?;
-    registry.register_function(neovim::METADATA, neovim::generate)?;
-    registry.register_function_with_hooks(
-        opencode::METADATA,
-        opencode::generate,
-        Some(opencode::persist),
-        None,
-    )?;
-    registry.register_function_with_hooks(qt::METADATA, qt::generate, Some(qt::persist), None)?;
-    registry.register_function(quickshell::METADATA, quickshell::generate)?;
-    registry.register_function_with_hooks(
-        snappy_switcher::METADATA,
-        snappy_switcher::generate,
-        None,
-        Some(snappy_switcher::on_apply),
-    )?;
-    registry.register_function_with_hooks(
-        spicetify::METADATA,
-        spicetify::generate,
-        Some(spicetify::persist),
-        Some(spicetify::on_apply),
-    )?;
-    registry.register_function(starship::METADATA, starship::generate)?;
-    registry.register_function_with_hooks(
-        tmux::METADATA,
-        tmux::generate,
-        None,
-        Some(tmux::on_apply),
-    )?;
-    registry.register_function_with_hooks(
-        vicinae::METADATA,
-        vicinae::generate,
-        Some(vicinae::persist),
-        None,
-    )?;
-    registry.register_function_with_hooks(
-        vscode::METADATA,
-        vscode::generate,
-        Some(vscode::persist),
-        None,
-    )?;
-    registry.register_function_with_hooks(
-        wallpaper::METADATA,
-        wallpaper::generate,
-        None,
-        Some(wallpaper::on_apply),
-    )?;
-    registry.register_function(zathura::METADATA, zathura::generate)?;
-    registry.register_function(zsh::METADATA, zsh::generate)?;
+    for (metadata, generate, persist, on_apply) in TARGET_REGISTRATIONS {
+        registry.register_function_with_hooks(**metadata, *generate, *persist, *on_apply)?;
+    }
 
     Ok(registry)
 }

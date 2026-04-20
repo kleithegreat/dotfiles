@@ -1,23 +1,18 @@
 use super::{Assembly, GeneratedContent, TargetMetadata};
 use crate::theme::schema::{ColorScheme, ThemeState};
 
-pub const METADATA: TargetMetadata = TargetMetadata {
-    name: "alacritty",
-    assembly: Assembly::Import,
-    output_path: Some("~/.config/alacritty/theme.toml"),
-    base_path: None,
-    extra_outputs: &[],
-    managed_paths: &[],
-    state_keys: &[
+pub const METADATA: TargetMetadata = TargetMetadata::new(
+    "alacritty",
+    Assembly::Import,
+    &[
         "color_scheme",
         "mono_font",
         "mono_font_size",
         "alacritty_mono_font_size_offset",
     ],
-    reload_cmd: None,
-    comment: Some("#"),
-    sync_safe: true,
-};
+)
+.output("~/.config/alacritty/theme.toml")
+.comment("#");
 
 pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<GeneratedContent> {
     Ok(GeneratedContent::text(format!(

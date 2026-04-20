@@ -3,18 +3,14 @@ use crate::theme::schema::{ColorScheme, ThemeState};
 
 const RELOAD_CMD: &[&str] = &["hyprctl", "reload"];
 
-pub const METADATA: TargetMetadata = TargetMetadata {
-    name: "hyprland",
-    assembly: Assembly::Standalone,
-    output_path: Some("~/.config/hypr/colors.conf"),
-    base_path: None,
-    extra_outputs: &[],
-    managed_paths: &[],
-    state_keys: &["color_scheme", "mono_font", "system_font", "font_size"],
-    reload_cmd: Some(RELOAD_CMD),
-    comment: Some("#"),
-    sync_safe: true,
-};
+pub const METADATA: TargetMetadata = TargetMetadata::new(
+    "hyprland",
+    Assembly::Standalone,
+    &["color_scheme", "mono_font", "system_font", "font_size"],
+)
+.output("~/.config/hypr/colors.conf")
+.reload_cmd(RELOAD_CMD)
+.comment("#");
 
 fn rgb(hex_color: &str) -> String {
     format!("rgb({})", &hex_color[1..])

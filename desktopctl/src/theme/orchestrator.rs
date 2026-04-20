@@ -182,7 +182,9 @@ where
         })
         .collect::<BTreeSet<_>>();
 
-    if state_keys.contains(&"color_scheme") && matches!(state, Some(state) if !state.filter_wallpaper) {
+    if state_keys.contains(&"color_scheme")
+        && matches!(state, Some(state) if !state.filter_wallpaper)
+    {
         targets.remove("wallpaper");
     }
 
@@ -703,37 +705,20 @@ mod tests {
         let unsafe_path = out_dir.join("unsafe.conf");
 
         registry.register_function(
-            TargetMetadata {
-                name: "safe",
-                assembly: Assembly::Standalone,
-                output_path: Some(Box::leak(
+            TargetMetadata::new("safe", Assembly::Standalone, &[])
+                .output(Box::leak(
                     safe_path.to_string_lossy().into_owned().into_boxed_str(),
-                )),
-                base_path: None,
-                extra_outputs: &[],
-                managed_paths: &[],
-                state_keys: &[],
-                reload_cmd: None,
-                comment: Some("#"),
-                sync_safe: true,
-            },
+                ))
+                .comment("#"),
             noop_generate,
         )?;
         registry.register_function(
-            TargetMetadata {
-                name: "unsafe",
-                assembly: Assembly::Standalone,
-                output_path: Some(Box::leak(
+            TargetMetadata::new("unsafe", Assembly::Standalone, &[])
+                .output(Box::leak(
                     unsafe_path.to_string_lossy().into_owned().into_boxed_str(),
-                )),
-                base_path: None,
-                extra_outputs: &[],
-                managed_paths: &[],
-                state_keys: &[],
-                reload_cmd: None,
-                comment: Some("#"),
-                sync_safe: false,
-            },
+                ))
+                .comment("#")
+                .sync_safe(false),
             noop_generate,
         )?;
 

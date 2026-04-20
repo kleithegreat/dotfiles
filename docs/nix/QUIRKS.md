@@ -132,36 +132,6 @@
 **Status:** Intentional limitation
 **Resolution:** Keep the bridge focused on the endpoint surface OpenChamber actively consumes. The local `patches/openchamber/claude-backend-selector.patch` teaches OpenChamber to manage the bridge as an alternate backend from the normal in-app settings screen, but it still relies on the bridge's OpenCode-compatibility subset rather than a full backend reimplementation.
 
-## Wine 11 Ableton prefixes need fresh state and per-prefix WineASIO registration
-**Symptom:** Ableton Live 12 Lite launches without a usable ASIO device, or a reused older Wine prefix behaves inconsistently after moving to the current desktop Wine package set.
-**Cause:** During the investigation, the desktop host used `wineWow64Packages`-based Wine 11 packages. nixpkgs notes that prefixes created against the deprecated `wineWowPackages` family are not backward compatible. Separately, `wineasio` installs its DLLs into the system profile, but each Wine prefix still needed the driver copied into `drive_c/windows/system32` and registered with `wine regsvr32`.
-**Status:** Historical investigation note
-**Resolution:** If this setup is ever revived, keep Ableton in a dedicated fresh `WINEARCH=win64` prefix under the home directory and rerun the documented WineASIO registration commands whenever that prefix is created or recreated.
-
-## Wine-generated Ableton desktop entries miss the working launch environment
-**Symptom:** Launching Ableton Live 12 Lite from Vicinae or another app launcher falls back to the splash screen stuck on `Initializing MIDI inputs and outputs`, even though a manual terminal launch works.
-**Cause:** During the investigation, Wine's generated `~/.local/share/applications/wine/Programs/Ableton Live 12 Lite.desktop` only set `WINEPREFIX` and ran plain `wine ...lnk`. The working setup also needed the prefix's Wayland/JACK launch environment, specifically `WINEDLLOVERRIDES=winepulse.drv=d;winex11.drv=d` and a `pw-jack` wrapper around `wine`.
-**Status:** Historical investigation note
-**Resolution:** If this setup is ever revived, override that exact desktop entry path or replace it locally so launchers use the wrapper command rather than plain `wine`.
-
-## Ableton still depends on mutable prefix tweaks beyond the NixOS module
-**Symptom:** A fresh prefix created from only the documented WineASIO steps can still show stale rendering, background helper crashes, rough UI behavior, or DPI/input mismatches even though the app launches.
-**Cause:** The stable setup currently also relies on mutable per-prefix tweaks: DXVK DLL copies plus native overrides, native VC++ runtime overrides, an Image File Execution Options `dpiAwareness=2` override for `Ableton Live 12 Lite.exe`, and an Ableton `Options.txt` with `-DisableAutoBugReporting`.
-**Status:** Expected manual setup
-**Resolution:** Treat the Wine prefix as mutable app state in the home directory and reapply those documented post-install tweaks whenever the prefix is recreated.
-
-## Ableton display/backend tradeoffs are still unresolved
-**Symptom:** No tested Wine display path is fully correct yet. The Wine Wayland path clips the bottom of the Ableton UI, skews click targeting, and behaves differently for `Delete` versus `Backspace`. The Xwayland path removes the bottom clipping and restores the expected `Delete` key behavior, but click targeting is still off and the Ableton authorization popup can still be difficult to interact with. Wrapping Xwayland in a fixed-size Wine virtual desktop keeps the app in one host window but still does not fix the hit-testing mismatch. A tested X11 driver override with `Managed=N` and `Decorated=N` reduced flicker and helped the auth popup, but made cursor targeting even worse and is not recommended.
-**Cause:** The remaining problems appear to be in Wine's client-area/input handling for Ableton rather than in the PipeWire or JACK path. External research reinforces that diagnosis: current Live 12-on-Linux guides already document inaccurate mouse coordinates in non-fullscreen windowed mode, and Microsoft's DPI docs plus Ableton's own logs point at a DPI-awareness mismatch (`Effective process DPI awareness: 0` until the prefix override forced it higher). DXVK logs also showed swapchain heights larger than the visible output (for example `1920x1096` on a `1920x1080` display), which matches the clipped bottom edge and the progressively lower click targets. Later `wine-tkg` instrumentation sharpened that further: the final `screen_to_client()` transform was consistent, but it was using a top-level/editor window origin derived from geometry that Wine already believed was much taller than the visible X11 window. Producer-side `SetWindowPos` traces then showed child `WM_NCCALCSIZE` updates mutating `new_client` even when `new_window` and `new_visible` stayed fixed, and later direct boundary tracing proved that the bad `new_client` was already present in `params.rgrc[0]` immediately after `WM_NCCALCSIZE` returned. Renderer-side traces then confirmed that `win32u/vulkan.c` simply uses that already-bad `ClientRect` for swapchain sizing, so DXVK looks more like a consumer of the bad geometry than the original producer.
-**Status:** Under investigation
-**Resolution:** Keep all three launcher variants documented (`ableton-live-12-lite`, `ableton-live-12-lite-x11`, and `ableton-live-12-lite-x11-desktop`) and continue testing against the same prefix so the backend-specific behavior stays comparable. Treat fullscreen and manifest-level DPI workarounds as the highest-value early experiments, then move to direct Wine geometry tracing. Current evidence now points most strongly at the Win32 child layout path (`calc_winpos`, `calc_ncsize`, `set_window_pos`) plus the final Vulkan surface extent selection rather than at the final mouse-message coordinate transform itself.
-
-## Wine-NSPA is currently a source-porting project on this toolchain
-**Symptom:** The published `Wine-NSPA 8.19` binary package is not a simple runner swap on this host, and a source build from `wine-nspa-8x-git/non-makepkg-build.sh` progresses only after multiple local compatibility fixes.
-**Cause:** The Arch binary release expects FHS loaders and `librtpi` integration, which makes binary testing awkward on NixOS. The source tree itself can be built on NixOS, but older patches now hit modern toolchain issues such as hardcoded `/usr/bin/perl` shebangs, strict `CONTAINING_RECORD` type checking, `bool`/`true` identifier collisions, and PIE/preloader linker problems.
-**Status:** Under investigation
-**Resolution:** Treat Wine-NSPA as a custom source-port effort rather than a quick A/B runner download. Build it 64-bit only, keep Wayland disabled in that tree, use a cloned Ableton prefix, and expect to patch forward multiple source-compatibility issues before it is ready for GUI testing.
-
 ## Declarative Windows VM media and guest state stay partly manual
 **Symptom:** The desktop Windows VM module evaluates and seeds `/var/lib/windows-vm/windows11`, but first boot can still land in UEFI or an existing guest keeps its old size, boot state, or TPM state after a Nix change.
 **Cause:** `hosts/desktop/windows-vm.nix` makes the host-side QEMU wrapper declarative, but the installer ISO plus the mutable guest-owned qcow2, NVRAM, and TPM directories intentionally live outside the Nix store.

@@ -5,18 +5,11 @@ use crate::theme::{
 };
 use std::fs;
 
-pub const METADATA: TargetMetadata = TargetMetadata {
-    name: "spicetify",
-    assembly: Assembly::Standalone,
-    output_path: Some("~/.config/spicetify/Themes/ApplyTheme/color.ini"),
-    base_path: None,
-    extra_outputs: &[],
-    managed_paths: &["~/.config/spicetify/Themes/ApplyTheme/user.css"],
-    state_keys: &["color_scheme"],
-    reload_cmd: None,
-    comment: Some(";"),
-    sync_safe: true,
-};
+pub const METADATA: TargetMetadata =
+    TargetMetadata::new("spicetify", Assembly::Standalone, &["color_scheme"])
+        .output("~/.config/spicetify/Themes/ApplyTheme/color.ini")
+        .managed_paths(&["~/.config/spicetify/Themes/ApplyTheme/user.css"])
+        .comment(";");
 
 const THEME_DIR: &str = "~/.config/spicetify/Themes/ApplyTheme";
 const USER_CSS_PATH: &str = "~/.config/spicetify/Themes/ApplyTheme/user.css";

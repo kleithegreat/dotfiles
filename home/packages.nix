@@ -1,136 +1,40 @@
 { pkgs, desktopctl, fd, lapce, p7zip, quickshell, ripgrep, lspPlugins, opencodePkg, snappySwitcherPkg, vicinaePkg, texlive }:
 
 let
-  inherit (pkgs)
-    openchamber
-    bat
-    eza
-    fzf
-    jq
-    tree
-    ncdu
-    htop
-    strace
-    bc
-    less
-    file
-    unzip
-    zip
-    unrar
-    psmisc
-    rsync
-    usbutils
-    lm_sensors
-    nmap
-    dnsutils
-    traceroute
-    inetutils
-    iw
-    netcat-openbsd
-    neovim
-    neovide
-    alacritty
-    ghostty
-    tmux
-    discord
-    obsidian
-    slack
-    thunderbird
-    obs-studio
-    spotify
-    zathura
-    vscode
-    lmstudio
-    helium
-    imv
-    nautilus
-    gedit
-    haruna
-    tor-browser
-    anki
-    gimp
-    krita
-    prismlauncher
-    qbittorrent
-    telegram-desktop
-    pavucontrol
-    orca-slicer
-    pandoc
-    hypridle
-    hyprpolkitagent
-    hyprsunset
-    geoclue2-with-demo-agent
-    awww
-    lutgen
-    brightnessctl
-    grim
-    slurp
-    wl-clipboard
-    playerctl
-    easyeffects
-    networkmanager
-    nwg-look
-    python3
-    nodejs
-    uv
-    gh
-    libsecret
-    man-pages
-    man-pages-posix
-    claude-code
-    codex
-    lua-language-server
-    pyright
-    texlab
-    ltex-ls
-    f3d
-    zoom-us
-    ;
-  inherit (pkgs.kdePackages)
-    dolphin
-    ark
-    plasma-systemmonitor
-    kate
-    gwenview
-    filelight
-    kdeconnect-kde
-    kcharselect
-    isoimagewriter
-    kompare
-    kdenlive
-    krdc
-    ;
-  nvtop = pkgs.nvtopPackages.full;
-  gnomeSecrets = pkgs.gnome-secrets;
-  qtDeclarative = pkgs.qt6.qtdeclarative;
-in
-{
-  home.packages = [
+  customPackages = [
     opencodePkg
-    openchamber
-    bat
-    eza
     fd
     ripgrep
+    desktopctl
+    p7zip
+    lapce
+    texlive
+    lspPlugins
+    quickshell
+    snappySwitcherPkg
+  ];
+
+  basePackages = with pkgs; [
+    openchamber
+    bat
+    eza
     fzf
     jq
     tree
     ncdu
     htop
-    desktopctl
     strace
     bc
     less
     file
     unzip
     zip
-    p7zip
     unrar
     psmisc
     rsync
     usbutils
     lm_sensors
-    nvtop
+    nvtopPackages.full
     nmap
     dnsutils
     traceroute
@@ -154,22 +58,11 @@ in
     spotify
     zathura
     vscode
-    lapce
     lmstudio
     helium
     imv
     nautilus
-    dolphin
-    ark
-    plasma-systemmonitor
     gedit
-    kate
-    gwenview
-    filelight
-    kdeconnect-kde
-    kcharselect
-    isoimagewriter
-    kompare
     haruna
     zoom-us
     tor-browser
@@ -177,16 +70,13 @@ in
     anki
     gimp
     krita
-    kdenlive
-    krdc
     prismlauncher
     qbittorrent
     telegram-desktop
     pavucontrol
-    gnomeSecrets
+    gnome-secrets
     orca-slicer
     pandoc
-    texlive
     hypridle
     hyprpolkitagent
     hyprsunset
@@ -199,18 +89,15 @@ in
     wl-clipboard
     playerctl
     easyeffects
-    lspPlugins
     networkmanager
     nwg-look
-    quickshell
-    snappySwitcherPkg
-    pkgs.papirus-icon-theme
-    pkgs.rose-pine-cursor
-    pkgs.rose-pine-hyprcursor
-    pkgs.bibata-cursors
+    papirus-icon-theme
+    rose-pine-cursor
+    rose-pine-hyprcursor
+    bibata-cursors
     python3
     nodejs
-    qtDeclarative
+    qt6.qtdeclarative
     uv
     gh
     libsecret
@@ -219,6 +106,24 @@ in
     claude-code
     codex
   ];
+
+  kdePackages = with pkgs.kdePackages; [
+    dolphin
+    ark
+    plasma-systemmonitor
+    kate
+    gwenview
+    filelight
+    kdeconnect-kde
+    kcharselect
+    isoimagewriter
+    kompare
+    kdenlive
+    krdc
+  ];
+in
+{
+  home.packages = customPackages ++ basePackages ++ kdePackages;
 
   services.vicinae = {
     enable = true;

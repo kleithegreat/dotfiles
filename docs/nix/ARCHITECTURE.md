@@ -52,170 +52,24 @@ Home Manager layer as of 2026-04-19.
 
 ## Overlay Usage
 
-- `overlays/local-packages.nix` exposes `pkgs.desktopctl` from the local
-  `desktopctl/` derivation, `pkgs.helium` from `pkgs/helium/`,
-  `pkgs.openchamber` from `pkgs/openchamber/`,
-  `pkgs.openchamber-claude-bridge` from `pkgs/openchamber-claude-bridge/`, defines a repo-local
-  `pkgs.sf-pro` derivation that fetches Apple's stable-url
-  `SF-Pro.dmg` with a repo-pinned hash and unpacks `Payload~` via `cpio` when
-  present, overrides `pkgs.lapce` so `bin/.lapce-wrapped` gains the
-  `pkgs.vulkan-loader` library directory in its runtime search path for
-  `wgpu`, and carries the `pkgs.lmstudio` override that rewrites nixpkgs'
-  stale AppImage icon path to the current upstream AppImage's real
-  `resources/app/.webpack/Icon-512x512.png` asset and skips the bundled `lms`
-  post-install fixup when the release only ships an empty placeholder file.
-- The `overlays.default` and `packages.x86_64-linux` exports in `flake.nix`
-  expose that overlay and also
-  exposes `packages.x86_64-linux.desktopctl`,
-  `packages.x86_64-linux.helium`, and
-  `packages.x86_64-linux.openchamber`, and
-  `packages.x86_64-linux.openchamber-claude-bridge`.
-- `pkgs/openchamber/default.nix` now wraps the upstream CLI with
-  `OPENCHAMBER_CLAUDE_BRIDGE_BINARY=${lib.getExe pkgs.openchamber-claude-bridge}`.
-  The patched OpenChamber server reads the persisted backend selector from its
-  own settings, and when `backend = "claude-code"` it auto-starts that bridge
-  itself and proxies the normal `/api` OpenCode traffic into Claude Code.
-- In `system/configuration.nix`, the local `let` block imports both the
-  `desktopctl` overlay and the optional native-optimization overlay;
-  `nixpkgs.overlays` applies only the shared repo overlays globally, while the
-  native overlay is re-applied locally through `pkgs.appendOverlays` where the
-  config wants explicit native-package aliases. The same module also installs
-  the local `pkgs.sf-pro` derivation through `fonts.packages`, and
-  `fonts.fontconfig` enables RGB subpixel rendering plus a local
-  `SF Pro -> SF Pro Text` family-preference rule so the generic Apple family
-  resolves to the small-text cut instead of the bundled catch-all variable
-  face.
-- `overlays/native-optimized.nix` rebuilds selected nixpkgs derivations such as
-  `desktopctl`, `lapce`, `pipewire`, `quickshell`, `fd`, `ripgrep`, and the
-  repo's TeX Live environment with `-O3 -march=native` / `target-cpu=native`,
-  while deliberately leaving low-level rebuild multipliers such as `zstd` and
-  `lz4` untouched.
-- `system/configuration.nix` reuses `system/native-optimizations.nix` directly
-  for the flake-provided `hyprqt6engine`, `hyprland`,
-  `xdg-desktop-portal-hyprland`, `hyprbars`, and `hyprexpo` derivations, while
-  `home/default.nix` uses that same helper for the locally overridden
-  `opencode`, `snappy-switcher`, and Vicinae packages. The OpenCode override
-  swaps in `packages.<system>.node_modules_updater.override { hash =
-  "sha256-i9TxYwWkJAR+kW6pbvhgQbRW9UYPtdrPQAGic4zPoa4="; }` before the existing
-  `postConfigure` fixes run, keeping the repo on upstream commit
-  `a546e88f37d1816adadf1e833a5fb4f39b7d56df` even when that commit ships a stale
-  `nix/hashes.json` entry for `x86_64-linux`.
-- Native nixpkgs-package selection is now explicit instead of global:
-  `system/configuration.nix` builds a local `optimizedPkgs` set via
-  `pkgs.appendOverlays [ optimizedPackages.overlay ]` and uses it only for
-  `services.pipewire.package` plus `services.pipewire.wireplumber.package`, and
-  `home/default.nix` builds the same kind of local `optimizedPkgs` set for the
-  top-level user packages that are intentionally host-native (`fd`, `ripgrep`,
-  `desktopctl`, `p7zip`, `lapce`, the TeX Live environment, `lsp-plugins`,
-  `quickshell`, and the PipeWire JACK shim used by the Ableton launchers).
-  Other nixpkgs packages stay on the stock shared package set.
-- Those Hyprland-family derivations also carry the repo-local patch stack from
-  `system/configuration.nix`: the compositor patch extends per-corner rounding
-  control to both texture and rect paths, and the `hyprbars` compatibility
-  patch now consumes that renderer support instead of the older oversized
-  rounded titlebar fill workaround. The same module also re-calls nixpkgs'
-  `pkgs/applications/window-managers/hyprwm/hyprland-plugins/default.nix`
-  with `hyprland = patchedHyprland` and passes that helper set back through the
-  upstream plugin overrides so `mkHyprlandPlugin` resolves the patched
-  Hyprland headers, not the unpatched package-set default.
-- The desktop host module's `nixpkgs.overlays` list in `hosts/desktop/system.nix`
-  still appends
-  `overlays/nvidia-open-pr996.nix` for the desktop-specific NVIDIA workaround.
-- The desktop host also imports `hosts/desktop/windows-vm.nix` and enables
-  `virtualisation.windowsVm`, which currently wraps a local QEMU + `swtpm`
-  Windows guest with Microsoft-keyed OVMF firmware from `pkgs.OVMFFull.fd`.
-  Activation seeds the writable `OVMF_VARS.ms.fd` copy and sparse
-  `system.qcow2` under `/var/lib/windows-vm/windows11`, while the generated
-  `windows-vm` launcher runs the guest as the desktop user instead of a root
-  systemd service. `docs/nix/windows-vm.md` documents the operational steps.
-- `hosts/desktop/system.nix` now also enables
-  `services.power-profiles-daemon` and appends a
-  `systemd.services.power-profiles-daemon.postStart` hook that runs
-  `powerprofilesctl set performance`, so the desktop host reasserts the
-  performance profile each time the daemon starts.
-- The shared system baseline now applies
-  `systemd.services.tailscaled.serviceConfig.TimeoutStopSec = "15s"` on the
-  physical-host gate, bounding rare upstream stop hangs on both current hosts.
-- The shared system baseline also sets
-  `services.tailscale.extraSetFlags = [ "--operator=kevin" ]` so
-  user-session Quickshell calls to `tailscale up` / `tailscale down` can manage
-  the local daemon without `sudo`.
-- The shared system baseline also enables NixOS `qt.enable`, exports
-  `QT_QPA_PLATFORMTHEME=hyprqt6engine`, keeps the nonstandard `hyprqt6engine`
-  `lib/qt-6` root on `QT_PLUGIN_PATH`, and installs `libsForQt5.qt5ct`,
-  `qt6Packages.qt6ct`, plus the Qt5/Qt6 Kvantum style engines through
-  `environment.systemPackages`, so user-launched Qt apps and
-  D-Bus/systemd-activated helpers such as `xdg-desktop-portal-kde` resolve the
-  same platform and style plugins.
-- The shared system baseline no longer enables the stock NixOS
-  `services.fstrim` helper. Instead, `system/configuration.nix` defines a
-  custom `fstrim-root.service` plus `fstrim-root.timer` that run `fstrim` only
-  on `/`, preserving weekly discard on the Linux root filesystem without also
-  trimming a shared `/boot/efi` mount when that EFI system partition lives on a
-  separate Windows NVMe.
-- `hosts/laptop/system.nix` enables `services.fprintd`, keeps the laptop PAM
-  `polkit-1.fprintAuth` path available for external apps that explicitly use
-  polkit system authentication, and also adds a narrow polkit rule granting the
-  active local user direct `net.reactivated.fprint.device.enroll` access so the
-  Quickshell fingerprint-management flow can enroll/delete prints without a
-  separate external auth-agent prompt.
-- The shared system baseline now sources `boot.kernelPackages` from
-  `system/native-kernel-packages.nix` on the physical-host gate, so desktop and
-  laptop both rebuild the stock nixpkgs `linux_6_18` kernel source with Clang +
-  LLD ThinLTO, an explicit BORE patch stack plus `tcp/bbr3` on top, shared
-  BORE/BBR3/HZ=1000/NO_HZ_IDLE / THP=madvise / MGLRU Kconfig overrides,
-  `ignoreConfigErrors = true`, `KCFLAGS=-O2 -march=native`,
-  `KRUSTFLAGS=-Ctarget-cpu=native`, and the same host-specific
-  `native-optimized-<host>` feature tag used by the rest of the native package
-  set.
-- The shared system baseline gates a physical-host-only kernel runtime tuning
-  block on `host.isPhysical` and uses `boot.kernel.sysctl` to keep
-  `kernel.sched_autogroup_enabled = 1`, `net.core.default_qdisc = "fq"`, and
-  `net.ipv4.tcp_congestion_control = "bbr"` on desktop and laptop only. The
-  same module also defines `systemd.services.mglru-tuning`, which writes `y`
-  to `/sys/kernel/mm/lru_gen/enabled` and `1000` to
-  `/sys/kernel/mm/lru_gen/min_ttl_ms` during boot so the physical hosts use
-  MGLRU's thrash-prevention path as the repo's LE9/LE10-style working-set /
-  file-cache protection.
-- The shared system baseline now applies
-  `boot.kernelParams = [ "mitigations=off" "transparent_hugepage=madvise" ]`
-  on the physical-host gate, disabling the kernel's CPU side-channel
-  mitigation set and forcing THP to the `madvise` runtime mode on both current
-  hosts.
-- That same physical-host block also owns `boot.kernelModules = [ "kvm-intel" ]`,
-  `zramSwap = { enable = true; memoryPercent = 50; }`,
-  `hardware.enableRedistributableFirmware = true`, and
-  `hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware`,
-  keeping the two Intel bare-metal hosts on one shared kernel/module/firmware
-  baseline.
-- `hosts/laptop/system.nix` still uses `boot.kernelPatches = [{ patch = null;
-  structuredExtraConfig = ...; }]`, but that patch block now also forces the
-  laptop onto `PREEMPT_VOLUNTARY` before disabling AMD-only
-  platform/virtualization options such as `KVM_AMD`, `AMD_IOMMU`,
-  `AMD_MEM_ENCRYPT`, and `AMD_PMC`, while also dropping guest-only hypervisor
-  support (`XEN`, `HYPERV`, `KVM_GUEST`) and `DRM_NOUVEAU`; the Intel VM-host
-  path (`kvm-intel`) remains intact.
-- `hosts/desktop/system.nix` now adds its own `boot.kernelPatches = [{ patch =
-  null; structuredExtraConfig = ...; }]` entry to force the desktop onto full
-  preemption and drop desktop-local dead weight that this machine does not use:
-  AMD-only host features (`KVM_AMD`, `X86_AMD_PLATFORM_DEVICE`,
-  `AMD_MEM_ENCRYPT`, `AMD_PMC`, `AMD_IOMMU`), guest-only virtualization support
-  (`XEN`, `HYPERV`, `KVM_GUEST`, `NET_9P`), `DRM_NOUVEAU`, older storage/USB
-  controller drivers (`ATA_PIIX`, `PATA_MARVELL`, `SATA_SIS`, `SATA_ULI`,
-  `SATA_VIA`, `USB_EHCI_HCD`, `USB_OHCI_HCD`, `USB_UHCI_HCD`), and unused
-  fileserver/filesystem/image support (`BTRFS_FS`, `XFS_FS`, `SMB_SERVER`,
-  `SQUASHFS`). The same host module also sets desktop-only
-  `boot.kernel.sysctl` values for `vm.swappiness = 10`, `vm.dirty_ratio = 10`,
-  `vm.dirty_background_ratio = 5`, and `vm.vfs_cache_pressure = 50`.
-- The shared system baseline now applies `nix.settings.max-jobs = 1` on the
-  physical-host gate, so desktop and laptop each build one derivation at a
-  time locally while leaving per-derivation core parallelism at Nix's default
-  `cores = 0` behavior.
-- The shared system baseline also owns the repo's common physical-host
-  bootloader and network fallback defaults: `boot.loader.grub`,
-  `boot.loader.efi`, and `networking.useDHCP = lib.mkDefault true` now live in
-  `system/configuration.nix` instead of being duplicated in each bare-metal host
-  module.
+| Surface | Current implementation |
+| --- | --- |
+| `overlays/local-packages.nix` | Exposes the repo's packaged apps (`desktopctl`, `helium`, `openchamber`, `openchamber-claude-bridge`), carries the repo-local `sf-pro` font derivation, and applies the small Lapce and LM Studio nixpkgs fixups. |
+| Flake exports | `flake.nix` exposes `overlays.default` plus the packaged `desktopctl`, `helium`, `openchamber`, and `openchamber-claude-bridge` outputs for `x86_64-linux`. |
+| Shared native overlay | `overlays/native-optimized.nix` rebuilds selected nixpkgs packages (`desktopctl`, `lapce`, `pipewire`, `quickshell`, `fd`, `ripgrep`, and the repo's TeX Live environment) with host-native flags while deliberately leaving low-level rebuild multipliers such as `zstd` and `lz4` stock. |
+| Shared system consumers | `system/configuration.nix` applies only the repo overlays globally, uses a local `optimizedPkgs` set for PipeWire/WirePlumber, and reuses `system/native-optimizations.nix` directly for the patched Hyprland-family derivations. |
+| Home Manager consumers | `home/default.nix` reuses the same native helper for the OpenCode, Snappy Switcher, and Vicinae overrides, including the pinned upstream OpenCode `node_modules` hash fix, while `home/packages.nix` installs the selected host-native user packages explicitly. |
+| Desktop-only extras | `hosts/desktop/system.nix` appends `overlays/nvidia-open-pr996.nix`; `hosts/desktop/windows-vm.nix` keeps the Windows VM wrapper/state under `/var/lib/windows-vm/windows11` and is documented in `docs/nix/windows-vm.md`. |
+
+## Shared Runtime Highlights
+
+| Surface | Current implementation |
+| --- | --- |
+| Physical-host gate | `system/physical-host.nix` owns the native kernel package selection, `mitigations=off`, `transparent_hugepage=madvise`, `kvm-intel`, zram, Intel firmware/microcode, serialized local build scheduling, DHCP fallback, GRUB/EFI, the tailscaled stop-timeout cap, and the shared `bbr`/`fq`/autogroup/MGLRU runtime tuning. |
+| Qt runtime | `system/qt.nix` enables NixOS `qt.enable`, exports the `hyprqt6engine` platform/plugin env, and installs qtct/Kvantum packages system-wide so direct apps and D-Bus/systemd-activated helpers resolve the same theme plugins. |
+| Filesystem trim | `system/services.nix` replaces the stock `services.fstrim` unit with `fstrim-root.service` plus `fstrim-root.timer` so weekly discard stays pinned to `/` and does not also trim a shared `/boot/efi` mount. |
+| Laptop-only runtime | `hosts/laptop/system.nix` keeps the fingerprint and fan-control stack plus the laptop-specific kernel trim and hybrid-GPU policy. |
+| Desktop-only runtime | `hosts/desktop/system.nix` keeps the NVIDIA policy, Windows VM toggle, forced performance profile, desktop-specific kernel trim, and the extra desktop VM writeback/cache-pressure sysctls. |
 
 ## Home Manager Deployment Model
 

@@ -5,18 +5,10 @@ use crate::theme::{
 };
 use std::{collections::HashSet, fs, path::Path, process::Command};
 
-pub const METADATA: TargetMetadata = TargetMetadata {
-    name: "gtksourceview",
-    assembly: Assembly::Standalone,
-    output_path: Some("~/.local/share/libgedit-gtksourceview-300/styles/desktopctl-current.xml"),
-    base_path: None,
-    extra_outputs: &[],
-    managed_paths: &["~/.local/share/libgedit-gtksourceview-300/styles/desktopctl-*.xml"],
-    state_keys: &["color_scheme"],
-    reload_cmd: None,
-    comment: None,
-    sync_safe: true,
-};
+pub const METADATA: TargetMetadata =
+    TargetMetadata::new("gtksourceview", Assembly::Standalone, &["color_scheme"])
+        .output("~/.local/share/libgedit-gtksourceview-300/styles/desktopctl-current.xml")
+        .managed_paths(&["~/.local/share/libgedit-gtksourceview-300/styles/desktopctl-*.xml"]);
 
 const STYLES_DIR: &str = "~/.local/share/libgedit-gtksourceview-300/styles";
 const CURRENT_FILE_NAME: &str = "desktopctl-current.xml";

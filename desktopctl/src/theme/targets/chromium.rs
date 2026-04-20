@@ -9,18 +9,9 @@ use std::{
     path::{Component, Path},
 };
 
-pub const METADATA: TargetMetadata = TargetMetadata {
-    name: "chromium",
-    assembly: Assembly::Command,
-    output_path: None,
-    base_path: None,
-    extra_outputs: &[],
-    managed_paths: &["~/.config/chromium/<profile>/Preferences"],
-    state_keys: &["system_font", "mono_font"],
-    reload_cmd: None,
-    comment: None,
-    sync_safe: true,
-};
+pub const METADATA: TargetMetadata =
+    TargetMetadata::new("chromium", Assembly::Command, &["system_font", "mono_font"])
+        .managed_paths(&["~/.config/chromium/<profile>/Preferences"]);
 
 const CHROMIUM_CONFIG_DIR: &str = "~/.config/chromium";
 const DEFAULT_PROFILE_NAME: &str = "Default";

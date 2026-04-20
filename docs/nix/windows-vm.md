@@ -3,6 +3,10 @@
 The desktop host now ships a declarative `virtualisation.windowsVm` module in
 `hosts/desktop/windows-vm.nix`.
 
+This path is active work in progress, not abandoned documentation. The module is
+live today, but the guest media and mutable VM-owned state still require manual
+operator steps.
+
 ## What Nix Manages
 
 - A `windows-vm` launcher script in the system profile.

@@ -1,18 +1,11 @@
 use super::{Assembly, GeneratedContent, TargetMetadata, color_utils::contrast_ratio};
 use crate::theme::schema::{ColorScheme, ThemeState};
 
-pub const METADATA: TargetMetadata = TargetMetadata {
-    name: "starship",
-    assembly: Assembly::Concat,
-    output_path: Some("~/.config/starship.toml"),
-    base_path: Some("config/starship/base.toml"),
-    extra_outputs: &[],
-    managed_paths: &[],
-    state_keys: &["color_scheme"],
-    reload_cmd: None,
-    comment: Some("#"),
-    sync_safe: true,
-};
+pub const METADATA: TargetMetadata =
+    TargetMetadata::new("starship", Assembly::Concat, &["color_scheme"])
+        .output("~/.config/starship.toml")
+        .base("config/starship/base.toml")
+        .comment("#");
 
 const WCAG_AA_NORMAL_TEXT: f64 = 4.5;
 
