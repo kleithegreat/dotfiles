@@ -445,6 +445,7 @@ mod tests {
         DEFAULT_CHROMIUM_FONT_SIZE_OFFSET, DEFAULT_GTK_FONT_SIZE_OFFSET,
         DEFAULT_QT_FONT_SIZE_OFFSET, DEFAULT_QUICKSHELL_FONT_SIZE_OFFSET,
     };
+    use crate::test_support::{ScopedEnvVar, env_lock};
     use std::error::Error;
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -543,6 +544,8 @@ mod tests {
 
     #[test]
     fn empty_theme_state_db_initializes_defaults() -> TestResult {
+        let _lock = env_lock();
+        let _repo = ScopedEnvVar::set("DESKTOPCTL_REPO", repo_root().as_os_str());
         let db_path = temp_path("state-defaults", "db");
         let legacy_state_path = temp_path("missing-state", "json");
 
