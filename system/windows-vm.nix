@@ -8,6 +8,7 @@ let
 
   diskPath = "${cfg.stateDir}/system.qcow2";
   isoDir = "${cfg.stateDir}/isos";
+  unattendIsoPath = "${isoDir}/unattend.iso";
   tpmStateDir = "${cfg.stateDir}/tpm";
   ovmfVarsPath = "${cfg.stateDir}/OVMF_VARS.ms.fd";
 
@@ -19,6 +20,7 @@ let
 
       disk_path=${lib.escapeShellArg diskPath}
       windows_iso=${lib.escapeShellArg cfg.windowsIsoPath}
+      unattend_iso=${lib.escapeShellArg unattendIsoPath}
       tpm_dir=${lib.escapeShellArg tpmStateDir}
       ovmf_vars=${lib.escapeShellArg ovmfVarsPath}
       firmware_code=${lib.escapeShellArg firmwareCode}
@@ -101,6 +103,10 @@ let
         qemu_args+=( -drive "file=$windows_iso,media=cdrom,readonly=on" )
       else
         echo "windows-vm: installer ISO not found at $windows_iso; booting disk only." >&2
+      fi
+
+      if [[ -f "$unattend_iso" ]]; then
+        qemu_args+=( -drive "file=$unattend_iso,media=cdrom,readonly=on" )
       fi
 
 ${lib.concatMapStringsSep "\n" (arg: "      qemu_args+=( ${lib.escapeShellArg arg} )") cfg.extraArgs}
