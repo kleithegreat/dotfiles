@@ -1,9 +1,14 @@
 { config, lib, pkgs, optimizedPkgs, patchedHyprlandPortal }:
 
 let
+  sddmThemeBackgroundDir = "/var/lib/desktopctl/where-is-my-sddm-theme";
+  sddmThemeBackgroundPath = "${sddmThemeBackgroundDir}/background";
+  sddmThemeStagingPath = "/tmp/desktopctl-where-is-my-sddm-theme/background";
   sddmTheme = pkgs.where-is-my-sddm-theme.override {
     themeConfig.General = {
+      background = sddmThemeBackgroundPath;
       backgroundMode = "fill";
+      blurRadius = 32;
       basicTextColor = "#ebdbb2";
       passwordCharacter = "*";
       passwordFontSize = 36;
@@ -18,10 +23,48 @@ let
       usersFontSize = 24;
       showSessionsByDefault = false;
       sessionsFontSize = 16;
-    }; 
+    };
   };
 in
 {
+  systemd.tmpfiles.rules = [
+    "d ${sddmThemeBackgroundDir} 0755 root root - -"
+  ];
+
+  system.activationScripts.desktopctlSddmThemeBackground = {
+    text = ''
+      mkdir -p "${sddmThemeBackgroundDir}"
+      if [ ! -e "${sddmThemeBackgroundPath}" ]; then
+        install -Dm0644 ${../wallpapers/lmao.png} "${sddmThemeBackgroundPath}"
+      fi
+    '';
+  };
+
+  systemd.services.desktopctl-sddm-theme-sync = {
+    description = "Sync desktopctl wallpaper into SDDM background";
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = pkgs.writeShellScript "desktopctl-sddm-theme-sync" ''
+        set -eu
+
+        if [ ! -f "${sddmThemeStagingPath}" ]; then
+          exit 0
+        fi
+
+        install -Dm0644 "${sddmThemeStagingPath}" "${sddmThemeBackgroundPath}"
+      '';
+    };
+  };
+
+  systemd.paths.desktopctl-sddm-theme-sync = {
+    wantedBy = [ "multi-user.target" ];
+    pathConfig = {
+      PathExists = sddmThemeStagingPath;
+      PathChanged = sddmThemeStagingPath;
+      Unit = "desktopctl-sddm-theme-sync.service";
+    };
+  };
+
   security.pki.certificateFiles = [
     ../certs/caddy-root-ca.crt
   ];

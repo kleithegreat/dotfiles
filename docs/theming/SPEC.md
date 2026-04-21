@@ -217,6 +217,7 @@ Constraints:
 | `vicinae` | `import` | `~/.config/vicinae/settings.theme.json` plus generated custom themes under `~/.local/share/vicinae/themes/` |
 | `vscode` | `concat` | `~/.config/Code/User/settings.json` plus state DB adjustments |
 | `wallpaper` | `command` | `awww` apply and optional filtered wallpaper cache |
+| `where_is_my_sddm_theme` | `command` | Staged `/tmp/desktopctl-where-is-my-sddm-theme/background` wallpaper bridge for the root-owned SDDM background sync |
 | `zathura` | `import` | `~/.config/zathura/colors` |
 | `zsh` | `import` | `~/.config/zsh/theme-colors` |
 
@@ -226,8 +227,8 @@ State changes fan out by ownership, not by CLI convenience.
 
 | State key(s) | Affected targets |
 | --- | --- |
-| `color_scheme` | `alacritty`, `bat`, `ghostty`, `gtksourceview`, `hyprland`, `neovim`, `openchamber`, `opencode`, `qt`, `quickshell`, `snappy_switcher`, `spicetify`, `starship`, `tmux`, `vicinae`, `vscode`, `wallpaper`\*, `zathura`, `zsh` |
-| `wallpaper`, `filter_wallpaper` | `wallpaper` |
+| `color_scheme` | `alacritty`, `bat`, `ghostty`, `gtksourceview`, `hyprland`, `neovim`, `openchamber`, `opencode`, `qt`, `quickshell`, `snappy_switcher`, `spicetify`, `starship`, `tmux`, `vicinae`, `vscode`, `wallpaper`\*, `where_is_my_sddm_theme`, `zathura`, `zsh` |
+| `wallpaper`, `filter_wallpaper` | `wallpaper`, `where_is_my_sddm_theme` |
 | `system_font` | `chromium`, `gtk`, `hyprland`, `openchamber`, `qt`, `quickshell`, `snappy_switcher`, `vicinae` |
 | `mono_font` | `alacritty`, `chromium`, `ghostty`, `gtk`, `hyprland`, `neovide`, `openchamber`, `qt`, `quickshell`, `vscode` |
 | `icon_theme` | `gtk`, `qt`, `snappy_switcher` |

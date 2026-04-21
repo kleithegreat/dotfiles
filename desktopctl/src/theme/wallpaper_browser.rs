@@ -194,11 +194,7 @@ mod tests {
 
     fn write_test_image(path: &Path, width: u32, height: u32) -> crate::Result<()> {
         let image = RgbImage::from_fn(width, height, |x, y| {
-            Rgb([
-                (x % 255) as u8,
-                (y % 255) as u8,
-                ((x + y) % 255) as u8,
-            ])
+            Rgb([(x % 255) as u8, (y % 255) as u8, ((x + y) % 255) as u8])
         });
         image.save(path)?;
         Ok(())
@@ -231,7 +227,8 @@ mod tests {
     }
 
     #[test]
-    fn list_wallpapers_keeps_supported_files_even_if_preview_generation_fails() -> crate::Result<()> {
+    fn list_wallpapers_keeps_supported_files_even_if_preview_generation_fails() -> crate::Result<()>
+    {
         let _lock = env_lock();
         let wallpapers_dir = TempDir::new("desktopctl-wallpapers-invalid").expect("temp dir");
         let cache_dir = TempDir::new("desktopctl-wallpaper-cache-invalid").expect("temp dir");

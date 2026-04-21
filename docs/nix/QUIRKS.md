@@ -108,6 +108,12 @@
 **Status:** Workaround in place
 **Resolution:** Install those apps through NixOS modules or `environment.systemPackages`. `system/configuration.nix` now enables `programs.partition-manager` so `kpmcore` is registered for both D-Bus activation and polkit, and `bitwarden-desktop` stays in `environment.systemPackages` for the same reason.
 
+## SDDM cannot read wallpapers from the locked-down home directory directly
+**Symptom:** Pointing `where_is_my_sddm_theme` straight at a wallpaper under `/home/kevin/...` leaves the greeter background blank even though the same path works inside the user session.
+**Cause:** The shared `kevin` home directory is mode `0700`, so the pre-login SDDM user cannot traverse into the repo checkout or other home-owned wallpaper paths.
+**Status:** Workaround in place
+**Resolution:** `desktopctl/src/theme/targets/where_is_my_sddm_theme.rs` stages the selected wallpaper into `/tmp/desktopctl-where-is-my-sddm-theme/background`, and `system/services.nix` copies that staged file into the root-owned `/var/lib/desktopctl/where-is-my-sddm-theme/background` path that SDDM reads. Keep the SDDM theme pointed at the `/var/lib` copy rather than a home-directory source path.
+
 ## Qt plugin paths break if you only point `QT_PLUGIN_PATH` at hyprqt6engine
 **Symptom:** Qt and KDE apps can pick up the generated palette but still fall back to partially unstyled widgets or miss Kvantum styling, especially in D-Bus/systemd-activated helpers such as `xdg-desktop-portal-kde`.
 **Cause:** `hyprqt6engine` installs under `lib/qt-6/`, outside the standard `/lib/qt-*/plugins` roots. A hand-written `QT_PLUGIN_PATH=${hyprqt6engine}/lib/qt-6` exposes the Hyprland platform theme itself but hides profile-installed plugins like `qt5ct`, `qt6ct`, and `libkvantum.so` unless NixOS also wires the normal profile-relative plugin directories.
