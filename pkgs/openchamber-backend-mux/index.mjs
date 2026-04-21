@@ -7,6 +7,7 @@ import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
+import { pathToFileURL } from 'node:url';
 
 const MUX_VERSION = '0.1.0';
 const DEFAULT_HOST = '127.0.0.1';
@@ -75,9 +76,10 @@ function ensureDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
 }
 
-function sendJson(res, statusCode, payload) {
+function sendJson(res, statusCode, payload, extraHeaders = {}) {
   const body = JSON.stringify(payload);
   res.writeHead(statusCode, {
+    ...extraHeaders,
     'content-type': 'application/json',
     'content-length': Buffer.byteLength(body),
     'cache-control': 'no-store',
@@ -128,6 +130,55 @@ function mergeByKey(items, getKey) {
     map.set(key, item);
   }
   return Array.from(map.values());
+}
+
+function providerEntryKey(entry) {
+  if (typeof entry === 'string') {
+    const trimmed = entry.trim();
+    return trimmed.length > 0 ? trimmed : '';
+  }
+  if (!entry || typeof entry !== 'object') {
+    return '';
+  }
+  for (const candidate of [entry.id, entry.providerID, entry.slug, entry.name]) {
+    if (typeof candidate === 'string') {
+      const trimmed = candidate.trim();
+      if (trimmed.length > 0) {
+        return trimmed;
+      }
+    }
+  }
+  return '';
+}
+
+function isArchivedSession(session) {
+  const archivedAt = session?.time?.archived
+    ?? session?.info?.time?.archived
+    ?? session?.time_archived;
+  return typeof archivedAt === 'number' && archivedAt > 0;
+}
+
+function parsePositiveInteger(value) {
+  const parsed = Number.parseInt(value || '', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function buildSessionQuery(requestUrl, { includeLimit = false } = {}) {
+  const params = new URLSearchParams();
+  for (const key of ['directory', 'roots', 'start', 'search']) {
+    const value = requestUrl.searchParams.get(key);
+    if (value !== null) {
+      params.set(key, value);
+    }
+  }
+  if (includeLimit) {
+    const value = requestUrl.searchParams.get('limit');
+    if (value !== null) {
+      params.set('limit', value);
+    }
+  }
+  const query = params.toString();
+  return query ? `?${query}` : '';
 }
 
 function requestPathFor(req) {
@@ -372,9 +423,9 @@ class BackendMux {
     return backend;
   }
 
-  async listSessionsFor(kind, requestUrl) {
+  async listSessionsFor(kind, query = '') {
     const backend = this.getBackend(kind);
-    const { data } = await fetchJson(new URL(`/session${requestUrl.search}`, backend.origin).toString());
+    const { data } = await fetchJson(new URL(`/session${query}`, backend.origin).toString());
     const sessions = Array.isArray(data) ? data : [];
     for (const session of sessions) {
       if (typeof session?.id === 'string') {
@@ -439,7 +490,7 @@ class BackendMux {
         ...(Array.isArray(openCodeResult.data?.all) ? openCodeResult.data.all : []),
         ...(Array.isArray(claudeResult.data?.all) ? claudeResult.data.all : []),
       ],
-      (provider) => provider?.id,
+      providerEntryKey,
     );
     return {
       all,
@@ -468,13 +519,40 @@ class BackendMux {
           ...(Array.isArray(openCodeResult.data?.providers) ? openCodeResult.data.providers : []),
           ...(Array.isArray(claudeResult.data?.providers) ? claudeResult.data.providers : []),
         ],
-        (provider) => provider?.id,
+        providerEntryKey,
       ),
       default: {
         ...(openCodeResult.data?.default || {}),
         ...(claudeResult.data?.default || {}),
       },
     };
+  }
+
+  async listExperimentalSessions(requestUrl) {
+    const archived = requestUrl.searchParams.get('archived') === 'true';
+    const cursor = parsePositiveInteger(requestUrl.searchParams.get('cursor')) || 0;
+    const limit = parsePositiveInteger(requestUrl.searchParams.get('limit'));
+    const query = buildSessionQuery(requestUrl);
+    const sessions = await this.listMergedSessions(query);
+    const filtered = sessions.filter((session) => isArchivedSession(session) === archived);
+
+    if (!limit) {
+      return { sessions: filtered, nextCursor: null };
+    }
+
+    const page = filtered.slice(cursor, cursor + limit);
+    const nextCursor = cursor + limit < filtered.length ? cursor + limit : null;
+    return { sessions: page, nextCursor };
+  }
+
+  async listMergedSessions(query = '') {
+    const [openCodeSessions, claudeSessions] = await Promise.all([
+      this.listSessionsFor(BACKEND_OPENCODE, query),
+      this.listSessionsFor(BACKEND_CLAUDE, query),
+    ]);
+    const sessions = mergeByKey([...openCodeSessions, ...claudeSessions], (session) => session?.id);
+    sessions.sort((left, right) => normalizeSessionSortTime(right) - normalizeSessionSortTime(left));
+    return sessions;
   }
 
   async mergeModels() {
@@ -676,13 +754,13 @@ class BackendMux {
   }
 
   async handleSessionList(res, requestUrl) {
-    const [openCodeSessions, claudeSessions] = await Promise.all([
-      this.listSessionsFor(BACKEND_OPENCODE, requestUrl),
-      this.listSessionsFor(BACKEND_CLAUDE, requestUrl),
-    ]);
-    const sessions = mergeByKey([...openCodeSessions, ...claudeSessions], (session) => session?.id);
-    sessions.sort((left, right) => normalizeSessionSortTime(right) - normalizeSessionSortTime(left));
+    const sessions = await this.listMergedSessions(buildSessionQuery(requestUrl, { includeLimit: true }));
     sendJson(res, 200, sessions);
+  }
+
+  async handleExperimentalSessionList(res, requestUrl) {
+    const { sessions, nextCursor } = await this.listExperimentalSessions(requestUrl);
+    sendJson(res, 200, sessions, nextCursor !== null ? { 'x-next-cursor': String(nextCursor) } : {});
   }
 
   async handleRequest(req, res) {
@@ -723,6 +801,11 @@ class BackendMux {
 
     if (req.method === 'GET' && pathname === '/experimental/tool/ids') {
       sendJson(res, 200, await this.mergeSimpleLists('/experimental/tool/ids'));
+      return;
+    }
+
+    if (req.method === 'GET' && pathname === '/experimental/session') {
+      await this.handleExperimentalSessionList(res, requestUrl);
       return;
     }
 
@@ -866,7 +949,20 @@ async function main() {
   await mux.start();
 }
 
-main().catch((error) => {
-  console.error('[openchamber-backend-mux] fatal:', error);
-  process.exit(1);
-});
+const isDirectExecution = typeof process.argv[1] === 'string'
+  && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url;
+
+if (isDirectExecution) {
+  main().catch((error) => {
+    console.error('[openchamber-backend-mux] fatal:', error);
+    process.exit(1);
+  });
+}
+
+export {
+  BackendMux,
+  buildSessionQuery,
+  isArchivedSession,
+  parsePositiveInteger,
+  providerEntryKey,
+};
