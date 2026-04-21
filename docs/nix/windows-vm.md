@@ -23,6 +23,7 @@ The current physical-host baseline enables the module with these defaults:
 - VM name: `windows11`
 - State dir: `/var/lib/windows-vm/windows11`
 - Installer ISO path: `/var/lib/windows-vm/windows11/isos/windows11.iso`
+- Optional unattend ISO path: `/var/lib/windows-vm/windows11/isos/unattend.iso`
 - Disk size: `50 GiB` qcow2
 - Memory: `8192 MiB`
 - vCPUs: `2`
@@ -31,9 +32,11 @@ The current physical-host baseline enables the module with these defaults:
 
 1. Copy a Windows ISO to
    `/var/lib/windows-vm/windows11/isos/windows11.iso`.
-2. Rebuild if you have not already run `nixos-rebuild switch` since enabling the
+2. If you want unattended setup, also copy an answer-file ISO to
+   `/var/lib/windows-vm/windows11/isos/unattend.iso`.
+3. Rebuild if you have not already run `nixos-rebuild switch` since enabling the
    module.
-3. Launch the guest with `windows-vm`.
+4. Launch the guest with `windows-vm`.
 
 The generated QEMU command already enables:
 
@@ -50,6 +53,8 @@ The generated QEMU command already enables:
 - If the ISO path does not exist, `windows-vm` still starts and boots the disk
   only. That is useful after Windows is installed, but a fresh VM will land in
   UEFI until you stage an installer ISO.
+- If `/var/lib/windows-vm/windows11/isos/unattend.iso` exists, `windows-vm`
+  also attaches it automatically as a second virtual CD-ROM.
 - The qcow2 disk is created only once. Changing `diskSizeGiB` later does not
   resize an existing disk automatically.
 - A full reinstall/reset means deleting the guest-owned state under
