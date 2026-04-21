@@ -13,7 +13,7 @@ Current implementation map for the migrated Rust theming pipeline as of
 | Schema | `desktopctl/src/theme/schema.rs` defines `ColorScheme`, required `appearance`, centralized per-target app-theme metadata including KTextEditor theme names, `ThemeState`, canonical field ordering, compiled default theme-state values, the per-target system-font and mono-font offset contract, and the shared font-size / mono-font-size helpers. The default-state logic there still derives `dark_hint` from the default scheme's declared appearance instead of a detached constant. |
 | Resolution | `desktopctl/src/theme/resolve.rs` resolves `themes/colors/`, rejects schemes that omit `appearance`, persists theme state in the shared `desktopctl.db` `theme_state` table, backfills missing required `ThemeState` keys from compiled defaults when older SQLite rows or legacy `themes/state.json` inputs are reused, canonicalizes known legacy string aliases such as older mono-font labels before validation/persistence, imports the legacy JSON on first access, and serializes canonical JSON for CLI output. |
 | JSON compatibility | `desktopctl/src/theme/json.rs` preserves Python-compatible object ordering and ASCII escaping for generated JSON files and `--json` CLI output. |
-| Registry | `desktopctl/src/theme/targets/mod.rs` defines target metadata, including primary generated outputs, additional hook-managed filesystem paths, and the consumed `ThemeState` key list for each target, exposes the hook surfaces, and registers all 24 current targets explicitly. |
+| Registry | `desktopctl/src/theme/targets/mod.rs` defines target metadata, including primary generated outputs, additional hook-managed filesystem paths, and the consumed `ThemeState` key list for each target, exposes the hook surfaces, and registers all 25 current targets explicitly. |
 | Orchestrator | `desktopctl/src/theme/orchestrator.rs` handles dependency selection, target ordering, file assembly, atomic file replacement, concat merges, repo-relative `base_path` resolution, post-write hooks, reload hooks, and sync-safe filtering. Color/font apply scopes plus per-key fanout now derive from each target's declared `TargetMetadata.state_keys`, with the existing wallpaper filter exception still handled there when `filter_wallpaper` is false. |
 
 ## CLI Surface
@@ -31,7 +31,7 @@ Current implementation map for the migrated Rust theming pipeline as of
 | `import` | `alacritty`, `ghostty`, `tmux`, `vicinae`, `zathura`, `zsh` |
 | `standalone` | `bat`, `cursor`, `gtksourceview`, `hypr_appearance`, `hyprland`, `neovide`, `neovim`, `qt`, `quickshell`, `spicetify` |
 | `concat` | `opencode`, `snappy_switcher`, `starship`, `vscode` |
-| `command` | `chromium`, `gtk`, `openchamber`, `wallpaper` |
+| `command` | `chromium`, `gtk`, `openchamber`, `wallpaper`, `where_is_my_sddm_theme` |
 
 Per-scheme theme-name translation now lives in `themes/colors/*.json` and is
 surfaced through `ColorScheme` helpers in `desktopctl/src/theme/schema.rs`.
@@ -58,6 +58,7 @@ Targets with notable extra behavior:
 | `vicinae` | `desktopctl/src/theme/targets/vicinae.rs` now writes only `~/.config/vicinae/settings.theme.json`, while Home Manager deploys `config/vicinae/settings.json` as the base file that imports that fragment. Its `persist()` hook still writes custom TOML themes under `~/.local/share/vicinae/themes/` using the configured Vicinae theme IDs from `ColorScheme.app_themes.vicinae`. When a scheme declares a distinct Vicinae `light_name`, the hook loads that repo scheme too so the paired light file exists alongside the active theme. |
 | `vscode` | `desktopctl/src/theme/targets/vscode.rs` merges the repo base settings with theme-owned color and font keys, and now prefers a `'<mono font> Mono', '<mono font>', monospace` stack for `terminal.integrated.fontFamily` when the selected font is a Nerd Font so prompt glyphs render reliably in the integrated terminal. |
 | `wallpaper` | `desktopctl/src/theme/targets/wallpaper.rs` preserves the old `lutgen` cache-key behavior and `awww` runtime side effects while remaining `sync_safe = false`. |
+| `where_is_my_sddm_theme` | `desktopctl/src/theme/targets/where_is_my_sddm_theme.rs` stages the currently selected wallpaper bytes at `/tmp/desktopctl-where-is-my-sddm-theme/background`, preferring the filtered wallpaper cache when that file already exists, so the root-owned bridge in `system/services.nix` can copy the image into `/var/lib/desktopctl/where-is-my-sddm-theme/background` for SDDM's static `theme.conf.user` path. |
 | `zsh` | `desktopctl/src/theme/targets/zsh.rs` writes `~/.config/zsh/theme-colors` with a scheme-aware `ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE`, choosing the most-muted foreground tier that still clears the target contrast against `ColorScheme.bg`. |
 
 ## Consumer Integration
@@ -77,6 +78,7 @@ documented in `docs/nix/ARCHITECTURE.md`.
 | OpenCode | `desktopctl/src/theme/targets/opencode.rs` and `config/opencode/base.json` now generate the global `~/.config/opencode/tui.json` theme selection plus `~/.config/opencode/themes/desktopctl.json`. The target is intentionally color-only because upstream OpenCode TUI theming consumes a theme name plus theme-color JSON, and project-local OpenCode config layers can still override the global `desktopctl` theme by name. |
 | Zsh | `home/shell.nix` sources `~/.config/zsh/theme-colors` from `programs.zsh.initContent`, while `desktopctl/src/theme/targets/zsh.rs` generates that fragment from the active `ColorScheme`. |
 | Tool configs | Import or concat targets still write under `~/.config` or app-specific config paths, keeping repo-authored base files read-only. Repo-authored concat bases now resolve through `paths::repo_root()` when the target declares a relative `base_path`. |
+| SDDM | `system/services.nix` points `where_is_my_sddm_theme` at the persistent root-owned `/var/lib/desktopctl/where-is-my-sddm-theme/background` file with a fixed blur radius, while the `where_is_my_sddm_theme` target stages the current wallpaper in `/tmp` and the `desktopctl-sddm-theme-sync.path` / `.service` bridge copies it into that persistent path for the greeter. |
 
 ## Validation Notes
 
@@ -111,6 +113,10 @@ documented in `docs/nix/ARCHITECTURE.md`.
   names, and atomic replacement of the generated custom-theme file, while
   the tests in `desktopctl/src/theme/orchestrator.rs` cover the OpenCode
   `color_scheme` dependency fanout.
+- The tests in `desktopctl/src/theme/targets/where_is_my_sddm_theme.rs` cover
+  the staged wallpaper copy path used by the SDDM background bridge, while the
+  registry tests in `desktopctl/src/theme/targets/mod.rs` cover the target's
+  metadata registration and managed path declaration.
 - The tests in `desktopctl/src/theme/targets/openchamber.rs` cover the generated
   OpenChamber theme-file shape, ASCII-safe JSON rendering, and settings-file
   merge behavior, while the tests in `desktopctl/src/theme/orchestrator.rs`

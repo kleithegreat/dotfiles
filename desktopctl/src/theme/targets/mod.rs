@@ -21,6 +21,7 @@ mod tmux;
 mod vicinae;
 mod vscode;
 mod wallpaper;
+mod where_is_my_sddm_theme;
 mod zathura;
 mod zsh;
 
@@ -428,6 +429,7 @@ const TARGET_REGISTRATIONS: &[TargetRegistration] = &[
     target_registration!(vicinae, persist),
     target_registration!(vscode, persist),
     target_registration!(wallpaper, on_apply),
+    target_registration!(where_is_my_sddm_theme, persist),
     target_registration!(zathura),
     target_registration!(zsh),
 ];
@@ -579,12 +581,13 @@ mod tests {
     fn registry_contains_all_python_targets() {
         let registry = build_registry().expect("registry builds");
         let names = registry.iter().map(|(name, _)| name).collect::<Vec<_>>();
-        assert_eq!(names.len(), 24);
+        assert_eq!(names.len(), 25);
         assert!(names.contains(&"chromium"));
         assert!(names.contains(&"cursor"));
         assert!(names.contains(&"gtksourceview"));
         assert!(names.contains(&"openchamber"));
         assert!(names.contains(&"opencode"));
+        assert!(names.contains(&"where_is_my_sddm_theme"));
         assert!(names.contains(&"zsh"));
         assert_eq!(
             registry
@@ -650,6 +653,14 @@ mod tests {
                 .metadata()
                 .managed_paths,
             &["~/.config/Code/User/globalStorage/state.vscdb"]
+        );
+        assert_eq!(
+            registry
+                .get("where_is_my_sddm_theme")
+                .expect("where_is_my_sddm_theme target")
+                .metadata()
+                .managed_paths,
+            &["/tmp/desktopctl-where-is-my-sddm-theme/background"]
         );
     }
 

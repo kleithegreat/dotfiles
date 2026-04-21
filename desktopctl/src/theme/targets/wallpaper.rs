@@ -60,7 +60,10 @@ fn cache_key(colors: &ColorScheme, wallpaper: &Path) -> crate::Result<String> {
     Ok(hasher.finish_hex()[..16].to_owned())
 }
 
-fn filtered_wallpaper_path(colors: &ColorScheme, state: &ThemeState) -> crate::Result<PathBuf> {
+pub(crate) fn filtered_wallpaper_path(
+    colors: &ColorScheme,
+    state: &ThemeState,
+) -> crate::Result<PathBuf> {
     let wallpaper = PathBuf::from(&state.wallpaper).expanduser()?;
     let stem = sanitize_stem(
         wallpaper
@@ -73,6 +76,21 @@ fn filtered_wallpaper_path(colors: &ColorScheme, state: &ThemeState) -> crate::R
         "{stem}-{scheme}-{}.png",
         cache_key(colors, &wallpaper)?
     )))
+}
+
+pub(crate) fn selected_wallpaper_path(
+    colors: &ColorScheme,
+    state: &ThemeState,
+) -> crate::Result<PathBuf> {
+    let source = PathBuf::from(&state.wallpaper).expanduser()?;
+    if !state.filter_wallpaper {
+        return Ok(source);
+    }
+
+    match filtered_wallpaper_path(colors, state) {
+        Ok(filtered) if filtered.is_file() => Ok(filtered),
+        _ => Ok(source),
+    }
 }
 
 fn sanitize_component(value: &str) -> String {
