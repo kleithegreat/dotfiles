@@ -111,6 +111,9 @@ let
   kdePackages = with pkgs.kdePackages; [
     dolphin
     ark
+    # Hyprland sessions need the ksystemstats user D-Bus service in the profile
+    # or plasma-systemmonitor shows empty widgets with missing sensors.
+    ksystemstats
     plasma-systemmonitor
     kate
     gwenview
