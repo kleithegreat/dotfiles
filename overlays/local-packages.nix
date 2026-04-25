@@ -1,6 +1,15 @@
 final: prev: {
   desktopctl = final.callPackage ../desktopctl { };
   helium = final.callPackage ../pkgs/helium { };
+  prismlauncher = prev.prismlauncher.overrideAttrs (_old: {
+    version = "11.0.2";
+    src = final.fetchFromGitHub {
+      owner = "PrismLauncher";
+      repo = "PrismLauncher";
+      rev = "11.0.2";
+      hash = "sha256-GvAfrZxQSlBnCJ59nvK87jDTVo60D8n25K42SokE1q8=";
+    };
+  });
   openchamber-backend-mux = final.callPackage ../pkgs/openchamber-backend-mux { };
   openchamber-claude-bridge = final.callPackage ../pkgs/openchamber-claude-bridge { };
   openchamber-cli = final.callPackage ../pkgs/openchamber/cli.nix {

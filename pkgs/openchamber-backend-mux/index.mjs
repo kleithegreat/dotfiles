@@ -741,6 +741,9 @@ class BackendMux {
       title: body?.title,
       permission: body?.permission,
       workspaceID: body?.workspaceID,
+      model: body?.model,
+      variant: body?.variant,
+      agent: body?.agent,
     };
     const { response, data } = await fetchJson(new URL(`/session${requestUrl.search}`, backend.origin).toString(), {
       method: 'POST',

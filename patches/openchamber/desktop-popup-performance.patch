@@ -77,11 +77,10 @@ diff --git a/packages/ui/src/components/ui/OverlayScrollbar.tsx b/packages/ui/sr
 diff --git a/packages/ui/src/components/ui/select.tsx b/packages/ui/src/components/ui/select.tsx
 --- a/packages/ui/src/components/ui/select.tsx
 +++ b/packages/ui/src/components/ui/select.tsx
-@@ -80,6 +80,7 @@
-     >
-       <ScrollableOverlay
-         as={SelectPrimitive.Viewport}
-+        observeMutations={false}
-         outerClassName={cn(
-           "max-h-[var(--radix-select-content-available-height)]",
-           fitContent ? "w-max" : "w-full"
+@@ -143,6 +143,7 @@
+         >
+           <ScrollableOverlay
++            observeMutations={false}
+             outerClassName={cn(
+               "max-h-[var(--available-height)]",
+               fitContent ? "w-max" : "w-full"
