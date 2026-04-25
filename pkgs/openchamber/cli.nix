@@ -11,12 +11,12 @@
 
 let
   pname = "openchamber";
-  version = "1.9.6";
+  version = "1.9.8";
   src = fetchFromGitHub {
     owner = "openchamber";
     repo = "openchamber";
     tag = "v${version}";
-    hash = "sha256-J59zE1PbTvACcHLhHAarUp2fq9+le5O+7wkJXpPmvGo=";
+    hash = "sha256-//Jma4LN4MtIB2Q5OLsul4lc9M9AYbxdnNSNdHHDCkM=";
   };
   postPatch = ''
     cp ${./package.json} package.json
@@ -32,7 +32,7 @@ buildNpmPackage {
     ../../patches/openchamber/desktop-popup-performance.patch
   ];
 
-  npmDepsHash = "sha256-Gy1dxncCuMgpsom83lzBkoSYayBWiZfIS7LaHbnNzAA=";
+  npmDepsHash = "sha256-OKHm6ICJ72rRv7oVq76Tlw/N1cO/bRii7oC5hZXkBKo=";
   npmDepsFetcherVersion = 2;
   npmWorkspace = "packages/web";
   npmFlags = [ "--install-links" ];
