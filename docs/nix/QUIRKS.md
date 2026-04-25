@@ -72,11 +72,11 @@
 **Status:** Intentional exception
 **Resolution:** Keep the parameter on the shared physical-host baseline only if the performance tradeoff is intentional. Remove that physical-host kernel param in `system/configuration.nix` to restore the kernel's default mitigation policy.
 
-## Physical-host local builds are serialized on purpose
-**Symptom:** Local Nix builds on desktop and laptop run one derivation at a time even though the machines have many CPU threads.
-**Cause:** `system/configuration.nix` now sets `nix.settings.max-jobs = 1` on the shared physical-host gate. The repo leaves `cores = 0`, so a single heavy derivation can still use the full machine; this avoids stacking multiple already-parallel builds on top of each other.
+## Physical-host local builds allow limited derivation concurrency on purpose
+**Symptom:** Local Nix builds on desktop and laptop can build up to two derivations at once instead of fully serializing the local queue.
+**Cause:** `system/physical-host.nix` now sets `nix.settings.max-jobs = 2` on the shared physical-host gate. The repo does not set `cores`, so each build can still use its package-specific default parallelism while Nix limits the number of concurrent derivations.
 **Status:** Intentional exception
-**Resolution:** Keep the physical hosts on `max-jobs = 1` unless measurement shows a real win from concurrent derivations. If you want more concurrency later, change that shared physical-host setting in `system/configuration.nix` directly.
+**Resolution:** Keep the physical hosts on `max-jobs = 2` if the machine benefits from some overlap between smaller builds. If heavy builds still create too much memory pressure, either lower `max-jobs` again or add package-specific parallelism caps instead of globally pinning all local builds.
 
 ## Narrow unfree predicates must cover transitive module closures, not just package lists
 **Symptom:** Replacing `allowUnfree = true` with a small name allowlist still fails evaluation on packages that are not listed directly in `home.packages` or `environment.systemPackages`.

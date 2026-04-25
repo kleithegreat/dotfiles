@@ -54,7 +54,7 @@ in
       '';
     };
 
-    nix.settings.max-jobs = 1;
+    nix.settings.max-jobs = 2;
     networking.useDHCP = lib.mkDefault true;
     zramSwap = {
       enable = true;
