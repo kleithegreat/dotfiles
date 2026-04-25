@@ -66,11 +66,12 @@ index e78c649..7327920 100644
  /* Theme configuration */
  typedef struct {
    /* Colors (0xRRGGBBAA) */
-@@ -49,6 +55,7 @@ typedef struct {
+@@ -49,7 +55,8 @@ typedef struct {
    bool follow_monitor;
    bool show_workspace_badge;
    ViewMode mode;
 +  ScopeMode scope;
+   bool sticky_mode;
  
    /* Dismiss modifier: which modifier release hides the switcher (e.g. alt, super) */
    char dismiss_modifier[64];

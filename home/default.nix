@@ -19,7 +19,7 @@ let
     ;
   lspPlugins = optimizedPkgs.lsp-plugins;
   opencodeNodeModulesPkg = opencode.packages.${system}.node_modules_updater.override {
-    hash = "sha256-DOGOZdPdkcuyDhVAyWHGsL4rrV28S+YFZj/VORuoQ8Q=";
+    hash = "sha256-+G3/s18NZO1Dpc5TsZyix2Npodzei25Svw3nTjfzXW8=";
   };
   opencodePkg = nativeOptimizations.optimizeNativePackage (opencode.packages.${system}.default.overrideAttrs (old: {
     node_modules = opencodeNodeModulesPkg;
