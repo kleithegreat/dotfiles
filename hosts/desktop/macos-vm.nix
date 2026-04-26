@@ -63,8 +63,6 @@ let
       open_core_image=${lib.escapeShellArg openCoreImage}
       ovmf_code=${lib.escapeShellArg ovmfCode}
       ovmf_vars=${lib.escapeShellArg ovmfVars}
-      memory_mib=${toString cfg.memoryMiB}
-      minimum_available_mib=$((memory_mib + 1024))
 
       for required_file in "$disk_path" "$base_system_img" "$open_core_image" "$ovmf_code" "$ovmf_vars"; do
         if [[ ! -f "$required_file" ]]; then
@@ -73,14 +71,6 @@ let
           exit 1
         fi
       done
-
-      available_mib=$(awk '/^MemAvailable:/ { print int($2 / 1024) }' /proc/meminfo)
-      if (( available_mib < minimum_available_mib )); then
-        echo "macos-vm: only ''${available_mib} MiB memory is currently available" >&2
-        echo "macos-vm: this VM is configured for ''${memory_mib} MiB and needs about ''${minimum_available_mib} MiB free before launch" >&2
-        echo "Close memory-heavy apps or wait for builds to finish, then retry." >&2
-        exit 1
-      fi
 
       qemu-system-x86_64 \
         -enable-kvm \

@@ -180,12 +180,6 @@
 **Status:** Expected manual state
 **Resolution:** After rebuilding the desktop, run `macos-vm-prepare` once as the normal user. It clones OSX-KVM under `/var/lib/macos-vm/sequoia/OSX-KVM`, downloads Sequoia via `fetch-macOS-v2.py --shortname sequoia`, converts `BaseSystem.dmg` to `BaseSystem.img`, and ensures `/var/lib/macos-vm/sequoia/mac_hdd_ng.img` exists at 64 GiB. The helper does not update an existing OSX-KVM checkout; update it manually with `git -C /var/lib/macos-vm/sequoia/OSX-KVM pull --ff-only` if needed. If you later change `virtualisation.macosVm.diskSizeGiB`, resize the existing qcow2 manually because activation only creates the disk when it does not already exist.
 
-## Desktop macOS VM can exhaust RAM during install
-**Symptom:** `macos-vm` exits with `Killed` and the QEMU window disappears during install.
-**Cause:** The desktop currently has 16 GiB of RAM while the Sequoia VM is intentionally configured for 12 GiB. If browsers, Electron apps, Nix builds, or compilers are active, zram swap can fill and the kernel OOM killer can terminate `qemu-system-x86_64`.
-**Status:** Guardrail in place
-**Resolution:** `hosts/desktop/macos-vm.nix` checks `/proc/meminfo` before launch and refuses to start unless `MemAvailable` is at least the guest allocation plus about 1 GiB. Close memory-heavy apps and avoid `nixos-rebuild` or other builds while installing or running the VM. The guest allocation remains 12 GiB by design.
-
 ## `tailscaled` can stall shutdown on physical hosts
 **Symptom:** Reboot or poweroff can occasionally sit on "A stop job is running for Tailscale node agent" long enough to hit most of systemd's default 90 second stop timeout.
 **Cause:** Upstream `tailscaled` shutdown is normally fast, but Linux `wgengine` teardown has had intermittent close/deadlock races. The current hosts use NetworkManager plus `resolvconf`/`openresolv`, so this repo does not rely on `systemd-resolved` staying up for Tailscale cleanup.
