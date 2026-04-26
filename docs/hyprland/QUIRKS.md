@@ -1,25 +1,28 @@
 # Hyprland Quirks
 
-## Shared brightness hooks assume a discoverable backlight device
+## Shared brightness hooks use backlight first, then DDC/CI
 
-**Symptom:** Brightness controls do nothing useful on the desktop or a future
-host with no `/sys/class/backlight` device.
+**Symptom:** Older checkouts had brightness controls that did nothing useful on
+the desktop or a future host with no `/sys/class/backlight` device.
 
 **Cause:** The shared Hyprland surfaces all route through `desktopctl
-brightness`, which auto-detects the first backlight under
-`/sys/class/backlight/` and errors when none exists:
+brightness`. Current code auto-detects the first backlight under
+`/sys/class/backlight/`, then falls back to DDC/CI VCP `0x10` through
+`ddcutil` when no backlight exists:
 
 Specifically:
 
 - `config/hypr/hypridle.conf` listener block with `on-timeout = desktopctl brightness dim` and `on-resume = ... desktopctl brightness restore`
 - `config/hypr/keybinds.conf` brightness bindings for `F6` / `F7` that call `desktopctl brightness down` and `desktopctl brightness up`
 
-These work on the laptop (which has a discoverable backlight device) but fail
-on the desktop (dedicated NVIDIA, no backlight device).
+These work on the laptop through the internal backlight and on the desktop when
+the external monitor exposes DDC/CI brightness and the host has I2C access.
 
-**Impact:** On the desktop, the dim-screen timeout has no visible effect and
-the brightness keybinds do nothing. No crashes, but the brightness-related
-shared surfaces remain laptop-oriented.
+**Status:** Fixed for DDC/CI-capable desktop monitors.
+
+**Impact / workaround:** If a desktop monitor still does not respond, verify the
+monitor OSD has DDC/CI enabled, `ddcutil detect` can see the display, and the
+active user is in the `i2c` group after a rebuild and fresh login.
 
 ## cursor.conf is generated, not committed
 

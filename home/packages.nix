@@ -85,6 +85,7 @@ let
     awww
     lutgen
     brightnessctl
+    ddcutil
     grim
     slurp
     wl-clipboard

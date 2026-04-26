@@ -10,6 +10,7 @@
       "networkmanager"
       "video"
       "render"
+      "i2c"
       "docker"
       "libvirtd"
       "lp"
