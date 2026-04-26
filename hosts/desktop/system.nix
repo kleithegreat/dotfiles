@@ -1,6 +1,9 @@
 { config, pkgs, lib, ... }:
 
 {
+  imports = [
+    ./macos-vm.nix
+  ];
 
   nixpkgs.overlays = [
     # Temporary desktop-only NVIDIA open-kernel workaround for PR #996.
@@ -62,6 +65,8 @@
   boot.extraModprobeConfig = ''
     options nvidia NVreg_TemporaryFilePath=/var/tmp
   '';
+
+  virtualisation.macosVm.enable = true;
 
   fileSystems."/" = {
     device = "/dev/disk/by-uuid/431cdfea-3583-453d-b2dd-9a46d01c4a33";
