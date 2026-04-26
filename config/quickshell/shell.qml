@@ -215,8 +215,10 @@ Scope {
         target: "brightness"
         function osd(percent: string): void {
             let pct = parseInt(percent);
-            if (!isNaN(pct))
+            if (!isNaN(pct)) {
+                BrightnessService.refresh();
                 AudioService.showOsdState(pct, pct + "%", "../icons/brightness-medium.svg");
+            }
         }
     }
 

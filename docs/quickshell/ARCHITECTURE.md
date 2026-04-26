@@ -40,7 +40,7 @@ Managed popups mounted by the overlay host remain:
 | --- | --- | --- |
 | `AudioService.qml` | Volume, mute, sink summary, shared OSD state | Bar volume, audio pane, shell OSD, IPC |
 | `BluetoothService.qml` | Powered state, summary device data, full device/pairing flows | Bar Bluetooth, quick settings, Bluetooth pane |
-| `BrightnessService.qml` | Backlight discovery, file watching, and direct `brightnessctl` writes for the Display pane | Display pane and any brightness slider UI |
+| `BrightnessService.qml` | Backend-agnostic brightness status polling and writes through `desktopctl brightness`, covering laptop backlights and DDC/CI external monitors | Bar brightness, Quick Settings, Display pane, and any brightness slider UI |
 | `DisplayService.qml` | Monitor refresh/apply and daemon-backed night-light status / override requests | Display pane |
 | `HostCapabilities.qml` | Detects laptop-chassis, Wi-Fi, battery, power-profile, and fingerprint-reader capabilities, while only surfacing interactive power-profile support on laptop-like hosts | Settings host category visibility plus power/fingerprint pane availability |
 | `HyprlandConfigService.qml` | Shared monitor-layout undo/redo state plus Hyprland animation/keybind override editing, save, and clear flows | Display pane, Hyprland pane, Settings host refresh path |
@@ -67,7 +67,8 @@ Direct-upstream or local exceptions:
   `docs/focus-time/SPEC.md`.
 - The shell brightness OSD no longer reads `/tmp/quickshell-brightness`.
 `config/quickshell/shell.qml` exposes a `brightness` IPC handler for OSD
-events, and `desktopctl/src/brightness.rs` drives it with
+events, refreshes `config/quickshell/BrightnessService.qml` after keyboard
+brightness changes, and `desktopctl/src/brightness.rs` drives it with
 `qs -p <repo>/config/quickshell ipc call brightness osd ...`.
 - The laptop power-profile path stays outside `desktopctl`: `config/quickshell/PowerProfileService.qml`
   now prefers the host-installed `laptop-power-profile get` helper when it is
@@ -335,12 +336,14 @@ the history watermark and insert-animation logic in `config/quickshell/NotifDraw
   that flag for the dedicated desktop host.
 - Keyboard-driven brightness OSD updates depend on `qs` plus repo-root
   resolution in `desktopctl`, not on a temp file.
-- A backlight is discoverable under `/sys/class/backlight` for the brightness
-  slider path to be usable.
+- A backlight is discoverable under `/sys/class/backlight`, or DDC/CI
+  brightness is reachable through `ddcutil`, for the brightness slider path to
+  be usable.
 - `${XDG_RUNTIME_DIR:-/run/user/$UID}/focustime_state.json` exists when the
   focus-time daemon is running.
 - CLI tools such as `nmcli`, `bluetoothctl`, `hyprctl`, `brightnessctl`,
-  `mullvad`, `tailscale`, `busctl`, `curl`, and related helpers are on `PATH`.
+  `ddcutil`, `mullvad`, `tailscale`, `busctl`, `curl`, and related helpers are
+  on `PATH`.
 - Outbound HTTPS access is available when the calendar weather card should show
   a live forecast; otherwise the popup falls back to the last successful
   weather payload or the locally resolved sunrise/sunset labels.

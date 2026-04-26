@@ -145,6 +145,10 @@ struct BrightnessArgs {
 
 #[derive(Debug, Subcommand)]
 enum BrightnessCommand {
+    /// Print the currently selected brightness device and value.
+    Status(JsonOutputArgs),
+    /// Set brightness to an absolute perceived percent.
+    Set(BrightnessSetArgs),
     /// Increase brightness by one perceptual 5% step.
     Up(BrightnessDeviceArgs),
     /// Decrease brightness by one perceptual 5% step.
@@ -158,6 +162,15 @@ enum BrightnessCommand {
 #[derive(Debug, Args)]
 struct BrightnessDeviceArgs {
     /// Override the auto-detected backlight device.
+    #[arg(long, value_name = "DEVICE")]
+    device: Option<String>,
+}
+
+#[derive(Debug, Args)]
+struct BrightnessSetArgs {
+    /// Brightness percent, clamped to 0-100.
+    percent: u8,
+    /// Override the auto-detected device. Use a backlight name, `ddc`, or `ddc:<display>`.
     #[arg(long, value_name = "DEVICE")]
     device: Option<String>,
 }
@@ -335,6 +348,8 @@ fn run() -> Result<()> {
 
 fn run_brightness(args: BrightnessArgs) -> Result<()> {
     match args.command {
+        BrightnessCommand::Status(args) => brightness::status(args.json),
+        BrightnessCommand::Set(args) => brightness::set(args.device.as_deref(), args.percent),
         BrightnessCommand::Up(args) => brightness::up(args.device.as_deref()),
         BrightnessCommand::Down(args) => brightness::down(args.device.as_deref()),
         BrightnessCommand::Dim(args) => brightness::dim(args.device.as_deref()),

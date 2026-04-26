@@ -145,16 +145,19 @@ Theming invariants:
 
 | Command | Current behavior |
 | --- | --- |
-| `brightness up [--device <name>]` | Applies one perceptual +5% step through `brightnessctl`, then best-effort notifies Quickshell by calling `qs -p <repo>/config/quickshell ipc call brightness osd <percent>` |
+| `brightness status [--json]` | Auto-detects the active brightness backend and prints the current value; JSON output includes availability, backend kind, device label, raw values, fraction, and percent for Quickshell |
+| `brightness set <percent> [--device <name>]` | Sets an absolute perceived brightness percent through the selected backend and best-effort notifies Quickshell by calling `qs -p <repo>/config/quickshell ipc call brightness osd <percent>` |
+| `brightness up [--device <name>]` | Applies one perceptual +5% step through the selected backend, then best-effort notifies Quickshell by calling `qs -p <repo>/config/quickshell ipc call brightness osd <percent>` |
 | `brightness down [--device <name>]` | Same, but one perceptual -5% step |
-| `brightness dim [--device <name>]` | Saves state with `brightnessctl -s`, dims toward 30% of the current raw brightness over 20 steps, and writes `/tmp/dim-screen.pid` while running |
-| `brightness restore [--device <name>]` | Calls `brightnessctl -r` |
+| `brightness dim [--device <name>]` | Saves state for the selected backend, dims toward 30% of the current raw brightness over 20 steps, and writes `/tmp/dim-screen.pid` while running |
+| `brightness restore [--device <name>]` | Restores the saved brightness state through `brightnessctl -r` for backlights or the saved DDC/CI value for external monitors |
 
 Brightness rules:
 
-- Device auto-detection picks the first directory under `/sys/class/backlight`.
-- If no backlight exists, the command fails.
-- Only `up` and `down` emit the Quickshell OSD IPC call today.
+- Device auto-detection prefers the first directory under `/sys/class/backlight`, then falls back to DDC/CI VCP code `0x10` through `ddcutil`.
+- `--device <name>` still selects a backlight device; `--device ddc` selects the default DDC display, and `--device ddc:<display>` passes an explicit `ddcutil --display` value.
+- If neither a backlight nor DDC/CI brightness is reachable, the command fails.
+- `set`, `up`, and `down` emit the Quickshell OSD IPC call today.
 - The old `/tmp/quickshell-brightness` file contract no longer exists.
 
 ### `desktopctl hypr`

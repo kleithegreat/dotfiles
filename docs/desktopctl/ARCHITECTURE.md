@@ -27,7 +27,7 @@ integration as of 2026-04-20.
 | Night-light controller | `desktopctl/src/daemon/night_light.rs` stores the live `auto` / `on` / `off` mode, keeps the in-session manual temperature, derives the effective `hyprsunset` state from solar status, and remains the only live writer of `hyprsunset`. Solar-status updates now mark both 23:00 dark-on and 06:00 dark-off schedule edges, and reconcile then applies the pending `dark_hint` value once through the helpers in `desktopctl/src/night_light.rs`, which delegate to `set_dark_hint()` in `desktopctl/src/theme/mod.rs`, without coupling that write to the current night-light mode. The helper layer now prefers in-place `hyprsunset` IPC temperature updates before falling back to a process restart. |
 | Solar scheduler | `desktopctl/src/daemon/solar.rs` replaces the old systemd timer script chain with an in-process scheduler that recomputes solar status immediately, sleeps until the next sunrise / sunset / 23:00 / 06:00 event or 2-hour repair tick, and asks the shared controller to reconcile the effective mode. |
 | Socket server | `desktopctl/src/daemon/server.rs` serves newline-delimited JSON requests on `$XDG_RUNTIME_DIR/desktopctl.sock`, including the daemon-owned `night_light.status`, `night_light.set`, and `night_light.toggle` methods. |
-| Existing helper ports | `desktopctl/src/brightness.rs`, `desktopctl/src/launch.rs`, and `desktopctl/src/portal.rs` remain the active ports for brightness stepping/dimming, Quickshell launch env export, and the directory picker helper. The brightness helpers now notify Quickshell through `qs ipc`, and `desktopctl/src/portal.rs` now correlates portal responses to the `OpenFile` request handle before accepting a returned directory. |
+| Existing helper ports | `desktopctl/src/brightness.rs`, `desktopctl/src/launch.rs`, and `desktopctl/src/portal.rs` remain the active ports for brightness status/setting/stepping/dimming, Quickshell launch env export, and the directory picker helper. The brightness helpers now prefer `/sys/class/backlight` plus `brightnessctl`, fall back to DDC/CI VCP `0x10` through `ddcutil`, expose JSON status for Quickshell, notify Quickshell through `qs ipc`, and `desktopctl/src/portal.rs` now correlates portal responses to the `OpenFile` request handle before accepting a returned directory. |
 
 ## Repo Integration
 
@@ -86,10 +86,11 @@ documented in `docs/nix/ARCHITECTURE.md`.
   invalid-request and invalid-param errors, and unsupported-method errors
   without binding a filesystem socket.
 - `desktopctl/src/brightness.rs` now covers the gamma-based
-  raw/perceived conversion helpers, perceptual-step clamping, and zero-max
-  rejection. The `dim`/`restore` subprocess choreography in
-  `desktopctl/src/brightness.rs` remains side-effect-coupled and would
-  need a smaller pure helper to unit-test directly.
+  raw/perceived conversion helpers, perceptual-step clamping, zero-max
+  rejection, DDC/CI output parsing, and DDC device override parsing. The
+  `dim`/`restore` subprocess choreography in `desktopctl/src/brightness.rs`
+  remains side-effect-coupled and would need a smaller pure helper to unit-test
+  directly.
 - The `toggle-float` resize/center behavior in
   `desktopctl/src/hypr.rs` is still only expressed as a
   `hyprctl --batch` command string, so geometry-level assertions would require

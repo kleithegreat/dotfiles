@@ -5,50 +5,54 @@ import Quickshell.Io
 QtObject {
     id: root
 
-    property string backlightDevice: ""
+    property string brightnessDevice: ""
+    property string brightnessKind: ""
+    property string brightnessLabel: ""
     property int brightnessRaw: 0
     property int brightnessMax: 0
     property real pendingBrightnessFraction: -1
 
-    readonly property bool hasBacklight: backlightDevice !== ""
+    readonly property bool hasBacklight: brightnessDevice !== ""
     readonly property bool brightnessAvailable: hasBacklight && brightnessMax > 0
     readonly property real brightnessRawFraction: brightnessAvailable ? Math.max(0, Math.min(1, brightnessRaw / brightnessMax)) : 0
-    readonly property real brightnessFraction: brightnessAvailable ? Math.pow(brightnessRawFraction, 1.0 / 2.2) : 0
+    readonly property real brightnessFraction: brightnessAvailable ? Math.max(0, Math.min(1, brightnessStatusFraction)) : 0
     readonly property int brightnessPercent: Math.round(brightnessFraction * 100)
-    readonly property bool brightnessBusy: brightnessSetProc.running
-    readonly property string backlightLabel: backlightDevice.replace(/_/g, " ")
+    readonly property bool brightnessBusy: brightnessSetProc.running || statusProc.running
+    readonly property string backlightDevice: brightnessDevice
+    readonly property string backlightLabel: brightnessLabel !== "" ? brightnessLabel : brightnessDevice.replace(/_/g, " ")
+    property real brightnessStatusFraction: 0
 
     function clamp01(value) {
         return Math.max(0, Math.min(1, value));
     }
 
     function refresh() {
-        refreshBacklightDevice();
-        refreshBrightness();
+        if (!statusProc.running)
+            statusProc.running = true;
     }
 
-    function refreshBacklightDevice() {
-        if (!detectBacklightProc.running)
-            detectBacklightProc.running = true;
-    }
-
-    function refreshBrightness() {
-        if (!hasBacklight)
+    function syncFromStatus(payload) {
+        if (!payload || !payload.available) {
+            clearState();
             return;
+        }
 
-        maxBrightnessFile.reload();
-        brightnessFile.reload();
+        brightnessDevice = payload.device || "";
+        brightnessKind = payload.kind || "";
+        brightnessLabel = payload.label || brightnessDevice.replace(/_/g, " ");
+        brightnessRaw = Math.max(0, parseInt(payload.raw || 0, 10));
+        brightnessMax = Math.max(0, parseInt(payload.max || 0, 10));
+        brightnessStatusFraction = clamp01(Number(payload.fraction || 0));
     }
 
-    function syncBrightnessFromFiles() {
-        let maxValue = parseInt(maxBrightnessFile.text().trim(), 10);
-        let rawValue = parseInt(brightnessFile.text().trim(), 10);
-
-        if (isNaN(maxValue) || maxValue <= 0 || isNaN(rawValue))
-            return;
-
-        brightnessMax = maxValue;
-        brightnessRaw = Math.max(0, Math.min(maxValue, rawValue));
+    function clearState() {
+        brightnessDevice = "";
+        brightnessKind = "";
+        brightnessLabel = "";
+        brightnessRaw = 0;
+        brightnessMax = 0;
+        brightnessStatusFraction = 0;
+        pendingBrightnessFraction = -1;
     }
 
     function setBrightnessFraction(value) {
@@ -57,6 +61,8 @@ QtObject {
 
         let clamped = clamp01(value);
         pendingBrightnessFraction = clamped;
+        brightnessStatusFraction = clamped;
+        brightnessRaw = Math.round(clamped * brightnessMax);
         if (!brightnessSetProc.running)
             applyPendingBrightness();
     }
@@ -67,77 +73,42 @@ QtObject {
 
         let clamped = pendingBrightnessFraction;
         pendingBrightnessFraction = -1;
-        let rawTarget = Math.round(Math.pow(clamped, 2.2) * brightnessMax);
-        rawTarget = Math.max(1, Math.min(brightnessMax, rawTarget));
-
-        if (rawTarget === brightnessRaw)
-            return;
-
-        brightnessRaw = rawTarget;
-        brightnessSetProc.command = ["brightnessctl", "-d", backlightDevice, "s", rawTarget.toString()];
+        let percent = Math.round(clamped * 100);
+        brightnessSetProc.command = ["desktopctl", "brightness", "set", percent.toString()];
         brightnessSetProc.running = true;
-    }
-
-    onBacklightDeviceChanged: {
-        if (!hasBacklight) {
-            brightnessRaw = 0;
-            brightnessMax = 0;
-            pendingBrightnessFraction = -1;
-            return;
-        }
-
-        refreshBrightness();
     }
 
     Component.onCompleted: refresh()
 
-    property Timer backlightRetryTimer: Timer {
-        interval: 30000
+    property Timer statusTimer: Timer {
+        interval: root.hasBacklight ? 5000 : 30000
         running: true
         repeat: true
-        onTriggered: {
-            if (!root.hasBacklight)
-                root.refreshBacklightDevice();
-        }
+        onTriggered: root.refresh()
     }
 
-    property FileView brightnessFile: FileView {
-        path: root.hasBacklight ? "/sys/class/backlight/" + root.backlightDevice + "/brightness" : "/dev/null"
-        watchChanges: root.hasBacklight
-        blockLoading: true
-        onFileChanged: reload()
-        onLoaded: root.syncBrightnessFromFiles()
-    }
-
-    property FileView maxBrightnessFile: FileView {
-        path: root.hasBacklight ? "/sys/class/backlight/" + root.backlightDevice + "/max_brightness" : "/dev/null"
-        watchChanges: root.hasBacklight
-        blockLoading: true
-        onFileChanged: reload()
-        onLoaded: root.syncBrightnessFromFiles()
-    }
-
-    property Process detectBacklightProc: Process {
-        command: [
-            "sh",
-            "-c",
-            "for dev in /sys/class/backlight/*; do [ -d \"$dev\" ] || continue; basename \"$dev\"; exit 0; done; exit 1"
-        ]
+    property Process statusProc: Process {
+        command: ["desktopctl", "brightness", "status", "--json"]
         running: false
-        property string detectedDevice: ""
-        onRunningChanged: if (running) detectedDevice = ""
+        property string output: ""
+        onRunningChanged: if (running) output = ""
         stdout: SplitParser {
             onRead: (line) => {
-                let device = line.trim();
-                if (device !== "")
-                    detectBacklightProc.detectedDevice = device;
+                if (line.trim() !== "")
+                    statusProc.output += line.trim();
             }
         }
         onExited: (code) => {
-            if (code === 0 && detectBacklightProc.detectedDevice !== "")
-                root.backlightDevice = detectBacklightProc.detectedDevice;
-            else
-                root.backlightDevice = "";
+            if (code !== 0) {
+                root.clearState();
+                return;
+            }
+
+            try {
+                root.syncFromStatus(JSON.parse(statusProc.output));
+            } catch (error) {
+                root.clearState();
+            }
         }
     }
 
@@ -146,14 +117,14 @@ QtObject {
         onExited: (code) => {
             if (code !== 0) {
                 root.pendingBrightnessFraction = -1;
-                root.refreshBrightness();
+                root.refresh();
                 return;
             }
 
             if (root.pendingBrightnessFraction >= 0)
                 root.applyPendingBrightness();
             else
-                root.refreshBrightness();
+                root.refresh();
         }
     }
 }
