@@ -33,9 +33,18 @@ let
       runHook postConfigure
     '';
     postConfigure = (old.postConfigure or "") + ''
-      if [ -e packages/app/node_modules/@tsconfig/bun/tsconfig.json ]; then
-        substituteInPlace packages/shared/tsconfig.json \
-          --replace-fail '"extends": "@tsconfig/bun/tsconfig.json"' '"extends": "../app/node_modules/@tsconfig/bun/tsconfig.json"'
+      if [ ! -e node_modules/@tsconfig/bun/tsconfig.json ]; then
+        for bunTsconfig in \
+          packages/opencode/node_modules/@tsconfig/bun \
+          packages/app/node_modules/@tsconfig/bun
+        do
+          if [ -e "$bunTsconfig/tsconfig.json" ]; then
+            chmod u+w node_modules
+            mkdir -p node_modules/@tsconfig
+            ln -s "$PWD/$bunTsconfig" node_modules/@tsconfig/bun
+            break
+          fi
+        done
       fi
 
       if [ ! -e node_modules/prettier/package.json ]; then
