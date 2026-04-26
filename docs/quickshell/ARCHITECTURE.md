@@ -46,7 +46,7 @@ Managed popups mounted by the overlay host remain:
 | `HyprlandConfigService.qml` | Shared monitor-layout undo/redo state plus Hyprland animation/keybind override editing, save, and clear flows | Display pane, Hyprland pane, Settings host refresh path |
 | `IdleInhibitService.qml` | Holds a transient `systemd-inhibit --what=idle` process so hypridle pauses its timers while the shell toggle is active, and auto-enables that inhibitor at shell startup when `DESKTOPCTL_IDLE_INHIBIT_DEFAULT` is truthy in the session environment | Quick Settings idle-inhibit tile |
 | `NetworkService.qml` | Active network summary for Wi-Fi or ethernet via the default-route interface, Wi-Fi scans/known networks, active-transport diagnostics, DNS, captive portal, reporting | Bar network, quick settings, network pane |
-| `NotificationService.qml` | Popup/history models, DND, dismissal, relative-time refresh | Root notifications, drawer, bar bell, Notifications settings pane, IPC |
+| `NotificationService.qml` | Popup/history models, DND, dismissal, relative-time refresh | Root notifications, drawer, bar bell, Notifications settings pane, IPC, and freedesktop notifications bridged from system services such as the physical-host kernel OOM notifier |
 | `PowerProfileService.qml` | CPU profiles and supported battery controls, including the laptop-only `e-core-only` profile when the `laptop-power-profile` helper is present | Power pane |
 | `Theme.qml` | Shell-facing facade over generated theme JSON | Imported throughout shell components |
 | `ToastService.qml` | Bounded toast queue | Shell toast window, IPC |

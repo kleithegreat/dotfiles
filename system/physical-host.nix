@@ -4,6 +4,56 @@ let
   optimizedKernelPackages = import ./native-kernel-packages.nix {
     inherit lib pkgs host enableNativeOptimizations;
   };
+  kernelOomNotifier = pkgs.writeShellApplication {
+    name = "kernel-oom-notifier";
+    runtimeInputs = with pkgs; [ coreutils libnotify systemd util-linux ];
+    text = ''
+      notify_user=kevin
+      notify_uid="$(id -u "$notify_user")"
+
+      journalctl --dmesg --follow --output=cat --since=now | while IFS= read -r line; do
+        summary=""
+
+        case "$line" in
+          *"Killed process "*)
+            rest="''${line#*Killed process }"
+            pid="''${rest%% *}"
+            comm="process"
+
+            case "$rest" in
+              *"("*")"*)
+                comm="''${rest#*(}"
+                comm="''${comm%%)*}"
+                ;;
+            esac
+
+            summary="Kernel OOM killed $comm"
+            if [ -n "$pid" ]; then
+              summary="$summary (pid $pid)"
+            fi
+            ;;
+          *"Out of memory:"*)
+            summary="Kernel OOM event"
+            ;;
+          *)
+            continue
+            ;;
+        esac
+
+        if [ -S "/run/user/$notify_uid/bus" ]; then
+          runuser -u "$notify_user" -- env \
+            XDG_RUNTIME_DIR="/run/user/$notify_uid" \
+            DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$notify_uid/bus" \
+            notify-send \
+              --app-name="kernel-oom" \
+              --urgency=critical \
+              --expire-time=15000 \
+              "$summary" \
+              "$line" || true
+        fi
+      done
+    '';
+  };
 in
 {
   config = lib.mkIf host.isPhysical {
@@ -52,6 +102,17 @@ in
           printf '1000' > /sys/kernel/mm/lru_gen/min_ttl_ms
         fi
       '';
+    };
+
+    systemd.services.kernel-oom-notifier = {
+      description = "Notify the desktop session about kernel OOM kills";
+      wantedBy = [ "multi-user.target" ];
+      after = [ "systemd-journald.service" ];
+      serviceConfig = {
+        ExecStart = "${kernelOomNotifier}/bin/kernel-oom-notifier";
+        Restart = "always";
+        RestartSec = "2s";
+      };
     };
 
     nix.settings.max-jobs = 2;
