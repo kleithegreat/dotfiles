@@ -97,7 +97,7 @@ let
         -device virtio-rng-pci
         -drive "if=none,id=system,file=$disk_path,format=qcow2,discard=unmap,detect-zeroes=unmap"
         -device "nvme,drive=system,serial=${cfg.name}-system"
-        -vga std
+        -device "VGA,vgamem_mb=${toString cfg.videoMemoryMiB},xres=${toString cfg.displayWidth},yres=${toString cfg.displayHeight}"
         -display "gtk,show-tabs=off"
       )
 
@@ -196,6 +196,24 @@ in
       type = lib.types.listOf lib.types.str;
       default = [ ];
       description = "Extra arguments appended to the generated QEMU invocation.";
+    };
+
+    displayWidth = lib.mkOption {
+      type = lib.types.ints.positive;
+      default = 2560;
+      description = "Preferred initial width for the emulated VGA framebuffer.";
+    };
+
+    displayHeight = lib.mkOption {
+      type = lib.types.ints.positive;
+      default = 1440;
+      description = "Preferred initial height for the emulated VGA framebuffer.";
+    };
+
+    videoMemoryMiB = lib.mkOption {
+      type = lib.types.ints.positive;
+      default = 64;
+      description = "Video memory exposed by the emulated VGA adapter.";
     };
   };
 
