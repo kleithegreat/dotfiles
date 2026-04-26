@@ -67,7 +67,7 @@ let
     ffmpeg
     zoom-us
     tor-browser
-    f3d
+    fstl
     anki
     gimp
     krita
