@@ -59,7 +59,7 @@ Home Manager layer as of 2026-04-25.
 | Flake exports | `flake.nix` exposes `overlays.default` plus the packaged `desktopctl`, `helium`, `openchamber`, `openchamber-claude-bridge`, and `openchamber-backend-mux` outputs for `x86_64-linux`. |
 | Shared native overlay | `overlays/native-optimized.nix` rebuilds selected nixpkgs packages (`desktopctl`, `lapce`, `pipewire`, `quickshell`, `fd`, `ripgrep`, and the repo's TeX Live environment) with host-native flags while deliberately leaving low-level rebuild multipliers such as `zstd` and `lz4` stock. |
 | Shared system consumers | `system/configuration.nix` applies only the repo overlays globally, uses a local `optimizedPkgs` set for PipeWire/WirePlumber, and reuses `system/native-optimizations.nix` directly for the patched Hyprland-family derivations. |
-| Home Manager consumers | `home/default.nix` reuses the same native helper for the OpenCode, Snappy Switcher, and Vicinae overrides, including the pinned upstream OpenCode `node_modules` hash fix, while `home/packages.nix` installs the selected host-native user packages explicitly. |
+| Home Manager consumers | `home/default.nix` reuses the same native helper for the OpenCode, Snappy Switcher, and Vicinae overrides, including the pinned upstream OpenCode `node_modules` hash fix plus the post-configure root `node_modules` symlink workarounds for `@tsconfig/bun`, `prettier`, and `glob`, while `home/packages.nix` installs the selected host-native user packages explicitly. |
 | Desktop-only extras | `hosts/desktop/system.nix` appends `overlays/nvidia-open-pr996.nix`. |
 
 ## Shared Runtime Highlights
