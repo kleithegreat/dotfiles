@@ -29,6 +29,7 @@ The desktop module enables the VM with these defaults:
 - Memory: `12288 MiB`
 - vCPU topology: `4` QEMU CPU threads, exposed as `4` cores in one socket
 - CPU model: `Skylake-Client,-hle,-rtm` with the OSX-KVM Sequoia/Tahoe flags
+- Video memory: `64 MiB` on VMware SVGA
 - SSH forwarding: host TCP port `2222` to guest TCP port `22`
 
 ## First Boot
@@ -53,7 +54,7 @@ The generated QEMU command enables:
 - USB keyboard and tablet input
 - AHCI-attached OpenCore, installer, and system disk devices
 - User-mode NAT networking with SSH forwarded on host port `2222`
-- VMware SVGA display output
+- VMware SVGA display output with extra video memory for higher in-guest modes
 
 ## Notes
 
@@ -69,5 +70,9 @@ The generated QEMU command enables:
   the directory, disk, checkout, and installer media are recreated.
 - The RTX 3080 is not supported by macOS. Treat this VM as a CPU/KVM-backed
   development and testing guest, not a GPU-accelerated macOS workstation.
+- If the desktop wallpaper is white while the login wallpaper is correct, choose
+  a static JPEG/PNG wallpaper inside macOS. Dynamic/video/HEIC wallpaper paths
+  can fail on the unaccelerated VMware SVGA renderer even when the login screen
+  cache still looks correct.
 - Apple's macOS license restricts macOS virtualization to Apple-branded
   hardware; this document records the technical workflow only.

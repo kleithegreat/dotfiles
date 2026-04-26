@@ -27,6 +27,7 @@ The current physical-host baseline enables the module with these defaults:
 - Disk size: `50 GiB` qcow2
 - Memory: `8192 MiB`
 - vCPUs: `2`
+- Preferred display: `2560x1440` with `64 MiB` VGA memory
 
 ## First Boot
 
@@ -50,7 +51,7 @@ The generated QEMU command already enables:
 - An AHCI-attached installer CD-ROM when an ISO is staged
 - An NVMe system disk
 - User-mode NAT networking via `e1000e`
-- GTK display output
+- GTK display output with an emulated VGA adapter sized for higher resolutions
 
 ## Notes
 

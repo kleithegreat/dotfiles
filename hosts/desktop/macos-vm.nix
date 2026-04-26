@@ -97,7 +97,7 @@ let
         -device ide-hd,bus=sata.4,drive=MacHDD \
         -netdev user,id=net0,hostfwd=tcp::2222-:22 \
         -device virtio-net-pci,netdev=net0,id=net0,mac=${cfg.macAddress} \
-        -device vmware-svga \
+        -device vmware-svga,vgamem_mb=${toString cfg.videoMemoryMiB} \
         -display gtk,show-tabs=off \
         -monitor stdio \
         "$@"
@@ -160,6 +160,12 @@ in
       type = lib.types.str;
       default = "52:54:00:c9:18:27";
       description = "Static guest NIC MAC address used by QEMU user networking.";
+    };
+
+    videoMemoryMiB = lib.mkOption {
+      type = lib.types.ints.positive;
+      default = 64;
+      description = "Video memory exposed by the VMware SVGA adapter.";
     };
   };
 
