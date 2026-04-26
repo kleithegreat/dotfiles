@@ -60,6 +60,9 @@ The generated QEMU command enables:
 - The OSX-KVM checkout, installer files, and guest disk are mutable state under
   `/var/lib/macos-vm/sequoia`. Nix creates the directory and initial disk, but it
   does not vendor or pin the upstream OSX-KVM repository.
+- `macos-vm` checks `MemAvailable` before launching and requires the configured
+  guest memory plus about 1 GiB of host headroom. On the current 16 GiB desktop,
+  close memory-heavy apps and avoid Nix builds while running the 12 GiB guest.
 - `macos-vm-prepare` does not update an existing OSX-KVM checkout. To update it,
   run `git -C /var/lib/macos-vm/sequoia/OSX-KVM pull --ff-only` manually.
 - The qcow2 disk is created only once. Changing `diskSizeGiB` later does not
