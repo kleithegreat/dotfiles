@@ -227,16 +227,18 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
      g_pHyprRenderer->endRender();
  
      pMonitor->m_activeSpecialWorkspace = openSpecial;
-@@ -383,8 +400,7 @@
-         const int  NEWID = TILE.workspaceID == WORKSPACE_INVALID ? getWorkspaceIDNameFromString("emptynm").id : TILE.workspaceID;
- 
-         const auto NEWIDWS = g_pCompositor->getWorkspaceByID(NEWID);
--
--        const auto OLDWS = pMonitor->m_activeWorkspace;
-+        const auto OLDWS   = pMonitor->m_activeWorkspace;
+@@ -387,9 +404,9 @@
+         const auto OLDWS = pMonitor->m_activeWorkspace;
  
          if (!NEWIDWS)
-             g_pKeybindManager->changeworkspace(std::to_string(NEWID));
+-            g_pKeybindManager->changeworkspace(std::to_string(NEWID));
++            pMonitor->changeWorkspace(NEWID);
+         else
+-            g_pKeybindManager->changeworkspace(NEWIDWS->getConfigName());
++            pMonitor->changeWorkspace(NEWIDWS);
+ 
+         g_pDesktopAnimationManager->startAnimation(pMonitor->m_activeWorkspace, CDesktopAnimationManager::ANIMATION_TYPE_IN, true, true);
+         g_pDesktopAnimationManager->startAnimation(OLDWS, CDesktopAnimationManager::ANIMATION_TYPE_OUT, false, true);
 @@ -433,7 +449,7 @@
  void COverview::fullRender() {
      const auto GAPSIZE = (closing ? (1.0 - size->getPercent()) : size->getPercent()) * GAP_WIDTH;

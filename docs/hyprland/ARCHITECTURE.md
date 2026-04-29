@@ -109,14 +109,18 @@ extends the renderer's rounding shader so both texture and rect passes can
 select which corners stay rounded; `src/desktop/view/Window.cpp`
 `CWindow::shouldSquareTopCorners()` then uses
 `DecorationPositioner::getBoxWithIncludedDecos` to square the main surface's
-top edge only when a top decoration is part of the window. The matching
-`patches/hyprland-plugins/hyprbars-hyprland-0.54.patch` keeps
-`hyprbars/barDeco.cpp` on upstream's `DECORATION_LAYER_UNDER` and renders the
-bar background with top-only rounded corners instead of the old oversized
-rounded-rect fill hack, so the titlebar does not seep into the window sides
-while the main surface keeps its squared join. For those square-top bars, the
-patch also skips the old stencil-dependent background path so `hyprexpo`'s
-offscreen workspace captures can keep the bar background visible.
+top edge only when a top decoration is part of the window. Upstream has since
+absorbed most of the Hyprland 0.54 API porting in `hyprbars`, so the remaining
+local `patches/hyprland-plugins/hyprbars-hyprland-0.54.patch` is now only the
+behavior delta: `hyprbars/barDeco.cpp` renders the bar background with top-only
+rounded corners instead of the old oversized rounded-rect fill hack, keeping
+the titlebar from seeping into the window sides while the main surface keeps
+its squared join, and `hyprbars/BarPassElement.cpp` disables occlusion culling
+for the bar pass so `hyprexpo`'s offscreen workspace captures keep the bar
+background visible. The companion
+`patches/hyprland-plugins/hyprexpo-hyprland-0.54.patch` still carries the
+remaining renderer/API migration for `hyprexpo`, plus the workspace-switch call
+updates required by current Hyprland headers.
 
 Monitor behavior follows the same host split as inputs:
 
