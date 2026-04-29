@@ -74,3 +74,25 @@ workspace overview, keep the binding on the core `gesture` keyword and use the
 `dispatcher` action to call `hyprexpo:expo toggle`
 from `hosts/laptop/input-devices.conf`. Reserve `hyprexpo-gesture` for files
 sourced after `plugins.conf`, or guard it with `hyprlang noerror`.
+
+## Rolling Hyprland input bumps can break the patched plugin stack at login
+
+**Symptom:** SDDM accepts the password, then immediately returns to the greeter
+because Hyprland aborts during session startup.
+
+**Cause:** On the 2026-04-29 Hyprland input bump (`45ffaee...`) the compositor
+started aborting while loading `libhyprbars.so`, before the session became
+interactive. The journal showed repeated `pluginInit (libhyprbars.so)` crashes
+through `Config::Values::*Value::commence()` during
+`HyprlandAPI::addConfigValueV2(...)`, so the failure was in the local
+`hyprbars` plugin-config registration path rather than PAM, SDDM, or the
+GPU-routing env.
+
+**Impact / workaround:** `patches/hyprland-plugins/hyprbars-hyprland-0.54.patch`
+now refreshes the current rendering hunks and also moves `hyprbars` back to the
+legacy plugin-config path used by the other working plugins on this stack:
+`hyprbars/main.cpp` registers defaults through
+`HyprlandAPI::addConfigValue(...)`, while `hyprbars/globals.hpp` and the render
+code read live values through `HyprlandAPI::getConfigValue(...)` instead of the
+crashing `addConfigValueV2(...)` / `Config::Values::*Value` path. Re-test
+`hyprbars` against future input bumps before dropping that local workaround.
