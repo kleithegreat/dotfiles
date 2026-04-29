@@ -1,4 +1,4 @@
-{ pkgs, desktopctl, fd, lapce, p7zip, quickshell, ripgrep, lspPlugins, opencodePkg, harunaPkg, snappySwitcherPkg, vicinaePkg, texlive }:
+{ pkgs, desktopctl, fd, p7zip, quickshell, ripgrep, lspPlugins, opencodePkg, harunaPkg, snappySwitcherPkg, vicinaePkg, texlive }:
 
 let
   customPackages = [
@@ -7,7 +7,6 @@ let
     ripgrep
     desktopctl
     p7zip
-    lapce
     texlive
     lspPlugins
     quickshell

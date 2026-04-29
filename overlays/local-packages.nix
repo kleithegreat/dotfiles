@@ -1,6 +1,7 @@
 final: prev: {
   desktopctl = final.callPackage ../desktopctl { };
   helium = final.callPackage ../pkgs/helium { };
+  snappy-switcher = final.callPackage ../pkgs/snappy-switcher { };
   prismlauncher = prev.prismlauncher.overrideAttrs (_old: {
     version = "11.0.2";
     src = final.fetchFromGitHub {
@@ -23,15 +24,6 @@ final: prev: {
     openchamberCli = final.openchamber-cli;
     openchamberDesktop = final.openchamber-desktop;
   };
-  lapce = prev.lapce.overrideAttrs (old: {
-    postFixup = (old.postFixup or "") + ''
-      # Lapce loads Vulkan through wgpu at runtime, so extend the wrapped GUI
-      # binary's search path to include the Vulkan loader on NixOS.
-      ${final.patchelf}/bin/patchelf \
-        --add-rpath "${final.lib.makeLibraryPath [ final.vulkan-loader ]}" \
-        "$out/bin/.lapce-wrapped"
-    '';
-  });
   sf-pro = final.stdenvNoCC.mkDerivation {
     pname = "sf-pro";
     version = "2026-04-10";
