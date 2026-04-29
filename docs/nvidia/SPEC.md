@@ -17,7 +17,7 @@ the shared system layer, host modules, and Hyprland session environment.
 | Shared package and overlay baseline | `system/configuration.nix` | Owns the shared unfree allowlist, overlays, and graphics-adjacent baseline, but does not pick one host's EGL vendor policy |
 | Hybrid laptop GPU policy | `hosts/laptop/system.nix` plus `config/hypr/env.conf` | Own the PRIME, Xorg driver list, laptop-local kernel GPU-driver pruning, Mesa EGL vendor selection, and Hyprland user-session GPU env for the laptop |
 | Dedicated desktop GPU policy | `hosts/desktop/system.nix` plus `hosts/desktop/env.conf` | Own the desktop's dedicated NVIDIA stack, EGL vendor selection, VA-API/GBM/GLX env, and suspend/resume workarounds |
-| Desktop-only kernel workaround overlay | `overlays/nvidia-open-pr996.nix` | Applies only on the desktop path through the desktop host module |
+| Desktop suspend/resume policy | `hosts/desktop/system.nix` | Owns the desktop-only preserved-VRAM temp-path override, `kernelSuspendNotifier = false`, and the systemd user-session freeze workaround. The old PR #996 overlay has been removed because the current upstream open-driver source already includes that reset path, but this removal is still pending real suspend/resume validation on the desktop. |
 
 ## Host Contract
 
@@ -27,7 +27,7 @@ the shared system layer, host modules, and Hyprland session environment.
 | Xorg driver list | `["modesetting" "nvidia"]` | `["nvidia"]` |
 | EGL vendor policy | Mesa-only value set in the laptop host module | Dual NVIDIA+Mesa value set in the desktop host module |
 | Hyprland env file | `config/hypr/env.conf` | `hosts/desktop/env.conf` |
-| Resume workarounds | None beyond the shared baseline | Desktop-only overlay patch, preserved-VRAM temp-path override, and user-session freeze workaround |
+| Resume workarounds | None beyond the shared baseline | Preserved-VRAM temp-path override and user-session freeze workaround; the old PR #996 overlay has been removed but is still untested on real suspend/resume hardware |
 
 Invariants:
 

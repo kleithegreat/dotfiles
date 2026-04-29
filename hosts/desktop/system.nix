@@ -5,12 +5,6 @@
     ./macos-vm.nix
   ];
 
-  nixpkgs.overlays = [
-    # Temporary desktop-only NVIDIA open-kernel workaround for PR #996.
-    # Remove once a future driver release includes the resume-side reset.
-    (import ../../overlays/nvidia-open-pr996.nix)
-  ];
-
   boot.initrd.availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usbhid" "usb_storage" "sd_mod" ];
   boot.kernelPatches = [
     {

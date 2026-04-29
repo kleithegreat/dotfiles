@@ -8,9 +8,9 @@
 
 ## Slow resume from suspend can stall display recovery
 **Symptom:** Resume on the desktop can stall for about 31.4 seconds between `PM: suspend exit` and display output recovery, with `NVRM: _kgspRpcRecvPoll: GSP RM heartbeat timed out` in the journal on every resume.
-**Cause:** NVIDIA open-gpu-kernel-modules is still missing `drm_mode_config_reset(dev)` in the resume branch of `nv_drm_suspend_resume()` (PR `#996`), and the kernel suspend notifier path proved less reliable on this Ampere desktop than the legacy systemd sleep units.
-**Status:** Workaround in place
-**Resolution:** Two desktop-only changes applied together cut the post-resume gap to about 2.3 seconds: `hosts/desktop/system.nix` forces `hardware.nvidia.powerManagement.kernelSuspendNotifier = false` to use `nvidia-resume.service`, and `overlays/nvidia-open-pr996.nix` applies the local PR `#996` patch to `nvidia-open`. The GSP timeout still appears in the journal, but it no longer blocks display recovery. Remove the overlay once a future NVIDIA driver release includes PR `#996`.
+**Cause:** The current upstream NVIDIA open-driver source on this nixpkgs pin already contains the old PR `#996` reset path, but the desktop still depends on the remaining suspend settings around `kernelSuspendNotifier = false` and the systemd sleep-freeze workaround. The old local overlay has been removed, but that no-overlay state has not yet been re-validated on a real desktop suspend/resume cycle.
+**Status:** Untested after overlay removal
+**Resolution:** Keep the remaining desktop-only settings in `hosts/desktop/system.nix` for now: `hardware.nvidia.powerManagement.kernelSuspendNotifier = false`, `NVreg_TemporaryFilePath=/var/tmp`, and `SYSTEMD_SLEEP_FREEZE_USER_SESSIONS=false`. Re-test suspend/resume on the real desktop before treating the overlay removal as fully validated.
 
 ## systemd session freezing can black-screen resume
 **Symptom:** The desktop can wake to a black screen after suspend.
