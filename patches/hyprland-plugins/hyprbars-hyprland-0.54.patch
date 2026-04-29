@@ -1,6 +1,18 @@
+diff --git a/BarPassElement.cpp b/BarPassElement.cpp
+index e714036..5c52b8b 100644
 --- a/BarPassElement.cpp
 +++ b/BarPassElement.cpp
-@@ -25,8 +25,8 @@
+@@ -17,16 +17,16 @@ std::vector<UP<IPassElement>> CBarPassElement::draw() {
+ bool CBarPassElement::needsLiveBlur() {
+     static auto* const PENABLEBLURGLOBAL = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "decoration:blur:enabled")->getDataStaticPtr();
+ 
+-    CHyprColor         color = data.deco->m_bForcedBarColor.value_or(CHyprColor{static_cast<uint64_t>(g_pGlobalState->config.barColor->value())});
++    CHyprColor         color = data.deco->m_bForcedBarColor.value_or(CHyprColor{static_cast<uint64_t>(HyprbarsConfig::barColor())});
+     color.a *= data.a;
+-    const bool SHOULDBLUR = g_pGlobalState->config.barBlur->value() && **PENABLEBLURGLOBAL && color.a < 1.F;
++    const bool SHOULDBLUR = HyprbarsConfig::barBlur() && **PENABLEBLURGLOBAL && color.a < 1.F;
+ 
+     return SHOULDBLUR;
  }
  
  std::optional<CBox> CBarPassElement::boundingBox() {
@@ -11,9 +23,149 @@
  }
  
  bool CBarPassElement::needsPrecomputeBlur() {
+diff --git a/barDeco.cpp b/barDeco.cpp
+index f95fef1..d10ec92 100644
 --- a/barDeco.cpp
 +++ b/barDeco.cpp
-@@ -455,10 +455,10 @@
+@@ -43,7 +43,7 @@ CHyprBar::CHyprBar(PHLWINDOW pWindow) : IHyprWindowDecoration(pWindow) {
+     m_pTouchMoveCallback = Event::bus()->m_events.input.touch.motion.listen([&](ITouch::SMotionEvent e, Event::SCallbackInfo& info) { onTouchMove(info, e); });
+     m_pMouseMoveCallback = Event::bus()->m_events.input.mouse.move.listen([&](Vector2D c, Event::SCallbackInfo& info) { onMouseMove(c); });
+ 
+-    g_pAnimationManager->createAnimation(configColor(g_pGlobalState->config.barColor->value()), m_cRealBarColor, Config::animationTree()->getAnimationPropertyConfig("border"),
++    g_pAnimationManager->createAnimation(configColor(HyprbarsConfig::barColor()), m_cRealBarColor, Config::animationTree()->getAnimationPropertyConfig("border"),
+                                          pWindow, AVARDAMAGE_NONE);
+     m_cRealBarColor->setUpdateCallback([&](auto) { damageEntire(); });
+ }
+@@ -53,9 +53,9 @@ CHyprBar::~CHyprBar() {
+ }
+ 
+ SDecorationPositioningInfo CHyprBar::getPositioningInfo() {
+-    const auto                 HEIGHT     = g_pGlobalState->config.barHeight->value();
+-    const auto                 ENABLED    = g_pGlobalState->config.enabled->value();
+-    const auto                 PRECEDENCE = g_pGlobalState->config.barPrecedenceOverBorder->value();
++    const auto                 HEIGHT     = HyprbarsConfig::barHeight();
++    const auto                 ENABLED    = HyprbarsConfig::enabled();
++    const auto                 PRECEDENCE = HyprbarsConfig::barPrecedenceOverBorder();
+ 
+     SDecorationPositioningInfo info;
+     info.policy         = m_hidden ? DECORATION_POSITION_ABSOLUTE : DECORATION_POSITION_STICKY;
+@@ -78,7 +78,7 @@ std::string CHyprBar::getDisplayName() {
+ }
+ 
+ bool CHyprBar::inputIsValid() {
+-    if (!g_pGlobalState->config.enabled->value())
++    if (!HyprbarsConfig::enabled())
+         return false;
+ 
+     if (!m_pWindow->m_workspace || !m_pWindow->m_workspace->isVisible() || !g_pInputManager->m_exclusiveLSes.empty() ||
+@@ -144,7 +144,7 @@ void CHyprBar::onTouchUp(Event::SCallbackInfo& info, ITouch::SUpEvent e) {
+ 
+ void CHyprBar::onMouseMove(Vector2D coords) {
+     // ensure proper redraws of button icons on hover when using hardware cursors
+-    if (g_pGlobalState->config.iconOnHover->value())
++    if (HyprbarsConfig::iconOnHover())
+         damageOnButtonHover();
+ 
+     if (!m_bDragPending || m_bTouchEv || !validMapped(m_pWindow) || m_touchId != 0)
+@@ -188,11 +188,11 @@ void CHyprBar::handleDownEvent(Event::SCallbackInfo& info, std::optional<ITouch:
+         COORDS = Vector2D(PMONITOR->m_position.x + e.pos.x * PMONITOR->m_size.x, PMONITOR->m_position.y + e.pos.y * PMONITOR->m_size.y) - assignedBoxGlobal().pos();
+     }
+ 
+-    const auto HEIGHT           = g_pGlobalState->config.barHeight->value();
+-    const auto BARBUTTONPADDING = g_pGlobalState->config.barButtonPadding->value();
+-    const auto BARPADDING       = g_pGlobalState->config.barPadding->value();
+-    const auto ALIGNBUTTONS     = g_pGlobalState->config.barButtonsAlignment->value();
+-    const auto ON_DOUBLE_CLICK  = g_pGlobalState->config.onDoubleClick->value();
++    const auto HEIGHT           = HyprbarsConfig::barHeight();
++    const auto BARBUTTONPADDING = HyprbarsConfig::barButtonPadding();
++    const auto BARPADDING       = HyprbarsConfig::barPadding();
++    const auto ALIGNBUTTONS     = HyprbarsConfig::barButtonsAlignment();
++    const auto ON_DOUBLE_CLICK  = HyprbarsConfig::onDoubleClick();
+ 
+     const bool BUTTONSRIGHT = ALIGNBUTTONS != "left";
+ 
+@@ -283,12 +283,12 @@ bool CHyprBar::doButtonPress(Config::INTEGER barPadding, Config::INTEGER barButt
+ }
+ 
+ void CHyprBar::renderBarTitle(const Vector2D& bufferSize, const float scale) {
+-    const auto COLORVAL         = g_pGlobalState->config.textColor->value();
+-    const auto SIZE             = g_pGlobalState->config.barTextSize->value();
+-    const auto FONT             = g_pGlobalState->config.barTextFont->value();
+-    const auto ALIGN            = g_pGlobalState->config.barTextAlign->value();
+-    const auto BARPADDING       = g_pGlobalState->config.barPadding->value();
+-    const auto BARBUTTONPADDING = g_pGlobalState->config.barButtonPadding->value();
++    const auto COLORVAL         = HyprbarsConfig::textColor();
++    const auto SIZE             = HyprbarsConfig::barTextSize();
++    const auto FONT             = HyprbarsConfig::barTextFont();
++    const auto ALIGN            = HyprbarsConfig::barTextAlign();
++    const auto BARPADDING       = HyprbarsConfig::barPadding();
++    const auto BARBUTTONPADDING = HyprbarsConfig::barButtonPadding();
+ 
+     float      buttonSizes = BARBUTTONPADDING;
+     for (auto& b : g_pGlobalState->buttons) {
+@@ -327,10 +327,10 @@ size_t CHyprBar::getVisibleButtonCount(Config::INTEGER barButtonPadding, Config:
+ }
+ 
+ void CHyprBar::renderBarButtons(CBox* barBox, const float scale, const float a) {
+-    const auto BARBUTTONPADDING = g_pGlobalState->config.barButtonPadding->value();
+-    const auto BARPADDING       = g_pGlobalState->config.barPadding->value();
+-    const auto ALIGNBUTTONS     = g_pGlobalState->config.barButtonsAlignment->value();
+-    const auto INACTIVECOLOR    = g_pGlobalState->config.inactiveButtonColor->value();
++    const auto BARBUTTONPADDING = HyprbarsConfig::barButtonPadding();
++    const auto BARPADDING       = HyprbarsConfig::barPadding();
++    const auto ALIGNBUTTONS     = HyprbarsConfig::barButtonsAlignment();
++    const auto INACTIVECOLOR    = HyprbarsConfig::inactiveButtonColor();
+ 
+     const bool BUTTONSRIGHT    = ALIGNBUTTONS != "left";
+     const auto visibleCount    = getVisibleButtonCount(BARBUTTONPADDING, BARPADDING, Vector2D{barBox->w, barBox->h}, scale);
+@@ -363,11 +363,11 @@ void CHyprBar::renderBarButtons(CBox* barBox, const float scale, const float a)
+ }
+ 
+ void CHyprBar::renderBarButtonsText(CBox* barBox, const float scale, const float a) {
+-    const auto HEIGHT           = g_pGlobalState->config.barHeight->value();
+-    const auto BARBUTTONPADDING = g_pGlobalState->config.barButtonPadding->value();
+-    const auto BARPADDING       = g_pGlobalState->config.barPadding->value();
+-    const auto ALIGNBUTTONS     = g_pGlobalState->config.barButtonsAlignment->value();
+-    const auto ICONONHOVER      = g_pGlobalState->config.iconOnHover->value();
++    const auto HEIGHT           = HyprbarsConfig::barHeight();
++    const auto BARBUTTONPADDING = HyprbarsConfig::barButtonPadding();
++    const auto BARPADDING       = HyprbarsConfig::barPadding();
++    const auto ALIGNBUTTONS     = HyprbarsConfig::barButtonsAlignment();
++    const auto ICONONHOVER      = HyprbarsConfig::iconOnHover();
+ 
+     const bool BUTTONSRIGHT = ALIGNBUTTONS != "left";
+     const auto visibleCount = getVisibleButtonCount(BARBUTTONPADDING, BARPADDING, Vector2D{barBox->w, barBox->h}, scale);
+@@ -415,7 +415,7 @@ void CHyprBar::renderBarButtonsText(CBox* barBox, const float scale, const float
+ }
+ 
+ void CHyprBar::draw(PHLMONITOR pMonitor, const float& a) {
+-    const auto ENABLED = g_pGlobalState->config.enabled->value();
++    const auto ENABLED = HyprbarsConfig::enabled();
+ 
+     if (m_bLastEnabledState != ENABLED) {
+         m_bLastEnabledState = ENABLED;
+@@ -438,13 +438,13 @@ void CHyprBar::renderPass(PHLMONITOR pMonitor, const float& a) {
+     const auto         PWINDOW = m_pWindow.lock();
+ 
+     static auto* const PENABLEBLURGLOBAL = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "decoration:blur:enabled")->getDataStaticPtr();
+-    const auto         BARCOLOR          = g_pGlobalState->config.barColor->value();
+-    const auto         HEIGHT            = g_pGlobalState->config.barHeight->value();
+-    const auto         PRECEDENCE        = g_pGlobalState->config.barPrecedenceOverBorder->value();
+-    const auto         ALIGNBUTTONS      = g_pGlobalState->config.barButtonsAlignment->value();
+-    const auto         ENABLETITLE       = g_pGlobalState->config.barTitleEnabled->value();
+-    const auto         ENABLEBLUR        = g_pGlobalState->config.barBlur->value();
+-    const auto         INACTIVECOLOR     = g_pGlobalState->config.inactiveButtonColor->value();
++    const auto         BARCOLOR          = HyprbarsConfig::barColor();
++    const auto         HEIGHT            = HyprbarsConfig::barHeight();
++    const auto         PRECEDENCE        = HyprbarsConfig::barPrecedenceOverBorder();
++    const auto         ALIGNBUTTONS      = HyprbarsConfig::barButtonsAlignment();
++    const auto         ENABLETITLE       = HyprbarsConfig::barTitleEnabled();
++    const auto         ENABLEBLUR        = HyprbarsConfig::barBlur();
++    const auto         INACTIVECOLOR     = HyprbarsConfig::inactiveButtonColor();
+ 
+     if (INACTIVECOLOR > 0) {
+         bool currentWindowFocus = PWINDOW == Desktop::focusState()->window();
+@@ -455,10 +455,10 @@ void CHyprBar::renderPass(PHLMONITOR pMonitor, const float& a) {
      }
  
      const CHyprColor DEST_COLOR = m_bForcedBarColor.value_or(configColor(BARCOLOR));
@@ -27,7 +179,7 @@
  
      color.a *= a;
      const bool BUTTONSRIGHT = ALIGNBUTTONS != "left";
-@@ -481,9 +481,13 @@
+@@ -481,9 +481,13 @@ void CHyprBar::renderPass(PHLMONITOR pMonitor, const float& a) {
      const auto DECOBOX = assignedBoxGlobal();
  
      const auto BARBUF = DECOBOX.size() * pMonitor->m_scale;
@@ -42,7 +194,7 @@
  
      titleBarBox.translate(PWINDOW->m_floatingOffset).scale(pMonitor->m_scale).round();
  
-@@ -492,7 +496,7 @@
+@@ -492,7 +496,7 @@ void CHyprBar::renderPass(PHLMONITOR pMonitor, const float& a) {
  
      g_pHyprOpenGL->scissor(titleBarBox);
  
@@ -51,7 +203,7 @@
          // the +1 is a shit garbage temp fix until renderRect supports an alpha matte
          CBox windowBox = {PWINDOW->m_realPosition->value().x + PWINDOW->m_floatingOffset.x - pMonitor->m_position.x + 1,
                            PWINDOW->m_realPosition->value().y + PWINDOW->m_floatingOffset.y - pMonitor->m_position.y + 1, PWINDOW->m_realSize->value().x - 2,
-@@ -512,17 +516,28 @@
+@@ -512,17 +516,28 @@ void CHyprBar::renderPass(PHLMONITOR pMonitor, const float& a) {
          glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
  
          windowBox.translate(WORKSPACEOFFSET).scale(pMonitor->m_scale).round();
@@ -85,7 +237,7 @@
  
      // render title
      if (ENABLETITLE && (m_szLastTitle != PWINDOW->m_title || m_bWindowSizeChanged || !m_pTextTex || m_pTextTex->m_texID == 0 || m_bTitleColorChanged)) {
-@@ -530,7 +545,7 @@
+@@ -530,7 +545,7 @@ void CHyprBar::renderPass(PHLMONITOR pMonitor, const float& a) {
          renderBarTitle(BARBUF, pMonitor->m_scale);
      }
  
@@ -94,3 +246,224 @@
          // cleanup stencil
          glClearStencil(0);
          glClear(GL_STENCIL_BUFFER_BIT);
+@@ -541,9 +556,9 @@ void CHyprBar::renderPass(PHLMONITOR pMonitor, const float& a) {
+ 
+     CBox textBox = {titleBarBox.x, titleBarBox.y, (int)BARBUF.x, (int)BARBUF.y};
+     if (ENABLETITLE && m_pTextTex) {
+-        const auto BARPADDING       = g_pGlobalState->config.barPadding->value();
+-        const auto BARBUTTONPADDING = g_pGlobalState->config.barButtonPadding->value();
+-        const auto ALIGN            = g_pGlobalState->config.barTextAlign->value();
++        const auto BARPADDING       = HyprbarsConfig::barPadding();
++        const auto BARBUTTONPADDING = HyprbarsConfig::barButtonPadding();
++        const auto ALIGN            = HyprbarsConfig::barTextAlign();
+ 
+         float      buttonSizes = BARBUTTONPADDING;
+         for (auto& b : g_pGlobalState->buttons) {
+@@ -608,7 +623,7 @@ eDecorationLayer CHyprBar::getDecorationLayer() {
+ }
+ 
+ uint64_t CHyprBar::getDecorationFlags() {
+-    return DECORATION_ALLOWS_MOUSE_INPUT | (g_pGlobalState->config.barPartOfWindow->value() ? DECORATION_PART_OF_MAIN_WINDOW : 0);
++    return DECORATION_ALLOWS_MOUSE_INPUT | (HyprbarsConfig::barPartOfWindow() ? DECORATION_PART_OF_MAIN_WINDOW : 0);
+ }
+ 
+ CBox CHyprBar::assignedBoxGlobal() {
+@@ -651,10 +666,10 @@ void CHyprBar::updateRules() {
+ }
+ 
+ void CHyprBar::damageOnButtonHover() {
+-    const auto BARPADDING       = g_pGlobalState->config.barPadding->value();
+-    const auto BARBUTTONPADDING = g_pGlobalState->config.barButtonPadding->value();
+-    const auto HEIGHT           = g_pGlobalState->config.barHeight->value();
+-    const auto ALIGNBUTTONS     = g_pGlobalState->config.barButtonsAlignment->value();
++    const auto BARPADDING       = HyprbarsConfig::barPadding();
++    const auto BARBUTTONPADDING = HyprbarsConfig::barButtonPadding();
++    const auto HEIGHT           = HyprbarsConfig::barHeight();
++    const auto ALIGNBUTTONS     = HyprbarsConfig::barButtonsAlignment();
+     const bool BUTTONSRIGHT     = ALIGNBUTTONS != "left";
+ 
+     float      offset = BARPADDING;
+diff --git a/globals.hpp b/globals.hpp
+index 9a44e9f..c0e9d95 100644
+--- a/globals.hpp
++++ b/globals.hpp
+@@ -2,10 +2,6 @@
+ 
+ #include <hyprland/src/plugins/PluginAPI.hpp>
+ #include <hyprland/src/render/Texture.hpp>
+-#include <hyprland/src/config/values/types/BoolValue.hpp>
+-#include <hyprland/src/config/values/types/IntValue.hpp>
+-#include <hyprland/src/config/values/types/StringValue.hpp>
+-#include <hyprland/src/config/values/types/ColorValue.hpp>
+ 
+ inline HANDLE PHANDLE = nullptr;
+ 
+@@ -28,15 +24,93 @@ struct SGlobalState {
+     uint32_t                  barColorRuleIdx   = 0;
+     uint32_t                  titleColorRuleIdx = 0;
+ 
+-    struct {
+-        SP<Config::Values::CColorValue>  barColor, textColor, inactiveButtonColor;
+-        SP<Config::Values::CIntValue>    barHeight;
+-        SP<Config::Values::CIntValue>    barTextSize;
+-        SP<Config::Values::CIntValue>    barPadding;
+-        SP<Config::Values::CIntValue>    barButtonPadding;
+-        SP<Config::Values::CBoolValue>   barBlur, barTitleEnabled, barPartOfWindow, barPrecedenceOverBorder, enabled, iconOnHover;
+-        SP<Config::Values::CStringValue> barTextFont, barTextAlign, barButtonsAlignment, onDoubleClick;
+-    } config;
+ };
+ 
+ inline UP<SGlobalState> g_pGlobalState;
++
++namespace HyprbarsConfig {
++    inline Config::INTEGER barColor() {
++        static auto* const ptr = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprbars:bar_color")->getDataStaticPtr();
++        return **ptr;
++    }
++
++    inline Config::INTEGER textColor() {
++        static auto* const ptr = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprbars:col.text")->getDataStaticPtr();
++        return **ptr;
++    }
++
++    inline Config::INTEGER inactiveButtonColor() {
++        static auto* const ptr = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprbars:inactive_button_color")->getDataStaticPtr();
++        return **ptr;
++    }
++
++    inline Config::INTEGER barHeight() {
++        static auto* const ptr = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprbars:bar_height")->getDataStaticPtr();
++        return **ptr;
++    }
++
++    inline Config::INTEGER barTextSize() {
++        static auto* const ptr = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprbars:bar_text_size")->getDataStaticPtr();
++        return **ptr;
++    }
++
++    inline bool barTitleEnabled() {
++        static auto* const ptr = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprbars:bar_title_enabled")->getDataStaticPtr();
++        return **ptr != 0;
++    }
++
++    inline bool barBlur() {
++        static auto* const ptr = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprbars:bar_blur")->getDataStaticPtr();
++        return **ptr != 0;
++    }
++
++    inline std::string barTextFont() {
++        static auto const* ptr = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprbars:bar_text_font")->getDataStaticPtr();
++        return *ptr;
++    }
++
++    inline std::string barTextAlign() {
++        static auto const* ptr = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprbars:bar_text_align")->getDataStaticPtr();
++        return *ptr;
++    }
++
++    inline bool barPartOfWindow() {
++        static auto* const ptr = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprbars:bar_part_of_window")->getDataStaticPtr();
++        return **ptr != 0;
++    }
++
++    inline bool barPrecedenceOverBorder() {
++        static auto* const ptr = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprbars:bar_precedence_over_border")->getDataStaticPtr();
++        return **ptr != 0;
++    }
++
++    inline std::string barButtonsAlignment() {
++        static auto const* ptr = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprbars:bar_buttons_alignment")->getDataStaticPtr();
++        return *ptr;
++    }
++
++    inline Config::INTEGER barPadding() {
++        static auto* const ptr = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprbars:bar_padding")->getDataStaticPtr();
++        return **ptr;
++    }
++
++    inline Config::INTEGER barButtonPadding() {
++        static auto* const ptr = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprbars:bar_button_padding")->getDataStaticPtr();
++        return **ptr;
++    }
++
++    inline bool enabled() {
++        static auto* const ptr = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprbars:enabled")->getDataStaticPtr();
++        return **ptr != 0;
++    }
++
++    inline bool iconOnHover() {
++        static auto* const ptr = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprbars:icon_on_hover")->getDataStaticPtr();
++        return **ptr != 0;
++    }
++
++    inline std::string onDoubleClick() {
++        static auto const* ptr = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprbars:on_double_click")->getDataStaticPtr();
++        return *ptr;
++    }
++}
+diff --git a/main.cpp b/main.cpp
+index 72a4491..31e0134 100644
+--- a/main.cpp
++++ b/main.cpp
+@@ -207,44 +207,23 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
+     static auto P  = Event::bus()->m_events.window.open.listen([&](PHLWINDOW w) { onNewWindow(w); });
+     static auto P3 = Event::bus()->m_events.window.updateRules.listen([&](PHLWINDOW w) { onUpdateWindowRules(w); });
+ 
+-    g_pGlobalState->config.barColor            = makeShared<Config::Values::CColorValue>("plugin:hyprbars:bar_color", "Change the bar color", *configStringToInt("rgba(33333388)"));
+-    g_pGlobalState->config.textColor           = makeShared<Config::Values::CColorValue>("plugin:hyprbars:col.text", "Change the text color", *configStringToInt("rgba(ffffffff)"));
+-    g_pGlobalState->config.inactiveButtonColor = makeShared<Config::Values::CColorValue>(
+-        "plugin:hyprbars:inactive_button_color", "Change the inactive button's color. 0x00000000 means unset", *configStringToInt("rgba(00000000)"));
+-    g_pGlobalState->config.barHeight       = makeShared<Config::Values::CIntValue>("plugin:hyprbars:bar_height", "Change the bar's height", 15);
+-    g_pGlobalState->config.barTextSize     = makeShared<Config::Values::CIntValue>("plugin:hyprbars:bar_text_size", "Change the bar's text size", 10);
+-    g_pGlobalState->config.barTitleEnabled = makeShared<Config::Values::CBoolValue>("plugin:hyprbars:bar_title_enabled", "Whether to enable titles in the bar", true);
+-    g_pGlobalState->config.barBlur         = makeShared<Config::Values::CBoolValue>("plugin:hyprbars:bar_blur", "Whether to enable blur of the bar", false);
+-    g_pGlobalState->config.barTextFont     = makeShared<Config::Values::CStringValue>("plugin:hyprbars:bar_text_font", "Bar's text font", "Sans");
+-    g_pGlobalState->config.barTextAlign    = makeShared<Config::Values::CStringValue>("plugin:hyprbars:bar_text_align", "Bar's text alignment", "center");
+-    g_pGlobalState->config.barPartOfWindow =
+-        makeShared<Config::Values::CBoolValue>("plugin:hyprbars:bar_part_of_window", "Whether the bar is a part of the window (reserves space)", true);
+-    g_pGlobalState->config.barPrecedenceOverBorder =
+-        makeShared<Config::Values::CBoolValue>("plugin:hyprbars:bar_precedence_over_border", "Whether the bar is before, or after the border", false);
+-    g_pGlobalState->config.barButtonsAlignment = makeShared<Config::Values::CStringValue>("plugin:hyprbars:bar_buttons_alignment", "Alignment of the bar buttons", "right");
+-    g_pGlobalState->config.barPadding          = makeShared<Config::Values::CIntValue>("plugin:hyprbars:bar_padding", "Padding of the bar", 7);
+-    g_pGlobalState->config.barButtonPadding    = makeShared<Config::Values::CIntValue>("plugin:hyprbars:bar_button_padding", "Padding of the bar buttons", 5);
+-    g_pGlobalState->config.enabled             = makeShared<Config::Values::CBoolValue>("plugin:hyprbars:enabled", "Whether bars are enabled", true);
+-    g_pGlobalState->config.iconOnHover         = makeShared<Config::Values::CBoolValue>("plugin:hyprbars:icon_on_hover", "Whether to use an icon on hover of the buttons", false);
+-    g_pGlobalState->config.onDoubleClick       = makeShared<Config::Values::CStringValue>("plugin:hyprbars:on_double_click", "Action to execute on double click of the bar", "");
+-
+-    HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.barColor);
+-    HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.textColor);
+-    HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.inactiveButtonColor);
+-    HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.barHeight);
+-    HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.barTextSize);
+-    HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.barTitleEnabled);
+-    HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.barBlur);
+-    HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.barTextFont);
+-    HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.barTextAlign);
+-    HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.barPartOfWindow);
+-    HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.barPrecedenceOverBorder);
+-    HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.barButtonsAlignment);
+-    HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.barPadding);
+-    HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.barButtonPadding);
+-    HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.enabled);
+-    HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.iconOnHover);
+-    HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.onDoubleClick);
++    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:bar_color", Hyprlang::INT{*configStringToInt("rgba(33333388)")});
++    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:col.text", Hyprlang::INT{*configStringToInt("rgba(ffffffff)")});
++    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:inactive_button_color", Hyprlang::INT{*configStringToInt("rgba(00000000)")});
++    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:bar_height", Hyprlang::INT{15});
++    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:bar_text_size", Hyprlang::INT{10});
++    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:bar_title_enabled", Hyprlang::INT{1});
++    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:bar_blur", Hyprlang::INT{0});
++    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:bar_text_font", Hyprlang::STRING{"Sans"});
++    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:bar_text_align", Hyprlang::STRING{"center"});
++    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:bar_part_of_window", Hyprlang::INT{1});
++    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:bar_precedence_over_border", Hyprlang::INT{0});
++    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:bar_buttons_alignment", Hyprlang::STRING{"right"});
++    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:bar_padding", Hyprlang::INT{7});
++    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:bar_button_padding", Hyprlang::INT{5});
++    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:enabled", Hyprlang::INT{1});
++    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:icon_on_hover", Hyprlang::INT{0});
++    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:on_double_click", Hyprlang::STRING{""});
+ 
+     if (Config::mgr()->type() == Config::CONFIG_LEGACY)
+         HyprlandAPI::addConfigKeyword(PHANDLE, "plugin:hyprbars:hyprbars-button", onNewButton, Hyprlang::SHandlerOptions{});

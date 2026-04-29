@@ -111,13 +111,17 @@ select which corners stay rounded; `src/desktop/view/Window.cpp`
 `DecorationPositioner::getBoxWithIncludedDecos` to square the main surface's
 top edge only when a top decoration is part of the window. Upstream has since
 absorbed most of the Hyprland 0.54 API porting in `hyprbars`, so the remaining
-local `patches/hyprland-plugins/hyprbars-hyprland-0.54.patch` is now only the
-behavior delta: `hyprbars/barDeco.cpp` renders the bar background with top-only
-rounded corners instead of the old oversized rounded-rect fill hack, keeping
-the titlebar from seeping into the window sides while the main surface keeps
-its squared join, and `hyprbars/BarPassElement.cpp` disables occlusion culling
-for the bar pass so `hyprexpo`'s offscreen workspace captures keep the bar
-background visible. The companion
+local `patches/hyprland-plugins/hyprbars-hyprland-0.54.patch` now carries the
+behavior delta plus the current plugin-init workaround: `hyprbars/barDeco.cpp`
+renders the bar background with top-only rounded corners instead of the old
+oversized rounded-rect fill hack, `hyprbars/BarPassElement.cpp` disables
+occlusion culling so `hyprexpo`'s offscreen workspace captures keep the bar
+background visible, and `hyprbars/main.cpp` / `hyprbars/globals.hpp` keep the
+plugin on the legacy `HyprlandAPI::addConfigValue(...)` plus
+`HyprlandAPI::getConfigValue(...)` path instead of `addConfigValueV2(...)`
+because the current Hyprland input aborts during `libhyprbars.so`
+initialization when `hyprbars` registers V2 plugin values under the legacy
+config manager. The companion
 `patches/hyprland-plugins/hyprexpo-hyprland-0.54.patch` still carries the
 remaining renderer/API migration for `hyprexpo`, plus the workspace-switch call
 updates required by current Hyprland headers.
