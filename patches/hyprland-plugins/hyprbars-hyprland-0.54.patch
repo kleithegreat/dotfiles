@@ -1,224 +1,22 @@
 --- a/BarPassElement.cpp
 +++ b/BarPassElement.cpp
-@@ -1,13 +1,20 @@
- #include "BarPassElement.hpp"
--#include <hyprland/src/render/OpenGL.hpp>
-+#include <hyprland/src/render/Renderer.hpp>
-+#include <vector>
- #include "barDeco.hpp"
- 
- CBarPassElement::CBarPassElement(const CBarPassElement::SBarData& data_) : data(data_) {
-     ;
- }
- 
--void CBarPassElement::draw(const CRegion& damage) {
--    data.deco->renderPass(g_pHyprOpenGL->m_renderData.pMonitor.lock(), data.a);
-+std::vector<UP<IPassElement>> CBarPassElement::draw() {
-+    const auto PMONITOR = g_pHyprRenderer->renderData().pMonitor.lock();
-+
-+    if (!PMONITOR)
-+        return {};
-+
-+    data.deco->renderPass(PMONITOR, data.a);
-+    return {};
- }
- 
- bool CBarPassElement::needsLiveBlur() {
-@@ -23,10 +30,10 @@
+@@ -25,8 +25,8 @@
  }
  
  std::optional<CBox> CBarPassElement::boundingBox() {
 -    // Temporary fix: expand the bar bb a bit, otherwise occlusion gets too aggressive.
--    return data.deco->assignedBoxGlobal().translate(-g_pHyprOpenGL->m_renderData.pMonitor->m_position).expand(10);
-+    // Disable occlusion culling for the bar pass on 0.54.
+-    return data.deco->assignedBoxGlobal().translate(-g_pHyprRenderer->m_renderData.pMonitor->m_position).expand(10);
++    // Disable occlusion culling so expo captures keep the bar pass visible.
 +    return std::nullopt;
  }
  
  bool CBarPassElement::needsPrecomputeBlur() {
-     return false;
--}
-\ No newline at end of file
-+}
---- a/BarPassElement.hpp
-+++ b/BarPassElement.hpp
-@@ -13,9 +13,12 @@
-     CBarPassElement(const SBarData& data_);
-     virtual ~CBarPassElement() = default;
- 
--    virtual void                draw(const CRegion& damage);
-+    virtual std::vector<UP<IPassElement>> draw();
-     virtual bool                needsLiveBlur();
-     virtual bool                needsPrecomputeBlur();
-+    virtual ePassElementType    type() {
-+        return EK_CUSTOM;
-+    }
-     virtual std::optional<CBox> boundingBox();
- 
-     virtual const char*         passName() {
-@@ -24,4 +27,4 @@
- 
-   private:
-     SBarData data;
--};
-\ No newline at end of file
-+};
 --- a/barDeco.cpp
 +++ b/barDeco.cpp
-@@ -8,6 +8,7 @@
- #include <hyprland/src/managers/input/InputManager.hpp>
- #include <hyprland/src/render/Renderer.hpp>
- #include <hyprland/src/config/ConfigManager.hpp>
-+#include <hyprland/src/config/shared/animation/AnimationTree.hpp>
- #include <hyprland/src/managers/animation/AnimationManager.hpp>
- #include <hyprland/src/protocols/LayerShell.hpp>
- #include <hyprland/src/event/EventBus.hpp>
-@@ -17,6 +18,8 @@
- #include "globals.hpp"
- #include "BarPassElement.hpp"
- 
-+using Render::GL::g_pHyprOpenGL;
-+
- CHyprBar::CHyprBar(PHLWINDOW pWindow) : IHyprWindowDecoration(pWindow) {
-     m_pWindow = pWindow;
- 
-@@ -34,10 +37,7 @@
-     m_pTouchMoveCallback = Event::bus()->m_events.input.touch.motion.listen([&](ITouch::SMotionEvent e, Event::SCallbackInfo& info) { onTouchMove(info, e); });
-     m_pMouseMoveCallback = Event::bus()->m_events.input.mouse.move.listen([&](Vector2D c, Event::SCallbackInfo& info) { onMouseMove(c); });
- 
--    m_pTextTex    = makeShared<CTexture>();
--    m_pButtonsTex = makeShared<CTexture>();
--
--    g_pAnimationManager->createAnimation(CHyprColor{**PCOLOR}, m_cRealBarColor, g_pConfigManager->getAnimationPropertyConfig("border"), pWindow, AVARDAMAGE_NONE);
-+    g_pAnimationManager->createAnimation(CHyprColor{**PCOLOR}, m_cRealBarColor, Config::animationTree()->getAnimationPropertyConfig("border"), pWindow, AVARDAMAGE_NONE);
-     m_cRealBarColor->setUpdateCallback([&](auto) { damageEntire(); });
- }
- 
-@@ -279,7 +279,7 @@
-     return false;
- }
- 
--void CHyprBar::renderText(SP<CTexture> out, const std::string& text, const CHyprColor& color, const Vector2D& bufferSize, const float scale, const int fontSize) {
-+void CHyprBar::renderText(SP<Render::ITexture>& out, const std::string& text, const CHyprColor& color, const Vector2D& bufferSize, const float scale, const int fontSize) {
-     const auto CAIROSURFACE = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, bufferSize.x, bufferSize.y);
-     const auto CAIRO        = cairo_create(CAIROSURFACE);
- 
-@@ -321,19 +321,11 @@
- 
-     cairo_surface_flush(CAIROSURFACE);
- 
--    // copy the data to an OpenGL texture we have
--    const auto DATA = cairo_image_surface_get_data(CAIROSURFACE);
--    out->allocate();
--    glBindTexture(GL_TEXTURE_2D, out->m_texID);
--    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
--    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
--
--#ifndef GLES2
--    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_R, GL_BLUE);
--    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_B, GL_RED);
--#endif
--
--    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, bufferSize.x, bufferSize.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, DATA);
-+    out = g_pHyprRenderer->createTexture(CAIROSURFACE);
-+    if (out) {
-+        out->setTexParameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-+        out->setTexParameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-+    }
- 
-     // delete cairo
-     cairo_destroy(CAIRO);
-@@ -410,19 +402,11 @@
- 
-     cairo_surface_flush(CAIROSURFACE);
- 
--    // copy the data to an OpenGL texture we have
--    const auto DATA = cairo_image_surface_get_data(CAIROSURFACE);
--    m_pTextTex->allocate();
--    glBindTexture(GL_TEXTURE_2D, m_pTextTex->m_texID);
--    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
--    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
--
--#ifndef GLES2
--    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_R, GL_BLUE);
--    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_B, GL_RED);
--#endif
--
--    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, bufferSize.x, bufferSize.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, DATA);
-+    m_pTextTex = g_pHyprRenderer->createTexture(CAIROSURFACE);
-+    if (m_pTextTex) {
-+        m_pTextTex->setTexParameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-+        m_pTextTex->setTexParameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-+    }
- 
-     // delete cairo
-     cairo_destroy(CAIRO);
-@@ -466,7 +450,7 @@
-     // draw buttons
-     int offset = **PBARPADDING * scale;
-     for (size_t i = 0; i < visibleCount; ++i) {
--        const auto& button           = g_pGlobalState->buttons[i];
-+        auto&       button           = g_pGlobalState->buttons[i];
-         const auto  scaledButtonSize = button.size * scale;
-         const auto  scaledButtonsPad = **PBARBUTTONPADDING * scale;
- 
-@@ -475,8 +459,8 @@
- 
-         if (**PINACTIVECOLOR > 0) {
-             color = m_bWindowHasFocus ? color : CHyprColor(**PINACTIVECOLOR);
--            if (button.userfg && button.iconTex->m_texID != 0)
--                button.iconTex->destroyTexture();
-+            if (button.userfg && button.iconTex)
-+                button.iconTex = {};
-         }
- 
-         cairo_set_source_rgba(CAIRO, color.r, color.g, color.b, color.a);
-@@ -486,19 +470,11 @@
-         offset += scaledButtonsPad + scaledButtonSize;
+@@ -455,10 +455,10 @@
      }
  
--    // copy the data to an OpenGL texture we have
--    const auto DATA = cairo_image_surface_get_data(CAIROSURFACE);
--    m_pButtonsTex->allocate();
--    glBindTexture(GL_TEXTURE_2D, m_pButtonsTex->m_texID);
--    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
--    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
--
--#ifndef GLES2
--    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_R, GL_BLUE);
--    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_B, GL_RED);
--#endif
--
--    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, bufferSize.x, bufferSize.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, DATA);
-+    m_pButtonsTex = g_pHyprRenderer->createTexture(CAIROSURFACE);
-+    if (m_pButtonsTex) {
-+        m_pButtonsTex->setTexParameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-+        m_pButtonsTex->setTexParameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-+    }
- 
-     // delete cairo
-     cairo_destroy(CAIRO);
-@@ -530,7 +506,7 @@
-         bool       hovering   = VECINRECT(COORDS, currentPos.x, currentPos.y, currentPos.x + button.size + **PBARBUTTONPADDING, currentPos.y + button.size);
-         noScaleOffset += **PBARBUTTONPADDING + button.size;
- 
--        if (button.iconTex->m_texID == 0 /* icon is not rendered */ && !button.icon.empty()) {
-+        if ((!button.iconTex || button.iconTex->m_texID == 0) /* icon is not rendered */ && !button.icon.empty()) {
-             // render icon
-             const Vector2D BUFSIZE = {scaledButtonSize, scaledButtonSize};
-             auto           fgcol   = button.userfg ? button.fgcol : (button.bgcol.r + button.bgcol.g + button.bgcol.b < 1) ? CHyprColor(0xFFFFFFFF) : CHyprColor(0xFF000000);
-@@ -538,7 +514,7 @@
-             renderText(button.iconTex, button.icon, fgcol, BUFSIZE, scale, button.size * 0.62);
-         }
- 
--        if (button.iconTex->m_texID == 0)
-+        if (!button.iconTex || button.iconTex->m_texID == 0)
-             continue;
- 
-         CBox pos = {barBox->x + (BUTTONSRIGHT ? barBox->width - offset - scaledButtonSize : offset), barBox->y + (barBox->height - scaledButtonSize) / 2.0, scaledButtonSize,
-@@ -598,10 +574,10 @@
-     }
- 
-     const CHyprColor DEST_COLOR = m_bForcedBarColor.value_or(**PCOLOR);
+     const CHyprColor DEST_COLOR = m_bForcedBarColor.value_or(configColor(BARCOLOR));
 -    if (DEST_COLOR != m_cRealBarColor->goal())
 -        *m_cRealBarColor = DEST_COLOR;
 +    if (DEST_COLOR != m_cRealBarColor->goal() || DEST_COLOR != m_cRealBarColor->value())
@@ -228,8 +26,8 @@
 +    CHyprColor color = DEST_COLOR;
  
      color.a *= a;
-     const bool BUTTONSRIGHT = std::string{*PALIGNBUTTONS} != "left";
-@@ -624,9 +600,13 @@
+     const bool BUTTONSRIGHT = ALIGNBUTTONS != "left";
+@@ -481,9 +481,13 @@
      const auto DECOBOX = assignedBoxGlobal();
  
      const auto BARBUF = DECOBOX.size() * pMonitor->m_scale;
@@ -244,7 +42,7 @@
  
      titleBarBox.translate(PWINDOW->m_floatingOffset).scale(pMonitor->m_scale).round();
  
-@@ -635,7 +615,7 @@
+@@ -492,7 +496,7 @@
  
      g_pHyprOpenGL->scissor(titleBarBox);
  
@@ -253,12 +51,12 @@
          // the +1 is a shit garbage temp fix until renderRect supports an alpha matte
          CBox windowBox = {PWINDOW->m_realPosition->value().x + PWINDOW->m_floatingOffset.x - pMonitor->m_position.x + 1,
                            PWINDOW->m_realPosition->value().y + PWINDOW->m_floatingOffset.y - pMonitor->m_position.y + 1, PWINDOW->m_realSize->value().x - 2,
-@@ -655,17 +635,28 @@
+@@ -512,17 +516,28 @@
          glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
  
          windowBox.translate(WORKSPACEOFFSET).scale(pMonitor->m_scale).round();
 -        g_pHyprOpenGL->renderRect(windowBox, CHyprColor(0, 0, 0, 0), {.round = scaledRounding, .roundingPower = m_pWindow->roundingPower()});
-+        auto windowRectRenderData           = Render::GL::CHyprOpenGLImpl::SRectRenderData{};
++        auto windowRectRenderData           = CHyprOpenGLImpl::SRectRenderData{};
 +        windowRectRenderData.round          = scaledRounding;
 +        windowRectRenderData.roundingPower  = m_pWindow->roundingPower();
 +        windowRectRenderData.roundedCorners = WINDOWCORNERS;
@@ -273,7 +71,7 @@
 -        g_pHyprOpenGL->renderRect(titleBarBox, color, {.round = scaledRounding, .roundingPower = m_pWindow->roundingPower(), .blur = true, .blurA = a});
 -    else
 -        g_pHyprOpenGL->renderRect(titleBarBox, color, {.round = scaledRounding, .roundingPower = m_pWindow->roundingPower()});
-+    auto titleBarRenderData           = Render::GL::CHyprOpenGLImpl::SRectRenderData{};
++    auto titleBarRenderData           = CHyprOpenGLImpl::SRectRenderData{};
 +    titleBarRenderData.round          = scaledRounding;
 +    titleBarRenderData.roundingPower  = m_pWindow->roundingPower();
 +    titleBarRenderData.roundedCorners = BARCORNERS;
@@ -286,8 +84,8 @@
 +    g_pHyprOpenGL->renderRect(titleBarBox, color, titleBarRenderData);
  
      // render title
-     if (**PENABLETITLE && (m_szLastTitle != PWINDOW->m_title || m_bWindowSizeChanged || m_pTextTex->m_texID == 0 || m_bTitleColorChanged)) {
-@@ -673,7 +664,7 @@
+     if (ENABLETITLE && (m_szLastTitle != PWINDOW->m_title || m_bWindowSizeChanged || !m_pTextTex || m_pTextTex->m_texID == 0 || m_bTitleColorChanged)) {
+@@ -530,7 +545,7 @@
          renderBarTitle(BARBUF, pMonitor->m_scale);
      }
  
@@ -296,74 +94,3 @@
          // cleanup stencil
          glClearStencil(0);
          glClear(GL_STENCIL_BUFFER_BIT);
-@@ -683,7 +674,7 @@
-     }
- 
-     CBox textBox = {titleBarBox.x, titleBarBox.y, (int)BARBUF.x, (int)BARBUF.y};
--    if (**PENABLETITLE)
-+    if (**PENABLETITLE && m_pTextTex)
-         g_pHyprOpenGL->renderTexture(m_pTextTex, textBox, {.a = a});
- 
-     if (m_bButtonsDirty || m_bWindowSizeChanged) {
-@@ -691,7 +682,8 @@
-         m_bButtonsDirty = false;
-     }
- 
--    g_pHyprOpenGL->renderTexture(m_pButtonsTex, textBox, {.a = a});
-+    if (m_pButtonsTex)
-+        g_pHyprOpenGL->renderTexture(m_pButtonsTex, textBox, {.a = a});
- 
-     g_pHyprOpenGL->scissor(nullptr);
- 
---- a/barDeco.hpp
-+++ b/barDeco.hpp
-@@ -58,8 +58,8 @@
- 
-     CBox                      m_bAssignedBox;
- 
--    SP<CTexture>              m_pTextTex;
--    SP<CTexture>              m_pButtonsTex;
-+    SP<Render::ITexture>      m_pTextTex;
-+    SP<Render::ITexture>      m_pButtonsTex;
- 
-     bool                      m_bWindowSizeChanged = false;
-     bool                      m_hidden             = false;
-@@ -78,7 +78,7 @@
- 
-     void                      renderPass(PHLMONITOR, float const& a);
-     void                      renderBarTitle(const Vector2D& bufferSize, const float scale);
--    void                      renderText(SP<CTexture> out, const std::string& text, const CHyprColor& color, const Vector2D& bufferSize, const float scale, const int fontSize);
-+    void                      renderText(SP<Render::ITexture>& out, const std::string& text, const CHyprColor& color, const Vector2D& bufferSize, const float scale, const int fontSize);
-     void                      renderBarButtons(const Vector2D& bufferSize, const float scale);
-     void                      renderBarButtonsText(CBox* barBox, const float scale, const float a);
-     void                      damageOnButtonHover();
---- a/globals.hpp
-+++ b/globals.hpp
-@@ -12,7 +12,7 @@
-     CHyprColor   bgcol   = CHyprColor(0, 0, 0, 0);
-     float        size    = 10;
-     std::string  icon    = "";
--    SP<CTexture> iconTex = makeShared<CTexture>();
-+    SP<Render::ITexture> iconTex = nullptr;
- };
- 
- class CHyprBar;
---- a/main.cpp
-+++ b/main.cpp
-@@ -9,6 +9,7 @@
- #include <hyprland/src/render/Renderer.hpp>
- #include <hyprland/src/event/EventBus.hpp>
- #include <hyprland/src/desktop/rule/windowRule/WindowRuleEffectContainer.hpp>
-+#include <hyprutils/string/VarList.hpp>
- 
- #include <algorithm>
- 
-@@ -48,7 +49,7 @@
- 
- Hyprlang::CParseResult onNewButton(const char* K, const char* V) {
-     std::string            v = V;
--    CVarList               vars(v);
-+    Hyprutils::String::CVarList vars(v);
- 
-     Hyprlang::CParseResult result;
- 
