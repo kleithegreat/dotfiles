@@ -221,15 +221,3 @@
 **Cause:** Upstream `helium-linux` releases currently ship both a Qt6 integration shim that the browser still uses and a dormant `libqt5_shim.so` that is no longer backed by runtime Qt5 libraries. The package also launches through the upstream `helium-wrapper` shell script, so it is not a normal `wrapQtAppsHook` target.
 **Status:** Workaround in place
 **Resolution:** `pkgs/helium/default.nix` uses `makeWrapper` for the launcher, sets `dontWrapQtApps = true`, and ignores the unused `libQt5Core.so.5`, `libQt5Gui.so.5`, and `libQt5Widgets.so.5` dependencies in `autoPatchelfIgnoreMissingDeps`.
-
-## Current LM Studio release moved its icon out of `usr/share/icons`
-**Symptom:** `nixos-rebuild` fails while building `lmstudio` with `gm convert: Unable to open file .../usr/share/icons/hicolor/0x0/apps/lm-studio.png`.
-**Cause:** On the currently pinned nixpkgs revision, the `lmstudio` derivation still expects the AppImage-extracted icon under `usr/share/icons/hicolor/0x0/apps/`, but the current `0.4.10-1` release no longer ships a real file there. The top-level `lm-studio.png` is only a broken symlink; the actual icon now lives at `resources/app/.webpack/Icon-512x512.png`.
-**Status:** Workaround in place
-**Resolution:** `overlays/local-packages.nix` overrides nixpkgs `lmstudio` and rewrites the stale icon source path in its `buildCommand` to use the extracted `resources/app/.webpack/Icon-512x512.png` asset instead.
-
-## Current LM Studio release ships an empty `lms` placeholder
-**Symptom:** After fixing the icon path, `nixos-rebuild` still fails while building `lmstudio` with `patchelf: missing ELF header`.
-**Cause:** The nixpkgs recipe always installs and patches `${appimageContents}/resources/app/.webpack/lms`, but the current `0.4.10-1` AppImage ships that path as a zero-byte placeholder instead of a real ELF CLI binary.
-**Status:** Workaround in place
-**Resolution:** `overlays/local-packages.nix` makes the `lms` install/patchelf step conditional on the bundled file being non-empty, so the desktop app still builds while the broken placeholder is ignored.
