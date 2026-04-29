@@ -3,7 +3,7 @@
 ## Scope
 
 Current implementation map for `config/hypr/`, the host-selected Hyprland
-fragments, and the generated theme inputs as of 2026-04-16.
+fragments, and the generated theme inputs as of 2026-04-29.
 
 ## Source Graph
 
@@ -84,7 +84,7 @@ Current host input fragments differ materially:
 | `input-runtime.conf` | Generated runtime pointer overrides written by `desktopctl hypr input` |
 | `animations-override.conf` | Generated bezier curves and per-animation overrides written by `desktopctl hypr animations` |
 | `keybinds-override.conf` | Generated unbind + rebind pairs written by `desktopctl hypr keybinds` |
-| `appearance.conf` | Stable compositor defaults that source `appearance-theme.conf` |
+| `appearance.conf` | Stable compositor defaults that source `appearance-theme.conf`; the static `dwindle` block keeps `preserve_split`, while pseudotiling is controlled at runtime through the `pseudo` dispatcher binding in `keybinds.conf` |
 | `hyprlock.conf` | Sources `colors.conf` so the lock screen shares the compositor palette |
 | `plugins.conf` | Consumes the same theme variables for `hyprbars` and `hyprexpo` |
 
