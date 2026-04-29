@@ -37,10 +37,16 @@
 **Resolution:** `system/configuration.nix` appends `native-optimized-${host.name}` only while `enableNativeOptimizations` is enabled.
 
 ## Flake-input package overrides share the native helper path
-**Symptom:** Hyprland, Hyprland plugins, `hyprqt6engine`, `snappy-switcher`, and Vicinae would otherwise diverge from the native optimization policy used for the selected nixpkgs packages.
+**Symptom:** Hyprland, Hyprland plugins, `hyprqt6engine`, and Vicinae would otherwise diverge from the native optimization policy used for the selected nixpkgs packages.
 **Cause:** Those derivations come from flake inputs or local overrides rather than the nixpkgs package set targeted by `overlays/native-optimized.nix`.
 **Status:** Intentional design
 **Resolution:** `system/configuration.nix` and `home/default.nix` both import `system/native-optimizations.nix` directly, so the remaining flake-input packages carry the same `-O3 -march=native` / `target-cpu=native` flags and per-host `requiredSystemFeatures` tag as the overlay-managed nixpkgs packages.
+
+## Snappy Switcher is simpler as a local package than as a flake input
+**Symptom:** The previous setup routed Snappy Switcher through a dedicated upstream flake input even though the package recipe was tiny and the only repo-specific behavior was a small local patch for current-workspace filtering.
+**Cause:** Upstream ships a simple `mkDerivation` in its flake rather than a package already available in nixpkgs. Keeping it as a flake input added another lockfile node and another special-case package path without buying much.
+**Status:** Simplified to a local package
+**Resolution:** `overlays/local-packages.nix` now exposes `pkgs.snappy-switcher` from `pkgs/snappy-switcher/default.nix`, which fetches the upstream source snapshot directly and applies `patches/snappy-switcher/workspace-scope-filter.patch`. This keeps the current-workspace filtering behavior while removing the separate `snappy-switcher` flake input and its extra override plumbing.
 
 ## Stock packages can still miss cache hits through optimized wrapper inputs
 **Symptom:** A package that is not listed in `overlays/native-optimized.nix` still rebuilds locally and gets a different derivation path from plain nixpkgs.
@@ -131,6 +137,12 @@
 **Cause:** The upstream flake package is a source build, which brings in Deno plus `rusty_v8`, and its filtered Bun install path could still miss root-level packages such as `@tsconfig/bun`, `prettier`, or `glob` that some build steps expected.
 **Status:** Workaround removed in favor of nixpkgs package
 **Resolution:** `home/default.nix` now installs `pkgs.opencode` from the pinned `nixpkgs` set instead of overriding the upstream flake package. On the current `nixos-unstable` pin that package is already cacheable for `x86_64-linux`, so rebuilds fetch it directly from the binary cache and avoid the old source-build and fake-hash maintenance path entirely.
+
+## Claude Code is better sourced from nixpkgs than from a repo-local npm pin here
+**Symptom:** `nixos-rebuild` failed while building the repo-local `claude-code-2.1.91` overlay with `install: omitting directory ...-source` during `installPhase`.
+**Cause:** The repo-local overlay pinned an older npm tarball and lockfile against a newer nixpkgs `claude-code` builder shape. Upstream nixpkgs has since moved on to a newer package revision and its maintained recipe no longer matches the local override's assumptions.
+**Status:** Workaround removed in favor of nixpkgs package
+**Resolution:** `system/configuration.nix` now drops the repo-local `overlays/claude-code.nix` override entirely and just uses `pkgs.claude-code` from the pinned `nixpkgs` set. On the current unstable pin that resolves to `claude-code-2.1.119`, which builds cleanly, so keeping a separate repo-local npm pin only adds maintenance risk without a compensating benefit.
 
 ## Unstable Haruna currently drags `yt-dlp -> deno -> rusty_v8` into local builds
 **Symptom:** Rebuilding the full system on the current unstable pin can still start a large local `rusty-v8` build even after OpenCode stops using the upstream source flake.

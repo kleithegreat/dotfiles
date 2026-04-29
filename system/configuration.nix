@@ -3,7 +3,6 @@
 let
   system = pkgs.stdenv.hostPlatform.system;
   hostName = host.name;
-  claudeCodeOverlay = import ../overlays/claude-code.nix;
   localPackagesOverlay = import ../overlays/local-packages.nix;
   nativeOptimizations = import ./native-optimizations.nix {
     inherit lib host enableNativeOptimizations;
@@ -156,10 +155,7 @@ in
       # in multiple module layers.
       nixpkgs.config.allowUnfreePredicate = pkg:
         builtins.elem (lib.getName pkg) allowedUnfreePackageNames;
-      nixpkgs.overlays = [
-        claudeCodeOverlay
-        localPackagesOverlay
-      ];
+      nixpkgs.overlays = [ localPackagesOverlay ];
 
       # ── Networking ───────────────────────────────────────────────
       networking.hostName = hostName;

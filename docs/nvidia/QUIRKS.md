@@ -29,9 +29,3 @@
 **Cause:** The laptop needs Mesa-only EGL vendor selection for the hybrid path, while the dedicated desktop needs both the NVIDIA and Mesa ICDs.
 **Status:** Host split in place
 **Resolution:** `system/configuration.nix` leaves `__EGL_VENDOR_LIBRARY_FILENAMES` unset. `hosts/laptop/system.nix` sets the laptop's Mesa-only value through `environment.sessionVariables.__EGL_VENDOR_LIBRARY_FILENAMES`, and `hosts/desktop/system.nix` sets the desktop's dual-vendor list directly through the same variable.
-
-## Lapce 0.4.6 needs the Vulkan loader in its runtime search path
-**Symptom:** Launching `lapce` on the dedicated NVIDIA desktop appears to do nothing; `~/.local/share/lapce-stable/logs/stderr.log` shows `AdapterNotFoundError`.
-**Cause:** The nixpkgs `lapce` package exposes EGL and GLX userspace, but the wrapped GUI binary still cannot locate `libvulkan.so.1` at runtime. `wgpu` then fails adapter discovery before any window is created.
-**Status:** Fixed in local overlay
-**Resolution:** `overlays/local-packages.nix` overrides `pkgs.lapce` so `bin/.lapce-wrapped` includes the `pkgs.vulkan-loader` library directory in its runtime search path, which lets the Vulkan loader discover `/run/opengl-driver/share/vulkan/icd.d/nvidia_icd.x86_64.json`. With that override in place, `home/packages.nix` now installs the overlaid package directly, so the desktop can use Lapce's native Wayland path again instead of forcing Xwayland.

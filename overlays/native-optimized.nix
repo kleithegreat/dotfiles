@@ -70,7 +70,6 @@ in
         ripgrep = optimizeRustPackage prev.ripgrep;
         fd = optimizeRustPackage prev.fd;
         desktopctl = optimizeRustPackage prev.desktopctl;
-        lapce = optimizeRustPackage prev.lapce;
 
         texlive =
           let

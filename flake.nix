@@ -18,10 +18,9 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     vicinae.url = "github:vicinaehq/vicinae";
-    snappy-switcher.url = "github:OpalAayan/snappy-switcher";
   };
 
-  outputs = { self, nixpkgs, nixpkgs-stable, home-manager, hyprland, hyprland-plugins, hyprqt6engine, vicinae, snappy-switcher, ... }:
+  outputs = { self, nixpkgs, nixpkgs-stable, home-manager, hyprland, hyprland-plugins, hyprqt6engine, vicinae, ... }:
   let
     system = "x86_64-linux";
     sharedInputs = {
@@ -33,7 +32,6 @@
         hyprland-plugins
         hyprqt6engine
         vicinae
-        snappy-switcher
         ;
     };
     hosts = {
@@ -88,7 +86,7 @@
             home-manager.users.kevin = import ./home;
             home-manager.extraSpecialArgs = {
               dotfilesPath = self;
-              inherit host vicinae snappy-switcher;
+              inherit host vicinae;
               inputs = sharedInputs;
               enableNativeOptimizations = enableHostNativeOptimizations;
             };

@@ -1,4 +1,4 @@
-{ config, pkgs, lib, dotfilesPath, host, vicinae, snappy-switcher, inputs, enableNativeOptimizations, ... }:
+{ config, pkgs, lib, dotfilesPath, host, vicinae, inputs, enableNativeOptimizations, ... }:
 
 let
   system = pkgs.stdenv.hostPlatform.system;
@@ -13,7 +13,6 @@ let
   inherit (optimizedPkgs)
     desktopctl
     fd
-    lapce
     p7zip
     quickshell
     ripgrep
@@ -21,11 +20,7 @@ let
   lspPlugins = optimizedPkgs.lsp-plugins;
   opencodePkg = pkgs.opencode;
   harunaPkg = stablePkgs.haruna;
-  snappySwitcherPkg = nativeOptimizations.optimizeNativePackage (snappy-switcher.packages.${system}.default.overrideAttrs (old: {
-    patches = (old.patches or []) ++ [
-      ../patches/snappy-switcher/workspace-scope-filter.patch
-    ];
-  }));
+  snappySwitcherPkg = pkgs.snappy-switcher;
   vicinaePkg = nativeOptimizations.optimizeNativePackage vicinae.packages.${system}.default;
   texlive = optimizedPkgs.texlive.withPackages (ps: with ps; [
     scheme-small
@@ -46,7 +41,7 @@ in
     ./fastfetch.nix
     vicinae.homeManagerModules.default
     (import ./packages.nix {
-      inherit pkgs desktopctl fd lapce p7zip quickshell ripgrep opencodePkg harunaPkg vicinaePkg texlive;
+      inherit pkgs desktopctl fd p7zip quickshell ripgrep opencodePkg harunaPkg vicinaePkg texlive;
       inherit lspPlugins;
       snappySwitcherPkg = snappySwitcherPkg;
     })
