@@ -37,10 +37,16 @@
 **Resolution:** `system/configuration.nix` appends `native-optimized-${host.name}` only while `enableNativeOptimizations` is enabled.
 
 ## Flake-input package overrides share the native helper path
-**Symptom:** Hyprland, Hyprland plugins, `hyprqt6engine`, and Vicinae would otherwise diverge from the native optimization policy used for the selected nixpkgs packages.
+**Symptom:** Hyprland, Hyprland plugins, and `hyprqt6engine` would otherwise diverge from the native optimization policy used for the selected nixpkgs packages.
 **Cause:** Those derivations come from flake inputs or local overrides rather than the nixpkgs package set targeted by `overlays/native-optimized.nix`.
 **Status:** Intentional design
 **Resolution:** `system/configuration.nix` and `home/default.nix` both import `system/native-optimizations.nix` directly, so the remaining flake-input packages carry the same `-O3 -march=native` / `target-cpu=native` flags and per-host `requiredSystemFeatures` tag as the overlay-managed nixpkgs packages.
+
+## Vicinae is best split between the upstream HM module and the nixpkgs package
+**Symptom:** The previous setup used the Vicinae flake for both its Home Manager module and its package output, which added another source package path and bypassed a cacheable nixpkgs build.
+**Cause:** nixpkgs already packages `vicinae`, but Home Manager does not expose the `services.vicinae` module on its own. The upstream Vicinae docs recommend a middle ground: keep the flake input for the module, but point `services.vicinae.package` at `pkgs.vicinae` when you want the Hydra-built package.
+**Status:** Simplified to the supported split
+**Resolution:** `home/default.nix` now keeps `vicinae.homeManagerModules.default` so the `services.vicinae` options remain available, but `vicinaePkg = pkgs.vicinae` makes the actual launcher package come from the pinned nixpkgs set. This preserves the official module path while avoiding the extra flake-package build surface.
 
 ## Snappy Switcher is simpler as a local package than as a flake input
 **Symptom:** The previous setup routed Snappy Switcher through a dedicated upstream flake input even though the package recipe was tiny and the only repo-specific behavior was a small local patch for current-workspace filtering.

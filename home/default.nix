@@ -21,7 +21,7 @@ let
   opencodePkg = pkgs.opencode;
   harunaPkg = stablePkgs.haruna;
   snappySwitcherPkg = pkgs.snappy-switcher;
-  vicinaePkg = nativeOptimizations.optimizeNativePackage vicinae.packages.${system}.default;
+  vicinaePkg = pkgs.vicinae;
   texlive = optimizedPkgs.texlive.withPackages (ps: with ps; [
     scheme-small
     latexmk
