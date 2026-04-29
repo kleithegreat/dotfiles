@@ -1,4 +1,4 @@
-{ pkgs, desktopctl, fd, lapce, p7zip, quickshell, ripgrep, lspPlugins, opencodePkg, snappySwitcherPkg, vicinaePkg, texlive }:
+{ pkgs, desktopctl, fd, lapce, p7zip, quickshell, ripgrep, lspPlugins, opencodePkg, harunaPkg, snappySwitcherPkg, vicinaePkg, texlive }:
 
 let
   customPackages = [
@@ -63,7 +63,7 @@ let
     imv
     nautilus
     gedit
-    haruna
+    harunaPkg
     ffmpeg
     zoom-us
     tor-browser

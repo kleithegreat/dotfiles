@@ -3,6 +3,7 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs-stable.url = "github:NixOS/nixpkgs/nixos-25.05";
     home-manager = {
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -18,22 +19,21 @@
     };
     vicinae.url = "github:vicinaehq/vicinae";
     snappy-switcher.url = "github:OpalAayan/snappy-switcher";
-    opencode.url = "github:sst/opencode";
   };
 
-  outputs = { self, nixpkgs, home-manager, hyprland, hyprland-plugins, hyprqt6engine, vicinae, snappy-switcher, opencode, ... }:
+  outputs = { self, nixpkgs, nixpkgs-stable, home-manager, hyprland, hyprland-plugins, hyprqt6engine, vicinae, snappy-switcher, ... }:
   let
     system = "x86_64-linux";
     sharedInputs = {
       inherit
         nixpkgs
+        nixpkgs-stable
         home-manager
         hyprland
         hyprland-plugins
         hyprqt6engine
         vicinae
         snappy-switcher
-        opencode
         ;
     };
     hosts = {
@@ -88,7 +88,7 @@
             home-manager.users.kevin = import ./home;
             home-manager.extraSpecialArgs = {
               dotfilesPath = self;
-              inherit host vicinae snappy-switcher opencode;
+              inherit host vicinae snappy-switcher;
               inputs = sharedInputs;
               enableNativeOptimizations = enableHostNativeOptimizations;
             };
