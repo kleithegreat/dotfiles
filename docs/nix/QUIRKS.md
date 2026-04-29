@@ -37,10 +37,10 @@
 **Resolution:** `system/configuration.nix` appends `native-optimized-${host.name}` only while `enableNativeOptimizations` is enabled.
 
 ## Flake-input package overrides share the native helper path
-**Symptom:** Hyprland, Hyprland plugins, `hyprqt6engine`, `opencode`, `snappy-switcher`, and Vicinae would otherwise diverge from the native optimization policy used for the selected nixpkgs packages.
+**Symptom:** Hyprland, Hyprland plugins, `hyprqt6engine`, `snappy-switcher`, and Vicinae would otherwise diverge from the native optimization policy used for the selected nixpkgs packages.
 **Cause:** Those derivations come from flake inputs or local overrides rather than the nixpkgs package set targeted by `overlays/native-optimized.nix`.
 **Status:** Intentional design
-**Resolution:** `system/configuration.nix` and `home/default.nix` both import `system/native-optimizations.nix` directly, so the flake-input packages carry the same `-O3 -march=native` / `target-cpu=native` flags and per-host `requiredSystemFeatures` tag as the overlay-managed nixpkgs packages.
+**Resolution:** `system/configuration.nix` and `home/default.nix` both import `system/native-optimizations.nix` directly, so the remaining flake-input packages carry the same `-O3 -march=native` / `target-cpu=native` flags and per-host `requiredSystemFeatures` tag as the overlay-managed nixpkgs packages.
 
 ## Stock packages can still miss cache hits through optimized wrapper inputs
 **Symptom:** A package that is not listed in `overlays/native-optimized.nix` still rebuilds locally and gets a different derivation path from plain nixpkgs.
@@ -126,11 +126,17 @@
 **Status:** Workaround in place
 **Resolution:** `system/configuration.nix` now enables NixOS `qt.enable`, exports `QT_QPA_PLATFORMTHEME=hyprqt6engine`, keeps the hyprqt6engine root on `QT_PLUGIN_PATH`, and installs `qt5ct`, `qt6ct`, and Kvantum system-wide so both regular apps and user services resolve the same plugin set.
 
-## Current OpenCode flake build misses root-level packages after the filtered Bun install
-**Symptom:** `nixos-rebuild` fails while building the upstream `sst/opencode` flake package with root-level resolution errors such as Bun or Vite failing to resolve `@tsconfig/bun/tsconfig.json`, `prettier`, or `glob` from files that still expect those packages to exist under the repo root `node_modules` tree.
-**Cause:** The current upstream `nix/node_modules.nix` runs `bun install` with workspace filters that exclude the repo root. That leaves the copied root `node_modules` tree with Bun's internal `.bun` store but without the top-level package links some build steps still resolve through.
+## OpenCode is better sourced from nixpkgs than from the upstream flake here
+**Symptom:** Building OpenCode through the upstream `sst/opencode` flake on this repo used to pull in a large Deno/V8 toolchain closure and occasionally fail in the filtered Bun `node_modules` setup.
+**Cause:** The upstream flake package is a source build, which brings in Deno plus `rusty_v8`, and its filtered Bun install path could still miss root-level packages such as `@tsconfig/bun`, `prettier`, or `glob` that some build steps expected.
+**Status:** Workaround removed in favor of nixpkgs package
+**Resolution:** `home/default.nix` now installs `pkgs.opencode` from the pinned `nixpkgs` set instead of overriding the upstream flake package. On the current `nixos-unstable` pin that package is already cacheable for `x86_64-linux`, so rebuilds fetch it directly from the binary cache and avoid the old source-build and fake-hash maintenance path entirely.
+
+## Unstable Haruna currently drags `yt-dlp -> deno -> rusty_v8` into local builds
+**Symptom:** Rebuilding the full system on the current unstable pin can still start a large local `rusty-v8` build even after OpenCode stops using the upstream source flake.
+**Cause:** `pkgs.haruna` in the current unstable nixpkgs revision depends on `yt-dlp`, and that unstable `yt-dlp` package now enables JavaScript runtime support through `deno`, which pulls in `rusty_v8`. Even if Haruna itself is not locally optimized, that transitive chain can still miss cache and trigger a heavy local build.
 **Status:** Workaround in place
-**Resolution:** `home/default.nix` now swaps the upstream `packages.<system>.node_modules_updater` fake-hash output back to the discovered real hash (`sha256-LpzWEZzURUEj7fcHGvh33gM7D9GNPE+XIvU0/hmdcQM=` on `x86_64-linux`) and injects that derivation into `packages.<system>.default`, so the repo can stay pinned to OpenCode commit `75a22f82bd7b5f9a0424780ceace5eecec3662c3` even though that commit's `nix/hashes.json` still advertises a stale fixed-output hash. Do not wire `packages.<system>.node_modules_updater` into the build without overriding the hash: that output intentionally uses `lib.fakeHash` so it fails and reveals the current value. The remaining local workaround still runs during `postConfigure`: it restores root-level package links by symlinking `node_modules/@tsconfig/bun` from an already-installed workspace copy, symlinks `node_modules/prettier` to the Bun-managed `node_modules/.bun/prettier@*/node_modules/prettier` package, and symlinks `node_modules/glob` to the already-installed `packages/opencode/node_modules/glob` before the OpenCode build runs.
+**Resolution:** `home/default.nix` now imports `inputs.nixpkgs-stable` and installs `stablePkgs.haruna` through `harunaPkg` in `home/packages.nix` instead of the unstable package. On the current `nixos-25.05` pin, `haruna-1.4.0` is cacheable, so this keeps the media player available without dragging the unstable Deno/V8 path into normal rebuilds.
 
 ## OpenChamber source builds need a repo-pinned root manifest for npm
 **Symptom:** A straight npm-based build of upstream `openchamber/openchamber` fails before dependency resolution finishes, typically with npm rejecting the root `overrides` versus direct dependency ranges or choking on the VS Code package's `workspace:*` dependency.

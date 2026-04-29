@@ -1,7 +1,8 @@
-{ config, pkgs, lib, dotfilesPath, host, vicinae, snappy-switcher, opencode, inputs, enableNativeOptimizations, ... }:
+{ config, pkgs, lib, dotfilesPath, host, vicinae, snappy-switcher, inputs, enableNativeOptimizations, ... }:
 
 let
   system = pkgs.stdenv.hostPlatform.system;
+  stablePkgs = import inputs.nixpkgs-stable { inherit system; };
   nativeOptimizations = import ../system/native-optimizations.nix {
     inherit lib host enableNativeOptimizations;
   };
@@ -18,51 +19,8 @@ let
     ripgrep
     ;
   lspPlugins = optimizedPkgs.lsp-plugins;
-  opencodeNodeModulesPkg = opencode.packages.${system}.node_modules_updater.override {
-    hash = "sha256-LpzWEZzURUEj7fcHGvh33gM7D9GNPE+XIvU0/hmdcQM=";
-  };
-  opencodePkg = nativeOptimizations.optimizeNativePackage (opencode.packages.${system}.default.overrideAttrs (old: {
-    node_modules = opencodeNodeModulesPkg;
-    configurePhase = ''
-      runHook preConfigure
-
-      cp -R ${opencodeNodeModulesPkg}/. .
-      patchShebangs node_modules
-      patchShebangs packages/*/node_modules
-
-      runHook postConfigure
-    '';
-    postConfigure = (old.postConfigure or "") + ''
-      if [ ! -e node_modules/@tsconfig/bun/tsconfig.json ]; then
-        for bunTsconfig in \
-          packages/opencode/node_modules/@tsconfig/bun \
-          packages/app/node_modules/@tsconfig/bun
-        do
-          if [ -e "$bunTsconfig/tsconfig.json" ]; then
-            chmod u+w node_modules
-            mkdir -p node_modules/@tsconfig
-            ln -s "$PWD/$bunTsconfig" node_modules/@tsconfig/bun
-            break
-          fi
-        done
-      fi
-
-      if [ ! -e node_modules/prettier/package.json ]; then
-        for prettier in node_modules/.bun/prettier@*/node_modules/prettier; do
-          if [ -e "$prettier/package.json" ]; then
-            chmod u+w node_modules
-            ln -s "$PWD/$prettier" node_modules/prettier
-            break
-          fi
-        done
-      fi
-
-      if [ ! -e node_modules/glob/package.json ] && [ -e packages/opencode/node_modules/glob/package.json ]; then
-        chmod u+w node_modules
-        ln -s "$PWD/packages/opencode/node_modules/glob" node_modules/glob
-      fi
-    '';
-  }));
+  opencodePkg = pkgs.opencode;
+  harunaPkg = stablePkgs.haruna;
   snappySwitcherPkg = nativeOptimizations.optimizeNativePackage (snappy-switcher.packages.${system}.default.overrideAttrs (old: {
     patches = (old.patches or []) ++ [
       ../patches/snappy-switcher/workspace-scope-filter.patch
@@ -88,7 +46,7 @@ in
     ./fastfetch.nix
     vicinae.homeManagerModules.default
     (import ./packages.nix {
-      inherit pkgs desktopctl fd lapce p7zip quickshell ripgrep opencodePkg vicinaePkg texlive;
+      inherit pkgs desktopctl fd lapce p7zip quickshell ripgrep opencodePkg harunaPkg vicinaePkg texlive;
       inherit lspPlugins;
       snappySwitcherPkg = snappySwitcherPkg;
     })
