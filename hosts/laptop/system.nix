@@ -195,9 +195,7 @@ in {
   environment.sessionVariables.__EGL_VENDOR_LIBRARY_FILENAMES =
     "/run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json";
 
-  # Laptop overrides — disable services enabled in shared configuration.nix
-  hardware.bluetooth.powerOnBoot = lib.mkForce false;
-  services.samba.enable = lib.mkForce false;
+  # Laptop overrides — disable laptop-only remote login.
   services.openssh.enable = lib.mkForce false;
 
   services.power-profiles-daemon.enable = true;
