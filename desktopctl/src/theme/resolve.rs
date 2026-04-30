@@ -441,11 +441,11 @@ fn invalid_data(message: String) -> io::Error {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::{ScopedEnvVar, env_lock};
     use crate::theme::schema::{
         DEFAULT_CHROMIUM_FONT_SIZE_OFFSET, DEFAULT_GTK_FONT_SIZE_OFFSET,
         DEFAULT_QT_FONT_SIZE_OFFSET, DEFAULT_QUICKSHELL_FONT_SIZE_OFFSET,
     };
-    use crate::test_support::{ScopedEnvVar, env_lock};
     use std::error::Error;
     use std::time::{SystemTime, UNIX_EPOCH};
 

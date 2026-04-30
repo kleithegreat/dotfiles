@@ -7,7 +7,7 @@ use crate::{
     paths,
 };
 use serde::Deserialize;
-use std::{io, path::Path};
+use std::{io, os::unix::fs::FileTypeExt, path::Path};
 use tokio::{
     fs,
     io::{AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader},
@@ -52,8 +52,16 @@ pub async fn run(controller: Controller, mut shutdown: watch::Receiver<bool>) ->
 }
 
 async fn prepare_socket_path(path: &Path) -> io::Result<()> {
-    if fs::metadata(path).await.is_err() {
-        return Ok(());
+    let metadata = match fs::metadata(path).await {
+        Ok(metadata) => metadata,
+        Err(_) => return Ok(()),
+    };
+
+    if !metadata.file_type().is_socket() {
+        return Err(io::Error::new(
+            io::ErrorKind::AlreadyExists,
+            format!("refusing to remove non-socket path: {}", path.display()),
+        ));
     }
 
     match UnixStream::connect(path).await {
@@ -86,10 +94,14 @@ async fn handle_client(stream: UnixStream, controller: Controller) -> io::Result
             "ping" => {
                 write_ok(&mut writer, serde_json::json!({ "pong": true })).await?;
             }
-            METHOD_NIGHT_LIGHT_STATUS => match controller.status() {
-                Ok(status) => write_ok(&mut writer, status).await?,
-                Err(error) => write_error(&mut writer, error.to_string()).await?,
-            },
+            METHOD_NIGHT_LIGHT_STATUS => {
+                let controller = controller.clone();
+                match tokio::task::spawn_blocking(move || controller.status()).await {
+                    Ok(Ok(status)) => write_ok(&mut writer, status).await?,
+                    Ok(Err(error)) => write_error(&mut writer, error.to_string()).await?,
+                    Err(error) => write_error(&mut writer, error.to_string()).await?,
+                }
+            }
             METHOD_NIGHT_LIGHT_SET => {
                 let params = match serde_json::from_value::<NightLightSetParams>(request.params) {
                     Ok(params) => params,
@@ -103,15 +115,25 @@ async fn handle_client(stream: UnixStream, controller: Controller) -> io::Result
                     }
                 };
 
-                match controller.set_mode(params.mode, params.temperature) {
-                    Ok(status) => write_ok(&mut writer, status).await?,
+                let controller = controller.clone();
+                match tokio::task::spawn_blocking(move || {
+                    controller.set_mode(params.mode, params.temperature)
+                })
+                .await
+                {
+                    Ok(Ok(status)) => write_ok(&mut writer, status).await?,
+                    Ok(Err(error)) => write_error(&mut writer, error.to_string()).await?,
                     Err(error) => write_error(&mut writer, error.to_string()).await?,
                 }
             }
-            METHOD_NIGHT_LIGHT_TOGGLE => match controller.toggle() {
-                Ok(status) => write_ok(&mut writer, status).await?,
-                Err(error) => write_error(&mut writer, error.to_string()).await?,
-            },
+            METHOD_NIGHT_LIGHT_TOGGLE => {
+                let controller = controller.clone();
+                match tokio::task::spawn_blocking(move || controller.toggle()).await {
+                    Ok(Ok(status)) => write_ok(&mut writer, status).await?,
+                    Ok(Err(error)) => write_error(&mut writer, error.to_string()).await?,
+                    Err(error) => write_error(&mut writer, error.to_string()).await?,
+                }
+            }
             _ => {
                 write_error(
                     &mut writer,

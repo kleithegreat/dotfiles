@@ -27,6 +27,7 @@ describing an intended future migration.
 | `$XDG_RUNTIME_DIR/desktopctl.sock` | `desktopctl daemon` | Unix socket for newline-delimited JSON requests |
 | `/run/user/$UID/desktopctl.sock` | `desktopctl daemon` | Socket fallback when `XDG_RUNTIME_DIR` is unset |
 | `$XDG_RUNTIME_DIR/focustime_state.json` | `desktopctl daemon` | Focus-time summary consumed by Quickshell |
+| `$XDG_RUNTIME_DIR/desktopctl/dim-screen-ddc-state` | `desktopctl brightness` | Per-user DDC/CI dim/restore state |
 | `$XDG_CACHE_HOME/sun-schedule/location.json` | `desktopctl sun` / daemon | Cached latitude/longitude for solar scheduling |
 | `$XDG_CACHE_HOME/desktopctl/wallpaper-previews/*.png` | `desktopctl theme list-wallpapers` | Cache-backed wallpaper preview images consumed by Quickshell |
 | `~/.config/hypr/input-runtime.conf` | `desktopctl hypr input` | Persisted shared Hyprland mouse defaults layered after `input.conf` and `input-devices.conf` |
@@ -53,7 +54,7 @@ Additional path rules:
 | --- | --- | --- |
 | Live `hyprsunset` process lifecycle | `desktopctl daemon` night-light controller | Quickshell and Hyprland request mode changes through `desktopctl night-light ...`; they do not spawn `hyprsunset` directly |
 | Persisted theme state | `desktopctl theme` | Stored in the `theme_state` table inside `desktopctl.db` |
-| Scheduled `dark_hint` edges at 23:00 and 06:00 local time | `desktopctl daemon` via `theme::set_dark_hint()` | The daemon computes solar status, detects entry into the late-night dark-on window, and enables `dark_hint` through the theming module; when the local clock reaches 06:00, it disables `dark_hint` through the same path without tying either write to `hyprsunset` mode |
+| Scheduled `dark_hint` reconciliation plus edges at 23:00 and 06:00 local time | `desktopctl daemon` via `theme::set_dark_hint()` | The daemon computes solar status at startup and reconciles the persisted `dark_hint` to the current scheduled window once, then detects later entry into the late-night dark-on window and enables `dark_hint` through the theming module; when the local clock reaches 06:00, it disables `dark_hint` through the same path without tying any write to `hyprsunset` mode |
 | Manual and preset `dark_hint` changes | `desktopctl theme set dark_hint ...` and `desktopctl theme preset ...` | Direct `dark_hint` writes still persist and apply directly; presets that omit `dark_hint` preserve the current persisted hint even when they change `color_scheme` |
 | Persisted Hyprland mouse defaults | `desktopctl hypr input` | Stored in `~/.config/hypr/input-runtime.conf`, applied live through `hyprctl keyword`, and rolled back if the live apply fails |
 | Persisted Hyprland animation overrides | `desktopctl hypr animations` | Stored in `~/.config/hypr/animations-override.conf` and reloaded through `hyprctl reload` |
@@ -65,8 +66,9 @@ Additional path rules:
 Important current behavior:
 
 - `hyprsunset` has a single live arbiter in the daemon.
-- `dark_hint` does not: the daemon issues scheduled 23:00 enable and 06:00
-  disable writes, but manual theme surfaces can also write it directly.
+- `dark_hint` does not: the daemon issues one startup reconciliation plus
+  scheduled 23:00 enable and 06:00 disable writes, but manual theme surfaces
+  can also write it directly.
 - Persisted `theme_state` rows and legacy `themes/state.json` imports that are
   missing newly added required keys are backfilled from compiled defaults and
   then rewritten through the SQLite-backed theme-state path.
@@ -84,6 +86,7 @@ Important current behavior:
   - solar scheduler
   - Unix-socket server
 - Shuts down on `SIGTERM` or `SIGINT`.
+- Recomputes solar status early on `SIGUSR1`.
 
 ### `desktopctl theme`
 
@@ -91,7 +94,7 @@ Apply scopes:
 
 | Command | Current behavior |
 | --- | --- |
-| `theme all` | Applies every registered target in filename order |
+| `theme all` | Applies every registered target in the orchestrator's stable order, with command targets after file-writing targets |
 | `theme sync` | Applies only `sync_safe` targets and skips runtime-only reload hooks |
 | `theme colors` | Applies the color-dependent target set |
 | `theme fonts` | Applies the font-dependent target set |
@@ -146,15 +149,15 @@ Theming invariants:
 | Command | Current behavior |
 | --- | --- |
 | `brightness status [--json]` | Auto-detects the active brightness backend and prints the current value; JSON output includes availability, backend kind, device label, raw values, fraction, and percent for Quickshell |
-| `brightness set <percent> [--device <name>]` | Sets an absolute perceived brightness percent through the selected backend and best-effort notifies Quickshell by calling `qs -p <repo>/config/quickshell ipc call brightness osd <percent>` |
-| `brightness up [--device <name>]` | Applies one perceptual +5% step through the selected backend, then best-effort notifies Quickshell by calling `qs -p <repo>/config/quickshell ipc call brightness osd <percent>` |
+| `brightness set <percent> [--device <name>]` | Sets an absolute perceived brightness percent through the selected backend and best-effort notifies Quickshell by calling `qs -p <repo>/config/quickshell ipc call brightness osd <percent>` with the actual applied display percentage |
+| `brightness up [--device <name>]` | Applies one perceptual +5% step through the selected backend, then best-effort notifies Quickshell with the actual applied display percentage |
 | `brightness down [--device <name>]` | Same, but one perceptual -5% step |
-| `brightness dim [--device <name>]` | Saves state for the selected backend, dims toward 30% of the current raw brightness over 20 steps, and writes `/tmp/dim-screen.pid` while running |
+| `brightness dim [--device <name>]` | Saves state for the selected backend, dims toward 30% of the current raw brightness over 20 steps, and writes `/tmp/dim-screen.pid` while running. DDC/CI restore state is kept under `$XDG_RUNTIME_DIR/desktopctl/` rather than a shared `/tmp` file |
 | `brightness restore [--device <name>]` | Restores the saved brightness state through `brightnessctl -r` for backlights or the saved DDC/CI value for external monitors |
 
 Brightness rules:
 
-- Device auto-detection prefers the first directory under `/sys/class/backlight`, then falls back to DDC/CI VCP code `0x10` through `ddcutil`.
+- Device auto-detection prefers the first backlight name in sorted `/sys/class/backlight` order, then falls back to DDC/CI VCP code `0x10` through `ddcutil`.
 - `--device <name>` still selects a backlight device; `--device ddc` selects the default DDC display, and `--device ddc:<display>` passes an explicit `ddcutil --display` value.
 - If neither a backlight nor DDC/CI brightness is reachable, the command fails.
 - `set`, `up`, and `down` emit the Quickshell OSD IPC call today.
@@ -200,9 +203,11 @@ Night-light rules:
 - Mode is in-memory only and resets to `auto` when the daemon restarts.
 - `auto` follows solar status for `hyprsunset`.
 - `on` and `off` only change `hyprsunset`.
-- The separate 23:00 solar edge enables `dark_hint` once when the daemon
-  enters the late-night dark-on window, and the separate 06:00 local-time edge
-  disables it once, regardless of the current night-light mode.
+- The initial solar reconcile sets `dark_hint` to the current scheduled value
+  once when the daemon starts. After that, the separate 23:00 solar edge enables
+  `dark_hint` once when the daemon enters the late-night dark-on window, and the
+  separate 06:00 local-time edge disables it once, regardless of the current
+  night-light mode.
 
 ### `desktopctl sun`
 
@@ -214,6 +219,9 @@ Night-light rules:
 
 `desktopctl daemon` listens on `$XDG_RUNTIME_DIR/desktopctl.sock` and accepts
 one JSON object per line.
+
+The CLI client applies finite socket read/write timeouts so an accepted but
+unresponsive daemon does not block Quickshell or shell commands indefinitely.
 
 Supported methods today:
 
@@ -233,12 +241,12 @@ Response shape:
 
 | Surface | Current contract |
 | --- | --- |
-| Home Manager | Installs `desktopctl` into `home.packages`, bootstraps `~/.config/hypr/input-runtime.conf`, and runs `desktopctl theme sync` in `home.activation.applyTheme` |
+| Home Manager | Installs `desktopctl` into `home.packages`, bootstraps `~/.config/hypr/input-runtime.conf`, `animations-override.conf`, and `keybinds-override.conf`, and runs `desktopctl theme sync` in `home.activation.applyTheme` |
 | Hyprland autostart | Starts `desktopctl daemon` and `desktopctl launch-quickshell`, then re-applies wallpaper with `desktopctl theme wallpaper` |
 | Hyprland keybinds | Use `desktopctl brightness`, `desktopctl hypr toggle-float`, and `desktopctl night-light ...` |
 | Hypridle | Uses `desktopctl brightness dim` and `desktopctl brightness restore` |
 | Quickshell settings | Reads theme state, scheme lists, and presets through `desktopctl theme ... --json`, reads shared mouse defaults through `desktopctl hypr input status --json`, and sends writes back through `desktopctl theme ...` plus `desktopctl hypr input set ...` |
-| Quickshell shell IPC | Routes `theme.apply` to `desktopctl theme ...` with argv-safe tokenization and error-only toast reporting |
+| Quickshell shell IPC | Routes `theme.apply` to `desktopctl theme ...` with argv-safe tokenization, rejects concurrent theme commands, and reports failures through toast feedback |
 
 ## Packaging
 

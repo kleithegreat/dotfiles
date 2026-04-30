@@ -14,7 +14,7 @@ For package installation and Hyprland session startup ownership, see
 | --- | --- | --- |
 | `config/hypr/autostart.conf` | Starts `desktopctl daemon` as part of the Hyprland session | The `exec-once = desktopctl daemon &` entry |
 | `desktopctl/src/daemon/mod.rs` | Starts the solar scheduler and socket server with one shared night-light controller alongside the focus tracker | The daemon `run()` / `run_async()` bootstrap |
-| `desktopctl/src/daemon/night_light.rs` | Stores the live `auto` / `on` / `off` mode, remembers the manual temperature, derives the effective state from solar status, tracks pending scheduled `dark_hint` edge transitions, and is the only live writer of `hyprsunset` | `Controller`, `dark_hint_transition()`, `desired_state()`, and `apply_desired_state()` in `desktopctl/src/daemon/night_light.rs` |
+| `desktopctl/src/daemon/night_light.rs` | Stores the live `auto` / `on` / `off` mode, remembers the manual temperature, derives the effective state from solar status, tracks pending scheduled `dark_hint` startup reconciliation and edge transitions, and is the only live writer of `hyprsunset` | `Controller`, `update_solar_status()`, `dark_hint_transition()`, `desired_state()`, and `apply_desired_state()` in `desktopctl/src/daemon/night_light.rs` |
 | `desktopctl/src/daemon/solar.rs` | Recomputes solar status at startup, on every solar event, on `SIGUSR1`, and on the 2-hour repair tick, then hands the result to the night-light controller for reconciliation | The scheduler loop in `desktopctl/src/daemon/solar.rs` |
 | `desktopctl/src/daemon/server.rs` | Exposes the daemon-owned `night_light.status`, `night_light.set`, and `night_light.toggle` methods over the Unix socket | The socket-method handlers in `desktopctl/src/daemon/server.rs` |
 | `desktopctl/src/night_light.rs` | Implements the `desktopctl night-light` CLI, socket client helpers, fallback status, and `hyprsunset` process inspection / start / stop helpers | The CLI commands and `hyprsunset` helper functions in `desktopctl/src/night_light.rs` |
@@ -53,9 +53,10 @@ For package installation and Hyprland session startup ownership, see
    shared controller and immediately asks the controller to reconcile the
    effective mode.
 6. `Controller::update_solar_status` in `desktopctl/src/daemon/night_light.rs`
-   compares the new solar status with the previous one and marks a pending
-   `dark_hint` update only when the scheduler has just crossed a 23:00 dark-on
-   or 06:00 dark-off edge.
+    marks the first solar status's current scheduled `dark_hint` value for
+    one-time reconciliation, then compares later solar statuses with the
+    previous one and marks a pending `dark_hint` update only when the scheduler
+    has just crossed a 23:00 dark-on or 06:00 dark-off edge.
 7. `desired_state()` and `apply_desired_state()` in `desktopctl/src/daemon/night_light.rs` derive the live desired
    `hyprsunset` state from the current mode: `auto` follows the solar night
    window, `on` forces `hyprsunset` on, and `off` forces `hyprsunset` off.

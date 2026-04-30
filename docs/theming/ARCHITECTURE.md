@@ -2,8 +2,7 @@
 
 ## Scope
 
-Current implementation map for the migrated Rust theming pipeline as of
-2026-04-19.
+Current implementation map for the migrated Rust theming pipeline.
 
 ## Runtime Surface
 
@@ -82,51 +81,12 @@ documented in `docs/nix/ARCHITECTURE.md`.
 
 ## Validation Notes
 
-- The migration audit compared every target's generated output with the removed
-  Python implementation and fixed the only observed mismatches in JSON ordering
-  and CLI error text for the legacy target set.
-- The regression tests in `desktopctl/src/theme/targets/mod.rs` now cover both regression-test
-  paths: it loads the real `themes/colors/*.json` files to assert the
-  centralized bat, snappy-switcher, Vicinae, and VS Code mappings across the
-  full scheme catalog, and its shared synthetic `gruvbox-dark` fixture includes
-  the same app-theme metadata, including the KTextEditor name, so Python-format
-  target tests exercise the centralized lookup path instead of falling back to
-  defaults.
-- The tests in `desktopctl/src/theme/targets/vicinae.rs` cover the generated
-  `settings.theme.json` payload, the custom TOML theme-file shape, and atomic
-  writes of the active plus paired light Vicinae themes under `XDG_DATA_HOME`.
-- The tests in `desktopctl/src/theme/resolve.rs` cover default seeding, unknown
-  field round-trips, upgrade-time backfill for older `theme_state` SQLite rows,
-  and legacy `themes/state.json` imports that are missing newer required keys.
-- The tests in `desktopctl/src/theme/targets/gtksourceview.rs` cover the generated
-  GtkSourceView XML shape and the current family-pairing policy for gedit's
-  dark/light source-style keys.
-- The tests in `desktopctl/src/theme/mod.rs` cover the rule that
-  `color_scheme` changes preserve an explicit `dark_hint` instead of
-  realigning it to scheme appearance.
-- The tests in `desktopctl/src/theme/targets/chromium.rs` cover active-profile
-  selection from `Local State`, fallback to `Default`, recursive Chromium prefs
-  merging, web-font family writes, and removal of previously managed page-size
-  prefs.
-- The tests in `desktopctl/src/theme/targets/opencode.rs` cover the generated
-  OpenCode theme-file shape, ASCII-safe JSON rendering for upstream theme
-  names, and atomic replacement of the generated custom-theme file, while
-  the tests in `desktopctl/src/theme/orchestrator.rs` cover the OpenCode
-  `color_scheme` dependency fanout.
-- The tests in `desktopctl/src/theme/targets/where_is_my_sddm_theme.rs` cover
-  the staged wallpaper copy path used by the SDDM background bridge, while the
-  registry tests in `desktopctl/src/theme/targets/mod.rs` cover the target's
-  metadata registration and managed path declaration.
-- The tests in `desktopctl/src/theme/targets/openchamber.rs` cover the generated
-  OpenChamber theme-file shape, ASCII-safe JSON rendering, and settings-file
-  merge behavior, while the tests in `desktopctl/src/theme/orchestrator.rs`
-  and `desktopctl/src/theme/mod.rs` cover the new color-target fanout.
-- The tests in `desktopctl/src/theme/targets/qt.rs` cover the declared
-  KTextEditor theme metadata and Kvantum dark/light asset selection behavior.
-- The tests in `desktopctl/src/theme/targets/zsh.rs` cover the autosuggestion
-  color selection across the full repo scheme catalog, including the light-only
-  `fg2` fallback and the `nord` dark fallback to the main foreground when no
-  muted tier clears the minimum contrast.
-- `desktopctl theme list-schemes --json`, `list-presets --json`, and
-  `status --json` now match the shapes consumed by Quickshell, including the
-  richer scheme-preview data used by the shared card selectors.
+The Rust tests cover the theming contracts that future changes are most likely
+to break: schema defaults/backfill, canonical JSON formatting, target metadata,
+state-key fanout, representative generated output for every target, app-theme
+metadata lookup, Quickshell-facing `--json` shapes, atomic file writes, and the
+`dark_hint` preservation rule for color-scheme changes.
+
+The original migration audit compared legacy Python target output against the
+Rust implementation for the migrated target set. Keep future validation focused
+on stable contracts rather than mirroring that historical target-by-target log.

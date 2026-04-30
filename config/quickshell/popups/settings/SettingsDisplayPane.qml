@@ -149,10 +149,12 @@ Components.WheelFlickable {
         let mon = root.currentMonitor;
         if (!mon || root.selectedRate < 0) return;
         let parts = root.selectedResolution.split("x");
-        DisplayService.applyMonitorConfig(
-            mon.name, parseInt(parts[0]), parseInt(parts[1]),
-            root.selectedRate, mon.x, mon.y, mon.scale, mon.transform, {}
-        );
+        let oldState = root._monitorStateFor(mon);
+        let newState = JSON.parse(JSON.stringify(oldState));
+        newState.width = parseInt(parts[0]);
+        newState.height = parseInt(parts[1]);
+        newState.refreshRate = root.selectedRate;
+        root._applyRiskyMonitorState(mon.name, oldState, newState);
     }
 
     // ── Full config apply (position, transform, extras) ──
@@ -181,10 +183,23 @@ Components.WheelFlickable {
             extras.vrr = typeof state.vrr === "boolean" ? (state.vrr ? 1 : 0) : state.vrr;
         if (state.mirrorOf && state.mirrorOf !== "none")
             extras.mirror = state.mirrorOf;
-        DisplayService.applyMonitorConfig(
+        return DisplayService.applyMonitorConfig(
             monitorName, state.width, state.height, state.refreshRate,
             state.x, state.y, state.scale, state.transform, extras
         );
+    }
+
+    function _applyRiskyMonitorState(monitorName, oldState, newState) {
+        let hadSnapshot = root._preChangeSnapshot !== null;
+        root._captureSnapshot();
+        if (!root._applyMonitorState(monitorName, newState)) {
+            if (!hadSnapshot)
+                root._preChangeSnapshot = null;
+            return;
+        }
+
+        root._showConfirmBanner();
+        HyprlandConfigService.pushMonitorUndo(monitorName, oldState, newState);
     }
 
     function applyMonitorField(field, value) {
@@ -194,14 +209,7 @@ Components.WheelFlickable {
         let newState = JSON.parse(JSON.stringify(oldState));
         newState[field] = value;
 
-        let needsConfirm = (field === "x" || field === "y" || field === "transform");
-        if (needsConfirm) {
-            root._captureSnapshot();
-            root._showConfirmBanner();
-        }
-
-        HyprlandConfigService.pushMonitorUndo(mon.name, oldState, newState);
-        root._applyMonitorState(mon.name, newState);
+        root._applyRiskyMonitorState(mon.name, oldState, newState);
     }
 
     // ── Confirmation countdown ──
@@ -225,15 +233,23 @@ Components.WheelFlickable {
     }
 
     function _revertChanges() {
+        if (!root._preChangeSnapshot) {
+            confirmTimer.stop();
+            root.confirmVisible = false;
+            return;
+        }
+
+        let snap = root._preChangeSnapshot;
+        if (!DisplayService.applyMonitorBatch(snap)) {
+            root.confirmSecondsLeft = 1;
+            root.confirmVisible = true;
+            confirmTimer.restart();
+            return;
+        }
+
         confirmTimer.stop();
         root.confirmVisible = false;
-        if (!root._preChangeSnapshot) return;
-        let snap = root._preChangeSnapshot;
         root._preChangeSnapshot = null;
-        // Apply each monitor's saved state
-        for (let i = 0; i < snap.length; i++) {
-            root._applyMonitorState(snap[i].name, snap[i]);
-        }
     }
 
     Timer {

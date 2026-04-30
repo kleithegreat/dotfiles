@@ -36,6 +36,8 @@ FocusScope {
 
     onActiveChanged: {
         if (active) {
+            calCloseAnim.stop();
+            closing = false;
             suppressHeightAnimation = true;
             let today = new Date();
             viewYear = today.getFullYear();
@@ -44,13 +46,14 @@ FocusScope {
             forceActiveFocus();
             calendarOpenWorkTimer.restart();
             if (preparePanelForOpen())
-                calOpenAnim.start();
+                calOpenAnim.restart();
         } else if (!closing) {
+            calOpenAnim.stop();
             calendarOpenWorkTimer.stop();
             if (calContentLoader.item) {
                 suppressHeightAnimation = true;
                 closing = true;
-                calCloseAnim.start();
+                calCloseAnim.restart();
             } else {
                 suppressHeightAnimation = false;
                 closing = false;
@@ -152,8 +155,9 @@ FocusScope {
         let now = new Date();
         return now.getHours() >= 7 && now.getHours() < 19;
     }
-    property real weatherLatitude: 30.6280
-    property real weatherLongitude: -96.3344
+    property real weatherLatitude: 0
+    property real weatherLongitude: 0
+    property bool weatherLocationReady: false
     property string weatherSunriseLabel: "--:--"
     property string weatherSunsetLabel: "--:--"
     property string weatherUpdatedLabel: ""
@@ -247,24 +251,24 @@ FocusScope {
     }
     function weatherVibeText(code, isDay, temperatureC) {
         if (code === 0)
-            return isDay ? "Sunny and sharp with clean skies overhead." : "Clear tonight with a calm glow outside.";
+            return isDay ? "Clear and bright right now." : "Clear and calm tonight.";
         if (code === 1 || code === 2)
-            return isDay ? "Soft light and scattered clouds. Very good window weather." : "A mellow night sky with a few clouds drifting by.";
+            return isDay ? "A few clouds with comfortable light." : "A few clouds passing through.";
         if (code === 3)
-            return "Cloud cover is doing the moody-cinematic thing today.";
+            return "Cloudy conditions outside.";
         if (code === 45 || code === 48)
-            return "Low contrast, hazy edges, and a very quiet sky.";
+            return "Fog is reducing visibility.";
         if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].indexOf(code) >= 0)
-            return "Umbrella energy. The sky is not keeping secrets.";
+            return "Rain is likely. Take an umbrella.";
         if ([71, 73, 75, 77, 85, 86].indexOf(code) >= 0)
-            return "Cold sparkle outside. Very good excuse for something warm.";
+            return "Snowy conditions outside.";
         if ([95, 96, 99].indexOf(code) >= 0)
-            return "Big dramatic clouds are currently in charge.";
+            return "Storms are nearby. Keep an eye on conditions.";
         if (temperatureC >= 27)
-            return "It is running on summer settings out there.";
+            return "Warm conditions outside.";
         if (temperatureC <= 5)
-            return "The air has real bite right now.";
-        return "Fresh forecast, same sky, slightly more stylish.";
+            return "Cold conditions outside.";
+        return "Current local conditions.";
     }
     function weatherAccentColor(code, isDay) {
         if ([95, 96, 99].indexOf(code) >= 0)
@@ -293,9 +297,7 @@ FocusScope {
         return isDay ? Theme.orangeBright : Theme.purpleBright;
     }
     function weatherCardColor() {
-        if (weatherCode === 45 || weatherCode === 48)
-            return Theme.bg2;
-        return weatherIsDay ? Theme.bg : Theme.bg0_h;
+        return Theme.bg2;
     }
     function weatherStatusColor() {
         if (weatherErrorText !== "" && !weatherReady)
@@ -307,6 +309,7 @@ FocusScope {
         return weatherAccentColor(weatherCode, weatherIsDay);
     }
     function applySunStatus(text) {
+        let foundLocation = false;
         let lines = text.split(/\r?\n/);
         for (let i = 0; i < lines.length; i++) {
             let line = lines[i].trim();
@@ -314,6 +317,8 @@ FocusScope {
             if (locationMatch) {
                 weatherLatitude = parseFloat(locationMatch[1]);
                 weatherLongitude = parseFloat(locationMatch[2]);
+                weatherLocationReady = true;
+                foundLocation = true;
                 continue;
             }
 
@@ -323,8 +328,15 @@ FocusScope {
                 weatherSunsetLabel = solarMatch[2];
             }
         }
+        return foundLocation || weatherLocationReady;
     }
     function startWeatherFetch() {
+        if (!weatherLocationReady) {
+            weatherLoading = false;
+            weatherErrorText = "Location unavailable.";
+            return;
+        }
+
         let url = "https://api.open-meteo.com/v1/forecast?latitude="
             + weatherLatitude.toFixed(4)
             + "&longitude=" + weatherLongitude.toFixed(4)
@@ -407,9 +419,9 @@ FocusScope {
         required property color accentColor
 
         radius: 12
-        color: Theme.bg
+        color: Theme.bg2
         border.width: 1
-        border.color: accentColor
+        border.color: Theme.bg3
         implicitHeight: chipCol.implicitHeight + 14
 
         Column {
@@ -493,7 +505,7 @@ FocusScope {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: parent.top
             anchors.topMargin: 2
-            color: art.isDay ? Theme.bg1 : Theme.bg2
+            color: Theme.bg1
         }
 
         Rectangle {
@@ -503,9 +515,9 @@ FocusScope {
             radius: width / 2
             x: parent.width * 0.12
             y: parent.height * 0.10
-            color: art.isDay ? art.accentColor : art.glowColor
-            border.width: art.isDay ? 0 : 1
-            border.color: art.isDay ? "transparent" : art.accentColor
+            color: art.accentColor
+            border.width: 0
+            border.color: "transparent"
         }
 
         Rectangle {
@@ -515,7 +527,7 @@ FocusScope {
             radius: width / 2
             x: orb.x + orb.width * 0.24
             y: orb.y + orb.height * 0.02
-            color: cal.weatherCardColor()
+            color: Theme.bg2
         }
 
         Rectangle {
@@ -655,9 +667,12 @@ FocusScope {
             }
         }
         onExited: (code) => {
-            if (code === 0 && sunStatusProc.buf.trim() !== "")
-                cal.applySunStatus(sunStatusProc.buf);
-            cal.startWeatherFetch();
+            if (code === 0 && sunStatusProc.buf.trim() !== "" && cal.applySunStatus(sunStatusProc.buf)) {
+                cal.startWeatherFetch();
+            } else {
+                cal.weatherLoading = false;
+                cal.weatherErrorText = cal.weatherReady ? "Showing the last good forecast." : "Location unavailable.";
+            }
         }
     }
 
@@ -755,6 +770,30 @@ FocusScope {
             layer.smooth: true
             MouseArea { anchors.fill: parent }
 
+            SequentialAnimation {
+                id: pageSwapAnim
+                ParallelAnimation {
+                    Components.Anim {
+                        target: pageLoader.item
+                        property: "opacity"
+                        from: 0
+                        to: 1
+                        duration: Theme.animContentSwap
+                        easing.type: Easing.BezierSpline
+                        easing.bezierCurve: Theme.animCurveStandard
+                    }
+                    Components.Anim {
+                        target: pageLoader.item
+                        property: "scale"
+                        from: 0.985
+                        to: 1.0
+                        duration: Theme.animContentSwap
+                        easing.type: Easing.BezierSpline
+                        easing.bezierCurve: Theme.animCurveStandard
+                    }
+                }
+            }
+
             ColumnLayout {
                 id: calShell
                 anchors.fill: parent
@@ -766,6 +805,20 @@ FocusScope {
                     Layout.fillWidth: true
                     Layout.preferredHeight: item ? item.implicitHeight : 0
                     sourceComponent: cal.currentView === "weather" ? weatherPageComponent : calendarPageComponent
+                    Behavior on Layout.preferredHeight {
+                        Components.Anim {
+                            duration: Theme.animHeightResize
+                            easing.type: Easing.BezierSpline
+                            easing.bezierCurve: Theme.animCurveStandard
+                        }
+                    }
+                    onLoaded: {
+                        if (item) {
+                            item.opacity = 0;
+                            item.scale = 0.985;
+                            pageSwapAnim.restart();
+                        }
+                    }
                 }
 
                 Rectangle {
@@ -966,7 +1019,7 @@ FocusScope {
                                     elide: Text.ElideRight
                                 }
                                 Text {
-                                    text: cal.weatherReady ? "Current conditions." : "Fetching conditions."
+                                    text: cal.weatherReady ? "Live local conditions." : "Fetching local conditions."
                                     color: Theme.fg4
                                     font.family: Theme.systemFamily
                                     font.pixelSize: Theme.fontSizeSmall
@@ -1024,7 +1077,7 @@ FocusScope {
                             clip: true
                             color: cal.weatherCardColor()
                             border.width: 1
-                            border.color: cal.weatherAccentColor(cal.weatherCode, cal.weatherIsDay)
+                            border.color: Theme.bg3
                             implicitHeight: 162
 
                             WeatherSkyArt {
@@ -1123,9 +1176,9 @@ FocusScope {
                         Rectangle {
                             Layout.fillWidth: true
                             radius: 14
-                            color: Theme.bg
+                            color: Theme.bg2
                             border.width: 1
-                            border.color: Theme.orangeBright
+                            border.color: Theme.bg3
                             implicitHeight: solarRow.implicitHeight + 18
 
                             RowLayout {

@@ -141,6 +141,8 @@ FocusScope {
 
     onActiveChanged: {
         if (active) {
+            settingsCloseAnim.stop();
+            closing = false;
             forceActiveFocus();
             contentLoaded = true;
             wallpaperDir = "";
@@ -149,15 +151,16 @@ FocusScope {
             settingsRefreshTimer.stop();
             settingsRefreshTimer.start();
             if (preparePanelForOpen())
-                settingsOpenAnim.start();
+                settingsOpenAnim.restart();
         }
         else if (!closing) {
+            settingsOpenAnim.stop();
             settingsRefreshTimer.stop();
             cancelFingerprintAction();
             closeDirectoryBrowser();
             if (settingsContentLoader.item) {
                 closing = true;
-                settingsCloseAnim.start();
+                settingsCloseAnim.restart();
             } else {
                 closing = false;
             }

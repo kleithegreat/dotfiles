@@ -22,10 +22,12 @@ FocusScope {
 
     onActiveChanged: {
         if (active) {
+            pwrCloseTimer.stop();
+            closing = false;
             forceActiveFocus();
             contentLoaded = true;
         } else if (!closing) {
-            closing = true; pwrCloseTimer.start();
+            closing = true; pwrCloseTimer.restart();
         }
     }
     Timer { id: pwrCloseTimer; interval: Theme.animPopupOut; onTriggered: powerMenu.closing = false }
@@ -56,10 +58,10 @@ FocusScope {
             anchors.fill: parent; spacing: Theme.powerBtnSpacing
             Repeater {
                 model: [
-                    { icon: "../icons/lock.svg",    label: "Lock",     cmd: "loginctl lock-session" },
-                    { icon: "../icons/zzz.svg",     label: "Suspend",  cmd: "systemctl suspend" },
-                    { icon: "../icons/refresh.svg", label: "Reboot",   cmd: "systemctl reboot" },
-                    { icon: "../icons/power.svg",   label: "Shutdown", cmd: "systemctl poweroff" }
+                    { icon: "../icons/lock.svg",    label: "Lock",     argv: ["loginctl", "lock-session"] },
+                    { icon: "../icons/zzz.svg",     label: "Suspend",  argv: ["systemctl", "suspend"] },
+                    { icon: "../icons/refresh.svg", label: "Reboot",   argv: ["systemctl", "reboot"] },
+                    { icon: "../icons/power.svg",   label: "Shutdown", argv: ["systemctl", "poweroff"] }
                 ]
                 Rectangle {
                     id: pwrBtn; required property var modelData; required property int index
@@ -112,7 +114,8 @@ FocusScope {
                         pressedScale: pwrBtn.index >= 2 ? 0.92 : 0.95
                         onClicked: {
                             powerMenu.close();
-                            pwrProc.command = ["sh", "-c", pwrBtn.modelData.cmd];
+                            pwrProc.errorText = "";
+                            pwrProc.command = pwrBtn.modelData.argv;
                             pwrProc.running = true;
                         }
 
@@ -139,5 +142,17 @@ FocusScope {
             }
         }
     }
-    Process { id: pwrProc; running: false }
+    Process {
+        id: pwrProc
+        running: false
+        property string errorText: ""
+        stderr: SplitParser { onRead: (line) => { pwrProc.errorText += line + "\n"; } }
+        onExited: (code) => {
+            if (code !== 0) {
+                let detail = errorText.trim();
+                ToastService.showError(detail !== "" ? detail : "Power action failed");
+            }
+            errorText = "";
+        }
+    }
 }

@@ -7,7 +7,7 @@ use std::{
     os::unix::net::UnixStream,
     path::{Path, PathBuf},
     process::Command,
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 pub const METHOD_NIGHT_LIGHT_STATUS: &str = "night_light.status";
@@ -15,6 +15,7 @@ pub const METHOD_NIGHT_LIGHT_SET: &str = "night_light.set";
 pub const METHOD_NIGHT_LIGHT_TOGGLE: &str = "night_light.toggle";
 pub const NIGHT_LIGHT_MIN_TEMP: i32 = 3000;
 pub const NIGHT_LIGHT_MAX_TEMP: i32 = 6500;
+const SOCKET_TIMEOUT: Duration = Duration::from_secs(3);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -254,6 +255,8 @@ where
             format!("failed to connect to {}: {error}", socket_path.display()),
         )
     })?;
+    stream.set_read_timeout(Some(SOCKET_TIMEOUT))?;
+    stream.set_write_timeout(Some(SOCKET_TIMEOUT))?;
 
     let payload = RequestEnvelope {
         method: method.to_owned(),
@@ -307,7 +310,6 @@ fn socket_unavailable(error: &(dyn std::error::Error + 'static)) -> bool {
             io::ErrorKind::NotFound
                 | io::ErrorKind::ConnectionRefused
                 | io::ErrorKind::ConnectionReset
-                | io::ErrorKind::PermissionDenied
         )
     })
 }
@@ -339,6 +341,8 @@ fn hyprsunset_ipc_request(request: &str) -> crate::Result<String> {
             format!("failed to connect to {}: {error}", socket_path.display()),
         )
     })?;
+    stream.set_read_timeout(Some(SOCKET_TIMEOUT))?;
+    stream.set_write_timeout(Some(SOCKET_TIMEOUT))?;
 
     stream.write_all(request.as_bytes())?;
     stream.shutdown(Shutdown::Write)?;
@@ -543,7 +547,7 @@ mod tests {
             io::ErrorKind::ConnectionReset,
             "reset",
         )));
-        assert!(socket_unavailable(&io::Error::new(
+        assert!(!socket_unavailable(&io::Error::new(
             io::ErrorKind::PermissionDenied,
             "denied",
         )));

@@ -1321,7 +1321,8 @@ QtObject {
             "base_avg=$(echo \"$base_out\" | grep -E 'rtt|round-trip' | grep -oP '[\\d.]+' | sed -n '2p'); " +
             "[ -z \"$base_avg\" ] && base_avg=0; " +
             // Download test with concurrent router ping
-            "ping -c 60 -i 0.5 -W 1 \"$gw\" > /tmp/whyfi_load_ping 2>/dev/null & " +
+            "load_ping=$(mktemp); tmpf=''; cleanup() { [ -n \"$ping_pid\" ] && kill \"$ping_pid\" 2>/dev/null; [ -n \"$ping_pid\" ] && wait \"$ping_pid\" 2>/dev/null; rm -f \"$load_ping\" \"$tmpf\"; }; trap cleanup EXIT; " +
+            "ping -c 60 -i 0.5 -W 1 \"$gw\" > \"$load_ping\" 2>/dev/null & " +
             "ping_pid=$!; " +
             "down_bps=$(curl -o /dev/null -w '%{speed_download}' -s --max-time 15 " +
             "'https://speed.cloudflare.com/__down?bytes=25000000'); " +
@@ -1334,13 +1335,13 @@ QtObject {
             "--data-binary @\"$tmpf\" " +
             "-H 'Content-Type: application/octet-stream' " +
             "'https://speed.cloudflare.com/__up'); " +
-            "rm -f \"$tmpf\"; " +
+            "rm -f \"$tmpf\"; tmpf=''; " +
             "up_mbps=$(echo \"scale=1; $up_bps * 8 / 1000000\" | bc 2>/dev/null); " +
             "echo \"UP=${up_mbps:---}\"; " +
             // Stop the background ping, analyze results
-            "kill $ping_pid 2>/dev/null; wait $ping_pid 2>/dev/null; " +
-            "load_out=$(cat /tmp/whyfi_load_ping 2>/dev/null); " +
-            "rm -f /tmp/whyfi_load_ping; " +
+            "kill \"$ping_pid\" 2>/dev/null; wait \"$ping_pid\" 2>/dev/null; ping_pid=''; " +
+            "load_out=$(cat \"$load_ping\" 2>/dev/null); " +
+            "rm -f \"$load_ping\"; " +
             "load_avg=$(echo \"$load_out\" | grep -E 'rtt|round-trip' | grep -oP '[\\d.]+' | sed -n '2p'); " +
             "[ -z \"$load_avg\" ] && load_avg=0; " +
             // Calculate bloat ratio

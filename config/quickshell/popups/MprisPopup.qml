@@ -8,7 +8,8 @@ FocusScope {
     id: mprisPop
     property bool active: false; signal close()
     property bool closing: false
-    readonly property bool overlayVisible: (active || closing) && Mpris.players.values.length > 0
+    readonly property bool hasPlayers: Mpris.players.values.length > 0
+    readonly property bool overlayVisible: (active || closing) && hasPlayers
     readonly property Item panelItem: mprisPanel
     readonly property Item focusTarget: mprisPop
     readonly property bool scrimEnabled: false
@@ -58,12 +59,22 @@ FocusScope {
 
     onActiveChanged: {
         if (active) {
+            if (!hasPlayers) {
+                close();
+                return;
+            }
+            mprisCloseAnim.stop();
+            closing = false;
             forceActiveFocus();
             mprisPanel.opacity = 0;
             mprisPanel.scale = Theme.popupStartScale;
-            mprisOpenAnim.start();
+            mprisOpenAnim.restart();
         }
-        else if (!closing) { closing = true; mprisCloseAnim.start(); }
+        else if (!closing) { mprisOpenAnim.stop(); closing = true; mprisCloseAnim.restart(); }
+    }
+    onHasPlayersChanged: {
+        if (!hasPlayers && active)
+            close();
     }
     Keys.onEscapePressed: mprisPop.close()
 

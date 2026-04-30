@@ -18,7 +18,7 @@ const DIM_STEPS: u32 = 20;
 const DIM_DELAY: Duration = Duration::from_millis(50);
 const BACKLIGHT_ROOT: &str = "/sys/class/backlight";
 const DIM_PID_PATH: &str = "/tmp/dim-screen.pid";
-const DDC_DIM_STATE_PATH: &str = "/tmp/dim-screen-ddc-state";
+const DDC_DIM_STATE_FILE: &str = "dim-screen-ddc-state";
 const DDC_BRIGHTNESS_VCP: &str = "10";
 
 const SIGHUP: i32 = 1;
@@ -92,7 +92,7 @@ pub fn set(device: Option<&str>, percent: u8) -> Result<()> {
     };
 
     set_raw(&state.device, raw)?;
-    notify_quickshell_osd(fraction);
+    notify_quickshell_osd(display_fraction_for_raw(&state.device, raw, state.max));
     Ok(())
 }
 
@@ -152,7 +152,9 @@ pub fn restore(device: Option<&str>) -> Result<()> {
         BrightnessDevice::Ddc { display } => {
             let raw = read_ddc_dim_state(&display)?;
             set_raw(&BrightnessDevice::Ddc { display }, raw)?;
-            let _ = fs::remove_file(DDC_DIM_STATE_PATH);
+            if let Ok(path) = ddc_dim_state_path() {
+                let _ = fs::remove_file(path);
+            }
         }
     }
     Ok(())
@@ -175,7 +177,7 @@ fn step(device: Option<&str>, direction: f64) -> Result<()> {
     };
 
     set_raw(&state.device, raw)?;
-    notify_quickshell_osd(next);
+    notify_quickshell_osd(display_fraction_for_raw(&state.device, raw, max));
     Ok(())
 }
 
@@ -210,25 +212,26 @@ fn resolve_device(device: Option<&str>) -> Result<BrightnessDevice> {
 }
 
 fn first_backlight_device() -> Result<Option<String>> {
-    let mut entries = match fs::read_dir(BACKLIGHT_ROOT) {
+    let entries = match fs::read_dir(BACKLIGHT_ROOT) {
         Ok(entries) => entries,
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
         Err(error) => return Err(error.into()),
     };
 
-    let Some(entry) = entries.find_map(|entry| entry.ok()) else {
-        return Ok(None);
-    };
+    let mut devices = Vec::new();
+    for entry in entries {
+        let entry = entry?;
+        let name = entry.file_name().into_string().map_err(|_| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                "backlight device name is not valid UTF-8",
+            )
+        })?;
+        devices.push(name);
+    }
+    devices.sort();
 
-    let name = entry.file_name();
-    let device = name.into_string().map_err(|_| {
-        io::Error::new(
-            io::ErrorKind::InvalidData,
-            "backlight device name is not valid UTF-8",
-        )
-    })?;
-
-    Ok(Some(device))
+    Ok(devices.into_iter().next())
 }
 
 fn parse_ddc_device(device: &str) -> Option<Option<String>> {
@@ -399,15 +402,16 @@ fn save_ddc_dim_state(state: &BrightnessState) -> Result<()> {
         return Ok(());
     };
     let display = display.as_deref().unwrap_or("");
-    fs::write(
-        DDC_DIM_STATE_PATH,
-        format!("{display}\n{}\n", state.current),
-    )?;
+    let path = ddc_dim_state_path()?;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(path, format!("{display}\n{}\n", state.current))?;
     Ok(())
 }
 
 fn read_ddc_dim_state(display: &Option<String>) -> Result<u64> {
-    let contents = fs::read_to_string(DDC_DIM_STATE_PATH)?;
+    let contents = fs::read_to_string(ddc_dim_state_path()?)?;
     let mut lines = contents.lines();
     let saved_display = lines.next().unwrap_or("");
     let raw = lines
@@ -424,6 +428,12 @@ fn read_ddc_dim_state(display: &Option<String>) -> Result<u64> {
     }
 
     Ok(raw)
+}
+
+fn ddc_dim_state_path() -> Result<PathBuf> {
+    Ok(paths::xdg_runtime_dir()?
+        .join("desktopctl")
+        .join(DDC_DIM_STATE_FILE))
 }
 
 fn notify_quickshell_osd(perceived_fraction: f64) {
@@ -460,6 +470,13 @@ fn perceived_to_raw(perceived: f64, max: u64) -> u64 {
 fn fraction_to_raw(fraction: f64, max: u64) -> u64 {
     let raw = (max as f64 * fraction.clamp(0.0, 1.0)).round();
     raw.clamp(0.0, max as f64) as u64
+}
+
+fn display_fraction_for_raw(device: &BrightnessDevice, raw: u64, max: u64) -> f64 {
+    match device {
+        BrightnessDevice::Backlight(_) => raw_to_perceived(raw, max),
+        BrightnessDevice::Ddc { .. } => raw as f64 / max as f64,
+    }
 }
 
 fn install_dim_signal_handlers() -> io::Result<()> {
@@ -574,5 +591,12 @@ mod tests {
         assert_eq!(parse_ddc_device("ddc"), Some(None));
         assert_eq!(parse_ddc_device("ddc:2"), Some(Some("2".to_owned())));
         assert_eq!(parse_ddc_device("intel_backlight"), None);
+    }
+
+    #[test]
+    fn display_fraction_for_backlight_reports_actual_nonzero_raw_value() {
+        let device = BrightnessDevice::Backlight("intel_backlight".to_owned());
+
+        assert!(display_fraction_for_raw(&device, 1, 100) > 0.0);
     }
 }
