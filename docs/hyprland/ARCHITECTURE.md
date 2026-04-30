@@ -124,7 +124,10 @@ initialization when `hyprbars` registers V2 plugin values under the legacy
 config manager. The companion
 `patches/hyprland-plugins/hyprexpo-hyprland-0.54.patch` still carries the
 remaining renderer/API migration for `hyprexpo`, plus the workspace-switch call
-updates required by current Hyprland headers.
+updates required by current Hyprland headers. The Hyprexpo close path switches
+through `Config::Actions::changeWorkspace(...)` instead of
+`CMonitor::changeWorkspace(WORKSPACEID)` so clicking an overview tile whose
+workspace does not exist yet still creates and focuses that empty workspace.
 
 Monitor behavior follows the same host split as inputs:
 

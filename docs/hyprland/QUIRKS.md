@@ -96,3 +96,21 @@ legacy plugin-config path used by the other working plugins on this stack:
 code read live values through `HyprlandAPI::getConfigValue(...)` instead of the
 crashing `addConfigValueV2(...)` / `Config::Values::*Value` path. Re-test
 `hyprbars` against future input bumps before dropping that local workaround.
+
+## Hyprexpo empty workspace clicks need the action path
+
+**Symptom:** From the Hyprexpo overview, clicking a tile for a workspace with no
+active applications closes the overview but lands back on the workspace where
+Hyprexpo was launched.
+
+**Cause:** Current Hyprland keeps workspace creation in the action/dispatcher
+path. `CMonitor::changeWorkspace(WORKSPACEID)` only resolves an existing
+workspace and returns without switching when `g_pCompositor->getWorkspaceByID`
+returns null. Hyprexpo's overview tiles can represent not-yet-created empty
+workspaces, so calling that monitor overload makes empty-tile selection a no-op.
+
+**Status:** Fixed in
+`patches/hyprland-plugins/hyprexpo-hyprland-0.54.patch` by calling
+`Config::Actions::changeWorkspace(...)` for both existing and missing target
+workspace IDs. That keeps the current Hyprland creation, focus, event, and
+animation behavior instead of duplicating it in the plugin patch.

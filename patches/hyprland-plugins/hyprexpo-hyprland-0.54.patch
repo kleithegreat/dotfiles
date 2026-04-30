@@ -54,7 +54,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/main.cpp b/main.cpp
 diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
 --- a/overview.cpp	2026-03-29 22:21:26.425792121 -0500
 +++ b/overview.cpp	2026-03-29 22:22:39.939288217 -0500
-@@ -1,29 +1,36 @@
+@@ -1,29 +1,37 @@
  #include "overview.hpp"
  #include <any>
 +#include <chrono>
@@ -65,6 +65,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
  #include <hyprland/src/desktop/state/FocusState.hpp>
  #include <hyprland/src/config/ConfigValue.hpp>
  #include <hyprland/src/config/ConfigManager.hpp>
++#include <hyprland/src/config/shared/actions/ConfigActions.hpp>
 +#include <hyprland/src/config/shared/animation/AnimationTree.hpp>
  #include <hyprland/src/managers/animation/AnimationManager.hpp>
  #include <hyprland/src/managers/animation/DesktopAnimationManager.hpp>
@@ -93,7 +94,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
  }
  
  COverview::COverview(PHLWORKSPACE startedOn_, bool swipe_) : startedOn(startedOn_), swipe(swipe_) {
-@@ -43,7 +50,7 @@
+@@ -43,7 +51,7 @@
      // process the method
      bool     methodCenter  = true;
      int      methodStartID = pMonitor->activeWorkspaceID();
@@ -102,7 +103,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
      if (method.size() < 2)
          Log::logger->log(Log::ERR, "[he] invalid workspace_method");
      else {
-@@ -120,7 +127,7 @@
+@@ -120,7 +128,7 @@
          pMonitor->m_activeWorkspace = startedOn;
      }
  
@@ -111,7 +112,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
  
      Vector2D tileSize       = pMonitor->m_size / SIDE_LENGTH;
      Vector2D tileRenderSize = (pMonitor->m_size - Vector2D{GAP_WIDTH * pMonitor->m_scale, GAP_WIDTH * pMonitor->m_scale} * (SIDE_LENGTH - 1)) / SIDE_LENGTH;
-@@ -141,12 +148,14 @@
+@@ -141,12 +149,14 @@
  
      for (size_t i = 0; i < (size_t)(SIDE_LENGTH * SIDE_LENGTH); ++i) {
          COverview::SWorkspaceImage& image = images[i];
@@ -129,7 +130,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
  
          const auto PWORKSPACE = g_pCompositor->getWorkspaceByID(image.workspaceID);
  
-@@ -175,7 +184,7 @@
+@@ -175,7 +185,7 @@
          image.box = {(i % SIDE_LENGTH) * tileRenderSize.x + (i % SIDE_LENGTH) * GAP_WIDTH, (i / SIDE_LENGTH) * tileRenderSize.y + (i / SIDE_LENGTH) * GAP_WIDTH, tileRenderSize.x,
                       tileRenderSize.y};
  
@@ -138,7 +139,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
          g_pHyprRenderer->endRender();
      }
  
-@@ -189,10 +198,10 @@
+@@ -189,10 +199,10 @@
      // zoom on the current workspace.
      // const auto& TILE = images[std::clamp(currentid, 0, SIDE_LENGTH * SIDE_LENGTH)];
  
@@ -151,7 +152,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
  
      size->setUpdateCallback(damageMonitor);
      pos->setUpdateCallback(damageMonitor);
-@@ -209,6 +218,7 @@
+@@ -209,6 +219,7 @@
      Cursor::overrideController->setOverride("left_ptr", Cursor::CURSOR_OVERRIDE_UNKNOWN);
  
      lastMousePosLocal = g_pInputManager->getMouseCoordsInternal() - pMonitor->m_position;
@@ -159,7 +160,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
  
      auto onCursorMove = [this](Event::SCallbackInfo& info) {
          if (closing)
-@@ -218,12 +228,16 @@
+@@ -218,12 +229,16 @@
          lastMousePosLocal = g_pInputManager->getMouseCoordsInternal() - pMonitor->m_position;
      };
  
@@ -177,7 +178,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
          selectHoveredWorkspace();
  
          close();
-@@ -250,14 +264,14 @@
+@@ -250,14 +265,14 @@
      if (!pMonitor)
          return;
  
@@ -194,7 +195,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
  
      id = std::clamp(id, 0, SIDE_LENGTH * SIDE_LENGTH);
  
-@@ -273,15 +287,18 @@
+@@ -273,15 +288,18 @@
  
      auto& image = images[id];
  
@@ -218,7 +219,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
  
      const auto   PWORKSPACE = image.pWorkspace;
  
-@@ -309,7 +326,7 @@
+@@ -309,7 +327,7 @@
      } else
          g_pHyprRenderer->renderWorkspace(pMonitor.lock(), PWORKSPACE, Time::steadyNow(), monbox);
  
@@ -227,19 +228,19 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
      g_pHyprRenderer->endRender();
  
      pMonitor->m_activeSpecialWorkspace = openSpecial;
-@@ -387,9 +404,9 @@
-         const auto OLDWS = pMonitor->m_activeWorkspace;
- 
+@@ -387,9 +405,4 @@
+-        const auto OLDWS = pMonitor->m_activeWorkspace;
+-
          if (!NEWIDWS)
 -            g_pKeybindManager->changeworkspace(std::to_string(NEWID));
-+            pMonitor->changeWorkspace(NEWID);
++            Config::Actions::changeWorkspace(std::to_string(NEWID));
          else
 -            g_pKeybindManager->changeworkspace(NEWIDWS->getConfigName());
-+            pMonitor->changeWorkspace(NEWIDWS);
- 
-         g_pDesktopAnimationManager->startAnimation(pMonitor->m_activeWorkspace, CDesktopAnimationManager::ANIMATION_TYPE_IN, true, true);
-         g_pDesktopAnimationManager->startAnimation(OLDWS, CDesktopAnimationManager::ANIMATION_TYPE_OUT, false, true);
-@@ -433,7 +449,7 @@
+-
+-        g_pDesktopAnimationManager->startAnimation(pMonitor->m_activeWorkspace, CDesktopAnimationManager::ANIMATION_TYPE_IN, true, true);
+-        g_pDesktopAnimationManager->startAnimation(OLDWS, CDesktopAnimationManager::ANIMATION_TYPE_OUT, false, true);
++            Config::Actions::changeWorkspace(NEWIDWS->getConfigName());
+@@ -433,7 +445,7 @@
  void COverview::fullRender() {
      const auto GAPSIZE = (closing ? (1.0 - size->getPercent()) : size->getPercent()) * GAP_WIDTH;
  
@@ -248,7 +249,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
          // likely user changed.
          onWorkspaceChange();
      }
-@@ -443,15 +459,17 @@
+@@ -443,15 +455,17 @@
      Vector2D tileSize       = (SIZE / SIDE_LENGTH);
      Vector2D tileRenderSize = (SIZE - Vector2D{GAPSIZE, GAPSIZE} * (SIDE_LENGTH - 1)) / SIDE_LENGTH;
  
