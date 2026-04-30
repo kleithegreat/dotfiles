@@ -97,6 +97,23 @@ code read live values through `HyprlandAPI::getConfigValue(...)` instead of the
 crashing `addConfigValueV2(...)` / `Config::Values::*Value` path. Re-test
 `hyprbars` against future input bumps before dropping that local workaround.
 
+## Hyprbars needs pass simplification disabled for Hyprexpo captures
+
+**Symptom:** Floating windows render with `hyprbars` in the normal workspace, but
+their title bars disappear from the `hyprexpo` overview tiles.
+
+**Cause:** `hyprexpo` captures each workspace through Hyprland's fake render
+path. In Hyprland 0.54, render-pass simplification walks elements in reverse and
+can let later opaque window surfaces drain the damage region before the
+under-window `hyprbars` decoration pass is reached. Returning no bounding box is
+not sufficient because the element can still receive empty damage.
+
+**Status:** Fixed in
+`patches/hyprland-plugins/hyprbars-hyprland-0.54.patch` by adding
+`CBarPassElement::disableSimplification()` and keeping a real bounding box for
+blur/debug bookkeeping. Re-check this patch when Hyprland changes pass
+simplification or when upstream `hyprbars` changes its decoration layer.
+
 ## Hyprexpo empty workspace clicks need the action path
 
 **Symptom:** From the Hyprexpo overview, clicking a tile for a workspace with no

@@ -114,9 +114,10 @@ absorbed most of the Hyprland 0.54 API porting in `hyprbars`, so the remaining
 local `patches/hyprland-plugins/hyprbars-hyprland-0.54.patch` now carries the
 behavior delta plus the current plugin-init workaround: `hyprbars/barDeco.cpp`
 renders the bar background with top-only rounded corners instead of the old
-oversized rounded-rect fill hack, `hyprbars/BarPassElement.cpp` disables
-occlusion culling so `hyprexpo`'s offscreen workspace captures keep the bar
-background visible, and `hyprbars/main.cpp` / `hyprbars/globals.hpp` keep the
+oversized rounded-rect fill hack, `hyprbars/BarPassElement.cpp` and
+`hyprbars/BarPassElement.hpp` opt the custom bar pass out of render-pass
+simplification so `hyprexpo`'s offscreen workspace captures keep under-window
+decorations visible, and `hyprbars/main.cpp` / `hyprbars/globals.hpp` keep the
 plugin on the legacy `HyprlandAPI::addConfigValue(...)` plus
 `HyprlandAPI::getConfigValue(...)` path instead of `addConfigValueV2(...)`
 because the current Hyprland input aborts during `libhyprbars.so`

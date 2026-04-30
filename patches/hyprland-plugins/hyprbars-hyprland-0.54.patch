@@ -1,8 +1,8 @@
 diff --git a/BarPassElement.cpp b/BarPassElement.cpp
-index e714036..5c52b8b 100644
+index e714036..4eea11c 100644
 --- a/BarPassElement.cpp
 +++ b/BarPassElement.cpp
-@@ -17,16 +17,16 @@ std::vector<UP<IPassElement>> CBarPassElement::draw() {
+@@ -17,18 +17,23 @@ std::vector<UP<IPassElement>> CBarPassElement::draw() {
  bool CBarPassElement::needsLiveBlur() {
      static auto* const PENABLEBLURGLOBAL = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "decoration:blur:enabled")->getDataStaticPtr();
  
@@ -17,12 +17,30 @@ index e714036..5c52b8b 100644
  
  std::optional<CBox> CBarPassElement::boundingBox() {
 -    // Temporary fix: expand the bar bb a bit, otherwise occlusion gets too aggressive.
--    return data.deco->assignedBoxGlobal().translate(-g_pHyprRenderer->m_renderData.pMonitor->m_position).expand(10);
-+    // Disable occlusion culling so expo captures keep the bar pass visible.
-+    return std::nullopt;
+     return data.deco->assignedBoxGlobal().translate(-g_pHyprRenderer->m_renderData.pMonitor->m_position).expand(10);
  }
  
++bool CBarPassElement::disableSimplification() {
++    // Hyprexpo fake workspace captures can drain damage before under-window
++    // decorations render, so keep the bar pass out of occlusion simplification.
++    return true;
++}
++
  bool CBarPassElement::needsPrecomputeBlur() {
+     return false;
+ }
+diff --git a/BarPassElement.hpp b/BarPassElement.hpp
+index 43f22de..d5c864b 100644
+--- a/BarPassElement.hpp
++++ b/BarPassElement.hpp
+@@ -17,6 +17,7 @@ class CBarPassElement : public IPassElement {
+     virtual bool                          needsLiveBlur() override;
+     virtual bool                          needsPrecomputeBlur() override;
+     virtual std::optional<CBox>           boundingBox() override;
++    virtual bool                          disableSimplification() override;
+ 
+     virtual const char*                   passName() override {
+         return "CBarPassElement";
 diff --git a/barDeco.cpp b/barDeco.cpp
 index f95fef1..d10ec92 100644
 --- a/barDeco.cpp
