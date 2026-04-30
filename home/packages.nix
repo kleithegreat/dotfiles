@@ -11,6 +11,7 @@ let
     lspPlugins
     quickshell
     snappySwitcherPkg
+    vicinaePkg
   ];
 
   basePackages = with pkgs; [
@@ -130,8 +131,4 @@ in
 {
   home.packages = customPackages ++ basePackages ++ kdePackages;
 
-  services.vicinae = {
-    enable = true;
-    package = vicinaePkg;
-  };
 }

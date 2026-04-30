@@ -146,22 +146,22 @@ in
   security.rtkit.enable = true;
 
   hardware.bluetooth = {
-    enable = true;
-    powerOnBoot = true;
+    enable = false;
+    powerOnBoot = false;
     settings.General.Experimental = true;
   };
-  services.blueman.enable = true;
+  services.blueman.enable = false;
 
-  services.printing.enable = true;
+  services.printing.enable = false;
   services.avahi = {
-    enable = true;
-    nssmdns4 = true;
-    openFirewall = true;
+    enable = false;
+    nssmdns4 = false;
+    openFirewall = false;
   };
 
   services.samba = {
-    enable = true;
-    openFirewall = true;
+    enable = false;
+    openFirewall = false;
     settings = {
       global = {
         workgroup = "WORKGROUP";
