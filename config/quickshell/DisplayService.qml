@@ -169,22 +169,20 @@ QtObject {
 
     function applyMonitorMode(name, width, height, rate, scale) {
         if (monitorApplyProc.running)
-            return;
+            return false;
 
         monitorApplyStatus = "applying";
         monitorApplyStatusTimer.stop();
-        monitorApplyProc.command = [
-            "hyprctl", "keyword", "monitor",
-            name + "," + width + "x" + height + "@" + rate.toFixed(2) + ",auto," + scale
-        ];
+        monitorApplyProc.command = ["hyprctl", "keyword", "monitor", monitorSpec(name, width, height, rate, "auto", 0, scale, 0, null)];
         monitorApplyProc.running = true;
+        return true;
     }
 
-    // Full monitor config: position, transform, and inline extras (vrr, bitdepth, mirror).
-    // extras is an object, e.g. { vrr: 1, bitdepth: 10, mirror: "DP-1" }
-    function applyMonitorConfig(name, width, height, rate, x, y, scale, transform, extras) {
-        if (monitorApplyProc.running)
-            return;
+    function monitorSpec(name, width, height, rate, x, y, scale, transform, extras) {
+        if (x === "auto") {
+            let autoScale = scale !== undefined ? scale : y;
+            return name + "," + width + "x" + height + "@" + rate.toFixed(2) + ",auto," + autoScale;
+        }
 
         let cmd = name + "," + width + "x" + height + "@" + rate.toFixed(2)
                 + "," + x + "x" + y + "," + scale;
@@ -199,11 +197,42 @@ QtObject {
                     cmd += "," + k + "," + v;
             }
         }
+        return cmd;
+    }
+
+    // Full monitor config: position, transform, and inline extras (vrr, bitdepth, mirror).
+    // extras is an object, e.g. { vrr: 1, bitdepth: 10, mirror: "DP-1" }
+    function applyMonitorConfig(name, width, height, rate, x, y, scale, transform, extras) {
+        if (monitorApplyProc.running)
+            return false;
 
         monitorApplyStatus = "applying";
         monitorApplyStatusTimer.stop();
-        monitorApplyProc.command = ["hyprctl", "keyword", "monitor", cmd];
+        monitorApplyProc.command = ["hyprctl", "keyword", "monitor", monitorSpec(name, width, height, rate, x, y, scale, transform, extras)];
         monitorApplyProc.running = true;
+        return true;
+    }
+
+    function applyMonitorBatch(states) {
+        if (monitorApplyProc.running || !states || states.length === 0)
+            return false;
+
+        let commands = [];
+        for (let i = 0; i < states.length; i++) {
+            let state = states[i];
+            let extras = {};
+            if (state.vrr !== undefined && state.vrr !== false && state.vrr !== 0)
+                extras.vrr = typeof state.vrr === "boolean" ? (state.vrr ? 1 : 0) : state.vrr;
+            if (state.mirrorOf && state.mirrorOf !== "none")
+                extras.mirror = state.mirrorOf;
+            commands.push("keyword monitor " + monitorSpec(state.name, state.width, state.height, state.refreshRate, state.x, state.y, state.scale, state.transform, extras));
+        }
+
+        monitorApplyStatus = "applying";
+        monitorApplyStatusTimer.stop();
+        monitorApplyProc.command = ["hyprctl", "--batch", commands.join(" ; ")];
+        monitorApplyProc.running = true;
+        return true;
     }
 
     property Process monitorsFetchProc: Process {

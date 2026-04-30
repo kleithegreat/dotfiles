@@ -9,7 +9,8 @@ FocusScope {
     id: trayPop
     property bool active: false; signal close()
     property bool closing: false
-    readonly property bool overlayVisible: (active || closing) && SystemTray.items.values.length > 0
+    readonly property bool hasItems: SystemTray.items.values.length > 0
+    readonly property bool overlayVisible: (active || closing) && hasItems
     readonly property Item panelItem: trayPanel
     readonly property Item focusTarget: trayPop
     readonly property bool scrimEnabled: false
@@ -22,12 +23,22 @@ FocusScope {
 
     onActiveChanged: {
         if (active) {
+            if (!hasItems) {
+                close();
+                return;
+            }
+            trayCloseAnim.stop();
+            closing = false;
             forceActiveFocus();
             trayPanel.opacity = 0;
             trayPanel.scale = Theme.popupStartScale;
-            trayOpenAnim.start();
+            trayOpenAnim.restart();
         }
-        else if (!closing) { closing = true; TooltipService.hide(); trayCloseAnim.start(); }
+        else if (!closing) { trayOpenAnim.stop(); closing = true; TooltipService.hide(); trayCloseAnim.restart(); }
+    }
+    onHasItemsChanged: {
+        if (!hasItems && active)
+            close();
     }
     Keys.onEscapePressed: trayPop.close()
 

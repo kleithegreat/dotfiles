@@ -3,7 +3,7 @@
 ## Scope
 
 Current implementation map for `config/quickshell/` and its theme/runtime
-integration as of 2026-04-19.
+integration.
 
 ## Shell Topology
 
@@ -31,6 +31,7 @@ Managed popups mounted by the overlay host remain:
 | `components/SettingsPaneHeader.qml`, `components/ActionButton.qml`, `components/StepperButton.qml`, and `components/ValueStepper.qml` | Shared header, button, and numeric-stepper chrome for settings panes and the preset editor, replacing repeated local `Rectangle` + `HoverLayer` control scaffolding. | `config/quickshell/components/SettingsPaneHeader.qml`, `config/quickshell/components/ActionButton.qml`, `config/quickshell/components/StepperButton.qml`, `config/quickshell/components/ValueStepper.qml`, plus their use in `config/quickshell/popups/settings/SettingsFontsPane.qml`, `config/quickshell/popups/settings/SettingsMousePane.qml`, `config/quickshell/popups/settings/SettingsHyprlandPane.qml`, `config/quickshell/popups/settings/SettingsIconsPane.qml`, and `config/quickshell/popups/settings/SettingsPresetEditor.qml` |
 | `components/ColorSchemeCard.qml` and `components/ColorSchemeCards.qml` | Shared responsive scheme-preview cards for the Colors pane and preset editor. They consume `colorFamilies`, adapt the column count to available width, and highlight the active scheme without falling back to dropdown-only selection. | `config/quickshell/components/ColorSchemeCard.qml`, `config/quickshell/components/ColorSchemeCards.qml`, `config/quickshell/popups/settings/SettingsColorsPane.qml`, and `config/quickshell/popups/settings/SettingsPresetEditor.qml` |
 | `components/IconThemeCard.qml` and `components/IconThemeCards.qml` | Shared responsive icon-theme preview cards for the Icons pane and preset editor. They keep icon-theme selection pointer-first while replacing the old bare dropdown with family/variant labeling plus representative icons loaded from each installed icon theme. | `config/quickshell/components/IconThemeCard.qml`, `config/quickshell/components/IconThemeCards.qml`, `config/quickshell/popups/settings/SettingsIconsPane.qml`, and `config/quickshell/popups/settings/SettingsPresetEditor.qml` |
+| `components/Icon.qml` | Shared SVG tinting wrapper. It normalizes repo-local `icons/`, `../icons/`, and deeper `../../icons/` source strings to the component-local icon directory before loading, so callers at different QML depths do not silently break icon rendering. | `config/quickshell/components/Icon.qml` |
 | `components/InlineDropdown.qml` | Compact one-of-many selector with pointer-driven expansion, animated dropdown height, and `WheelFlickable`-backed option scrolling. | `config/quickshell/components/InlineDropdown.qml` |
 | `components/InlineSelect.qml` | Card-style one-of-many selector with the same pointer-first contract as `InlineDropdown`, plus current-option auto-scroll inside the shared flickable list. | `config/quickshell/components/InlineSelect.qml` |
 
@@ -62,6 +63,8 @@ Direct-upstream or local exceptions:
   weather service. `config/quickshell/popups/CalendarPopup.qml` resolves the
   shell's current coordinates through `desktopctl sun status`, then fetches the
   current forecast from Open-Meteo with `curl` only while the popup is active.
+  It does not fetch against fallback coordinates if `desktopctl sun status`
+  cannot resolve a location.
 - Focus Time still polls `${XDG_RUNTIME_DIR:-/run/user/$UID}/focustime_state.json`
   inside its pane and treats payloads older than 5 seconds as stale; see
   `docs/focus-time/SPEC.md`.
@@ -91,6 +94,20 @@ status read, which avoids transient `hyprsunset` restart gaps from flipping the
 toggle off mid-adjustment. The Display pane's temperature slider now stages the
 value locally while dragging and commits one `desktopctl night-light ... --temp`
 request on release so `hyprsunset` is not restarted on every pointer move.
+
+`DisplayService.qml` applies individual monitor changes through `hyprctl keyword
+monitor` and exposes `applyMonitorBatch(...)` for whole-snapshot restores through
+`hyprctl --batch`. The Display pane treats resolution, refresh-rate, transform,
+VRR, mirror, and drag-position changes as risky: it captures a safe snapshot
+before applying, shows the confirmation banner, and reverts the snapshot in one
+batch if the countdown expires. The apply helpers return whether a `hyprctl`
+process was actually started; rollback keeps the confirmation snapshot alive and
+retries instead of silently dismissing the banner while a previous monitor apply
+is still busy.
+
+`NetworkService.qml` keeps network diagnostics popup-local but avoids shared
+temporary files for the speed-test bufferbloat ping by creating per-run `mktemp`
+paths and cleaning them through a shell trap.
 
 ## Settings System
 
@@ -245,7 +262,7 @@ implementation.
 | `desktopctl/src/theme/targets/quickshell.rs` | Writes `GeneratedTheme.json`, maps theming names into Quickshell's `bg0_h` / `aqua` naming, emits both mono and system font families, and derives shell font sizes from `ThemeState.font_size + quickshell_font_size_offset` |
 | Recursive tree exception | `config/quickshell/GeneratedTheme.json` is committed in the repo as a bootstrap snapshot because Home Manager deploys the whole `config/quickshell/` tree recursively; activation/runtime theme applies still overwrite the live `${XDG_CONFIG_HOME:-~/.config}/quickshell/GeneratedTheme.json` path |
 | Settings host | Runs `desktopctl theme ...`, stages optimistic `themeState` updates for individual `set` writes, serializes general theme writes, shows toast-visible backend failures, then reloads or rolls back its local snapshot when the process exits |
-| Shell IPC | Provides a second command path into `desktopctl theme ...` through `theme.apply`, accepting either shell-quoted string payloads or structured argv arrays, with error toasts on failure |
+| Shell IPC | Provides a second command path into `desktopctl theme ...` through `theme.apply`, accepting either shell-quoted string payloads or structured argv arrays, rejecting concurrent theme commands, and showing error toasts on failure |
 
 `Theme.qml` still keeps hardcoded Gruvbox Dark fallbacks for the generated JSON
 surface in its fallback color/font object inside `config/quickshell/Theme.qml`.
@@ -265,7 +282,19 @@ shared across Quick Settings, Settings, the notification drawer, and Calendar:
 - `config/quickshell/NotifDrawer.qml`
 - `config/quickshell/popups/CalendarPopup.qml`
 
-The popup implementations are no longer uniform, however:
+The popup implementations share a common resilience rule: when a managed popup
+is reopened while its close animation is still running, the popup stops that
+close animation, clears `closing`, and restarts the open animation. Conversely,
+closing stops the in-flight open animation before starting the exit path. This
+keeps rapid bar clicks or popup handoffs from leaving a panel hidden at the end
+of a stale close animation. Evidence: `onActiveChanged` in
+`config/quickshell/popups/QuickSettingsPopup.qml`,
+`config/quickshell/popups/SettingsPopup.qml`,
+`config/quickshell/NotifDrawer.qml`, `config/quickshell/popups/CalendarPopup.qml`,
+`config/quickshell/popups/TrayPopup.qml`, `config/quickshell/popups/MprisPopup.qml`,
+and `config/quickshell/PowerMenu.qml`.
+
+The popup implementations are still not completely uniform, however:
 
 - `config/quickshell/popups/CalendarPopup.qml` now keeps one popup width and
   switches between a month-grid page and a weather page through local toggle
@@ -274,19 +303,24 @@ The popup implementations are no longer uniform, however:
   open/close, prewarms the loader in the background, and only shows the empty
   placeholder shell before the real panel item exists. Once loaded, the popup
   animates the real panel's `opacity` / `scale` directly with a gentler start
-  scale and a temporary layer during the transform. The weather page refreshes
-  on demand and every 15 minutes while that page is active, but opening the
-  weather view now defers its on-open refresh until after the entrance interval,
-  still reusing `desktopctl sun status` for coordinates and sunrise/sunset
-  labels before calling Open-Meteo through `curl`. Its weather card styling now
-  sticks to direct `Theme.*` palette slots for fills, borders, and accents
-  instead of blending intermediate colors inside QML.
+  scale and a temporary layer during the transform. The calendar/weather page
+  swap also animates the loaded page through the shared content-swap timing and
+  height-resize curve instead of snapping between local views. The weather page
+  refreshes on demand and every 15 minutes while that page is active, but
+  opening the weather view now defers its on-open refresh until after the
+  entrance interval, still reusing `desktopctl sun status` for coordinates and
+  sunrise/sunset labels before calling Open-Meteo through `curl`. Its weather
+  card styling now sticks to direct `Theme.*` palette slots for fills, borders,
+  and accents instead of blending intermediate colors inside QML, and the copy
+  stays terse and informational rather than novelty-oriented.
 - `config/quickshell/NotifDrawer.qml` keeps the same placeholder-backed
   `panelHeightHint`, suppresses `Behavior on height` during open/close,
   prewarms the loader in the background, only shows the empty placeholder shell
   before the panel item exists, and animates the loaded panel's `opacity` /
   `scale` with the same gentler start scale plus a temporary layer during the
-  transform. Its host height animation remains available only for later
+  transform. It now uses the shared popup radius and shared Bezier motion tokens
+  for inserted history rows, avoiding a separate overshooting notification-list
+  animation. Its host height animation remains available only for later
   in-session content resizes.
 - `config/quickshell/popups/QuickSettingsPopup.qml` does the same outer
   placeholder-height reservation and open/close suppression, background-prewarms
@@ -307,14 +341,18 @@ The popup implementations are no longer uniform, however:
   `config/quickshell/popups/MprisPopup.qml` skip the async host-height path and
   instead animate fixed-geometry panel rectangles directly with `opacity` /
   `scale`, enabling their layers only during the open/close transform for
-  smoother low-refresh sampling; `TrayPopup.qml` also animates a small `y`
-  offset and now uses the shared popup start-scale plus theme timing tokens for
-  its tray-item stagger.
+  smoother low-refresh sampling. Both surfaces clear their managed visibility
+  request if the upstream tray/MPRIS model is empty, so the overlay registry
+  cannot get stuck on a hidden active popup. `TrayPopup.qml` also animates a
+  small `y` offset and now uses the shared popup start-scale plus theme timing
+  tokens for its tray-item stagger.
 - `config/quickshell/PowerMenu.qml` avoids a popup-container open/close
   transform entirely. The overlay host only fades the scrim, while the menu
   prewarms its loader after startup and its buttons run staggered `opacity` /
   `scale` entrance animations inside a stable layout using the shared popup
-  start-scale and theme timing tokens.
+  start-scale and theme timing tokens. Power actions are stored as argv arrays
+  rather than shell strings, and subprocess failures surface through toast
+  feedback.
 
 `NotifDrawer.qml` also records the largest already-rendered history `entryId`
 and only runs the staggered entrance animation for newly inserted history items,

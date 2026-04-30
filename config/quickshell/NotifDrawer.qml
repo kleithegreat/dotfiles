@@ -71,16 +71,19 @@ FocusScope {
 
     onActiveChanged: {
         if (active) {
+            drawerCloseAnim.stop();
+            closing = false;
             suppressHeightAnimation = true;
             forceActiveFocus();
             contentLoaded = true;
             if (preparePanelForOpen())
-                drawerOpenAnim.start();
+                drawerOpenAnim.restart();
         } else if (!closing) {
+            drawerOpenAnim.stop();
             if (drawerContentLoader.item) {
                 suppressHeightAnimation = true;
                 closing = true;
-                drawerCloseAnim.start();
+                drawerCloseAnim.restart();
             } else {
                 suppressHeightAnimation = false;
                 closing = false;
@@ -134,7 +137,7 @@ FocusScope {
         height: drawerContentLoader.height
         visible: drawer.overlayVisible && !drawer.closing && height > 0 && !drawerContentLoader.item
         opacity: 1
-        radius: Theme.notifRadius
+        radius: Theme.popupRadius
         color: Theme.bg1
         border.width: 1
         border.color: Theme.bg3
@@ -189,7 +192,7 @@ FocusScope {
             id: drawerPanel
             anchors.fill: parent
             implicitHeight: Math.max(drawerCol.implicitHeight + Theme.notifPadding * 2, 200)
-            radius: Theme.notifRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
+            radius: Theme.popupRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
             opacity: 0; scale: Theme.popupStartScale
             transformOrigin: Item.TopRight
             layer.enabled: drawerOpenAnim.running || drawerCloseAnim.running
@@ -253,9 +256,9 @@ FocusScope {
                                 id: hcEnterAnim; property int delay: 0
                                 PauseAnimation { duration: hcEnterAnim.delay }
                                 ParallelAnimation {
-                                    Components.Anim { target: hc; property: "opacity"; to: 1; duration: Theme.animContentSwap; easing.type: Easing.OutCubic }
-                                    Components.Anim { target: hc; property: "y"; to: 0; duration: Theme.animContentSwap; easing.type: Easing.OutCubic }
-                                    Components.Anim { target: hc; property: "scale"; to: 1.0; duration: Theme.animContentSwap; easing.type: Easing.OutBack; easing.overshoot: 1.07 }
+                                    Components.Anim { target: hc; property: "opacity"; to: 1; duration: Theme.animContentSwap; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard }
+                                    Components.Anim { target: hc; property: "y"; to: 0; duration: Theme.animContentSwap; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard }
+                                    Components.Anim { target: hc; property: "scale"; to: 1.0; duration: Theme.animContentSwap; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveEmphasizedEnter }
                                 }
                             }
 

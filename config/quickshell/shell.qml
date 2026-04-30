@@ -190,9 +190,9 @@ Scope {
                         id: notifEnterAnim
                         PauseAnimation { duration: card.index * Theme.animStagger }
                         ParallelAnimation {
-                            NumberAnimation { target: card; property: "opacity"; from: 0; to: 1; duration: Theme.animNotifIn; easing.type: Easing.OutCubic }
-                            NumberAnimation { target: card; property: "x"; from: Theme.notifWidth * 0.5; to: 0; duration: Theme.animNotifIn; easing.type: Easing.OutCubic }
-                            NumberAnimation { target: card; property: "scale"; from: Theme.popupStartScale; to: 1.0; duration: Theme.animNotifIn; easing.type: Easing.OutCubic }
+                            Components.Anim { target: card; property: "opacity"; from: 0; to: 1; duration: Theme.animNotifIn; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveEmphasizedEnter }
+                            Components.Anim { target: card; property: "x"; from: Theme.notifWidth * 0.5; to: 0; duration: Theme.animNotifIn; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveEmphasizedEnter }
+                            Components.Anim { target: card; property: "scale"; from: Theme.popupStartScale; to: 1.0; duration: Theme.animNotifIn; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveEmphasizedEnter }
                         }
                     }
                     ColumnLayout {
@@ -289,7 +289,7 @@ Scope {
         visible: ToastService.toastVisible || toastPanel.opacity > 0.001
         anchors { bottom: true }
         margins { bottom: Theme.gapOut }
-        implicitWidth: toastContent.implicitWidth + Theme.popupPadding * 2
+        implicitWidth: Math.min(toastContent.implicitWidth + Theme.popupPadding * 2, Math.max(Theme.osdWidth, (root.barScreen ? root.barScreen.width : 900) - Theme.gapOut * 4))
         implicitHeight: Theme.osdHeight
         color: "transparent"; mask: Region {}
         WlrLayershell.namespace: "quickshell:toast"; WlrLayershell.layer: WlrLayer.Overlay; exclusionMode: ExclusionMode.Ignore
@@ -335,6 +335,9 @@ Scope {
                     text: ToastService.currentMessage
                     font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize
                     color: Theme.fg
+                    width: Math.min(implicitWidth, Math.max(Theme.osdWidth, (root.barScreen ? root.barScreen.width : 900) - Theme.popupPadding * 2 - Theme.gapOut * 4 - 32))
+                    elide: Text.ElideRight
+                    maximumLineCount: 1
                     anchors.verticalCenter: parent.verticalCenter
                 }
             }
@@ -429,6 +432,11 @@ Scope {
 
             if (parsed.argv.length === 0) {
                 ToastService.showError("theme.apply requires at least one argument");
+                return;
+            }
+
+            if (themeApplyProc.running) {
+                ToastService.showWarning("Theme command already running");
                 return;
             }
 

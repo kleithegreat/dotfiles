@@ -42,7 +42,9 @@ impl Controller {
 
     pub fn update_solar_status(&self, status: solar::SolarStatus) -> crate::Result<()> {
         let mut state = self.lock_state()?;
-        if let Some(enabled) = dark_hint_transition(state.solar_status.as_ref(), &status) {
+        if state.solar_status.is_none() {
+            state.pending_dark_hint_target = Some(status.is_dark);
+        } else if let Some(enabled) = dark_hint_transition(state.solar_status.as_ref(), &status) {
             state.pending_dark_hint_target = Some(enabled);
         }
         state.solar_status = Some(status);
@@ -59,10 +61,15 @@ impl Controller {
         mode: NightLightMode,
         temperature: Option<i32>,
     ) -> crate::Result<NightLightStatus> {
+        let normalized_temperature = match temperature {
+            Some(temperature) => Some(normalize_temperature(temperature)?),
+            None => None,
+        };
+
         let mut state = self.lock_state()?;
         state.mode = mode;
-        if let Some(temperature) = temperature {
-            state.manual_temperature = normalize_temperature(temperature)?;
+        if let Some(temperature) = normalized_temperature {
+            state.manual_temperature = temperature;
         }
 
         self.reconcile_locked(&mut state)
@@ -99,8 +106,9 @@ impl Controller {
         let solar_status = current_solar_status(state)?;
         let desired = desired_state(state.mode, state.manual_temperature, &solar_status);
         apply_desired_state(&desired)?;
-        if let Some(enabled) = state.pending_dark_hint_target.take() {
+        if let Some(enabled) = state.pending_dark_hint_target {
             apply_dark_hint_if_needed(enabled)?;
+            state.pending_dark_hint_target = None;
         }
 
         let process = hyprsunset_process_state();
@@ -230,10 +238,20 @@ mod tests {
         let dark = sample_solar_status(true, true);
 
         assert_eq!(dark_hint_transition(Some(&light), &dark), Some(true));
-        assert_eq!(dark_hint_transition(None, &dark), Some(true));
         assert_eq!(dark_hint_transition(Some(&dark), &light), Some(false));
         assert_eq!(dark_hint_transition(Some(&dark), &dark), None);
         assert_eq!(dark_hint_transition(Some(&light), &light), None);
+    }
+
+    #[test]
+    fn first_solar_status_reconciles_scheduled_dark_hint() {
+        let controller = Controller::new();
+        controller
+            .update_solar_status(sample_solar_status(true, false))
+            .expect("status update");
+
+        let state = controller.lock_state().expect("state lock");
+        assert_eq!(state.pending_dark_hint_target, Some(false));
     }
 
     #[test]
@@ -253,5 +271,16 @@ mod tests {
 
         assert_eq!(target_temperature(&auto), solar::HYPRSUNSET_TEMP);
         assert_eq!(target_temperature(&on), 5100);
+    }
+
+    #[test]
+    fn set_mode_rejects_invalid_temperature_without_mutating_mode() {
+        let controller = Controller::new();
+        let error = controller.set_mode(NightLightMode::On, Some(9999));
+
+        assert!(error.is_err());
+        let state = controller.lock_state().expect("state lock");
+        assert_eq!(state.mode, NightLightMode::Auto);
+        assert_eq!(state.manual_temperature, solar::HYPRSUNSET_TEMP);
     }
 }

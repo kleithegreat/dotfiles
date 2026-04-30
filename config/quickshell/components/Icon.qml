@@ -5,10 +5,25 @@ import ".." as Root
 Item {
     id: root
 
-    property url source
+    property string source
     property color color: Root.Theme.fg
     property real iconSize: Root.Theme.iconSize
     property alias status: img.status
+
+    function resolvedSource(path) {
+        if (path === "")
+            return "";
+
+        let text = String(path);
+        let marker = "icons/";
+        let markerIndex = text.lastIndexOf(marker);
+        if (markerIndex >= 0)
+            return "../icons/" + text.slice(markerIndex + marker.length);
+        if (text.startsWith("icons/"))
+            return "../" + text;
+
+        return text;
+    }
 
     implicitWidth: iconSize
     implicitHeight: iconSize
@@ -16,7 +31,7 @@ Item {
     Image {
         id: img
         anchors.fill: parent
-        source: root.source
+        source: root.resolvedSource(root.source)
         sourceSize: Qt.size(root.width * 2, root.height * 2)
         visible: false
         fillMode: Image.PreserveAspectFit

@@ -78,18 +78,21 @@ FocusScope {
 
     onActiveChanged: {
         if (active) {
+            qsCloseAnim.stop();
+            closing = false;
             suppressHeightAnimation = true;
             forceActiveFocus();
             contentLoaded = true;
             qsRefreshTimer.restart();
             if (preparePanelForOpen())
-                qsOpenAnim.start();
+                qsOpenAnim.restart();
         } else if (!closing) {
+            qsOpenAnim.stop();
             qsRefreshTimer.stop();
             if (qsContentLoader.item) {
                 suppressHeightAnimation = true;
                 closing = true;
-                qsCloseAnim.start();
+                qsCloseAnim.restart();
             } else {
                 suppressHeightAnimation = false;
                 closing = false;
