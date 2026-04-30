@@ -1,0 +1,24 @@
+{
+  "autosave": {
+    "after_delay": {
+      "milliseconds": 1000
+    }
+  },
+  "base_keymap": "VSCode",
+  "buffer_font_family": "JetBrainsMonoNL NF",
+  "buffer_font_size": 15,
+  "confirm_quit": false,
+  "edit_predictions": {
+    "provider": "none"
+  },
+  "format_on_save": "on",
+  "git": {
+    "git_gutter": "tracked_files"
+  },
+  "load_direnv": "direct",
+  "telemetry": {
+    "diagnostics": false,
+    "metrics": false
+  },
+  "ui_font_family": "SF Pro Text"
+}

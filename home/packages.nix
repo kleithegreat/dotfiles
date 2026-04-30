@@ -57,6 +57,7 @@ let
     spotify
     zathura
     vscode
+    zed-editor
     lmstudio
     helium
     imv
