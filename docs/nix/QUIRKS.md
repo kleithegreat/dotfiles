@@ -120,12 +120,6 @@
 **Status:** Workaround in place
 **Resolution:** Install those apps through NixOS modules or `environment.systemPackages`. `system/configuration.nix` now enables `programs.partition-manager` so `kpmcore` is registered for both D-Bus activation and polkit, and `bitwarden-desktop` stays in `environment.systemPackages` for the same reason.
 
-## `plasma-systemmonitor` needs `ksystemstats` installed explicitly outside Plasma
-**Symptom:** KDE System Monitor opens, but the overview widgets are empty and warn that the page is missing sensors even though the process table still works.
-**Cause:** `plasma-systemmonitor` consumes session-scoped sensors over the `org.kde.ksystemstats1` user D-Bus service. In this repo's Hyprland session, installing only the monitor app leaves the `ksystemstats` binary, user service unit, and D-Bus activation file out of the profile, so the backend never starts.
-**Status:** Workaround in place
-**Resolution:** `home/packages.nix` installs `kdePackages.ksystemstats` alongside `kdePackages.plasma-systemmonitor`, which puts both `share/dbus-1/services/org.kde.ksystemstats1.service` and `share/systemd/user/plasma-ksystemstats.service` in the user profile so the sensor backend can be activated on demand.
-
 ## SDDM cannot read wallpapers from the locked-down home directory directly
 **Symptom:** Pointing `where_is_my_sddm_theme` straight at a wallpaper under `/home/kevin/...` leaves the greeter background blank even though the same path works inside the user session.
 **Cause:** The shared `kevin` home directory is mode `0700`, so the pre-login SDDM user cannot traverse into the repo checkout or other home-owned wallpaper paths.
