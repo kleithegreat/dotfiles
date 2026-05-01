@@ -138,6 +138,12 @@
 **Status:** Workaround in place
 **Resolution:** `system/configuration.nix` now enables NixOS `qt.enable`, exports `QT_QPA_PLATFORMTHEME=hyprqt6engine`, keeps the hyprqt6engine root on `QT_PLUGIN_PATH`, and installs `qt5ct`, `qt6ct`, and Kvantum system-wide so both regular apps and user services resolve the same plugin set.
 
+## Neuwaita needs KDE color-scheme metadata for symbolic icon recoloring
+**Symptom:** KDE apps keep their custom folder/file icons from Neuwaita, but toolbar and sidebar action icons can stay black on dark themes.
+**Cause:** KIconThemes only rewrites Breeze SVG `current-color-scheme` styles when the current icon theme declares `FollowsColorScheme=true`. The upstream Neuwaita index also inherits Adwaita and hicolor before Breeze, so missing KDE action icons can resolve to fixed-color black symbolic assets before KDE reaches recolorable Breeze icons.
+**Status:** Workaround in place
+**Resolution:** The `neuwaita` derivation in `home/gtk.nix` patches `index.theme` during `installPhase` to set `FollowsColorScheme=true` and use `Inherits=breeze,Adwaita,hicolor`.
+
 ## OpenCode is better sourced from nixpkgs than from the upstream flake here
 **Symptom:** Building OpenCode through the upstream `sst/opencode` flake on this repo used to pull in a large Deno/V8 toolchain closure and occasionally fail in the filtered Bun `node_modules` setup.
 **Cause:** The upstream flake package is a source build, which brings in Deno plus `rusty_v8`, and its filtered Bun install path could still miss root-level packages such as `@tsconfig/bun`, `prettier`, or `glob` that some build steps expected.

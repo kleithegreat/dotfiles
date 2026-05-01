@@ -13,6 +13,8 @@ let
     installPhase = ''
       mkdir -p $out/share/icons/Neuwaita
       cp -r index.theme scalable Extras $out/share/icons/Neuwaita/
+      substituteInPlace $out/share/icons/Neuwaita/index.theme \
+        --replace-fail 'Inherits=Adwaita, hicolor, breeze' $'Inherits=breeze,Adwaita,hicolor\nFollowsColorScheme=true'
     '';
   };
 in

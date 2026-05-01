@@ -426,7 +426,7 @@ fn write_kcolorscheme(colors: &ColorScheme) -> crate::Result<()> {
 
 fn write_hyprqt6engine_conf(_colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
     let conf_path = expand_user_path(HYPRQT6ENGINE_CONF)?;
-    let scheme_path = expand_user_path(METADATA.output_path.expect("qt output path"))?;
+    let scheme_path = expand_user_path(KCOLORSCHEME)?;
     let font_size = state.font_size_for(METADATA.name)?;
     let fixed_font_size = state.mono_font_size_for(METADATA.name)?;
     if let Some(parent) = conf_path.parent() {
