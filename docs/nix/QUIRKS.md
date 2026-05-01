@@ -42,11 +42,11 @@
 **Status:** Intentional design
 **Resolution:** `system/configuration.nix` and `home/default.nix` both import `system/native-optimizations.nix` directly, so the remaining flake-input packages carry the same `-O3 -march=native` / `target-cpu=native` flags and per-host `requiredSystemFeatures` tag as the overlay-managed nixpkgs packages.
 
-## Vicinae should stay installed without an idle service
-**Symptom:** Running Vicinae through both the Home Manager service and Hyprland `exec-once = vicinae server` keeps launcher memory resident for the whole session, even when the launcher has not been opened.
-**Cause:** nixpkgs already packages `vicinae`, so the launcher can be installed directly without also enabling the upstream Home Manager service module. The service is useful when persistent background indexing is desired, but it is not required just to keep the `vicinae` command available for the Hyprland launcher bind.
-**Status:** Idle service removed
-**Resolution:** `home/default.nix` still imports `vicinae.homeManagerModules.default` so the option remains available if needed later, but `home/packages.nix` now installs `pkgs.vicinae` through `vicinaePkg` and does not enable `services.vicinae`. `config/hypr/autostart.conf` no longer starts `vicinae server`, so Vicinae is launched on demand through `SUPER+R` / `vicinae open` instead of at login.
+## Vicinae server autostart uses Hyprland only
+**Symptom:** Running Vicinae through both the Home Manager service and Hyprland `exec-once = vicinae server` starts redundant background paths for the same launcher.
+**Cause:** nixpkgs already packages `vicinae`, so the launcher can be installed directly without also enabling the upstream Home Manager service module. This repo still needs the Vicinae server to be present during the session, but it should have a single owner.
+**Status:** Hyprland-owned server startup
+**Resolution:** `home/default.nix` still imports `vicinae.homeManagerModules.default` so the option remains available if needed later, but `home/packages.nix` installs `pkgs.vicinae` through `vicinaePkg` and does not enable `services.vicinae`. `config/hypr/autostart.conf` starts `vicinae server` directly, while `SUPER+R` / `vicinae open` only opens the already-running launcher.
 
 ## Snappy Switcher is simpler as a local package than as a flake input
 **Symptom:** The previous setup routed Snappy Switcher through a dedicated upstream flake input even though the package recipe was tiny and the only repo-specific behavior was a small local patch for current-workspace filtering.
