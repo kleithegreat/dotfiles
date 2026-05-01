@@ -12,6 +12,18 @@
 **Status:** Workaround in place
 **Resolution:** The shared system baseline now enables NixOS `qt.enable`, exports `QT_QPA_PLATFORMTHEME=hyprqt6engine`, keeps hyprqt6engine's root on `QT_PLUGIN_PATH`, installs qtct/Kvantum packages system-wide, and lets the generated qtct/hyprqt6engine configs choose the style instead of exporting a global `QT_STYLE_OVERRIDE`.
 
+## hyprqt6engine needs the KDE `.colors` file for KDE color consumers
+**Symptom:** KDE apps can use the generated foreground colors while some KDE-owned surfaces, such as Dolphin's alternating file-view rows or symbolic icon recoloring, still fall back to light/default colors.
+**Cause:** `hyprqt6engine` can load qtct `current.conf` into `QPalette`, but it only sets the `KDE_COLOR_SCHEME_PATH` application property when `theme:color_scheme` points at a `.colors` file. KDE widgets and helpers that call into `KColorScheme` need that path, not just the plain Qt palette.
+**Status:** Workaround in place
+**Resolution:** `desktopctl/src/theme/targets/qt.rs` writes both the qtct palette and the KDE `current.colors` file, but `~/.config/hypr/hyprqt6engine.conf` now points `color_scheme` at `~/.local/share/color-schemes/current.colors` so KDE color consumers share the same generated scheme.
+
+## Non-KDE icon themes need KDE color metadata and Breeze fallback ordering
+**Symptom:** KDE toolbar/sidebar icons can stay black on dark schemes even while the selected file/folder icon theme is active.
+**Cause:** KIconThemes recolors SVG icons only when the current icon theme declares `FollowsColorScheme=true`, and the upstream Neuwaita index inherited fixed-color Adwaita/hicolor assets before Breeze. That let KDE UI actions resolve to non-recolorable black symbolic icons, or to Breeze SVGs without enabling their `current-color-scheme` rewrite path.
+**Status:** Workaround in place
+**Resolution:** `home/gtk.nix` patches the packaged Neuwaita `index.theme` to declare `FollowsColorScheme=true` and to inherit `breeze,Adwaita,hicolor`, preserving Neuwaita's own folder/file icons while making missing KDE UI icons fall back to recolorable Breeze assets first.
+
 ## Quickshell keeps one committed generated snapshot
 **Symptom:** `config/quickshell/GeneratedTheme.json` is checked into the repo even though generated outputs are usually kept out of version control.
 **Cause:** Home Manager deploys `config/quickshell/` recursively, so the repo carries one bootstrap snapshot for the live `${XDG_CONFIG_HOME:-~/.config}/quickshell/GeneratedTheme.json` path before `desktopctl theme sync` and later runtime theme applies overwrite it.
