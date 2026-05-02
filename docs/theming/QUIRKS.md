@@ -20,9 +20,9 @@
 
 ## Non-KDE icon themes need KDE color metadata and Breeze fallback ordering
 **Symptom:** KDE toolbar/sidebar icons can stay black on dark schemes even while the selected file/folder icon theme is active.
-**Cause:** KIconThemes recolors SVG icons only when the current icon theme declares `FollowsColorScheme=true`, and the upstream Neuwaita index inherited fixed-color Adwaita/hicolor assets before Breeze. That let KDE UI actions resolve to non-recolorable black symbolic icons, or to Breeze SVGs without enabling their `current-color-scheme` rewrite path.
+**Cause:** KIconThemes recolors SVG icons only when the current icon theme declares `FollowsColorScheme=true`, and the upstream Neuwaita index inherits fixed-color Adwaita/hicolor assets before Breeze. Patching the shared `Neuwaita` theme directly fixes KDE but also changes GTK apps such as Nautilus, because GTK then sees Breeze's thinner symbolic sidebar icons before Adwaita's.
 **Status:** Workaround in place
-**Resolution:** `home/gtk.nix` patches the packaged Neuwaita `index.theme` to declare `FollowsColorScheme=true` and to inherit `breeze,Adwaita,hicolor`, preserving Neuwaita's own folder/file icons while making missing KDE UI icons fall back to recolorable Breeze assets first.
+**Resolution:** `home/gtk.nix` keeps the upstream `Neuwaita` theme unchanged for GTK and also installs `Neuwaita-KDE`, a wrapper whose `index.theme` inherits `Neuwaita,breeze,Adwaita,hicolor` and declares `FollowsColorScheme=true`. `desktopctl/src/theme/targets/qt.rs` maps the shared `Neuwaita` state value to `Neuwaita-KDE` only for KDE/Qt config.
 
 ## Quickshell keeps one committed generated snapshot
 **Symptom:** `config/quickshell/GeneratedTheme.json` is checked into the repo even though generated outputs are usually kept out of version control.
