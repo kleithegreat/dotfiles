@@ -134,9 +134,9 @@
 
 ## Neuwaita needs KDE color-scheme metadata for symbolic icon recoloring
 **Symptom:** KDE apps keep their custom folder/file icons from Neuwaita, but toolbar and sidebar action icons can stay black on dark themes.
-**Cause:** KIconThemes only rewrites Breeze SVG `current-color-scheme` styles when the current icon theme declares `FollowsColorScheme=true`. The upstream Neuwaita index also inherits Adwaita and hicolor before Breeze, so missing KDE action icons can resolve to fixed-color black symbolic assets before KDE reaches recolorable Breeze icons.
+**Cause:** KIconThemes only rewrites Breeze SVG `current-color-scheme` styles when the current icon theme declares `FollowsColorScheme=true`. The upstream Neuwaita index also inherits Adwaita and hicolor before Breeze, so missing KDE action icons can resolve to fixed-color black symbolic assets before KDE reaches recolorable Breeze icons. Reordering the real `Neuwaita` theme would leak Breeze's thinner symbolic icons into GTK apps such as Nautilus.
 **Status:** Workaround in place
-**Resolution:** The `neuwaita` derivation in `home/gtk.nix` patches `index.theme` during `installPhase` to set `FollowsColorScheme=true` and use `Inherits=breeze,Adwaita,hicolor`.
+**Resolution:** The `neuwaita` derivation in `home/gtk.nix` installs upstream-shaped `Neuwaita` for GTK and a derived `Neuwaita-KDE` wrapper with `FollowsColorScheme=true` plus `Inherits=Neuwaita,breeze,Adwaita,hicolor`. The Qt target maps the shared `Neuwaita` state value to that wrapper for KDE only.
 
 ## OpenCode is better sourced from nixpkgs than from the upstream flake here
 **Symptom:** Building OpenCode through the upstream `sst/opencode` flake on this repo used to pull in a large Deno/V8 toolchain closure and occasionally fail in the filtered Bun `node_modules` setup.

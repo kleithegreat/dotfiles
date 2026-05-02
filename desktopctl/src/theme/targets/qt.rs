@@ -405,7 +405,7 @@ fn update_kdeglobals(colors: &ColorScheme, state: &ThemeState) -> crate::Result<
     let mut config = IniFile::from_path(&conf_path)?;
     apply_kde_colors(&mut config, colors);
     config.ensure_section("Icons");
-    config.set("Icons", "Theme", &state.icon_theme);
+    config.set("Icons", "Theme", kde_icon_theme(&state.icon_theme));
     if let Some(parent) = conf_path.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -453,7 +453,7 @@ fn write_hyprqt6engine_conf(_colors: &ColorScheme, state: &ThemeState) -> crate:
                 "}}\n",
             ),
             scheme_path.display(),
-            state.icon_theme,
+            kde_icon_theme(&state.icon_theme),
             state.system_font,
             font_size,
             state.mono_font,
@@ -461,6 +461,13 @@ fn write_hyprqt6engine_conf(_colors: &ColorScheme, state: &ThemeState) -> crate:
         ),
     )?;
     Ok(())
+}
+
+fn kde_icon_theme(theme: &str) -> &str {
+    match theme {
+        "Neuwaita" => "Neuwaita-KDE",
+        _ => theme,
+    }
 }
 
 fn ktexteditor_color_theme<'a>(colors: &'a ColorScheme) -> &'a str {
@@ -984,7 +991,7 @@ impl IniFile {
 
 #[cfg(test)]
 mod tests {
-    use super::{ktexteditor_color_theme, kvantum_base_theme};
+    use super::{kde_icon_theme, ktexteditor_color_theme, kvantum_base_theme};
     use crate::theme::{resolve, schema::ColorScheme};
     use std::path::{Path, PathBuf};
 
@@ -1038,5 +1045,11 @@ mod tests {
             kvantum_base_theme(&load_repo_colors("rose-pine-dawn")),
             "KvGnome"
         );
+    }
+
+    #[test]
+    fn kde_icon_theme_uses_kde_specific_neuwaita_wrapper() {
+        assert_eq!(kde_icon_theme("Neuwaita"), "Neuwaita-KDE");
+        assert_eq!(kde_icon_theme("Papirus-Dark"), "Papirus-Dark");
     }
 }
