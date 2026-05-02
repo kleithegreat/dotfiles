@@ -116,6 +116,7 @@ let
     ark
     kate
     gwenview
+    kimageformats
     filelight
     kdeconnect-kde
     kcharselect

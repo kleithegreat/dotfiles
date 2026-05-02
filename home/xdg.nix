@@ -99,6 +99,10 @@ in
       "image/gif" = "imv.desktop";
       "image/webp" = "imv.desktop";
       "image/svg+xml" = "imv.desktop";
+      "image/heic" = "org.kde.gwenview.desktop";
+      "image/heif" = "org.kde.gwenview.desktop";
+      "image/heic-sequence" = "org.kde.gwenview.desktop";
+      "image/heif-sequence" = "org.kde.gwenview.desktop";
       "video/mp4" = "org.kde.haruna.desktop";
       "video/x-matroska" = "org.kde.haruna.desktop";
       "video/x-msvideo" = "org.kde.haruna.desktop";
