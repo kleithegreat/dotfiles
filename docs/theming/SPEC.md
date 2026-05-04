@@ -163,7 +163,7 @@ Constraints:
 | Fonts | `system_font`, `mono_font`, `font_size`, `mono_font_size` |
 | Per-target font offsets | `quickshell_font_size_offset`, `gtk_font_size_offset`, `qt_font_size_offset` |
 | Legacy tolerated state | `chromium_font_size_offset` |
-| Per-target mono offsets | `alacritty_*`, `ghostty_*`, `gtk_*`, `neovide_*`, `qt_*`, `vscode_*` mono-font offset keys |
+| Per-target mono offsets | `alacritty_*`, `ghostty_*`, `gtk_*`, `neovide_*`, `qt_*`, `vscode_*`, `zed_*` mono-font offset keys |
 | Hyprland appearance | `hypr_gaps_in`, `hypr_gaps_out`, `hypr_border_size`, `hypr_rounding`, `hypr_blur_enabled`, `hypr_blur_size`, `hypr_blur_passes`, `hypr_animations_enabled` |
 
 Constraints:
@@ -219,6 +219,7 @@ Constraints:
 | `wallpaper` | `command` | `awww` apply and optional filtered wallpaper cache |
 | `where_is_my_sddm_theme` | `command` | Staged `/tmp/desktopctl-where-is-my-sddm-theme/background` wallpaper bridge for the root-owned SDDM background sync |
 | `zathura` | `import` | `~/.config/zathura/colors` |
+| `zed` | `concat` | `~/.config/zed/settings.json` |
 | `zsh` | `import` | `~/.config/zsh/theme-colors` |
 
 ## Target Selection
@@ -227,17 +228,17 @@ State changes fan out by ownership, not by CLI convenience.
 
 | State key(s) | Affected targets |
 | --- | --- |
-| `color_scheme` | `alacritty`, `bat`, `ghostty`, `gtksourceview`, `hyprland`, `neovim`, `openchamber`, `opencode`, `qt`, `quickshell`, `snappy_switcher`, `spicetify`, `starship`, `tmux`, `vicinae`, `vscode`, `wallpaper`\*, `where_is_my_sddm_theme`, `zathura`, `zsh` |
+| `color_scheme` | `alacritty`, `bat`, `ghostty`, `gtksourceview`, `hyprland`, `neovim`, `openchamber`, `opencode`, `qt`, `quickshell`, `snappy_switcher`, `spicetify`, `starship`, `tmux`, `vicinae`, `vscode`, `wallpaper`\*, `where_is_my_sddm_theme`, `zathura`, `zed`, `zsh` |
 | `wallpaper`, `filter_wallpaper` | `wallpaper`, `where_is_my_sddm_theme` |
-| `system_font` | `chromium`, `gtk`, `hyprland`, `openchamber`, `qt`, `quickshell`, `snappy_switcher`, `vicinae` |
-| `mono_font` | `alacritty`, `chromium`, `ghostty`, `gtk`, `hyprland`, `neovide`, `openchamber`, `qt`, `quickshell`, `vscode` |
+| `system_font` | `chromium`, `gtk`, `hyprland`, `openchamber`, `qt`, `quickshell`, `snappy_switcher`, `vicinae`, `zed` |
+| `mono_font` | `alacritty`, `chromium`, `ghostty`, `gtk`, `hyprland`, `neovide`, `openchamber`, `qt`, `quickshell`, `vscode`, `zed` |
 | `icon_theme` | `gtk`, `qt`, `snappy_switcher` |
-| `font_size` | `gtk`, `hyprland`, `qt`, `quickshell`, `snappy_switcher` |
+| `font_size` | `gtk`, `hyprland`, `qt`, `quickshell`, `snappy_switcher`, `zed` |
 | `quickshell_font_size_offset` | `quickshell` |
 | `gtk_font_size_offset` | `gtk` |
 | `qt_font_size_offset` | `qt` |
 | `chromium_font_size_offset` | none (legacy tolerated state key) |
-| `mono_font_size` | `alacritty`, `ghostty`, `gtk`, `neovide`, `qt`, `vscode` |
+| `mono_font_size` | `alacritty`, `ghostty`, `gtk`, `neovide`, `qt`, `vscode`, `zed` |
 | Per-target `*_mono_font_size_offset` | The named target only |
 | `dark_hint` | `gtk` |
 | `cursor_theme`, `cursor_size` | `cursor` |
@@ -262,6 +263,7 @@ the documented wallpaper filter exception above.
 | Neovim / Neovide | Read generated theme state files rather than embedding palette logic in Home Manager |
 | OpenChamber | Reads desktop-managed `themeId` / `themeVariant` keys from `~/.config/openchamber/settings.json` and the generated `~/.config/openchamber/themes/desktopctl.json`; the target patches only those theme-owned settings keys so OpenChamber keeps owning the rest of `settings.json` |
 | OpenCode | Reads the generated global `tui.json` theme selection and the generated `themes/desktopctl.json` palette under `~/.config/opencode/`; the target is intentionally color-only because upstream TUI theming exposes a `theme` selector plus theme-color JSON keys, while later project-local OpenCode config layers can still override the global theme by upstream precedence |
+| Zed | The `zed` target concats `config/zed/base.json` with theme-managed `theme`, `buffer_font_family`, `buffer_font_size`, `ui_font_family`, and `ui_font_size` keys to produce `~/.config/zed/settings.json`. Home Manager does not deploy `zed/settings.json`; the user-owned base lives in the repo at `config/zed/base.json`. Themes whose Zed name comes from an extension (Catppuccin, Tokyo Night, Nord) require the extension to be installed in Zed once. |
 | Zsh | `home/shell.nix` `programs.zsh.initContent` sources `~/.config/zsh/theme-colors`; the generated fragment only sets `ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE` |
 
 Constraint:

@@ -12,7 +12,8 @@
     "vscode": {
       "name": "Catppuccin Frappé",
       "extension_id": "catppuccin.catppuccin-vsc"
-    }
+    },
+    "zed": "Catppuccin Frappé"
   },
   "colors": {
     "bg":           "#303446",

@@ -43,7 +43,8 @@ FocusScope {
         { label: "GTK", key: "gtk_mono_font_size_offset" },
         { label: "Neovide", key: "neovide_mono_font_size_offset" },
         { label: "Qt", key: "qt_mono_font_size_offset" },
-        { label: "VS Code", key: "vscode_mono_font_size_offset" }
+        { label: "VS Code", key: "vscode_mono_font_size_offset" },
+        { label: "Zed", key: "zed_mono_font_size_offset" }
     ]
     property int selectedCategory: 0
     property int systemCategoryCount: 8

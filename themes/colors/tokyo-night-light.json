@@ -12,7 +12,8 @@
     "vscode": {
       "name": "Tokyo Night Light",
       "extension_id": "enkia.tokyo-night"
-    }
+    },
+    "zed": "Tokyo Night Light"
   },
   "colors": {
     "bg":           "#e6e7ed",

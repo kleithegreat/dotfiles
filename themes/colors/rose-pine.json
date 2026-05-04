@@ -12,7 +12,8 @@
     "vscode": {
       "name": "Rosé Pine",
       "extension_id": "mvllow.rose-pine"
-    }
+    },
+    "zed": "Rosé Pine"
   },
   "colors": {
     "bg":           "#191724",
