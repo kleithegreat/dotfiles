@@ -1,5 +1,28 @@
 # Hyprland Quirks
 
+## D-Bus-activated windows can inherit stale workspace tokens
+
+**Symptom:** Portal file pickers, keyring prompts, and some D-Bus-activatable
+apps can open on workspace 1 even when requested from another workspace. Apps
+such as Nautilus may only show this on first launch because later windows are
+created by the already-running app process.
+
+**Cause:** Hyprland injects `HL_INITIAL_WORKSPACE_TOKEN` into `exec` /
+`exec-once` child environments for initial workspace tracking. If session startup
+copies the entire `exec-once` environment into D-Bus/systemd activation, or if a
+long-lived autostart daemon such as an app launcher keeps that token in its own
+environment, future windows launched through that helper inherit the startup
+workspace token and Hyprland places them on that workspace.
+
+**Status:** Fixed in `config/hypr/autostart.conf`.
+
+**Impact / workaround:** Keep `HL_INITIAL_WORKSPACE_TOKEN`,
+`XDG_ACTIVATION_TOKEN`, and `DESKTOP_STARTUP_ID` out of the D-Bus/systemd
+activation environment and out of long-lived autostart daemons. If the bug
+appears in an already-running session, clear those variables from the user
+manager and restart affected D-Bus helpers or app-launcher daemons, or log out
+and back in after rebuilding the config.
+
 ## Shared brightness hooks use backlight first, then DDC/CI
 
 **Symptom:** Older checkouts had brightness controls that did nothing useful on
