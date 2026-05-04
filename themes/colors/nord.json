@@ -12,7 +12,8 @@
     "vscode": {
       "name": "Nord",
       "extension_id": "arcticicestudio.nord-visual-studio-code"
-    }
+    },
+    "zed": "Nord"
   },
   "colors": {
     "bg":           "#2e3440",

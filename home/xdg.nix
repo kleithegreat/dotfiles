@@ -18,7 +18,6 @@ let
     "git/ignore" = dotfilesSource "config/git/ignore";
     "vicinae/settings.json" = dotfilesSource "config/vicinae/settings.json";
     "zathura/zathurarc" = dotfilesSource "config/zathura/zathurarc";
-    "zed/settings.json" = dotfilesSource "config/zed/settings.json";
   };
   recursiveConfigSources = lib.mapAttrs (_: source: {
     inherit source;

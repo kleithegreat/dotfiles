@@ -12,7 +12,8 @@
     "vscode": {
       "name": "Catppuccin Macchiato",
       "extension_id": "catppuccin.catppuccin-vsc"
-    }
+    },
+    "zed": "Catppuccin Macchiato"
   },
   "colors": {
     "bg":           "#24273a",

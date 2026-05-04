@@ -12,7 +12,8 @@
     "vscode": {
       "name": "Catppuccin Latte",
       "extension_id": "catppuccin.catppuccin-vsc"
-    }
+    },
+    "zed": "Catppuccin Latte"
   },
   "colors": {
     "bg":           "#eff1f5",

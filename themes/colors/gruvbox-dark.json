@@ -13,7 +13,8 @@
     "vscode": {
       "name": "Gruvbox Dark Medium",
       "extension_id": "jdinhlife.gruvbox"
-    }
+    },
+    "zed": "Gruvbox Dark"
   },
   "colors": {
     "bg":           "#282828",

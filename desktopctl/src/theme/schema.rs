@@ -30,7 +30,7 @@ pub const COLOR_FIELD_NAMES: [&str; 24] = [
     "orange_bright",
 ];
 
-pub const THEME_STATE_FIELD_ORDER: [&str; 29] = [
+pub const THEME_STATE_FIELD_ORDER: [&str; 30] = [
     "color_scheme",
     "wallpaper",
     "filter_wallpaper",
@@ -51,6 +51,7 @@ pub const THEME_STATE_FIELD_ORDER: [&str; 29] = [
     "neovide_mono_font_size_offset",
     "qt_mono_font_size_offset",
     "vscode_mono_font_size_offset",
+    "zed_mono_font_size_offset",
     "dark_hint",
     "hypr_gaps_in",
     "hypr_gaps_out",
@@ -71,7 +72,7 @@ pub const THEME_STATE_STRING_FIELDS: [&str; 6] = [
     "cursor_theme",
 ];
 
-pub const THEME_STATE_INT_FIELDS: [&str; 19] = [
+pub const THEME_STATE_INT_FIELDS: [&str; 20] = [
     "cursor_size",
     "font_size",
     "quickshell_font_size_offset",
@@ -85,6 +86,7 @@ pub const THEME_STATE_INT_FIELDS: [&str; 19] = [
     "neovide_mono_font_size_offset",
     "qt_mono_font_size_offset",
     "vscode_mono_font_size_offset",
+    "zed_mono_font_size_offset",
     "hypr_gaps_in",
     "hypr_gaps_out",
     "hypr_border_size",
@@ -120,6 +122,7 @@ pub const DEFAULT_GTK_MONO_FONT_SIZE_OFFSET: i64 = 0;
 pub const DEFAULT_NEOVIDE_MONO_FONT_SIZE_OFFSET: i64 = 0;
 pub const DEFAULT_QT_MONO_FONT_SIZE_OFFSET: i64 = 0;
 pub const DEFAULT_VSCODE_MONO_FONT_SIZE_OFFSET: i64 = 3;
+pub const DEFAULT_ZED_MONO_FONT_SIZE_OFFSET: i64 = 4;
 pub const DEFAULT_DARK_HINT: bool = false;
 pub const DEFAULT_HYPR_GAPS_IN: i64 = 4;
 pub const DEFAULT_HYPR_GAPS_OUT: i64 = 6;
@@ -160,6 +163,8 @@ pub struct ColorSchemeAppThemes {
     pub vicinae: Option<VicinaeThemeNames>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vscode: Option<VscodeThemeNames>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub zed: Option<String>,
 }
 
 impl ColorSchemeAppThemes {
@@ -169,6 +174,7 @@ impl ColorSchemeAppThemes {
             && self.snappy_switcher.is_none()
             && self.vicinae.is_none()
             && self.vscode.is_none()
+            && self.zed.is_none()
     }
 }
 
@@ -326,6 +332,13 @@ impl ColorScheme {
             .as_ref()
             .and_then(|themes| themes.extension_id.as_deref())
     }
+
+    pub fn zed_theme_name(&self) -> String {
+        self.app_themes
+            .zed
+            .clone()
+            .unwrap_or_else(|| format!("{}-{}", self.family, self.variant))
+    }
 }
 
 impl Serialize for ColorScheme {
@@ -432,6 +445,7 @@ pub struct ThemeState {
     pub neovide_mono_font_size_offset: i64,
     pub qt_mono_font_size_offset: i64,
     pub vscode_mono_font_size_offset: i64,
+    pub zed_mono_font_size_offset: i64,
     pub dark_hint: bool,
     pub hypr_gaps_in: i64,
     pub hypr_gaps_out: i64,
@@ -481,6 +495,7 @@ impl ThemeState {
             neovide_mono_font_size_offset: DEFAULT_NEOVIDE_MONO_FONT_SIZE_OFFSET,
             qt_mono_font_size_offset: DEFAULT_QT_MONO_FONT_SIZE_OFFSET,
             vscode_mono_font_size_offset: DEFAULT_VSCODE_MONO_FONT_SIZE_OFFSET,
+            zed_mono_font_size_offset: DEFAULT_ZED_MONO_FONT_SIZE_OFFSET,
             dark_hint: default_dark_hint,
             hypr_gaps_in: DEFAULT_HYPR_GAPS_IN,
             hypr_gaps_out: DEFAULT_HYPR_GAPS_OUT,
@@ -539,6 +554,7 @@ impl ThemeState {
             "neovide" => self.neovide_mono_font_size_offset,
             "qt" => self.qt_mono_font_size_offset,
             "vscode" => self.vscode_mono_font_size_offset,
+            "zed" => self.zed_mono_font_size_offset,
             _ => {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
@@ -629,6 +645,10 @@ impl ThemeState {
         map.insert(
             "vscode_mono_font_size_offset".to_owned(),
             Value::from(self.vscode_mono_font_size_offset),
+        );
+        map.insert(
+            "zed_mono_font_size_offset".to_owned(),
+            Value::from(self.zed_mono_font_size_offset),
         );
         map.insert("dark_hint".to_owned(), Value::Bool(self.dark_hint));
         map.insert("hypr_gaps_in".to_owned(), Value::from(self.hypr_gaps_in));

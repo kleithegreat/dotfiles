@@ -13,7 +13,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-const FONT_SCOPE_KEYS: [&str; 13] = [
+const FONT_SCOPE_KEYS: [&str; 14] = [
     "system_font",
     "mono_font",
     "font_size",
@@ -27,6 +27,7 @@ const FONT_SCOPE_KEYS: [&str; 13] = [
     "neovide_mono_font_size_offset",
     "qt_mono_font_size_offset",
     "vscode_mono_font_size_offset",
+    "zed_mono_font_size_offset",
 ];
 
 pub fn header(colors: &ColorScheme, comment: &str) -> String {
@@ -576,6 +577,7 @@ mod tests {
             neovide_mono_font_size_offset: 0,
             qt_mono_font_size_offset: 0,
             vscode_mono_font_size_offset: 3,
+            zed_mono_font_size_offset: 4,
             dark_hint: false,
             hypr_gaps_in: 4,
             hypr_gaps_out: 6,

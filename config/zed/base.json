@@ -5,8 +5,6 @@
     }
   },
   "base_keymap": "VSCode",
-  "buffer_font_family": "JetBrainsMonoNL NF",
-  "buffer_font_size": 15,
   "confirm_quit": false,
   "edit_predictions": {
     "provider": "none"
@@ -16,9 +14,11 @@
     "git_gutter": "tracked_files"
   },
   "load_direnv": "direct",
+  "project_panel": {
+    "dock": "right"
+  },
   "telemetry": {
     "diagnostics": false,
     "metrics": false
-  },
-  "ui_font_family": "SF Pro Text"
+  }
 }

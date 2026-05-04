@@ -35,7 +35,8 @@ Components.WheelFlickable {
         "gtk_mono_font_size_offset",
         "neovide_mono_font_size_offset",
         "qt_mono_font_size_offset",
-        "vscode_mono_font_size_offset"
+        "vscode_mono_font_size_offset",
+        "zed_mono_font_size_offset"
     ]
     readonly property var fontSizeOffsetKeys: [
         "quickshell_font_size_offset",

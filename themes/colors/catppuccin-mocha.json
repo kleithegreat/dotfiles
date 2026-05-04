@@ -12,7 +12,8 @@
     "vscode": {
       "name": "Catppuccin Mocha",
       "extension_id": "catppuccin.catppuccin-vsc"
-    }
+    },
+    "zed": "Catppuccin Mocha"
   },
   "colors": {
     "bg":           "#1e1e2e",

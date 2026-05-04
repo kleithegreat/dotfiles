@@ -12,7 +12,8 @@
     "vscode": {
       "name": "Solarized Dark+",
       "extension_id": "ryanolsonx.solarized"
-    }
+    },
+    "zed": "Solarized Dark"
   },
   "colors": {
     "bg":           "#002b36",

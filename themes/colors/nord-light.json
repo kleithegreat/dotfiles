@@ -12,7 +12,8 @@
     "vscode": {
       "name": "Nord Light",
       "extension_id": "huytd.nord-light"
-    }
+    },
+    "zed": "One Light"
   },
   "colors": {
     "bg":           "#eceff4",

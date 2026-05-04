@@ -23,6 +23,7 @@ mod vscode;
 mod wallpaper;
 mod where_is_my_sddm_theme;
 mod zathura;
+mod zed;
 mod zsh;
 
 use crate::theme::schema::{ColorScheme, ThemeState};
@@ -431,6 +432,7 @@ const TARGET_REGISTRATIONS: &[TargetRegistration] = &[
     target_registration!(wallpaper, on_apply),
     target_registration!(where_is_my_sddm_theme, persist),
     target_registration!(zathura),
+    target_registration!(zed),
     target_registration!(zsh),
 ];
 
@@ -477,7 +479,8 @@ pub(crate) mod testsupport {
                 "vscode": {
                     "name": "Gruvbox Dark Medium",
                     "extension_id": "jdinhlife.gruvbox"
-                }
+                },
+                "zed": "Gruvbox Dark"
             },
             "colors": {
                 "bg": "#000000",
@@ -537,6 +540,7 @@ pub(crate) mod testsupport {
             neovide_mono_font_size_offset: 0,
             qt_mono_font_size_offset: 0,
             vscode_mono_font_size_offset: 3,
+            zed_mono_font_size_offset: 4,
             dark_hint: false,
             hypr_gaps_in: 4,
             hypr_gaps_out: 6,
@@ -581,13 +585,14 @@ mod tests {
     fn registry_contains_all_python_targets() {
         let registry = build_registry().expect("registry builds");
         let names = registry.iter().map(|(name, _)| name).collect::<Vec<_>>();
-        assert_eq!(names.len(), 25);
+        assert_eq!(names.len(), 26);
         assert!(names.contains(&"chromium"));
         assert!(names.contains(&"cursor"));
         assert!(names.contains(&"gtksourceview"));
         assert!(names.contains(&"openchamber"));
         assert!(names.contains(&"opencode"));
         assert!(names.contains(&"where_is_my_sddm_theme"));
+        assert!(names.contains(&"zed"));
         assert!(names.contains(&"zsh"));
         assert_eq!(
             registry
@@ -755,6 +760,15 @@ mod tests {
     }
 
     #[test]
+    fn zed_output_sets_theme_and_fonts() {
+        let output = text(zed::generate(&dummy_colors(), &dummy_state()));
+        assert_eq!(
+            output,
+            "{\n  \"theme\": \"Gruvbox Dark\",\n  \"buffer_font_family\": \"JetBrains Mono Nerd Font\",\n  \"buffer_font_size\": 15,\n  \"ui_font_family\": \"Overpass\",\n  \"ui_font_size\": 11\n}"
+        );
+    }
+
+    #[test]
     fn openchamber_generate_returns_no_commands() {
         assert!(commands(openchamber::generate(&dummy_colors(), &dummy_state())).is_empty());
     }
@@ -823,6 +837,31 @@ mod tests {
             ),
             "{output}"
         );
+    }
+
+    #[test]
+    fn scheme_metadata_matches_expected_zed_theme_names() {
+        let cases = [
+            ("catppuccin-frappe", "Catppuccin Frapp\u{00e9}"),
+            ("catppuccin-latte", "Catppuccin Latte"),
+            ("catppuccin-macchiato", "Catppuccin Macchiato"),
+            ("catppuccin-mocha", "Catppuccin Mocha"),
+            ("gruvbox-dark", "Gruvbox Dark"),
+            ("gruvbox-light", "Gruvbox Light"),
+            ("nord", "Nord"),
+            ("nord-light", "One Light"),
+            ("rose-pine", "Ros\u{00e9} Pine"),
+            ("rose-pine-dawn", "Ros\u{00e9} Pine Dawn"),
+            ("solarized-dark", "Solarized Dark"),
+            ("solarized-light", "Solarized Light"),
+            ("tokyo-night", "Tokyo Night"),
+            ("tokyo-night-light", "Tokyo Night Light"),
+        ];
+
+        for (scheme_name, zed_name) in cases {
+            let colors = load_repo_colors(scheme_name);
+            assert_eq!(colors.zed_theme_name(), zed_name, "{scheme_name}");
+        }
     }
 
     #[test]
