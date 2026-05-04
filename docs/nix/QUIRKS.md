@@ -221,3 +221,9 @@
 **Cause:** Upstream `helium-linux` releases currently ship both a Qt6 integration shim that the browser still uses and a dormant `libqt5_shim.so` that is no longer backed by runtime Qt5 libraries. The package also launches through the upstream `helium-wrapper` shell script, so it is not a normal `wrapQtAppsHook` target.
 **Status:** Workaround in place
 **Resolution:** `pkgs/helium/default.nix` uses `makeWrapper` for the launcher, sets `dontWrapQtApps = true`, and ignores the unused `libQt5Core.so.5`, `libQt5Gui.so.5`, and `libQt5Widgets.so.5` dependencies in `autoPatchelfIgnoreMissingDeps`.
+
+## Helium uses a reverse-DNS user-data-dir
+**Symptom:** Dropping External Extensions JSON files into `~/.config/helium/External Extensions/` (mirroring the path Chromium uses) silently does nothing — Helium never picks the extensions up.
+**Cause:** Helium's user-data-dir on Linux is `~/.config/net.imput.helium/`, not `~/.config/helium/`. Home Manager's `programs.chromium` module has no Helium variant, so the path has to be wired by hand.
+**Status:** Workaround in place
+**Resolution:** `home/default.nix` defines `browserExtensions` as the shared extension-id list and feeds it both to `programs.chromium.extensions` and to `heliumExtensionFiles`, which generates `home.file."./.config/net.imput.helium/External Extensions/<id>.json"` entries with the same `external_update_url` payload Home Manager writes for Chromium.
