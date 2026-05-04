@@ -113,7 +113,6 @@
     remotePlay.openFirewall = true;
     localNetworkGameTransfers.openFirewall = true;
     extest.enable = true;  # X11→uinput translation for controllers on Wayland
-    protontricks.enable = true;
   };
 
   environment.systemPackages = with pkgs; [

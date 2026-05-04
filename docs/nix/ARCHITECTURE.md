@@ -3,7 +3,7 @@
 ## Scope
 
 Current implementation map for the flake, shared NixOS modules, and embedded
-Home Manager layer as of 2026-04-25.
+Home Manager layer as of 2026-05-03.
 
 ## Flake Topology
 
@@ -38,7 +38,7 @@ Home Manager layer as of 2026-04-25.
 | `system/native-kernel-packages.nix` | Shared helper | Derives the physical-host kernel package set from the stock nixpkgs `linux_6_18` source, rebuilds it with Clang + LLD ThinLTO, applies an explicit BORE patch stack plus a `tcp/bbr3` patch on top, bakes in the shared BORE/BBR3/HZ=1000/NO_HZ_IDLE/THP=madvise/MGLRU Kconfig overrides, layers host-local `KCFLAGS=-O2 -march=native` / `KRUSTFLAGS=-Ctarget-cpu=native`, and carries the same per-host native build feature tag used by the rest of the optimized package set |
 | `hosts/laptop/system.nix` | Laptop overlay | The laptop's voluntary-preempt plus Intel-only Kconfig trim, hybrid GPU policy, laptop-only services and overrides, the `laptop-power-profile` helper that wraps `powerprofilesctl` with the laptop's E-core-biased CPU hotplug policy, fingerprint/PAM policy, laptop-scoped polkit rules, and laptop hardware policy |
 | `hosts/laptop/fan-control.nix` | Laptop-only hardware submodule | Dell SMM kernel module wiring, BIOS fan-control handoff, the explicit four-state `i8kmon.conf` profile with aggressive ramp thresholds, and the `i8kmon` systemd service |
-| `hosts/desktop/system.nix` | Desktop overlay | Dedicated NVIDIA policy, the desktop's PREEMPT_FULL plus desktop-only dead-subsystem Kconfig culls and VM writeback/cache-pressure sysctls, storage mounts, desktop-only overlay imports, desktop-only macOS VM enablement, and the desktop's forced `power-profiles-daemon` performance profile |
+| `hosts/desktop/system.nix` | Desktop overlay | Dedicated NVIDIA policy, the desktop's PREEMPT_FULL plus desktop-only dead-subsystem Kconfig culls and VM writeback/cache-pressure sysctls, storage mounts, desktop-only overlay imports, desktop-only macOS VM enablement, Steam enablement with Remote Play/local transfer firewall and Wayland controller extest support, and the desktop's forced `power-profiles-daemon` performance profile |
 | `hosts/desktop/macos-vm.nix` | Desktop-only macOS VM submodule | Defines `virtualisation.macosVm`, seeds `/var/lib/macos-vm/sequoia` plus a 64 GiB qcow2 disk during activation, sets `options kvm ignore_msrs=1`, grants the configured user `kvm` access, installs `macos-vm-prepare` for the mutable OSX-KVM checkout and Sequoia recovery-media preparation, and installs the `macos-vm` QEMU launcher with the fixed 12 GiB RAM / 4 core Sequoia profile plus a 64 MiB VMware SVGA adapter |
 | `system/windows-vm.nix` | Shared Windows VM submodule | Defines `virtualisation.windowsVm`, seeds the qcow2/OVMF/TPM state under `/var/lib/windows-vm/windows11` during activation, grants the configured user `kvm` access, and installs the `windows-vm` QEMU launcher on physical hosts; the launcher prefers `/var/lib/windows-vm/windows11/isos/windows11.iso`, falls back to a lone staged `.iso` in the same directory, attaches `/var/lib/windows-vm/windows11/isos/unattend.iso` when present, wires the installer as a bootable SATA CD-ROM so OVMF sees it reliably on Q35, and uses a 64 MiB emulated VGA adapter with a 2560x1440 preferred framebuffer |
 | `home/default.nix` | Shared Home Manager root module | Shared optimized package derivations, the shared XDG user-dir policy, small activation/git/chromium glue, and imports of the concern-specific Home Manager modules |
