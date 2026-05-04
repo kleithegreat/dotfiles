@@ -33,6 +33,20 @@ let
     needspace
     zref
   ]);
+
+  browserExtensions = [
+    "ddkjiahejlhfcafbddmgiahcphecmpfh"
+    "nngceckbapebfimnlniiiahkandclblb"
+    "nkbihfbeogaeaoehlefnkodbefgpgknn"
+    "bfnaelmomeimhlpmgjnjophhpkkoljpa"
+  ];
+
+  heliumExtensionFiles = lib.listToAttrs (map (id: {
+    name = ".config/net.imput.helium/External Extensions/${id}.json";
+    value.text = builtins.toJSON {
+      external_update_url = "https://clients2.google.com/service/update2/crx";
+    };
+  }) browserExtensions);
 in
 {
   imports = [
@@ -83,13 +97,10 @@ in
 
   programs.chromium = {
     enable = true;
-    extensions = [
-      "ddkjiahejlhfcafbddmgiahcphecmpfh"
-      "nngceckbapebfimnlniiiahkandclblb"
-      "nkbihfbeogaeaoehlefnkodbefgpgknn"
-      "bfnaelmomeimhlpmgjnjophhpkkoljpa"
-    ];
+    extensions = browserExtensions;
   };
+
+  home.file = heliumExtensionFiles;
 
   programs.home-manager.enable = true;
   home.stateVersion = "25.05";
