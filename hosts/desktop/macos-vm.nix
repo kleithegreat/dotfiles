@@ -11,6 +11,11 @@ let
   ovmfCode = "${osxKvmDir}/OVMF_CODE_4M.fd";
   ovmfVars = "${osxKvmDir}/OVMF_VARS-1920x1080.fd";
 
+  systemDiskDevice =
+    if cfg.useNvmeSystemDisk
+    then "nvme,drive=MacHDD,serial=macos-nvme"
+    else "ide-hd,bus=sata.4,drive=MacHDD";
+
   prepareScript = pkgs.writeShellApplication {
     name = "macos-vm-prepare";
     runtimeInputs = with pkgs; [ coreutils dmg2img git qemu_kvm ];
@@ -93,8 +98,8 @@ let
         -device ide-hd,bus=sata.2,drive=OpenCoreBoot \
         -drive id=InstallMedia,if=none,file="$base_system_img",format=raw \
         -device ide-hd,bus=sata.3,drive=InstallMedia \
-        -drive id=MacHDD,if=none,file="$disk_path",format=qcow2 \
-        -device ide-hd,bus=sata.4,drive=MacHDD \
+        -drive id=MacHDD,if=none,file="$disk_path",format=qcow2,cache=none,aio=io_uring,discard=unmap,detect-zeroes=unmap \
+        -device ${systemDiskDevice} \
         -netdev user,id=net0,hostfwd=tcp::2222-:22 \
         -device virtio-net-pci,netdev=net0,id=net0,mac=${cfg.macAddress} \
         -device vmware-svga,vgamem_mb=${toString cfg.videoMemoryMiB} \
@@ -164,8 +169,27 @@ in
 
     videoMemoryMiB = lib.mkOption {
       type = lib.types.ints.positive;
-      default = 64;
-      description = "Video memory exposed by the VMware SVGA adapter.";
+      default = 256;
+      description = ''
+        Video memory exposed by the VMware SVGA adapter. macOS rendering in
+        this VM is purely software, so larger framebuffers and resolution
+        changes can stall on a small VRAM budget; 256 MiB is enough headroom
+        for 1920x1080 with WindowServer's compositing buffers.
+      '';
+    };
+
+    useNvmeSystemDisk = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Expose the macOS system disk through an emulated NVMe controller
+        instead of the OSX-KVM default of AHCI. NVMe in QEMU has lower
+        per-IO overhead and supports deeper queues, which speeds up boot,
+        app launches, and Time Machine-style scans. OpenCore detects the
+        macOS APFS volume by UUID, so an existing installation should still
+        boot after toggling this. Treat it as opt-in and flip back to AHCI
+        if the guest fails to boot.
+      '';
     };
   };
 

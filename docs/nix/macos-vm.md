@@ -29,7 +29,9 @@ The desktop module enables the VM with these defaults:
 - Memory: `12288 MiB`
 - vCPU topology: `4` QEMU CPU threads, exposed as `4` cores in one socket
 - CPU model: `Skylake-Client,-hle,-rtm` with the OSX-KVM Sequoia/Tahoe flags
-- Video memory: `64 MiB` on VMware SVGA
+- Video memory: `256 MiB` on VMware SVGA
+- System disk controller: AHCI by default; `useNvmeSystemDisk = true` switches
+  it to an emulated NVMe controller
 - SSH forwarding: host TCP port `2222` to guest TCP port `22`
 
 ## First Boot
@@ -52,7 +54,12 @@ The generated QEMU command enables:
 - OSX-KVM OVMF firmware and 1920x1080 NVRAM template
 - Sequoia/Tahoe-compatible `Skylake-Client` CPU presentation
 - USB keyboard and tablet input
-- AHCI-attached OpenCore, installer, and system disk devices
+- AHCI-attached OpenCore and installer; the system disk attaches via AHCI by
+  default, or via emulated NVMe when `useNvmeSystemDisk = true`
+- Host-side I/O on the system disk uses `cache=none,aio=io_uring` with
+  `discard=unmap,detect-zeroes=unmap` so writes bypass the host page cache,
+  use io_uring submission, and let qcow2 reclaim space on guest TRIM and
+  zeroed writes
 - User-mode NAT networking with SSH forwarded on host port `2222`
 - VMware SVGA display output with extra video memory for higher in-guest modes
 
@@ -70,6 +77,14 @@ The generated QEMU command enables:
   the directory, disk, checkout, and installer media are recreated.
 - The RTX 3080 is not supported by macOS. Treat this VM as a CPU/KVM-backed
   development and testing guest, not a GPU-accelerated macOS workstation.
+- VMware SVGA in QEMU has no Metal/Quartz Extreme path for macOS, so the
+  guest does pure software rendering. Bumping `videoMemoryMiB` reduces stalls
+  at higher resolutions but does not add real GPU acceleration; only
+  passthrough of a macOS-supported AMD card would.
+- The host I/O tuning on the system disk assumes the qcow2 lives on a
+  filesystem that supports `O_DIRECT` (ext4, xfs, btrfs without compression
+  on that subvolume). If `cache=none` ever fails to open the disk on a
+  different host filesystem, drop back to `cache=writeback` for that file.
 - If the desktop wallpaper is white while the login wallpaper is correct, choose
   a static JPEG/PNG wallpaper inside macOS. Dynamic/video/HEIC wallpaper paths
   can fail on the unaccelerated VMware SVGA renderer even when the login screen
