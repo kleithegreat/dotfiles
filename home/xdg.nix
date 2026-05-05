@@ -87,10 +87,10 @@ in
   xdg.mimeApps = {
     enable = true;
     defaultApplications = {
-      "text/html" = "chromium-browser.desktop";
-      "x-scheme-handler/http" = "chromium-browser.desktop";
-      "x-scheme-handler/https" = "chromium-browser.desktop";
-      "application/pdf" = "chromium-browser.desktop";
+      "text/html" = "helium.desktop";
+      "x-scheme-handler/http" = "helium.desktop";
+      "x-scheme-handler/https" = "helium.desktop";
+      "application/pdf" = "helium.desktop";
       "inode/directory" = "org.gnome.Nautilus.desktop";
       "image/png" = "imv.desktop";
       "image/jpeg" = "imv.desktop";
