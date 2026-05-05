@@ -171,9 +171,10 @@ in
     };
   };
 
-  virtualisation.docker = {
+  virtualisation.podman = {
     enable = true;
-    enableOnBoot = false;
+    dockerCompat = true;
+    defaultNetwork.settings.dns_enabled = true;
   };
   virtualisation.libvirtd = {
     enable = true;

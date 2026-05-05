@@ -131,7 +131,7 @@ in
 
       # ── Functions ────────────────────────────────────────────
       dps() {
-          docker ps -a --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}" | awk '
+          podman ps -a --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}" | awk '
               NR==1 { printf "\033[1;34m%s\033[0m\n", $0; next }
               /Up/                       { c="\033[32m" }
               /Exited/                   { c="\033[31m" }
