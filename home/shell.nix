@@ -163,7 +163,7 @@ in
   home.sessionVariables = {
     EDITOR = "nvim";
     VISUAL = "nvim";
-    BROWSER = "chromium";
+    BROWSER = "helium";
     PAGER = "less";
 
     # XDG path redirects
