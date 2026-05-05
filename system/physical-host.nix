@@ -59,7 +59,7 @@ in
   config = lib.mkIf host.isPhysical {
     boot.kernelPackages = optimizedKernelPackages;
     boot.kernelParams = [ "mitigations=off" "transparent_hugepage=madvise" ];
-    boot.kernelModules = [ "kvm-intel" ];
+    boot.kernelModules = [ "kvm-intel" "iptable_nat" ];
     virtualisation.windowsVm.enable = true;
     boot.loader.grub = {
       enable = true;
