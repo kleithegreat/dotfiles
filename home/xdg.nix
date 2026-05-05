@@ -34,6 +34,54 @@ let
       { text = fallback; }
     else
       { source = dotfilesSource relativePath; };
+
+  # Mask noisy per-format / per-backend launchers that show up as duplicates in
+  # Nautilus's "Open With" picker. `NoDisplay=true` is ignored by GTK4's all-apps
+  # list, so we use `Hidden=true` (XDG: treat as if deleted) via user-level
+  # shadows of the system desktop files.
+  hiddenDesktopFiles = [
+    # Krita ships one launcher per supported file format, all named "Krita".
+    # Keep `org.kde.krita.desktop` as the canonical entry.
+    "krita_brush.desktop"
+    "krita_csv.desktop"
+    "krita_exr.desktop"
+    "krita_gif.desktop"
+    "krita_heif.desktop"
+    "krita_heightmap.desktop"
+    "krita_jp2.desktop"
+    "krita_jpeg.desktop"
+    "krita_jxl.desktop"
+    "krita_kra.desktop"
+    "krita_krz.desktop"
+    "krita_ora.desktop"
+    "krita_pdf.desktop"
+    "krita_png.desktop"
+    "krita_psd.desktop"
+    "krita_qimageio.desktop"
+    "krita_raw.desktop"
+    "krita_rgbe.desktop"
+    "krita_spriter.desktop"
+    "krita_svg.desktop"
+    "krita_tga.desktop"
+    "krita_tiff.desktop"
+    "krita_webp.desktop"
+    "krita_xcf.desktop"
+    # Zathura ships one launcher per backend, all named "Zathura". Keep
+    # `org.pwmt.zathura.desktop` as the canonical entry.
+    "org.pwmt.zathura-cb.desktop"
+    "org.pwmt.zathura-djvu.desktop"
+    "org.pwmt.zathura-pdf-mupdf.desktop"
+    "org.pwmt.zathura-ps.desktop"
+    # VS Code's URL-handler launcher only exists to claim vscode:// links.
+    "code-url-handler.desktop"
+  ];
+  hiddenDesktopEntries = lib.listToAttrs (map (name: {
+    name = "applications/${name}";
+    value.text = ''
+      [Desktop Entry]
+      Hidden=true
+    '';
+  }) hiddenDesktopFiles);
 in
 {
   xdg.configFile = staticConfigSources // recursiveConfigSources // {
@@ -61,6 +109,8 @@ in
       }
     '';
   };
+
+  xdg.dataFile = hiddenDesktopEntries;
 
   xdg.desktopEntries.code = {
     name = "Visual Studio Code";
