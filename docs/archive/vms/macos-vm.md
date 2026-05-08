@@ -1,8 +1,12 @@
 # macOS VM
 
-The desktop host ships a desktop-local `virtualisation.macosVm` module in
-`hosts/desktop/macos-vm.nix`. It is an OSX-KVM based macOS Sequoia VM launcher,
-not a fully store-managed guest image.
+Archived setup. The desktop host used to ship a desktop-local
+`virtualisation.macosVm` module in `hosts/desktop/macos-vm.nix`; that module is
+no longer imported by the live flake. The last active module copy is archived
+next to this document at `docs/archive/vms/macos-vm.nix`.
+
+It was an OSX-KVM based macOS Sequoia VM launcher, not a fully store-managed
+guest image.
 
 This path is intentionally desktop-only because the current target is the
 desktop's i5-11400 host. The RTX 3080 is not usable by macOS, so the guest uses
@@ -21,7 +25,7 @@ OSX-KVM's virtual display path rather than GPU passthrough.
 
 ## Defaults
 
-The desktop module enables the VM with these defaults:
+The old desktop module enabled the VM with these defaults:
 
 - macOS shortname: `sequoia`
 - State dir: `/var/lib/macos-vm/sequoia`

@@ -109,7 +109,6 @@ in
     (import ./physical-host.nix {
       inherit config lib pkgs host enableNativeOptimizations;
     })
-    ./windows-vm.nix
     (import ./qt.nix {
       inherit lib pkgs inputs host enableNativeOptimizations;
     })

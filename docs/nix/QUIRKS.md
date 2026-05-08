@@ -192,18 +192,6 @@
 **Status:** Workaround in place
 **Resolution:** `patches/openchamber/desktop-popup-performance.patch` now keeps the same UI behavior but reduces popup overhead by shrinking `OverlayScrollbar` observation to the scroll container itself and by disabling mutation observation for the static `Select` viewport content. Keep the patch local until upstream ships an equivalent WebKitGTK-oriented optimization.
 
-## Declarative Windows VM media and guest state stay partly manual
-**Symptom:** The shared physical-host Windows VM module evaluates and seeds `/var/lib/windows-vm/windows11`, but first boot can still land in UEFI or an existing guest keeps its old size, boot state, or TPM state after a Nix change.
-**Cause:** `system/windows-vm.nix` makes the host-side QEMU wrapper declarative, but the installer ISO plus the mutable guest-owned qcow2, NVRAM, and TPM directories intentionally live outside the Nix store.
-**Status:** Expected manual state
-**Resolution:** Stage a Windows ISO under `/var/lib/windows-vm/windows11/isos/` before the first launch. `windows-vm` still prefers the configured `/var/lib/windows-vm/windows11/isos/windows11.iso` path, but if that file is absent it now auto-attaches a lone `.iso` from the directory; if multiple `.iso` files are present, set `virtualisation.windowsVm.windowsIsoPath` explicitly. The launcher now attaches that installer explicitly as a SATA CD-ROM with boot priority so OVMF can discover it reliably on Q35. If you want a clean reinstall or to reset secure-boot/TPM state, delete `/var/lib/windows-vm/windows11/system.qcow2`, `/var/lib/windows-vm/windows11/OVMF_VARS.ms.fd`, and `/var/lib/windows-vm/windows11/tpm/`, then rebuild so activation recreates fresh state. If you later increase `virtualisation.windowsVm.diskSizeGiB`, resize the existing qcow2 manually because activation only creates the disk when it does not already exist.
-
-## Desktop macOS VM checkout and installer media stay mutable
-**Symptom:** The desktop macOS VM helpers evaluate and seed `/var/lib/macos-vm/sequoia`, but first boot still requires an OSX-KVM checkout and Sequoia recovery media, and an existing guest keeps its old disk size after a Nix change.
-**Cause:** `hosts/desktop/macos-vm.nix` makes the host-side QEMU wrapper declarative, but the upstream OSX-KVM checkout, downloaded Apple recovery media, converted `BaseSystem.img`, and mutable guest qcow2 intentionally live outside the Nix store.
-**Status:** Expected manual state
-**Resolution:** After rebuilding the desktop, run `macos-vm-prepare` once as the normal user. It clones OSX-KVM under `/var/lib/macos-vm/sequoia/OSX-KVM`, downloads Sequoia via `fetch-macOS-v2.py --shortname sequoia`, converts `BaseSystem.dmg` to `BaseSystem.img`, and ensures `/var/lib/macos-vm/sequoia/mac_hdd_ng.img` exists at 64 GiB. The helper does not update an existing OSX-KVM checkout; update it manually with `git -C /var/lib/macos-vm/sequoia/OSX-KVM pull --ff-only` if needed. If you later change `virtualisation.macosVm.diskSizeGiB`, resize the existing qcow2 manually because activation only creates the disk when it does not already exist.
-
 ## `tailscaled` can stall shutdown on physical hosts
 **Symptom:** Reboot or poweroff can occasionally sit on "A stop job is running for Tailscale node agent" long enough to hit most of systemd's default 90 second stop timeout.
 **Cause:** Upstream `tailscaled` shutdown is normally fast, but Linux `wgengine` teardown has had intermittent close/deadlock races. The current hosts use NetworkManager plus `resolvconf`/`openresolv`, so this repo does not rely on `systemd-resolved` staying up for Tailscale cleanup.
