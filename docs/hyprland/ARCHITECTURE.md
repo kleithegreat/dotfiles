@@ -3,7 +3,7 @@
 ## Scope
 
 Current implementation map for `config/hypr/`, the host-selected Hyprland
-fragments, and the generated theme inputs as of 2026-04-29.
+fragments, and the generated theme inputs as of 2026-05-08.
 
 ## Source Graph
 
@@ -109,26 +109,31 @@ extends the renderer's rounding shader so both texture and rect passes can
 select which corners stay rounded; `src/desktop/view/Window.cpp`
 `CWindow::shouldSquareTopCorners()` then uses
 `DecorationPositioner::getBoxWithIncludedDecos` to square the main surface's
-top edge only when a top decoration is part of the window. Upstream has since
-absorbed most of the Hyprland 0.54 API porting in `hyprbars`, so the remaining
-local `patches/hyprland-plugins/hyprbars-hyprland-0.54.patch` now carries the
-behavior delta plus the current plugin-init workaround: `hyprbars/barDeco.cpp`
-renders the bar background with top-only rounded corners instead of the old
-oversized rounded-rect fill hack, `hyprbars/BarPassElement.cpp` and
-`hyprbars/BarPassElement.hpp` opt the custom bar pass out of render-pass
-simplification so `hyprexpo`'s offscreen workspace captures keep under-window
-decorations visible, and `hyprbars/main.cpp` / `hyprbars/globals.hpp` keep the
-plugin on the legacy `HyprlandAPI::addConfigValue(...)` plus
-`HyprlandAPI::getConfigValue(...)` path instead of `addConfigValueV2(...)`
-because the current Hyprland input aborts during `libhyprbars.so`
-initialization when `hyprbars` registers V2 plugin values under the legacy
-config manager. The companion
-`patches/hyprland-plugins/hyprexpo-hyprland-0.54.patch` still carries the
-remaining renderer/API migration for `hyprexpo`, plus the workspace-switch call
-updates required by current Hyprland headers. The Hyprexpo close path switches
-through `Config::Actions::changeWorkspace(...)` instead of
-`CMonitor::changeWorkspace(WORKSPACEID)` so clicking an overview tile whose
-workspace does not exist yet still creates and focuses that empty workspace.
+top edge only when a top decoration is part of the window. The companion
+`patches/hyprland/hyprland-gcc15-designated-initializer-fix-0.54.patch`
+keeps affected Hyprland render-data initializers on assignment-based setup so
+the local rounded-corner field does not trip designated-initializer ordering on
+the current compiler.
+
+Upstream has since absorbed most Hyprland 0.54 API porting in the plugin tree,
+so the remaining local `patches/hyprland-plugins/hyprbars-hyprland-0.54.patch`
+now carries the behavior delta plus the current plugin-init workaround:
+`hyprbars/barDeco.cpp` renders the bar background with top-only rounded corners
+instead of the old oversized rounded-rect fill hack,
+`hyprbars/BarPassElement.cpp` and `hyprbars/BarPassElement.hpp` opt the custom
+bar pass out of render-pass simplification so `hyprexpo`'s offscreen workspace
+captures keep under-window decorations visible, and `hyprbars/main.cpp` /
+`hyprbars/globals.hpp` keep the plugin on the legacy
+`HyprlandAPI::addConfigValue(...)` plus `HyprlandAPI::getConfigValue(...)` path
+instead of `addConfigValueV2(...)` because the current Hyprland input aborts
+during `libhyprbars.so` initialization when `hyprbars` registers V2 plugin
+values under the legacy config manager. The companion
+`patches/hyprland-plugins/hyprexpo-hyprland-0.54.patch` is now limited to local
+behavior on top of upstream's current API port: it debounces accidental select
+events immediately after opening the overview, guards stale `startedOn`
+workspace checks with `valid(startedOn)`, and lets
+`Config::Actions::changeWorkspace(...)` own the workspace transition without
+duplicating desktop-animation calls.
 
 Monitor behavior follows the same host split as inputs:
 

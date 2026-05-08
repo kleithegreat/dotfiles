@@ -1,158 +1,15 @@
-diff -ruN -x '*.orig' -x '*.rej' a/OverviewPassElement.cpp b/OverviewPassElement.cpp
---- a/OverviewPassElement.cpp	2026-03-29 22:21:26.425709341 -0500
-+++ b/OverviewPassElement.cpp	2026-03-29 22:21:53.616903829 -0500
-@@ -1,13 +1,15 @@
- #include "OverviewPassElement.hpp"
- #include <hyprland/src/render/OpenGL.hpp>
-+#include <vector>
- #include "overview.hpp"
- 
- COverviewPassElement::COverviewPassElement() {
-     ;
- }
- 
--void COverviewPassElement::draw(const CRegion& damage) {
-+std::vector<UP<IPassElement>> COverviewPassElement::draw() {
-     g_pOverview->fullRender();
-+    return {};
- }
- 
- bool COverviewPassElement::needsLiveBlur() {
-diff -ruN -x '*.orig' -x '*.rej' a/OverviewPassElement.hpp b/OverviewPassElement.hpp
---- a/OverviewPassElement.hpp	2026-03-29 22:21:26.425721338 -0500
-+++ b/OverviewPassElement.hpp	2026-03-29 22:21:53.616868381 -0500
-@@ -8,13 +8,16 @@
-     COverviewPassElement();
-     virtual ~COverviewPassElement() = default;
- 
--    virtual void                draw(const CRegion& damage);
-+    virtual std::vector<UP<IPassElement>> draw();
-     virtual bool                needsLiveBlur();
-     virtual bool                needsPrecomputeBlur();
-     virtual std::optional<CBox> boundingBox();
-+    virtual ePassElementType    type() {
-+        return EK_CUSTOM;
-+    }
-     virtual CRegion             opaqueRegion();
- 
-     virtual const char*         passName() {
-         return "COverviewPassElement";
-     }
--};
-\ No newline at end of file
-+};
-diff -ruN -x '*.orig' -x '*.rej' a/main.cpp b/main.cpp
---- a/main.cpp	2026-03-29 22:21:26.425758218 -0500
-+++ b/main.cpp	2026-03-29 22:21:53.616963773 -0500
-@@ -263,5 +263,5 @@
- 
-     g_unloading = true;
- 
--    g_pConfigManager->reload(); // we need to reload now to clear all the gestures
-+    Config::mgr()->reload(); // we need to reload now to clear all the gestures
- }
 diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
---- a/overview.cpp	2026-03-29 22:21:26.425792121 -0500
-+++ b/overview.cpp	2026-03-29 22:22:39.939288217 -0500
-@@ -1,29 +1,37 @@
+--- a/overview.cpp
++++ b/overview.cpp
+@@ -1,6 +1,7 @@
  #include "overview.hpp"
+ #include <algorithm>
  #include <any>
 +#include <chrono>
- #define private public
-+#define protected public
- #include <hyprland/src/render/Renderer.hpp>
- #include <hyprland/src/Compositor.hpp>
- #include <hyprland/src/desktop/state/FocusState.hpp>
- #include <hyprland/src/config/ConfigValue.hpp>
- #include <hyprland/src/config/ConfigManager.hpp>
-+#include <hyprland/src/config/shared/actions/ConfigActions.hpp>
-+#include <hyprland/src/config/shared/animation/AnimationTree.hpp>
- #include <hyprland/src/managers/animation/AnimationManager.hpp>
- #include <hyprland/src/managers/animation/DesktopAnimationManager.hpp>
- #include <hyprland/src/managers/cursor/CursorShapeOverrideController.hpp>
- #include <hyprland/src/managers/input/InputManager.hpp>
- #include <hyprland/src/managers/eventLoop/EventLoopManager.hpp>
- #include <hyprland/src/helpers/time/Time.hpp>
-+#include <hyprutils/string/VarList.hpp>
-+#undef protected
- #undef private
- #include "OverviewPassElement.hpp"
-+using Render::GL::g_pHyprOpenGL;
-+using Render::RENDER_MODE_FULL_FAKE;
- 
- static void damageMonitor(WP<Hyprutils::Animation::CBaseAnimatedVariable> thisptr) {
-     g_pOverview->damage();
- }
- 
- COverview::~COverview() {
--    g_pHyprRenderer->makeEGLCurrent();
-+    g_pHyprOpenGL->makeEGLCurrent();
-     images.clear(); // otherwise we get a vram leak
-     Cursor::overrideController->unsetOverride(Cursor::CURSOR_OVERRIDE_UNKNOWN);
--    g_pHyprOpenGL->markBlurDirtyForMonitor(pMonitor.lock());
-+    g_pHyprRenderer->damageMonitor(pMonitor.lock());
- }
- 
- COverview::COverview(PHLWORKSPACE startedOn_, bool swipe_) : startedOn(startedOn_), swipe(swipe_) {
-@@ -43,7 +51,7 @@
-     // process the method
-     bool     methodCenter  = true;
-     int      methodStartID = pMonitor->activeWorkspaceID();
--    CVarList method{*PMETHOD, 0, 's', true};
-+    Hyprutils::String::CVarList method{std::string{*PMETHOD}, 0, 's', true};
-     if (method.size() < 2)
-         Log::logger->log(Log::ERR, "[he] invalid workspace_method");
-     else {
-@@ -120,7 +128,7 @@
-         pMonitor->m_activeWorkspace = startedOn;
-     }
- 
--    g_pHyprRenderer->makeEGLCurrent();
-+    g_pHyprOpenGL->makeEGLCurrent();
- 
-     Vector2D tileSize       = pMonitor->m_size / SIDE_LENGTH;
-     Vector2D tileRenderSize = (pMonitor->m_size - Vector2D{GAP_WIDTH * pMonitor->m_scale, GAP_WIDTH * pMonitor->m_scale} * (SIDE_LENGTH - 1)) / SIDE_LENGTH;
-@@ -141,12 +149,14 @@
- 
-     for (size_t i = 0; i < (size_t)(SIDE_LENGTH * SIDE_LENGTH); ++i) {
-         COverview::SWorkspaceImage& image = images[i];
--        image.fb.alloc(monbox.w, monbox.h, PMONITOR->m_output->state->state().drmFormat);
-+        if (!image.fb)
-+            image.fb = g_pHyprRenderer->createFB("hyprexpo");
-+        image.fb->alloc(monbox.w, monbox.h, PMONITOR->m_output->state->state().drmFormat);
- 
-         CRegion fakeDamage{0, 0, INT16_MAX, INT16_MAX};
--        g_pHyprRenderer->beginRender(PMONITOR, fakeDamage, RENDER_MODE_FULL_FAKE, nullptr, &image.fb);
-+        g_pHyprRenderer->beginRender(PMONITOR, fakeDamage, RENDER_MODE_FULL_FAKE, nullptr, image.fb);
- 
--        g_pHyprOpenGL->clear(CHyprColor{0, 0, 0, 1.0});
-+        g_pHyprRenderer->draw(CClearPassElement::SClearData{CHyprColor{0, 0, 0, 1.0}});
- 
-         const auto PWORKSPACE = g_pCompositor->getWorkspaceByID(image.workspaceID);
- 
-@@ -175,7 +185,7 @@
-         image.box = {(i % SIDE_LENGTH) * tileRenderSize.x + (i % SIDE_LENGTH) * GAP_WIDTH, (i / SIDE_LENGTH) * tileRenderSize.y + (i / SIDE_LENGTH) * GAP_WIDTH, tileRenderSize.x,
-                      tileRenderSize.y};
- 
--        g_pHyprOpenGL->m_renderData.blockScreenShader = true;
-+        g_pHyprRenderer->m_renderData.blockScreenShader = true;
-         g_pHyprRenderer->endRender();
-     }
- 
-@@ -189,10 +199,10 @@
-     // zoom on the current workspace.
-     // const auto& TILE = images[std::clamp(currentid, 0, SIDE_LENGTH * SIDE_LENGTH)];
- 
--    g_pAnimationManager->createAnimation(pMonitor->m_size * pMonitor->m_size / tileSize, size, g_pConfigManager->getAnimationPropertyConfig("windowsMove"), AVARDAMAGE_NONE);
-+    g_pAnimationManager->createAnimation(pMonitor->m_size * pMonitor->m_size / tileSize, size, Config::animationTree()->getAnimationPropertyConfig("windowsMove"), AVARDAMAGE_NONE);
-     g_pAnimationManager->createAnimation((-((pMonitor->m_size / (double)SIDE_LENGTH) * Vector2D{currentid % SIDE_LENGTH, currentid / SIDE_LENGTH}) * pMonitor->m_scale) *
-                                              (pMonitor->m_size / tileSize),
--                                         pos, g_pConfigManager->getAnimationPropertyConfig("windowsMove"), AVARDAMAGE_NONE);
-+                                         pos, Config::animationTree()->getAnimationPropertyConfig("windowsMove"), AVARDAMAGE_NONE);
- 
-     size->setUpdateCallback(damageMonitor);
-     pos->setUpdateCallback(damageMonitor);
-@@ -209,6 +219,7 @@
+ #include <cmath>
+ #define private   public
+ #define protected public
+@@ -241,21 +241,26 @@
      Cursor::overrideController->setOverride("left_ptr", Cursor::CURSOR_OVERRIDE_UNKNOWN);
  
      lastMousePosLocal = g_pInputManager->getMouseCoordsInternal() - pMonitor->m_position;
@@ -160,7 +17,9 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
  
      auto onCursorMove = [this](Event::SCallbackInfo& info) {
          if (closing)
-@@ -218,12 +229,16 @@
+             return;
+ 
+         info.cancelled    = true;
          lastMousePosLocal = g_pInputManager->getMouseCoordsInternal() - pMonitor->m_position;
      };
  
@@ -178,7 +37,7 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
          selectHoveredWorkspace();
  
          close();
-@@ -250,14 +265,14 @@
+@@ -282,7 +289,7 @@
      if (!pMonitor)
          return;
  
@@ -187,60 +46,24 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
          // likely user changed.
          onWorkspaceChange();
      }
+@@ -422,15 +427,10 @@
  
-     blockOverviewRendering = true;
+         const auto NEWIDWS = g_pCompositor->getWorkspaceByID(NEWID);
  
--    g_pHyprRenderer->makeEGLCurrent();
-+    g_pHyprOpenGL->makeEGLCurrent();
- 
-     id = std::clamp(id, 0, SIDE_LENGTH * SIDE_LENGTH);
- 
-@@ -273,15 +288,18 @@
- 
-     auto& image = images[id];
- 
--    if (image.fb.m_size != monbox.size()) {
--        image.fb.release();
--        image.fb.alloc(monbox.w, monbox.h, pMonitor->m_output->state->state().drmFormat);
-+    if (!image.fb || image.fb->m_size != monbox.size()) {
-+        if (image.fb)
-+            image.fb->release();
-+        else
-+            image.fb = g_pHyprRenderer->createFB("hyprexpo");
-+        image.fb->alloc(monbox.w, monbox.h, pMonitor->m_output->state->state().drmFormat);
-     }
- 
-     CRegion fakeDamage{0, 0, INT16_MAX, INT16_MAX};
--    g_pHyprRenderer->beginRender(pMonitor.lock(), fakeDamage, RENDER_MODE_FULL_FAKE, nullptr, &image.fb);
-+    g_pHyprRenderer->beginRender(pMonitor.lock(), fakeDamage, RENDER_MODE_FULL_FAKE, nullptr, image.fb);
- 
--    g_pHyprOpenGL->clear(CHyprColor{0, 0, 0, 1.0});
-+    g_pHyprRenderer->draw(CClearPassElement::SClearData{CHyprColor{0, 0, 0, 1.0}});
- 
-     const auto   PWORKSPACE = image.pWorkspace;
- 
-@@ -309,7 +327,7 @@
-     } else
-         g_pHyprRenderer->renderWorkspace(pMonitor.lock(), PWORKSPACE, Time::steadyNow(), monbox);
- 
--    g_pHyprOpenGL->m_renderData.blockScreenShader = true;
-+    g_pHyprRenderer->m_renderData.blockScreenShader = true;
-     g_pHyprRenderer->endRender();
- 
-     pMonitor->m_activeSpecialWorkspace = openSpecial;
-@@ -387,9 +405,4 @@
 -        const auto OLDWS = pMonitor->m_activeWorkspace;
 -
          if (!NEWIDWS)
--            g_pKeybindManager->changeworkspace(std::to_string(NEWID));
-+            Config::Actions::changeWorkspace(std::to_string(NEWID));
+             Config::Actions::changeWorkspace(std::to_string(NEWID));
          else
--            g_pKeybindManager->changeworkspace(NEWIDWS->getConfigName());
--
+             Config::Actions::changeWorkspace(NEWIDWS->getConfigName());
+ 
 -        g_pDesktopAnimationManager->startAnimation(pMonitor->m_activeWorkspace, CDesktopAnimationManager::ANIMATION_TYPE_IN, true, true);
 -        g_pDesktopAnimationManager->startAnimation(OLDWS, CDesktopAnimationManager::ANIMATION_TYPE_OUT, false, true);
-+            Config::Actions::changeWorkspace(NEWIDWS->getConfigName());
-@@ -433,7 +445,7 @@
+-
+         startedOn = pMonitor->m_activeWorkspace;
+     }
+ 
+@@ -471,7 +471,7 @@
  void COverview::fullRender() {
      const auto GAPSIZE = (closing ? (1.0 - size->getPercent()) : size->getPercent()) * GAP_WIDTH;
  
@@ -249,39 +72,3 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
          // likely user changed.
          onWorkspaceChange();
      }
-@@ -443,15 +455,17 @@
-     Vector2D tileSize       = (SIZE / SIDE_LENGTH);
-     Vector2D tileRenderSize = (SIZE - Vector2D{GAPSIZE, GAPSIZE} * (SIDE_LENGTH - 1)) / SIDE_LENGTH;
- 
--    g_pHyprOpenGL->clear(BG_COLOR.stripA());
-+    g_pHyprRenderer->draw(CClearPassElement::SClearData{BG_COLOR.stripA()});
- 
-     for (size_t y = 0; y < (size_t)SIDE_LENGTH; ++y) {
-         for (size_t x = 0; x < (size_t)SIDE_LENGTH; ++x) {
-             CBox texbox = {x * tileRenderSize.x + x * GAPSIZE, y * tileRenderSize.y + y * GAPSIZE, tileRenderSize.x, tileRenderSize.y};
-             texbox.scale(pMonitor->m_scale).translate(pos->value());
-             texbox.round();
-+            const auto TEXTURE = images[x + y * SIDE_LENGTH].fb ? images[x + y * SIDE_LENGTH].fb->getTexture() : nullptr;
-             CRegion damage{0, 0, INT16_MAX, INT16_MAX};
--            g_pHyprOpenGL->renderTextureInternal(images[x + y * SIDE_LENGTH].fb.getTexture(), texbox, {.damage = &damage, .a = 1.0});
-+            if (TEXTURE)
-+                g_pHyprOpenGL->renderTextureInternal(TEXTURE, texbox, {.damage = &damage, .a = 1.0});
-         }
-     }
- }
-diff -ruN -x '*.orig' -x '*.rej' a/overview.hpp b/overview.hpp
---- a/overview.hpp	2026-03-29 22:21:26.425806918 -0500
-+++ b/overview.hpp	2026-03-29 22:21:53.617135920 -0500
-@@ -54,9 +54,9 @@
-     bool       damageDirty = false;
- 
-     struct SWorkspaceImage {
--        CFramebuffer fb;
--        int64_t      workspaceID = -1;
--        PHLWORKSPACE pWorkspace;
-+        SP<Render::IFramebuffer> fb;
-+        int64_t          workspaceID = -1;
-+        PHLWORKSPACE     pWorkspace;
-         CBox         box;
-     };
- 
