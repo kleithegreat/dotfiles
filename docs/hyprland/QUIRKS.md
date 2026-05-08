@@ -120,6 +120,24 @@ code read live values through `HyprlandAPI::getConfigValue(...)` instead of the
 crashing `addConfigValueV2(...)` / `Config::Values::*Value` path. Re-test
 `hyprbars` against future input bumps before dropping that local workaround.
 
+## Rolling Hyprland inputs can make local patches fail during build
+
+**Symptom:** `nrs` fails while building `hyprland` or a Hyprland plugin with
+messages such as `Hunk #... FAILED` or `Reversed (or previously applied) patch
+detected` during `patchPhase`.
+
+**Cause:** `system/configuration.nix` intentionally appends repo-local patches
+to Hyprland, `hyprbars`, and `hyprexpo`. Upstream Hyprland and plugin inputs are
+rolling flake inputs, so upstream may reformat touched code, remove fields, or
+absorb parts of a local patch before the local patch stack is refreshed.
+
+**Impact / workaround:** Refresh the relevant file under `patches/hyprland/` or
+`patches/hyprland-plugins/` against the locked source revision, and prefer
+dropping hunks that upstream has already absorbed instead of preserving stale API
+porting context. Rebuild the patched Hyprland package and plugin stack before
+running a full system rebuild, because the full desktop closure may also rebuild
+the native kernel/NVIDIA stack.
+
 ## Hyprbars needs pass simplification disabled for Hyprexpo captures
 
 **Symptom:** Floating windows render with `hyprbars` in the normal workspace, but

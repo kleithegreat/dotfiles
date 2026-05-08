@@ -209,14 +209,14 @@ index 670c788..7b84d1e 100644
  };
 
  void CGLElementRenderer::draw(WP<CShadowPassElement> element, const CRegion& damage) {
-@@ -117,6 +117,7 @@ void CGLElementRenderer::draw(WP<CTexPassElement> element, const CRegion& damage
-             .a                  = m_data.a,
-             .round              = m_data.round,
-             .roundingPower      = m_data.roundingPower,
-+            .roundedCorners     = m_data.squareTopCorners ? 12 : 15,
-             .discardActive      = m_data.discardActive,
-             .allowCustomUV      = m_data.allowCustomUV,
-             .cmBackToSRGB       = m_data.cmBackToSRGB,
+@@ -119,6 +119,7 @@ void CGLElementRenderer::draw(WP<CTexPassElement> element, const CRegion& damage
+             .a              = m_data.a,
+             .round          = m_data.round,
+             .roundingPower  = m_data.roundingPower,
++            .roundedCorners = m_data.squareTopCorners ? 12 : 15,
+             .discardActive  = m_data.discardActive,
+             .allowCustomUV  = m_data.allowCustomUV,
+             .cmBackToSRGB   = m_data.cmBackToSRGB,
 @@ -135,4 +136,4 @@ void CGLElementRenderer::draw(WP<CTextureMatteElement> element, const CRegion& d
      const auto m_data = element->m_data;
 
