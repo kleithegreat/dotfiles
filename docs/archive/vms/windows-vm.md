@@ -1,10 +1,12 @@
 # Windows VM
 
-The physical hosts now ship a declarative `virtualisation.windowsVm` module in
-`system/windows-vm.nix`.
+Archived setup. The physical hosts used to ship a declarative
+`virtualisation.windowsVm` module in `system/windows-vm.nix`; that module is no
+longer imported by the live flake. The last active module copy is archived next
+to this document at `docs/archive/vms/windows-vm.nix`.
 
-This path is active work in progress, not abandoned documentation. The module is
-live today, but the guest media and mutable VM-owned state still require manual
+The archived module was active work in progress, not a complete store-managed
+guest image. The guest media and mutable VM-owned state still required manual
 operator steps.
 
 ## What Nix Manages
@@ -18,7 +20,7 @@ operator steps.
 
 ## Defaults
 
-The current physical-host baseline enables the module with these defaults:
+The old physical-host baseline enabled the module with these defaults:
 
 - VM name: `windows11`
 - State dir: `/var/lib/windows-vm/windows11`

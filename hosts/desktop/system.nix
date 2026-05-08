@@ -1,10 +1,6 @@
 { config, pkgs, lib, ... }:
 
 {
-  imports = [
-    ./macos-vm.nix
-  ];
-
   boot.initrd.availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usbhid" "usb_storage" "sd_mod" ];
   boot.kernelPatches = [
     {
@@ -59,8 +55,6 @@
   boot.extraModprobeConfig = ''
     options nvidia NVreg_TemporaryFilePath=/var/tmp
   '';
-
-  virtualisation.macosVm.enable = true;
 
   fileSystems."/" = {
     device = "/dev/disk/by-uuid/431cdfea-3583-453d-b2dd-9a46d01c4a33";
