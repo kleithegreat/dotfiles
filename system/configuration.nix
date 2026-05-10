@@ -116,7 +116,7 @@ in
       inherit pkgs;
     })
     (import ./services.nix {
-      inherit config lib pkgs optimizedPkgs patchedHyprlandPortal;
+      inherit pkgs optimizedPkgs patchedHyprlandPortal;
     })
   ];
 

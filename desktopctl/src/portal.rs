@@ -9,6 +9,7 @@ use std::{
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 const BUSCTL_TIMEOUT: Duration = Duration::from_secs(5);
+const MONITOR_STARTUP_DELAY: Duration = Duration::from_millis(100);
 const PORTAL_TIMEOUT: Duration = Duration::from_secs(120);
 
 pub fn pick_directory() -> Result<Option<String>> {
@@ -50,6 +51,8 @@ pub fn pick_directory() -> Result<Option<String>> {
             let _ = sender.send(message);
         }
     });
+
+    thread::sleep(MONITOR_STARTUP_DELAY);
 
     let mut busctl = Command::new("busctl");
     busctl.args([

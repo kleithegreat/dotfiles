@@ -75,15 +75,15 @@ pub fn resolve_location() -> io::Result<Coordinates> {
     }
 
     if let Some(location) = query_geoclue() {
-        if let Some(parent) = cache_path.parent() {
-            let _ = fs::create_dir_all(parent);
-        }
         let payload = CachedLocation {
             latitude: location.latitude,
             longitude: location.longitude,
         };
-        if let Ok(json) = serde_json::to_vec(&payload) {
-            let _ = fs::write(&cache_path, json);
+        if let Err(error) = write_cached_location(&cache_path, &payload) {
+            eprintln!(
+                "warning: failed to cache GeoClue location at {}: {error}",
+                cache_path.display()
+            );
         }
 
         return Ok(location);
@@ -220,6 +220,14 @@ fn read_cached_location(path: &std::path::Path) -> Option<Coordinates> {
     let contents = fs::read(path).ok()?;
     let cached: CachedLocation = serde_json::from_slice(&contents).ok()?;
     validated_coordinates(cached.latitude, cached.longitude)
+}
+
+fn write_cached_location(path: &std::path::Path, location: &CachedLocation) -> io::Result<()> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let json = serde_json::to_vec(location).map_err(io::Error::other)?;
+    fs::write(path, json)
 }
 
 fn query_geoclue() -> Option<Coordinates> {

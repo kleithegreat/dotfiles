@@ -55,14 +55,12 @@ Constraints:
 - Generated theme outputs must remain writable outside the Nix store.
 - Recursive Home Manager trees may coexist with generated sibling files when
   the runtime output is not itself store-managed.
-- The only current committed generated-snapshot exception is
-  `config/quickshell/GeneratedTheme.json`, which ships inside the recursive
-  Quickshell tree and is then overwritten in place by `desktopctl theme sync`
-  and later runtime theme applies.
-- Outside that documented Quickshell exception, generated snapshots accidentally
-  committed under `config/` are still forbidden outputs even if no current
-  module deploys them; remove or relocate them instead of treating them as
-  owned base config.
+- Generated snapshots accidentally committed under `config/` are forbidden
+  outputs even if no current module deploys them; remove or relocate them
+  instead of treating them as owned base config.
+- Quickshell is not an exception to this rule: `config/quickshell/Theme.qml`
+  owns first-start fallbacks, and the live `GeneratedTheme.json` is created by
+  `desktopctl theme sync` under the user's config directory.
 
 ## Packages Versus Repo Config
 

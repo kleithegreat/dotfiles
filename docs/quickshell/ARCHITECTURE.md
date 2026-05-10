@@ -260,9 +260,9 @@ implementation.
 | --- | --- |
 | `Theme.qml` | Watches the XDG-config-derived `GeneratedTheme.json` path, reparses on change, exposes the generated system-font shell baseline plus a separate mono-font alias for monospaced/glyph-oriented surfaces, and keeps shell-owned layout constants including the shared animation timing scale, popup start-scale, and popup scale-lead delay used by the shell popup surfaces |
 | `desktopctl/src/theme/targets/quickshell.rs` | Writes `GeneratedTheme.json`, maps theming names into Quickshell's `bg0_h` / `aqua` naming, emits both mono and system font families, and derives shell font sizes from `ThemeState.font_size + quickshell_font_size_offset` |
-| Recursive tree exception | `config/quickshell/GeneratedTheme.json` is committed in the repo as a bootstrap snapshot because Home Manager deploys the whole `config/quickshell/` tree recursively; activation/runtime theme applies still overwrite the live `${XDG_CONFIG_HOME:-~/.config}/quickshell/GeneratedTheme.json` path |
+| Recursive tree generated file | `config/quickshell/GeneratedTheme.json` is not committed. Home Manager deploys the Quickshell tree recursively, `Theme.qml` provides first-start fallback colors/fonts, and activation/runtime theme applies create or replace the live `${XDG_CONFIG_HOME:-~/.config}/quickshell/GeneratedTheme.json` path |
 | Settings host | Runs `desktopctl theme ...`, stages optimistic `themeState` updates for individual `set` writes, serializes general theme writes, shows toast-visible backend failures, then reloads or rolls back its local snapshot when the process exits |
-| Shell IPC | Provides a second command path into `desktopctl theme ...` through `theme.apply`, accepting either shell-quoted string payloads or structured argv arrays, rejecting concurrent theme commands, and showing error toasts on failure |
+| Shell IPC | Provides a second command path into `desktopctl theme ...` through `theme.apply`, accepting either shell-quoted string payloads or structured argv arrays, rejecting concurrent theme commands, showing error toasts on failure, and showing an info toast when the command exits successfully |
 
 `Theme.qml` still keeps hardcoded Gruvbox Dark fallbacks for the generated JSON
 surface in its fallback color/font object inside `config/quickshell/Theme.qml`.
@@ -364,8 +364,9 @@ the history watermark and insert-animation logic in `config/quickshell/NotifDraw
 - `desktopctl` is on `PATH` for every Quickshell `Process` that invokes theme
   commands.
 - A writable `${XDG_CONFIG_HOME:-~/.config}/quickshell/GeneratedTheme.json`
-  exists beside the Home Manager-managed Quickshell tree; it may begin as the
-  committed repo snapshot and then be overwritten by `desktopctl theme sync`.
+  exists beside the Home Manager-managed Quickshell tree after
+  `desktopctl theme sync`; before that, `config/quickshell/Theme.qml` uses its
+  built-in fallback palette and fonts.
 - A writable `${XDG_CONFIG_HOME:-~/.config}/hypr/input-runtime.conf` exists
   before the Mouse page issues any `desktopctl hypr input set ...` writes; Home
   Manager now bootstraps that file during activation.

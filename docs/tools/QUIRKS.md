@@ -5,8 +5,7 @@
 Several theme targets write generated files into `~/.config/` directories that
 Home Manager has already populated with symlinks to repo-authored configs. The
 generated files usually only exist at their output paths after a theme apply.
-The one current repo-committed exception is Quickshell's
-`config/quickshell/GeneratedTheme.json` bootstrap snapshot.
+There is no current repo-committed generated-file exception.
 
 | Generated file | Written by | Sourced by |
 | --- | --- | --- |
@@ -22,9 +21,8 @@ If these generated files are missing (e.g., on a fresh clone before the first
 theme apply), the tools that source them will error or fall back to defaults.
 Home Manager activation runs `desktopctl theme sync` to ensure they exist.
 
-For Quickshell specifically, the live file may begin as the committed
-`config/quickshell/GeneratedTheme.json` snapshot before `desktopctl theme sync`
-overwrites it.
+For Quickshell specifically, `config/quickshell/Theme.qml` uses built-in
+fallback values until `desktopctl theme sync` creates the live generated file.
 
 ## Hyprland Source Files Not in the Repo
 

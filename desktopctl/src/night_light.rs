@@ -168,8 +168,15 @@ pub(crate) fn ensure_hyprsunset_running(target_temperature: i32) -> crate::Resul
 }
 
 pub(crate) fn stop_hyprsunset() -> crate::Result<()> {
-    let _ = Command::new("pkill").args(["-x", "hyprsunset"]).output();
-    Ok(())
+    match Command::new("pkill").args(["-x", "hyprsunset"]).output() {
+        Ok(output) if output.status.success() || output.status.code() == Some(1) => Ok(()),
+        Ok(output) => Err(command_error("pkill hyprsunset", &output).into()),
+        Err(error) => Err(io::Error::new(
+            error.kind(),
+            format!("failed to run pkill hyprsunset: {error}"),
+        )
+        .into()),
+    }
 }
 
 pub(crate) fn current_dark_hint() -> crate::Result<bool> {
@@ -312,6 +319,23 @@ fn socket_unavailable(error: &(dyn std::error::Error + 'static)) -> bool {
                 | io::ErrorKind::ConnectionReset
         )
     })
+}
+
+fn command_error(label: &str, output: &std::process::Output) -> io::Error {
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let detail = if stderr.trim().is_empty() {
+        stdout.trim()
+    } else {
+        stderr.trim()
+    };
+    let detail = if detail.is_empty() {
+        format!("exited with status {}", output.status)
+    } else {
+        detail.to_owned()
+    };
+
+    io::Error::other(format!("{label} failed: {detail}"))
 }
 
 fn hyprsunset_current_temperature() -> Option<i32> {

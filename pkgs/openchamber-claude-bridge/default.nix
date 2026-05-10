@@ -2,6 +2,7 @@
   lib,
   stdenvNoCC,
   makeWrapper,
+  claude-code,
   nodejs,
 }:
 
@@ -22,7 +23,8 @@ stdenvNoCC.mkDerivation {
     cp ${./index.mjs} "$out/libexec/openchamber-claude-bridge/index.mjs"
 
     makeWrapper ${lib.getExe nodejs} "$out/bin/openchamber-claude-bridge" \
-      --add-flags "$out/libexec/openchamber-claude-bridge/index.mjs"
+      --add-flags "$out/libexec/openchamber-claude-bridge/index.mjs" \
+      --set-default CLAUDE_CODE_BIN "${lib.getExe claude-code}"
 
     runHook postInstall
   '';

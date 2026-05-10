@@ -346,10 +346,11 @@ fn parse_input_state_from_str(contents: &str, state: &mut InputState) {
                 }
             }
             "scroll_factor" => {
-                if let Ok(parsed) = value.trim().parse::<f64>() {
-                    if parsed.is_finite() && parsed > 0.0 {
-                        state.scroll_factor = parsed;
-                    }
+                if let Ok(parsed) = value.trim().parse::<f64>()
+                    && parsed.is_finite()
+                    && parsed > 0.0
+                {
+                    state.scroll_factor = parsed;
                 }
             }
             _ => {}
@@ -477,6 +478,61 @@ fn animations_override_path() -> Result<PathBuf> {
     Ok(paths::xdg_config_home()?.join(ANIMATIONS_OVERRIDE_RELATIVE_PATH))
 }
 
+fn validate_rendered_field(label: &str, value: &str) -> Result<()> {
+    if value.contains('\n') || value.contains('\r') {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("{label} must not contain newlines"),
+        )
+        .into());
+    }
+
+    Ok(())
+}
+
+fn validate_non_empty_field(label: &str, value: &str) -> Result<()> {
+    validate_rendered_field(label, value)?;
+    if value.trim().is_empty() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("{label} must not be empty"),
+        )
+        .into());
+    }
+
+    Ok(())
+}
+
+fn validate_animations_payload(payload: &AnimationsPayload) -> Result<()> {
+    for (name, points) in &payload.beziers {
+        validate_non_empty_field("bezier name", name)?;
+        for point in points {
+            if !point.is_finite() {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    format!("bezier '{name}' contains a non-finite point"),
+                )
+                .into());
+            }
+        }
+    }
+
+    for animation in &payload.animations {
+        validate_non_empty_field("animation name", &animation.name)?;
+        validate_non_empty_field("animation curve", &animation.curve)?;
+        validate_rendered_field("animation style", &animation.style)?;
+        if !animation.speed.is_finite() {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("animation '{}' speed must be finite", animation.name),
+            )
+            .into());
+        }
+    }
+
+    Ok(())
+}
+
 fn render_animations_override(payload: &AnimationsPayload) -> String {
     let mut out = String::from("# Managed by desktopctl — do not edit\nanimations {\n");
 
@@ -524,8 +580,11 @@ pub(crate) fn save_animations(json: &str) -> Result<()> {
         )
     })?;
 
+    validate_animations_payload(&payload)?;
     let contents = render_animations_override(&payload);
-    theme::atomic_write(&animations_override_path()?, contents.as_bytes())
+    theme::atomic_write(&animations_override_path()?, contents.as_bytes())?;
+    hyprctl_output(&["reload"])?;
+    Ok(())
 }
 
 /// Clear all animation overrides and reload Hyprland.
@@ -558,6 +617,39 @@ struct KeybindOverride {
 
 fn keybinds_override_path() -> Result<PathBuf> {
     Ok(paths::xdg_config_home()?.join(KEYBINDS_OVERRIDE_RELATIVE_PATH))
+}
+
+fn validate_keybind_flags(flags: &str) -> Result<()> {
+    validate_rendered_field("keybind flags", flags)?;
+    for flag in flags.chars() {
+        if !matches!(
+            flag,
+            'd' | 'e' | 'i' | 'l' | 'm' | 'n' | 'p' | 'r' | 's' | 't'
+        ) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("unsupported Hyprland keybind flag '{flag}'"),
+            )
+            .into());
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_keybinds_payload(payload: &KeybindsPayload) -> Result<()> {
+    for keybind in &payload.overrides {
+        validate_rendered_field("original modifiers", &keybind.original_mods)?;
+        validate_non_empty_field("original key", &keybind.original_key)?;
+        validate_rendered_field("new modifiers", &keybind.new_mods)?;
+        validate_non_empty_field("new key", &keybind.new_key)?;
+        validate_keybind_flags(&keybind.flags)?;
+        validate_rendered_field("keybind description", &keybind.description)?;
+        validate_non_empty_field("keybind dispatcher", &keybind.dispatcher)?;
+        validate_rendered_field("keybind argument", &keybind.arg)?;
+    }
+
+    Ok(())
 }
 
 fn render_keybinds_override(payload: &KeybindsPayload) -> String {
@@ -597,8 +689,11 @@ pub(crate) fn save_keybinds(json: &str) -> Result<()> {
         )
     })?;
 
+    validate_keybinds_payload(&payload)?;
     let contents = render_keybinds_override(&payload);
-    theme::atomic_write(&keybinds_override_path()?, contents.as_bytes())
+    theme::atomic_write(&keybinds_override_path()?, contents.as_bytes())?;
+    hyprctl_output(&["reload"])?;
+    Ok(())
 }
 
 /// Clear all keybind overrides and reload Hyprland.
@@ -650,6 +745,7 @@ mod tests {
         AccelProfile, AnimationsPayload, InputSetting, InputState, KeybindsPayload, format_decimal,
         parse_input_state_from_str, parse_scroll_factor, parse_sensitivity,
         render_animations_override, render_input_runtime_state, render_keybinds_override,
+        validate_animations_payload, validate_keybinds_payload,
     };
 
     #[test]
@@ -750,6 +846,23 @@ input {
     }
 
     #[test]
+    fn validate_animations_rejects_injected_lines_and_non_finite_numbers() {
+        let payload: AnimationsPayload =
+            serde_json::from_str(r#"{"beziers":{"bad\nname":[0.0,0.0,1.0,1.0]},"animations":[]}"#)
+                .expect("payload should parse");
+        assert!(validate_animations_payload(&payload).is_err());
+
+        let payload = AnimationsPayload {
+            beziers: std::collections::BTreeMap::from([(
+                "custom".to_owned(),
+                [0.0, f64::NAN, 1.0, 1.0],
+            )]),
+            animations: Vec::new(),
+        };
+        assert!(validate_animations_payload(&payload).is_err());
+    }
+
+    #[test]
     fn render_keybinds_override_produces_unbind_rebind_pairs() {
         let payload: KeybindsPayload = serde_json::from_str(
             r#"{
@@ -792,5 +905,42 @@ input {
         let rendered = render_keybinds_override(&payload);
         assert!(rendered.contains("unbind = SUPER, mouse:272"));
         assert!(rendered.contains("bindm = SUPER ALT, mouse:272, movewindow, "));
+    }
+
+    #[test]
+    fn validate_keybinds_rejects_injected_lines_and_unknown_flags() {
+        let payload: KeybindsPayload = serde_json::from_str(
+            r#"{
+                "overrides": [{
+                    "original_mods": "SUPER",
+                    "original_key": "Q\nunbind = SUPER, Return",
+                    "new_mods": "SUPER",
+                    "new_key": "Q",
+                    "flags": "d",
+                    "description": "Open terminal",
+                    "dispatcher": "exec",
+                    "arg": "alacritty"
+                }]
+            }"#,
+        )
+        .expect("payload should parse");
+        assert!(validate_keybinds_payload(&payload).is_err());
+
+        let payload: KeybindsPayload = serde_json::from_str(
+            r#"{
+                "overrides": [{
+                    "original_mods": "SUPER",
+                    "original_key": "Q",
+                    "new_mods": "SUPER",
+                    "new_key": "Q",
+                    "flags": "=",
+                    "description": "Open terminal",
+                    "dispatcher": "exec",
+                    "arg": "alacritty"
+                }]
+            }"#,
+        )
+        .expect("payload should parse");
+        assert!(validate_keybinds_payload(&payload).is_err());
     }
 }

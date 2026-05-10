@@ -1,4 +1,4 @@
-final: prev: {
+final: _prev: {
   desktopctl = final.callPackage ../desktopctl { };
   helium = final.callPackage ../pkgs/helium { };
   snappy-switcher = final.callPackage ../pkgs/snappy-switcher { };

@@ -414,6 +414,8 @@ Scope {
             let message = themeApplyProc.output.trim();
             if (code !== 0)
                 ToastService.showError(message !== "" ? message : "Theme command failed");
+            else
+                ToastService.showInfo("Theme command completed");
 
             themeApplyProc.output = "";
         }

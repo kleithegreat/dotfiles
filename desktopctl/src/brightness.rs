@@ -83,7 +83,7 @@ pub fn status(json: bool) -> Result<()> {
     Ok(())
 }
 
-pub fn set(device: Option<&str>, percent: u8) -> Result<()> {
+pub fn set(device: Option<&str>, percent: u16) -> Result<()> {
     let state = resolve_state(device)?;
     let fraction = (percent as f64 / 100.0).clamp(0.0, 1.0);
     let raw = match &state.device {

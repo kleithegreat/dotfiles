@@ -169,7 +169,7 @@ struct BrightnessDeviceArgs {
 #[derive(Debug, Args)]
 struct BrightnessSetArgs {
     /// Brightness percent, clamped to 0-100.
-    percent: u8,
+    percent: u16,
     /// Override the auto-detected device. Use a backlight name, `ddc`, or `ddc:<display>`.
     #[arg(long, value_name = "DEVICE")]
     device: Option<String>,
@@ -450,5 +450,19 @@ mod tests {
         };
         assert_eq!(set_args.key, "sensitivity");
         assert_eq!(set_args.value, "-0.1");
+    }
+
+    #[test]
+    fn brightness_set_accepts_values_above_one_hundred_for_clamping() {
+        let cli = Cli::try_parse_from(["desktopctl", "brightness", "set", "300"])
+            .expect("cli should parse clamped brightness values");
+
+        let TopLevelCommand::Brightness(brightness_args) = cli.command else {
+            panic!("expected brightness command");
+        };
+        let BrightnessCommand::Set(set_args) = brightness_args.command else {
+            panic!("expected brightness set command");
+        };
+        assert_eq!(set_args.percent, 300);
     }
 }

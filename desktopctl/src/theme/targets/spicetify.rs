@@ -1,6 +1,6 @@
 use super::{Assembly, GeneratedContent, TargetMetadata};
 use crate::theme::{
-    expand_user_path, find_command, run_owned_command,
+    atomic_write, expand_user_path, find_command, run_owned_command,
     schema::{ColorScheme, ThemeState},
 };
 use std::fs;
@@ -124,11 +124,10 @@ pub fn persist(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> 
 
     let theme_dir = expand_user_path(THEME_DIR)?;
     fs::create_dir_all(theme_dir)?;
-    fs::write(
-        user_css_path,
-        "/* Optional Spicetify CSS overrides managed outside apply-theme. */\n",
-    )?;
-    Ok(())
+    atomic_write(
+        &user_css_path,
+        b"/* Optional Spicetify CSS overrides managed outside apply-theme. */\n",
+    )
 }
 
 pub fn on_apply(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {

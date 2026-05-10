@@ -178,9 +178,8 @@ where
     let state_keys = state_keys.into_iter().collect::<Vec<_>>();
     let mut targets = registry
         .iter()
-        .filter_map(|(name, target)| {
-            target_consumes_any_key(target.metadata(), &state_keys).then(|| name.to_owned())
-        })
+        .filter(|(_, target)| target_consumes_any_key(target.metadata(), &state_keys))
+        .map(|(name, _)| name.to_owned())
         .collect::<BTreeSet<_>>();
 
     if state_keys.contains(&"color_scheme")
@@ -714,15 +713,17 @@ mod tests {
         let safe_path = out_dir.join("safe.conf");
         let unsafe_path = out_dir.join("unsafe.conf");
 
-        registry.register_function(
+        registry.register_function_with_hooks(
             TargetMetadata::new("safe", Assembly::Standalone, &[])
                 .output(Box::leak(
                     safe_path.to_string_lossy().into_owned().into_boxed_str(),
                 ))
                 .comment("#"),
             noop_generate,
+            None,
+            None,
         )?;
-        registry.register_function(
+        registry.register_function_with_hooks(
             TargetMetadata::new("unsafe", Assembly::Standalone, &[])
                 .output(Box::leak(
                     unsafe_path.to_string_lossy().into_owned().into_boxed_str(),
@@ -730,6 +731,8 @@ mod tests {
                 .comment("#")
                 .sync_safe(false),
             noop_generate,
+            None,
+            None,
         )?;
 
         let ok = apply_all(&registry, &dummy_colors(), &dummy_state(false), false, true);

@@ -158,7 +158,7 @@ in {
         HYPERV = lib.mkForce lib.kernel.no;
         KVM_GUEST = lib.mkForce lib.kernel.no;
 
-        # The laptop uses the proprietary NVIDIA stack, so Nouveau is unused.
+        # The laptop uses the NVIDIA stack, so Nouveau is unused.
         DRM_NOUVEAU = lib.mkForce lib.kernel.no;
       };
     }
