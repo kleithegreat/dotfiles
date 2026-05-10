@@ -125,8 +125,8 @@ crashing `addConfigValueV2(...)` / `Config::Values::*Value` path. Re-test
 ## Rolling Hyprland inputs can make local patches fail during build
 
 **Symptom:** `nrs` fails while building `hyprland` or a Hyprland plugin with
-messages such as `Hunk #... FAILED` or `Reversed (or previously applied) patch
-detected` during `patchPhase`.
+messages such as `Hunk #... FAILED`, `Reversed (or previously applied) patch
+detected` during `patchPhase`, or compile errors in a locally patched plugin.
 
 **Cause:** `system/configuration.nix` intentionally appends repo-local patches
 to Hyprland, `hyprbars`, and `hyprexpo`. Upstream Hyprland and plugin inputs are
@@ -139,6 +139,24 @@ dropping hunks that upstream has already absorbed instead of preserving stale AP
 porting context. Rebuild the patched Hyprland package and plugin stack before
 running a full system rebuild, because the full desktop closure may also rebuild
 the native kernel/NVIDIA stack.
+
+## Hyprbars color parsing follows Hyprland parser utils on 0.55
+
+**Symptom:** `nrs` fails while building `hyprbars` with
+`error: 'configStringToInt' was not declared in this scope` from
+`hyprbars/main.cpp` or `hyprbars/barDeco.cpp`.
+
+**Cause:** Hyprland 0.55 removed the old unqualified color parsing helper that
+the upstream `hyprbars` source still references. The current Hyprland headers
+expose color parsing through `Config::ParserUtils::parseColor(...)` instead.
+
+**Status:** Fixed in
+`patches/hyprland-plugins/hyprbars-hyprland-0.54.patch`.
+
+**Impact / workaround:** Keep the local `hyprbars/main.cpp` and
+`hyprbars/barDeco.cpp` hunks on `Config::ParserUtils::parseColor(...)` while the
+plugin stack remains pinned to a Hyprland 0.55 input. Re-check the patch when
+upstream `hyprland-plugins` absorbs the same parser API change.
 
 ## Hyprbars needs pass simplification disabled for Hyprexpo captures
 
