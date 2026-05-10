@@ -219,15 +219,6 @@ pub struct FunctionTarget {
 }
 
 impl FunctionTarget {
-    pub const fn new(metadata: TargetMetadata, generate: GenerateFn) -> Self {
-        Self {
-            metadata,
-            generate,
-            persist: None,
-            on_apply: None,
-        }
-    }
-
     pub const fn with_hooks(
         metadata: TargetMetadata,
         generate: GenerateFn,
@@ -300,14 +291,6 @@ impl TargetRegistry {
         }
         self.targets.insert(name, target);
         Ok(())
-    }
-
-    pub fn register_function(
-        &mut self,
-        metadata: TargetMetadata,
-        generate: GenerateFn,
-    ) -> crate::Result<()> {
-        self.register(FunctionTarget::new(metadata, generate))
     }
 
     pub fn register_function_with_hooks(

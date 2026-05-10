@@ -26,7 +26,7 @@ Manager deploys.
 | Zed | `config/zed/base.json` | `~/.config/zed/settings.json` | `concat` | Base JSON merged with generated `theme` and font keys; the merged file is theme-owned, so Home Manager does not deploy `zed/settings.json` directly |
 | Snappy Switcher | `config/snappy-switcher/base.ini` | `~/.config/snappy-switcher/config.ini` | `concat` | Base INI plus generated theme/icon/font section; daemon restarts on apply |
 | Hyprland | `config/hypr/*.conf` | `~/.config/hypr/colors.conf`, `~/.config/hypr/appearance-theme.conf`, `~/.config/hypr/cursor.conf` | `standalone` | Modular repo configs deployed by Home Manager; three theme targets write standalone files into the same `~/.config/hypr/` tree |
-| Quickshell | `config/quickshell/**/*` | `~/.config/quickshell/GeneratedTheme.json` | `standalone` | Home Manager symlinks the full QML tree; `Theme.qml` watches the generated JSON at runtime, and the repo also carries one committed bootstrap snapshot at `config/quickshell/GeneratedTheme.json` |
+| Quickshell | `config/quickshell/**/*` | `~/.config/quickshell/GeneratedTheme.json` | `standalone` | Home Manager symlinks the full QML tree; `Theme.qml` watches the generated JSON at runtime and falls back to built-in Gruvbox-style values before the first sync |
 | Git | `config/git/ignore` | none | none | Global gitignore deployed by Home Manager; no theme integration |
 
 Theme-only targets with no `config/` subdirectory:
@@ -59,9 +59,8 @@ Theme-only targets with no `config/` subdirectory:
 - Zsh keeps its main config in `home/shell.nix`, but that Nix-authored init now
   sources the generated `~/.config/zsh/theme-colors` fragment written by the
   `zsh` theme target.
-- Quickshell is the only current committed generated-snapshot exception: the
-  repo ships `config/quickshell/GeneratedTheme.json`, and the live file at
-  `~/.config/quickshell/GeneratedTheme.json` is then overwritten by
-  `desktopctl theme sync` and later runtime applies.
+- Quickshell writes `~/.config/quickshell/GeneratedTheme.json` into the live
+  config tree through `desktopctl theme sync` and later runtime applies; the
+  repo no longer carries a committed generated bootstrap snapshot.
 - The VS Code output path (`~/.config/Code/User/settings.json`) remains a
   non-XDG path dictated by the application.

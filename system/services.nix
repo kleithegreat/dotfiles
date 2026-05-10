@@ -1,4 +1,4 @@
-{ config, lib, pkgs, optimizedPkgs, patchedHyprlandPortal }:
+{ pkgs, optimizedPkgs, patchedHyprlandPortal }:
 
 let
   sddmThemeBackgroundDir = "/var/lib/desktopctl/where-is-my-sddm-theme";
@@ -148,7 +148,6 @@ in
   hardware.bluetooth = {
     enable = false;
     powerOnBoot = false;
-    settings.General.Experimental = true;
   };
   services.blueman.enable = false;
 

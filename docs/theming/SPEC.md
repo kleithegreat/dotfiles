@@ -20,10 +20,10 @@ Non-goals:
 - Giving each app a custom file-ownership model when one of the standard
   assembly strategies is sufficient
 
-The only current exception to the "no generated outputs in the repo" rule is
-`config/quickshell/GeneratedTheme.json`, which is committed as a bootstrap
-snapshot because Home Manager deploys the full Quickshell tree recursively and
-the live file is then overwritten by the `quickshell` target.
+There is no current committed generated-output exception. Quickshell relies on
+`config/quickshell/Theme.qml` fallbacks before the first successful
+`desktopctl theme sync`, then reads the generated live
+`~/.config/quickshell/GeneratedTheme.json` file afterward.
 
 ## Source Of Truth
 
@@ -268,9 +268,9 @@ the documented wallpaper filter exception above.
 
 Constraint:
 
-- `config/quickshell/GeneratedTheme.json` is the only committed generated
-  snapshot currently allowed in the repo. Additional committed generated
-  outputs are still forbidden.
+- Generated snapshots must not be committed under `config/`. Quickshell's live
+  `GeneratedTheme.json` is generated in the user's config directory and is not a
+  repo source file.
 
 ## Qt / KDE Constraint
 

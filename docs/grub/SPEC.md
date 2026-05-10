@@ -1,6 +1,7 @@
 # GRUB Specification
 
-This spec describes the GRUB policy currently implemented by the host modules.
+This spec describes the GRUB policy currently implemented by the shared
+physical-host module.
 It is intentionally small because the repo uses only one GRUB pattern today:
 EFI boot with manually maintained chainloader entries.
 
@@ -21,7 +22,8 @@ EFI boot with manually maintained chainloader entries.
 
 Invariants:
 
-- GRUB policy is shared across the current physical hosts through the shared physical-host module imported by `system/configuration.nix`.
+- GRUB policy is shared across the current physical hosts through the shared
+  physical-host module imported by `system/configuration.nix`.
 - The repo does not rely on `os-prober` discovery for Arch or Windows entries.
 - Chainloader paths are part of the host contract and must be updated when EFI
   loader locations change.

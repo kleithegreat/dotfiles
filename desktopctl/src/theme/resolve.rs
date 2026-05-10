@@ -252,7 +252,7 @@ fn backfill_missing_theme_state_keys(
     }
 
     let mut defaults = ThemeState::default_state()?.to_ordered_json_map();
-    if missing.iter().any(|name| *name == "dark_hint")
+    if missing.contains(&"dark_hint")
         && let Some(Value::String(scheme_name)) = object.get("color_scheme")
         && let Ok(dir) = colors_dir()
         && let Ok(colors) = load_colors(scheme_name, &dir)

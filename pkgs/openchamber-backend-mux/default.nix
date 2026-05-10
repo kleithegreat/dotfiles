@@ -3,6 +3,7 @@
   stdenvNoCC,
   makeWrapper,
   nodejs,
+  opencode,
 }:
 
 stdenvNoCC.mkDerivation {
@@ -14,6 +15,15 @@ stdenvNoCC.mkDerivation {
   nativeBuildInputs = [ makeWrapper ];
 
   dontBuild = true;
+  doCheck = true;
+
+  checkPhase = ''
+    runHook preCheck
+
+    ${lib.getExe nodejs} --test index.test.mjs
+
+    runHook postCheck
+  '';
 
   installPhase = ''
     runHook preInstall
@@ -22,7 +32,8 @@ stdenvNoCC.mkDerivation {
     cp ${./index.mjs} "$out/libexec/openchamber-backend-mux/index.mjs"
 
     makeWrapper ${lib.getExe nodejs} "$out/bin/openchamber-backend-mux" \
-      --add-flags "$out/libexec/openchamber-backend-mux/index.mjs"
+      --add-flags "$out/libexec/openchamber-backend-mux/index.mjs" \
+      --set-default OPENCHAMBER_BACKEND_MUX_OPENCODE_BINARY "${lib.getExe opencode}"
 
     runHook postInstall
   '';

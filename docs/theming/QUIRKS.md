@@ -24,11 +24,11 @@
 **Status:** Workaround in place
 **Resolution:** `home/gtk.nix` keeps the upstream `Neuwaita` theme unchanged for GTK and also installs `Neuwaita-KDE`, a wrapper whose `index.theme` inherits `Neuwaita,breeze,Adwaita,hicolor` and declares `FollowsColorScheme=true`. `desktopctl/src/theme/targets/qt.rs` maps the shared `Neuwaita` state value to `Neuwaita-KDE` only for KDE/Qt config.
 
-## Quickshell keeps one committed generated snapshot
-**Symptom:** `config/quickshell/GeneratedTheme.json` is checked into the repo even though generated outputs are usually kept out of version control.
-**Cause:** Home Manager deploys `config/quickshell/` recursively, so the repo carries one bootstrap snapshot for the live `${XDG_CONFIG_HOME:-~/.config}/quickshell/GeneratedTheme.json` path before `desktopctl theme sync` and later runtime theme applies overwrite it.
-**Status:** Deliberate exception
-**Resolution:** Treat the committed file as bootstrap state, not as a hand-edited source of truth. Theme changes still flow through `desktopctl theme`, and no other generated snapshot should be committed by default.
+## Quickshell has generated-theme fallbacks before first sync
+**Symptom:** On a fresh clone before `desktopctl theme sync` has run, Quickshell starts from hardcoded Gruvbox-style colors instead of a generated theme file.
+**Cause:** `config/quickshell/GeneratedTheme.json` is no longer committed. Home Manager deploys `config/quickshell/` recursively, and the `quickshell` theme target creates the live `${XDG_CONFIG_HOME:-~/.config}/quickshell/GeneratedTheme.json` file during activation or runtime theme applies.
+**Status:** Current behavior
+**Resolution:** Keep generated snapshots out of the repo. `config/quickshell/Theme.qml` owns the first-start fallback values, and theme changes still flow through `desktopctl theme`.
 
 ## VS Code color-theme switches depend on exact settings labels and enabled extensions
 **Symptom:** `desktopctl theme apply` updates `~/.config/Code/User/settings.json`, but VS Code still starts on a fallback built-in theme.

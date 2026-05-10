@@ -1,9 +1,14 @@
 use super::{Assembly, GeneratedContent, TargetMetadata};
 use crate::theme::{
-    expand_user_path,
+    atomic_write, expand_user_path,
     schema::{ColorScheme, ThemeState},
 };
-use std::{collections::BTreeMap, fs, path::Path, process::Command};
+use std::{
+    collections::BTreeMap,
+    fs,
+    path::Path,
+    process::{self, Command},
+};
 
 #[cfg(unix)]
 use std::os::unix::fs::symlink;
@@ -131,19 +136,34 @@ fn replace_with_symlink(
     target: &Path,
     fallback_contents: &str,
 ) -> crate::Result<()> {
-    if link_path.is_symlink() || link_path.exists() {
-        fs::remove_file(link_path)?;
-    }
-
     #[cfg(unix)]
     {
-        if let Ok(()) = symlink(target, link_path) {
-            return Ok(());
+        let parent = link_path.parent().unwrap_or_else(|| Path::new("."));
+        let file_name = link_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("index.theme");
+
+        for attempt in 0..16 {
+            let temp_path = parent.join(format!(
+                ".{file_name}.desktopctl-{}-{attempt}.tmp",
+                process::id()
+            ));
+            match symlink(target, &temp_path) {
+                Ok(()) => {
+                    if let Err(error) = fs::rename(&temp_path, link_path) {
+                        let _ = fs::remove_file(&temp_path);
+                        return Err(error.into());
+                    }
+                    return Ok(());
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                Err(_) => break,
+            }
         }
     }
 
-    fs::write(link_path, fallback_contents)?;
-    Ok(())
+    atomic_write(link_path, fallback_contents.as_bytes())
 }
 
 pub fn generate(_colors: &ColorScheme, state: &ThemeState) -> crate::Result<GeneratedContent> {
@@ -169,7 +189,7 @@ pub fn persist(_colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
     if let Some(hyprcursor_theme) = hyprcursor_env_theme(&state.cursor_theme) {
         lines.push(format!("env = HYPRCURSOR_THEME,{hyprcursor_theme}"));
     }
-    fs::write(conf_path, format!("{}\n", lines.join("\n")))?;
+    atomic_write(&conf_path, format!("{}\n", lines.join("\n")).as_bytes())?;
 
     for index_path in [xcursor_index, legacy_index] {
         if let Some(parent) = index_path.parent() {

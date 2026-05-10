@@ -325,40 +325,45 @@ class BackendMux {
   }
 
   async start() {
-    ensureDir(this.dataDir);
-    const opencodePort = await allocatePort(this.host);
-    const claudePort = await allocatePort(this.host);
+    try {
+      ensureDir(this.dataDir);
+      const opencodePort = await allocatePort(this.host);
+      const claudePort = await allocatePort(this.host);
 
-    this.backends.set(BACKEND_OPENCODE, await this.startBackend({
-      kind: BACKEND_OPENCODE,
-      binary: DEFAULT_OPENCODE_BIN,
-      args: ['serve', '--hostname', this.host, '--port', String(opencodePort)],
-      port: opencodePort,
-    }));
-    this.backends.set(BACKEND_CLAUDE, await this.startBackend({
-      kind: BACKEND_CLAUDE,
-      binary: DEFAULT_CLAUDE_BRIDGE_BIN,
-      args: ['serve', '--host', this.host, '--port', String(claudePort)],
-      port: claudePort,
-    }));
+      this.backends.set(BACKEND_OPENCODE, await this.startBackend({
+        kind: BACKEND_OPENCODE,
+        binary: DEFAULT_OPENCODE_BIN,
+        args: ['serve', '--hostname', this.host, '--port', String(opencodePort)],
+        port: opencodePort,
+      }));
+      this.backends.set(BACKEND_CLAUDE, await this.startBackend({
+        kind: BACKEND_CLAUDE,
+        binary: DEFAULT_CLAUDE_BRIDGE_BIN,
+        args: ['serve', '--host', this.host, '--port', String(claudePort)],
+        port: claudePort,
+      }));
 
-    await this.rebuildSessionBindings();
+      await this.rebuildSessionBindings();
 
-    this.server = http.createServer((req, res) => {
-      void this.handleRequest(req, res).catch((error) => {
-        console.error('[openchamber-backend-mux] request failed:', error);
-        if (!res.headersSent) {
-          sendJson(res, 500, { error: error instanceof Error ? error.message : String(error) });
-        } else {
-          res.end();
-        }
+      this.server = http.createServer((req, res) => {
+        void this.handleRequest(req, res).catch((error) => {
+          console.error('[openchamber-backend-mux] request failed:', error);
+          if (!res.headersSent) {
+            sendJson(res, 500, { error: error instanceof Error ? error.message : String(error) });
+          } else {
+            res.end();
+          }
+        });
       });
-    });
 
-    await new Promise((resolve, reject) => {
-      this.server.on('error', reject);
-      this.server.listen(this.port, this.host, resolve);
-    });
+      await new Promise((resolve, reject) => {
+        this.server.on('error', reject);
+        this.server.listen(this.port, this.host, resolve);
+      });
+    } catch (error) {
+      await this.close();
+      throw error;
+    }
 
     const shutdown = async () => {
       await this.close();

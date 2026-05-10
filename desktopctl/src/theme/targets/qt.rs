@@ -1,6 +1,6 @@
 use super::{Assembly, GeneratedContent, TargetMetadata};
 use crate::theme::{
-    expand_user_path,
+    atomic_write, expand_user_path,
     schema::{ColorScheme, ThemeState},
 };
 use std::{
@@ -147,7 +147,7 @@ fn update_qtct_config(conf_path: &Path, scheme_path: &str) -> crate::Result<()> 
     if let Some(parent) = conf_path.parent() {
         fs::create_dir_all(parent)?;
     }
-    fs::write(conf_path, config.to_string_with_header(""))?;
+    atomic_write(conf_path, config.to_string_with_header("").as_bytes())?;
     Ok(())
 }
 
@@ -409,7 +409,7 @@ fn update_kdeglobals(colors: &ColorScheme, state: &ThemeState) -> crate::Result<
     if let Some(parent) = conf_path.parent() {
         fs::create_dir_all(parent)?;
     }
-    fs::write(conf_path, config.to_string_with_header(""))?;
+    atomic_write(&conf_path, config.to_string_with_header("").as_bytes())?;
     Ok(())
 }
 
@@ -420,7 +420,7 @@ fn write_kcolorscheme(colors: &ColorScheme) -> crate::Result<()> {
     if let Some(parent) = conf_path.parent() {
         fs::create_dir_all(parent)?;
     }
-    fs::write(conf_path, config.to_string_with_header(""))?;
+    atomic_write(&conf_path, config.to_string_with_header("").as_bytes())?;
     Ok(())
 }
 
@@ -432,34 +432,32 @@ fn write_hyprqt6engine_conf(_colors: &ColorScheme, state: &ThemeState) -> crate:
     if let Some(parent) = conf_path.parent() {
         fs::create_dir_all(parent)?;
     }
-    fs::write(
-        conf_path,
-        format!(
-            concat!(
-                "theme {{\n",
-                "    color_scheme = {}\n",
-                "    icon_theme = {}\n",
-                "    style = kvantum\n",
-                "    font = {}\n",
-                "    font_size = {}\n",
-                "    font_fixed = {}\n",
-                "    font_fixed_size = {}\n",
-                "}}\n",
-                "\n",
-                "misc {{\n",
-                "    menus_have_icons = true\n",
-                "    single_click_activate = false\n",
-                "    shortcuts_for_context_menus = true\n",
-                "}}\n",
-            ),
-            scheme_path.display(),
-            kde_icon_theme(&state.icon_theme),
-            state.system_font,
-            font_size,
-            state.mono_font,
-            fixed_font_size,
+    let contents = format!(
+        concat!(
+            "theme {{\n",
+            "    color_scheme = {}\n",
+            "    icon_theme = {}\n",
+            "    style = kvantum\n",
+            "    font = {}\n",
+            "    font_size = {}\n",
+            "    font_fixed = {}\n",
+            "    font_fixed_size = {}\n",
+            "}}\n",
+            "\n",
+            "misc {{\n",
+            "    menus_have_icons = true\n",
+            "    single_click_activate = false\n",
+            "    shortcuts_for_context_menus = true\n",
+            "}}\n",
         ),
-    )?;
+        scheme_path.display(),
+        kde_icon_theme(&state.icon_theme),
+        state.system_font,
+        font_size,
+        state.mono_font,
+        fixed_font_size,
+    );
+    atomic_write(&conf_path, contents.as_bytes())?;
     Ok(())
 }
 
@@ -470,7 +468,7 @@ fn kde_icon_theme(theme: &str) -> &str {
     }
 }
 
-fn ktexteditor_color_theme<'a>(colors: &'a ColorScheme) -> &'a str {
+fn ktexteditor_color_theme(colors: &ColorScheme) -> &str {
     colors.ktexteditor_theme_name()
 }
 
@@ -505,7 +503,7 @@ fn sync_ktexteditor_config(
     if let Some(parent) = conf_path.parent() {
         fs::create_dir_all(parent)?;
     }
-    fs::write(conf_path, config.to_string_with_header(""))?;
+    atomic_write(conf_path, config.to_string_with_header("").as_bytes())?;
     Ok(())
 }
 
@@ -623,10 +621,8 @@ fn setup_kvantum(colors: &ColorScheme) -> crate::Result<()> {
     let source_kvconfig = base_assets.as_ref().map(|(_, kvconfig)| kvconfig.as_path());
 
     let kvconfig_path = theme_dir.join(format!("{KVANTUM_THEME_NAME}.kvconfig"));
-    fs::write(
-        &kvconfig_path,
-        generate_kvantum_kvconfig(colors, source_kvconfig)?,
-    )?;
+    let kvconfig = generate_kvantum_kvconfig(colors, source_kvconfig)?;
+    atomic_write(&kvconfig_path, kvconfig.as_bytes())?;
 
     let svg_link = theme_dir.join(format!("{KVANTUM_THEME_NAME}.svg"));
     if let Some(source_svg) = source_svg {
@@ -645,9 +641,9 @@ fn setup_kvantum(colors: &ColorScheme) -> crate::Result<()> {
     if let Some(parent) = config_path.parent() {
         fs::create_dir_all(parent)?;
     }
-    fs::write(
-        config_path,
-        format!("[General]\ntheme={KVANTUM_THEME_NAME}\n"),
+    atomic_write(
+        &config_path,
+        format!("[General]\ntheme={KVANTUM_THEME_NAME}\n").as_bytes(),
     )?;
     Ok(())
 }

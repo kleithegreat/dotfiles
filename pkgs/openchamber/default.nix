@@ -1,12 +1,11 @@
 {
-  lib,
   symlinkJoin,
   openchamberCli,
   openchamberDesktop,
 }:
 
 symlinkJoin {
-  name = "openchamber";
+  name = "openchamber-${openchamberCli.version}";
   paths = [
     openchamberCli
     openchamberDesktop

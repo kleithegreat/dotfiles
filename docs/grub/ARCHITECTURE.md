@@ -2,27 +2,26 @@
 
 ## Scope
 
-Current implementation map for GRUB policy in the host modules as of
-2026-04-07.
+Current implementation map for GRUB policy in the shared physical-host module
+as of 2026-05-09.
 
 ## File Map
 
 | Path | Current role | Evidence |
 | --- | --- | --- |
-| `hosts/laptop/system.nix` | Laptop bootloader policy | The laptop `boot.loader.grub` block enables EFI GRUB with one manual Windows chainloader entry |
-| `hosts/desktop/system.nix` | Desktop bootloader policy | The desktop `boot.loader.grub` block enables EFI GRUB with a manual Windows chainloader entry |
+| `system/physical-host.nix` | Shared physical-host bootloader policy | The `boot.loader.grub` block inside the `host.isPhysical` gate enables EFI GRUB with one manual Windows chainloader entry, and the adjacent `boot.loader.efi` block pins `/boot/efi` |
 
 ## Current Layout
 
 | Host | GRUB settings | Notes |
 | --- | --- | --- |
-| `laptop` | `enable = true`, `efiSupport = true`, `device = "nodev"`, `useOSProber = false`, plus one Windows `extraEntries` block | The laptop host module mounts the EFI system partition at `/boot/efi` through `boot.loader.efi.efiSysMountPoint` |
-| `desktop` | `enable = true`, `efiSupport = true`, `device = "nodev"`, `useOSProber = false`, plus one Windows `extraEntries` block | The desktop host module mounts the EFI system partition at `/boot/efi` through `boot.loader.efi.efiSysMountPoint` |
+| `laptop` | `enable = true`, `efiSupport = true`, `device = "nodev"`, `useOSProber = false`, plus one Windows `extraEntries` block | Inherits the shared physical-host GRUB/EFI policy; the laptop host module only declares the `/boot/efi` filesystem mount |
+| `desktop` | `enable = true`, `efiSupport = true`, `device = "nodev"`, `useOSProber = false`, plus one Windows `extraEntries` block | Inherits the shared physical-host GRUB/EFI policy; the desktop host module only declares the `/boot/efi` filesystem mount |
 
 ## Shared Observations
 
-- GRUB is configured only in host modules; there is no shared GRUB baseline in
-  `system/configuration.nix`.
+- GRUB is configured once in `system/physical-host.nix`, which is imported by
+  `system/configuration.nix` and gated on `host.isPhysical`.
 - Both hosts use manual `search --set=root --file ...` plus `chainloader ...`
   stanzas instead of OS autodiscovery.
 - Both hosts currently carry only Windows chainloader entries; there is no

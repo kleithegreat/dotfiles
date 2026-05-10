@@ -20,7 +20,7 @@ The remaining issues are mostly interface polish, not architectural defects.
 
 | Severity | Finding | Why it matters |
 | --- | --- | --- |
-| Low | The recursive Quickshell tree plus writable generated sibling file remains a deliberate special case. | It works today, but it is less mechanically obvious than the import-style base/generated split used elsewhere. |
+| Low | The recursive Quickshell tree plus writable generated sibling file remains a deliberate special case. | It works today and no longer requires a committed generated snapshot, but it is less mechanically obvious than the import-style base/generated split used elsewhere. |
 
 Related low-level build and optimization caveats are tracked in
 `docs/nix/QUIRKS.md`.

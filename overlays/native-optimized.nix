@@ -61,9 +61,7 @@ in
         #   zstd.
         pipewire = optimizeCCPackage prev.pipewire;
         wireplumber = optimizeCCPackage prev.wireplumber;
-        easyeffects = optimizeCCPackage prev.easyeffects;
         lsp-plugins = optimizeCCPackage prev.lsp-plugins;
-        ffmpeg = optimizeCCPackage prev.ffmpeg;
         p7zip = optimizeCCPackage prev.p7zip;
         quickshell = optimizeCCPackage prev.quickshell;
 

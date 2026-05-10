@@ -1,4 +1,4 @@
-{ config, lib, pkgs, dotfilesPath, host, snappySwitcherPkg }:
+{ lib, dotfilesPath, host, snappySwitcherPkg }:
 
 let
   dotfilesSource = path: "${dotfilesPath}/${path}";

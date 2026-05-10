@@ -47,14 +47,16 @@ the external monitor exposes DDC/CI brightness and the host has I2C access.
 monitor OSD has DDC/CI enabled, `ddcutil detect` can see the display, and the
 active user is in the `i2c` group after a rebuild and fresh login.
 
-## cursor.conf is generated, not committed
+## Hyprland theme fragments are generated, not committed
 
 **Symptom:** After a fresh clone or before the theming pipeline has run,
-`hyprland.conf` sources `~/.config/hypr/cursor.conf` which does not exist yet.
+`hyprland.conf` and `appearance.conf` source generated theme fragments that do
+not exist yet.
 
-**Cause:** `cursor.conf` is generated at runtime by the theming pipeline's
-`cursor` target. It is not present in `config/hypr/` and is not deployed by
-Home Manager's `xdg.configFile` declarations.
+**Cause:** `cursor.conf`, `colors.conf`, and `appearance-theme.conf` are
+generated at runtime by the theming pipeline's `cursor`, `hyprland`, and
+`hypr_appearance` targets. They are not present in `config/hypr/` and are not
+deployed by Home Manager's `xdg.configFile` declarations.
 
 **Impact:** Hyprland logs a source-file-not-found warning on first boot before
 the theming pipeline runs. The `home.activation.applyTheme` hook runs

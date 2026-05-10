@@ -69,7 +69,19 @@ async fn prepare_socket_path(path: &Path) -> io::Result<()> {
             io::ErrorKind::AddrInUse,
             format!("socket already in use: {}", path.display()),
         )),
-        Err(_) => fs::remove_file(path).await,
+        Err(error) => match error.kind() {
+            io::ErrorKind::NotFound => Ok(()),
+            io::ErrorKind::ConnectionRefused | io::ErrorKind::ConnectionReset => {
+                fs::remove_file(path).await
+            }
+            kind => Err(io::Error::new(
+                kind,
+                format!(
+                    "failed to probe existing socket {}: {error}",
+                    path.display()
+                ),
+            )),
+        },
     }
 }
 

@@ -3,9 +3,6 @@
 let
   system = pkgs.stdenv.hostPlatform.system;
   stablePkgs = import inputs.nixpkgs-stable { inherit system; };
-  nativeOptimizations = import ../system/native-optimizations.nix {
-    inherit lib host enableNativeOptimizations;
-  };
   optimizedPackages = import ../overlays/native-optimized.nix {
     inherit lib inputs host enableNativeOptimizations;
   };
@@ -60,7 +57,7 @@ in
       snappySwitcherPkg = snappySwitcherPkg;
     })
     (import ./xdg.nix {
-      inherit config lib pkgs dotfilesPath host;
+      inherit lib dotfilesPath host;
       snappySwitcherPkg = snappySwitcherPkg;
     })
   ];

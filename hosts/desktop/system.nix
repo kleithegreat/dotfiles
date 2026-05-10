@@ -84,7 +84,9 @@
     modesetting.enable = true;
     open = true;
     powerManagement.enable = true;
-    powerManagement.kernelSuspendNotifier = false; # Experiment: try legacy sleep units after GSP heartbeat timeout on resume.
+    # Keep the legacy sleep-unit path while the no-overlay resume stack remains
+    # unvalidated on the real desktop hardware.
+    powerManagement.kernelSuspendNotifier = false;
   };
   services.xserver.videoDrivers = [ "nvidia" ];
 
