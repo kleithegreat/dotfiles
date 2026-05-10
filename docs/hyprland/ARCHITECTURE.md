@@ -3,7 +3,7 @@
 ## Scope
 
 Current implementation map for `config/hypr/`, the host-selected Hyprland
-fragments, and the generated theme inputs as of 2026-05-08.
+fragments, and the generated theme inputs as of 2026-05-09.
 
 ## Source Graph
 
@@ -117,17 +117,21 @@ the current compiler.
 
 Upstream has since absorbed most Hyprland 0.54 API porting in the plugin tree,
 so the remaining local `patches/hyprland-plugins/hyprbars-hyprland-0.54.patch`
-now carries the behavior delta plus the current plugin-init workaround:
+now carries the behavior delta plus the current compatibility workarounds:
 `hyprbars/barDeco.cpp` renders the bar background with top-only rounded corners
 instead of the old oversized rounded-rect fill hack,
 `hyprbars/BarPassElement.cpp` and `hyprbars/BarPassElement.hpp` opt the custom
 bar pass out of render-pass simplification so `hyprexpo`'s offscreen workspace
-captures keep under-window decorations visible, and `hyprbars/main.cpp` /
+captures keep under-window decorations visible, `hyprbars/main.cpp` /
 `hyprbars/globals.hpp` keep the plugin on the legacy
 `HyprlandAPI::addConfigValue(...)` plus `HyprlandAPI::getConfigValue(...)` path
 instead of `addConfigValueV2(...)` because the current Hyprland input aborts
 during `libhyprbars.so` initialization when `hyprbars` registers V2 plugin
-values under the legacy config manager. The companion
+values under the legacy config manager, and `hyprbars/main.cpp` /
+`hyprbars/barDeco.cpp` parse color strings through
+`Config::ParserUtils::parseColor(...)` because Hyprland 0.55 no longer exports
+the old unqualified `configStringToInt(...)` helper used by the upstream plugin
+source. The companion
 `patches/hyprland-plugins/hyprexpo-hyprland-0.54.patch` is now limited to local
 behavior on top of upstream's current API port: it debounces accidental select
 events immediately after opening the overview, guards stale `startedOn`

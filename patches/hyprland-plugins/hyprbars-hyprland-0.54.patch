@@ -45,6 +45,14 @@ diff --git a/barDeco.cpp b/barDeco.cpp
 index f95fef1..d10ec92 100644
 --- a/barDeco.cpp
 +++ b/barDeco.cpp
+@@ -16,6 +16,7 @@
+ #include <hyprland/src/event/EventBus.hpp>
+ #include <hyprland/src/layout/LayoutManager.hpp>
+ #include <hyprland/src/render/OpenGL.hpp>
++#include <hyprland/src/config/shared/parserUtils/ParserUtils.hpp>
+ 
+ #include "globals.hpp"
+ #include "BarPassElement.hpp"
 @@ -43,7 +43,7 @@ CHyprBar::CHyprBar(PHLWINDOW pWindow) : IHyprWindowDecoration(pWindow) {
      m_pTouchMoveCallback = Event::bus()->m_events.input.touch.motion.listen([&](ITouch::SMotionEvent e, Event::SCallbackInfo& info) { onTouchMove(info, e); });
      m_pMouseMoveCallback = Event::bus()->m_events.input.mouse.move.listen([&](Vector2D c, Event::SCallbackInfo& info) { onMouseMove(c); });
@@ -286,6 +294,18 @@ index f95fef1..d10ec92 100644
  }
  
  CBox CHyprBar::assignedBoxGlobal() {
+@@ -640,9 +655,9 @@ void CHyprBar::updateRules() {
+     if (PWINDOW->m_ruleApplicator->m_otherProps.props.contains(g_pGlobalState->nobarRuleIdx))
+         m_hidden = truthy(PWINDOW->m_ruleApplicator->m_otherProps.props.at(g_pGlobalState->nobarRuleIdx)->effect);
+     if (PWINDOW->m_ruleApplicator->m_otherProps.props.contains(g_pGlobalState->barColorRuleIdx))
+-        m_bForcedBarColor = CHyprColor(configStringToInt(PWINDOW->m_ruleApplicator->m_otherProps.props.at(g_pGlobalState->barColorRuleIdx)->effect).value_or(0));
++        m_bForcedBarColor = CHyprColor(Config::ParserUtils::parseColor(PWINDOW->m_ruleApplicator->m_otherProps.props.at(g_pGlobalState->barColorRuleIdx)->effect).value_or(0));
+     if (PWINDOW->m_ruleApplicator->m_otherProps.props.contains(g_pGlobalState->titleColorRuleIdx))
+-        m_bForcedTitleColor = CHyprColor(configStringToInt(PWINDOW->m_ruleApplicator->m_otherProps.props.at(g_pGlobalState->titleColorRuleIdx)->effect).value_or(0));
++        m_bForcedTitleColor = CHyprColor(Config::ParserUtils::parseColor(PWINDOW->m_ruleApplicator->m_otherProps.props.at(g_pGlobalState->titleColorRuleIdx)->effect).value_or(0));
+ 
+     if (prevHidden != m_hidden)
+         g_pDecorationPositioner->repositionDeco(this);
 @@ -651,10 +666,10 @@ void CHyprBar::updateRules() {
  }
  
@@ -423,6 +443,35 @@ diff --git a/main.cpp b/main.cpp
 index 72a4491..31e0134 100644
 --- a/main.cpp
 +++ b/main.cpp
+@@ -11,6 +11,7 @@
+ #include <hyprland/src/desktop/rule/windowRule/WindowRuleEffectContainer.hpp>
+ #include <hyprland/src/config/lua/bindings/LuaBindingsInternal.hpp>
+ #include <hyprland/src/config/lua/types/LuaConfigColor.hpp>
++#include <hyprland/src/config/shared/parserUtils/ParserUtils.hpp>
+ 
+ #include <hyprutils/string/VarList.hpp>
+ 
+@@ -86,17 +87,17 @@ Hyprlang::CParseResult onNewButton(const char* K, const char* V) {
+     }
+ 
+     bool userfg  = false;
+-    auto fgcolor = configStringToInt("rgb(ffffff)");
+-    auto bgcolor = configStringToInt(vars[0]);
++    auto fgcolor = Config::ParserUtils::parseColor("rgb(ffffff)");
++    auto bgcolor = Config::ParserUtils::parseColor(vars[0]);
+ 
+     if (!bgcolor) {
+         result.setError("invalid bgcolor");
+         return result;
+     }
+ 
+     if (vars.size() == 5) {
+         userfg  = true;
+-        fgcolor = configStringToInt(vars[4]);
++        fgcolor = Config::ParserUtils::parseColor(vars[4]);
+     }
+ 
+     if (!fgcolor) {
 @@ -207,44 +207,23 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
      static auto P  = Event::bus()->m_events.window.open.listen([&](PHLWINDOW w) { onNewWindow(w); });
      static auto P3 = Event::bus()->m_events.window.updateRules.listen([&](PHLWINDOW w) { onUpdateWindowRules(w); });
@@ -465,9 +514,9 @@ index 72a4491..31e0134 100644
 -    HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.enabled);
 -    HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.iconOnHover);
 -    HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.onDoubleClick);
-+    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:bar_color", Hyprlang::INT{*configStringToInt("rgba(33333388)")});
-+    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:col.text", Hyprlang::INT{*configStringToInt("rgba(ffffffff)")});
-+    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:inactive_button_color", Hyprlang::INT{*configStringToInt("rgba(00000000)")});
++    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:bar_color", Hyprlang::INT{*Config::ParserUtils::parseColor("rgba(33333388)")});
++    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:col.text", Hyprlang::INT{*Config::ParserUtils::parseColor("rgba(ffffffff)")});
++    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:inactive_button_color", Hyprlang::INT{*Config::ParserUtils::parseColor("rgba(00000000)")});
 +    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:bar_height", Hyprlang::INT{15});
 +    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:bar_text_size", Hyprlang::INT{10});
 +    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:bar_title_enabled", Hyprlang::INT{1});
