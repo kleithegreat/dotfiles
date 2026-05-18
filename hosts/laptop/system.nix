@@ -195,6 +195,11 @@ in {
   environment.sessionVariables.__EGL_VENDOR_LIBRARY_FILENAMES =
     "/run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json";
 
+  hardware.logitech.wireless = {
+    enable = true;
+    enableGraphical = true;  # solaar
+  };
+
   # Laptop overrides — disable laptop-only remote login.
   services.openssh.enable = lib.mkForce false;
 

@@ -39,7 +39,7 @@
         name = "laptop";
         isPhysical = true;
         hyprland = {
-          autostartHost = null;
+          autostartHost = "hosts/laptop/autostart.conf";
           inputDevices = "hosts/laptop/input-devices.conf";
           monitors = "hosts/laptop/monitors.conf";
           env = "config/hypr/env.conf";

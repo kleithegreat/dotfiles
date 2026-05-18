@@ -59,7 +59,7 @@
 -                                  .wrapY          = data.wrapY,
 -                                  .discardMode    = data.discardMode,
 -                                  .discardOpacity = data.discardOpacity,
--                                  .clipRegion     = data.clipRegion,
+-                                  .clipRegion     = blurClipRegion,
 -                                  .currentLS      = data.currentLS,
 -
 -                                  .primarySurfaceUVTopLeft     = monitorSpaceBox.pos() / m_renderData.pMonitor->m_transformedSize,
@@ -77,7 +77,7 @@
 +        blurredBGRenderData.wrapY                       = data.wrapY;
 +        blurredBGRenderData.discardMode                 = data.discardMode;
 +        blurredBGRenderData.discardOpacity              = data.discardOpacity;
-+        blurredBGRenderData.clipRegion                  = data.clipRegion;
++        blurredBGRenderData.clipRegion                  = blurClipRegion;
 +        blurredBGRenderData.currentLS                   = data.currentLS;
 +        blurredBGRenderData.primarySurfaceUVTopLeft     = monitorSpaceBox.pos() / m_renderData.pMonitor->m_transformedSize;
 +        blurredBGRenderData.primarySurfaceUVBottomRight = (monitorSpaceBox.pos() + monitorSpaceBox.size()) / m_renderData.pMonitor->m_transformedSize;
