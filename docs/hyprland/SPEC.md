@@ -123,7 +123,7 @@ Files selected per host by the `host.hyprland.*` facts consumed in `home/xdg.nix
 
 | File | Laptop | Desktop | Fallback |
 | --- | --- | --- | --- |
-| `autostart-host.conf` | Empty | `hosts/desktop/autostart.conf` | Empty |
+| `autostart-host.conf` | `hosts/laptop/autostart.conf` | `hosts/desktop/autostart.conf` | Empty |
 | `monitors.conf` | `hosts/laptop/monitors.conf` | `hosts/desktop/monitors.conf` | Generic auto-detect rule |
 | `env.conf` | `config/hypr/env.conf` | `hosts/desktop/env.conf` | Empty |
 | `input-devices.conf` | `hosts/laptop/input-devices.conf` | `hosts/desktop/input-devices.conf` | Empty |

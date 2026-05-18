@@ -64,6 +64,22 @@ the theming pipeline runs. The `home.activation.applyTheme` hook runs
 file before the first Hyprland session in normal use. A manual
 `desktopctl theme` run is needed if the activation hook is skipped.
 
+## Host-selected fragments must be tracked before rebuilding
+
+**Symptom:** `hyprctl configerrors` reports a host-selected source such as
+`~/.config/hypr/autostart-host.conf` as inaccessible even though the file exists
+in the working tree.
+
+**Cause:** The flake source used by `nixos-rebuild` only materializes files known
+to Git. A newly added host fragment that is still untracked is omitted from the
+store `self` source, so Home Manager can create a symlink to a path that does not
+exist inside the materialized source tree.
+
+**Impact / workaround:** After adding a new host-selected fragment under
+`hosts/*/`, make sure the file is tracked by Git before rebuilding or activating
+Home Manager. If the live symlink is already broken, rebuild/activate Home
+Manager again after tracking the file.
+
 ## input-runtime.conf only overrides shared defaults
 
 **Symptom:** The Mouse page's shared "Mouse Speed" setting changes, but a
@@ -73,19 +89,18 @@ specific mouse still keeps its old per-device feel.
 `~/.config/hypr/input-runtime.conf`, which is sourced after
 `input-devices.conf` in `config/hypr/hyprland.conf`. That updates the
 shared `input { ... }` defaults, but device-specific `device { ... }`
-overrides such as the desktop's Logitech sensitivity blocks still apply
-separately in `hosts/desktop/input-devices.conf`.
+overrides such as the host-specific Logitech sensitivity blocks still apply
+separately in `hosts/*/input-devices.conf`.
 
 **Impact / workaround:** Use the Mouse page for the shared Hyprland defaults
 that should apply when no device-specific override exists. Keep hardware-
-specific tuning in `hosts/*/input-devices.conf`; on the desktop, those Logitech
-blocks still win over the shared runtime value.
+specific tuning in `hosts/*/input-devices.conf`; those Logitech blocks still win
+over the shared runtime value on hosts that define them.
 
 ## input-devices.conf is sourced before plugin keywords are available
 
-**Symptom:** A plugin-specific gesture keyword such as `hyprexpo-gesture`
-would raise an unknown-keyword error if placed in
-`hosts/laptop/input-devices.conf`.
+**Symptom:** A plugin-owned gesture or dispatcher keyword can raise an
+unknown-keyword error if placed in `hosts/laptop/input-devices.conf`.
 
 **Cause:** `config/hypr/hyprland.conf` sources
 `~/.config/hypr/input-devices.conf` before `~/.config/hypr/plugins.conf`.
@@ -96,9 +111,9 @@ to core Hyprland keywords even when it needs to trigger plugin behavior.
 
 **Impact / workaround:** For laptop touchpad gestures that should toggle the
 workspace overview, keep the binding on the core `gesture` keyword and use the
-`dispatcher` action to call `hyprexpo:expo toggle`
-from `hosts/laptop/input-devices.conf`. Reserve `hyprexpo-gesture` for files
-sourced after `plugins.conf`, or guard it with `hyprlang noerror`.
+`dispatcher` action to call `hyprexpo:expo toggle` from
+`hosts/laptop/input-devices.conf`. Reserve plugin-owned gesture keywords for
+files sourced after `plugins.conf`, or guard them with `hyprlang noerror`.
 
 ## Rolling Hyprland input bumps can break the patched plugin stack at login
 
@@ -158,37 +173,17 @@ expose color parsing through `Config::ParserUtils::parseColor(...)` instead.
 plugin stack remains pinned to a Hyprland 0.55 input. Re-check the patch when
 upstream `hyprland-plugins` absorbs the same parser API change.
 
-## Hyprbars needs pass simplification disabled for Hyprexpo captures
+## Official hyprland-plugins no longer ships Hyprexpo
 
-**Symptom:** Floating windows render with `hyprbars` in the normal workspace, but
-their title bars disappear from the `hyprexpo` overview tiles.
+**Symptom:** `nrs` fails during evaluation with `attribute 'hyprexpo' missing`
+from `system/configuration.nix`.
 
-**Cause:** `hyprexpo` captures each workspace through Hyprland's fake render
-path. In Hyprland 0.54, render-pass simplification walks elements in reverse and
-can let later opaque window surfaces drain the damage region before the
-under-window `hyprbars` decoration pass is reached. Returning no bounding box is
-not sufficient because the element can still receive empty damage.
+**Cause:** The official `hyprwm/hyprland-plugins` flake removed `hyprexpo` from
+its package set. The repo previously built the overview plugin from
+`inputs.hyprland-plugins.packages.${system}.hyprexpo`, so a lockfile update can
+break evaluation before Nix reaches the build phase.
 
-**Status:** Fixed in
-`patches/hyprland-plugins/hyprbars-hyprland-0.54.patch` by adding
-`CBarPassElement::disableSimplification()` and keeping a real bounding box for
-blur/debug bookkeeping. Re-check this patch when Hyprland changes pass
-simplification or when upstream `hyprbars` changes its decoration layer.
-
-## Hyprexpo empty workspace clicks need the action path
-
-**Symptom:** From the Hyprexpo overview, clicking a tile for a workspace with no
-active applications closes the overview but lands back on the workspace where
-Hyprexpo was launched.
-
-**Cause:** Current Hyprland keeps workspace creation in the action/dispatcher
-path. `CMonitor::changeWorkspace(WORKSPACEID)` only resolves an existing
-workspace and returns without switching when `g_pCompositor->getWorkspaceByID`
-returns null. Hyprexpo's overview tiles can represent not-yet-created empty
-workspaces, so calling that monitor overload makes empty-tile selection a no-op.
-
-**Status:** Fixed in
-`patches/hyprland-plugins/hyprexpo-hyprland-0.54.patch` by calling
-`Config::Actions::changeWorkspace(...)` for both existing and missing target
-workspace IDs. That keeps the current Hyprland creation, focus, event, and
-animation behavior instead of duplicating it in the plugin patch.
+**Status:** Workaround in place. Keep `flake.lock` pinned to the
+`hyprland-plugins` revision `22de29bc1cf4126202df52691d0bc9a065089cba`, the
+last known input revision in this repo that still exposes `hyprexpo`, unless the
+overview config is intentionally migrated away from Hyprexpo.

@@ -3,7 +3,7 @@
 ## Scope
 
 Current implementation map for `config/hypr/`, the host-selected Hyprland
-fragments, and the generated theme inputs as of 2026-05-09.
+fragments, and the generated theme inputs as of 2026-05-17.
 
 ## Source Graph
 
@@ -39,7 +39,7 @@ Hyprland fragments.
 
 | Target path | Laptop | Desktop | Fallback |
 | --- | --- | --- | --- |
-| `~/.config/hypr/autostart-host.conf` | Empty file | `hosts/desktop/autostart.conf` | Empty file |
+| `~/.config/hypr/autostart-host.conf` | `hosts/laptop/autostart.conf` | `hosts/desktop/autostart.conf` | Empty file |
 | `~/.config/hypr/input-devices.conf` | `hosts/laptop/input-devices.conf` | `hosts/desktop/input-devices.conf` | Empty file |
 | `~/.config/hypr/monitors.conf` | `hosts/laptop/monitors.conf` | `hosts/desktop/monitors.conf` | `monitor = ,preferred,auto,1` |
 | `~/.config/hypr/env.conf` | `config/hypr/env.conf` | `hosts/desktop/env.conf` | Empty file |
@@ -59,21 +59,21 @@ file later when the Mouse settings page updates shared pointer defaults.
 
 Current host input fragments differ materially:
 
-- `hosts/laptop/input-devices.conf` keeps touchpad-only behavior: natural
-  scrolling, a reduced touchpad `scroll_factor`, the existing three-finger
-  horizontal workspace swipe, and a three-finger swipe-up that dispatches
-  `hyprexpo:expo toggle` through Hyprland's core `gesture` keyword
-  in the laptop input fragment.
-- `hosts/desktop/input-devices.conf` currently only adjusts per-device mouse
-  sensitivity for the Logitech G Pro and MX Master 2S
-  in the desktop input fragment.
+- `hosts/laptop/input-devices.conf` keeps touchpad behavior: natural scrolling,
+  a reduced touchpad `scroll_factor`, the existing three-finger horizontal
+  workspace swipe, a three-finger swipe-up that dispatches `hyprexpo:expo
+  toggle` through Hyprland's core `gesture` keyword, and the per-device
+  sensitivity for the Logitech MX Master 2S.
+- `hosts/desktop/input-devices.conf` adjusts per-device mouse sensitivity for
+  the Logitech G Pro and MX Master 2S in the desktop input fragment.
 - `hosts/desktop/env.conf` still carries the dedicated-NVIDIA session variables
   and now also exports `DESKTOPCTL_IDLE_INHIBIT_DEFAULT=1`, which
   `config/quickshell/IdleInhibitService.qml` reads at shell startup so the
   desktop session boots with idle inhibit already active.
-- `hosts/desktop/autostart.conf` starts Solaar hidden for the desktop session
-  and keeps the Logitech MX Master 2S smart-shift tweak in that desktop-only
-  startup fragment instead of mixing either concern into `hosts/desktop/env.conf`.
+- `hosts/laptop/autostart.conf` and `hosts/desktop/autostart.conf` start Solaar
+  hidden and apply the Logitech MX Master 2S smart-shift tweak through
+  host-specific startup fragments instead of mixing either concern into
+  `env.conf`.
 
 ## Theme And Runtime Integration
 
@@ -96,7 +96,7 @@ Current host input fragments differ materially:
 | `input-runtime.conf` | Shared mouse defaults written by `desktopctl hypr input`; the file is sourced after `input-devices.conf` in `config/hypr/hyprland.conf`, so it layers on top of the shared base config without editing static or host fragments. The rewrite logic lives in `desktopctl/src/hypr.rs`. |
 | `animations-override.conf` | Bezier curve definitions and per-animation overrides written by `desktopctl hypr animations`; sourced after `appearance.conf` so GUI-modified animations layer on top of hand-edited base animations. Only overridden animations are written; untouched animations keep their `appearance.conf` values. |
 | `keybinds-override.conf` | Unbind + rebind pairs written by `desktopctl hypr keybinds`; sourced after `keybinds.conf` so GUI-remapped keybinds replace their original combos. Uses concrete resolved values rather than `$mainMod` variables. |
-| `autostart.conf` and `autostart-host.conf` | Shared session bootstrap lives in `config/hypr/autostart.conf`, which defines the `$cleanSessionEnv` token scrubber, imports `SSH_AUTH_SOCK` from the user manager, clears one-shot launch/workspace tokens before syncing the session environment into D-Bus/systemd activation, starts `hyprpolkitagent`, `desktopctl daemon`, Quickshell, Vicinae server, wallpaper bootstrap, `hypridle`, and Snappy Switcher through `$cleanSessionEnv`, then sources `~/.config/hypr/autostart-host.conf` for host-only additions such as the desktop's Logitech mouse tuning. Easy Effects and Bitwarden remain installed but are no longer session autostarts. Wallpaper selection itself remains owned by the theming pipeline's `wallpaper` target (`docs/theming/SPEC.md`). |
+| `autostart.conf` and `autostart-host.conf` | Shared session bootstrap lives in `config/hypr/autostart.conf`, which defines the `$cleanSessionEnv` token scrubber, imports `SSH_AUTH_SOCK` from the user manager, clears one-shot launch/workspace tokens before syncing the session environment into D-Bus/systemd activation, starts `hyprpolkitagent`, `desktopctl daemon`, Quickshell, Vicinae server, wallpaper bootstrap, `hypridle`, and Snappy Switcher through `$cleanSessionEnv`, then sources `~/.config/hypr/autostart-host.conf` for host-only additions such as Logitech mouse tuning. Easy Effects and Bitwarden remain installed but are no longer session autostarts. Wallpaper selection itself remains owned by the theming pipeline's `wallpaper` target (`docs/theming/SPEC.md`). |
 | `keybinds.conf` | Primary modifier scheme, descriptive `bindd` / `bindde` bindings, directional focus on `SUPER+Arrow`, workspace cycling on `SUPER+ALT+Left/Right`, media/brightness repeat binds, Quickshell IPC binds that resolve the shell path through `${DESKTOPCTL_REPO:-$HOME/repos/dotfiles}`, and external launcher/switcher actions |
 | `rules.conf` | Floating/dialog rules, app-specific geometry, layer rules, a `fullscreen_state 2 2` override for the old XWayland `Minecraft 1.10.2` client so it covers Quickshell's reserved top bar space, and plugin rule glue |
 | `plugins.conf` | Loading `hyprbars` and `hyprexpo` from `HYPR_PLUGIN_DIR` plus their theme-facing settings |
@@ -116,28 +116,19 @@ the local rounded-corner field does not trip designated-initializer ordering on
 the current compiler.
 
 Upstream has since absorbed most Hyprland 0.54 API porting in the plugin tree,
-so the remaining local `patches/hyprland-plugins/hyprbars-hyprland-0.54.patch`
-now carries the behavior delta plus the current compatibility workarounds:
-`hyprbars/barDeco.cpp` renders the bar background with top-only rounded corners
-instead of the old oversized rounded-rect fill hack,
-`hyprbars/BarPassElement.cpp` and `hyprbars/BarPassElement.hpp` opt the custom
-bar pass out of render-pass simplification so `hyprexpo`'s offscreen workspace
-captures keep under-window decorations visible, `hyprbars/main.cpp` /
-`hyprbars/globals.hpp` keep the plugin on the legacy
-`HyprlandAPI::addConfigValue(...)` plus `HyprlandAPI::getConfigValue(...)` path
-instead of `addConfigValueV2(...)` because the current Hyprland input aborts
-during `libhyprbars.so` initialization when `hyprbars` registers V2 plugin
-values under the legacy config manager, and `hyprbars/main.cpp` /
-`hyprbars/barDeco.cpp` parse color strings through
-`Config::ParserUtils::parseColor(...)` because Hyprland 0.55 no longer exports
-the old unqualified `configStringToInt(...)` helper used by the upstream plugin
-source. The companion
-`patches/hyprland-plugins/hyprexpo-hyprland-0.54.patch` is now limited to local
-behavior on top of upstream's current API port: it debounces accidental select
-events immediately after opening the overview, guards stale `startedOn`
-workspace checks with `valid(startedOn)`, and lets
-`Config::Actions::changeWorkspace(...)` own the workspace transition without
-duplicating desktop-animation calls.
+so the remaining active local plugin patches carry behavior deltas plus current
+compatibility workarounds. `patches/hyprland-plugins/hyprbars-hyprland-0.54.patch`
+keeps `hyprbars` on the legacy `HyprlandAPI::addConfigValue(...)` plus
+`HyprlandAPI::getConfigValue(...)` path, parses color strings through
+`Config::ParserUtils::parseColor(...)`, renders the bar background with top-only
+rounded corners, and opts the custom bar pass out of render-pass simplification.
+`patches/hyprland-plugins/hyprexpo-hyprland-0.54.patch` carries the local
+overview behavior: it debounces accidental select events immediately after
+opening the overview, guards stale `startedOn` workspace checks with
+`valid(startedOn)`, and lets `Config::Actions::changeWorkspace(...)` own the
+workspace transition without duplicating desktop-animation calls. The
+`hyprland-plugins` flake input is intentionally pinned to the last known
+revision that still exposes `packages.${system}.hyprexpo`.
 
 Monitor behavior follows the same host split as inputs:
 
