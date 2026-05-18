@@ -9,7 +9,7 @@ integration.
 
 | Component | Current role | Notes |
 | --- | --- | --- |
-| `shell.qml` | Session root for monitor selection, root windows, shared props, and IPC | Single-bar model on the first real monitor; see `docs/quickshell/QUIRKS.md` for output-churn behavior |
+| `shell.qml` | Session root for monitor selection, root windows, shared props, and IPC | Single-bar model on the real monitor positioned at `0x0`, falling back to the first real monitor; see `docs/quickshell/QUIRKS.md` for output-churn behavior |
 | `PopupVisibility.qml` | Exclusivity registry for managed overlay popups | One boolean per popup plus shared toggle helpers |
 | `PopupOverlayHost.qml` | Only overlay `PanelWindow` for managed popups | Owns focus, outside-click dismissal, and scrim handling |
 | `bar/Bar.qml` | Persistent chrome and popup toggles | Materialized through a loader only when a real monitor is available |
