@@ -111,14 +111,20 @@ Scope {
 
     readonly property string barMonitorName: {
         const monitors = Hyprland.monitors.values;
+        let fallbackName = "";
         for (let i = 0; i < monitors.length; ++i) {
             const monitor = monitors[i];
-            if (root.isRealMonitor(monitor)) {
+            if (!root.isRealMonitor(monitor))
+                continue;
+
+            if (fallbackName === "")
+                fallbackName = monitor.name;
+
+            if (monitor.x === 0 && monitor.y === 0)
                 return monitor.name;
-            }
         }
 
-        return "";
+        return fallbackName;
     }
 
     readonly property var barScreen: {

@@ -132,8 +132,11 @@ revision that still exposes `packages.${system}.hyprexpo`.
 
 Monitor behavior follows the same host split as inputs:
 
-- The laptop pins `eDP-1` and keeps a fallback `monitor = , preferred, auto, 1`
-  rule for everything else.
+- The laptop pins the BenQ ZOWIE external display by EDID description at
+  `1920x1080@120.00` on `0x0`, leaves `eDP-1` on `auto` placement so it becomes
+  secondary when that external display is present and falls back to the origin
+  when it is not, and keeps a fallback `monitor = , preferred, auto, 1` rule for
+  everything else.
 - The desktop pins `HDMI-A-1` and keeps the same catch-all fallback.
 
 Desktop-specific NVIDIA environment and resume quirks live in
