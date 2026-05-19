@@ -161,7 +161,7 @@ enum BrightnessCommand {
 
 #[derive(Debug, Args)]
 struct BrightnessDeviceArgs {
-    /// Override the auto-detected backlight device.
+    /// Override the auto-detected device. Use a backlight name, `ddc`, or `ddc:<display>`.
     #[arg(long, value_name = "DEVICE")]
     device: Option<String>,
 }
@@ -186,12 +186,26 @@ struct HyprArgs {
 enum HyprCommand {
     /// Toggle floating and recenter when promoting a tiled window.
     ToggleFloat,
+    /// Apply the laptop lid-switch monitor policy.
+    LidSwitch(HyprLidSwitchArgs),
     /// Inspect and update managed Hyprland input settings.
     Input(HyprInputArgs),
     /// Persist or clear animation override state.
     Animations(HyprAnimationsArgs),
     /// Persist or clear keybind override state.
     Keybinds(HyprKeybindsArgs),
+}
+
+#[derive(Debug, Args)]
+struct HyprLidSwitchArgs {
+    /// Lid state to apply: open, closed, or sync.
+    state: String,
+    /// Internal display connector to disable/re-enable.
+    #[arg(long, default_value = "eDP-1", value_name = "MONITOR")]
+    internal: String,
+    /// Hyprland monitor spec used when the lid opens.
+    #[arg(long, default_value = "preferred,auto,1", value_name = "SPEC")]
+    open_spec: String,
 }
 
 #[derive(Debug, Args)]
@@ -360,6 +374,10 @@ fn run_brightness(args: BrightnessArgs) -> Result<()> {
 fn run_hypr(args: HyprArgs) -> Result<()> {
     match args.command {
         HyprCommand::ToggleFloat => hypr::toggle_float(),
+        HyprCommand::LidSwitch(args) => {
+            let state = hypr::LidSwitchState::parse(&args.state)?;
+            hypr::handle_lid_switch(state, &args.internal, &args.open_spec)
+        }
         HyprCommand::Input(args) => run_hypr_input(args),
         HyprCommand::Animations(args) => run_hypr_animations(args),
         HyprCommand::Keybinds(args) => run_hypr_keybinds(args),

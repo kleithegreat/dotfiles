@@ -132,8 +132,8 @@ Constraints:
 
 - Host-specific files own hardware concerns plus minimal host-only startup
   hooks: GPU environment, monitor layout, monitor-scoped workspace placement,
-  per-device input overrides, and per-host session bootstrap commands that
-  cannot live in the shared base file.
+  per-device input overrides, laptop lid-switch output policy, and per-host
+  session bootstrap commands that cannot live in the shared base file.
 - The fallback branch must provide safe minimal defaults so the compositor
   starts on any host.
 - Adding a new host requires adding the relevant `host.hyprland.*` facts in
@@ -151,8 +151,8 @@ Invariants:
   with no host-specific assumptions.
 - Host-specific `system.nix` modules handle NixOS-level concerns (drivers,
   hardware, boot). Host-specific Hyprland fragments handle compositor-level
-  concerns and host-only session hooks (monitors, GPU env, input devices, and
-  autostart additions).
+  concerns and host-only session hooks (monitors, GPU env, input/lid devices,
+  and autostart additions).
 - The laptop's `env.conf` lives in `config/hypr/env.conf` because it carries
   shared environment defaults alongside its GPU-specific settings. The desktop's
   `env.conf` lives in `hosts/desktop/env.conf` because it replaces GPU settings
@@ -165,6 +165,7 @@ Invariants:
 | Source graph and compositor behavior | Hyprland config (`config/hypr/`) | Static base files define the session's behavior, bindings, rules, and idle policy. |
 | Theme-derived appearance | The theming pipeline | Generated `colors.conf`, `appearance-theme.conf`, and `cursor.conf` are the only theme write surfaces within the Hyprland config directory. |
 | Shared Hyprland mouse defaults | `desktopctl hypr input` | Writes generated `input-runtime.conf` and applies the same values live through `hyprctl keyword`, without editing `input.conf` or `input-devices.conf`. |
+| Laptop lid-switch output policy | `hosts/laptop/input-devices.conf` + `desktopctl hypr lid-switch` | Laptop switch binds call the helper on lid close/open. Close disables the internal panel only when another output is active; open restores the internal panel from the configured Hyprland monitor spec. |
 | Animation overrides | `desktopctl hypr animations` | Writes generated `animations-override.conf` with bezier curves and per-animation overrides, sourced after `appearance.conf` so GUI changes layer on top of hand-edited base animations. |
 | Keybind overrides | `desktopctl hypr keybinds` | Writes generated `keybinds-override.conf` with unbind + rebind pairs, sourced after `keybinds.conf` so GUI remaps layer on top of the static base bindings. |
 | Transient idle/lid inhibition | Quickshell `IdleInhibitService.qml` | Holds or releases runtime `systemd-inhibit --what=idle` and `systemd-inhibit --what=handle-lid-switch --mode=block` inhibitors that pause hypridle timers or block logind lid handling, without editing `hypridle.conf`. |

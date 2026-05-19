@@ -33,6 +33,7 @@ FocusScope {
     property string wifiSsid: NetworkService.connectedSsid
     property real panelHeightHint: 360
     readonly property int metricLabelWidth: Math.max(Theme.fontSize * 3, 32)
+    readonly property var brightnessDevices: BrightnessService.devicesForMonitors(DisplayService.monitors, BrightnessService.brightnessDevices)
 
     // ── Battery ──
     property real batPct: {
@@ -110,6 +111,7 @@ FocusScope {
 
             NetworkService.refreshSummary();
             BluetoothService.refreshSummary();
+            DisplayService.refreshMonitors();
             BrightnessService.refresh();
             PowerProfileService.detect();
             VpnService.refresh();
@@ -673,62 +675,14 @@ FocusScope {
 
                 // ═══════════════════ Brightness Slider ═══════════════════
 
-                RowLayout {
-                    visible: BrightnessService.hasBacklight
-                    Layout.fillWidth: true; spacing: 8
+                Repeater {
+                    model: qsPop.brightnessDevices
 
-                    Components.Icon {
-                        source: BrightnessService.brightnessPercent < 25 ? "../icons/brightness-low.svg" : (BrightnessService.brightnessPercent < 70 ? "../icons/brightness-medium.svg" : "../icons/brightness-high.svg")
-                        color: Theme.fg4
-                        Layout.preferredWidth: 16; Layout.alignment: Qt.AlignHCenter
-                    }
+                    delegate: Components.BrightnessSlider {
+                        required property var modelData
 
-                    Rectangle {
-                        Layout.fillWidth: true; height: Theme.sliderHeight; radius: Theme.sliderHeight / 2; color: Theme.bg3
-
-                        Rectangle {
-                            anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
-                            width: parent.width * BrightnessService.brightnessFraction
-                            radius: parent.radius; color: Theme.yellowBright
-                            Behavior on width {
-                                Components.Anim {
-                                    duration: Theme.animMicro
-                                    easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
-                                }
-                            }
-                        }
-
-                        Rectangle {
-                            width: 12; height: 12; radius: 6; color: Theme.fg
-                            y: (parent.height - height) / 2
-                            x: Math.max(0, Math.min(parent.width - width, parent.width * BrightnessService.brightnessFraction - width / 2))
-                            scale: brightSliderMouse.pressed ? 1.2 : (brightSliderMouse.containsMouse ? 1.1 : 1.0)
-                            Behavior on scale {
-                                Components.Anim {
-                                    duration: Theme.animMicro
-                                    easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
-                                }
-                            }
-                            Behavior on x {
-                                SpringAnimation { spring: 4; damping: 0.4 }
-                            }
-                        }
-
-                        Components.HoverLayer {
-                            id: brightSliderMouse
-                            hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
-                            onClicked: (mouse) => { BrightnessService.setBrightnessFraction(mouse.x / parent.width); }
-                            onPositionChanged: (mouse) => {
-                                if (pressed)
-                                    BrightnessService.setBrightnessFraction(mouse.x / parent.width);
-                            }
-                        }
-                    }
-
-                    Text {
-                        text: BrightnessService.brightnessAvailable ? BrightnessService.brightnessPercent + "%" : ""
-                        color: Theme.fg3; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
-                        Layout.preferredWidth: qsPop.metricLabelWidth; horizontalAlignment: Text.AlignRight
+                        brightnessDevice: modelData
+                        valueWidth: qsPop.metricLabelWidth
                     }
                 }
 

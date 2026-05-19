@@ -32,7 +32,11 @@ static DIM_ABORTED: AtomicBool = AtomicBool::new(false);
 #[derive(Clone, Debug)]
 enum BrightnessDevice {
     Backlight(String),
-    Ddc { display: Option<String> },
+    Ddc {
+        display: Option<String>,
+        connector: Option<String>,
+        label: Option<String>,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -42,16 +46,40 @@ struct BrightnessState {
     max: u64,
 }
 
-#[derive(Serialize)]
-struct BrightnessStatus<'a> {
+#[derive(Clone, Debug, Serialize)]
+struct BrightnessDeviceStatus {
     available: bool,
-    kind: &'a str,
+    kind: &'static str,
     device: String,
     label: String,
     raw: u64,
     max: u64,
     fraction: f64,
     percent: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    connector: Option<String>,
+}
+
+#[derive(Serialize)]
+struct BrightnessStatus {
+    available: bool,
+    kind: &'static str,
+    device: String,
+    label: String,
+    raw: u64,
+    max: u64,
+    fraction: f64,
+    percent: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    connector: Option<String>,
+    devices: Vec<BrightnessDeviceStatus>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct DdcDisplay {
+    display: String,
+    connector: Option<String>,
+    label: Option<String>,
 }
 
 unsafe extern "C" {
@@ -71,12 +99,13 @@ pub fn down(device: Option<&str>) -> Result<()> {
 }
 
 pub fn status(json: bool) -> Result<()> {
-    let state = resolve_state(None)?;
-    let status = status_payload(&state)?;
-
     if json {
+        let devices = available_device_statuses()?;
+        let status = status_payload_for_devices(devices);
         println!("{}", serde_json::to_string(&status)?);
     } else {
+        let state = resolve_state(None)?;
+        let status = status_payload(&state)?;
         println!("{}: {}%", status.label, status.percent);
     }
 
@@ -149,9 +178,16 @@ pub fn restore(device: Option<&str>) -> Result<()> {
         BrightnessDevice::Backlight(device) => {
             brightnessctl(&device, &["-r"])?;
         }
-        BrightnessDevice::Ddc { display } => {
+        BrightnessDevice::Ddc { display, .. } => {
             let raw = read_ddc_dim_state(&display)?;
-            set_raw(&BrightnessDevice::Ddc { display }, raw)?;
+            set_raw(
+                &BrightnessDevice::Ddc {
+                    display,
+                    connector: None,
+                    label: None,
+                },
+                raw,
+            )?;
             if let Ok(path) = ddc_dim_state_path() {
                 let _ = fs::remove_file(path);
             }
@@ -189,7 +225,11 @@ fn resolve_state(device: Option<&str>) -> Result<BrightnessState> {
 fn resolve_device(device: Option<&str>) -> Result<BrightnessDevice> {
     if let Some(device) = device {
         if let Some(display) = parse_ddc_device(device) {
-            return Ok(BrightnessDevice::Ddc { display });
+            return Ok(BrightnessDevice::Ddc {
+                display,
+                connector: None,
+                label: None,
+            });
         }
 
         return Ok(BrightnessDevice::Backlight(device.to_owned()));
@@ -199,7 +239,11 @@ fn resolve_device(device: Option<&str>) -> Result<BrightnessDevice> {
         return Ok(BrightnessDevice::Backlight(device));
     }
 
-    let ddc = BrightnessDevice::Ddc { display: None };
+    let ddc = BrightnessDevice::Ddc {
+        display: None,
+        connector: None,
+        label: None,
+    };
     if read_state(ddc.clone()).is_ok() {
         return Ok(ddc);
     }
@@ -212,9 +256,13 @@ fn resolve_device(device: Option<&str>) -> Result<BrightnessDevice> {
 }
 
 fn first_backlight_device() -> Result<Option<String>> {
+    Ok(backlight_devices()?.into_iter().next())
+}
+
+fn backlight_devices() -> Result<Vec<String>> {
     let entries = match fs::read_dir(BACKLIGHT_ROOT) {
         Ok(entries) => entries,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
         Err(error) => return Err(error.into()),
     };
 
@@ -231,7 +279,7 @@ fn first_backlight_device() -> Result<Option<String>> {
     }
     devices.sort();
 
-    Ok(devices.into_iter().next())
+    Ok(devices)
 }
 
 fn parse_ddc_device(device: &str) -> Option<Option<String>> {
@@ -257,7 +305,7 @@ fn read_state(device: BrightnessDevice) -> Result<BrightnessState> {
                 max,
             })
         }
-        BrightnessDevice::Ddc { display } => {
+        BrightnessDevice::Ddc { display, .. } => {
             let (current, max) = ddc_brightness_value(display.as_deref())?;
             ensure_nonzero_max(max)?;
             Ok(BrightnessState {
@@ -269,16 +317,92 @@ fn read_state(device: BrightnessDevice) -> Result<BrightnessState> {
     }
 }
 
-fn status_payload(state: &BrightnessState) -> Result<BrightnessStatus<'_>> {
+fn available_device_statuses() -> Result<Vec<BrightnessDeviceStatus>> {
+    let mut statuses = Vec::new();
+
+    for device in backlight_devices()? {
+        if let Ok(state) = read_state(BrightnessDevice::Backlight(device)) {
+            statuses.push(status_payload(&state)?);
+        }
+    }
+
+    for state in available_ddc_states() {
+        statuses.push(status_payload(&state)?);
+    }
+
+    Ok(statuses)
+}
+
+fn available_ddc_states() -> Vec<BrightnessState> {
+    let mut states = Vec::new();
+
+    if let Ok(devices) = detected_ddc_devices() {
+        for device in devices {
+            if let Ok(state) = read_state(device) {
+                states.push(state);
+            }
+        }
+    }
+
+    if states.is_empty() {
+        let fallback = BrightnessDevice::Ddc {
+            display: None,
+            connector: None,
+            label: None,
+        };
+        if let Ok(state) = read_state(fallback) {
+            states.push(state);
+        }
+    }
+
+    states
+}
+
+fn status_payload_for_devices(devices: Vec<BrightnessDeviceStatus>) -> BrightnessStatus {
+    let Some(primary) = devices.first().cloned() else {
+        return BrightnessStatus {
+            available: false,
+            kind: "",
+            device: String::new(),
+            label: String::new(),
+            raw: 0,
+            max: 0,
+            fraction: 0.0,
+            percent: 0,
+            connector: None,
+            devices,
+        };
+    };
+
+    BrightnessStatus {
+        available: primary.available,
+        kind: primary.kind,
+        device: primary.device,
+        label: primary.label,
+        raw: primary.raw,
+        max: primary.max,
+        fraction: primary.fraction,
+        percent: primary.percent,
+        connector: primary.connector,
+        devices,
+    }
+}
+
+fn status_payload(state: &BrightnessState) -> Result<BrightnessDeviceStatus> {
     ensure_nonzero_max(state.max)?;
-    let (kind, device, label, fraction) = match &state.device {
+    let (kind, device, label, fraction, connector) = match &state.device {
         BrightnessDevice::Backlight(name) => (
             "backlight",
             name.clone(),
             name.replace('_', " "),
             raw_to_perceived(state.current, state.max),
+            None,
         ),
-        BrightnessDevice::Ddc { display } => {
+        BrightnessDevice::Ddc {
+            display,
+            connector,
+            label,
+        } => {
             let device = display
                 .as_ref()
                 .map(|display| format!("ddc:{display}"))
@@ -286,14 +410,15 @@ fn status_payload(state: &BrightnessState) -> Result<BrightnessStatus<'_>> {
             (
                 "ddc",
                 device,
-                "DDC/CI monitor".to_owned(),
+                ddc_label(label.as_deref(), connector.as_deref()),
                 state.current as f64 / state.max as f64,
+                connector.clone(),
             )
         }
     };
 
     let fraction = fraction.clamp(0.0, 1.0);
-    Ok(BrightnessStatus {
+    Ok(BrightnessDeviceStatus {
         available: true,
         kind,
         device,
@@ -302,7 +427,18 @@ fn status_payload(state: &BrightnessState) -> Result<BrightnessStatus<'_>> {
         max: state.max,
         fraction,
         percent: (fraction * 100.0).round() as u64,
+        connector,
     })
+}
+
+fn ddc_label(label: Option<&str>, connector: Option<&str>) -> String {
+    let label = label.map(str::trim).filter(|label| !label.is_empty());
+    match (label, connector) {
+        (Some(label), Some(connector)) => format!("{label} ({connector})"),
+        (Some(label), None) => label.to_owned(),
+        (None, Some(connector)) => format!("DDC/CI {connector}"),
+        (None, None) => "DDC/CI monitor".to_owned(),
+    }
 }
 
 fn brightness_value(device: &str, arg: &str) -> Result<u64> {
@@ -329,7 +465,7 @@ fn set_raw(device: &BrightnessDevice, raw: u64) -> Result<()> {
         BrightnessDevice::Backlight(name) => {
             brightnessctl(name, &["s", &raw.to_string()])?;
         }
-        BrightnessDevice::Ddc { display } => {
+        BrightnessDevice::Ddc { display, .. } => {
             ddcutil(
                 display.as_deref(),
                 &["setvcp", DDC_BRIGHTNESS_VCP, &raw.to_string()],
@@ -370,6 +506,108 @@ fn ddcutil(display: Option<&str>, args: &[&str]) -> Result<Output> {
     Err(command_error("ddcutil", &command_args, &output).into())
 }
 
+fn detected_ddc_devices() -> Result<Vec<BrightnessDevice>> {
+    let output = Command::new("ddcutil")
+        .args(["detect", "--brief"])
+        .output()?;
+    if !output.status.success() {
+        return Err(command_error("ddcutil", &["detect", "--brief"], &output).into());
+    }
+
+    let stdout = String::from_utf8(output.stdout)?;
+    Ok(parse_ddc_detect_brief(&stdout)
+        .into_iter()
+        .map(|display| BrightnessDevice::Ddc {
+            display: Some(display.display),
+            connector: display.connector,
+            label: display.label,
+        })
+        .collect())
+}
+
+fn parse_ddc_detect_brief(output: &str) -> Vec<DdcDisplay> {
+    let mut displays = Vec::new();
+    let mut current: Option<DdcDisplay> = None;
+
+    for raw_line in output.lines() {
+        let line = raw_line.trim();
+        if let Some(rest) = line.strip_prefix("Display ") {
+            if let Some(display) = current.take() {
+                displays.push(display);
+            }
+
+            let display = rest
+                .split_whitespace()
+                .next()
+                .unwrap_or("")
+                .trim_end_matches(':')
+                .to_owned();
+            if !display.is_empty() {
+                current = Some(DdcDisplay {
+                    display,
+                    connector: None,
+                    label: None,
+                });
+            }
+            continue;
+        }
+
+        let Some(display) = current.as_mut() else {
+            continue;
+        };
+
+        if let Some(connector) = field_value(line, "DRM connector:") {
+            display.connector = normalize_drm_connector(connector);
+        } else if let Some(label) = field_value(line, "Monitor:") {
+            display.label = nonempty_string(label);
+        } else if display.label.is_none()
+            && let Some(label) = field_value(line, "Model:")
+        {
+            display.label = nonempty_string(label);
+        }
+    }
+
+    if let Some(display) = current {
+        displays.push(display);
+    }
+
+    displays
+}
+
+fn field_value<'a>(line: &'a str, field: &str) -> Option<&'a str> {
+    line.strip_prefix(field).map(str::trim)
+}
+
+fn nonempty_string(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_owned())
+    }
+}
+
+fn normalize_drm_connector(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("unknown") {
+        return None;
+    }
+
+    let base = trimmed.rsplit('/').next().unwrap_or(trimmed);
+    if let Some(without_card) = strip_card_prefix(base) {
+        return Some(without_card.to_owned());
+    }
+
+    Some(base.to_owned())
+}
+
+fn strip_card_prefix(value: &str) -> Option<&str> {
+    let rest = value.strip_prefix("card")?;
+    let digit_count = rest.chars().take_while(|ch| ch.is_ascii_digit()).count();
+    let rest = rest.get(digit_count..)?;
+    rest.strip_prefix('-')
+}
+
 fn parse_ddc_brightness(output: &str) -> Option<(u64, u64)> {
     if let (Some(current), Some(max)) = (
         number_after(output, "current value ="),
@@ -398,7 +636,7 @@ fn number_after(text: &str, marker: &str) -> Option<u64> {
 }
 
 fn save_ddc_dim_state(state: &BrightnessState) -> Result<()> {
-    let BrightnessDevice::Ddc { display } = &state.device else {
+    let BrightnessDevice::Ddc { display, .. } = &state.device else {
         return Ok(());
     };
     let display = display.as_deref().unwrap_or("");
@@ -509,8 +747,9 @@ impl fmt::Display for BrightnessDevice {
             BrightnessDevice::Backlight(device) => write!(formatter, "{device}"),
             BrightnessDevice::Ddc {
                 display: Some(display),
+                ..
             } => write!(formatter, "ddc:{display}"),
-            BrightnessDevice::Ddc { display: None } => write!(formatter, "ddc"),
+            BrightnessDevice::Ddc { display: None, .. } => write!(formatter, "ddc"),
         }
     }
 }
@@ -591,6 +830,51 @@ mod tests {
         assert_eq!(parse_ddc_device("ddc"), Some(None));
         assert_eq!(parse_ddc_device("ddc:2"), Some(Some("2".to_owned())));
         assert_eq!(parse_ddc_device("intel_backlight"), None);
+    }
+
+    #[test]
+    fn parse_ddc_detect_brief_extracts_display_metadata() {
+        let output = r#"
+Display 1
+   I2C bus:             /dev/i2c-9
+   DRM connector:       card1-HDMI-A-1
+   Monitor:             BNQ ZOWIE XL LCD
+
+Display 2
+   I2C bus:             /dev/i2c-10
+   DRM connector:       card1-DP-3
+   EDID synopsis:
+      Model:            UltraFine
+"#;
+
+        assert_eq!(
+            parse_ddc_detect_brief(output),
+            vec![
+                DdcDisplay {
+                    display: "1".to_owned(),
+                    connector: Some("HDMI-A-1".to_owned()),
+                    label: Some("BNQ ZOWIE XL LCD".to_owned()),
+                },
+                DdcDisplay {
+                    display: "2".to_owned(),
+                    connector: Some("DP-3".to_owned()),
+                    label: Some("UltraFine".to_owned()),
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn normalize_drm_connector_strips_card_prefix() {
+        assert_eq!(
+            normalize_drm_connector("card0-eDP-1"),
+            Some("eDP-1".to_owned())
+        );
+        assert_eq!(
+            normalize_drm_connector("/sys/class/drm/card1-DP-2"),
+            Some("DP-2".to_owned())
+        );
+        assert_eq!(normalize_drm_connector("unknown"), None);
     }
 
     #[test]

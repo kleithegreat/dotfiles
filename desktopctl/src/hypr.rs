@@ -31,6 +31,36 @@ pub(crate) enum InputSetting {
     ScrollFactor,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LidSwitchState {
+    Open,
+    Closed,
+    Sync,
+}
+
+impl LidSwitchState {
+    pub(crate) fn parse(value: &str) -> Result<Self> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "open" => Ok(Self::Open),
+            "closed" | "close" => Ok(Self::Closed),
+            "sync" => Ok(Self::Sync),
+            _ => Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "lid switch state must be 'open', 'closed', or 'sync'",
+            )
+            .into()),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct MonitorInfo {
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    disabled: bool,
+}
+
 impl InputSetting {
     pub(crate) fn parse(key: &str) -> Result<Self> {
         match key.trim() {
@@ -189,6 +219,81 @@ pub(crate) fn toggle_float() -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Apply the laptop lid-switch monitor policy.
+pub(crate) fn handle_lid_switch(
+    state: LidSwitchState,
+    internal_monitor: &str,
+    open_spec: &str,
+) -> Result<()> {
+    let internal_monitor = internal_monitor.trim();
+    validate_non_empty_field("internal monitor", internal_monitor)?;
+    if internal_monitor.contains(',') {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "internal monitor must not contain commas",
+        )
+        .into());
+    }
+
+    let open_spec = open_spec.trim();
+    validate_non_empty_field("open monitor spec", open_spec)?;
+
+    match state {
+        LidSwitchState::Open => keyword("monitor", &format!("{internal_monitor},{open_spec}")),
+        LidSwitchState::Closed => close_lid_monitor(internal_monitor),
+        LidSwitchState::Sync => {
+            if read_lid_state()?.is_some_and(|state| state == LidSwitchState::Closed) {
+                close_lid_monitor(internal_monitor)?;
+            }
+            Ok(())
+        }
+    }
+}
+
+fn close_lid_monitor(internal_monitor: &str) -> Result<()> {
+    if active_external_monitor_exists(internal_monitor)? {
+        keyword("monitor", &format!("{internal_monitor},disable"))?;
+    }
+
+    Ok(())
+}
+
+fn active_external_monitor_exists(internal_monitor: &str) -> Result<bool> {
+    let output = hyprctl_output(&["monitors", "-j"])?;
+    let monitors: Vec<MonitorInfo> = serde_json::from_slice(&output.stdout)?;
+    Ok(monitors
+        .iter()
+        .any(|monitor| !monitor.disabled && monitor.name != internal_monitor))
+}
+
+fn read_lid_state() -> Result<Option<LidSwitchState>> {
+    let root = Path::new("/proc/acpi/button/lid");
+    let entries = match fs::read_dir(root) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error.into()),
+    };
+
+    let mut saw_open = false;
+    for entry in entries {
+        let state_path = entry?.path().join("state");
+        let contents = match fs::read_to_string(state_path) {
+            Ok(contents) => contents.to_ascii_lowercase(),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
+            Err(error) => return Err(error.into()),
+        };
+
+        if contents.contains("closed") {
+            return Ok(Some(LidSwitchState::Closed));
+        }
+        if contents.contains("open") {
+            saw_open = true;
+        }
+    }
+
+    Ok(saw_open.then_some(LidSwitchState::Open))
 }
 
 /// Return the Hyprland event-socket path used by the focus daemon.
@@ -742,8 +847,8 @@ impl IfEmpty for &str {
 #[cfg(test)]
 mod tests {
     use super::{
-        AccelProfile, AnimationsPayload, InputSetting, InputState, KeybindsPayload, format_decimal,
-        parse_input_state_from_str, parse_scroll_factor, parse_sensitivity,
+        AccelProfile, AnimationsPayload, InputSetting, InputState, KeybindsPayload, LidSwitchState,
+        format_decimal, parse_input_state_from_str, parse_scroll_factor, parse_sensitivity,
         render_animations_override, render_input_runtime_state, render_keybinds_override,
         validate_animations_payload, validate_keybinds_payload,
     };
@@ -808,6 +913,23 @@ input {
         assert_eq!(format_decimal(1.0), "1.0");
         assert_eq!(format_decimal(0.755), "0.76");
         assert_eq!(format_decimal(-0.5), "-0.5");
+    }
+
+    #[test]
+    fn lid_switch_state_parser_accepts_supported_states() {
+        assert_eq!(
+            LidSwitchState::parse("open").expect("open should parse"),
+            LidSwitchState::Open
+        );
+        assert_eq!(
+            LidSwitchState::parse("closed").expect("closed should parse"),
+            LidSwitchState::Closed
+        );
+        assert_eq!(
+            LidSwitchState::parse("sync").expect("sync should parse"),
+            LidSwitchState::Sync
+        );
+        assert!(LidSwitchState::parse("half-open").is_err());
     }
 
     #[test]

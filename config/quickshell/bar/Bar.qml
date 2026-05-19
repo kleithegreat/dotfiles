@@ -9,6 +9,7 @@ PanelWindow {
     property QtObject popupVisibility: null
     property bool doNotDisturb: false
     property int historyCount: 0
+    readonly property var brightnessDevices: BrightnessService.devicesForMonitors(DisplayService.monitors, BrightnessService.brightnessDevices)
     anchors { top: true; left: true; right: true }
     margins { top: Theme.barMargin; left: Theme.barMargin; right: Theme.barMargin }
     implicitHeight: Theme.barHeight
@@ -58,7 +59,7 @@ PanelWindow {
                 Network { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleQuickSettings(); } }
                 Bluetooth { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleQuickSettings(); } }
                 Volume { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleQuickSettings(); } }
-                Brightness { visible: BrightnessService.hasBacklight; showLabel: false; onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleQuickSettings(); } }
+                Brightness { visible: bar.brightnessDevices.length > 0; showLabel: false; onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleQuickSettings(); } }
                 Battery { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleQuickSettings(); } }
             }
         }
