@@ -45,6 +45,10 @@ let
   hyprPluginPkgs =
     let
       upstreamHyprPluginPkgs = inputs.hyprland-plugins.packages.${system};
+      localHyprexpo = pkgs.callPackage ../pkgs/hyprland-plugins/hyprexpo {
+        hyprland = patchedHyprland;
+        hyprlandPlugins = patchedHyprlandPluginHelpers;
+      };
     in
     upstreamHyprPluginPkgs
     // {
@@ -52,9 +56,7 @@ let
         ../patches/hyprland-plugins/hyprbars-hyprland-0.54.patch
       ];
 
-      hyprexpo = mkPatchedHyprPlugin upstreamHyprPluginPkgs.hyprexpo [
-        ../patches/hyprland-plugins/hyprexpo-hyprland-0.54.patch
-      ];
+      hyprexpo = nativeOptimizations.optimizeCCPackage localHyprexpo;
     };
   hyprPluginDir = pkgs.symlinkJoin {
     name = "hyprland-plugins";

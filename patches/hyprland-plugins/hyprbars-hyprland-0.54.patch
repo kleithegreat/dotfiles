@@ -1,15 +1,15 @@
 diff --git a/BarPassElement.cpp b/BarPassElement.cpp
 --- a/BarPassElement.cpp
 +++ b/BarPassElement.cpp
-@@ -17,18 +17,23 @@ std::vector<UP<IPassElement>> CBarPassElement::draw() {
+@@ -17,18 +17,21 @@ std::vector<UP<IPassElement>> CBarPassElement::draw() {
  bool CBarPassElement::needsLiveBlur() {
-     static auto* const PENABLEBLURGLOBAL = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "decoration:blur:enabled")->getDataStaticPtr();
+     static auto PENABLEBLURGLOBAL = CConfigValue<Config::BOOL>("decoration:blur:enabled");
  
--    CHyprColor         color = data.deco->m_bForcedBarColor.value_or(CHyprColor{static_cast<uint64_t>(g_pGlobalState->config.barColor->value())});
-+    CHyprColor         color = data.deco->m_bForcedBarColor.value_or(CHyprColor{static_cast<uint64_t>(HyprbarsConfig::barColor())});
+-    CHyprColor  color = data.deco->m_bForcedBarColor.value_or(CHyprColor{static_cast<uint64_t>(g_pGlobalState->config.barColor->value())});
++    CHyprColor  color = data.deco->m_bForcedBarColor.value_or(CHyprColor{static_cast<uint64_t>(HyprbarsConfig::barColor())});
      color.a *= data.a;
--    const bool SHOULDBLUR = g_pGlobalState->config.barBlur->value() && **PENABLEBLURGLOBAL && color.a < 1.F;
-+    const bool SHOULDBLUR = HyprbarsConfig::barBlur() && **PENABLEBLURGLOBAL && color.a < 1.F;
+-    const bool SHOULDBLUR = g_pGlobalState->config.barBlur->value() && *PENABLEBLURGLOBAL && color.a < 1.F;
++    const bool SHOULDBLUR = HyprbarsConfig::barBlur() && *PENABLEBLURGLOBAL && color.a < 1.F;
  
      return SHOULDBLUR;
  }
@@ -20,8 +20,6 @@ diff --git a/BarPassElement.cpp b/BarPassElement.cpp
  }
  
 +bool CBarPassElement::disableSimplification() {
-+    // Overview fake workspace captures can drain damage before under-window
-+    // decorations render, so keep the bar pass out of occlusion simplification.
 +    return true;
 +}
 +
@@ -42,19 +40,17 @@ diff --git a/BarPassElement.hpp b/BarPassElement.hpp
 diff --git a/barDeco.cpp b/barDeco.cpp
 --- a/barDeco.cpp
 +++ b/barDeco.cpp
-@@ -16,6 +16,7 @@
- #include <hyprland/src/event/EventBus.hpp>
- #include <hyprland/src/layout/LayoutManager.hpp>
- #include <hyprland/src/render/OpenGL.hpp>
-+#include <hyprland/src/config/shared/parserUtils/ParserUtils.hpp>
+@@ -44,8 +44,8 @@ CHyprBar::CHyprBar(PHLWINDOW pWindow) : IHyprWindowDecoration(pWindow) {
+     m_pTouchMoveCallback = Event::bus()->m_events.input.touch.motion.listen([&](ITouch::SMotionEvent e, Event::SCallbackInfo& info) { onTouchMove(info, e); });
+     m_pMouseMoveCallback = Event::bus()->m_events.input.mouse.move.listen([&](Vector2D c, Event::SCallbackInfo& info) { onMouseMove(c); });
  
- #include "globals.hpp"
- #include "BarPassElement.hpp"
-@@ -47,2 +47,2 @@ CHyprBar::CHyprBar(PHLWINDOW pWindow) : IHyprWindowDecoration(pWindow) {
 -    g_pAnimationManager->createAnimation(configColor(g_pGlobalState->config.barColor->value()), m_cRealBarColor, Config::animationTree()->getAnimationPropertyConfig("border"),
 -                                         pWindow, AVARDAMAGE_NONE);
 +    g_pAnimationManager->createAnimation(configColor(HyprbarsConfig::barColor()), m_cRealBarColor, Config::animationTree()->getAnimationPropertyConfig("border"),
 +                                          pWindow, AVARDAMAGE_NONE);
+     m_cRealBarColor->setUpdateCallback([&](auto) { damageEntire(); });
+ }
+ 
 @@ -54,9 +54,9 @@ CHyprBar::~CHyprBar() {
  }
  
@@ -163,24 +159,24 @@ diff --git a/barDeco.cpp b/barDeco.cpp
  
      if (m_bLastEnabledState != ENABLED) {
          m_bLastEnabledState = ENABLED;
-@@ -437,13 +437,13 @@ void CHyprBar::renderPass(PHLMONITOR pMonitor, const float& a) {
-     const auto         PWINDOW = m_pWindow.lock();
+@@ -439,13 +439,13 @@ void CHyprBar::renderPass(PHLMONITOR pMonitor, const float& a) {
+     const auto  PWINDOW = m_pWindow.lock();
  
-     static auto* const PENABLEBLURGLOBAL = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "decoration:blur:enabled")->getDataStaticPtr();
--    const auto         BARCOLOR          = g_pGlobalState->config.barColor->value();
--    const auto         HEIGHT            = g_pGlobalState->config.barHeight->value();
--    const auto         PRECEDENCE        = g_pGlobalState->config.barPrecedenceOverBorder->value();
--    const auto         ALIGNBUTTONS      = g_pGlobalState->config.barButtonsAlignment->value();
--    const auto         ENABLETITLE       = g_pGlobalState->config.barTitleEnabled->value();
--    const auto         ENABLEBLUR        = g_pGlobalState->config.barBlur->value();
--    const auto         INACTIVECOLOR     = g_pGlobalState->config.inactiveButtonColor->value();
-+    const auto         BARCOLOR          = HyprbarsConfig::barColor();
-+    const auto         HEIGHT            = HyprbarsConfig::barHeight();
-+    const auto         PRECEDENCE        = HyprbarsConfig::barPrecedenceOverBorder();
-+    const auto         ALIGNBUTTONS      = HyprbarsConfig::barButtonsAlignment();
-+    const auto         ENABLETITLE       = HyprbarsConfig::barTitleEnabled();
-+    const auto         ENABLEBLUR        = HyprbarsConfig::barBlur();
-+    const auto         INACTIVECOLOR     = HyprbarsConfig::inactiveButtonColor();
+     static auto PENABLEBLURGLOBAL = CConfigValue<Config::BOOL>("decoration:blur:enabled");
+-    const auto  BARCOLOR          = g_pGlobalState->config.barColor->value();
+-    const auto  HEIGHT            = g_pGlobalState->config.barHeight->value();
+-    const auto  PRECEDENCE        = g_pGlobalState->config.barPrecedenceOverBorder->value();
+-    const auto  ALIGNBUTTONS      = g_pGlobalState->config.barButtonsAlignment->value();
+-    const auto  ENABLETITLE       = g_pGlobalState->config.barTitleEnabled->value();
+-    const auto  ENABLEBLUR        = g_pGlobalState->config.barBlur->value();
+-    const auto  INACTIVECOLOR     = g_pGlobalState->config.inactiveButtonColor->value();
++    const auto  BARCOLOR          = HyprbarsConfig::barColor();
++    const auto  HEIGHT            = HyprbarsConfig::barHeight();
++    const auto  PRECEDENCE        = HyprbarsConfig::barPrecedenceOverBorder();
++    const auto  ALIGNBUTTONS      = HyprbarsConfig::barButtonsAlignment();
++    const auto  ENABLETITLE       = HyprbarsConfig::barTitleEnabled();
++    const auto  ENABLEBLUR        = HyprbarsConfig::barBlur();
++    const auto  INACTIVECOLOR     = HyprbarsConfig::inactiveButtonColor();
  
      if (INACTIVECOLOR > 0) {
          bool currentWindowFocus = PWINDOW == Desktop::focusState()->window();
@@ -287,18 +283,6 @@ diff --git a/barDeco.cpp b/barDeco.cpp
  }
  
  CBox CHyprBar::assignedBoxGlobal() {
-@@ -640,9 +655,9 @@ void CHyprBar::updateRules() {
-     if (PWINDOW->m_ruleApplicator->m_otherProps.props.contains(g_pGlobalState->nobarRuleIdx))
-         m_hidden = truthy(PWINDOW->m_ruleApplicator->m_otherProps.props.at(g_pGlobalState->nobarRuleIdx)->effect);
-     if (PWINDOW->m_ruleApplicator->m_otherProps.props.contains(g_pGlobalState->barColorRuleIdx))
--        m_bForcedBarColor = CHyprColor(configStringToInt(PWINDOW->m_ruleApplicator->m_otherProps.props.at(g_pGlobalState->barColorRuleIdx)->effect).value_or(0));
-+        m_bForcedBarColor = CHyprColor(Config::ParserUtils::parseColor(PWINDOW->m_ruleApplicator->m_otherProps.props.at(g_pGlobalState->barColorRuleIdx)->effect).value_or(0));
-     if (PWINDOW->m_ruleApplicator->m_otherProps.props.contains(g_pGlobalState->titleColorRuleIdx))
--        m_bForcedTitleColor = CHyprColor(configStringToInt(PWINDOW->m_ruleApplicator->m_otherProps.props.at(g_pGlobalState->titleColorRuleIdx)->effect).value_or(0));
-+        m_bForcedTitleColor = CHyprColor(Config::ParserUtils::parseColor(PWINDOW->m_ruleApplicator->m_otherProps.props.at(g_pGlobalState->titleColorRuleIdx)->effect).value_or(0));
- 
-     if (prevHidden != m_hidden)
-         g_pDecorationPositioner->repositionDeco(this);
 @@ -652,10 +667,10 @@ void CHyprBar::updateRules() {
  }
  
@@ -434,43 +418,14 @@ diff --git a/globals.hpp b/globals.hpp
 diff --git a/main.cpp b/main.cpp
 --- a/main.cpp
 +++ b/main.cpp
-@@ -11,6 +11,7 @@
- #include <hyprland/src/desktop/rule/windowRule/WindowRuleEffectContainer.hpp>
- #include <hyprland/src/config/lua/bindings/LuaBindingsInternal.hpp>
- #include <hyprland/src/config/lua/types/LuaConfigColor.hpp>
-+#include <hyprland/src/config/shared/parserUtils/ParserUtils.hpp>
- 
- #include <hyprutils/string/VarList.hpp>
- 
-@@ -86,17 +87,17 @@ Hyprlang::CParseResult onNewButton(const char* K, const char* V) {
-     }
- 
-     bool userfg  = false;
--    auto fgcolor = configStringToInt("rgb(ffffff)");
--    auto bgcolor = configStringToInt(vars[0]);
-+    auto fgcolor = Config::ParserUtils::parseColor("rgb(ffffff)");
-+    auto bgcolor = Config::ParserUtils::parseColor(vars[0]);
- 
-     if (!bgcolor) {
-         result.setError("invalid bgcolor");
-         return result;
-     }
- 
-     if (vars.size() == 5) {
-         userfg  = true;
--        fgcolor = configStringToInt(vars[4]);
-+        fgcolor = Config::ParserUtils::parseColor(vars[4]);
-     }
- 
-     if (!fgcolor) {
-@@ -208,44 +209,23 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
+@@ -209,44 +209,23 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
      static auto P  = Event::bus()->m_events.window.open.listen([&](PHLWINDOW w) { onNewWindow(w); });
      static auto P3 = Event::bus()->m_events.window.updateRules.listen([&](PHLWINDOW w) { onUpdateWindowRules(w); });
  
--    g_pGlobalState->config.barColor            = makeShared<Config::Values::CColorValue>("plugin:hyprbars:bar_color", "Change the bar color", *configStringToInt("rgba(33333388)"));
--    g_pGlobalState->config.textColor           = makeShared<Config::Values::CColorValue>("plugin:hyprbars:col.text", "Change the text color", *configStringToInt("rgba(ffffffff)"));
+-    g_pGlobalState->config.barColor            = makeShared<Config::Values::CColorValue>("plugin:hyprbars:bar_color", "Change the bar color", 0x88333333);
+-    g_pGlobalState->config.textColor           = makeShared<Config::Values::CColorValue>("plugin:hyprbars:col.text", "Change the text color", 0xffffffff);
 -    g_pGlobalState->config.inactiveButtonColor = makeShared<Config::Values::CColorValue>(
--        "plugin:hyprbars:inactive_button_color", "Change the inactive button's color. 0x00000000 means unset", *configStringToInt("rgba(00000000)"));
+-        "plugin:hyprbars:inactive_button_color", "Change the inactive button's color. 0x00000000 means unset", 0x00000000);
 -    g_pGlobalState->config.barHeight       = makeShared<Config::Values::CIntValue>("plugin:hyprbars:bar_height", "Change the bar's height", 15);
 -    g_pGlobalState->config.barTextSize     = makeShared<Config::Values::CIntValue>("plugin:hyprbars:bar_text_size", "Change the bar's text size", 10);
 -    g_pGlobalState->config.barTitleEnabled = makeShared<Config::Values::CBoolValue>("plugin:hyprbars:bar_title_enabled", "Whether to enable titles in the bar", true);
@@ -505,9 +460,9 @@ diff --git a/main.cpp b/main.cpp
 -    HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.enabled);
 -    HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.iconOnHover);
 -    HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.onDoubleClick);
-+    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:bar_color", Hyprlang::INT{*Config::ParserUtils::parseColor("rgba(33333388)")});
-+    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:col.text", Hyprlang::INT{*Config::ParserUtils::parseColor("rgba(ffffffff)")});
-+    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:inactive_button_color", Hyprlang::INT{*Config::ParserUtils::parseColor("rgba(00000000)")});
++    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:bar_color", Hyprlang::INT{0x88333333});
++    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:col.text", Hyprlang::INT{0xffffffff});
++    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:inactive_button_color", Hyprlang::INT{0x00000000});
 +    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:bar_height", Hyprlang::INT{15});
 +    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:bar_text_size", Hyprlang::INT{10});
 +    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:bar_title_enabled", Hyprlang::INT{1});
