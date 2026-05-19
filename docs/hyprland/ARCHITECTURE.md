@@ -73,7 +73,9 @@ Current host input fragments differ materially:
 - `hosts/laptop/autostart.conf` and `hosts/desktop/autostart.conf` start Solaar
   hidden and apply the Logitech MX Master 2S smart-shift tweak through
   host-specific startup fragments instead of mixing either concern into
-  `env.conf`.
+  `env.conf`; the laptop fragment explicitly sets the wheel to `Ratcheted` and
+  uses the MX Master 2S smart-shift maximum of `50`, while the desktop fragment
+  keeps only the existing `50` smart-shift command.
 
 ## Theme And Runtime Integration
 
@@ -100,7 +102,7 @@ Current host input fragments differ materially:
 | `keybinds.conf` | Primary modifier scheme, descriptive `bindd` / `bindde` bindings, directional focus on `SUPER+Arrow`, workspace cycling on `SUPER+ALT+Left/Right`, media/brightness repeat binds, Quickshell IPC binds that resolve the shell path through `${DESKTOPCTL_REPO:-$HOME/repos/dotfiles}`, and external launcher/switcher actions |
 | `rules.conf` | Floating/dialog rules, app-specific geometry, layer rules, a `fullscreen_state 2 2` override for the old XWayland `Minecraft 1.10.2` client so it covers Quickshell's reserved top bar space, and plugin rule glue |
 | `plugins.conf` | Loading `hyprbars` and `hyprexpo` from `HYPR_PLUGIN_DIR` plus their theme-facing settings |
-| `hypridle.conf` and `hyprlock.conf` | Idle, lock, DPMS, suspend, and lock-screen presentation. `config/quickshell/IdleInhibitService.qml` can temporarily suppress the hypridle timers by holding `systemd-inhibit --what=idle`, but it does not edit these files. |
+| `hypridle.conf` and `hyprlock.conf` | Idle, lock, DPMS, suspend, and lock-screen presentation. `config/quickshell/IdleInhibitService.qml` can temporarily suppress the hypridle timers by holding `systemd-inhibit --what=idle`, and can separately block logind lid-switch handling with `systemd-inhibit --what=handle-lid-switch --mode=block`, but it does not edit these files. |
 
 `system/configuration.nix` also wires the repo-local Hyprland patch stack into the
 installed compositor and plugin packages. The local

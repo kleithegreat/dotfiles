@@ -45,7 +45,7 @@ Managed popups mounted by the overlay host remain:
 | `DisplayService.qml` | Monitor refresh/apply and daemon-backed night-light status / override requests | Display pane |
 | `HostCapabilities.qml` | Detects laptop-chassis, Wi-Fi, battery, power-profile, and fingerprint-reader capabilities, while only surfacing interactive power-profile support on laptop-like hosts | Settings host category visibility plus power/fingerprint pane availability |
 | `HyprlandConfigService.qml` | Shared monitor-layout undo/redo state plus Hyprland animation/keybind override editing, save, and clear flows | Display pane, Hyprland pane, Settings host refresh path |
-| `IdleInhibitService.qml` | Holds a transient `systemd-inhibit --what=idle` process so hypridle pauses its timers while the shell toggle is active, and auto-enables that inhibitor at shell startup when `DESKTOPCTL_IDLE_INHIBIT_DEFAULT` is truthy in the session environment | Quick Settings idle-inhibit tile |
+| `IdleInhibitService.qml` | Holds transient `systemd-inhibit` processes for idle inhibition and laptop lid-switch inhibition. The idle path uses `--what=idle` so hypridle pauses its timers while the shell toggle is active, auto-enabling at shell startup when `DESKTOPCTL_IDLE_INHIBIT_DEFAULT` is truthy; the lid path uses `--what=handle-lid-switch --mode=block` so logind ignores lid-close actions while active. | Quick Settings idle/lid inhibit controls |
 | `NetworkService.qml` | Active network summary for Wi-Fi or ethernet via the default-route interface, Wi-Fi scans/known networks, active-transport diagnostics, DNS, captive portal, reporting | Bar network, quick settings, network pane |
 | `NotificationService.qml` | Popup/history models, DND, dismissal, relative-time refresh | Root notifications, drawer, bar bell, Notifications settings pane, IPC, and freedesktop notifications bridged from system services such as the physical-host kernel OOM notifier |
 | `PowerProfileService.qml` | CPU profiles and supported battery controls, including the laptop-only `e-core-only` profile when the `laptop-power-profile` helper is present | Power pane |
@@ -127,9 +127,11 @@ Quick Settings expand affordances are consumed by the overlay host:
 `config/quickshell/PopupOverlayHost.qml` closes the current popup, selects the
 target settings category, and opens the full Settings popup, while the same
 file maps Wi-Fi, Bluetooth, VPN, DND, and power-profile expand requests to
-concrete category indices. The idle-inhibit tile stays popup-local and talks
+concrete category indices. The inhibit controls stay popup-local and talk
 directly to `config/quickshell/IdleInhibitService.qml` instead of routing to a
-deeper Settings page.
+deeper Settings page. Laptop-like hosts render idle inhibit and lid-switch
+inhibit as two halves of one Quick Settings tile; other hosts keep the single
+idle-inhibit tile.
 
 The Power surfaces now derive their profile inventory from
 `config/quickshell/PowerProfileService.qml` instead of hardcoding the three
@@ -372,7 +374,8 @@ the history watermark and insert-animation logic in `config/quickshell/NotifDraw
   Manager now bootstraps that file during activation.
 - Desktop sessions that should start with idle inhibit already active export a
   truthy `DESKTOPCTL_IDLE_INHIBIT_DEFAULT`; `hosts/desktop/env.conf` now sets
-  that flag for the dedicated desktop host.
+  that flag for the dedicated desktop host. Lid-switch inhibition is runtime-only
+  and does not have a boot-default environment flag.
 - Keyboard-driven brightness OSD updates depend on `qs` plus repo-root
   resolution in `desktopctl`, not on a temp file.
 - A backlight is discoverable under `/sys/class/backlight`, or DDC/CI
@@ -380,9 +383,9 @@ the history watermark and insert-animation logic in `config/quickshell/NotifDraw
   be usable.
 - `${XDG_RUNTIME_DIR:-/run/user/$UID}/focustime_state.json` exists when the
   focus-time daemon is running.
-- CLI tools such as `nmcli`, `bluetoothctl`, `hyprctl`, `brightnessctl`,
-  `ddcutil`, `mullvad`, `tailscale`, `busctl`, `curl`, and related helpers are
-  on `PATH`.
+- CLI tools such as `nmcli`, `bluetoothctl`, `hyprctl`, `systemd-inhibit`,
+  `brightnessctl`, `ddcutil`, `mullvad`, `tailscale`, `busctl`, `curl`, and
+  related helpers are on `PATH`.
 - Outbound HTTPS access is available when the calendar weather card should show
   a live forecast; otherwise the popup falls back to the last successful
   weather payload or the locally resolved sunrise/sunset labels.

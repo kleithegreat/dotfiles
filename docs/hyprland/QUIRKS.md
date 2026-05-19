@@ -1,5 +1,17 @@
 # Hyprland Quirks
 
+## MX Master 2S smart-shift is capped at 50 in Solaar CLI
+
+**Symptom:** `solaar config "MX Master 2S" smart-shift 100` fails with
+`smart-shift: value '100' out of bounds`.
+
+**Cause:** For this device, Solaar exposes `smart-shift` on a 0-50 scale and
+documents `50` as the always-ratcheted value.
+
+**Impact / workaround:** Keep `hosts/laptop/autostart.conf` on
+`scroll-ratchet Ratcheted` plus `smart-shift 50` for the strongest supported
+ratcheted behavior instead of leaving a failing startup command.
+
 ## D-Bus-activated windows can inherit stale workspace tokens
 
 **Symptom:** Portal file pickers, keyring prompts, and some D-Bus-activatable

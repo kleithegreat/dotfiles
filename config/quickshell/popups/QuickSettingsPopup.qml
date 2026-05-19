@@ -266,7 +266,10 @@ FocusScope {
                             tiles.push({ key: "bluetooth", label: "Bluetooth" });
                             tiles.push({ key: "vpn", label: "VPN" });
                             tiles.push({ key: "dnd", label: "Do Not Disturb" });
-                            tiles.push({ key: "idle", label: "Idle Inhibit", expandable: false });
+                            if (HostCapabilities.isLaptop)
+                                tiles.push({ key: "inhibitors", label: "Inhibitors", split: true, expandable: false });
+                            else
+                                tiles.push({ key: "idle", label: "Idle Inhibit", expandable: false });
                             if (HostCapabilities.hasPowerProfiles) tiles.push({ key: "power", label: "Power Profile" });
                             return tiles;
                         }
@@ -288,11 +291,13 @@ FocusScope {
                                 case "dnd": return NotificationService.doNotDisturb;
                                 case "idle": return IdleInhibitService.inhibited;
                                 case "power": return PowerProfileService.currentProfile !== "balanced" && PowerProfileService.currentProfile !== "unknown";
+                                case "inhibitors": return IdleInhibitService.inhibited || IdleInhibitService.lidInhibited;
                                 default: return false;
                                 }
                             }
 
                             readonly property bool canExpand: modelData.expandable !== false
+                            readonly property bool isSplit: modelData.split === true
 
                             property bool isPending: {
                                 switch (modelData.key) {
@@ -399,6 +404,7 @@ FocusScope {
 
                             Rectangle {
                                 anchors.fill: parent; radius: parent.radius
+                                visible: !tile.isSplit
                                 color: tile.isActive
                                     ? Qt.rgba(tile.tileActiveColor.r, tile.tileActiveColor.g, tile.tileActiveColor.b, 0.15)
                                     : Theme.bg2
@@ -412,6 +418,7 @@ FocusScope {
 
                             Rectangle {
                                 anchors.fill: parent; radius: parent.radius
+                                visible: !tile.isSplit
                                 color: "transparent"
                                 border.width: tile.isActive ? 1 : 0; border.color: tile.tileActiveColor
                                 opacity: tile.isActive ? 0.5 : 0
@@ -427,24 +434,128 @@ FocusScope {
                                 anchors.fill: parent; radius: parent.radius
                                 color: Theme.fg
                                 opacity: tileMainArea.containsMouse
+                                    && !tile.isSplit
                                     ? (tileMainArea.pressed ? 0.08 : 0.04)
                                     : 0
                                 Behavior on opacity { Components.Anim { duration: Theme.animHover } }
                             }
 
-                            scale: tileMainArea.pressed ? 0.97 : 1.0
+                            scale: !tile.isSplit && tileMainArea.pressed ? 0.97 : 1.0
                             Behavior on scale { Components.Anim { duration: Theme.animMicro } }
 
                             MouseArea {
                                 id: tileMainArea
                                 anchors.fill: parent
-                                enabled: !tile.isPending
+                                enabled: !tile.isSplit && !tile.isPending
                                 hoverEnabled: true
                                 cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                                 onClicked: tile.tileToggle()
                             }
 
                             RowLayout {
+                                visible: tile.isSplit
+                                anchors.fill: parent
+                                anchors.margins: 4
+                                spacing: 4
+
+                                Repeater {
+                                    model: [
+                                        { key: "idle", label: "Idle", icon: "../icons/zzz.svg" },
+                                        { key: "lid", label: "Lid", icon: "../icons/laptop.svg" }
+                                    ]
+
+                                    Rectangle {
+                                        id: splitPart
+                                        required property var modelData
+
+                                        Layout.fillWidth: true
+                                        Layout.fillHeight: true
+                                        radius: Math.max(0, tile.radius - 4)
+
+                                        readonly property bool partActive: modelData.key === "idle" ? IdleInhibitService.inhibited : IdleInhibitService.lidInhibited
+                                        readonly property color partActiveColor: modelData.key === "idle" ? Theme.yellowBright : Theme.blueBright
+
+                                        color: partActive
+                                            ? Qt.rgba(partActiveColor.r, partActiveColor.g, partActiveColor.b, 0.15)
+                                            : Theme.bg2
+                                        border.width: partActive ? 1 : 0
+                                        border.color: partActiveColor
+
+                                        Behavior on color {
+                                            Components.CAnim {
+                                                duration: Theme.animSpring
+                                                easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
+                                            }
+                                        }
+
+                                        Rectangle {
+                                            anchors.fill: parent
+                                            radius: parent.radius
+                                            color: Theme.fg
+                                            opacity: splitPartArea.containsMouse
+                                                ? (splitPartArea.pressed ? 0.08 : 0.04)
+                                                : 0
+                                            Behavior on opacity { Components.Anim { duration: Theme.animHover } }
+                                        }
+
+                                        scale: splitPartArea.pressed ? 0.96 : 1.0
+                                        Behavior on scale { Components.Anim { duration: Theme.animMicro } }
+
+                                        MouseArea {
+                                            id: splitPartArea
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: {
+                                                if (splitPart.modelData.key === "idle")
+                                                    IdleInhibitService.toggle();
+                                                else
+                                                    IdleInhibitService.toggleLid();
+                                            }
+                                        }
+
+                                        RowLayout {
+                                            anchors.fill: parent
+                                            anchors.leftMargin: 7
+                                            anchors.rightMargin: 5
+                                            spacing: 4
+
+                                            Components.Icon {
+                                                source: splitPart.modelData.icon
+                                                color: splitPart.partActive ? splitPart.partActiveColor : Theme.fg4
+                                                iconSize: 15
+                                                Behavior on color { Components.CAnim { duration: Theme.animHover } }
+                                            }
+
+                                            ColumnLayout {
+                                                Layout.fillWidth: true
+                                                spacing: 0
+
+                                                Text {
+                                                    text: splitPart.modelData.label
+                                                    color: splitPart.partActive ? Theme.fg : Theme.fg2
+                                                    font.family: Theme.systemFamily
+                                                    font.pixelSize: Theme.fontSizeSmall - 1
+                                                    font.bold: splitPart.partActive
+                                                    elide: Text.ElideRight
+                                                    Layout.fillWidth: true
+                                                }
+                                                Text {
+                                                    text: splitPart.partActive ? "On" : "Off"
+                                                    color: Theme.fg4
+                                                    font.family: Theme.systemFamily
+                                                    font.pixelSize: Theme.fontSizeSmall - 2
+                                                    elide: Text.ElideRight
+                                                    Layout.fillWidth: true
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            RowLayout {
+                                visible: !tile.isSplit
                                 anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 4; spacing: 6
 
                                 Components.Icon {
