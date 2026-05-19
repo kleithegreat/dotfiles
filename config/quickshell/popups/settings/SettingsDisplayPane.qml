@@ -28,6 +28,9 @@ Components.WheelFlickable {
     property int confirmSecondsLeft: 15
     property var _preChangeSnapshot: null  // { monitors: [...] } before risky change
 
+    property var layoutMonitors: []
+    property bool monitorDragActive: false
+
     readonly property var enabledMonitors: {
         let m = DisplayService.monitors;
         if (!m) return [];
@@ -91,6 +94,8 @@ Components.WheelFlickable {
     Connections {
         target: DisplayService
         function onMonitorsChanged() {
+            if (!root.monitorDragActive)
+                root.layoutMonitors = root._cloneMonitors(DisplayService.monitors || []);
             if (!DisplayService.monitorApplyBusy && root.currentMonitor)
                 root.syncSelectionFromMonitor();
         }
@@ -169,6 +174,59 @@ Components.WheelFlickable {
                          transform: all[i].transform, vrr: all[i].vrr,
                          mirrorOf: all[i].mirrorOf });
         return snap;
+    }
+
+    function _cloneMonitors(monitors) {
+        return JSON.parse(JSON.stringify(monitors || []));
+    }
+
+    function _stateByName(states, name) {
+        for (let i = 0; i < states.length; i++) {
+            if (states[i].name === name)
+                return states[i];
+        }
+        return null;
+    }
+
+    function _normalizeMonitorStates(states) {
+        let minX = null;
+        let minY = null;
+        for (let i = 0; i < states.length; i++) {
+            let state = states[i];
+            if (state.mirrorOf && state.mirrorOf !== "none")
+                continue;
+            minX = minX === null ? state.x : Math.min(minX, state.x);
+            minY = minY === null ? state.y : Math.min(minY, state.y);
+        }
+
+        if ((minX === null || minX === 0) && (minY === null || minY === 0))
+            return states;
+
+        let normalized = [];
+        for (let i = 0; i < states.length; i++) {
+            let copy = JSON.parse(JSON.stringify(states[i]));
+            copy.x -= minX || 0;
+            copy.y -= minY || 0;
+            normalized.push(copy);
+        }
+        return normalized;
+    }
+
+    function _stagedMonitorStates() {
+        let next = root._snapshotMonitors();
+        let staged = monitorLayout.monitors || [];
+        for (let i = 0; i < next.length; i++) {
+            let stagedState = root._stateByName(staged, next[i].name);
+            if (stagedState) {
+                next[i].x = stagedState.x;
+                next[i].y = stagedState.y;
+            }
+        }
+        return root._normalizeMonitorStates(next);
+    }
+
+    function _monitorPositionChanged(oldState, newState) {
+        return oldState && newState && (oldState.x !== newState.x || oldState.y !== newState.y);
     }
 
     function _monitorStateFor(mon) {
@@ -277,6 +335,7 @@ Components.WheelFlickable {
     }
 
     Component.onCompleted: {
+        root.layoutMonitors = root._cloneMonitors(DisplayService.monitors || []);
         BrightnessService.refresh();
         DisplayService.refresh();
     }
@@ -442,8 +501,8 @@ Components.WheelFlickable {
             Components.MonitorLayout {
                 id: monitorLayout
                 anchors.fill: parent
-                monitors: DisplayService.monitors || []
-                draggable: root.enabledMonitors.length > 1
+                monitors: root.layoutMonitors
+                draggable: root.enabledMonitors.length > 1 && !DisplayService.monitorApplyBusy
                 selectedIndex: {
                     // Map enabledMonitors index → full monitors array index
                     let mon = root.currentMonitor;
@@ -471,38 +530,31 @@ Components.WheelFlickable {
                 }
 
                 onDragStarted: {
+                    root.monitorDragActive = true;
                     _dragUndoState = root._snapshotMonitors();
                     root._captureSnapshot();
                 }
 
-                onPositionChanged: (index, newX, newY) => {
-                    // Live-apply position during drag
-                    let mon = monitors[index];
-                    if (!mon) return;
-                    DisplayService.applyMonitorConfig(
-                        mon.name, mon.width, mon.height, mon.refreshRate,
-                        newX, newY, mon.scale, mon.transform, {}
-                    );
-                }
-
                 onDragEnded: {
+                    root.monitorDragActive = false;
                     if (_dragUndoState) {
-                        // Find which monitor moved and push undo
-                        let all = DisplayService.monitors;
-                        if (all) {
-                            for (let i = 0; i < _dragUndoState.length; i++) {
-                                let old = _dragUndoState[i];
-                                for (let j = 0; j < all.length; j++) {
-                                    if (all[j].name === old.name && (all[j].x !== old.x || all[j].y !== old.y)) {
-                                        HyprlandConfigService.pushMonitorUndo(old.name, old, root._monitorStateFor(all[j]));
-                                        break;
-                                    }
-                                }
-                            }
+                        let newStates = root._stagedMonitorStates();
+                        if (!DisplayService.applyMonitorBatch(newStates)) {
+                            root.layoutMonitors = root._cloneMonitors(DisplayService.monitors || []);
+                            if (!root.confirmVisible)
+                                root._preChangeSnapshot = null;
+                            _dragUndoState = null;
+                            return;
+                        }
+
+                        for (let i = 0; i < _dragUndoState.length; i++) {
+                            let old = _dragUndoState[i];
+                            let next = root._stateByName(newStates, old.name);
+                            if (root._monitorPositionChanged(old, next))
+                                HyprlandConfigService.pushMonitorUndo(old.name, old, next);
                         }
                         _dragUndoState = null;
                     }
-                    // Show confirm banner after drag completes
                     root._showConfirmBanner();
                 }
             }

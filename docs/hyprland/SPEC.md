@@ -26,7 +26,7 @@ of the contract — later files may depend on variables defined by earlier ones.
 
 | Order | File | Classification |
 | --- | --- | --- |
-| 1 | `monitors.conf` | Host-specific |
+| 1 | `monitors.conf` | Host-specific monitor layout and workspace placement |
 | 2 | `env.conf` | Host-specific |
 | 3 | `cursor.conf` | Generated |
 | 4 | `input.conf` | Static base |
@@ -131,8 +131,9 @@ Files selected per host by the `host.hyprland.*` facts consumed in `home/xdg.nix
 Constraints:
 
 - Host-specific files own hardware concerns plus minimal host-only startup
-  hooks: GPU environment, monitor layout, per-device input overrides, and
-  per-host session bootstrap commands that cannot live in the shared base file.
+  hooks: GPU environment, monitor layout, monitor-scoped workspace placement,
+  per-device input overrides, and per-host session bootstrap commands that
+  cannot live in the shared base file.
 - The fallback branch must provide safe minimal defaults so the compositor
   starts on any host.
 - Adding a new host requires adding the relevant `host.hyprland.*` facts in

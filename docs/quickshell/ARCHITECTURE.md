@@ -98,12 +98,15 @@ request on release so `hyprsunset` is not restarted on every pointer move.
 `DisplayService.qml` applies individual monitor changes through `hyprctl keyword
 monitor` and exposes `applyMonitorBatch(...)` for whole-snapshot restores through
 `hyprctl --batch`. The Display pane treats resolution, refresh-rate, transform,
-VRR, mirror, and drag-position changes as risky: it captures a safe snapshot
-before applying, shows the confirmation banner, and reverts the snapshot in one
-batch if the countdown expires. The apply helpers return whether a `hyprctl`
-process was actually started; rollback keeps the confirmation snapshot alive and
-retries instead of silently dismissing the banner while a previous monitor apply
-is still busy.
+VRR, mirror, and drag-position changes as risky: it captures a safe snapshot,
+shows the confirmation banner, and reverts the snapshot in one batch if the
+countdown expires. The monitor-layout canvas stages drag positions against a
+local clone, normalizes the resulting layout back to a top-left `0x0` origin,
+and applies one batch on release instead of issuing live `hyprctl` calls while
+the pointer moves. The apply helpers return whether a `hyprctl` process was
+actually started; rollback keeps the confirmation snapshot alive and retries
+instead of silently dismissing the banner while a previous monitor apply is still
+busy.
 
 `NetworkService.qml` keeps network diagnostics popup-local but avoids shared
 temporary files for the speed-test bufferbloat ping by creating per-run `mktemp`
