@@ -300,6 +300,7 @@ FocusScope {
 
                             readonly property bool canExpand: modelData.expandable !== false
                             readonly property bool isSplit: modelData.split === true
+                            readonly property int splitInset: 2
 
                             property bool isPending: {
                                 switch (modelData.key) {
@@ -419,6 +420,30 @@ FocusScope {
                             }
 
                             Rectangle {
+                                anchors.fill: parent
+                                radius: parent.radius
+                                visible: tile.isSplit
+                                color: Theme.bg2
+                                Behavior on color {
+                                    Components.CAnim {
+                                        duration: Theme.animSpring
+                                        easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                visible: tile.isSplit
+                                width: 1
+                                height: parent.height - tile.splitInset * 4
+                                radius: 1
+                                x: Math.round((parent.width - width) / 2)
+                                y: tile.splitInset * 2
+                                color: Theme.bg3
+                                opacity: 0.75
+                            }
+
+                            Rectangle {
                                 anchors.fill: parent; radius: parent.radius
                                 visible: !tile.isSplit
                                 color: "transparent"
@@ -457,8 +482,8 @@ FocusScope {
                             RowLayout {
                                 visible: tile.isSplit
                                 anchors.fill: parent
-                                anchors.margins: 4
-                                spacing: 4
+                                anchors.margins: tile.splitInset
+                                spacing: tile.splitInset
 
                                 Repeater {
                                     model: [
@@ -472,14 +497,14 @@ FocusScope {
 
                                         Layout.fillWidth: true
                                         Layout.fillHeight: true
-                                        radius: Math.max(0, tile.radius - 4)
+                                        radius: Math.max(0, tile.radius - tile.splitInset)
 
                                         readonly property bool partActive: modelData.key === "idle" ? IdleInhibitService.inhibited : IdleInhibitService.lidInhibited
                                         readonly property color partActiveColor: modelData.key === "idle" ? Theme.yellowBright : Theme.blueBright
 
                                         color: partActive
                                             ? Qt.rgba(partActiveColor.r, partActiveColor.g, partActiveColor.b, 0.15)
-                                            : Theme.bg2
+                                            : "transparent"
                                         border.width: partActive ? 1 : 0
                                         border.color: partActiveColor
 
@@ -518,14 +543,14 @@ FocusScope {
 
                                         RowLayout {
                                             anchors.fill: parent
-                                            anchors.leftMargin: 7
-                                            anchors.rightMargin: 5
-                                            spacing: 4
+                                            anchors.leftMargin: 6
+                                            anchors.rightMargin: 4
+                                            spacing: 3
 
                                             Components.Icon {
                                                 source: splitPart.modelData.icon
                                                 color: splitPart.partActive ? splitPart.partActiveColor : Theme.fg4
-                                                iconSize: 15
+                                                iconSize: 14
                                                 Behavior on color { Components.CAnim { duration: Theme.animHover } }
                                             }
 
