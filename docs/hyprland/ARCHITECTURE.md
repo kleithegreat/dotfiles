@@ -138,7 +138,10 @@ Monitor behavior follows the same host split as inputs:
   `1920x1080@120.00` on `0x0`, leaves `eDP-1` on `auto` placement so it becomes
   secondary when that external display is present and falls back to the origin
   when it is not, and keeps a fallback `monitor = , preferred, auto, 1` rule for
-  everything else.
+  everything else. `hosts/laptop/monitors.conf` also pins workspaces 1-10 to
+  `desc:BNQ ZOWIE XL LCD EB12M01465SL0` when that monitor exists; Hyprland still
+  gives every enabled output an active workspace, but the numbered workspace set
+  stays on the external display instead of being assigned to the laptop panel.
 - The desktop pins `HDMI-A-1` and keeps the same catch-all fallback.
 
 Desktop-specific NVIDIA environment and resume quirks live in

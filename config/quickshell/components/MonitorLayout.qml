@@ -340,7 +340,6 @@ Item {
                 root._dragStartCanvasY = mouse.y;
                 root._dragStartMonX = root.monitors[idx].x;
                 root._dragStartMonY = root.monitors[idx].y;
-                root.dragStarted();
             }
         }
 
@@ -361,6 +360,8 @@ Item {
 
             let mon = root.monitors[root._draggingIdx];
             if (mon.x !== newX || mon.y !== newY) {
+                if (!root._dragMoved)
+                    root.dragStarted();
                 mon.x = newX;
                 mon.y = newY;
                 root._dragMoved = true;

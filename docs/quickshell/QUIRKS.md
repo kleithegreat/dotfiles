@@ -1,5 +1,23 @@
 # Quickshell Quirks
 
+## Display layout dragging is staged until release
+
+**Symptom:** Dragging monitors in the Display settings pane could leave the
+session on a black or unreachable output arrangement, and the countdown did not
+reliably restore the previous layout.
+
+**Cause:** `config/quickshell/popups/settings/SettingsDisplayPane.qml` previously
+called `hyprctl keyword monitor` on every pointer move while
+`config/quickshell/components/MonitorLayout.qml` mutated the shared
+`DisplayService.monitors` snapshot before Hyprland confirmed the new layout.
+
+**Status:** Fixed.
+
+**Resolution:** Monitor drag now starts only after actual movement, edits a
+local cloned layout, normalizes the staged layout back to a `0x0` origin, and
+applies one `DisplayService.applyMonitorBatch(...)` call on release. The confirm
+countdown keeps the pre-change snapshot and re-applies it as a batch on timeout.
+
 ## The single bar is recreated after suspend or output loss
 **Symptom:** The bar can disappear after suspend/resume, DPMS, hotplug, or other output loss even though the Quickshell process stays alive.
 **Cause:** Hyprland tears down the layer-shell surface when outputs churn, while Qt keeps a placeholder `QScreen` alive; `Quickshell.screens` therefore does not become a reliable signal that all real outputs are gone.

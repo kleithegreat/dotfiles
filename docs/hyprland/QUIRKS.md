@@ -1,5 +1,21 @@
 # Hyprland Quirks
 
+## Enabled outputs always have an active workspace
+
+**Symptom:** A connected laptop panel cannot behave as a literal workspace-less
+extension of the external monitor.
+
+**Cause:** Hyprland's workspace model attaches an active workspace to every
+enabled monitor. A monitor can be placed next to another monitor, mirrored, or
+disabled, but it cannot remain enabled with no workspace at all.
+
+**Status:** By design, with a laptop-host workaround.
+
+**Impact / workaround:** `hosts/laptop/monitors.conf` pins workspaces 1-10 to the
+BenQ ZOWIE external monitor by EDID description when it is attached. The internal
+`eDP-1` output remains enabled and spatially adjacent, but any workspace Hyprland
+parks there is outside the normal numbered workspace set.
+
 ## MX Master 2S smart-shift is capped at 50 in Solaar CLI
 
 **Symptom:** `solaar config "MX Master 2S" smart-shift 100` fails with
