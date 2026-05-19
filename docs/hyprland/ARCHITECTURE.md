@@ -3,7 +3,7 @@
 ## Scope
 
 Current implementation map for `config/hypr/`, the host-selected Hyprland
-fragments, and the generated theme inputs as of 2026-05-17.
+fragments, and the generated theme inputs as of 2026-05-19.
 
 ## Source Graph
 
@@ -119,7 +119,16 @@ the current compiler.
 
 Upstream has since absorbed most Hyprland 0.54 API porting in the plugin tree,
 so the remaining active local plugin patches carry behavior deltas plus current
-compatibility workarounds. `patches/hyprland-plugins/hyprbars-hyprland-0.54.patch`
+compatibility workarounds. `system/configuration.nix` still takes `hyprbars`
+from `inputs.hyprland-plugins.packages.${system}.hyprbars`, but `hyprexpo` is
+now supplied by the repo-local package in
+`pkgs/hyprland-plugins/hyprexpo/default.nix` because the official plugin flake
+no longer exposes that package. That local package extracts the last known
+Hyprexpo source from upstream revision
+`22de29bc1cf4126202df52691d0bc9a065089cba` and applies the existing local patch
+against the patched Hyprland headers.
+
+`patches/hyprland-plugins/hyprbars-hyprland-0.54.patch`
 keeps `hyprbars` on the legacy `HyprlandAPI::addConfigValue(...)` plus
 `HyprlandAPI::getConfigValue(...)` path, parses color strings through
 `Config::ParserUtils::parseColor(...)`, renders the bar background with top-only
@@ -128,9 +137,7 @@ rounded corners, and opts the custom bar pass out of render-pass simplification.
 overview behavior: it debounces accidental select events immediately after
 opening the overview, guards stale `startedOn` workspace checks with
 `valid(startedOn)`, and lets `Config::Actions::changeWorkspace(...)` own the
-workspace transition without duplicating desktop-animation calls. The
-`hyprland-plugins` flake input is intentionally pinned to the last known
-revision that still exposes `packages.${system}.hyprexpo`.
+workspace transition without duplicating desktop-animation calls.
 
 Monitor behavior follows the same host split as inputs:
 

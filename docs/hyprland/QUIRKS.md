@@ -211,7 +211,11 @@ its package set. The repo previously built the overview plugin from
 `inputs.hyprland-plugins.packages.${system}.hyprexpo`, so a lockfile update can
 break evaluation before Nix reaches the build phase.
 
-**Status:** Workaround in place. Keep `flake.lock` pinned to the
-`hyprland-plugins` revision `22de29bc1cf4126202df52691d0bc9a065089cba`, the
-last known input revision in this repo that still exposes `hyprexpo`, unless the
-overview config is intentionally migrated away from Hyprexpo.
+**Status:** Workaround in place. `system/configuration.nix` now wires
+`hyprexpo` from `pkgs/hyprland-plugins/hyprexpo/default.nix`, a repo-local
+package that extracts the removed plugin source from upstream revision
+`22de29bc1cf4126202df52691d0bc9a065089cba` and applies
+`patches/hyprland-plugins/hyprexpo-hyprland-0.54.patch`. The main
+`hyprland-plugins` flake input can keep rolling for still-shipped plugins such
+as `hyprbars`; Hyprexpo maintenance now means refreshing the local package or
+patch when Hyprland headers change.

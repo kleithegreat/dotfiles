@@ -38,7 +38,7 @@
 
 ## Flake-input package overrides share the native helper path
 **Symptom:** Hyprland, Hyprland plugins, and `hyprqt6engine` would otherwise diverge from the native optimization policy used for the selected nixpkgs packages.
-**Cause:** Those derivations come from flake inputs or local overrides rather than the nixpkgs package set targeted by `overlays/native-optimized.nix`.
+**Cause:** Those derivations come from flake inputs or local overrides rather than the nixpkgs package set targeted by `overlays/native-optimized.nix`. `hyprexpo` is now a repo-local package under `pkgs/hyprland-plugins/hyprexpo/default.nix`, but it follows the same helper path as the flake-input Hyprland packages.
 **Status:** Intentional design
 **Resolution:** `system/configuration.nix` and `home/default.nix` both import `system/native-optimizations.nix` directly, so the remaining flake-input packages carry the same `-O3 -march=native` / `target-cpu=native` flags and per-host `requiredSystemFeatures` tag as the overlay-managed nixpkgs packages.
 
