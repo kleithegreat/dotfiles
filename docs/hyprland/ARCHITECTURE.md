@@ -63,7 +63,10 @@ Current host input fragments differ materially:
   a reduced touchpad `scroll_factor`, the existing three-finger horizontal
   workspace swipe, a three-finger swipe-up that dispatches `hyprexpo:expo
   toggle` through Hyprland's core `gesture` keyword, and the per-device
-  sensitivity for the Logitech MX Master 2S.
+  sensitivity for the Logitech MX Master 2S. It also binds the laptop lid switch
+  to `desktopctl hypr lid-switch closed/open --internal eDP-1` so closing the
+  lid disables the hidden internal output when another monitor is active and
+  opening the lid restores `eDP-1` from `preferred,auto,1`.
 - `hosts/desktop/input-devices.conf` adjusts per-device mouse sensitivity for
   the Logitech G Pro and MX Master 2S in the desktop input fragment.
 - `hosts/desktop/env.conf` still carries the dedicated-NVIDIA session variables
@@ -73,9 +76,11 @@ Current host input fragments differ materially:
 - `hosts/laptop/autostart.conf` and `hosts/desktop/autostart.conf` start Solaar
   hidden and apply the Logitech MX Master 2S smart-shift tweak through
   host-specific startup fragments instead of mixing either concern into
-  `env.conf`; the laptop fragment explicitly sets the wheel to `Ratcheted` and
-  uses the MX Master 2S smart-shift maximum of `50`, while the desktop fragment
-  keeps only the existing `50` smart-shift command.
+  `env.conf`; the laptop fragment first runs `desktopctl hypr lid-switch sync
+  --internal eDP-1` to honor a lid that was already closed at session startup,
+  explicitly sets the wheel to `Ratcheted`, and uses the MX Master 2S
+  smart-shift maximum of `50`, while the desktop fragment keeps only the
+  existing `50` smart-shift command.
 
 ## Theme And Runtime Integration
 
@@ -149,6 +154,10 @@ Monitor behavior follows the same host split as inputs:
   `desc:BNQ ZOWIE XL LCD EB12M01465SL0` when that monitor exists; Hyprland still
   gives every enabled output an active workspace, but the numbered workspace set
   stays on the external display instead of being assigned to the laptop panel.
+  `desktopctl hypr lid-switch` supplements this static layout at runtime by
+  disabling `eDP-1` on lid close only when a non-`eDP-1` output is active, which
+  removes the hidden panel from the pointer/workspace layout while lid handling
+  is inhibited.
 - The desktop pins `HDMI-A-1` and keeps the same catch-all fallback.
 
 Desktop-specific NVIDIA environment and resume quirks live in

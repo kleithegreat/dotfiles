@@ -30,6 +30,7 @@ Components.WheelFlickable {
 
     property var layoutMonitors: []
     property bool monitorDragActive: false
+    readonly property var brightnessDevices: BrightnessService.devicesForMonitors(DisplayService.monitors, BrightnessService.brightnessDevices)
 
     readonly property var enabledMonitors: {
         let m = DisplayService.monitors;
@@ -826,92 +827,55 @@ Components.WheelFlickable {
 
         // ── Brightness ───────────────────────────────────────
 
-        Text { visible: BrightnessService.hasBacklight; text: "BRIGHTNESS"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+        Text { visible: root.brightnessDevices.length > 0; text: "BRIGHTNESS"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
 
-        RowLayout {
-            visible: BrightnessService.hasBacklight
-            Layout.fillWidth: true
-            spacing: 8
+        Repeater {
+            model: root.brightnessDevices
 
-            Components.Icon {
-                source: "../icons/brightness-high.svg"
-                color: Theme.yellowBright
-                Layout.alignment: Qt.AlignVCenter
-            }
+            delegate: ColumnLayout {
+                required property var modelData
 
-            ColumnLayout {
                 Layout.fillWidth: true
-                spacing: 2
+                spacing: 6
 
-                Text {
-                    text: "Brightness"
-                    color: Theme.fg
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; font.bold: true
-                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
 
-                Text {
-                    text: BrightnessService.backlightLabel
-                    color: Theme.fg3
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                }
-            }
+                    Components.Icon {
+                        source: modelData.kind === "backlight" ? "../icons/laptop.svg" : "../icons/monitor.svg"
+                        color: modelData.kind === "backlight" ? Theme.blueBright : Theme.yellowBright
+                        Layout.alignment: Qt.AlignVCenter
+                    }
 
-            Text {
-                text: BrightnessService.brightnessAvailable ? BrightnessService.brightnessPercent + "%" : ""
-                color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-            }
-        }
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 2
 
-        RowLayout {
-            visible: BrightnessService.hasBacklight
-            Layout.fillWidth: true
-            spacing: 8
+                        Text {
+                            text: modelData.kind === "backlight" ? "Built-in Display" : "External Display"
+                            color: Theme.fg
+                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; font.bold: true
+                        }
 
-            Components.Icon {
-                source: BrightnessService.brightnessPercent < 25 ? "../icons/brightness-low.svg" : (BrightnessService.brightnessPercent < 70 ? "../icons/brightness-medium.svg" : "../icons/brightness-high.svg")
-                color: Theme.fg4
-                Layout.preferredWidth: 16
-            }
-
-            Rectangle {
-                Layout.fillWidth: true; height: Theme.sliderHeight; radius: Theme.sliderHeight / 2; color: Theme.bg3
-
-                Rectangle {
-                    anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
-                    width: parent.width * BrightnessService.brightnessFraction
-                    radius: parent.radius; color: Theme.yellowBright
-                    Behavior on width {
-                        Components.Anim {
-                            duration: Theme.animMicro
-                            easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
+                        Text {
+                            text: modelData.label || modelData.device
+                            color: Theme.fg3
+                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                            Layout.fillWidth: true
+                            elide: Text.ElideRight
                         }
                     }
                 }
 
-                Rectangle {
-                    width: 12; height: 12; radius: 6; color: Theme.fg
-                    y: (parent.height - height) / 2
-                    x: Math.max(0, Math.min(parent.width - width, parent.width * BrightnessService.brightnessFraction - width / 2))
-                    scale: brSlider.pressed ? 1.2 : (brSlider.containsMouse ? 1.1 : 1.0)
-                    Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    Behavior on x { SpringAnimation { spring: 4; damping: 0.4 } }
+                Components.BrightnessSlider {
+                    brightnessDevice: modelData
+                    valueWidth: root.sliderValueWidth
                 }
-
-                Components.HoverLayer {
-                    id: brSlider; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
-                    onClicked: (mouse) => { BrightnessService.setBrightnessFraction(mouse.x / parent.width); }
-                    onPositionChanged: (mouse) => { if (pressed) BrightnessService.setBrightnessFraction(mouse.x / parent.width); }
-                }
-            }
-
-            Text {
-                text: BrightnessService.brightnessAvailable ? BrightnessService.brightnessPercent + "%" : ""
-                color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                Layout.preferredWidth: root.sliderValueWidth; horizontalAlignment: Text.AlignRight
             }
         }
 
-        Rectangle { visible: BrightnessService.hasBacklight; Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+        Rectangle { visible: root.brightnessDevices.length > 0; Layout.fillWidth: true; height: 1; color: Theme.bg3 }
 
         // ── Night Light ──────────────────────────────────────
 

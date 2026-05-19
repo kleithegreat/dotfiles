@@ -9,12 +9,15 @@ extension of the external monitor.
 enabled monitor. A monitor can be placed next to another monitor, mirrored, or
 disabled, but it cannot remain enabled with no workspace at all.
 
-**Status:** By design, with a laptop-host workaround.
+**Status:** By design, with laptop-host workarounds.
 
 **Impact / workaround:** `hosts/laptop/monitors.conf` pins workspaces 1-10 to the
 BenQ ZOWIE external monitor by EDID description when it is attached. The internal
-`eDP-1` output remains enabled and spatially adjacent, but any workspace Hyprland
-parks there is outside the normal numbered workspace set.
+`eDP-1` output remains enabled and spatially adjacent while the lid is open, but
+any workspace Hyprland parks there is outside the normal numbered workspace set.
+When the lid closes while another output is active, `hosts/laptop/input-devices.conf`
+switch binds call `desktopctl hypr lid-switch closed --internal eDP-1`, which
+disables the hidden panel so it no longer exists as a pointer-crossable area.
 
 ## MX Master 2S smart-shift is capped at 50 in Solaar CLI
 
@@ -51,25 +54,29 @@ appears in an already-running session, clear those variables from the user
 manager and restart affected D-Bus helpers or app-launcher daemons, or log out
 and back in after rebuilding the config.
 
-## Shared brightness hooks use backlight first, then DDC/CI
+## Shared brightness hooks list backlight and DDC/CI devices
 
 **Symptom:** Older checkouts had brightness controls that did nothing useful on
 the desktop or a future host with no `/sys/class/backlight` device.
 
 **Cause:** The shared Hyprland surfaces all route through `desktopctl
-brightness`. Current code auto-detects the first backlight under
-`/sys/class/backlight/`, then falls back to DDC/CI VCP `0x10` through
-`ddcutil` when no backlight exists:
+brightness`. Current code lists readable backlights under `/sys/class/backlight/`
+and DDC/CI VCP `0x10` displays detected through `ddcutil detect --brief`, while
+keyboard step/dim commands still use the first backlight before falling back to
+DDC/CI when no backlight exists:
 
 Specifically:
 
 - `config/hypr/hypridle.conf` listener block with `on-timeout = desktopctl brightness dim` and `on-resume = ... desktopctl brightness restore`
 - `config/hypr/keybinds.conf` brightness bindings for `F6` / `F7` that call `desktopctl brightness down` and `desktopctl brightness up`
 
-These work on the laptop through the internal backlight and on the desktop when
-the external monitor exposes DDC/CI brightness and the host has I2C access.
+These work on the laptop through the internal backlight and on DDC/CI-capable
+external monitors when the host has I2C access. Quickshell filters the internal
+backlight slider out when no enabled `eDP`/`LVDS`/`DSI` monitor is present, so a
+closed-lid external-monitor session shows only the DDC/CI sliders that are still
+visible.
 
-**Status:** Fixed for DDC/CI-capable desktop monitors.
+**Status:** Fixed for DDC/CI-capable monitors.
 
 **Impact / workaround:** If a desktop monitor still does not respond, verify the
 monitor OSD has DDC/CI enabled, `ddcutil detect` can see the display, and the

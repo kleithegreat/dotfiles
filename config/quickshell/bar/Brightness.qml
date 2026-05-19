@@ -10,8 +10,10 @@ Item {
     signal clicked()
 
     property bool showLabel: true
-    readonly property int brightnessPercent: BrightnessService.brightnessPercent
-    readonly property string labelText: BrightnessService.hasBacklight ? (BrightnessService.brightnessAvailable ? brightnessPercent + "%" : "") : DisplayService.nightLightSubtitle
+    readonly property var brightnessDevice: BrightnessService.primaryDeviceForMonitors(DisplayService.monitors, BrightnessService.brightnessDevices)
+    readonly property bool hasBrightness: brightnessDevice !== null
+    readonly property int brightnessPercent: hasBrightness ? Math.round(Math.max(0, Math.min(1, Number(brightnessDevice.fraction || 0))) * 100) : 0
+    readonly property string labelText: hasBrightness ? brightnessPercent + "%" : DisplayService.nightLightSubtitle
     readonly property int labelMaxWidth: Math.max(Theme.fontSize * 6, 84)
 
     RowLayout {
@@ -29,7 +31,7 @@ Item {
             source: {
                 if (DisplayService.nightLightEnabled)
                     return "../icons/night-light.svg";
-                if (!BrightnessService.hasBacklight)
+                if (!displayRoot.hasBrightness)
                     return "../icons/monitor.svg";
                 if (displayRoot.brightnessPercent < 25)
                     return "../icons/brightness-low.svg";
@@ -47,7 +49,7 @@ Item {
             id: brightnessLabel
             visible: displayRoot.showLabel
             text: displayRoot.labelText
-            color: displayArea.containsMouse ? Theme.yellowBright : (BrightnessService.hasBacklight ? Theme.fg : (DisplayService.nightLightEnabled ? Theme.orangeBright : Theme.fg3))
+            color: displayArea.containsMouse ? Theme.yellowBright : (displayRoot.hasBrightness ? Theme.fg : (DisplayService.nightLightEnabled ? Theme.orangeBright : Theme.fg3))
             font.family: Theme.systemFamily
             font.pixelSize: Theme.fontSizeSmall
             elide: Text.ElideRight

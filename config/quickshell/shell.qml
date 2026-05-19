@@ -157,6 +157,8 @@ Scope {
         function onRawEvent(event) {
             if (event.name === "monitoradded" || event.name === "monitorremoved") {
                 Hyprland.refreshMonitors();
+                DisplayService.refreshMonitors();
+                BrightnessService.refresh();
             }
         }
     }

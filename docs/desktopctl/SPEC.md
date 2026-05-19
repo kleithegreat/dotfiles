@@ -11,8 +11,8 @@ describing an intended future migration.
 | --- | --- |
 | `desktopctl daemon` | Long-lived foreground process that starts the focus tracker, solar scheduler, and Unix-socket server |
 | `desktopctl theme ...` | Theming CLI that reads and writes the shared theme state, applies generated outputs, and manages presets |
-| `desktopctl brightness ...` | Short-lived helpers for perceptual brightness stepping, dimming, restoring, and Quickshell brightness OSD notification |
-| `desktopctl hypr ...` | Hyprland helper surface for `toggle-float`, managed shared input settings, and generated animation/keybind override files |
+| `desktopctl brightness ...` | Short-lived helpers for multi-device brightness status, perceptual stepping, dimming, restoring, and Quickshell brightness OSD notification |
+| `desktopctl hypr ...` | Hyprland helper surface for `toggle-float`, laptop lid-switch output policy, managed shared input settings, and generated animation/keybind override files |
 | `desktopctl launch-quickshell` | Reads cursor env overrides from `~/.config/hypr/cursor.conf`, then launches Quickshell against the repo checkout |
 | `desktopctl portal ...` | Short-lived portal helper surface; today this is only `pick-directory` |
 | `desktopctl night-light ...` | CLI client for daemon-owned `hyprsunset` override state and fallback status reporting |
@@ -148,7 +148,7 @@ Theming invariants:
 
 | Command | Current behavior |
 | --- | --- |
-| `brightness status [--json]` | Auto-detects the active brightness backend and prints the current value; JSON output includes availability, backend kind, device label, raw values, fraction, and percent for Quickshell |
+| `brightness status [--json]` | Auto-detects the primary brightness backend and prints the current value; JSON output includes the primary availability/kind/label/raw/fraction/percent fields plus a `devices` array for every readable backlight and DDC/CI brightness device Quickshell can render |
 | `brightness set <percent> [--device <name>]` | Sets an absolute perceived brightness percent through the selected backend and best-effort notifies Quickshell by calling `qs -p <repo>/config/quickshell ipc call brightness osd <percent>` with the actual applied display percentage |
 | `brightness up [--device <name>]` | Applies one perceptual +5% step through the selected backend, then best-effort notifies Quickshell with the actual applied display percentage |
 | `brightness down [--device <name>]` | Same, but one perceptual -5% step |
@@ -157,9 +157,10 @@ Theming invariants:
 
 Brightness rules:
 
-- Device auto-detection prefers the first backlight name in sorted `/sys/class/backlight` order, then falls back to DDC/CI VCP code `0x10` through `ddcutil`.
+- Device auto-detection for step/dim/set without `--device` prefers the first backlight name in sorted `/sys/class/backlight` order, then falls back to DDC/CI VCP code `0x10` through `ddcutil`.
+- JSON status lists all readable backlights plus DDC/CI displays discovered through `ddcutil detect --brief`; DDC entries include connector metadata when `ddcutil` reports a DRM connector.
 - `--device <name>` still selects a backlight device; `--device ddc` selects the default DDC display, and `--device ddc:<display>` passes an explicit `ddcutil --display` value.
-- If neither a backlight nor DDC/CI brightness is reachable, the command fails.
+- If neither a backlight nor DDC/CI brightness is reachable, mutating commands and non-JSON `status` fail; JSON `status` reports `available: false` with an empty `devices` array.
 - `set`, `up`, and `down` emit the Quickshell OSD IPC call today.
 - The old `/tmp/quickshell-brightness` file contract no longer exists.
 
@@ -168,6 +169,7 @@ Brightness rules:
 | Command | Current behavior |
 | --- | --- |
 | `hypr toggle-float` | If the active window is tiled, toggles floating, resizes it to `75% 75%`, and centers it; if already floating, toggles floating off |
+| `hypr lid-switch <open/closed/sync> [--internal <monitor>] [--open-spec <spec>]` | Applies the laptop lid monitor policy. `closed` disables the internal monitor only when another output is active, `open` restores the internal monitor with the provided Hyprland monitor spec, and `sync` reads `/proc/acpi/button/lid/*/state` and applies only the closed-lid action when needed. |
 | `hypr input status [--json]` | Prints the effective managed shared input state by layering `~/.config/hypr/input.conf` defaults with `~/.config/hypr/input-runtime.conf` overrides |
 | `hypr input set <key> <value>` | Validates one managed shared input key (`sensitivity`, `accel_profile`, or `scroll_factor`), atomically rewrites `input-runtime.conf`, applies the same value live through `hyprctl keyword`, and restores the previous file if that live apply fails |
 | `hypr animations save <json>` | Validates one JSON payload, rewrites `animations-override.conf`, and reloads Hyprland so the generated overrides apply on top of `appearance.conf` |
@@ -243,7 +245,7 @@ Response shape:
 | --- | --- |
 | Home Manager | Installs `desktopctl` into `home.packages`, bootstraps `~/.config/hypr/input-runtime.conf`, `animations-override.conf`, and `keybinds-override.conf`, and runs `desktopctl theme sync` in `home.activation.applyTheme` |
 | Hyprland autostart | Starts `desktopctl daemon` and `desktopctl launch-quickshell`, then re-applies wallpaper with `desktopctl theme wallpaper` |
-| Hyprland keybinds | Use `desktopctl brightness`, `desktopctl hypr toggle-float`, and `desktopctl night-light ...` |
+| Hyprland keybinds | Use `desktopctl brightness`, `desktopctl hypr toggle-float`, laptop-host `desktopctl hypr lid-switch ...` switch binds, and `desktopctl night-light ...` |
 | Hypridle | Uses `desktopctl brightness dim` and `desktopctl brightness restore` |
 | Quickshell settings | Reads theme state, scheme lists, and presets through `desktopctl theme ... --json`, reads shared mouse defaults through `desktopctl hypr input status --json`, and sends writes back through `desktopctl theme ...` plus `desktopctl hypr input set ...` |
 | Quickshell shell IPC | Routes `theme.apply` to `desktopctl theme ...` with argv-safe tokenization, rejects concurrent theme commands, and reports failures through toast feedback |

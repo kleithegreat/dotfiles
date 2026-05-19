@@ -29,6 +29,7 @@ Managed popups mounted by the overlay host remain:
 | `components/ToggleSwitch.qml` | Shared boolean control with mouse-driven activation plus disabled/pending opacity states. | `config/quickshell/components/ToggleSwitch.qml` |
 | `ShellOptions.qml` | Shared static option catalogs plus canonical mono-font normalization/label helpers for the Fonts, Icons, Mouse, and Presets surfaces. | `config/quickshell/ShellOptions.qml`, `config/quickshell/popups/settings/SettingsFontsPane.qml`, `config/quickshell/popups/settings/SettingsIconsPane.qml`, `config/quickshell/popups/settings/SettingsMousePane.qml`, and `config/quickshell/popups/settings/SettingsPresetEditor.qml` |
 | `components/SettingsPaneHeader.qml`, `components/ActionButton.qml`, `components/StepperButton.qml`, and `components/ValueStepper.qml` | Shared header, button, and numeric-stepper chrome for settings panes and the preset editor, replacing repeated local `Rectangle` + `HoverLayer` control scaffolding. | `config/quickshell/components/SettingsPaneHeader.qml`, `config/quickshell/components/ActionButton.qml`, `config/quickshell/components/StepperButton.qml`, `config/quickshell/components/ValueStepper.qml`, plus their use in `config/quickshell/popups/settings/SettingsFontsPane.qml`, `config/quickshell/popups/settings/SettingsMousePane.qml`, `config/quickshell/popups/settings/SettingsHyprlandPane.qml`, `config/quickshell/popups/settings/SettingsIconsPane.qml`, and `config/quickshell/popups/settings/SettingsPresetEditor.qml` |
+| `components/BrightnessSlider.qml` | Shared brightness slider chrome that binds one `BrightnessService` device object to per-device writes. | `config/quickshell/components/BrightnessSlider.qml`, plus its use in `config/quickshell/popups/QuickSettingsPopup.qml` and `config/quickshell/popups/settings/SettingsDisplayPane.qml` |
 | `components/ColorSchemeCard.qml` and `components/ColorSchemeCards.qml` | Shared responsive scheme-preview cards for the Colors pane and preset editor. They consume `colorFamilies`, adapt the column count to available width, and highlight the active scheme without falling back to dropdown-only selection. | `config/quickshell/components/ColorSchemeCard.qml`, `config/quickshell/components/ColorSchemeCards.qml`, `config/quickshell/popups/settings/SettingsColorsPane.qml`, and `config/quickshell/popups/settings/SettingsPresetEditor.qml` |
 | `components/IconThemeCard.qml` and `components/IconThemeCards.qml` | Shared responsive icon-theme preview cards for the Icons pane and preset editor. They keep icon-theme selection pointer-first while replacing the old bare dropdown with family/variant labeling plus representative icons loaded from each installed icon theme. | `config/quickshell/components/IconThemeCard.qml`, `config/quickshell/components/IconThemeCards.qml`, `config/quickshell/popups/settings/SettingsIconsPane.qml`, and `config/quickshell/popups/settings/SettingsPresetEditor.qml` |
 | `components/Icon.qml` | Shared SVG tinting wrapper. It normalizes repo-local `icons/`, `../icons/`, and deeper `../../icons/` source strings to the component-local icon directory before loading, so callers at different QML depths do not silently break icon rendering. | `config/quickshell/components/Icon.qml` |
@@ -41,7 +42,7 @@ Managed popups mounted by the overlay host remain:
 | --- | --- | --- |
 | `AudioService.qml` | Volume, mute, sink summary, shared OSD state | Bar volume, audio pane, shell OSD, IPC |
 | `BluetoothService.qml` | Powered state, summary device data, full device/pairing flows | Bar Bluetooth, quick settings, Bluetooth pane |
-| `BrightnessService.qml` | Backend-agnostic brightness status polling and writes through `desktopctl brightness`, covering laptop backlights and DDC/CI external monitors | Bar brightness, Quick Settings, Display pane, and any brightness slider UI |
+| `BrightnessService.qml` | Multi-device brightness status polling and per-device writes through `desktopctl brightness`, covering laptop backlights and DDC/CI external monitors | Bar brightness, Quick Settings, Display pane, and any brightness slider UI |
 | `DisplayService.qml` | Monitor refresh/apply and daemon-backed night-light status / override requests | Display pane |
 | `HostCapabilities.qml` | Detects laptop-chassis, Wi-Fi, battery, power-profile, and fingerprint-reader capabilities, while only surfacing interactive power-profile support on laptop-like hosts | Settings host category visibility plus power/fingerprint pane availability |
 | `HyprlandConfigService.qml` | Shared monitor-layout undo/redo state plus Hyprland animation/keybind override editing, save, and clear flows | Display pane, Hyprland pane, Settings host refresh path |
@@ -73,6 +74,14 @@ Direct-upstream or local exceptions:
 events, refreshes `config/quickshell/BrightnessService.qml` after keyboard
 brightness changes, and `desktopctl/src/brightness.rs` drives it with
 `qs -p <repo>/config/quickshell ipc call brightness osd ...`.
+- Brightness controls are now device-list based: `desktopctl brightness status
+  --json` returns a `devices` array, `config/quickshell/BrightnessService.qml`
+  stages pending writes per device ID, `components/BrightnessSlider.qml` renders
+  shared slider chrome, and the bar / Quick Settings / Display pane filter the
+  internal backlight out unless `DisplayService.monitors` contains an enabled
+  internal connector such as `eDP-*`, `LVDS-*`, or `DSI-*`. DDC/CI sliders remain
+  visible whenever `ddcutil` exposes them, so external monitor brightness is no
+  longer mutually exclusive with the laptop backlight.
 - The laptop power-profile path stays outside `desktopctl`: `config/quickshell/PowerProfileService.qml`
   now prefers the host-installed `laptop-power-profile get` helper when it is
   present, falls back to plain `powerprofilesctl get` otherwise, and uses
