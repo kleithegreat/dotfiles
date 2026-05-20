@@ -156,11 +156,11 @@
 **Status:** Workaround removed in favor of nixpkgs package
 **Resolution:** `system/configuration.nix` now drops the repo-local `overlays/claude-code.nix` override entirely and just uses `pkgs.claude-code` from the pinned `nixpkgs` set. On the current unstable pin that resolves to `claude-code-2.1.119`, which builds cleanly, so keeping a separate repo-local npm pin only adds maintenance risk without a compensating benefit.
 
-## Unstable Haruna currently drags `yt-dlp -> deno -> rusty_v8` into local builds
-**Symptom:** Rebuilding the full system on the current unstable pin can still start a large local `rusty-v8` build even after OpenCode stops using the upstream source flake.
-**Cause:** `pkgs.haruna` in the current unstable nixpkgs revision depends on `yt-dlp`, and that unstable `yt-dlp` package now enables JavaScript runtime support through `deno`, which pulls in `rusty_v8`. Even if Haruna itself is not locally optimized, that transitive chain can still miss cache and trigger a heavy local build.
+## Haruna must match the session Qt/KDE stack
+**Symptom:** A stable Haruna build can abort at startup, even with no media loaded, while the same file decodes cleanly in `ffplay`.
+**Cause:** The Hyprland session exports `QT_QPA_PLATFORMTHEME=hyprqt6engine`, and the active `hyprqt6engine` plugin follows the unstable Qt/KDE stack. Pinning the whole Haruna package to stable makes it load a Qt platform theme plugin built against a different Qt/KDE ABI. Older unstable pins also risked local rebuilds through Haruna's `yt-dlp -> deno -> rusty_v8` dependency chain.
 **Status:** Workaround in place
-**Resolution:** `home/default.nix` now imports `inputs.nixpkgs-stable` and installs `stablePkgs.haruna` through `harunaPkg` in `home/packages.nix` instead of the unstable package. On the current `nixos-25.05` pin, `haruna-1.4.0` is cacheable, so this keeps the media player available without dragging the unstable Deno/V8 path into normal rebuilds.
+**Resolution:** `home/default.nix` now installs `pkgs.haruna` from the same pinned nixpkgs set as the rest of the Qt/KDE session, so it shares the session ABI with `hyprqt6engine`. Re-check the dry-run closure before reintroducing any stable Haruna pin; avoiding rebuild pressure is not worth mixing Qt/KDE plugin ABIs.
 
 ## OpenChamber source builds need a repo-pinned root manifest for npm
 **Symptom:** A straight npm-based build of upstream `openchamber/openchamber` fails before dependency resolution finishes, typically with npm rejecting the root `overrides` versus direct dependency ranges or choking on the VS Code package's `workspace:*` dependency.

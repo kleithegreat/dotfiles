@@ -1,8 +1,6 @@
 { config, pkgs, lib, dotfilesPath, host, vicinae, inputs, enableNativeOptimizations, ... }:
 
 let
-  system = pkgs.stdenv.hostPlatform.system;
-  stablePkgs = import inputs.nixpkgs-stable { inherit system; };
   optimizedPackages = import ../overlays/native-optimized.nix {
     inherit lib inputs host enableNativeOptimizations;
   };
@@ -16,7 +14,9 @@ let
     ;
   lspPlugins = optimizedPkgs.lsp-plugins;
   opencodePkg = pkgs.opencode;
-  harunaPkg = stablePkgs.haruna;
+  # Haruna needs to stay on the session Qt/KDE stack so the global
+  # hyprqt6engine platform theme plugin is ABI-compatible.
+  harunaPkg = pkgs.haruna;
   snappySwitcherPkg = pkgs.snappy-switcher;
   vicinaePkg = pkgs.vicinae;
   texlive = optimizedPkgs.texlive.withPackages (ps: with ps; [
