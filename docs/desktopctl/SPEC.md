@@ -47,6 +47,10 @@ Additional path rules:
 - `launch-quickshell`, brightness OSD notifications, and repo-relative concat
   target base paths all depend on that repo-root resolution when they need the
   repo's `config/` tree.
+- `sun-schedule/location.json` is a GeoClue cache. `desktopctl` uses it without
+  refreshing only while the file mtime is no more than six hours old; after
+  that it tries `where-am-i` and keeps the stale cache only as a fallback when
+  live location lookup fails.
 
 ## Ownership Boundaries
 

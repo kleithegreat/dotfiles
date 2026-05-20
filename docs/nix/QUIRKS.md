@@ -114,6 +114,12 @@
 **Status:** Workaround in place
 **Resolution:** `system/configuration.nix` now sets `fonts.fontconfig.subpixel.rgba = "rgb"` and adds a local fontconfig rule that prepends `SF Pro Text` whenever apps request the generic `SF Pro` family. If a monitor shows color fringes after rebuild, switch that `rgba` value to the panel's real order (`bgr`, `vrgb`, or `vbgr`).
 
+## Automatic timezone still depends on GeoClue resolving a location
+**Symptom:** `timedatectl` keeps the previous timezone after travel even though `services.automatic-timezoned` is enabled.
+**Cause:** `system/services.nix` lets GeoClue own locality and `automatic-timezoned` only applies a timezone after GeoClue returns coordinates. If GeoClue cannot see Wi-Fi networks, the BeaconDB lookup times out, or the agent/app authorization path is broken, the timezone service has no new location to apply.
+**Status:** Expected limitation
+**Resolution:** Check `where-am-i` under the user session and `journalctl -u geoclue.service` before debugging `automatic-timezoned` itself. Locale and keyboard layout remain static through `i18n.defaultLocale = "en_US.UTF-8"` and `console.keyMap = "us"`; only timezone is dynamic.
+
 ## Home Manager packages do not register system-scoped helpers
 **Symptom:** A GUI app installed only through `home.packages` starts, but its root helper never appears on the system bus and no polkit prompt is triggered.
 **Cause:** Home Manager installs packages into the user profile, outside the NixOS system path and `services.dbus.packages` set that expose `share/dbus-1/system-services` files and link `share/polkit-1/actions` for system-wide activation.

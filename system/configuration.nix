@@ -232,7 +232,8 @@ in
   documentation.dev.enable = true;  # development man pages
 
   # ── Locale ───────────────────────────────────────────────────
-  time.timeZone = "America/Chicago";
+  # Timezone is intentionally left dynamic; automatic-timezoned updates it via
+  # GeoClue while locale and keyboard defaults stay US English.
   i18n.defaultLocale = "en_US.UTF-8";
   i18n.extraLocaleSettings = {
     LC_ADDRESS        = "en_US.UTF-8";

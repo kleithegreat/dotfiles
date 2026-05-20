@@ -3,7 +3,7 @@
 ## Scope
 
 Current implementation map for solar scheduling, location resolution, and
-cross-domain side effects as of 2026-04-20.
+cross-domain side effects as of 2026-05-19.
 
 For package installation and Hyprland session startup ownership, see
 `docs/nix/ARCHITECTURE.md` and `docs/hyprland/ARCHITECTURE.md`.
@@ -18,7 +18,7 @@ For package installation and Hyprland session startup ownership, see
 | `desktopctl/src/daemon/solar.rs` | Recomputes solar status at startup, on every solar event, on `SIGUSR1`, and on the 2-hour repair tick, then hands the result to the night-light controller for reconciliation | The scheduler loop in `desktopctl/src/daemon/solar.rs` |
 | `desktopctl/src/daemon/server.rs` | Exposes the daemon-owned `night_light.status`, `night_light.set`, and `night_light.toggle` methods over the Unix socket | The socket-method handlers in `desktopctl/src/daemon/server.rs` |
 | `desktopctl/src/night_light.rs` | Implements the `desktopctl night-light` CLI, socket client helpers, fallback status, and `hyprsunset` process inspection / start / stop helpers | The CLI commands and `hyprsunset` helper functions in `desktopctl/src/night_light.rs` |
-| `desktopctl/src/solar.rs` | Resolves coordinates, rejects non-finite or out-of-range cache/GeoClue coordinates, computes sunrise/sunset, derives the separate night-light and `dark_hint` schedules, and exposes `desktopctl sun status` | The location-resolution helpers and `sun status` implementation in `desktopctl/src/solar.rs` |
+| `desktopctl/src/solar.rs` | Resolves coordinates from a six-hour cache, GeoClue, stale-cache fallback, or the deterministic College Station fallback; rejects non-finite or out-of-range cache/GeoClue coordinates; computes sunrise/sunset; derives the separate night-light and `dark_hint` schedules; and exposes `desktopctl sun status` | The location-resolution helpers and `sun status` implementation in `desktopctl/src/solar.rs` |
 | `desktopctl/src/theme/mod.rs` | Handles `dark_hint` persistence and target application for both daemon-triggered scheduled writes and direct theme CLI writes | `set_dark_hint()` plus the theme command handlers in `desktopctl/src/theme/mod.rs` |
 | `desktopctl/src/theme/targets/gtk.rs` | Applies GTK dark-preference side effects through dconf when `dark_hint` changes | The `on_apply()` implementation in `desktopctl/src/theme/targets/gtk.rs` |
 
@@ -41,10 +41,12 @@ For package installation and Hyprland session startup ownership, see
 2. The daemon bootstrap in `desktopctl/src/daemon/mod.rs` starts the solar scheduler and socket
    server with one shared night-light controller under the shared daemon
    runtime.
-3. The coordinate-resolution helpers in `desktopctl/src/solar.rs` resolve from the cached
-   `sun-schedule/location.json`, then `where-am-i`, then the hardcoded
-   fallback `30.6280, -96.3344`, rejecting any non-finite or out-of-range
-   coordinates before treating them as authoritative.
+3. The coordinate-resolution helpers in `desktopctl/src/solar.rs` resolve from
+   the cached `sun-schedule/location.json` only while its mtime is no more than
+   six hours old, then query `where-am-i`, then fall back to a stale but valid
+   cache entry, then the hardcoded fallback `30.6280, -96.3344`, rejecting any
+   non-finite or out-of-range coordinates before treating them as
+   authoritative.
 4. The schedule-derivation helpers in `desktopctl/src/solar.rs` derive sunrise,
    sunset, current night state, the local-clock `dark_hint` window state, and
    the next sunrise / sunset / dark-on / dark-off timestamps for the current
