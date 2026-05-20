@@ -184,7 +184,16 @@ in
   };
   programs.virt-manager.enable = true;
 
-  services.geoclue2.enable = true;
+  location.provider = "geoclue2";
+  services.automatic-timezoned.enable = true;
+  services.geoclue2 = {
+    enable = true;
+    enableDemoAgent = true;
+    appConfig.where-am-i = {
+      isAllowed = true;
+      isSystem = false;
+    };
+  };
   services.tailscale = {
     enable = true;
     extraSetFlags = [ "--operator=kevin" ];

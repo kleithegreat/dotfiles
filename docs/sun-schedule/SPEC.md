@@ -96,16 +96,23 @@ The active implementation uses one long-lived in-process scheduler inside
 
 The scheduler resolves coordinates in this order:
 
-1. Cached coordinates at
+1. Fresh cached coordinates at
    `$XDG_CACHE_HOME/sun-schedule/location.json`, falling back to
-   `~/.cache/sun-schedule/location.json`
+   `~/.cache/sun-schedule/location.json`, when the cache file is no more than
+   six hours old
 2. GeoClue output from `where-am-i`
-3. Hardcoded fallback coordinates `30.6280, -96.3344` (College Station, TX)
+3. Stale but still parseable cached coordinates, if GeoClue cannot currently
+   resolve a location
+4. Hardcoded fallback coordinates `30.6280, -96.3344` (College Station, TX)
 
 Constraints:
 
-- A parseable cache entry is authoritative until it is deleted or becomes
-  invalid.
+- A fresh parseable cache entry is authoritative until it becomes stale,
+  deleted, or invalid.
+- Once the cache is stale, the scheduler must attempt a fresh GeoClue lookup
+  before falling back to cached coordinates.
+- A stale parseable cache entry is preferred over the hardcoded fallback when
+  GeoClue is unavailable.
 - A successful GeoClue lookup must be cached for future runs.
 - GeoClue failure must degrade to deterministic fallback behavior, not abort
   the scheduler.

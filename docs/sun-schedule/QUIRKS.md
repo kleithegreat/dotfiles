@@ -1,10 +1,10 @@
 # Sun Schedule Quirks
 
-## A valid cached location prevents future GeoClue refresh
-**Symptom:** Solar events keep following an old location even after moving the machine or fixing GeoClue.
-**Cause:** `desktopctl/src/solar.rs` reads `$XDG_CACHE_HOME/sun-schedule/location.json` first and returns immediately if it can parse `latitude` and `longitude`; it does not requery GeoClue while that cache stays valid.
-**Status:** Open
-**Resolution:** Delete or invalidate the cache file to force a fresh `where-am-i` lookup on the next scheduler recompute.
+## A stale cached location is still the offline fallback
+**Symptom:** Solar events keep following the last successfully resolved location after moving while GeoClue is unavailable.
+**Cause:** `desktopctl/src/solar.rs` treats `$XDG_CACHE_HOME/sun-schedule/location.json` as fresh for six hours, then attempts `where-am-i`; if GeoClue fails, a stale but parseable cache is preferred over the hardcoded College Station fallback.
+**Status:** By design
+**Resolution:** Fix GeoClue resolution or replace/delete the cache file if the stale location is worse than the deterministic fallback.
 
 ## GeoClue lookup fails open to the hardcoded Texas fallback
 **Symptom:** Sunrise, sunset, and the 23:00/06:00 dark-hint behavior follow College Station, TX even though the machine is elsewhere.

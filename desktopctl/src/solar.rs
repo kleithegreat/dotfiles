@@ -1,13 +1,14 @@
 use crate::paths;
 use chrono::{DateTime, Datelike, Days, Duration, Local, LocalResult, NaiveDate, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
-use std::{fs, io, process::Command};
+use std::{fs, io, process::Command, time::Duration as StdDuration};
 
 pub const DEFAULT_LATITUDE: f64 = 30.6280;
 pub const DEFAULT_LONGITUDE: f64 = -96.3344;
 pub const HYPRSUNSET_TEMP: i32 = 4500;
 pub const DARK_ON_HOUR: u32 = 23;
 pub const DARK_OFF_HOUR: u32 = 6;
+const LOCATION_CACHE_MAX_AGE: StdDuration = StdDuration::from_secs(6 * 60 * 60);
 
 #[derive(Debug, Clone, Copy)]
 pub struct Coordinates {
@@ -69,9 +70,12 @@ pub fn print_status() -> crate::Result<()> {
 
 pub fn resolve_location() -> io::Result<Coordinates> {
     let cache_path = paths::xdg_cache_home()?.join("sun-schedule/location.json");
+    let cached_location = read_cached_location(&cache_path);
 
-    if let Some(location) = read_cached_location(&cache_path) {
-        return Ok(location);
+    if let Some(location) = cached_location.as_ref().copied() {
+        if cached_location_is_fresh(&cache_path) {
+            return Ok(location);
+        }
     }
 
     if let Some(location) = query_geoclue() {
@@ -86,6 +90,10 @@ pub fn resolve_location() -> io::Result<Coordinates> {
             );
         }
 
+        return Ok(location);
+    }
+
+    if let Some(location) = cached_location {
         return Ok(location);
     }
 
@@ -220,6 +228,17 @@ fn read_cached_location(path: &std::path::Path) -> Option<Coordinates> {
     let contents = fs::read(path).ok()?;
     let cached: CachedLocation = serde_json::from_slice(&contents).ok()?;
     validated_coordinates(cached.latitude, cached.longitude)
+}
+
+fn cached_location_is_fresh(path: &std::path::Path) -> bool {
+    let Ok(modified) = path.metadata().and_then(|metadata| metadata.modified()) else {
+        return false;
+    };
+
+    modified
+        .elapsed()
+        .map(|age| age <= LOCATION_CACHE_MAX_AGE)
+        .unwrap_or(true)
 }
 
 fn write_cached_location(path: &std::path::Path, location: &CachedLocation) -> io::Result<()> {
