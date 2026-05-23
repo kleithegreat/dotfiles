@@ -3,11 +3,11 @@
 let
   neuwaita = pkgs.stdenvNoCC.mkDerivation {
     pname = "neuwaita";
-    version = "unstable";
+    version = "unstable-2026-03-18";
     src = pkgs.fetchFromGitHub {
       owner = "RusticBard";
       repo = "Neuwaita";
-      rev = "main";
+      rev = "112525b2a97226bb3e8ef4433c039bc514bc2973";
       sha256 = "sha256-A4yfcB+L1IwHGKhg32gq/E9qMoBF84zsnfl8fvWhYag=";
     };
     installPhase = ''
