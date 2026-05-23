@@ -46,7 +46,7 @@ Managed popups mounted by the overlay host remain:
 | `DisplayService.qml` | Monitor refresh/apply and daemon-backed night-light status / override requests | Display pane |
 | `HostCapabilities.qml` | Detects laptop-chassis, Wi-Fi, battery, power-profile, and fingerprint-reader capabilities, while only surfacing interactive power-profile support on laptop-like hosts | Settings host category visibility plus power/fingerprint pane availability |
 | `HyprlandConfigService.qml` | Shared monitor-layout undo/redo state plus Hyprland animation/keybind override editing, save, and clear flows | Display pane, Hyprland pane, Settings host refresh path |
-| `IdleInhibitService.qml` | Holds transient `systemd-inhibit` processes for idle inhibition and laptop lid-switch inhibition. The idle path uses `--what=idle` so hypridle pauses its timers while the shell toggle is active, auto-enabling at shell startup when `DESKTOPCTL_IDLE_INHIBIT_DEFAULT` is truthy; the lid path uses `--what=handle-lid-switch --mode=block` so logind ignores lid-close actions while active. | Quick Settings idle/lid inhibit controls |
+| `IdleInhibitService.qml` | Holds transient `systemd-inhibit` processes for idle inhibition and laptop lid-switch inhibition. The idle path uses `--what=idle` so hypridle pauses its timers while the shell toggle is active, auto-enabling shortly after shell startup when `DESKTOPCTL_IDLE_INHIBIT_DEFAULT` is truthy; the lid path uses `--what=handle-lid-switch --mode=block` so logind ignores lid-close actions while active. | Quick Settings idle/lid inhibit controls |
 | `NetworkService.qml` | Active network summary for Wi-Fi or ethernet via the default-route interface, Wi-Fi scans/known networks, active-transport diagnostics, DNS, captive portal, reporting | Bar network, quick settings, network pane |
 | `NotificationService.qml` | Popup/history models, DND, dismissal, relative-time refresh | Root notifications, drawer, bar bell, Notifications settings pane, IPC, and freedesktop notifications bridged from system services such as the physical-host kernel OOM notifier |
 | `PowerProfileService.qml` | CPU profiles and supported battery controls, including the laptop-only `e-core-only` profile when the `laptop-power-profile` helper is present | Power pane |
@@ -386,8 +386,10 @@ the history watermark and insert-animation logic in `config/quickshell/NotifDraw
   Manager now bootstraps that file during activation.
 - Desktop sessions that should start with idle inhibit already active export a
   truthy `DESKTOPCTL_IDLE_INHIBIT_DEFAULT`; `hosts/desktop/env.conf` now sets
-  that flag for the dedicated desktop host. Lid-switch inhibition is runtime-only
-  and does not have a boot-default environment flag.
+  that flag for the dedicated desktop host, and `config/quickshell/shell.qml`
+  applies it through a short startup timer after the root shell is initialized.
+  Lid-switch inhibition is runtime-only and does not have a boot-default
+  environment flag.
 - Keyboard-driven brightness OSD updates depend on `qs` plus repo-root
   resolution in `desktopctl`, not on a temp file.
 - A backlight is discoverable under `/sys/class/backlight`, or DDC/CI

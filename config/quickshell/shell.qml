@@ -12,7 +12,12 @@ import "components" as Components
 Scope {
     id: root
 
-    Component.onCompleted: IdleInhibitService.applyBootDefault()
+    Timer {
+        interval: 1000
+        running: true
+        repeat: false
+        onTriggered: IdleInhibitService.applyBootDefault()
+    }
 
     // ── Popup state ──
     property QtObject popupVisibility: PopupVisibility {}
