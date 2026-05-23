@@ -1,7 +1,7 @@
 { config, pkgs, lib, ... }:
 
 {
-  boot.initrd.availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usbhid" "usb_storage" "sd_mod" ];
+  boot.initrd.availableKernelModules = lib.mkForce [ "xhci_pci" "ahci" "nvme" "usbhid" "usb_storage" "sd_mod" ];
   boot.kernelPatches = [
     {
       name = "desktop-preempt-full-kernel-config";

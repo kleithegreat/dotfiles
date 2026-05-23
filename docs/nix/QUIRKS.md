@@ -78,6 +78,12 @@
 **Status:** Intentional design
 **Resolution:** Tune `systemd.services.mglru-tuning.script` in `system/physical-host.nix` if you want a different pressure-relief threshold, or remove that service if you want stock MGLRU behavior. Do not assume the older LE9 `vm.anon_min_kbytes` / `vm.clean_low_kbytes` / `vm.clean_min_kbytes` knobs are the active control surface in this repo.
 
+## Desktop initrd modules must match the trimmed kernel config
+**Symptom:** Building the desktop initrd fails in `linux-*-modules-shrunk` with `modprobe: FATAL: Module ata_piix not found` or another legacy storage/USB module that the desktop Kconfig trim disabled.
+**Cause:** `boot.initrd.availableKernelModules` is a merged list option. Without `lib.mkForce`, the host-generated desktop list is appended to NixOS's broad default rescue module set, so the initrd shrinker tries to copy modules such as `ata_piix`, `pata_marvell`, `sata_sis`, `sata_uli`, `sata_via`, or UHCI/OHCI drivers that `hosts/desktop/system.nix` intentionally removes from the kernel.
+**Status:** Workaround in place
+**Resolution:** `hosts/desktop/system.nix` uses `lib.mkForce` for `boot.initrd.availableKernelModules` so the initrd shrinker only sees the modules the desktop actually needs: `xhci_pci`, `ahci`, `nvme`, `usbhid`, `usb_storage`, and `sd_mod`. If the desktop storage controller changes, update that forced list and the matching Kconfig trim together.
+
 ## Physical hosts disable only Spectre/Meltdown mitigations on purpose
 **Symptom:** `lscpu`, `/sys/devices/system/cpu/vulnerabilities/*`, or boot logs report Spectre v1/v2 and Meltdown/PTI mitigations as disabled on the laptop and desktop, while other CPU vulnerability mitigations stay on the kernel defaults.
 **Cause:** `system/physical-host.nix` now sets `boot.kernelParams` to include `nospectre_v1`, `nospectre_v2`, and `pti=off` on the shared physical-host gate, without using the broad `mitigations=off` switch.
