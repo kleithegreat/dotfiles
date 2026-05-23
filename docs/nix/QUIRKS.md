@@ -68,9 +68,9 @@
 
 ## Physical-host kernels share one native helper
 **Symptom:** Desktop and laptop should both rebuild one shared tuned physical-host kernel while still keeping host-specific preemption and each host's own Kconfig trim on top.
-**Cause:** `system/native-kernel-packages.nix` now derives the kernel package set from the pinned nixpkgs `linux_6_18` source, builds it with Clang + LLD ThinLTO, applies the explicit BORE/BBR3 patch stack carried by that helper, keeps `ignoreConfigErrors = true`, and layers `KCFLAGS=-O2 -march=native`, `KRUSTFLAGS=-Ctarget-cpu=native`, and the host-specific native build feature. `system/physical-host.nix` routes both physical hosts through that helper, then the host modules add the desktop/laptop preemption overrides, the laptop's Intel-only trim, and the desktop's dead-subsystem culls through `boot.kernelPatches`.
+**Cause:** `system/native-kernel-packages.nix` now derives the kernel package set from the pinned nixpkgs `linux_6_18` source, builds it with Clang + LLD ThinLTO, keeps `ignoreConfigErrors = true`, bakes in shared stock-BBR/fq/HZ=1000/NO_HZ_IDLE/THP=madvise/MGLRU Kconfig overrides without an external BORE or BBR3 patch stack, and layers `KCFLAGS=-O2 -march=native`, `KRUSTFLAGS=-Ctarget-cpu=native`, and the host-specific native build feature. `system/physical-host.nix` routes both physical hosts through that helper, then the host modules add the desktop/laptop preemption overrides, the laptop's Intel-only trim, and the desktop's dead-subsystem culls through `boot.kernelPatches`.
 **Status:** Intentional design
-**Resolution:** Keep the shared physical-host baseline in `system/physical-host.nix` on `system/native-kernel-packages.nix`. Keep `ignoreConfigErrors = true` because the shared 6.18-based Kconfig still encounters dropped symbols on this nixpkgs revision. If you want the stock cached kernel back on a host, stop routing the physical-host `boot.kernelPackages` path through the helper instead of trying to partially undo the helper's BORE/BBR3/ThinLTO assumptions.
+**Resolution:** Keep the shared physical-host baseline in `system/physical-host.nix` on `system/native-kernel-packages.nix`. Keep `ignoreConfigErrors = true` because the shared 6.18-based Kconfig still encounters dropped symbols on this nixpkgs revision. If you want the stock cached kernel back on a host, stop routing the physical-host `boot.kernelPackages` path through the helper instead of trying to partially undo the helper's ThinLTO and native-codegen assumptions.
 
 ## Physical-host working-set protection uses MGLRU `min_ttl_ms`
 **Symptom:** Desktop and laptop now ask for LE9/LE10-style working-set and file-cache protection, but the active tuning path is not an obvious `vm.*_kbytes` sysctl block in the host modules.
@@ -78,11 +78,11 @@
 **Status:** Intentional design
 **Resolution:** Tune `systemd.services.mglru-tuning.script` in `system/physical-host.nix` if you want a different pressure-relief threshold, or remove that service if you want stock MGLRU behavior. Do not assume the older LE9 `vm.anon_min_kbytes` / `vm.clean_low_kbytes` / `vm.clean_min_kbytes` knobs are the active control surface in this repo.
 
-## Physical hosts disable CPU vulnerability mitigations on purpose
-**Symptom:** `lscpu`, `/sys/devices/system/cpu/vulnerabilities/*`, or boot logs report that Spectre, Meltdown, and related CPU side-channel mitigations are disabled on the laptop and desktop.
-**Cause:** `system/physical-host.nix` now sets `boot.kernelParams = [ "mitigations=off" "transparent_hugepage=madvise" ]` on the shared physical-host gate.
+## Physical hosts disable only Spectre/Meltdown mitigations on purpose
+**Symptom:** `lscpu`, `/sys/devices/system/cpu/vulnerabilities/*`, or boot logs report Spectre v1/v2 and Meltdown/PTI mitigations as disabled on the laptop and desktop, while other CPU vulnerability mitigations stay on the kernel defaults.
+**Cause:** `system/physical-host.nix` now sets `boot.kernelParams` to include `nospectre_v1`, `nospectre_v2`, and `pti=off` on the shared physical-host gate, without using the broad `mitigations=off` switch.
 **Status:** Intentional exception
-**Resolution:** Keep the parameter on the shared physical-host baseline only if the performance tradeoff is intentional. Remove that physical-host kernel param in `system/physical-host.nix` to restore the kernel's default mitigation policy.
+**Resolution:** Keep those specific parameters on the shared physical-host baseline only if the performance tradeoff is intentional. Remove them in `system/physical-host.nix` to restore the kernel's default Spectre/Meltdown mitigation policy. Do not reintroduce `mitigations=off` unless the intent is to disable the broader optional mitigation set too.
 
 ## Physical-host local builds allow limited derivation concurrency on purpose
 **Symptom:** Local Nix builds on desktop and laptop can build up to two derivations at once instead of fully serializing the local queue.

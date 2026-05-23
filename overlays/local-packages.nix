@@ -17,7 +17,7 @@ final: _prev: {
   };
   sf-pro = final.stdenvNoCC.mkDerivation {
     pname = "sf-pro";
-    version = "2026-04-10";
+    version = "2026-05-23";
 
     src = final.fetchurl {
       url = "https://devimages-cdn.apple.com/design/resources/download/SF-Pro.dmg";

@@ -138,8 +138,8 @@ in {
       name = "laptop-intel-only-kernel-config";
       patch = null;
       structuredExtraConfig = {
-        # Keep the laptop on voluntary preemption instead of the repo-wide
-        # BORE + full-preempt desktop policy.
+        # Keep the laptop on voluntary preemption instead of the desktop's
+        # full-preempt policy.
         PREEMPT_DYNAMIC = lib.mkForce lib.kernel.no;
         PREEMPT = lib.mkForce lib.kernel.no;
         PREEMPT_LAZY = lib.mkForce lib.kernel.no;

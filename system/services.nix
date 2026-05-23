@@ -66,7 +66,7 @@ in
   };
 
   security.pki.certificateFiles = [
-    ../certs/caddy-root-ca.crt
+    ../certs/homelab-ca.crt
   ];
 
   networking.firewall = {

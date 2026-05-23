@@ -58,7 +58,12 @@ in
 {
   config = lib.mkIf host.isPhysical {
     boot.kernelPackages = optimizedKernelPackages;
-    boot.kernelParams = [ "mitigations=off" "transparent_hugepage=madvise" ];
+    boot.kernelParams = [
+      "nospectre_v1"
+      "nospectre_v2"
+      "pti=off"
+      "transparent_hugepage=madvise"
+    ];
     boot.kernelModules = [ "kvm-intel" "iptable_nat" ];
     boot.loader.grub = {
       enable = true;
