@@ -81,7 +81,7 @@ let
     telegram-desktop
     pavucontrol
     gnome-secrets
-    orca-slicer
+    bambu-studio
     pandoc
     hypridle
     hyprpolkitagent
