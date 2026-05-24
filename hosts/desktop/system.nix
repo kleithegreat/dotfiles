@@ -1,49 +1,7 @@
-{ config, pkgs, lib, ... }:
+{ config, pkgs, ... }:
 
 {
-  boot.initrd.availableKernelModules = lib.mkForce [ "xhci_pci" "ahci" "nvme" "usbhid" "usb_storage" "sd_mod" ];
-  boot.kernelPatches = [
-    {
-      name = "desktop-preempt-full-kernel-config";
-      patch = null;
-      structuredExtraConfig = with lib.kernel; {
-        PREEMPT_DYNAMIC = lib.mkForce no;
-        PREEMPT = lib.mkForce yes;
-        PREEMPT_LAZY = lib.mkForce no;
-        PREEMPT_VOLUNTARY = lib.mkForce no;
-
-        # Trim desktop-only dead weight while keeping the active NVIDIA, Intel
-        # Wi-Fi, USB audio, webcam, and KVM host paths intact.
-        KVM_AMD = lib.mkForce no;
-        X86_AMD_PLATFORM_DEVICE = lib.mkForce no;
-        AMD_MEM_ENCRYPT = lib.mkForce no;
-        AMD_PMC = lib.mkForce no;
-        AMD_IOMMU = lib.mkForce no;
-
-        XEN = lib.mkForce no;
-        HYPERV = lib.mkForce no;
-        KVM_GUEST = lib.mkForce no;
-        NET_9P = lib.mkForce no;
-
-        DRM_NOUVEAU = lib.mkForce no;
-
-        ATA_PIIX = lib.mkForce no;
-        PATA_MARVELL = lib.mkForce no;
-        SATA_SIS = lib.mkForce no;
-        SATA_ULI = lib.mkForce no;
-        SATA_VIA = lib.mkForce no;
-
-        USB_EHCI_HCD = lib.mkForce no;
-        USB_OHCI_HCD = lib.mkForce no;
-        USB_UHCI_HCD = lib.mkForce no;
-
-        BTRFS_FS = lib.mkForce no;
-        XFS_FS = lib.mkForce no;
-        SMB_SERVER = lib.mkForce no;
-        SQUASHFS = lib.mkForce no;
-      };
-    }
-  ];
+  boot.initrd.availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usbhid" "usb_storage" "sd_mod" ];
   boot.kernel.sysctl = {
     "vm.swappiness" = 10;
     "vm.dirty_ratio" = 10;

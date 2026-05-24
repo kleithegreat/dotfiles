@@ -138,8 +138,7 @@ in {
       name = "laptop-intel-only-kernel-config";
       patch = null;
       structuredExtraConfig = {
-        # Keep the laptop on voluntary preemption instead of the desktop's
-        # full-preempt policy.
+        # Keep the laptop on voluntary preemption for its mobile hybrid-GPU path.
         PREEMPT_DYNAMIC = lib.mkForce lib.kernel.no;
         PREEMPT = lib.mkForce lib.kernel.no;
         PREEMPT_LAZY = lib.mkForce lib.kernel.no;
