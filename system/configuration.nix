@@ -109,7 +109,7 @@ in
 {
   imports = [
     (import ./physical-host.nix {
-      inherit config lib pkgs host enableNativeOptimizations;
+      inherit config lib pkgs host;
     })
     (import ./qt.nix {
       inherit lib pkgs inputs host enableNativeOptimizations;

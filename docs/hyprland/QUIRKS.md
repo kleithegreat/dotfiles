@@ -188,7 +188,7 @@ absorb parts of a local patch before the local patch stack is refreshed.
 dropping hunks that upstream has already absorbed instead of preserving stale API
 porting context. Rebuild the patched Hyprland package and plugin stack before
 running a full system rebuild, because the full desktop closure may also rebuild
-the native kernel/NVIDIA stack.
+the system kernel/NVIDIA stack.
 
 ## Hyprbars color parsing follows Hyprland parser utils on 0.55
 

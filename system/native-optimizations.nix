@@ -14,12 +14,6 @@ let
     "target-cpu=native"
   ];
 
-  kernelExtraMakeFlags = lib.optionals enabled [
-    # Keep userspace native rebuilds on -O3, but leave the kernel on -O2.
-    "KCFLAGS=-O2 -march=native"
-    "KRUSTFLAGS=-Ctarget-cpu=native"
-  ];
-
   joinFlags =
     flags:
     lib.concatStringsSep " " (lib.filter (flag: flag != null && flag != "") flags);
@@ -74,7 +68,7 @@ let
       drv;
 in
 {
-  inherit enabled hostFeature cFlags rustFlags kernelExtraMakeFlags joinFlags nativeHostAttrs optimizePackage;
+  inherit enabled hostFeature cFlags rustFlags joinFlags nativeHostAttrs optimizePackage;
 
   requireNativeBuildHost =
     drv:

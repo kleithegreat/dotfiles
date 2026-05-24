@@ -28,7 +28,7 @@
 **Symptom:** Desktop and laptop can otherwise build different native outputs at the same store path even when the literal optimization flags match.
 **Cause:** `-march=native` and `target-cpu=native` depend on the builder CPU, so the literal flag strings are not enough to distinguish safe cache/scheduler boundaries across hosts.
 **Status:** Workaround in place
-**Resolution:** `system/native-optimizations.nix`, `overlays/native-optimized.nix`, and `system/native-kernel-packages.nix` tag native derivations with `requiredSystemFeatures = [ "native-optimized-<host>" ]`, and `system/configuration.nix` advertises only the current host's native feature through `nix.settings.system-features` while `enableNativeOptimizations` is enabled.
+**Resolution:** `system/native-optimizations.nix` and `overlays/native-optimized.nix` tag native derivations with `requiredSystemFeatures = [ "native-optimized-<host>" ]`, and `system/configuration.nix` advertises only the current host's native feature through `nix.settings.system-features` while `enableNativeOptimizations` is enabled.
 
 ## Host `system-features` must not advertise `native-optimized-*` unconditionally
 **Symptom:** Stock `x86_64-linux` builds stop behaving like generic cacheable builds when a host always claims a native-only feature.
@@ -66,11 +66,11 @@
 **Status:** Workaround in place
 **Resolution:** `home/shell.nix` makes the `nrs` wrapper pass the target `system-features` list directly to `sudo nixos-rebuild switch` whenever native optimizations are enabled. That bootstraps the native-tagged derivations through the current daemon. Plain non-root `nix build --option system-features ...` is not sufficient here because `system-features` is a restricted setting for untrusted users.
 
-## Physical-host kernels share one native helper
-**Symptom:** Desktop and laptop should both rebuild one shared tuned physical-host kernel while still keeping host-specific preemption and each host's own Kconfig trim on top.
-**Cause:** `system/native-kernel-packages.nix` now derives the kernel package set from the pinned nixpkgs `linux_6_18` source, builds it with Clang + LLD ThinLTO, keeps `ignoreConfigErrors = true`, bakes in shared stock-BBR/fq/HZ=1000/NO_HZ_IDLE/THP=madvise/MGLRU Kconfig overrides without an external BORE or BBR3 patch stack, and layers `KCFLAGS=-O2 -march=native`, `KRUSTFLAGS=-Ctarget-cpu=native`, and the host-specific native build feature. `system/physical-host.nix` routes both physical hosts through that helper, then the host modules add the desktop/laptop preemption overrides, the laptop's Intel-only trim, and the desktop's dead-subsystem culls through `boot.kernelPatches`.
-**Status:** Intentional design
-**Resolution:** Keep the shared physical-host baseline in `system/physical-host.nix` on `system/native-kernel-packages.nix`. Keep `ignoreConfigErrors = true` because the shared 6.18-based Kconfig still encounters dropped symbols on this nixpkgs revision. If you want the stock cached kernel back on a host, stop routing the physical-host `boot.kernelPackages` path through the helper instead of trying to partially undo the helper's ThinLTO and native-codegen assumptions.
+## Physical hosts use the stock nixpkgs kernel package set
+**Symptom:** Custom physical-host kernel changes can break boot before persistent journald captures useful logs, as happened with desktop generation 73.
+**Cause:** The old shared `system/native-kernel-packages.nix` path rebuilt `linux_6_18` with Clang/ThinLTO/native flags plus CachyOS BORE and BBR3 patches. That boot-critical custom closure was harder to trust than the cached nixpkgs kernel package set.
+**Status:** Stock kernel path in place
+**Resolution:** `system/physical-host.nix` now sets `boot.kernelPackages = pkgs.linuxPackages`, and the repo no longer carries `system/native-kernel-packages.nix`. Keep low-risk runtime policy in `boot.kernelParams`, `boot.kernel.sysctl`, and systemd services instead of reintroducing a shared CachyOS/native kernel rebuild path.
 
 ## Physical-host working-set protection uses MGLRU `min_ttl_ms`
 **Symptom:** Desktop and laptop now ask for LE9/LE10-style working-set and file-cache protection, but the active tuning path is not an obvious `vm.*_kbytes` sysctl block in the host modules.
@@ -78,17 +78,17 @@
 **Status:** Intentional design
 **Resolution:** Tune `systemd.services.mglru-tuning.script` in `system/physical-host.nix` if you want a different pressure-relief threshold, or remove that service if you want stock MGLRU behavior. Do not assume the older LE9 `vm.anon_min_kbytes` / `vm.clean_low_kbytes` / `vm.clean_min_kbytes` knobs are the active control surface in this repo.
 
-## Desktop initrd modules must match the trimmed kernel config
-**Symptom:** Building the desktop initrd fails in `linux-*-modules-shrunk` with `modprobe: FATAL: Module ata_piix not found` or another legacy storage/USB module that the desktop Kconfig trim disabled.
-**Cause:** `boot.initrd.availableKernelModules` is a merged list option. Without `lib.mkForce`, the host-generated desktop list is appended to NixOS's broad default rescue module set, so the initrd shrinker tries to copy modules such as `ata_piix`, `pata_marvell`, `sata_sis`, `sata_uli`, `sata_via`, or UHCI/OHCI drivers that `hosts/desktop/system.nix` intentionally removes from the kernel.
-**Status:** Workaround in place
-**Resolution:** `hosts/desktop/system.nix` uses `lib.mkForce` for `boot.initrd.availableKernelModules` so the initrd shrinker only sees the modules the desktop actually needs: `xhci_pci`, `ahci`, `nvme`, `usbhid`, `usb_storage`, and `sd_mod`. If the desktop storage controller changes, update that forced list and the matching Kconfig trim together.
+## Desktop kernel trim is disabled until it is boot-validated
+**Symptom:** Generation 73 on the desktop failed to boot far enough to leave a persistent journal entry, while generation 72 booted normally.
+**Cause:** The failed generation differed from the working generation in the kernel/initrd/NVIDIA-open closure. The desktop-specific PREEMPT_FULL and dead-subsystem Kconfig trim plus forced initrd module list made that closure harder to trust because an early kernel or stage-1 failure would not be debuggable from the normal journal.
+**Status:** Avoided for boot stability
+**Resolution:** `hosts/desktop/system.nix` no longer adds desktop-only `boot.kernelPatches` or forces `boot.initrd.availableKernelModules`; it stays on the shared physical-host kernel config and a normal merged initrd module list. Reintroduce desktop Kconfig trimming only as a separately tested change, and verify a real desktop boot before keeping it.
 
-## Physical hosts disable only Spectre/Meltdown mitigations on purpose
-**Symptom:** `lscpu`, `/sys/devices/system/cpu/vulnerabilities/*`, or boot logs report Spectre v1/v2 and Meltdown/PTI mitigations as disabled on the laptop and desktop, while other CPU vulnerability mitigations stay on the kernel defaults.
-**Cause:** `system/physical-host.nix` now sets `boot.kernelParams` to include `nospectre_v1`, `nospectre_v2`, and `pti=off` on the shared physical-host gate, without using the broad `mitigations=off` switch.
+## Physical hosts disable CPU vulnerability mitigations on purpose
+**Symptom:** `lscpu`, `/sys/devices/system/cpu/vulnerabilities/*`, or boot logs report that Spectre, Meltdown, and related CPU side-channel mitigations are disabled on the laptop and desktop.
+**Cause:** `system/physical-host.nix` now sets `boot.kernelParams = [ "mitigations=off" "transparent_hugepage=madvise" ]` on the shared physical-host gate.
 **Status:** Intentional exception
-**Resolution:** Keep those specific parameters on the shared physical-host baseline only if the performance tradeoff is intentional. Remove them in `system/physical-host.nix` to restore the kernel's default Spectre/Meltdown mitigation policy. Do not reintroduce `mitigations=off` unless the intent is to disable the broader optional mitigation set too.
+**Resolution:** Keep the parameter on the shared physical-host baseline only if the performance tradeoff is intentional. Remove that physical-host kernel param in `system/physical-host.nix` to restore the kernel's default mitigation policy.
 
 ## Physical-host local builds allow limited derivation concurrency on purpose
 **Symptom:** Local Nix builds on desktop and laptop can build up to two derivations at once instead of fully serializing the local queue.

@@ -1,9 +1,6 @@
-{ config, lib, pkgs, host, enableNativeOptimizations }:
+{ config, lib, pkgs, host }:
 
 let
-  optimizedKernelPackages = import ./native-kernel-packages.nix {
-    inherit lib pkgs host enableNativeOptimizations;
-  };
   kernelOomNotifier = pkgs.writeShellApplication {
     name = "kernel-oom-notifier";
     runtimeInputs = with pkgs; [ coreutils libnotify systemd util-linux ];
@@ -57,11 +54,9 @@ let
 in
 {
   config = lib.mkIf host.isPhysical {
-    boot.kernelPackages = optimizedKernelPackages;
+    boot.kernelPackages = pkgs.linuxPackages;
     boot.kernelParams = [
-      "nospectre_v1"
-      "nospectre_v2"
-      "pti=off"
+      "mitigations=off"
       "transparent_hugepage=madvise"
     ];
     boot.kernelModules = [ "kvm-intel" "iptable_nat" ];
