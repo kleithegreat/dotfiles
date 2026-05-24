@@ -2,7 +2,7 @@ final: prev: {
   bambu-studio =
     let
       pname = "bambu-studio";
-      version = "02.05.00.67";
+      version = "02.06.00.51";
       caBundle = "${final.cacert}/etc/ssl/certs/ca-bundle.crt";
       fontsConf = final.makeFontsConf { fontDirectories = [ final.nanum ]; };
       appimageContents = final.appimageTools.extract {
@@ -10,8 +10,8 @@ final: prev: {
         src = bambuStudioAppImage;
       };
       bambuStudioAppImage = final.fetchurl {
-        url = "https://github.com/bambulab/BambuStudio/releases/download/v${version}/Bambu_Studio_linux_fedora-v02.05.00.66.AppImage";
-        hash = "sha256-ydurwaGx3+AfA64oY1OZ7X3RoLjqbZcyvy2Ro5OBsK0=";
+        url = "https://github.com/bambulab/BambuStudio/releases/download/v${version}/BambuStudio_ubuntu-24.04-v${version}-20260417160415.AppImage";
+        hash = "sha256-CYePefJ7FXcAK+OXsIaNRHkml18BA7um4W2+f6l49zQ=";
       };
     in
       final.appimageTools.wrapType2 {
