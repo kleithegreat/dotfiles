@@ -1,4 +1,58 @@
-final: _prev: {
+final: prev: {
+  bambu-studio =
+    let
+      pname = "bambu-studio";
+      version = "02.05.00.67";
+      caBundle = "${final.cacert}/etc/ssl/certs/ca-bundle.crt";
+      fontsConf = final.makeFontsConf { fontDirectories = [ final.nanum ]; };
+      appimageContents = final.appimageTools.extract {
+        inherit pname version;
+        src = bambuStudioAppImage;
+      };
+      bambuStudioAppImage = final.fetchurl {
+        url = "https://github.com/bambulab/BambuStudio/releases/download/v${version}/Bambu_Studio_linux_fedora-v02.05.00.66.AppImage";
+        hash = "sha256-ydurwaGx3+AfA64oY1OZ7X3RoLjqbZcyvy2Ro5OBsK0=";
+      };
+    in
+      final.appimageTools.wrapType2 {
+        inherit pname version;
+        src = bambuStudioAppImage;
+
+        profile = ''
+          export SSL_CERT_FILE="${caBundle}"
+          export CURL_CA_BUNDLE="${caBundle}"
+          export GIO_MODULE_DIR="${final.glib-networking}/lib/gio/modules"
+          export WEBKIT_DISABLE_COMPOSITING_MODE=1
+          export WEBKIT_DISABLE_DMABUF_RENDERER=1
+          export FONTCONFIG_FILE="${fontsConf}"
+        '';
+
+        extraPkgs = pkgs: with pkgs; [
+          cacert
+          glib
+          glib-networking
+          gst_all_1.gst-plugins-bad
+          gst_all_1.gst-plugins-base
+          gst_all_1.gst-plugins-good
+          libsecret
+          webkitgtk_4_1
+        ];
+
+        extraInstallCommands = ''
+          install -m 444 -D ${appimageContents}/BambuStudio.desktop \
+            $out/share/applications/BambuStudio.desktop
+          install -m 444 -D ${appimageContents}/BambuStudio.png \
+            $out/share/icons/hicolor/scalable/apps/BambuStudio.png
+          substituteInPlace $out/share/applications/BambuStudio.desktop \
+            --replace-fail 'Exec=AppRun %U' 'Exec=bambu-studio %U'
+        '';
+
+        meta = prev.bambu-studio.meta // {
+          mainProgram = "bambu-studio";
+          sourceProvenance = with final.lib.sourceTypes; [ binaryNativeCode ];
+        };
+      };
+
   desktopctl = final.callPackage ../desktopctl { };
   helium = final.callPackage ../pkgs/helium { };
   snappy-switcher = final.callPackage ../pkgs/snappy-switcher { };

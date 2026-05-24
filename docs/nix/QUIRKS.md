@@ -132,6 +132,12 @@
 **Status:** Workaround in place
 **Resolution:** Install those apps through NixOS modules or `environment.systemPackages`. `system/configuration.nix` now enables `programs.partition-manager` so `kpmcore` is registered for both D-Bus activation and polkit, and `bitwarden-desktop` stays in `environment.systemPackages` for the same reason.
 
+## Bambu Studio cloud login uses a temporary AppImage wrapper
+**Symptom:** Completing Bambu Lab login closes the prompt but leaves Bambu Studio appearing logged out, or the browser OAuth flow cannot return to Bambu Studio through the local callback.
+**Cause:** The current locked nixpkgs `bambu-studio` build predates NixOS/nixpkgs#522161, which fixes the source-built package's cloud-auth runtime. Backporting that patch locally still forces a large Bambu Studio C++ rebuild; on the current host it is slow enough to be a poor routine workaround.
+**Status:** Temporary AppImage overlay in place
+**Resolution:** `overlays/local-packages.nix` replaces `pkgs.bambu-studio` with the official upstream `Bambu_Studio_linux_fedora-v02.05.00.66.AppImage` from the `v02.05.00.67` release, wrapped through `appimageTools.wrapType2`. The wrapper installs the upstream desktop file/icon, adds `glib-networking`, `webkitgtk_4_1`, GStreamer plugins, `libsecret`, and explicit CA/GIO/WebKit/font environment so the login webview and callback path work in the NixOS session without a source rebuild. Remove this override after the flake's `nixpkgs` input includes NixOS/nixpkgs#522161 or an equivalent upstream fix and the source-built package is confirmed to log in. If the AppImage opens with language/locale errors after running the old package, delete the stale `language` key from `~/.config/BambuStudio/BambuStudio.conf` or remove that config directory after backing up any needed printer/profile state.
+
 ## SDDM cannot read wallpapers from the locked-down home directory directly
 **Symptom:** Pointing `where_is_my_sddm_theme` straight at a wallpaper under `/home/kevin/...` leaves the greeter background blank even though the same path works inside the user session.
 **Cause:** The shared `kevin` home directory is mode `0700`, so the pre-login SDDM user cannot traverse into the repo checkout or other home-owned wallpaper paths.
