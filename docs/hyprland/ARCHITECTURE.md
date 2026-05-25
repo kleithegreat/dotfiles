@@ -136,7 +136,8 @@ against the patched Hyprland headers.
 `patches/hyprland-plugins/hyprbars-hyprland-0.54.patch`
 keeps `hyprbars` on the legacy `HyprlandAPI::addConfigValue(...)` plus
 `HyprlandAPI::getConfigValue(...)` path, parses color strings through
-`Config::ParserUtils::parseColor(...)`, renders the bar background with top-only
+`Config::ParserUtils::parseColor(...)`, carries upstream `bar_text_weight`
+through a string-backed legacy helper, renders the bar background with top-only
 rounded corners, and opts the custom bar pass out of render-pass simplification.
 `patches/hyprland-plugins/hyprexpo-hyprland-0.54.patch` carries the local
 overview behavior: it debounces accidental select events immediately after

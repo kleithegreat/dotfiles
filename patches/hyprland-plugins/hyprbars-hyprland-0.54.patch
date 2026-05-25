@@ -99,18 +99,20 @@ diff --git a/barDeco.cpp b/barDeco.cpp
  
      const bool BUTTONSRIGHT = ALIGNBUTTONS != "left";
  
-@@ -284,12 +284,12 @@ bool CHyprBar::doButtonPress(Config::INTEGER barPadding, Config::INTEGER barButt
+@@ -284,13 +284,13 @@ bool CHyprBar::doButtonPress(Config::INTEGER barPadding, Config::INTEGER barButt
  }
  
  void CHyprBar::renderBarTitle(const Vector2D& bufferSize, const float scale) {
 -    const auto COLORVAL         = g_pGlobalState->config.textColor->value();
 -    const auto SIZE             = g_pGlobalState->config.barTextSize->value();
+-    const auto WEIGHT           = g_pGlobalState->config.barTextWeight->value();
 -    const auto FONT             = g_pGlobalState->config.barTextFont->value();
 -    const auto ALIGN            = g_pGlobalState->config.barTextAlign->value();
 -    const auto BARPADDING       = g_pGlobalState->config.barPadding->value();
 -    const auto BARBUTTONPADDING = g_pGlobalState->config.barButtonPadding->value();
 +    const auto COLORVAL         = HyprbarsConfig::textColor();
 +    const auto SIZE             = HyprbarsConfig::barTextSize();
++    const auto WEIGHT           = HyprbarsConfig::barTextWeight();
 +    const auto FONT             = HyprbarsConfig::barTextFont();
 +    const auto ALIGN            = HyprbarsConfig::barTextAlign();
 +    const auto BARPADDING       = HyprbarsConfig::barPadding();
@@ -301,7 +303,7 @@ diff --git a/barDeco.cpp b/barDeco.cpp
 diff --git a/globals.hpp b/globals.hpp
 --- a/globals.hpp
 +++ b/globals.hpp
-@@ -2,10 +2,6 @@
+@@ -2,11 +2,7 @@
  
  #include <hyprland/src/plugins/PluginAPI.hpp>
  #include <hyprland/src/render/Texture.hpp>
@@ -309,21 +311,24 @@ diff --git a/globals.hpp b/globals.hpp
 -#include <hyprland/src/config/values/types/IntValue.hpp>
 -#include <hyprland/src/config/values/types/StringValue.hpp>
 -#include <hyprland/src/config/values/types/ColorValue.hpp>
+-#include <hyprland/src/config/values/types/FontWeightValue.hpp>
++#include <hyprland/src/config/shared/complex/ComplexDataTypes.hpp>
  
  inline HANDLE PHANDLE = nullptr;
  
-@@ -28,15 +24,93 @@ struct SGlobalState {
+@@ -29,16 +25,98 @@ struct SGlobalState {
      uint32_t                  barColorRuleIdx   = 0;
      uint32_t                  titleColorRuleIdx = 0;
  
 -    struct {
--        SP<Config::Values::CColorValue>  barColor, textColor, inactiveButtonColor;
--        SP<Config::Values::CIntValue>    barHeight;
--        SP<Config::Values::CIntValue>    barTextSize;
--        SP<Config::Values::CIntValue>    barPadding;
--        SP<Config::Values::CIntValue>    barButtonPadding;
--        SP<Config::Values::CBoolValue>   barBlur, barTitleEnabled, barPartOfWindow, barPrecedenceOverBorder, enabled, iconOnHover;
--        SP<Config::Values::CStringValue> barTextFont, barTextAlign, barButtonsAlignment, onDoubleClick;
+-        SP<Config::Values::CColorValue>      barColor, textColor, inactiveButtonColor;
+-        SP<Config::Values::CIntValue>        barHeight;
+-        SP<Config::Values::CIntValue>        barTextSize;
+-        SP<Config::Values::CFontWeightValue> barTextWeight;
+-        SP<Config::Values::CIntValue>        barPadding;
+-        SP<Config::Values::CIntValue>        barButtonPadding;
+-        SP<Config::Values::CBoolValue>       barBlur, barTitleEnabled, barPartOfWindow, barPrecedenceOverBorder, enabled, iconOnHover;
+-        SP<Config::Values::CStringValue>     barTextFont, barTextAlign, barButtonsAlignment, onDoubleClick;
 -    } config;
  };
  
@@ -353,6 +358,11 @@ diff --git a/globals.hpp b/globals.hpp
 +    inline Config::INTEGER barTextSize() {
 +        static auto* const ptr = (Hyprlang::INT* const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprbars:bar_text_size")->getDataStaticPtr();
 +        return **ptr;
++    }
++
++    inline Config::CFontWeightConfigValueData barTextWeight() {
++        static auto const* ptr = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprbars:bar_text_weight")->getDataStaticPtr();
++        return Config::CFontWeightConfigValueData(*ptr);
 +    }
 +
 +    inline bool barTitleEnabled() {
@@ -418,7 +428,7 @@ diff --git a/globals.hpp b/globals.hpp
 diff --git a/main.cpp b/main.cpp
 --- a/main.cpp
 +++ b/main.cpp
-@@ -209,44 +209,23 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
+@@ -209,46 +209,24 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
      static auto P  = Event::bus()->m_events.window.open.listen([&](PHLWINDOW w) { onNewWindow(w); });
      static auto P3 = Event::bus()->m_events.window.updateRules.listen([&](PHLWINDOW w) { onUpdateWindowRules(w); });
  
@@ -428,6 +438,7 @@ diff --git a/main.cpp b/main.cpp
 -        "plugin:hyprbars:inactive_button_color", "Change the inactive button's color. 0x00000000 means unset", 0x00000000);
 -    g_pGlobalState->config.barHeight       = makeShared<Config::Values::CIntValue>("plugin:hyprbars:bar_height", "Change the bar's height", 15);
 -    g_pGlobalState->config.barTextSize     = makeShared<Config::Values::CIntValue>("plugin:hyprbars:bar_text_size", "Change the bar's text size", 10);
+-    g_pGlobalState->config.barTextWeight   = makeShared<Config::Values::CFontWeightValue>("plugin:hyprbars:bar_text_weight", "Bar's title text weight (e.g. \"bold\" or an integer 100-1000)", 400);
 -    g_pGlobalState->config.barTitleEnabled = makeShared<Config::Values::CBoolValue>("plugin:hyprbars:bar_title_enabled", "Whether to enable titles in the bar", true);
 -    g_pGlobalState->config.barBlur         = makeShared<Config::Values::CBoolValue>("plugin:hyprbars:bar_blur", "Whether to enable blur of the bar", false);
 -    g_pGlobalState->config.barTextFont     = makeShared<Config::Values::CStringValue>("plugin:hyprbars:bar_text_font", "Bar's text font", "Sans");
@@ -448,6 +459,7 @@ diff --git a/main.cpp b/main.cpp
 -    HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.inactiveButtonColor);
 -    HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.barHeight);
 -    HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.barTextSize);
+-    HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.barTextWeight);
 -    HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.barTitleEnabled);
 -    HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.barBlur);
 -    HyprlandAPI::addConfigValueV2(PHANDLE, g_pGlobalState->config.barTextFont);
@@ -465,6 +477,7 @@ diff --git a/main.cpp b/main.cpp
 +    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:inactive_button_color", Hyprlang::INT{0x00000000});
 +    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:bar_height", Hyprlang::INT{15});
 +    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:bar_text_size", Hyprlang::INT{10});
++    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:bar_text_weight", Hyprlang::STRING{"400"});
 +    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:bar_title_enabled", Hyprlang::INT{1});
 +    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:bar_blur", Hyprlang::INT{0});
 +    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprbars:bar_text_font", Hyprlang::STRING{"Sans"});
