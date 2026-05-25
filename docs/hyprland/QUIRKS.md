@@ -169,8 +169,10 @@ legacy plugin-config path used by the other working plugins on this stack:
 `hyprbars/main.cpp` registers defaults through
 `HyprlandAPI::addConfigValue(...)`, while `hyprbars/globals.hpp` and the render
 code read live values through `HyprlandAPI::getConfigValue(...)` instead of the
-crashing `addConfigValueV2(...)` / `Config::Values::*Value` path. Re-test
-`hyprbars` against future input bumps before dropping that local workaround.
+crashing `addConfigValueV2(...)` / `Config::Values::*Value` path. New upstream
+plugin settings such as `bar_text_weight` still need matching legacy defaults and
+`HyprbarsConfig` helpers when this patch is refreshed. Re-test `hyprbars` against
+future input bumps before dropping that local workaround.
 
 ## Rolling Hyprland inputs can make local patches fail during build
 
@@ -189,7 +191,9 @@ dropping hunks that upstream has already absorbed instead of preserving stale AP
 porting context. The current Hyprland 0.55 lock required dropping a stale
 no-newline hunk from `patches/hyprland/hyprland-floating-top-decoration-rounding-0.54.patch`
 and carrying the new texture wrap fields through
-`patches/hyprland/hyprland-gcc15-designated-initializer-fix-0.54.patch`.
+`patches/hyprland/hyprland-gcc15-designated-initializer-fix-0.54.patch`; the
+matching `hyprbars` plugin refresh also had to carry upstream `bar_text_weight`
+through the legacy config helper stack.
 Rebuild the patched Hyprland package and plugin stack before running a full
 system rebuild, because the full desktop closure may also rebuild the system
 kernel/NVIDIA stack.
