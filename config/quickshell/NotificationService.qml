@@ -39,6 +39,15 @@ QtObject {
         scheduleRelativeTimeRefresh();
     }
 
+    function removeHistoryEntry(entryId) {
+        let historyIndex = indexOfEntry(historyEntriesModel, "entryId", entryId);
+        if (historyIndex < 0)
+            return;
+
+        historyEntriesModel.remove(historyIndex);
+        scheduleRelativeTimeRefresh();
+    }
+
     function clearHistory() {
         historyEntriesModel.clear();
         scheduleRelativeTimeRefresh();
