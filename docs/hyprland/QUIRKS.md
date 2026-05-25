@@ -186,9 +186,13 @@ absorb parts of a local patch before the local patch stack is refreshed.
 **Impact / workaround:** Refresh the relevant file under `patches/hyprland/` or
 `patches/hyprland-plugins/` against the locked source revision, and prefer
 dropping hunks that upstream has already absorbed instead of preserving stale API
-porting context. Rebuild the patched Hyprland package and plugin stack before
-running a full system rebuild, because the full desktop closure may also rebuild
-the system kernel/NVIDIA stack.
+porting context. The current Hyprland 0.55 lock required dropping a stale
+no-newline hunk from `patches/hyprland/hyprland-floating-top-decoration-rounding-0.54.patch`
+and carrying the new texture wrap fields through
+`patches/hyprland/hyprland-gcc15-designated-initializer-fix-0.54.patch`.
+Rebuild the patched Hyprland package and plugin stack before running a full
+system rebuild, because the full desktop closure may also rebuild the system
+kernel/NVIDIA stack.
 
 ## Hyprbars color parsing follows Hyprland parser utils on 0.55
 
@@ -221,7 +225,7 @@ break evaluation before Nix reaches the build phase.
 **Status:** Workaround in place. `system/configuration.nix` now wires
 `hyprexpo` from `pkgs/hyprland-plugins/hyprexpo/default.nix`, a repo-local
 package that extracts the removed plugin source from upstream revision
-`22de29bc1cf4126202df52691d0bc9a065089cba` and applies
+`eaf18d55d51cef00818c5a4fdd4170f8cc2de4dc` and applies
 `patches/hyprland-plugins/hyprexpo-hyprland-0.54.patch`. The main
 `hyprland-plugins` flake input can keep rolling for still-shipped plugins such
 as `hyprbars`; Hyprexpo maintenance now means refreshing the local package or

@@ -1,16 +1,17 @@
 diff --git a/packages/ui/src/components/sections/openchamber/OpenCodeCliSettings.tsx b/packages/ui/src/components/sections/openchamber/OpenCodeCliSettings.tsx
+index c11aaba..9b08a5e 100644
 --- a/packages/ui/src/components/sections/openchamber/OpenCodeCliSettings.tsx
 +++ b/packages/ui/src/components/sections/openchamber/OpenCodeCliSettings.tsx
-@@ -9,7 +9,7 @@
- import { reloadOpenCodeConfiguration } from '@/stores/useAgentsStore';
+@@ -13,7 +13,7 @@ import { useI18n } from '@/lib/i18n';
  
  export const OpenCodeCliSettings: React.FC = () => {
+   const { t } = useI18n();
 -  const [backend, setBackend] = React.useState<'opencode' | 'claude-code'>('opencode');
 +  const [backend, setBackend] = React.useState<'opencode' | 'claude-code' | 'mixed'>('opencode');
    const [value, setValue] = React.useState('');
    const [isLoading, setIsLoading] = React.useState(true);
    const [isSaving, setIsSaving] = React.useState(false);
-@@ -29,7 +29,9 @@
+@@ -35,7 +35,9 @@ export const OpenCodeCliSettings: React.FC = () => {
          if (cancelled || !data) {
            return;
          }
@@ -21,23 +22,23 @@ diff --git a/packages/ui/src/components/sections/openchamber/OpenCodeCliSettings
          const next = typeof data.opencodeBinary === 'string' ? data.opencodeBinary.trim() : '';
          setBackend(nextBackend);
          setValue(next);
-@@ -78,8 +80,13 @@
+@@ -84,8 +86,13 @@ export const OpenCodeCliSettings: React.FC = () => {
      setIsSaving(true);
      try {
        await updateDesktopSettings({ backend, opencodeBinary: value.trim() });
 +      const message = backend === 'claude-code'
-+        ? 'Switching to Claude Code…'
++        ? 'Switching to Claude Code...'
 +        : backend === 'mixed'
-+          ? 'Starting OpenCode + Claude Code…'
-+          : 'Restarting OpenCode…';
++          ? 'Starting OpenCode + Claude Code...'
++          : t('settings.openchamber.opencodeCli.actions.restartingOpenCode');
        await reloadOpenCodeConfiguration({
--        message: backend === 'claude-code' ? 'Switching to Claude Code…' : 'Restarting OpenCode…',
+-        message: backend === 'claude-code' ? 'Switching to Claude Code...' : t('settings.openchamber.opencodeCli.actions.restartingOpenCode'),
 +        message,
          mode: 'projects',
          scopes: ['all'],
        });
-@@ -100,7 +107,7 @@
-               <RiInformationLine className="h-3.5 w-3.5 text-muted-foreground/60 cursor-help" />
+@@ -106,7 +113,7 @@ export const OpenCodeCliSettings: React.FC = () => {
+               <Icon name="information" className="h-3.5 w-3.5 text-muted-foreground/60 cursor-help" />
              </TooltipTrigger>
              <TooltipContent sideOffset={8} className="max-w-xs">
 -              Choose whether OpenChamber manages a local OpenCode server or uses the built-in Claude Code bridge.
@@ -45,7 +46,7 @@ diff --git a/packages/ui/src/components/sections/openchamber/OpenCodeCliSettings
              </TooltipContent>
            </Tooltip>
          </div>
-@@ -112,11 +119,12 @@
+@@ -118,11 +125,12 @@ export const OpenCodeCliSettings: React.FC = () => {
              <span className="typography-ui-label text-foreground">Runtime Backend</span>
            </div>
            <div className="flex min-w-0 items-center gap-2 sm:w-[20rem]">
@@ -59,7 +60,7 @@ diff --git a/packages/ui/src/components/sections/openchamber/OpenCodeCliSettings
                  <SelectItem value="opencode">OpenCode</SelectItem>
                  <SelectItem value="claude-code">Claude Code</SelectItem>
                </SelectContent>
-@@ -124,7 +132,7 @@
+@@ -130,7 +138,7 @@ export const OpenCodeCliSettings: React.FC = () => {
            </div>
          </div>
  
@@ -68,8 +69,8 @@ diff --git a/packages/ui/src/components/sections/openchamber/OpenCodeCliSettings
            <>
              <div className="flex flex-col gap-2 py-1.5 sm:flex-row sm:items-center sm:gap-3">
                <div className="flex min-w-0 flex-col shrink-0">
-@@ -158,6 +166,14 @@
-                 Tip: you can also use <span className="font-mono">OPENCODE_BINARY</span> env var, but this setting persists in <span className="font-mono">~/.config/openchamber/settings.json</span>.
+@@ -171,6 +179,14 @@ export const OpenCodeCliSettings: React.FC = () => {
+                 {'.'}
                </div>
              </div>
 +
@@ -84,9 +85,10 @@ diff --git a/packages/ui/src/components/sections/openchamber/OpenCodeCliSettings
          ) : (
            <div className="py-1.5">
 diff --git a/packages/ui/src/lib/desktop.ts b/packages/ui/src/lib/desktop.ts
+index 6653144..de89937 100644
 --- a/packages/ui/src/lib/desktop.ts
 +++ b/packages/ui/src/lib/desktop.ts
-@@ -48,7 +48,7 @@
+@@ -49,7 +49,7 @@ export type DesktopSettings = {
    splashFgDark?: string;
    lastDirectory?: string;
    homeDirectory?: string;
@@ -96,9 +98,10 @@ diff --git a/packages/ui/src/lib/desktop.ts b/packages/ui/src/lib/desktop.ts
    opencodeBinary?: string;
    desktopLanAccessEnabled?: boolean;
 diff --git a/packages/ui/src/lib/persistence.ts b/packages/ui/src/lib/persistence.ts
+index ce2c45a..2a33c2a 100644
 --- a/packages/ui/src/lib/persistence.ts
 +++ b/packages/ui/src/lib/persistence.ts
-@@ -515,7 +515,7 @@
+@@ -606,7 +606,7 @@ const sanitizeWebSettings = (payload: unknown): DesktopSettings | null => {
      result.homeDirectory = candidate.homeDirectory;
    }
  
@@ -108,9 +111,10 @@ diff --git a/packages/ui/src/lib/persistence.ts b/packages/ui/src/lib/persistenc
    }
  
 diff --git a/packages/ui/src/sync/session-actions.ts b/packages/ui/src/sync/session-actions.ts
+index 8436c64..94435da 100644
 --- a/packages/ui/src/sync/session-actions.ts
 +++ b/packages/ui/src/sync/session-actions.ts
-@@ -138,12 +138,46 @@
+@@ -192,12 +192,46 @@ export async function createSession(
    parentID?: string | null,
  ): Promise<Session | null> {
    try {
@@ -131,8 +135,6 @@ diff --git a/packages/ui/src/sync/session-actions.ts b/packages/ui/src/sync/sess
 +    const payload = {
        title,
        parentID: parentID ?? undefined,
--    })
--    const session = result.data
 +      ...(providerID && modelID ? { model: { providerID, modelID } } : {}),
 +      ...(variant ? { variant } : {}),
 +      ...(agent ? { agent } : {}),
@@ -151,7 +153,8 @@ diff --git a/packages/ui/src/sync/session-actions.ts b/packages/ui/src/sync/sess
 +        'content-type': 'application/json',
 +      },
 +      body: JSON.stringify(payload),
-+    })
+     })
+-    const session = result.data
 +    const session = await response.json().catch(() => null)
 +
 +    if (!response.ok) {
@@ -162,10 +165,11 @@ diff --git a/packages/ui/src/sync/session-actions.ts b/packages/ui/src/sync/sess
  
        const sessionDirectory = (session as { directory?: string }).directory ?? directoryOverride ?? null
 diff --git a/packages/web/server/lib/opencode/lifecycle.js b/packages/web/server/lib/opencode/lifecycle.js
+index c40ff02..9e82cfa 100644
 --- a/packages/web/server/lib/opencode/lifecycle.js
 +++ b/packages/web/server/lib/opencode/lifecycle.js
-@@ -177,7 +177,7 @@
-     await waitForChildProcessClose(child, 1000);
+@@ -217,7 +217,7 @@ export const createOpenCodeLifecycleRuntime = (deps) => {
+     return parts.length > 0 ? parts.join('\n\n') : 'No stdout/stderr captured';
    };
  
 -  const normalizeManagedBackend = (value) => value === 'claude-code' ? 'claude-code' : 'opencode';
@@ -173,7 +177,7 @@ diff --git a/packages/web/server/lib/opencode/lifecycle.js b/packages/web/server
  
    const readManagedBackendFromSettings = async () => {
      try {
-@@ -291,6 +291,57 @@
+@@ -354,6 +354,57 @@ export const createOpenCodeLifecycleRuntime = (deps) => {
      };
    };
  
@@ -231,7 +235,7 @@ diff --git a/packages/web/server/lib/opencode/lifecycle.js b/packages/web/server
    const createManagedClaudeBridgeProcess = async ({ port, timeout, cwd }) => {
      const binary = (process.env.OPENCHAMBER_CLAUDE_BRIDGE_BINARY || 'openchamber-claude-bridge').trim() || 'openchamber-claude-bridge';
      const args = ['serve', '--host', '127.0.0.1', '--port', String(port)];
-@@ -443,6 +494,48 @@
+@@ -515,6 +566,48 @@ export const createOpenCodeLifecycleRuntime = (deps) => {
      state.isExternalOpenCode = false;
      state.openCodeBaseUrl = null;
  
@@ -281,9 +285,10 @@ diff --git a/packages/web/server/lib/opencode/lifecycle.js b/packages/web/server
        console.log(
          desiredPort > 0
 diff --git a/packages/web/server/lib/opencode/settings-helpers.js b/packages/web/server/lib/opencode/settings-helpers.js
+index e3c0da9..5078fed 100644
 --- a/packages/web/server/lib/opencode/settings-helpers.js
 +++ b/packages/web/server/lib/opencode/settings-helpers.js
-@@ -87,7 +87,7 @@
+@@ -114,7 +114,7 @@ export const createSettingsHelpers = (dependencies) => {
      }
      if (typeof candidate.backend === 'string') {
        const normalized = candidate.backend.trim();

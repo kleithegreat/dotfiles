@@ -217,13 +217,6 @@ index 670c788..7b84d1e 100644
              .discardActive  = m_data.discardActive,
              .allowCustomUV  = m_data.allowCustomUV,
              .cmBackToSRGB   = m_data.cmBackToSRGB,
-@@ -135,4 +136,4 @@ void CGLElementRenderer::draw(WP<CTextureMatteElement> element, const CRegion& d
-     const auto m_data = element->m_data;
-
-     g_pHyprOpenGL->renderTextureMatte(m_data.tex, m_data.box, m_data.fb);
--};
-\ No newline at end of file
-+};
 diff --git a/src/render/pass/RectPassElement.hpp b/src/render/pass/RectPassElement.hpp
 index a61ab15..403a40a 100644
 --- a/src/render/pass/RectPassElement.hpp

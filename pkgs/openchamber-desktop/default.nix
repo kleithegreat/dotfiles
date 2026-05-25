@@ -13,7 +13,7 @@
 
 rustPlatform.buildRustPackage {
   pname = "openchamber-desktop";
-  version = "1.9.6";
+  version = "1.11.4";
   src = ./.;
 
   cargoLock.lockFile = ./Cargo.lock;

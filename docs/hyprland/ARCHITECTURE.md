@@ -3,7 +3,7 @@
 ## Scope
 
 Current implementation map for `config/hypr/`, the host-selected Hyprland
-fragments, and the generated theme inputs as of 2026-05-19.
+fragments, and the generated theme inputs as of 2026-05-25.
 
 ## Source Graph
 
@@ -130,7 +130,7 @@ now supplied by the repo-local package in
 `pkgs/hyprland-plugins/hyprexpo/default.nix` because the official plugin flake
 no longer exposes that package. That local package extracts the last known
 Hyprexpo source from upstream revision
-`22de29bc1cf4126202df52691d0bc9a065089cba` and applies the existing local patch
+`eaf18d55d51cef00818c5a4fdd4170f8cc2de4dc` and applies the existing local patch
 against the patched Hyprland headers.
 
 `patches/hyprland-plugins/hyprbars-hyprland-0.54.patch`
