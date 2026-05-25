@@ -5,303 +5,424 @@ import "components" as Components
 
 FocusScope {
     id: drawer
-    property bool active: false; signal close()
+
+    property bool active: false
     property bool closing: false
-    property bool contentLoaded: false
-    property bool suppressHeightAnimation: false
-    component StateLayer: Item {
-        id: stateLayerRoot
-
-        property color color: Theme.bg2
-        property real radius: Theme.hoverRadius
-        property real idleOpacity: 0.0
-        property real hoverOpacity: 0.6
-        property real pressedOpacity: 0.9
-        readonly property alias containsMouse: hoverLayer.containsMouse
-        readonly property alias pressed: hoverLayer.pressed
-        signal clicked()
-
-        Components.HoverLayer {
-            id: hoverLayer
-            anchors.fill: parent
-            color: stateLayerRoot.color
-            radius: stateLayerRoot.radius
-            idleOpacity: stateLayerRoot.idleOpacity
-            hoverOpacity: stateLayerRoot.hoverOpacity
-            pressedOpacity: stateLayerRoot.pressedOpacity
-            pressedScale: 1.0
-            onClicked: stateLayerRoot.clicked()
-        }
-    }
+    signal close()
 
     readonly property bool overlayVisible: active || closing
-    readonly property Item panelItem: drawerContentLoader.item
+    readonly property Item panelItem: panel
     readonly property Item focusTarget: drawer
     readonly property bool scrimEnabled: false
     readonly property color scrimColor: "transparent"
     readonly property real scrimOpacity: 0
-    property real panelHeightHint: 240
-    property int historyAnimationThreshold: 0
+    readonly property real availableHeight: Math.max(0, height - Theme.popupTopMargin - Theme.gapOut)
+    readonly property string historyLabel: NotificationService.historyCount === 0
+        ? "No notifications"
+        : NotificationService.historyCount === 1
+            ? "1 notification"
+            : NotificationService.historyCount + " notifications"
+
     visible: overlayVisible
     anchors.fill: parent
     focus: active
     Keys.priority: Keys.BeforeItem
+    Keys.onEscapePressed: drawer.close()
 
-    function currentHistoryMaxEntryId() {
-        if (NotificationService.historyCount === 0)
-            return 0;
-
-        let newest = NotificationService.historyModel.get(0);
-        return newest && newest.entryId !== undefined ? newest.entryId : 0;
-    }
-
-    Component.onCompleted: {
-        historyAnimationThreshold = currentHistoryMaxEntryId();
-    }
-
-    function preparePanelForOpen() {
-        let item = drawerContentLoader.item;
-        if (!item)
-            return false;
-
-        item.opacity = 0;
-        item.scale = Theme.popupStartScale;
-        return true;
+    function prepareForOpen() {
+        panel.opacity = 0;
+        panel.scale = Theme.popupStartScale;
     }
 
     onActiveChanged: {
         if (active) {
-            drawerCloseAnim.stop();
+            closeAnimation.stop();
             closing = false;
-            suppressHeightAnimation = true;
             forceActiveFocus();
-            contentLoaded = true;
-            if (preparePanelForOpen())
-                drawerOpenAnim.restart();
-        } else if (!closing) {
-            drawerOpenAnim.stop();
-            if (drawerContentLoader.item) {
-                suppressHeightAnimation = true;
-                closing = true;
-                drawerCloseAnim.restart();
-            } else {
-                suppressHeightAnimation = false;
-                closing = false;
-            }
+            prepareForOpen();
+            openAnimation.restart();
+            return;
+        }
+
+        if (!closing) {
+            openAnimation.stop();
+            closing = true;
+            closeAnimation.restart();
         }
     }
 
-    Timer {
-        interval: 1600
-        running: !drawer.contentLoaded
-        repeat: false
-        onTriggered: drawer.contentLoaded = true
-    }
-
     SequentialAnimation {
-        id: drawerOpenAnim
+        id: openAnimation
+
         ParallelAnimation {
-            Components.Anim { target: drawerContentLoader.item; property: "opacity"; to: 1; duration: Theme.animPopupIn; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveEmphasizedEnter }
+            Components.Anim {
+                target: panel
+                property: "opacity"
+                to: 1
+                duration: Theme.animPopupIn
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveEmphasizedEnter
+            }
+
             SequentialAnimation {
                 PauseAnimation { duration: Theme.animPopupScaleLead }
-                Components.Anim { target: drawerContentLoader.item; property: "scale"; to: 1.0; duration: Math.max(0, Theme.animPopupIn - Theme.animPopupScaleLead); easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveEmphasizedEnter }
-            }
-        }
-        onFinished: {
-            if (drawer.active && !drawer.closing)
-                drawer.suppressHeightAnimation = false;
-        }
-    }
-    SequentialAnimation {
-        id: drawerCloseAnim
-        ParallelAnimation {
-            Components.Anim { target: drawerContentLoader.item; property: "opacity"; to: 0; duration: Theme.animPopupOut; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveExit }
-            Components.Anim { target: drawerContentLoader.item; property: "scale"; to: Theme.popupStartScale; duration: Theme.animPopupOut; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveExit }
-        }
-        ScriptAction {
-            script: {
-                drawer.closing = false;
-                drawer.suppressHeightAnimation = false;
+
+                Components.Anim {
+                    target: panel
+                    property: "scale"
+                    to: 1
+                    duration: Math.max(0, Theme.animPopupIn - Theme.animPopupScaleLead)
+                    easing.type: Easing.BezierSpline
+                    easing.bezierCurve: Theme.animCurveEmphasizedEnter
+                }
             }
         }
     }
 
-    Keys.onEscapePressed: drawer.close()
+    SequentialAnimation {
+        id: closeAnimation
+
+        ParallelAnimation {
+            Components.Anim {
+                target: panel
+                property: "opacity"
+                to: 0
+                duration: Theme.animPopupOut
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveExit
+            }
+
+            Components.Anim {
+                target: panel
+                property: "scale"
+                to: Theme.popupStartScale
+                duration: Theme.animPopupOut
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.animCurveExit
+            }
+        }
+
+        ScriptAction {
+            script: drawer.closing = false
+        }
+    }
+
+    component IconButton: Rectangle {
+        id: iconButton
+
+        property string source: ""
+        property bool danger: false
+        signal clicked()
+
+        implicitWidth: 28
+        implicitHeight: 28
+        radius: Theme.btnRadius
+        color: "transparent"
+        scale: buttonArea.pressed ? 0.94 : 1
+        transformOrigin: Item.Center
+
+        Behavior on scale { Components.Anim { duration: Theme.animMicro } }
+
+        Components.HoverLayer {
+            id: buttonArea
+            anchors.fill: parent
+            radius: iconButton.radius
+            color: Theme.bg2
+            hoverOpacity: 0.7
+            pressedOpacity: 0.9
+            pressedScale: 1
+            onClicked: iconButton.clicked()
+        }
+
+        Components.Icon {
+            anchors.centerIn: parent
+            source: iconButton.source
+            iconSize: Theme.fontSizeSmall + 3
+            color: buttonArea.containsMouse && iconButton.danger ? Theme.redBright : Theme.fg4
+
+            Behavior on color { Components.CAnim { duration: Theme.animHover } }
+        }
+    }
 
     Rectangle {
+        id: panel
+
         anchors.top: parent.top
         anchors.right: parent.right
         anchors.topMargin: Theme.popupTopMargin
         anchors.rightMargin: Theme.gapOut
-        width: drawerContentLoader.width
-        height: drawerContentLoader.height
-        visible: drawer.overlayVisible && !drawer.closing && height > 0 && !drawerContentLoader.item
-        opacity: 1
+        width: Theme.drawerWidth
+        height: Math.min(560, drawer.availableHeight)
         radius: Theme.popupRadius
         color: Theme.bg1
         border.width: 1
         border.color: Theme.bg3
+        opacity: 0
+        scale: Theme.popupStartScale
+        clip: true
+        transformOrigin: Item.TopRight
+        layer.enabled: openAnimation.running || closeAnimation.running
+        layer.smooth: true
 
         MouseArea {
             anchors.fill: parent
             acceptedButtons: Qt.AllButtons
         }
-    }
 
-    Loader {
-        id: drawerContentLoader
-        anchors.top: parent.top; anchors.right: parent.right
-        anchors.topMargin: Theme.popupTopMargin; anchors.rightMargin: Theme.gapOut
-        width: Theme.drawerWidth
-        height: drawer.overlayVisible
-            ? Math.min(drawer.panelHeightHint, parent.height - Theme.popupTopMargin - Theme.gapOut)
-            : 0
-        active: drawer.contentLoaded || drawer.active || drawer.closing
-        asynchronous: true
-        sourceComponent: drawerPanelComponent
-        Behavior on height {
-            enabled: !drawer.suppressHeightAnimation
-            Components.Anim {
-                duration: Theme.animHeightResize
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: Theme.animCurveStandard
-            }
-        }
-
-        onLoaded: {
-            drawer.panelHeightHint = Math.min(item.implicitHeight, drawer.height - Theme.popupTopMargin - Theme.gapOut);
-            item.opacity = 0;
-            item.scale = Theme.popupStartScale;
-            if (drawer.active)
-                drawerOpenAnim.start();
-        }
-    }
-
-    Connections {
-        target: drawerContentLoader.item
-
-        function onImplicitHeightChanged() {
-            drawer.panelHeightHint = Math.min(drawerContentLoader.item.implicitHeight, drawer.height - Theme.popupTopMargin - Theme.gapOut);
-        }
-    }
-
-    Component {
-        id: drawerPanelComponent
-
-        Rectangle {
-            id: drawerPanel
+        ColumnLayout {
             anchors.fill: parent
-            implicitHeight: Math.max(drawerCol.implicitHeight + Theme.notifPadding * 2, 200)
-            radius: Theme.popupRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
-            opacity: 0; scale: Theme.popupStartScale
-            transformOrigin: Item.TopRight
-            layer.enabled: drawerOpenAnim.running || drawerCloseAnim.running
-            layer.smooth: true
-            MouseArea { anchors.fill: parent }
+            anchors.margins: Theme.popupPadding
+            spacing: Theme.sectionSpacing
 
-            ColumnLayout {
-                id: drawerCol; anchors.fill: parent; anchors.margins: Theme.notifPadding; spacing: 8
-            RowLayout { Layout.fillWidth: true; spacing: 8
-                RowLayout { Layout.fillWidth: true; spacing: 6
-                    Components.Icon { source: "../icons/bell.svg"; color: Theme.fg }
-                    Text { text: "Notifications"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.headerFontSize; font.bold: true; Layout.fillWidth: true }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                Components.Icon {
+                    source: NotificationService.doNotDisturb ? "icons/bell-off.svg" : "icons/bell.svg"
+                    color: NotificationService.doNotDisturb ? Theme.orangeBright : Theme.fg
+                    iconSize: Theme.fontSizeLarge
                 }
 
-                // Clear button
-                Rectangle {
-                    visible: NotificationService.historyCount > 0
-                    width: clrLabel.implicitWidth + Theme.btnPaddingH * 2; height: Theme.btnHeight; radius: Theme.btnRadius
-                    color: "transparent"
-                    StateLayer {
-                        id: clrLayer
-                        anchors.fill: parent
-                        radius: parent.radius
-                        color: Theme.bg2
-                        onClicked: NotificationService.clearHistory()
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 1
+
+                    Text {
+                        text: "Notifications"
+                        color: Theme.fg
+                        font.family: Theme.systemFamily
+                        font.pixelSize: Theme.headerFontSize
+                        font.bold: true
+                        Layout.fillWidth: true
                     }
-                    scale: clrLayer.pressed ? 0.95 : 1.0
-                    Behavior on scale { Components.Anim { duration: Theme.animMicro } }
-                    transformOrigin: Item.Center
-                    Text { id: clrLabel; anchors.centerIn: parent; text: "Clear"
-                        color: clrLayer.containsMouse ? Theme.redBright : Theme.fg4
-                        Behavior on color { Components.CAnim { duration: Theme.animHover } }
-                        font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall }
+
+                    Text {
+                        text: drawer.historyLabel
+                        color: Theme.fg4
+                        font.family: Theme.systemFamily
+                        font.pixelSize: Theme.fontSizeSmall
+                        Layout.fillWidth: true
+                    }
+                }
+
+                Components.ActionButton {
+                    visible: NotificationService.historyCount > 0
+                    text: "Clear"
+                    baseColor: "transparent"
+                    hoverColor: Theme.bg2
+                    borderColor: "transparent"
+                    textColor: Theme.redBright
+                    onClicked: NotificationService.clearHistory()
+                }
+
+                IconButton {
+                    source: "icons/close.svg"
+                    onClicked: drawer.close()
                 }
             }
-            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
-            Components.WheelFlickable {
-                visible: NotificationService.historyCount > 0; Layout.fillWidth: true; Layout.fillHeight: true; Layout.minimumHeight: 40; Layout.maximumHeight: 400
-                contentHeight: histCol.implicitHeight; clip: true
-                Column { id: histCol; width: parent.width; spacing: Theme.notifSpacing
-                    Repeater { id: historyList
-                        model: NotificationService.historyModel
-                        Rectangle {
-                            id: hc; required property string appName; required property string summary; required property string body; required property int nid; required property int entryId; required property int index; required property string timeStr
-                            width: histCol.width; height: hcC.implicitHeight + Theme.notifPadding; radius: Theme.btnRadius; color: Theme.bg2
 
-                            property bool shouldAnimateEntry: hc.entryId > drawer.historyAnimationThreshold
+            Rectangle {
+                Layout.fillWidth: true
+                height: 1
+                color: Theme.bg3
+            }
 
-                            opacity: shouldAnimateEntry ? 0 : 1
-                            y: shouldAnimateEntry ? 8 : 0
-                            scale: shouldAnimateEntry ? 0.92 : 1.0
-                            Component.onCompleted: {
-                                if (!shouldAnimateEntry)
-                                    return;
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: dndRow.implicitHeight + Theme.notifPadding
+                radius: Theme.btnRadius
+                color: Theme.bg0_h
+                border.width: 1
+                border.color: Theme.bg3
 
-                                drawer.historyAnimationThreshold = Math.max(drawer.historyAnimationThreshold, hc.entryId);
-                                hcEnterAnim.delay = index * Theme.animStagger;
-                                hcEnterAnim.start();
-                            }
-                            SequentialAnimation {
-                                id: hcEnterAnim; property int delay: 0
-                                PauseAnimation { duration: hcEnterAnim.delay }
-                                ParallelAnimation {
-                                    Components.Anim { target: hc; property: "opacity"; to: 1; duration: Theme.animContentSwap; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard }
-                                    Components.Anim { target: hc; property: "y"; to: 0; duration: Theme.animContentSwap; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard }
-                                    Components.Anim { target: hc; property: "scale"; to: 1.0; duration: Theme.animContentSwap; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveEmphasizedEnter }
-                                }
-                            }
+                RowLayout {
+                    id: dndRow
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.leftMargin: Theme.notifPadding / 2
+                    anchors.rightMargin: Theme.notifPadding / 2
+                    spacing: 8
 
-                            ColumnLayout { id: hcC; spacing: 2
-                                anchors { left: parent.left; right: parent.right; top: parent.top; margins: Theme.notifPadding / 2 }
-                                RowLayout { Layout.fillWidth: true
-                                    Text { text: hc.appName; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall - 1; elide: Text.ElideRight; Layout.fillWidth: true }
-                                    Text { text: hc.timeStr; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall - 2; visible: text !== "" }
-                                    Rectangle {
-                                        width: 18; height: 18; radius: Theme.hoverRadius; color: "transparent"
-                                        StateLayer {
-                                            id: hxLayer
-                                            anchors.fill: parent
-                                            radius: parent.radius
-                                            color: Theme.bg1
-                                            onClicked: NotificationService.removeHistory(hc.nid)
+                    Components.Icon {
+                        source: NotificationService.doNotDisturb ? "icons/bell-off.svg" : "icons/bell.svg"
+                        color: NotificationService.doNotDisturb ? Theme.orangeBright : Theme.fg4
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 2
+
+                        Text {
+                            text: "Do Not Disturb"
+                            color: Theme.fg
+                            font.family: Theme.systemFamily
+                            font.pixelSize: Theme.fontSizeSmall
+                            font.bold: true
+                            Layout.fillWidth: true
+                        }
+
+                        Text {
+                            text: NotificationService.doNotDisturb
+                                ? "Popups are muted. History is still saved."
+                                : "Popups are shown and saved to history."
+                            color: Theme.fg4
+                            font.family: Theme.systemFamily
+                            font.pixelSize: Theme.fontSizeSmall - 1
+                            wrapMode: Text.WordWrap
+                            Layout.fillWidth: true
+                        }
+                    }
+
+                    Components.ToggleSwitch {
+                        checked: NotificationService.doNotDisturb
+                        onToggled: NotificationService.toggleDnd()
+                    }
+                }
+            }
+
+            Item {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Layout.minimumHeight: 120
+
+                Components.WheelFlickable {
+                    anchors.fill: parent
+                    visible: NotificationService.historyCount > 0
+                    contentWidth: width
+                    contentHeight: historyColumn.implicitHeight
+                    clip: true
+
+                    Column {
+                        id: historyColumn
+                        width: parent.width
+                        spacing: Theme.notifSpacing
+
+                        Repeater {
+                            model: NotificationService.historyModel
+
+                            Rectangle {
+                                id: card
+
+                                required property int entryId
+                                required property int nid
+                                required property string appName
+                                required property string summary
+                                required property string body
+                                required property string timeStr
+
+                                width: historyColumn.width
+                                height: cardContent.implicitHeight + Theme.notifPadding
+                                radius: Theme.btnRadius
+                                color: Theme.bg2
+                                border.width: 1
+                                border.color: Theme.bg3
+
+                                ColumnLayout {
+                                    id: cardContent
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    anchors.top: parent.top
+                                    anchors.margins: Theme.notifPadding / 2
+                                    spacing: 4
+
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 6
+
+                                        Text {
+                                            text: card.appName
+                                            color: Theme.fg4
+                                            font.family: Theme.systemFamily
+                                            font.pixelSize: Theme.fontSizeSmall - 1
+                                            elide: Text.ElideRight
+                                            Layout.fillWidth: true
                                         }
-                                        scale: hxLayer.pressed ? 0.9 : 1.0
-                                        Behavior on scale { Components.Anim { duration: Theme.animMicro } }
-                                        transformOrigin: Item.Center
-                                        Components.Icon { anchors.centerIn: parent; source: "../icons/close.svg"
-                                            color: hxLayer.containsMouse ? Theme.redBright : Theme.fg4
-                                            Behavior on color { Components.CAnim { duration: Theme.animHover } }
-                                            iconSize: Theme.fontSizeSmall }
+
+                                        Text {
+                                            text: card.timeStr
+                                            visible: text !== ""
+                                            color: Theme.fg4
+                                            font.family: Theme.systemFamily
+                                            font.pixelSize: Theme.fontSizeSmall - 2
+                                        }
+
+                                        IconButton {
+                                            source: "icons/close.svg"
+                                            danger: true
+                                            implicitWidth: 22
+                                            implicitHeight: 22
+                                            onClicked: NotificationService.removeHistoryEntry(card.entryId)
+                                        }
+                                    }
+
+                                    Text {
+                                        text: card.summary !== "" ? card.summary : "Notification"
+                                        color: Theme.fg
+                                        font.family: Theme.systemFamily
+                                        font.pixelSize: Theme.fontSizeSmall
+                                        font.bold: true
+                                        wrapMode: Text.WordWrap
+                                        textFormat: Text.PlainText
+                                        Layout.fillWidth: true
+                                    }
+
+                                    Text {
+                                        visible: card.body !== ""
+                                        text: card.body
+                                        color: Theme.fg3
+                                        font.family: Theme.systemFamily
+                                        font.pixelSize: Theme.fontSizeSmall - 1
+                                        wrapMode: Text.WordWrap
+                                        maximumLineCount: 4
+                                        elide: Text.ElideRight
+                                        textFormat: Text.PlainText
+                                        Layout.fillWidth: true
                                     }
                                 }
-                                Text { text: hc.summary; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true; visible: text !== "" }
-                                Text { text: hc.body; color: Theme.fg3; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall - 1; wrapMode: Text.WordWrap; maximumLineCount: 2; elide: Text.ElideRight; Layout.fillWidth: true; visible: text !== "" }
                             }
                         }
                     }
                 }
-            }
-            // Empty state with icon
-            Item {
-                visible: NotificationService.historyCount === 0
-                Layout.fillWidth: true; Layout.fillHeight: true
-                ColumnLayout {
-                    anchors.centerIn: parent; spacing: 4
-                    Components.Icon { source: "../icons/bell.svg"; color: Theme.fg4; iconSize: 24; Layout.alignment: Qt.AlignHCenter }
-                    Text { text: "No notifications"; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; Layout.alignment: Qt.AlignHCenter }
+
+                Item {
+                    anchors.fill: parent
+                    visible: NotificationService.historyCount === 0
+
+                    ColumnLayout {
+                        anchors.centerIn: parent
+                        width: Math.min(parent.width, 260)
+                        spacing: 6
+
+                        Components.Icon {
+                            source: "icons/bell.svg"
+                            color: Theme.fg4
+                            iconSize: 26
+                            Layout.alignment: Qt.AlignHCenter
+                        }
+
+                        Text {
+                            text: "No notifications"
+                            color: Theme.fg
+                            font.family: Theme.systemFamily
+                            font.pixelSize: Theme.fontSize
+                            font.bold: true
+                            horizontalAlignment: Text.AlignHCenter
+                            Layout.fillWidth: true
+                        }
+
+                        Text {
+                            text: "New notifications will appear here after they arrive."
+                            color: Theme.fg4
+                            font.family: Theme.systemFamily
+                            font.pixelSize: Theme.fontSizeSmall
+                            wrapMode: Text.WordWrap
+                            horizontalAlignment: Text.AlignHCenter
+                            Layout.fillWidth: true
+                        }
+                    }
                 }
-            }
             }
         }
     }

@@ -289,11 +289,10 @@ to the final implicit height before the styled content appears. Those popups
 also background-prewarm their loader items shortly after shell startup so the
 common first interactive open can animate the real panel directly instead of
 showing the empty shell while the loader instantiates. The current pattern is
-shared across Quick Settings, Settings, the notification drawer, and Calendar:
+shared across Quick Settings, Settings, and Calendar:
 
 - `config/quickshell/popups/QuickSettingsPopup.qml`
 - `config/quickshell/popups/SettingsPopup.qml`
-- `config/quickshell/NotifDrawer.qml`
 - `config/quickshell/popups/CalendarPopup.qml`
 
 The popup implementations share a common resilience rule: when a managed popup
@@ -327,15 +326,15 @@ The popup implementations are still not completely uniform, however:
   card styling now sticks to direct `Theme.*` palette slots for fills, borders,
   and accents instead of blending intermediate colors inside QML, and the copy
   stays terse and informational rather than novelty-oriented.
-- `config/quickshell/NotifDrawer.qml` keeps the same placeholder-backed
-  `panelHeightHint`, suppresses `Behavior on height` during open/close,
-  prewarms the loader in the background, only shows the empty placeholder shell
-  before the panel item exists, and animates the loaded panel's `opacity` /
-  `scale` with the same gentler start scale plus a temporary layer during the
-  transform. It now uses the shared popup radius and shared Bezier motion tokens
-  for inserted history rows, avoiding a separate overshooting notification-list
-  animation. Its host height animation remains available only for later
-  in-session content resizes.
+- `config/quickshell/NotifDrawer.qml` is a direct, always-materialized managed
+  popup instead of an async loader-backed surface. It exposes the standard
+  host-facing popup shape (`active`, `close()`, `overlayVisible`, `panelItem`,
+  `focusTarget`, and scrim properties), caps a fixed-height panel to the
+  available screen height, animates the panel's `opacity` / `scale` directly,
+  and renders `NotificationService.historyModel` through
+  `components/WheelFlickable.qml`. Its header and row actions call the shared
+  service entry points: `toggleDnd()`, `clearHistory()`, and
+  `removeHistoryEntry(...)`.
 - `config/quickshell/popups/QuickSettingsPopup.qml` does the same outer
   placeholder-height reservation and open/close suppression, background-prewarms
   the popup loader, only shows the empty placeholder shell before the panel
@@ -368,10 +367,9 @@ The popup implementations are still not completely uniform, however:
   rather than shell strings, and subprocess failures surface through toast
   feedback.
 
-`NotifDrawer.qml` also records the largest already-rendered history `entryId`
-and only runs the staggered entrance animation for newly inserted history items,
-avoiding the old “history settles again on every open” behavior:
-the history watermark and insert-animation logic in `config/quickshell/NotifDrawer.qml`.
+`NotificationService.qml` keeps history rows keyed by a service-owned `entryId`;
+the drawer removes individual rows with `removeHistoryEntry(...)` so duplicate
+freedesktop notification IDs do not make the wrong history card disappear.
 
 ## Runtime Assumptions
 
