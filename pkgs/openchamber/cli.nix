@@ -7,16 +7,17 @@
   openchamberBackendMux,
   openchamberClaudeBridge,
   pkg-config,
+  vips,
 }:
 
 let
   pname = "openchamber";
-  version = "1.9.8";
+  version = "1.11.4";
   src = fetchFromGitHub {
     owner = "openchamber";
     repo = "openchamber";
     tag = "v${version}";
-    hash = "sha256-//Jma4LN4MtIB2Q5OLsul4lc9M9AYbxdnNSNdHHDCkM=";
+    hash = "sha256-F70V+U9OQ2/qyH8UcpIG2wHW6v8FI08s6UzT056dp1U=";
   };
   postPatch = ''
     cp ${./package.json} package.json
@@ -32,7 +33,7 @@ buildNpmPackage {
     ../../patches/openchamber/desktop-popup-performance.patch
   ];
 
-  npmDepsHash = "sha256-OKHm6ICJ72rRv7oVq76Tlw/N1cO/bRii7oC5hZXkBKo=";
+  npmDepsHash = "sha256-VTKQo3803qHYeipuT1DuVInVGeptHGicGScOGb8MBm0=";
   npmDepsFetcherVersion = 2;
   npmWorkspace = "packages/web";
   npmFlags = [ "--install-links" ];
@@ -40,6 +41,10 @@ buildNpmPackage {
   nativeBuildInputs = [
     makeWrapper
     pkg-config
+  ];
+
+  buildInputs = [
+    vips
   ];
 
   installPhase = ''

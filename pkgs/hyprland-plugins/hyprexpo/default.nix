@@ -7,13 +7,13 @@
 
 hyprlandPlugins.mkHyprlandPlugin {
   pluginName = "hyprexpo";
-  version = "0.1-unstable-2026-05-08";
+  version = "0.1-unstable-2026-05-12";
 
   src = "${fetchFromGitHub {
     owner = "hyprwm";
     repo = "hyprland-plugins";
-    rev = "22de29bc1cf4126202df52691d0bc9a065089cba";
-    hash = "sha256-hwtKSJcroZ++QAb9rI9L6Sp3XJlDIyWZN7UOVMiN8jY=";
+    rev = "eaf18d55d51cef00818c5a4fdd4170f8cc2de4dc";
+    hash = "sha256-d2wOUZlOqGAW9mwlpq7c/YlneW2ZDJt9d/2bq7mnKdM=";
   }}/hyprexpo";
 
   patches = [
@@ -23,7 +23,7 @@ hyprlandPlugins.mkHyprlandPlugin {
   inherit (hyprland) nativeBuildInputs;
 
   meta = {
-    homepage = "https://github.com/hyprwm/hyprland-plugins/tree/22de29bc1cf4126202df52691d0bc9a065089cba/hyprexpo";
+    homepage = "https://github.com/hyprwm/hyprland-plugins/tree/eaf18d55d51cef00818c5a4fdd4170f8cc2de4dc/hyprexpo";
     description = "Repo-local Hyprexpo package for the removed Hyprland overview plugin";
     license = lib.licenses.bsd3;
     platforms = lib.platforms.linux;

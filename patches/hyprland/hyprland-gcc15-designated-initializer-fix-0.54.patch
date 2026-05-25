@@ -138,7 +138,7 @@
      scissor(nullptr);
 --- a/src/render/gl/GLElementRenderer.cpp
 +++ b/src/render/gl/GLElementRenderer.cpp
-@@ -101,34 +101,30 @@
+@@ -101,36 +101,32 @@
  void CGLElementRenderer::draw(WP<CTexPassElement> element, const CRegion& damage) {
      const auto m_data = element->m_data;
  
@@ -167,6 +167,8 @@
 -            .roundedCorners = m_data.squareTopCorners ? 12 : 15,
 -            .discardActive  = m_data.discardActive,
 -            .allowCustomUV  = m_data.allowCustomUV,
+-            .wrapX          = m_data.wrapX,
+-            .wrapY          = m_data.wrapY,
 -            .cmBackToSRGB   = m_data.cmBackToSRGB,
 -            .discardMode    = m_data.ignoreAlpha.has_value() ? sc<uint32_t>(DISCARD_ALPHA) : m_data.discardMode,
 -            .discardOpacity = m_data.ignoreAlpha.has_value() ? *m_data.ignoreAlpha : m_data.discardOpacity,
@@ -180,6 +182,8 @@
 +    texRenderData.roundedCorners        = m_data.squareTopCorners ? 12 : 15;
 +    texRenderData.discardActive         = m_data.discardActive;
 +    texRenderData.allowCustomUV         = m_data.allowCustomUV;
++    texRenderData.wrapX                 = m_data.wrapX;
++    texRenderData.wrapY                 = m_data.wrapY;
 +    texRenderData.cmBackToSRGB          = m_data.cmBackToSRGB;
 +    texRenderData.discardMode           = m_data.ignoreAlpha.has_value() ? sc<uint32_t>(DISCARD_ALPHA) : m_data.discardMode;
 +    texRenderData.discardOpacity        = m_data.ignoreAlpha.has_value() ? *m_data.ignoreAlpha : m_data.discardOpacity;
