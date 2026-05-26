@@ -28,7 +28,7 @@ Non-goals:
 | Live `hyprsunset` lifecycle | `desktopctl daemon` night-light controller | The daemon is the only supported live writer of the `hyprsunset` process. Other components issue requests through `desktopctl`; they do not start, stop, or restart `hyprsunset` directly |
 | Scheduled `dark_hint` reconciliation and edges | `desktopctl daemon` via the theming module | At daemon startup, the first scheduler status reconciles persisted `dark_hint` to the current scheduled window once. When the scheduler later enters the nightly 23:00 dark-on window, the daemon enables `dark_hint` once through `theme::set_dark_hint()`. When the local clock reaches 06:00, it disables `dark_hint` once through the same theming path, still without tying any write to `hyprsunset` mode |
 | Manual and preset `dark_hint` writes | The theming pipeline via `desktopctl theme` | `desktopctl theme set dark_hint ...` and preset application still persist and apply `dark_hint` directly |
-| GTK dark-preference side effects | The theming pipeline | The `gtk` target owns the resulting GTK settings-file and dconf writes for `gtk-theme` / `gtk-theme-name`, dark preference, and `color-scheme` |
+| GUI dark-hint side effects | The theming pipeline | The `gtk`, `qt`, `chromium`, and `helium` targets own the resulting toolkit and browser preference writes driven by persisted `dark_hint` |
 | Shell and keybind surfaces | Quickshell and Hyprland config | The shell and keybinds may surface status or request supported mutations, but they are not authoritative state owners |
 
 Invariants:

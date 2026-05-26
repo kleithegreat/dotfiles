@@ -1,9 +1,10 @@
 use super::{Assembly, GeneratedContent, TargetMetadata};
 use crate::theme::{
-    atomic_write, expand_user_path,
-    schema::{ColorScheme, ThemeState},
+    atomic_write, expand_user_path, resolve,
+    schema::{ColorScheme, ColorSchemeAppearance, ThemeState},
 };
 use std::{
+    borrow::Cow,
     collections::HashSet,
     env, fs,
     path::{Path, PathBuf},
@@ -17,6 +18,7 @@ pub const METADATA: TargetMetadata = TargetMetadata::new(
     Assembly::Standalone,
     &[
         "color_scheme",
+        "dark_hint",
         "system_font",
         "mono_font",
         "icon_theme",
@@ -38,8 +40,7 @@ pub const METADATA: TargetMetadata = TargetMetadata::new(
     "~/.config/Kvantum/GeneratedTheme/",
     "~/.config/katerc",
     "~/.config/kwriterc",
-])
-.comment(";");
+]);
 
 const QT6CT_CONF: &str = "~/.config/qt6ct/qt6ct.conf";
 const QT5CT_CONF: &str = "~/.config/qt5ct/qt5ct.conf";
@@ -52,7 +53,8 @@ const KVANTUM_THEME_DIR: &str = "~/.config/Kvantum/GeneratedTheme";
 const KATERC: &str = "~/.config/katerc";
 const KWRITERC: &str = "~/.config/kwriterc";
 
-pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<GeneratedContent> {
+pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<GeneratedContent> {
+    let colors = ui_colors(colors, state)?;
     let active = vec![
         argb(&colors.fg),
         argb(&colors.bg1),
@@ -98,6 +100,9 @@ pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<Gene
 }
 
 pub fn persist(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
+    let colors = ui_colors(colors, state)?;
+    let colors = colors.as_ref();
+
     for (conf, scheme) in [
         (QT6CT_CONF, METADATA.output_path.expect("qt6 output path")),
         (QT5CT_CONF, METADATA.extra_outputs[0]),
@@ -114,6 +119,69 @@ pub fn persist(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
     setup_kvantum(colors)?;
     sync_kde_app_configs(colors)?;
     Ok(())
+}
+
+fn desired_appearance(state: &ThemeState) -> ColorSchemeAppearance {
+    if state.dark_hint {
+        ColorSchemeAppearance::Dark
+    } else {
+        ColorSchemeAppearance::Light
+    }
+}
+
+fn ui_colors<'a>(
+    colors: &'a ColorScheme,
+    state: &ThemeState,
+) -> crate::Result<Cow<'a, ColorScheme>> {
+    let desired = desired_appearance(state);
+    if colors.appearance == desired {
+        return Ok(Cow::Borrowed(colors));
+    }
+
+    let colors_dir = resolve::colors_dir()?;
+    let preferred_light_name = if desired == ColorSchemeAppearance::Light {
+        Some(colors.vicinae_light_theme_name())
+    } else {
+        None
+    };
+    let mut fallback = None;
+
+    for scheme_name in sorted_color_scheme_names(&colors_dir)? {
+        let candidate = resolve::load_colors(&scheme_name, &colors_dir)?;
+        if candidate.family != colors.family || candidate.appearance != desired {
+            continue;
+        }
+
+        if preferred_light_name
+            .as_deref()
+            .is_some_and(|preferred| preferred == scheme_name)
+        {
+            return Ok(Cow::Owned(candidate));
+        }
+
+        if fallback.is_none() {
+            fallback = Some(candidate);
+        }
+    }
+
+    Ok(fallback.map(Cow::Owned).unwrap_or(Cow::Borrowed(colors)))
+}
+
+fn sorted_color_scheme_names(colors_dir: &Path) -> crate::Result<Vec<String>> {
+    let mut names = Vec::new();
+    for entry in fs::read_dir(colors_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.extension().and_then(|extension| extension.to_str()) != Some("json") {
+            continue;
+        }
+        let Some(stem) = path.file_stem().and_then(|stem| stem.to_str()) else {
+            continue;
+        };
+        names.push(stem.to_owned());
+    }
+    names.sort();
+    Ok(names)
 }
 
 fn argb(hex_color: &str) -> String {
@@ -987,8 +1055,11 @@ impl IniFile {
 
 #[cfg(test)]
 mod tests {
-    use super::{kde_icon_theme, ktexteditor_color_theme, kvantum_base_theme};
-    use crate::theme::{resolve, schema::ColorScheme};
+    use super::{kde_icon_theme, ktexteditor_color_theme, kvantum_base_theme, ui_colors};
+    use crate::theme::{
+        resolve,
+        schema::{ColorScheme, ColorSchemeAppearance},
+    };
     use std::path::{Path, PathBuf};
 
     fn repo_root() -> PathBuf {
@@ -1041,6 +1112,19 @@ mod tests {
             kvantum_base_theme(&load_repo_colors("rose-pine-dawn")),
             "KvGnome"
         );
+    }
+
+    #[test]
+    fn ui_colors_follows_dark_hint_with_same_family_pair() {
+        let dark = load_repo_colors("gruvbox-dark");
+        let mut state = crate::theme::targets::testsupport::dummy_state();
+        state.color_scheme = "gruvbox-dark".to_owned();
+        state.dark_hint = false;
+
+        let colors = ui_colors(&dark, &state).expect("ui colors resolve");
+
+        assert_eq!(colors.variant, "light");
+        assert_eq!(colors.appearance, ColorSchemeAppearance::Light);
     }
 
     #[test]

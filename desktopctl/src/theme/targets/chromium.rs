@@ -9,9 +9,12 @@ use std::{
     path::{Component, Path},
 };
 
-pub const METADATA: TargetMetadata =
-    TargetMetadata::new("chromium", Assembly::Command, &["system_font", "mono_font"])
-        .managed_paths(&["~/.config/chromium/<profile>/Preferences"]);
+pub const METADATA: TargetMetadata = TargetMetadata::new(
+    "chromium",
+    Assembly::Command,
+    &["system_font", "mono_font", "dark_hint"],
+)
+.managed_paths(&["~/.config/chromium/<profile>/Preferences"]);
 
 const CHROMIUM_CONFIG_DIR: &str = "~/.config/chromium";
 const DEFAULT_PROFILE_NAME: &str = "Default";
@@ -27,7 +30,7 @@ pub fn persist(_colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
     write_active_preferences(&expand_user_path(CHROMIUM_CONFIG_DIR)?, state)
 }
 
-fn write_active_preferences(config_dir: &Path, state: &ThemeState) -> crate::Result<()> {
+pub(super) fn write_active_preferences(config_dir: &Path, state: &ThemeState) -> crate::Result<()> {
     for profile_name in active_profile_names(config_dir)? {
         write_preferences(
             &config_dir.join(profile_name).join(PREFERENCES_FILE_NAME),
@@ -40,6 +43,8 @@ fn write_active_preferences(config_dir: &Path, state: &ThemeState) -> crate::Res
 
 fn write_preferences(path: &Path, state: &ThemeState) -> crate::Result<()> {
     let mut root = load_preferences(path)?;
+    merge_value(&mut root, browser_theme_preferences(state));
+    clear_managed_browser_theme_customizations(&mut root);
     merge_value(&mut root, font_preferences(state));
     clear_managed_font_sizes(&mut root);
 
@@ -182,6 +187,41 @@ fn font_preferences(state: &ThemeState) -> Value {
     Value::Object(root)
 }
 
+fn browser_theme_preferences(state: &ThemeState) -> Value {
+    let mut theme = Map::new();
+    theme.insert(
+        "color_scheme2".to_owned(),
+        Value::from(if state.dark_hint { 2 } else { 1 }),
+    );
+
+    let mut browser = Map::new();
+    browser.insert("theme".to_owned(), Value::Object(theme));
+
+    let mut root = Map::new();
+    root.insert("browser".to_owned(), Value::Object(browser));
+    Value::Object(root)
+}
+
+fn clear_managed_browser_theme_customizations(root: &mut Value) {
+    let Some(theme) = root
+        .get_mut("browser")
+        .and_then(Value::as_object_mut)
+        .and_then(|browser| browser.get_mut("theme"))
+        .and_then(Value::as_object_mut)
+    else {
+        return;
+    };
+
+    for key in [
+        "color_variant2",
+        "user_color2",
+        "color_variant",
+        "user_color",
+    ] {
+        theme.remove(key);
+    }
+}
+
 fn clear_managed_font_sizes(root: &mut Value) {
     let Some(webprefs) = root
         .get_mut("webkit")
@@ -247,6 +287,7 @@ mod tests {
             written["webkit"]["webprefs"]["fonts"]["fixed"][COMMON_SCRIPT],
             Value::String("JetBrains Mono Nerd Font".to_owned())
         );
+        assert_eq!(written["browser"]["theme"]["color_scheme2"], Value::from(1));
         assert!(
             written["webkit"]["webprefs"]
                 .get("default_font_size")
@@ -345,7 +386,7 @@ mod tests {
         let path = temp_path("chromium-fonts-merge");
         fs::write(
             &path,
-            r#"{"browser":{"show_home_button":true},"webkit":{"webprefs":{"javascript_enabled":true,"default_font_size":22,"default_fixed_font_size":18}}}"#,
+            r#"{"browser":{"show_home_button":true,"theme":{"color_scheme2":0,"color_variant2":2,"user_color2":-7558172}},"webkit":{"webprefs":{"javascript_enabled":true,"default_font_size":22,"default_fixed_font_size":18}}}"#,
         )
         .expect("fixture written");
 
@@ -353,6 +394,9 @@ mod tests {
         let written = read_json(&path);
 
         assert_eq!(written["browser"]["show_home_button"], Value::Bool(true));
+        assert_eq!(written["browser"]["theme"]["color_scheme2"], Value::from(1));
+        assert!(written["browser"]["theme"].get("color_variant2").is_none());
+        assert!(written["browser"]["theme"].get("user_color2").is_none());
         assert_eq!(
             written["webkit"]["webprefs"]["javascript_enabled"],
             Value::Bool(true)
@@ -371,6 +415,20 @@ mod tests {
                 .get("default_fixed_font_size")
                 .is_none()
         );
+
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn write_preferences_sets_dark_browser_theme_hint() {
+        let path = temp_path("chromium-dark-hint");
+        let mut state = dummy_state();
+        state.dark_hint = true;
+
+        write_preferences(&path, &state).expect("write succeeds");
+        let written = read_json(&path);
+
+        assert_eq!(written["browser"]["theme"]["color_scheme2"], Value::from(2));
 
         let _ = fs::remove_file(path);
     }
