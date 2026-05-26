@@ -200,7 +200,7 @@ Constraints:
 | `chromium` | `command` | Chromium active-profile `Preferences` web-font preferences |
 | `cursor` | `standalone` | Cursor indexes, Hyprland cursor env, runtime cursor apply |
 | `ghostty` | `import` | `~/.config/ghostty/theme.conf` |
-| `gtk` | `command` | GTK interface settings |
+| `gtk` | `command` | GTK settings files plus runtime dconf interface settings |
 | `gtksourceview` | `standalone` | GtkSourceView style files under `~/.local/share/libgedit-gtksourceview-300/styles/` plus gedit source-style dconf keys |
 | `hypr_appearance` | `standalone` | `~/.config/hypr/appearance-theme.conf` |
 | `hyprland` | `standalone` | `~/.config/hypr/colors.conf` |

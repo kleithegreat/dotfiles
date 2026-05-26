@@ -36,7 +36,7 @@ Theme-only targets with no `config/` subdirectory:
 | Bat | `~/.config/bat/config` | `standalone` | Theme selector; reads config per invocation |
 | Chromium | Chromium active-profile `Preferences` web-font prefs | `command` | Patches active profiles in place by reading `Local State` and updating `webkit.webprefs.fonts` |
 | Cursor | `~/.local/share/icons/default/index.theme.generated` | `standalone` | Also writes `~/.config/hypr/cursor.conf`; live-updates dconf and hyprctl |
-| GTK | dconf live state only | `command` | Sets GTK theme, color-scheme, fonts, and icon theme via dconf |
+| GTK | `~/.config/gtk-3.0/settings.ini`, `~/.config/gtk-4.0/settings.ini`, plus dconf live state | `command` | Writes GTK settings files for startup/non-GNOME consumers and sets GTK theme, color-scheme, fonts, and icon theme via dconf during runtime applies |
 | GtkSourceView | `~/.local/share/libgedit-gtksourceview-300/styles/desktopctl-current.xml` and related generated style files | `standalone` | Also updates gedit's dark/light source-style dconf keys |
 | OpenChamber | `~/.config/openchamber/settings.json` plus `~/.config/openchamber/themes/desktopctl.json` | `command` | Patches only OpenChamber's theme-owned settings keys and writes a generated custom theme file; the rest of `settings.json` stays app-owned |
 | Qt | `~/.config/qt6ct/colors/current.conf` and others | `standalone` | Multi-file: qt6ct, qt5ct, kdeglobals, kcolorscheme, hyprqt6engine, Kvantum, Kate, KWrite |

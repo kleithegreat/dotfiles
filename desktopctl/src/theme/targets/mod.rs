@@ -396,7 +396,7 @@ const TARGET_REGISTRATIONS: &[TargetRegistration] = &[
     target_registration!(chromium, persist),
     target_registration!(cursor, persist, on_apply),
     target_registration!(ghostty),
-    target_registration!(gtk, on_apply),
+    target_registration!(gtk, persist, on_apply),
     target_registration!(gtksourceview, persist, on_apply),
     target_registration!(hypr_appearance),
     target_registration!(hyprland),
@@ -586,7 +586,7 @@ mod tests {
             Assembly::Standalone
         );
         assert!(
-            !registry
+            registry
                 .get("gtk")
                 .expect("gtk target")
                 .metadata()
@@ -614,6 +614,17 @@ mod tests {
                 .metadata()
                 .managed_paths,
             &["~/.config/chromium/<profile>/Preferences"]
+        );
+        assert_eq!(
+            registry
+                .get("gtk")
+                .expect("gtk target")
+                .metadata()
+                .managed_paths,
+            &[
+                "~/.config/gtk-3.0/settings.ini",
+                "~/.config/gtk-4.0/settings.ini"
+            ]
         );
         assert_eq!(
             registry

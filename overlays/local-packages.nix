@@ -44,7 +44,7 @@ final: prev: {
           install -m 444 -D ${appimageContents}/BambuStudio.png \
             $out/share/icons/hicolor/scalable/apps/BambuStudio.png
           substituteInPlace $out/share/applications/BambuStudio.desktop \
-            --replace-fail 'Exec=AppRun %U' 'Exec=bambu-studio %U'
+            --replace-fail 'Exec=AppRun %U' "Exec=$out/bin/bambu-studio %U"
         '';
 
         meta = prev.bambu-studio.meta // {
