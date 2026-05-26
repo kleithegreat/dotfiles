@@ -6,6 +6,7 @@ mod cursor;
 mod ghostty;
 mod gtk;
 mod gtksourceview;
+mod helium;
 mod hypr_appearance;
 mod hyprland;
 mod neovide;
@@ -398,6 +399,7 @@ const TARGET_REGISTRATIONS: &[TargetRegistration] = &[
     target_registration!(ghostty),
     target_registration!(gtk, persist, on_apply),
     target_registration!(gtksourceview, persist, on_apply),
+    target_registration!(helium, persist),
     target_registration!(hypr_appearance),
     target_registration!(hyprland),
     target_registration!(neovide),
@@ -568,10 +570,11 @@ mod tests {
     fn registry_contains_all_python_targets() {
         let registry = build_registry().expect("registry builds");
         let names = registry.iter().map(|(name, _)| name).collect::<Vec<_>>();
-        assert_eq!(names.len(), 26);
+        assert_eq!(names.len(), 27);
         assert!(names.contains(&"chromium"));
         assert!(names.contains(&"cursor"));
         assert!(names.contains(&"gtksourceview"));
+        assert!(names.contains(&"helium"));
         assert!(names.contains(&"openchamber"));
         assert!(names.contains(&"opencode"));
         assert!(names.contains(&"where_is_my_sddm_theme"));
@@ -625,6 +628,14 @@ mod tests {
                 "~/.config/gtk-3.0/settings.ini",
                 "~/.config/gtk-4.0/settings.ini"
             ]
+        );
+        assert_eq!(
+            registry
+                .get("helium")
+                .expect("helium target")
+                .metadata()
+                .managed_paths,
+            &["~/.config/net.imput.helium/<profile>/Preferences"]
         );
         assert_eq!(
             registry
@@ -773,8 +784,15 @@ mod tests {
     }
 
     #[test]
+    fn helium_generate_returns_no_commands() {
+        assert!(commands(helium::generate(&dummy_colors(), &dummy_state())).is_empty());
+    }
+
+    #[test]
     fn qt_output_matches_python_format() {
-        let output = text(qt::generate(&dummy_colors(), &dummy_state()));
+        let mut state = dummy_state();
+        state.dark_hint = true;
+        let output = text(qt::generate(&dummy_colors(), &state));
         assert_eq!(
             output,
             "[ColorScheme]\nactive_colors=#fff0f0f0, #ff020202, #ff040404, #ff030303, #ff010101, #ff040404, #fff0f0f0, #fff0f0f0, #fff0f0f0, #ff000000, #ff020202, #ff010101, #ff3366ff, #fff0f0f0, #ff0000ff, #ffff00ff, #ff000000, #ff020202, #fff0f0f0, #80c0c0c0, #ff3366ff\ndisabled_colors=#ffc0c0c0, #ff020202, #ff040404, #ff030303, #ff010101, #ff040404, #ffc0c0c0, #fff0f0f0, #ffc0c0c0, #ff000000, #ff020202, #ff010101, #ff3366ff, #ffc0c0c0, #ff0000ff, #ffff00ff, #ff000000, #ff020202, #fff0f0f0, #80c0c0c0, #ff3366ff\ninactive_colors=#fff0f0f0, #ff020202, #ff040404, #ff030303, #ff010101, #ff040404, #fff0f0f0, #fff0f0f0, #fff0f0f0, #ff000000, #ff020202, #ff010101, #ff3366ff, #fff0f0f0, #ff0000ff, #ffff00ff, #ff000000, #ff020202, #fff0f0f0, #80c0c0c0, #ff3366ff\n"

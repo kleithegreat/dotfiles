@@ -197,18 +197,19 @@ Constraints:
 | --- | --- | --- |
 | `alacritty` | `import` | `~/.config/alacritty/theme.toml` |
 | `bat` | `standalone` | `~/.config/bat/config` |
-| `chromium` | `command` | Chromium active-profile `Preferences` web-font preferences |
+| `chromium` | `command` | Chromium active-profile `Preferences` web-font preferences and browser chrome light/dark preference |
 | `cursor` | `standalone` | Cursor indexes, Hyprland cursor env, runtime cursor apply |
 | `ghostty` | `import` | `~/.config/ghostty/theme.conf` |
 | `gtk` | `command` | GTK settings files plus runtime dconf interface settings |
 | `gtksourceview` | `standalone` | GtkSourceView style files under `~/.local/share/libgedit-gtksourceview-300/styles/` plus gedit source-style dconf keys |
+| `helium` | `command` | Helium active-profile `Preferences` web-font preferences and browser chrome light/dark preference |
 | `hypr_appearance` | `standalone` | `~/.config/hypr/appearance-theme.conf` |
 | `hyprland` | `standalone` | `~/.config/hypr/colors.conf` |
 | `neovide` | `standalone` | `~/.config/nvim/lua/neovide-theme.lua` |
 | `neovim` | `standalone` | `~/.config/nvim/lua/theme-state.json` |
 | `openchamber` | `command` | `~/.config/openchamber/settings.json` theme selection keys plus `~/.config/openchamber/themes/desktopctl.json` |
 | `opencode` | `concat` | `~/.config/opencode/tui.json` plus `~/.config/opencode/themes/desktopctl.json` |
-| `qt` | `standalone` | qtct, KDE, Kvantum, and editor theme files |
+| `qt` | `standalone` | qtct, KDE, Kvantum, and editor theme files, with GUI polarity selected by `dark_hint` |
 | `quickshell` | `standalone` | `~/.config/quickshell/GeneratedTheme.json` |
 | `snappy_switcher` | `concat` | `~/.config/snappy-switcher/config.ini` |
 | `spicetify` | `standalone` | Generated Spicetify theme files plus runtime apply |
@@ -230,8 +231,8 @@ State changes fan out by ownership, not by CLI convenience.
 | --- | --- |
 | `color_scheme` | `alacritty`, `bat`, `ghostty`, `gtksourceview`, `hyprland`, `neovim`, `openchamber`, `opencode`, `qt`, `quickshell`, `snappy_switcher`, `spicetify`, `starship`, `tmux`, `vicinae`, `vscode`, `wallpaper`\*, `where_is_my_sddm_theme`, `zathura`, `zed`, `zsh` |
 | `wallpaper`, `filter_wallpaper` | `wallpaper`, `where_is_my_sddm_theme` |
-| `system_font` | `chromium`, `gtk`, `hyprland`, `openchamber`, `qt`, `quickshell`, `snappy_switcher`, `vicinae`, `zed` |
-| `mono_font` | `alacritty`, `chromium`, `ghostty`, `gtk`, `hyprland`, `neovide`, `openchamber`, `qt`, `quickshell`, `vscode`, `zed` |
+| `system_font` | `chromium`, `gtk`, `helium`, `hyprland`, `openchamber`, `qt`, `quickshell`, `snappy_switcher`, `vicinae`, `zed` |
+| `mono_font` | `alacritty`, `chromium`, `ghostty`, `gtk`, `helium`, `hyprland`, `neovide`, `openchamber`, `qt`, `quickshell`, `vscode`, `zed` |
 | `icon_theme` | `gtk`, `qt`, `snappy_switcher` |
 | `font_size` | `gtk`, `hyprland`, `qt`, `quickshell`, `snappy_switcher`, `zed` |
 | `quickshell_font_size_offset` | `quickshell` |
@@ -240,7 +241,7 @@ State changes fan out by ownership, not by CLI convenience.
 | `chromium_font_size_offset` | none (legacy tolerated state key) |
 | `mono_font_size` | `alacritty`, `ghostty`, `gtk`, `neovide`, `qt`, `vscode`, `zed` |
 | Per-target `*_mono_font_size_offset` | The named target only |
-| `dark_hint` | `gtk` |
+| `dark_hint` | `chromium`, `gtk`, `helium`, `qt` |
 | `cursor_theme`, `cursor_size` | `cursor` |
 | Hyprland appearance keys | `hypr_appearance` |
 
@@ -257,7 +258,8 @@ the documented wallpaper filter exception above.
 | Recursive trees | Allowed when generated sibling files remain writable, as with `quickshell/` and `nvim/` |
 | Activation hook | Rebuild-time sync writes only outputs safe to materialize during activation |
 | Quickshell | Reads `GeneratedTheme.json`; the font-key contract is defined above, and shell-side behavior lives in `docs/quickshell/SPEC.md` |
-| Chromium | Reads the active profile `Preferences` web-font prefs patched by the `chromium` target; the target uses `Local State` `profile.last_active_profiles` when present and falls back to `Default`, manages web font families only, clears any previously managed page-size prefs so Chromium falls back to its own defaults, and leaves browser chrome following GTK/Qt integration outside that prefs surface |
+| Chromium | Reads the active profile `Preferences` prefs patched by the `chromium` target; the target uses `Local State` `profile.last_active_profiles` when present and falls back to `Default`, manages web font families plus `browser.theme.color_scheme2` from `dark_hint`, clears any previously managed page-size prefs and custom browser color keys, and leaves unrelated profile preferences intact |
+| Helium | Reads the active profile `Preferences` prefs patched by the `helium` target under `~/.config/net.imput.helium/`; it shares the Chromium-family font and browser chrome preference contract while keeping Helium's extension bootstrap in Home Manager |
 | Gedit / GtkSourceView | Reads generated styles from `~/.local/share/libgedit-gtksourceview-300/styles/`; gedit's light/dark source-style selection is theme-owned |
 | Hyprland | Reads `colors.conf` and `appearance-theme.conf` |
 | Neovim / Neovide | Read generated theme state files rather than embedding palette logic in Home Manager |
@@ -275,5 +277,9 @@ Constraint:
 ## Qt / KDE Constraint
 
 Qt theming is intentionally multi-layered because a plain Qt palette is not
-enough for KDE and Kirigami apps on Hyprland. See `docs/theming/QUIRKS.md` for
-the rationale and current limitations.
+enough for KDE and Kirigami apps on Hyprland. The `qt` target treats
+`dark_hint` as the GUI polarity input; when the selected `color_scheme` has the
+opposite `appearance`, it should use a same-family scheme with the requested
+appearance when one is available, and fall back to the selected scheme
+otherwise. See `docs/theming/QUIRKS.md` for the rationale and current
+limitations.

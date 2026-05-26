@@ -686,6 +686,24 @@ mod tests {
     }
 
     #[test]
+    fn dark_hint_targets_gui_toolkits_and_browsers() {
+        let registry = registry();
+        let targets = targets_for_key(&registry, "dark_hint", None)
+            .into_iter()
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            targets,
+            vec![
+                "chromium".to_owned(),
+                "gtk".to_owned(),
+                "helium".to_owned(),
+                "qt".to_owned()
+            ]
+        );
+    }
+
+    #[test]
     fn font_size_does_not_target_chromium() {
         let registry = registry();
         let targets = targets_for_key(&registry, "font_size", None);
