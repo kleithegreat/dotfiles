@@ -11,12 +11,25 @@ let
       sha256 = "sha256-A4yfcB+L1IwHGKhg32gq/E9qMoBF84zsnfl8fvWhYag=";
     };
     installPhase = ''
+      runHook preInstall
+
       mkdir -p $out/share/icons/Neuwaita
       cp -r index.theme scalable Extras $out/share/icons/Neuwaita/
       cp -r $out/share/icons/Neuwaita $out/share/icons/Neuwaita-KDE
       substituteInPlace $out/share/icons/Neuwaita-KDE/index.theme \
         --replace-fail 'Name=Neuwaita' 'Name=Neuwaita KDE' \
         --replace-fail 'Inherits=Adwaita, hicolor, breeze' $'Inherits=Neuwaita,breeze,Adwaita,hicolor\nFollowsColorScheme=true'
+
+      for theme in Neuwaita Neuwaita-KDE; do
+        places="$out/share/icons/$theme/scalable/places"
+        ln -s folder.svg "$places/folder-blue.svg"
+        ln -s folder-download.svg "$places/folder-downloads.svg"
+        ln -s user-desktop.svg "$places/folder-desktop.svg"
+        ln -s user-home.svg "$places/folder-home.svg"
+        ln -s folder.svg "$places/inode-directory.svg"
+      done
+
+      runHook postInstall
     '';
   };
 in

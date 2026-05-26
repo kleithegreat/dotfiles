@@ -20,7 +20,7 @@ For package installation and Hyprland session startup ownership, see
 | `desktopctl/src/night_light.rs` | Implements the `desktopctl night-light` CLI, socket client helpers, fallback status, and `hyprsunset` process inspection / start / stop helpers | The CLI commands and `hyprsunset` helper functions in `desktopctl/src/night_light.rs` |
 | `desktopctl/src/solar.rs` | Resolves coordinates from a six-hour cache, GeoClue, stale-cache fallback, or the deterministic College Station fallback; rejects non-finite or out-of-range cache/GeoClue coordinates; computes sunrise/sunset; derives the separate night-light and `dark_hint` schedules; and exposes `desktopctl sun status` | The location-resolution helpers and `sun status` implementation in `desktopctl/src/solar.rs` |
 | `desktopctl/src/theme/mod.rs` | Handles `dark_hint` persistence and target application for both daemon-triggered scheduled writes and direct theme CLI writes | `set_dark_hint()` plus the theme command handlers in `desktopctl/src/theme/mod.rs` |
-| `desktopctl/src/theme/targets/gtk.rs` | Applies GTK dark-preference side effects through dconf when `dark_hint` changes | The `on_apply()` implementation in `desktopctl/src/theme/targets/gtk.rs` |
+| `desktopctl/src/theme/targets/gtk.rs` | Applies GTK dark-preference side effects through sync-safe GTK settings files and runtime dconf writes when `dark_hint` changes | The `persist()` and `on_apply()` implementations in `desktopctl/src/theme/targets/gtk.rs` |
 
 ## Neighbor And Requester Surfaces
 
@@ -86,5 +86,5 @@ For package installation and Hyprland session startup ownership, see
 | --- | --- | --- |
 | `hyprsunset` process and IPC socket | `desktopctl/src/daemon/night_light.rs` via the helper functions in `desktopctl/src/night_light.rs` | `desktopctl/src/night_light.rs` inspects the process plus `~/.hyprsunset.sock` for live temperature state; Quickshell reads the daemon-reported status instead of polling either directly |
 | `$XDG_DATA_HOME/desktopctl/desktopctl.db` `theme_state.dark_hint` row | `desktopctl/src/theme/mod.rs`, called either by the daemon controller when the scheduler crosses the 23:00 dark-on or 06:00 dark-off edge or directly by `desktopctl theme` surfaces | `desktopctl theme` reloads it for every mutation; Quickshell settings reads it through `desktopctl theme status --json` |
-| GTK dconf interface keys | `desktopctl/src/theme/targets/gtk.rs` via `on_apply()` | GTK apps and any consumer honoring the desktop color-scheme hint |
+| GTK settings files and dconf interface keys | `desktopctl/src/theme/targets/gtk.rs` via `persist()` and `on_apply()` | GTK apps and any consumer honoring the desktop color-scheme hint |
 | `~/.config/quickshell/GeneratedTheme.json` | `desktopctl/src/theme/targets/quickshell.rs` | `config/quickshell/Theme.qml` watches the file. `dark_hint` does not flow through this file today |
