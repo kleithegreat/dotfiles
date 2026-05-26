@@ -15,10 +15,12 @@ let
 
       mkdir -p $out/share/icons/Neuwaita
       cp -r index.theme scalable Extras $out/share/icons/Neuwaita/
+      substituteInPlace $out/share/icons/Neuwaita/index.theme \
+        --replace-fail 'Inherits=Adwaita, hicolor, breeze' 'Inherits=Adwaita,hicolor,breeze'
       cp -r $out/share/icons/Neuwaita $out/share/icons/Neuwaita-KDE
       substituteInPlace $out/share/icons/Neuwaita-KDE/index.theme \
         --replace-fail 'Name=Neuwaita' 'Name=Neuwaita KDE' \
-        --replace-fail 'Inherits=Adwaita, hicolor, breeze' $'Inherits=Neuwaita,breeze,Adwaita,hicolor\nFollowsColorScheme=true'
+        --replace-fail 'Inherits=Adwaita,hicolor,breeze' $'Inherits=Neuwaita,breeze,Adwaita,hicolor\nFollowsColorScheme=true'
 
       for theme in Neuwaita Neuwaita-KDE; do
         places="$out/share/icons/$theme/scalable/places"

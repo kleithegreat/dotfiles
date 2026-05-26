@@ -43,8 +43,12 @@ final: prev: {
             $out/share/applications/BambuStudio.desktop
           install -m 444 -D ${appimageContents}/BambuStudio.png \
             $out/share/icons/hicolor/scalable/apps/BambuStudio.png
+          install -m 755 -D /dev/stdin $out/bin/bambu-studio-desktop <<EOF
+          #!${final.runtimeShell}
+          "$out/bin/bambu-studio" "\$@"
+          EOF
           substituteInPlace $out/share/applications/BambuStudio.desktop \
-            --replace-fail 'Exec=AppRun %U' "Exec=$out/bin/bambu-studio %U"
+            --replace-fail 'Exec=AppRun %U' "Exec=$out/bin/bambu-studio-desktop %U"
         '';
 
         meta = prev.bambu-studio.meta // {
