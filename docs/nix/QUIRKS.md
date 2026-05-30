@@ -43,10 +43,10 @@
 **Resolution:** `system/configuration.nix` and `home/default.nix` both import `system/native-optimizations.nix` directly, so the remaining flake-input packages carry the same `-O3 -march=native` / `target-cpu=native` flags and per-host `requiredSystemFeatures` tag as the overlay-managed nixpkgs packages.
 
 ## Vicinae server autostart uses Hyprland only
-**Symptom:** Running Vicinae through both the Home Manager service and Hyprland `exec-once = vicinae server` starts redundant background paths for the same launcher.
-**Cause:** nixpkgs already packages `vicinae`, so the launcher can be installed directly without also enabling the upstream Home Manager service module. This repo still needs the Vicinae server to be present during the session, but it should have a single owner.
+**Symptom:** Running Vicinae through both the Home Manager service and Hyprland `exec-once = vicinae server` starts redundant background paths for the same launcher. After a rebuild, launcher-spawned apps can also keep stale desktop-entry behavior until the existing Vicinae server is replaced.
+**Cause:** nixpkgs already packages `vicinae`, so the launcher can be installed directly without also enabling the upstream Home Manager service module. This repo still needs the Vicinae server to be present during the session, but it should have a single owner. The server is long-lived and can cache app metadata across profile switches; `nixos-rebuild switch` does not rerun Hyprland `exec-once` lines.
 **Status:** Hyprland-owned server startup
-**Resolution:** `home/default.nix` still imports `vicinae.homeManagerModules.default` so the option remains available if needed later, but `home/packages.nix` installs `pkgs.vicinae` through `vicinaePkg` and does not enable `services.vicinae`. `config/hypr/autostart.conf` starts `vicinae server` directly, while `SUPER+R` / `vicinae open` only opens the already-running launcher.
+**Resolution:** `home/default.nix` still imports `vicinae.homeManagerModules.default` so the option remains available if needed later, but `home/packages.nix` installs `pkgs.vicinae` through `vicinaePkg` and does not enable `services.vicinae`. `config/hypr/autostart.conf` starts `vicinae server` directly, while `SUPER+R` / `vicinae open` only opens the already-running launcher. The `nrs` alias in `home/shell.nix` now asks Hyprland to run `vicinae server --replace` after a successful switch, refreshing the launcher without introducing a second systemd-owned service.
 
 ## Snappy Switcher is simpler as a local package than as a flake input
 **Symptom:** The previous setup routed Snappy Switcher through a dedicated upstream flake input even though the package recipe was tiny and the only repo-specific behavior was a small local patch for current-workspace filtering.
@@ -222,11 +222,11 @@
 **Status:** Intentional limitation
 **Resolution:** `hosts/laptop/system.nix` installs `laptop-power-profile`, which detects P-cores from `topology/thread_siblings_list`, re-enables all hotpluggable CPUs for the normal `performance` / `balanced` / `power-saver` modes, and offlines only the hotpluggable P-core threads for `e-core-only`. Treat that mode as an E-core-biased profile, not a literal "all P-cores gone" state.
 
-## Helium tarballs need manual Qt wrapper handling
-**Symptom:** The Helium package fails during the Qt pre-hook with "depends on qtbase, but no wrapping behavior was specified", or `autoPatchelfHook` complains about missing Qt5 SONAMEs from the bundled compatibility shim.
-**Cause:** Upstream `helium-linux` releases currently ship both a Qt6 integration shim that the browser still uses and a dormant `libqt5_shim.so` that is no longer backed by runtime Qt5 libraries. The package also launches through the upstream `helium-wrapper` shell script, so it is not a normal `wrapQtAppsHook` target.
+## Helium tarballs need manual wrapper handling
+**Symptom:** The Helium package fails during the Qt pre-hook with "depends on qtbase, but no wrapping behavior was specified", `autoPatchelfHook` complains about missing Qt5 SONAMEs from the bundled compatibility shim, or the browser runs but file pickers do not open when a page asks for a local file.
+**Cause:** Upstream `helium-linux` releases currently ship both a Qt6 integration shim that the browser still uses and a dormant `libqt5_shim.so` that is no longer backed by runtime Qt5 libraries. The package also launches through the upstream `helium-wrapper` shell script, so it is not a normal `wrapQtAppsHook` target. Like Chromium, Helium lazy-loads GTK3/GTK4 file chooser libraries; those `dlopen` dependencies do not appear as ELF `NEEDED` entries, so `autoPatchelfHook` does not add them automatically.
 **Status:** Workaround in place
-**Resolution:** `pkgs/helium/default.nix` uses `makeWrapper` for the launcher, sets `dontWrapQtApps = true`, and ignores the unused `libQt5Core.so.5`, `libQt5Gui.so.5`, and `libQt5Widgets.so.5` dependencies in `autoPatchelfIgnoreMissingDeps`.
+**Resolution:** `pkgs/helium/default.nix` uses `makeWrapper` for the launcher, sets `dontWrapQtApps = true`, ignores the unused `libQt5Core.so.5`, `libQt5Gui.so.5`, and `libQt5Widgets.so.5` dependencies in `autoPatchelfIgnoreMissingDeps`, and prefixes the launcher with GTK3/GTK4, Wayland, GSettings schema, icon-theme, media, and GL runtime paths plus `xdg-utils` for Chromium-family desktop integration.
 
 ## Helium uses a reverse-DNS user-data-dir
 **Symptom:** Dropping External Extensions JSON files into `~/.config/helium/External Extensions/` (mirroring the path Chromium uses) silently does nothing — Helium never picks the extensions up.

@@ -4,6 +4,7 @@
   fetchurl,
   autoPatchelfHook,
   makeWrapper,
+  adwaita-icon-theme,
   alsa-lib,
   atk,
   at-spi2-atk,
@@ -12,7 +13,12 @@
   cups,
   dbus,
   expat,
+  gsettings-desktop-schemas,
   glib,
+  gtk3,
+  gtk4,
+  hicolor-icon-theme,
+  krb5,
   libGL,
   libpulseaudio,
   libva,
@@ -31,12 +37,34 @@
   pipewire,
   qt6,
   systemd,
+  wayland,
+  xdg-utils,
 }:
 
 let
   source = import ./source.nix;
   version = source.version;
   releaseAsset = "helium-${version}-x86_64_linux.tar.xz";
+  runtimeLibraryPath = lib.makeLibraryPath [
+    libGL
+    libva
+    pipewire
+    libpulseaudio
+    gtk3
+    gtk4
+    wayland
+    krb5
+  ];
+  runtimeDataDirs = lib.concatStringsSep ":" [
+    "${cups}/share"
+    "${gtk3}/share"
+    "${gtk4}/share"
+    "${adwaita-icon-theme}/share"
+    "${hicolor-icon-theme}/share"
+    "${gsettings-desktop-schemas}/share/gsettings-schemas/${gsettings-desktop-schemas.name}"
+    "${gtk3}/share/gsettings-schemas/${gtk3.name}"
+    "${gtk4}/share/gsettings-schemas/${gtk4.name}"
+  ];
 in
 assert lib.assertMsg (stdenv.hostPlatform.system == "x86_64-linux")
   "pkgs.helium is currently packaged only for x86_64-linux.";
@@ -108,12 +136,9 @@ stdenv.mkDerivation {
       --replace-fail 'CHROME_VERSION_EXTRA="custom"' 'CHROME_VERSION_EXTRA="nixos"'
 
     makeWrapper "$out/libexec/helium/helium-wrapper" "$out/bin/helium" \
-      --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath [
-        libGL
-        libva
-        pipewire
-        libpulseaudio
-      ]}"
+      --prefix LD_LIBRARY_PATH : "${runtimeLibraryPath}" \
+      --prefix XDG_DATA_DIRS : "${runtimeDataDirs}" \
+      --suffix PATH : "${lib.makeBinPath [ xdg-utils ]}"
 
     install -m 0644 "$out/libexec/helium/helium.desktop" \
       "$out/share/applications/helium.desktop"
