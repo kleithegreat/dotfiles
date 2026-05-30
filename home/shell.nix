@@ -60,7 +60,7 @@ in
       cat = "bat --paging=never --style=plain";
       catn = "/run/current-system/sw/bin/cat";
       grep = "grep --color=auto";
-      nrs = "hyprctl keyword misc:disable_autoreload true && ${nixosRebuildCommand}; hyprctl keyword misc:disable_autoreload false";
+      nrs = "hyprctl keyword misc:disable_autoreload true && ${nixosRebuildCommand}; rc=$?; hyprctl keyword misc:disable_autoreload false; if [ $rc -eq 0 ]; then hyprctl dispatch exec 'vicinae server --replace' >/dev/null; fi; (exit $rc)";
     };
 
     plugins = [
