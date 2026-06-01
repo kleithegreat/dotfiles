@@ -12,6 +12,12 @@
 **Status:** Intentional bootstrap state
 **Resolution:** Treat the checked-in `initialPassword` as deliberate bootstrap behavior, not as undocumented drift. If the bootstrap path changes, document the replacement in this domain instead of silently removing it and leaving future agents to guess whether it was accidental.
 
+## Home Manager's release branch must track the evaluated Nixpkgs release
+**Symptom:** `nixos-rebuild switch` warns that the `kevin` profile is using mismatched Home Manager and Nixpkgs versions.
+**Cause:** The unqualified Home Manager input follows the project's default branch, which can advance to the next release cycle before the locked `nixos-unstable` Nixpkgs input reports that same release.
+**Status:** Release branch pinned
+**Resolution:** `flake.nix` pins Home Manager to `release-26.05` and keeps `home-manager.inputs.nixpkgs.follows = "nixpkgs"`. When the primary Nixpkgs input evaluates to a new release, move the Home Manager branch to the corresponding `release-*` branch and update only that lockfile input instead of disabling the release check.
+
 ## Stock `services.fstrim` can touch the Windows NVMe through a shared EFI mount
 **Symptom:** A weekly `fstrim` run trims `/boot/efi` even though the goal is only to discard unused blocks on the Linux filesystem.
 **Cause:** The stock NixOS `services.fstrim.enable = true` unit trims every mounted filesystem it sees in `/etc/fstab` and `/proc/self/mountinfo`. On dual-boot hosts that mount a shared EFI system partition from the Windows drive at `/boot/efi`, that includes the Windows NVMe.
