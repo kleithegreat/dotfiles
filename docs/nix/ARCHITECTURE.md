@@ -10,6 +10,7 @@ Home Manager layer as of 2026-05-24.
 | Piece | Current implementation |
 | --- | --- |
 | Outputs | The `outputs` attrset in `flake.nix` exports `nixosConfigurations.laptop`, `nixosConfigurations.desktop`, plus `overlays.default`, `packages.x86_64-linux.desktopctl`, `packages.x86_64-linux.helium`, `packages.x86_64-linux.openchamber`, `packages.x86_64-linux.openchamber-claude-bridge`, `packages.x86_64-linux.openchamber-backend-mux`, and `packages.x86_64-linux.snappy-switcher` |
+| Input branch policy | `flake.nix` keeps the primary `nixpkgs` input on `nixos-unstable`, the side `nixpkgs-stable` input on `nixos-25.05`, and pins Home Manager to `release-26.05` while making its `nixpkgs` input follow the primary `nixpkgs` input so Home Manager's release check matches the evaluated Nixpkgs release |
 | Host constructor | `mkHost` in `flake.nix` wraps `nixpkgs.lib.nixosSystem` and passes the shared `host` fact record into both the NixOS and Home Manager module graphs |
 | Feature flags | The top-level `enableNativeOptimizations` binding in `flake.nix` stays shared across both hosts |
 | Shared system layer | The top-level shared NixOS root module in `system/configuration.nix`, which imports the concern-specific shared modules under `system/` |
