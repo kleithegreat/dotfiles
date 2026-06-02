@@ -1,4 +1,55 @@
 final: prev: {
+  lmstudio =
+    let
+      pname = "lmstudio";
+      version = "0.4.15-2";
+      src = final.fetchurl {
+        url = "https://installers.lmstudio.ai/linux/x64/${version}/LM-Studio-${version}-x64.AppImage";
+        hash = "sha256-M7doFWVEyzcDJF4M+h4WKR+Q45yn3FZc2vZbzjYWBPE=";
+      };
+      appimageContents = final.appimageTools.extractType2 {
+        inherit pname version src;
+      };
+    in
+      final.appimageTools.wrapType2 {
+        inherit pname version src;
+
+        nativeBuildInputs = [ final.graphicsmagick ];
+
+        extraPkgs = pkgs: [ pkgs.ocl-icd ];
+
+        extraInstallCommands = ''
+          mkdir -p $out/share/applications
+
+          src_icon="${appimageContents}/usr/share/icons/hicolor/0x0/apps/lm-studio.png"
+          sizes=("16x16" "32x32" "48x48" "64x64" "128x128" "256x256")
+          for size in "''${sizes[@]}"; do
+            install -dm755 "$out/share/icons/hicolor/$size/apps"
+            gm convert "$src_icon" -resize "$size" "$out/share/icons/hicolor/$size/apps/lm-studio.png"
+          done
+
+          install -m 444 -D ${appimageContents}/lm-studio.desktop -t $out/share/applications
+
+          mv $out/bin/lmstudio $out/bin/lm-studio
+
+          install -m 755 -D /dev/stdin $out/bin/lm-studio-desktop <<EOF
+          #!${final.runtimeShell}
+          "$out/bin/lm-studio" "\$@"
+          EOF
+
+          substituteInPlace $out/share/applications/lm-studio.desktop \
+            --replace-fail 'Exec=AppRun --no-sandbox %U' "Exec=$out/bin/lm-studio-desktop %U"
+
+          install -m 755 ${appimageContents}/resources/app/.webpack/lms $out/bin/
+          patchelf --set-interpreter "${final.stdenv.cc.bintools.dynamicLinker}" $out/bin/lms
+        '';
+
+        meta = prev.lmstudio.meta // {
+          mainProgram = "lm-studio";
+          sourceProvenance = with final.lib.sourceTypes; [ binaryNativeCode ];
+        };
+      };
+
   bambu-studio =
     let
       pname = "bambu-studio";
