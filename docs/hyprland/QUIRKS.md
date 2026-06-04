@@ -188,12 +188,16 @@ absorb parts of a local patch before the local patch stack is refreshed.
 **Impact / workaround:** Refresh the relevant file under `patches/hyprland/` or
 `patches/hyprland-plugins/` against the locked source revision, and prefer
 dropping hunks that upstream has already absorbed instead of preserving stale API
-porting context. The current Hyprland 0.55 lock required dropping a stale
-no-newline hunk from `patches/hyprland/hyprland-floating-top-decoration-rounding-0.54.patch`
-and carrying the new texture wrap fields through
-`patches/hyprland/hyprland-gcc15-designated-initializer-fix-0.54.patch`; the
-matching `hyprbars` plugin refresh also had to carry upstream `bar_text_weight`
-through the legacy config helper stack.
+porting context. The current Hyprland 0.55 lock required refreshing
+`patches/hyprland/hyprland-floating-top-decoration-rounding-0.54.patch` for the
+relocated `Window.hpp` method block, the reformatted shader-feature enum, and
+surface rounding calls now guarded by `!USE_MOTION_BLUR`, while dropping a stale
+no-newline hunk. The companion
+`patches/hyprland/hyprland-gcc15-designated-initializer-fix-0.54.patch` must
+preserve newer texture fields such as `wrapX`, `wrapY`, `forceBlurBlend`,
+`blurAlphaMatte`, and `motionBlur` when rewriting designated initializers to
+assignment-based setup; the matching `hyprbars` plugin refresh also had to carry
+upstream `bar_text_weight` through the legacy config helper stack.
 Rebuild the patched Hyprland package and plugin stack before running a full
 system rebuild, because the full desktop closure may also rebuild the system
 kernel/NVIDIA stack.
