@@ -86,7 +86,7 @@
  
          g_pHyprRenderer->m_renderData.renderModif.enabled = renderModif;
          g_pHyprRenderer->popMonitorTransformEnabled();
-@@ -2014,28 +2014,27 @@
+@@ -2098,29 +2098,28 @@
      }
  
      // draw window
@@ -94,6 +94,7 @@
 -                          STextureRenderData{
 -                              .blur           = *PBLEND,
 -                              .blurredBG      = data.blurredBG,
+-                              .blurAlphaMatte = data.blurAlphaMatte,
 -                              .damage         = data.damage,
 -                              .a              = data.a * data.overallA,
 -                              .round          = data.round,
@@ -115,6 +116,7 @@
 +    auto windowRenderData                        = STextureRenderData{};
 +    windowRenderData.blur                        = *PBLEND;
 +    windowRenderData.blurredBG                   = data.blurredBG;
++    windowRenderData.blurAlphaMatte              = data.blurAlphaMatte;
 +    windowRenderData.damage                      = data.damage;
 +    windowRenderData.a                           = data.a * data.overallA;
 +    windowRenderData.round                       = data.round;
@@ -138,7 +140,7 @@
      scissor(nullptr);
 --- a/src/render/gl/GLElementRenderer.cpp
 +++ b/src/render/gl/GLElementRenderer.cpp
-@@ -101,36 +101,32 @@
+@@ -103,39 +103,35 @@
  void CGLElementRenderer::draw(WP<CTexPassElement> element, const CRegion& damage) {
      const auto m_data = element->m_data;
  
@@ -147,16 +149,20 @@
 -        {
 -            // blur settings for m_data.blur == true
 -            .blur                  = m_data.blur,
+-            .forceBlurBlend        = m_data.forceBlurBlend,
 -            .blurA                 = m_data.blurA,
 -            .overallA              = m_data.overallA,
 -            .blockBlurOptimization = m_data.blockBlurOptimization.value_or(false),
 -            .blurredBG             = m_data.blurredBG,
+-            .blurAlphaMatte        = m_data.blurAlphaMatte,
 +    auto texRenderData                  = CHyprOpenGLImpl::STextureRenderData{};
 +    texRenderData.blur                  = m_data.blur;
++    texRenderData.forceBlurBlend        = m_data.forceBlurBlend;
 +    texRenderData.blurA                 = m_data.blurA;
 +    texRenderData.overallA              = m_data.overallA;
 +    texRenderData.blockBlurOptimization = m_data.blockBlurOptimization.value_or(false);
 +    texRenderData.blurredBG             = m_data.blurredBG;
++    texRenderData.blurAlphaMatte        = m_data.blurAlphaMatte;
  
 -            // common settings
 -            .damage         = m_data.damage.empty() ? &damage : &m_data.damage,
@@ -191,9 +197,11 @@
 +    texRenderData.currentLS             = m_data.currentLS;
 +    texRenderData.primarySurfaceUVTopLeft     = g_pHyprRenderer->m_renderData.primarySurfaceUVTopLeft;
 +    texRenderData.primarySurfaceUVBottomRight = g_pHyprRenderer->m_renderData.primarySurfaceUVBottomRight;
++    texRenderData.motionBlur                  = m_data.motionBlur;
  
 -            .primarySurfaceUVTopLeft     = g_pHyprRenderer->m_renderData.primarySurfaceUVTopLeft,
 -            .primarySurfaceUVBottomRight = g_pHyprRenderer->m_renderData.primarySurfaceUVBottomRight,
+-            .motionBlur                  = m_data.motionBlur,
 -        });
 +    g_pHyprOpenGL->renderTexture(m_data.tex, m_data.box, texRenderData);
  };
