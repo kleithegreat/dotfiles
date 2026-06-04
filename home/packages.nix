@@ -14,6 +14,56 @@ let
     vicinaePkg
   ];
 
+  discordKrispSrc = pkgs.fetchurl {
+    inherit (pkgs.discord.source.modules.discord_krisp) url hash;
+  };
+
+  discordKrispPatcherPython = pkgs.python3.withPackages (ps: [ ps.lief ]);
+
+  discordPatchedKrisp = pkgs.runCommand "discord-krisp-patched" {
+    nativeBuildInputs = [ pkgs.brotli ];
+  } ''
+    mkdir -p "$out"
+    brotli -d < ${discordKrispSrc} | tar xf - --strip-components=1 -C "$out"
+    ${discordKrispPatcherPython}/bin/python3 ${../pkgs/discord-krisp/patch-linux.py} "$out"
+  '';
+
+  discordKrispDeployPython = pkgs.python3.withPackages (ps: [ ps.watchdog ]);
+
+  discordPkg = pkgs.discord.overrideAttrs (old: {
+    nativeBuildInputs = (old.nativeBuildInputs or []) ++ [ pkgs.python3 ];
+    postInstall = (old.postInstall or "") + ''
+      rm -rf "$out/opt/Discord/modules/discord_krisp"
+      mkdir -p "$out/opt/Discord/modules/discord_krisp"
+      cp -R ${discordPatchedKrisp}/. "$out/opt/Discord/modules/discord_krisp/"
+      chmod -R u+w "$out/opt/Discord/modules/discord_krisp"
+
+      python3 ${../pkgs/discord-krisp/patch-voice.py} \
+        "$out/opt/Discord/modules/discord_voice/index.js" \
+        "require('path').join(process.env.XDG_CONFIG_HOME || require('path').join(require('os').homedir(), '.config'), 'discord', '${old.version}', 'modules', 'discord_krisp')" \
+        "$out/opt/Discord/resources/build_info.json" \
+        "$out/opt/Discord/modules"
+
+      install -Dm0755 ${../pkgs/discord-krisp/deploy.py} "$out/bin/.discord-deploy-krisp"
+      substituteInPlace "$out/bin/.discord-deploy-krisp" \
+        --replace-fail '@pythonInterpreter@' '${discordKrispDeployPython}/bin/python3' \
+        --replace-fail '@krispPath@' "$out/opt/Discord/modules/discord_krisp" \
+        --replace-fail '@discordVersion@' '${old.version}' \
+        --replace-fail '@configDirName@' 'discord'
+
+      rm -f "$out/bin/Discord" "$out/bin/discord"
+      install -Dm0755 /dev/stdin "$out/bin/Discord" <<EOF
+      #!${pkgs.runtimeShell}
+      "$out/bin/.discord-deploy-krisp"
+      exec "$out/opt/Discord/Discord" "\$@"
+      EOF
+      ln -s "$out/bin/Discord" "$out/bin/discord" || true
+    '';
+    passthru = (old.passthru or {}) // {
+      patchedKrisp = discordPatchedKrisp;
+    };
+  });
+
   basePackages = with pkgs; [
     openchamber
     bat
@@ -51,7 +101,7 @@ let
     alacritty
     ghostty
     tmux
-    discord
+    discordPkg
     obsidian
     slack
     thunderbird
