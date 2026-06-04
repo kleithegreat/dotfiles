@@ -20,6 +20,7 @@ The remaining issues are mostly interface polish, not architectural defects.
 
 | Severity | Finding | Why it matters |
 | --- | --- | --- |
+| Medium | `bitwarden-desktop` currently requires a temporary `electron-39.8.10` insecure-package exception. | The exception is narrow and package-owned, but Electron 39 is EOL; remove it as soon as nixpkgs updates Bitwarden to a supported Electron release or the app is replaced. |
 | Low | The recursive Quickshell tree plus writable generated sibling file remains a deliberate special case. | It works today and no longer requires a committed generated snapshot, but it is less mechanically obvious than the import-style base/generated split used elsewhere. |
 
 Related low-level build and optimization caveats are tracked in

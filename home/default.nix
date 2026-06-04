@@ -18,6 +18,7 @@ let
   # hyprqt6engine platform theme plugin is ABI-compatible.
   harunaPkg = pkgs.haruna;
   snappySwitcherPkg = pkgs.snappy-switcher;
+  bambuStudioPkg = pkgs.bambu-studio;
   vicinaePkg = pkgs.vicinae;
   texlive = optimizedPkgs.texlive.withPackages (ps: with ps; [
     scheme-small
@@ -59,6 +60,7 @@ in
     (import ./xdg.nix {
       inherit lib dotfilesPath host;
       snappySwitcherPkg = snappySwitcherPkg;
+      bambuStudioPkg = bambuStudioPkg;
     })
   ];
 
