@@ -67,6 +67,7 @@ let
   };
 
   allowedUnfreePackageNames = [
+    "bambu-studio"
     "claude-code"
     "cuda_cccl"
     "cuda_cudart"
@@ -156,6 +157,10 @@ in
       # in multiple module layers.
       nixpkgs.config.allowUnfreePredicate = pkg:
         builtins.elem (lib.getName pkg) allowedUnfreePackageNames;
+      nixpkgs.config.permittedInsecurePackages = [
+        # Required by nixpkgs' bitwarden-desktop 2026.5.0 package on this input.
+        "electron-39.8.10"
+      ];
       nixpkgs.overlays = [ localPackagesOverlay ];
 
       # ── Networking ───────────────────────────────────────────────

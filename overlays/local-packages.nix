@@ -99,7 +99,8 @@ final: prev: {
           "$out/bin/bambu-studio" "\$@"
           EOF
           substituteInPlace $out/share/applications/BambuStudio.desktop \
-            --replace-fail 'Exec=AppRun %U' "Exec=$out/bin/bambu-studio-desktop %U"
+            --replace-fail 'Exec=AppRun %U' "Exec=$out/bin/bambu-studio-desktop %U" \
+            --replace-fail 'StartupWMClass=bambu-studio' 'StartupWMClass=BambuStudio'
         '';
 
         meta = prev.bambu-studio.meta // {

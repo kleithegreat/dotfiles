@@ -1,4 +1,4 @@
-{ lib, dotfilesPath, host, snappySwitcherPkg }:
+{ lib, dotfilesPath, host, snappySwitcherPkg, bambuStudioPkg }:
 
 let
   dotfilesSource = path: "${dotfilesPath}/${path}";
@@ -110,7 +110,15 @@ in
     '';
   };
 
-  xdg.dataFile = hiddenDesktopEntries;
+  xdg.dataFile = hiddenDesktopEntries // {
+    # User-local desktop files win over profile entries; keep Bambu's entry
+    # aligned with the package so stale AppImage integration metadata cannot
+    # shadow the fixed Exec/StartupWMClass values.
+    "applications/BambuStudio.desktop" = {
+      source = "${bambuStudioPkg}/share/applications/BambuStudio.desktop";
+      force = true;
+    };
+  };
 
   xdg.desktopEntries.code = {
     name = "Visual Studio Code";
