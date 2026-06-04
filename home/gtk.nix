@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ lib, pkgs, ... }:
 
 let
   neuwaita = pkgs.stdenvNoCC.mkDerivation {
@@ -48,6 +48,10 @@ in
   dconf.settings = {
     "org/gnome/desktop/interface" = {
       clock-format = "12h";
+    };
+    "org/gnome/nautilus/preferences" = {
+      show-image-thumbnails = "always";
+      thumbnail-limit = lib.hm.gvariant.mkUint64 100;
     };
   };
 }
