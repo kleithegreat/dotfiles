@@ -168,6 +168,12 @@
 **Status:** Workaround in place
 **Resolution:** The `neuwaita` derivation in `home/gtk.nix` installs upstream-shaped `Neuwaita` for GTK after normalizing its inherited-theme list to comma-only separators, and a derived `Neuwaita-KDE` wrapper with `FollowsColorScheme=true` plus `Inherits=Neuwaita,breeze,Adwaita,hicolor`. Both installed themes get aliases for common folder names that upstream Neuwaita lacks, including `folder-blue`. The Qt target maps the shared `Neuwaita` state value to that wrapper for KDE only.
 
+## Nautilus photo thumbnails need explicit user-profile helpers
+**Symptom:** Nautilus opens from the Home Manager profile, but image files show generic icons instead of photo previews, and running `gsettings` in the shell fails with `command not found`.
+**Cause:** Installing `nautilus` alone exposes the file manager, but not every helper users expect to be on the profile `PATH` or visible as XDG thumbnailer metadata. GLib's `bin` output provides `gsettings`, and `gdk-pixbuf` provides `gdk-pixbuf-thumbnailer` plus its thumbnailer metadata for common image formats.
+**Status:** Workaround in place
+**Resolution:** `home/packages.nix` installs `pkgs.glib` and `pkgs.gdk-pixbuf` alongside `pkgs.nautilus`, while `home/gtk.nix` declares `org/gnome/nautilus/preferences` dconf values for `show-image-thumbnails = "always"` and a `thumbnail-limit` of 100 MB. After switching, restart Nautilus with `nautilus -q` and clear `~/.cache/thumbnails/fail/` if files were cached as failed thumbnails before the helpers were installed.
+
 ## OpenCode is better sourced from nixpkgs than from the upstream flake here
 **Symptom:** Building OpenCode through the upstream `sst/opencode` flake on this repo used to pull in a large Deno/V8 toolchain closure and occasionally fail in the filtered Bun `node_modules` setup.
 **Cause:** The upstream flake package is a source build, which brings in Deno plus `rusty_v8`, and its filtered Bun install path could still miss root-level packages such as `@tsconfig/bun`, `prettier`, or `glob` that some build steps expected.

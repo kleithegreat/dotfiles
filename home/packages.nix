@@ -114,6 +114,8 @@ let
     helium
     imv
     nautilus
+    glib
+    gdk-pixbuf
     gedit
     harunaPkg
     ffmpeg
