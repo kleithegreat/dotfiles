@@ -4,6 +4,14 @@ let
   system = pkgs.stdenv.hostPlatform.system;
   hostName = host.name;
   localPackagesOverlay = import ../overlays/local-packages.nix;
+  claudePkgs = import inputs.nixpkgs-claude {
+    inherit system;
+    config.allowUnfreePredicate = pkg:
+      builtins.elem (lib.getName pkg) [ "claude-code" ];
+  };
+  claudeCodeOverlay = final: prev: {
+    claude-code = claudePkgs.claude-code;
+  };
   nativeOptimizations = import ./native-optimizations.nix {
     inherit lib host enableNativeOptimizations;
   };
@@ -159,7 +167,7 @@ in
         # Required by nixpkgs' bitwarden-desktop 2026.5.0 package on this input.
         "electron-39.8.10"
       ];
-      nixpkgs.overlays = [ localPackagesOverlay ];
+      nixpkgs.overlays = [ localPackagesOverlay claudeCodeOverlay ];
 
       # ── Networking ───────────────────────────────────────────────
       networking.hostName = hostName;
