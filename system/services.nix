@@ -81,8 +81,11 @@ in
     extraPortals = [
       patchedHyprlandPortal
       pkgs.xdg-desktop-portal-gtk
-      pkgs.kdePackages.xdg-desktop-portal-kde
     ];
+    config.common = {
+      default = [ "hyprland" "gtk" ];
+      "org.freedesktop.impl.portal.FileChooser" = [ "gtk" ];
+    };
   };
 
   services.displayManager.sddm = {
