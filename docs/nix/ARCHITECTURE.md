@@ -10,7 +10,7 @@ Home Manager layer as of 2026-06-02.
 | Piece | Current implementation |
 | --- | --- |
 | Outputs | The `outputs` attrset in `flake.nix` exports `nixosConfigurations.laptop`, `nixosConfigurations.desktop`, plus `overlays.default`, `packages.x86_64-linux.desktopctl`, `packages.x86_64-linux.helium`, `packages.x86_64-linux.openchamber`, `packages.x86_64-linux.openchamber-claude-bridge`, `packages.x86_64-linux.openchamber-backend-mux`, and `packages.x86_64-linux.snappy-switcher` |
-| Input branch policy | `flake.nix` keeps the primary `nixpkgs` input on `nixos-unstable`, the side `nixpkgs-stable` input on `nixos-25.05`, and pins Home Manager to `release-26.05` while making its `nixpkgs` input follow the primary `nixpkgs` input so Home Manager's release check matches the evaluated Nixpkgs release |
+| Input branch policy | `flake.nix` keeps the primary `nixpkgs` input on `nixos-unstable`, the side `nixpkgs-stable` input on `nixos-25.05`, and tracks Home Manager `master` while no matching `release-26.11` branch exists. Home Manager's `nixpkgs` input follows the primary `nixpkgs` input so its release check matches the evaluated Nixpkgs release. |
 | Host constructor | `mkHost` in `flake.nix` wraps `nixpkgs.lib.nixosSystem` and passes the shared `host` fact record into both the NixOS and Home Manager module graphs |
 | Feature flags | The top-level `enableNativeOptimizations` binding in `flake.nix` stays shared across both hosts |
 | Shared system layer | The top-level shared NixOS root module in `system/configuration.nix`, which imports the concern-specific shared modules under `system/` |
@@ -30,7 +30,7 @@ Home Manager layer as of 2026-06-02.
 
 | Path | Role | Current responsibilities |
 | --- | --- | --- |
-| `system/configuration.nix` | Shared system root module | Nix settings, the shared unfree allowlist and narrow insecure-package exceptions used by both NixOS and embedded Home Manager, overlays, Hyprland packaging, the repo-wide fontconfig baseline, shared non-Qt session env, base system packages, locale/docs, and imports of the concern-specific shared system modules |
+| `system/configuration.nix` | Shared system root module | Nix settings including the `cache.nixos.org` and Vicinae substituters, the shared unfree allowlist and narrow insecure-package exceptions used by both NixOS and embedded Home Manager, overlays, Hyprland packaging, the repo-wide fontconfig baseline, shared non-Qt session env, base system packages, locale/docs, and imports of the concern-specific shared system modules |
 | `system/physical-host.nix` | Shared physical-host module | Shared physical-host defaults for the stock nixpkgs kernel package set, `kvm-intel`, zram, Intel firmware/microcode, I2C device access for DDC/CI monitor brightness, GRUB/EFI bootloader setup, the broad `mitigations=off` kernel parameter plus `transparent_hugepage=madvise`, limited local build concurrency (`max-jobs = 2`), DHCP fallback, tailscaled stop-timeout bounding, runtime kernel tuning (`bbr`/`fq`, autogroup, and MGLRU `min_ttl_ms`), and `kernel-oom-notifier.service` for desktop OOM kill notifications |
 | `system/qt.nix` | Shared Qt module | The optimized `hyprqt6engine` derivation, NixOS `qt.enable`, Qt platform/plugin env, and the shared qtct/Kvantum/hyprqt6engine system packages |
 | `system/users.nix` | Shared user/admin module | The shared `programs.zsh` baseline, the `kevin` user declaration with desktop hardware access groups including `i2c`, and shared OpenSSH policy |
