@@ -138,12 +138,17 @@ keeps `hyprbars` on the legacy `HyprlandAPI::addConfigValue(...)` plus
 `HyprlandAPI::getConfigValue(...)` path, parses color strings through
 `Config::ParserUtils::parseColor(...)`, carries upstream `bar_text_weight`
 through a string-backed legacy helper, renders the bar background with top-only
-rounded corners, and opts the custom bar pass out of render-pass simplification.
+rounded corners, opts the custom bar pass out of render-pass simplification,
+and updates plugin unload monitor iteration to `State::monitorState()->monitors()`
+for Hyprland 0.55.
 `patches/hyprland-plugins/hyprexpo-hyprland-0.54.patch` carries the local
 overview behavior: it debounces accidental select events immediately after
 opening the overview, guards stale `startedOn` workspace checks with
 `valid(startedOn)`, and lets `Config::Actions::changeWorkspace(...)` own the
-workspace transition without duplicating desktop-animation calls.
+workspace transition without duplicating desktop-animation calls. It also keeps
+the removed Hyprexpo source compiling against Hyprland 0.55's
+`Monitor::CMonitor` / `output/Monitor.hpp` API and uses a namespace-agnostic
+damage-hook symbol lookup.
 
 Monitor behavior follows the same host split as inputs:
 

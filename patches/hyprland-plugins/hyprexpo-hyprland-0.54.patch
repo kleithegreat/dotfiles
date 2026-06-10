@@ -1,3 +1,36 @@
+diff -ruN -x '*.orig' -x '*.rej' a/main.cpp b/main.cpp
+--- a/main.cpp
++++ b/main.cpp
+@@ -5,5 +5,6 @@
+ #include <hyprland/src/Compositor.hpp>
++#include <hyprland/src/output/Monitor.hpp>
+ #include <hyprland/src/desktop/state/FocusState.hpp>
+ #include <hyprland/src/desktop/view/Window.hpp>
+ #include <hyprland/src/config/ConfigManager.hpp>
+ #include <hyprland/src/config/shared/actions/ConfigActions.hpp>
+@@ -22,0 +24,2 @@
++#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
++
+@@ -56 +60 @@ static void hkAddDamageA(void* thisptr, const CBox& box) {
+-    const auto PMONITOR = (CMonitor*)thisptr;
++    const auto PMONITOR = (Monitor::CMonitor*)thisptr;
+@@ -67 +71 @@ static void hkAddDamageB(void* thisptr, const pixman_region32_t* rg) {
+-    const auto PMONITOR = (CMonitor*)thisptr;
++    const auto PMONITOR = (Monitor::CMonitor*)thisptr;
+@@ -296 +300 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
+-    FNS = HyprlandAPI::findFunctionsByName(PHANDLE, "_ZN8CMonitor9addDamageERKN9Hyprutils4Math4CBoxE");
++    FNS = HyprlandAPI::findFunctionsByName(PHANDLE, "addDamageERKN9Hyprutils4Math4CBoxE");
+@@ -298,2 +302,2 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
+-        failNotif("no fns for hook _ZN8CMonitor9addDamageERKN9Hyprutils4Math4CBoxE");
+-        throw std::runtime_error("[he] No fns for hook _ZN8CMonitor9addDamageERKN9Hyprutils4Math4CBoxE");
++        failNotif("no fns for hook addDamageERKN9Hyprutils4Math4CBoxE");
++        throw std::runtime_error("[he] No fns for hook addDamageERKN9Hyprutils4Math4CBoxE");
+diff -ruN -x '*.orig' -x '*.rej' a/ExpoGesture.cpp b/ExpoGesture.cpp
+--- a/ExpoGesture.cpp
++++ b/ExpoGesture.cpp
+@@ -7 +7 @@
+-#include <hyprland/src/helpers/Monitor.hpp>
++#include <hyprland/src/output/Monitor.hpp>
 diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
 --- a/overview.cpp
 +++ b/overview.cpp

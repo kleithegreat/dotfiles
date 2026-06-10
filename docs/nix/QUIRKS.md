@@ -12,11 +12,11 @@
 **Status:** Intentional bootstrap state
 **Resolution:** Treat the checked-in `initialPassword` as deliberate bootstrap behavior, not as undocumented drift. If the bootstrap path changes, document the replacement in this domain instead of silently removing it and leaving future agents to guess whether it was accidental.
 
-## Home Manager's release branch must track the evaluated Nixpkgs release
+## Home Manager's release must track the evaluated Nixpkgs release
 **Symptom:** `nixos-rebuild switch` warns that the `kevin` profile is using mismatched Home Manager and Nixpkgs versions.
-**Cause:** The unqualified Home Manager input follows the project's default branch, which can advance to the next release cycle before the locked `nixos-unstable` Nixpkgs input reports that same release.
-**Status:** Release branch pinned
-**Resolution:** `flake.nix` pins Home Manager to `release-26.05` and keeps `home-manager.inputs.nixpkgs.follows = "nixpkgs"`. When the primary Nixpkgs input evaluates to a new release, move the Home Manager branch to the corresponding `release-*` branch and update only that lockfile input instead of disabling the release check.
+**Cause:** Home Manager compares its own release value with the evaluated Nixpkgs release. When `nixos-unstable` advances to a new cycle before Home Manager publishes a matching release branch, the previous `release-*` input starts warning even though its `nixpkgs` input follows this flake.
+**Status:** Tracking Home Manager `master` for the 26.11 cycle
+**Resolution:** `flake.nix` currently tracks `github:nix-community/home-manager/master` and keeps `home-manager.inputs.nixpkgs.follows = "nixpkgs"`, because Home Manager `master` reports release `26.11` while no `release-26.11` branch exists yet. Once the matching release branch exists, move the input to that branch and update only the Home Manager lockfile node instead of disabling `home.enableNixpkgsReleaseCheck`.
 
 ## Stock `services.fstrim` can touch the Windows NVMe through a shared EFI mount
 **Symptom:** A weekly `fstrim` run trims `/boot/efi` even though the goal is only to discard unused blocks on the Linux filesystem.
@@ -47,6 +47,12 @@
 **Cause:** Those derivations come from flake inputs or local overrides rather than the nixpkgs package set targeted by `overlays/native-optimized.nix`. `hyprexpo` is now a repo-local package under `pkgs/hyprland-plugins/hyprexpo/default.nix`, but it follows the same helper path as the flake-input Hyprland packages.
 **Status:** Intentional design
 **Resolution:** `system/configuration.nix` and `home/default.nix` both import `system/native-optimizations.nix` directly, so the remaining flake-input packages carry the same `-O3 -march=native` / `target-cpu=native` flags and per-host `requiredSystemFeatures` tag as the overlay-managed nixpkgs packages.
+
+## Hyprland Cachix is not useful for the patched local plugin stack
+**Symptom:** `nixos-rebuild switch` warns that a `.nar.zst` file does not exist in binary cache `https://hyprland.cachix.org` while building the Hyprland plugin closure.
+**Cause:** This repo rebuilds the active Hyprland and plugin stack with local patches and host-native flags, so the resulting store paths are not expected to exist in Hyprland's public Cachix cache. Leaving that substituter enabled only adds noisy negative cache lookups for those local derivations.
+**Status:** Removed from shared Nix settings
+**Resolution:** `system/configuration.nix` keeps `cache.nixos.org` plus the Vicinae cache but no longer lists `https://hyprland.cachix.org` or its public key. Re-add the Hyprland cache only if the Hyprland-family package policy changes back to mostly unpatched upstream outputs.
 
 ## Vicinae server autostart uses Hyprland only
 **Symptom:** Running Vicinae through both the Home Manager service and Hyprland `exec-once = vicinae server` starts redundant background paths for the same launcher. After a rebuild, launcher-spawned apps can also keep stale desktop-entry behavior until the existing Vicinae server is replaced.

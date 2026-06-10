@@ -197,7 +197,11 @@ no-newline hunk. The companion
 preserve newer texture fields such as `wrapX`, `wrapY`, `forceBlurBlend`,
 `blurAlphaMatte`, and `motionBlur` when rewriting designated initializers to
 assignment-based setup; the matching `hyprbars` plugin refresh also had to carry
-upstream `bar_text_weight` through the legacy config helper stack.
+upstream `bar_text_weight` through the legacy config helper stack. The current
+June 2026 Hyprland 0.55 lock also required moving `hyprbars` plugin-exit monitor
+iteration to `State::monitorState()->monitors()` and refreshing the repo-local
+`hyprexpo` patch for the `Monitor::CMonitor` namespace, `output/Monitor.hpp`,
+and the renamed monitor damage hook symbol.
 Rebuild the patched Hyprland package and plugin stack before running a full
 system rebuild, because the full desktop closure may also rebuild the system
 kernel/NVIDIA stack.
