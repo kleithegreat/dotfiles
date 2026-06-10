@@ -196,7 +196,7 @@
 **Symptom:** `nixos-rebuild` failed while building the repo-local `claude-code-2.1.91` overlay with `install: omitting directory ...-source` during `installPhase`.
 **Cause:** The repo-local overlay pinned an older npm tarball and lockfile against a newer nixpkgs `claude-code` builder shape. Upstream nixpkgs has since moved on to a newer package revision and its maintained recipe no longer matches the local override's assumptions.
 **Status:** Workaround removed in favor of nixpkgs package
-**Resolution:** `system/configuration.nix` now drops the repo-local `overlays/claude-code.nix` override entirely and just uses `pkgs.claude-code` from the pinned `nixpkgs` set. On the current unstable pin that resolves to `claude-code-2.1.119`, which builds cleanly, so keeping a separate repo-local npm pin only adds maintenance risk without a compensating benefit.
+**Resolution:** `system/configuration.nix` still consumes `pkgs.claude-code`; the repo no longer carries a package-specific npm override. Because Anthropic model-support releases can land in nixpkgs master before the `nixos-unstable` channel advances, `flake.nix` now adds a narrow `nixpkgs-claude` input, and the Claude overlays in `flake.nix` and `system/configuration.nix` replace only `claude-code` with that nixpkgs package. Keep this as a nixpkgs-sourced package rather than reintroducing a local npm pin.
 
 ## Haruna must match the session Qt/KDE stack
 **Symptom:** A stable Haruna build can abort at startup, even with no media loaded, while the same file decodes cleanly in `ffplay`.

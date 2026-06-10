@@ -3,6 +3,7 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs-claude.url = "github:NixOS/nixpkgs/master";
     nixpkgs-stable.url = "github:NixOS/nixpkgs/nixos-25.05";
     home-manager = {
       url = "github:nix-community/home-manager/master";
@@ -20,12 +21,24 @@
     vicinae.url = "github:vicinaehq/vicinae";
   };
 
-  outputs = { self, nixpkgs, nixpkgs-stable, home-manager, hyprland, hyprland-plugins, hyprqt6engine, vicinae, ... }:
+  outputs = { self, nixpkgs, nixpkgs-claude, nixpkgs-stable, home-manager, hyprland, hyprland-plugins, hyprqt6engine, vicinae, ... }:
   let
     system = "x86_64-linux";
+    localPackagesOverlay = import ./overlays/local-packages.nix;
+    claudeCodeOverlay = final: prev:
+      let
+        claudePkgs = import nixpkgs-claude {
+          system = final.stdenv.hostPlatform.system;
+          config.allowUnfreePredicate = pkg:
+            builtins.elem (nixpkgs-claude.lib.getName pkg) [ "claude-code" ];
+        };
+      in {
+        claude-code = claudePkgs.claude-code;
+      };
     sharedInputs = {
       inherit
         nixpkgs
+        nixpkgs-claude
         nixpkgs-stable
         home-manager
         hyprland
@@ -94,7 +107,8 @@
         ];
       };
   in {
-    overlays.default = import ./overlays/local-packages.nix;
+    overlays.default = final: prev:
+      localPackagesOverlay final prev // claudeCodeOverlay final prev;
 
     packages.${system} =
       let

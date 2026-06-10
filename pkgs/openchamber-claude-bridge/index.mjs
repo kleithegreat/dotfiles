@@ -36,6 +36,16 @@ const DEFAULT_TOOL_IDS = [
 ];
 
 const MODEL_SPECS = {
+  fable: {
+    id: 'fable',
+    cliModel: 'fable',
+    name: 'Claude Fable 5 (Claude Code)',
+    limit: {
+      context: 1000000,
+      output: 128000,
+    },
+    releaseDate: '2026-06-09',
+  },
   opus: {
     id: 'opus',
     cliModel: 'opus',
@@ -226,7 +236,7 @@ function modelList() {
         write: 0,
       },
     },
-    limit: {
+    limit: spec.limit || {
       context: 1000000,
       output: 64000,
     },
@@ -235,7 +245,7 @@ function modelList() {
       cliModel: spec.cliModel,
     },
     headers: {},
-    release_date: '2026-04-18',
+    release_date: spec.releaseDate || '2026-04-18',
   }));
 }
 
