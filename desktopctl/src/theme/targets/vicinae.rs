@@ -12,7 +12,7 @@ use std::{fmt::Write as _, path::PathBuf};
 pub const METADATA: TargetMetadata = TargetMetadata::new(
     "vicinae",
     Assembly::Import,
-    &["color_scheme", "system_font"],
+    &["color_scheme", "system_font", "icon_theme"],
 )
 .output("~/.config/vicinae/settings.theme.json")
 .managed_paths(&["~/.local/share/vicinae/themes/*.toml"]);
@@ -33,11 +33,19 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Gener
         "name".to_owned(),
         Value::String(colors.vicinae_theme_name()),
     );
+    dark.insert(
+        "icon_theme".to_owned(),
+        Value::String(state.icon_theme.clone()),
+    );
 
     let mut light = Map::new();
     light.insert(
         "name".to_owned(),
         Value::String(colors.vicinae_light_theme_name()),
+    );
+    light.insert(
+        "icon_theme".to_owned(),
+        Value::String(state.icon_theme.clone()),
     );
 
     let mut theme = Map::new();
@@ -202,8 +210,16 @@ mod tests {
             Value::String("gruvbox-dark".to_owned())
         );
         assert_eq!(
+            value["theme"]["dark"]["icon_theme"],
+            Value::String("Neuwaita".to_owned())
+        );
+        assert_eq!(
             value["theme"]["light"]["name"],
             Value::String("gruvbox-light".to_owned())
+        );
+        assert_eq!(
+            value["theme"]["light"]["icon_theme"],
+            Value::String("Neuwaita".to_owned())
         );
     }
 
