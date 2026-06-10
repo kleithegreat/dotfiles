@@ -204,6 +204,16 @@
 **Status:** Workaround in place
 **Resolution:** `home/default.nix` now installs `pkgs.haruna` from the same pinned nixpkgs set as the rest of the Qt/KDE session, so it shares the session ABI with `hyprqt6engine`. Re-check the dry-run closure before reintroducing any stable Haruna pin; avoiding rebuild pressure is not worth mixing Qt/KDE plugin ABIs.
 
+## Chromium-family file pickers use the GTK portal on Hyprland
+
+**Symptom:** On a fresh Hyprland login, Chromium and Helium can open normally but clicking an upload/file input does not produce a file picker.
+
+**Cause:** The old user portal config forced `org.freedesktop.impl.portal.FileChooser = kde`. In this non-Plasma session the KDE portal backend starts through Plasma's `plasma-xdg-desktop-portal-kde.service` path and can log `Failed to register with host portal ... Connection already associated with an application ID` during activation. That made the shared Chromium-family file picker path depend on the most brittle portal backend in the session. The user session also was not explicitly starting `graphical-session.target`, so activation-sensitive user services were relying on D-Bus activation timing instead of an active graphical target.
+
+**Status:** Fixed in shared config.
+
+**Resolution:** `system/services.nix` now exposes only the Hyprland and GTK portal backends and sets `xdg.portal.config.common` so `default = [ "hyprland" "gtk" ]` and `org.freedesktop.impl.portal.FileChooser = [ "gtk" ]`. `home/xdg.nix` writes the same user-level `xdg-desktop-portal/portals.conf` values to prevent an old Home Manager symlink from overriding the system config. `config/hypr/autostart.conf` imports the Hyprland environment into D-Bus/systemd, scrubs one-shot activation tokens, starts `graphical-session.target` plus the portal services, and stops the graphical target on Hyprland shutdown.
+
 ## Discord's native Krisp module fails after Nix packaging
 **Symptom:** Discord sees the selected microphone, but voice activity can fail or the client logs `NoiseCancellerError.KRISP_INIT_ERROR_UNSIGNED` while `discord_krisp.log` says `Application not signed by Discord, Krisp is not enabled`.
 **Cause:** The Nix-packaged Discord binary is patched/wrapped, so Discord's native Krisp module fails its signature check. If Discord stores `vadUseKrisp = true`, voice activity detection can depend on that failing module even when PipeWire and the microphone are healthy.
@@ -259,7 +269,7 @@
 **Resolution:** `hosts/laptop/system.nix` installs `laptop-power-profile`, which detects P-cores from `topology/thread_siblings_list`, re-enables all hotpluggable CPUs for the normal `performance` / `balanced` / `power-saver` modes, and offlines only the hotpluggable P-core threads for `e-core-only`. Treat that mode as an E-core-biased profile, not a literal "all P-cores gone" state.
 
 ## Helium tarballs need manual wrapper handling
-**Symptom:** The Helium package fails during the Qt pre-hook with "depends on qtbase, but no wrapping behavior was specified", `autoPatchelfHook` complains about missing Qt5 SONAMEs from the bundled compatibility shim, or the browser runs but file pickers do not open when a page asks for a local file.
+**Symptom:** The Helium package fails during the Qt pre-hook with "depends on qtbase, but no wrapping behavior was specified", `autoPatchelfHook` complains about missing Qt5 SONAMEs from the bundled compatibility shim, or Helium-specific GTK file dialog/library loading fails even though the shared portal route is healthy.
 **Cause:** Upstream `helium-linux` releases currently ship both a Qt6 integration shim that the browser still uses and a dormant `libqt5_shim.so` that is no longer backed by runtime Qt5 libraries. The package also launches through the upstream `helium-wrapper` shell script, so it is not a normal `wrapQtAppsHook` target. Like Chromium, Helium lazy-loads GTK3/GTK4 file chooser libraries; those `dlopen` dependencies do not appear as ELF `NEEDED` entries, so `autoPatchelfHook` does not add them automatically.
 **Status:** Workaround in place
 **Resolution:** `pkgs/helium/default.nix` uses `makeWrapper` for the launcher, sets `dontWrapQtApps = true`, ignores the unused `libQt5Core.so.5`, `libQt5Gui.so.5`, and `libQt5Widgets.so.5` dependencies in `autoPatchelfIgnoreMissingDeps`, and prefixes the launcher with GTK3/GTK4, Wayland, GSettings schema, icon-theme, media, and GL runtime paths plus `xdg-utils` for Chromium-family desktop integration.

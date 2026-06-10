@@ -54,6 +54,16 @@ appears in an already-running session, clear those variables from the user
 manager and restart affected D-Bus helpers or app-launcher daemons, or log out
 and back in after rebuilding the config.
 
+## Portal services need the imported graphical-session environment
+
+**Symptom:** Browser file pickers can fail to appear on a fresh Hyprland login even though the same portal services look healthy after they have been restarted later in the session.
+
+**Cause:** XDG portal backends are user services that need the Hyprland session environment, especially `WAYLAND_DISPLAY`, `XDG_CURRENT_DESKTOP`, and the profile paths exported by the NixOS/Home Manager session. If they are activated before that environment is imported into D-Bus and the user manager, the first portal instance can start with incomplete context. Leaving `graphical-session.target` inactive also makes activation timing depend on whichever app touches the portal first.
+
+**Status:** Fixed in `config/hypr/autostart.conf`.
+
+**Impact / workaround:** Keep the environment import, token scrub, `graphical-session.target` start, and explicit XDG portal service start in the first shared `exec-once` command. `exec-shutdown` stops `graphical-session.target` so PartOf-bound user services do not outlive the compositor session.
+
 ## Shared brightness hooks list backlight and DDC/CI devices
 
 **Symptom:** Older checkouts had brightness controls that did nothing useful on
