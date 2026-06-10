@@ -215,7 +215,7 @@ Constraints:
 | `spicetify` | `standalone` | Generated Spicetify theme files plus runtime apply |
 | `starship` | `concat` | `~/.config/starship.toml` |
 | `tmux` | `import` | `~/.config/tmux/colors.conf` |
-| `vicinae` | `import` | `~/.config/vicinae/settings.theme.json` plus generated custom themes under `~/.local/share/vicinae/themes/` |
+| `vicinae` | `import` | `~/.config/vicinae/settings.theme.json` with Vicinae theme names, icon theme, and font, plus generated custom themes under `~/.local/share/vicinae/themes/` |
 | `vscode` | `concat` | `~/.config/Code/User/settings.json` plus state DB adjustments |
 | `wallpaper` | `command` | `awww` apply and optional filtered wallpaper cache |
 | `where_is_my_sddm_theme` | `command` | Staged `/tmp/desktopctl-where-is-my-sddm-theme/background` wallpaper bridge for the root-owned SDDM background sync |
@@ -233,7 +233,7 @@ State changes fan out by ownership, not by CLI convenience.
 | `wallpaper`, `filter_wallpaper` | `wallpaper`, `where_is_my_sddm_theme` |
 | `system_font` | `chromium`, `gtk`, `helium`, `hyprland`, `openchamber`, `qt`, `quickshell`, `snappy_switcher`, `vicinae`, `zed` |
 | `mono_font` | `alacritty`, `chromium`, `ghostty`, `gtk`, `helium`, `hyprland`, `neovide`, `openchamber`, `qt`, `quickshell`, `vscode`, `zed` |
-| `icon_theme` | `gtk`, `qt`, `snappy_switcher` |
+| `icon_theme` | `gtk`, `qt`, `snappy_switcher`, `vicinae` |
 | `font_size` | `gtk`, `hyprland`, `qt`, `quickshell`, `snappy_switcher`, `zed` |
 | `quickshell_font_size_offset` | `quickshell` |
 | `gtk_font_size_offset` | `gtk` |

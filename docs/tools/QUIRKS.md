@@ -84,6 +84,25 @@ for the Vicinae target. If you want to inspect or debug the active Vicinae
 palette, check the generated TOML there before assuming the packaged theme file
 is what Vicinae is using.
 
+## Vicinae icon theme is variant-scoped
+
+**Symptom:** Vicinae can show question-mark placeholders for desktop apps or the
+Files command even though GTK/Qt apps are using the selected icon theme.
+
+**Cause:** Vicinae 0.21 stores the icon theme as `theme.light.icon_theme` and
+`theme.dark.icon_theme`. If the generated fragment only sets the Vicinae color
+theme names, Vicinae falls back to its own `auto` heuristic, which prefers a
+small well-known theme list such as Adwaita/Breeze instead of the repo-selected
+theme state.
+
+**Status:** Workaround in place
+
+**Resolution:** `desktopctl/src/theme/targets/vicinae.rs` writes the shared
+`ThemeState.icon_theme` into both Vicinae theme variants in
+`~/.config/vicinae/settings.theme.json`, and its metadata includes
+`icon_theme` so `desktopctl theme set icon_theme ...` refreshes Vicinae along
+with GTK, Qt, and Snappy Switcher.
+
 ## Snappy Switcher Theme Assets
 
 Home Manager deploys `snappy-switcher/themes` from the snappy-switcher
