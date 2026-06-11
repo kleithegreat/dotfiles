@@ -26,20 +26,7 @@ pub fn legacy_state_path() -> io::Result<PathBuf> {
 pub fn load_colors(scheme_name: &str, colors_dir: &Path) -> crate::Result<ColorScheme> {
     let path = colors_dir.join(format!("{scheme_name}.json"));
     if !path.is_file() {
-        let mut available = Vec::new();
-        for entry in fs::read_dir(colors_dir)? {
-            let entry = entry?;
-            let entry_path = entry.path();
-            if entry_path
-                .extension()
-                .is_some_and(|extension| extension == "json")
-                && let Some(stem) = entry_path.file_stem().and_then(|stem| stem.to_str())
-            {
-                available.push(stem.to_owned());
-            }
-        }
-        available.sort();
-
+        let available = crate::theme::json_file_stems_by_filename(colors_dir)?;
         let available = if available.is_empty() {
             "(none)".to_owned()
         } else {
@@ -73,15 +60,20 @@ pub fn load_state() -> crate::Result<ThemeState> {
     load_state_from_paths(&db_path, &legacy_path)
 }
 
-pub fn save_state(state: &ThemeState) -> crate::Result<()> {
+/// Upsert only the given keys so concurrent writers (CLI invocations, the
+/// daemon's dark_hint edges) commute on disjoint keys instead of reverting
+/// each other through stale full-state snapshots. Full-table rewrites are
+/// reserved for first-seed initialization and the load-path backfill, which
+/// write a freshly loaded snapshot.
+pub fn save_state_keys(pairs: &[(&str, &Value)]) -> crate::Result<()> {
     let db_path = paths::db_path()?;
-    save_state_to_db_path(state, &db_path)
+    save_state_keys_to_db_path(pairs, &db_path)
 }
 
 pub fn serialize_state(state: &ThemeState) -> crate::Result<String> {
     Ok(format!(
         "{}\n",
-        serde_json::to_string_pretty(&Value::Object(state.to_ordered_json_map()))?
+        crate::theme::json::format_pretty_value(&Value::Object(state.to_ordered_json_map()))
     ))
 }
 
@@ -91,6 +83,7 @@ fn load_state_from_paths(db_path: &Path, legacy_state_path: &Path) -> crate::Res
     load_state_from_connection(&mut connection, db_path)
 }
 
+#[cfg(test)]
 fn save_state_to_db_path(state: &ThemeState, db_path: &Path) -> crate::Result<()> {
     let mut connection = open_state_db(db_path)?;
     save_state_to_connection(state, &mut connection)
@@ -184,6 +177,23 @@ fn save_state_to_connection(state: &ThemeState, connection: &mut Connection) -> 
     }
 
     drop(insert);
+    transaction.commit()?;
+    Ok(())
+}
+
+fn save_state_keys_to_db_path(pairs: &[(&str, &Value)], db_path: &Path) -> crate::Result<()> {
+    let mut connection = open_state_db(db_path)?;
+    let transaction = connection.transaction()?;
+
+    let mut upsert = transaction.prepare(
+        "INSERT INTO theme_state (key, value) VALUES (?, ?) \
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+    )?;
+    for (key, value) in pairs {
+        upsert.execute(params![key, serde_json::to_string(value)?])?;
+    }
+
+    drop(upsert);
     transaction.commit()?;
     Ok(())
 }
@@ -704,6 +714,38 @@ mod tests {
         assert!(keys.contains(&"quickshell_font_size_offset".to_owned()));
 
         remove_file_if_exists(&legacy_path)?;
+        remove_file_if_exists(&db_path)?;
+        Ok(())
+    }
+
+    #[test]
+    fn save_state_keys_upserts_only_the_given_keys() -> TestResult {
+        let db_path = temp_path("state-key-upsert", "db");
+
+        let mut rows = ThemeState::default_state_for_repo_root(&repo_root()).to_ordered_json_map();
+        rows.remove("font_size");
+        write_state_rows_to_db(&db_path, &rows)?;
+
+        let mono_font = Value::String("CommitMono".to_owned());
+        let font_size = Value::from(13);
+        save_state_keys_to_db_path(
+            &[("mono_font", &mono_font), ("font_size", &font_size)],
+            &db_path,
+        )?;
+
+        let connection = open_state_db(&db_path)?;
+        let stored = |key: &str| {
+            connection.query_row(
+                "SELECT value FROM theme_state WHERE key = ?",
+                params![key],
+                |row| row.get::<_, String>(0),
+            )
+        };
+        assert_eq!(stored("mono_font")?, "\"CommitMono\"");
+        assert_eq!(stored("font_size")?, "13");
+        // Untouched keys keep their previous values.
+        assert_eq!(stored("color_scheme")?, "\"gruvbox-dark\"");
+
         remove_file_if_exists(&db_path)?;
         Ok(())
     }

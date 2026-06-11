@@ -93,6 +93,7 @@ pub fn persist(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
         return Ok(());
     };
 
+    let original_len = entries.len();
     let updated = entries
         .into_iter()
         .filter(|entry| {
@@ -104,7 +105,7 @@ pub fn persist(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
         })
         .collect::<Vec<_>>();
 
-    if updated.len() == serde_json::from_str::<Vec<Value>>(&disabled)?.len() {
+    if updated.len() == original_len {
         return Ok(());
     }
 

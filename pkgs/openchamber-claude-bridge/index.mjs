@@ -210,14 +210,16 @@ function modelList() {
     capabilities: {
       temperature: false,
       reasoning: false,
-      attachment: true,
+      // The bridge does not pass attachment bytes to the claude CLI yet, so
+      // do not advertise attachment/image/pdf input support.
+      attachment: false,
       toolcall: true,
       input: {
         text: true,
         audio: false,
-        image: true,
+        image: false,
         video: false,
-        pdf: true,
+        pdf: false,
       },
       output: {
         text: true,
@@ -361,8 +363,10 @@ class BridgeState {
     this.dataDir = dataDir;
     this.stateFile = path.join(dataDir, 'state.json');
     this.sessions = new Map();
-    this.nextEventId = 1;
+    // Event IDs only need per-process monotonicity; they are not persisted.
+    this.nextEventId = Date.now();
     this.toolIds = [...DEFAULT_TOOL_IDS];
+    this.saveTimer = null;
     this.load();
   }
 
@@ -374,9 +378,6 @@ class BridgeState {
     const parsed = safeJsonParse(fs.readFileSync(this.stateFile, 'utf8'), null);
     if (!parsed || typeof parsed !== 'object') {
       return;
-    }
-    if (Number.isInteger(parsed.nextEventId) && parsed.nextEventId > 0) {
-      this.nextEventId = parsed.nextEventId;
     }
     if (Array.isArray(parsed.toolIds) && parsed.toolIds.every((value) => typeof value === 'string')) {
       this.toolIds = parsed.toolIds;
@@ -390,25 +391,46 @@ class BridgeState {
         messages: Array.isArray(session.messages) ? session.messages : [],
         status: session.status && typeof session.status === 'object' ? session.status : { type: 'idle' },
         turns: Number.isInteger(session.turns) ? session.turns : 0,
+        // Legacy entries predate the flag; any session with recorded turns
+        // was created with --session-id and must keep resuming.
+        claudeSessionStarted: session.claudeSessionStarted === true
+          || (Number.isInteger(session.turns) && session.turns > 0),
       });
     }
   }
 
   save() {
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+      this.saveTimer = null;
+    }
     ensureDir(this.dataDir);
     const payload = {
-      nextEventId: this.nextEventId,
       toolIds: this.toolIds,
       sessions: Array.from(this.sessions.values()).map((session) => ({
         info: session.info,
         messages: session.messages,
         status: session.status,
         turns: session.turns,
+        claudeSessionStarted: session.claudeSessionStarted,
       })),
     };
     const tempPath = `${this.stateFile}.tmp`;
     fs.writeFileSync(tempPath, JSON.stringify(payload, null, 2));
     fs.renameSync(tempPath, this.stateFile);
+  }
+
+  // Coalesces high-frequency writes (e.g. streaming deltas) into one save;
+  // any direct save() flushes the pending timer.
+  saveSoon() {
+    if (this.saveTimer) {
+      return;
+    }
+    this.saveTimer = setTimeout(() => {
+      this.saveTimer = null;
+      this.save();
+    }, 250);
+    this.saveTimer.unref();
   }
 
   createSession({ directory, title, parentID, permission }) {
@@ -433,6 +455,7 @@ class BridgeState {
       messages: [],
       status: { type: 'idle' },
       turns: 0,
+      claudeSessionStarted: false,
     };
     this.sessions.set(id, session);
     this.save();
@@ -491,7 +514,7 @@ class BridgeState {
     }
     session.messages.push(message);
     session.info.time.updated = Date.now();
-    this.save();
+    this.saveSoon();
     return message;
   }
 
@@ -506,7 +529,7 @@ class BridgeState {
     }
     updater(message);
     session.info.time.updated = Date.now();
-    this.save();
+    this.saveSoon();
     return message;
   }
 
@@ -553,7 +576,7 @@ class BridgeState {
     return {
       id: projectIdForDirectory(directory),
       worktree: directory,
-      vcs: 'git',
+      ...(fs.existsSync(path.join(directory, '.git')) ? { vcs: 'git' } : {}),
       name: path.basename(directory) || directory,
       time: {
         created: 0,
@@ -600,7 +623,6 @@ class EventHub {
   publish(directory, payload) {
     const eventId = `${this.state.nextEventId}`;
     this.state.nextEventId += 1;
-    this.state.save();
     const wrapper = JSON.stringify({ directory, payload });
     for (const subscriber of this.subscribers) {
       if (subscriber.directoryFilter && subscriber.directoryFilter !== directory) {
@@ -816,7 +838,8 @@ class ClaudeRunner {
       });
     }
 
-    const title = defaultSessionTitle(body, session.info.title);
+    const existingTitle = session.info.title === 'New Claude Code session' ? '' : session.info.title;
+    const title = defaultSessionTitle(body, existingTitle);
     this.state.updateSession(session.info.id, (mutableSession) => {
       mutableSession.info.title = title;
       mutableSession.turns += 1;
@@ -861,7 +884,7 @@ class ClaudeRunner {
       args.push('--json-schema', JSON.stringify(body.format.schema));
     }
 
-    if (session.turns <= 1) {
+    if (!session.claudeSessionStarted) {
       args.push('--session-id', session.info.id);
     } else {
       args.push('--resume', session.info.id);
@@ -878,12 +901,16 @@ class ClaudeRunner {
       child,
       sessionID: session.info.id,
       userMessageID: userMessage.info.id,
+      modelID,
+      agent: body?.agent || 'build',
+      variant: body?.variant,
       currentAssistant: null,
       textPartByIndex: new Map(),
       toolPartByIndex: new Map(),
       toolPartByCallId: new Map(),
       stderr: '',
       aborted: false,
+      finished: false,
     };
     this.activeRuns.set(session.info.id, run);
 
@@ -929,8 +956,9 @@ class ClaudeRunner {
         sessionID: run.sessionID,
         parentID: run.userMessageID,
         providerID: PROVIDER_ID,
-        modelID: DEFAULT_MODEL_ID,
-        agent: 'build',
+        modelID: modelSpecFor(run.modelID).id,
+        agent: run.agent,
+        variant: run.variant,
         directory: session.info.directory,
         mode: DEFAULT_PERMISSION_MODE,
       }),
@@ -958,6 +986,13 @@ class ClaudeRunner {
     }
 
     if (parsed.type === 'system' && parsed.subtype === 'init') {
+      // Claude Code has persisted the session at this point; later prompts
+      // must use --resume instead of --session-id.
+      if (!session.claudeSessionStarted) {
+        this.state.updateSession(run.sessionID, (mutableSession) => {
+          mutableSession.claudeSessionStarted = true;
+        });
+      }
       if (Array.isArray(parsed.tools) && parsed.tools.every((value) => typeof value === 'string')) {
         this.state.toolIds = parsed.tools;
         this.state.save();
@@ -970,7 +1005,6 @@ class ClaudeRunner {
       if (event.type === 'message_start' && event.message?.id) {
         const assistant = this.ensureAssistantMessage(run, event.message.id);
         if (assistant) {
-          assistant.info.modelID = modelSpecFor(session.messages.at(-1)?.info?.model?.modelID || DEFAULT_MODEL_ID).id;
           assistant.info.time.created = Date.now();
           this.state.replaceMessage(run.sessionID, assistant.info.id, (message) => {
             message.info = assistant.info;
@@ -1109,6 +1143,22 @@ class ClaudeRunner {
             },
           });
         }
+        return;
+      }
+
+      if (event.type === 'message_stop' && run.currentAssistant) {
+        const updated = this.state.replaceMessage(run.sessionID, run.currentAssistant.info.id, (message) => {
+          message.info.time.completed = Date.now();
+        });
+        if (updated) {
+          this.events.publish(session.info.directory, {
+            type: 'message.updated',
+            properties: {
+              sessionID: run.sessionID,
+              info: updated.info,
+            },
+          });
+        }
       }
       return;
     }
@@ -1168,30 +1218,58 @@ class ClaudeRunner {
       return;
     }
 
-    if (parsed.type === 'user' && parsed.tool_use_result?.stdout != null) {
-      const toolUseId = parsed.message?.content?.find?.((entry) => entry.tool_use_id)?.tool_use_id;
-      const partID = toolUseId ? run.toolPartByCallId.get(toolUseId) : null;
+    if (parsed.type === 'user') {
+      const resultEntry = Array.isArray(parsed.message?.content)
+        ? parsed.message.content.find((entry) => entry && typeof entry === 'object' && (entry.type === 'tool_result' || entry.tool_use_id))
+        : null;
+      const partID = resultEntry?.tool_use_id ? run.toolPartByCallId.get(resultEntry.tool_use_id) : null;
       if (!partID || !run.currentAssistant) {
         return;
       }
-      const output = [
-        parsed.tool_use_result.stdout || '',
-        parsed.tool_use_result.stderr || '',
-      ].filter(Boolean).join(parsed.tool_use_result.stderr ? '\n\n' : '');
+      let output;
+      if (parsed.tool_use_result?.stdout != null) {
+        output = [
+          parsed.tool_use_result.stdout || '',
+          parsed.tool_use_result.stderr || '',
+        ].filter(Boolean).join(parsed.tool_use_result.stderr ? '\n\n' : '');
+      } else if (typeof resultEntry.content === 'string') {
+        output = resultEntry.content;
+      } else if (Array.isArray(resultEntry.content)) {
+        output = resultEntry.content
+          .filter((entry) => entry && typeof entry === 'object' && typeof entry.text === 'string')
+          .map((entry) => entry.text)
+          .join('\n');
+      } else {
+        output = typeof parsed.tool_use_result === 'string'
+          ? parsed.tool_use_result
+          : JSON.stringify(parsed.tool_use_result ?? '');
+      }
       const updated = this.state.replaceMessage(run.sessionID, run.currentAssistant.info.id, (message) => {
         const part = message.parts.find((entry) => entry.id === partID);
         if (part && part.type === 'tool') {
-          part.state = {
-            status: 'completed',
-            input: part.state.input || {},
-            output,
-            title: part.tool,
-            metadata: {},
-            time: {
-              start: Date.now(),
-              end: Date.now(),
-            },
-          };
+          // The OpenChamber UI only renders error text from the `error` field
+          // of a ToolStateError-shaped state.
+          part.state = resultEntry.is_error === true
+            ? {
+              status: 'error',
+              input: part.state.input || {},
+              error: output,
+              time: {
+                start: Date.now(),
+                end: Date.now(),
+              },
+            }
+            : {
+              status: 'completed',
+              input: part.state.input || {},
+              output,
+              title: part.tool,
+              metadata: {},
+              time: {
+                start: Date.now(),
+                end: Date.now(),
+              },
+            };
         }
       });
       const part = updated?.parts.find((entry) => entry.id === partID);
@@ -1226,6 +1304,11 @@ class ClaudeRunner {
   }
 
   finishRun(run, code) {
+    // 'close' follows 'error' on spawn failure; only finish once.
+    if (run.finished) {
+      return;
+    }
+    run.finished = true;
     const session = this.state.getSession(run.sessionID);
     this.activeRuns.delete(run.sessionID);
     if (!session) {
@@ -1233,6 +1316,12 @@ class ClaudeRunner {
     }
 
     const failed = code !== 0 || run.aborted;
+    if (failed && run.stderr.includes('No conversation found with session ID')) {
+      // Claude lost the session; fall back to --session-id on the next prompt.
+      this.state.updateSession(run.sessionID, (mutableSession) => {
+        mutableSession.claudeSessionStarted = false;
+      });
+    }
     if (failed) {
       this.events.publish(session.info.directory, {
         type: 'session.error',
@@ -1287,6 +1376,18 @@ function createServer({ host, port, dataDir }) {
   const state = new BridgeState(dataDir);
   const events = new EventHub(state);
   const runner = new ClaudeRunner({ state, events });
+
+  // Flush any debounced state write before exiting.
+  const flushAndExit = () => {
+    try {
+      state.save();
+    } catch (error) {
+      console.error('[openchamber-claude-bridge] failed to flush state:', error);
+    }
+    process.exit(0);
+  };
+  process.on('SIGINT', flushAndExit);
+  process.on('SIGTERM', flushAndExit);
 
   const server = http.createServer(async (req, res) => {
     const requestUrl = new URL(req.url || '/', `http://${req.headers.host || `${host}:${port}`}`);
@@ -1475,8 +1576,12 @@ function createServer({ host, port, dataDir }) {
             if (body?.permission) {
               mutableSession.info.permission = body.permission;
             }
-            if (body?.time?.archived) {
-              mutableSession.info.time.archived = body.time.archived;
+            if (body?.time && 'archived' in body.time) {
+              if (body.time.archived) {
+                mutableSession.info.time.archived = body.time.archived;
+              } else {
+                delete mutableSession.info.time.archived;
+              }
             }
           });
           events.publish(session.info.directory, {
@@ -1581,68 +1686,7 @@ function createServer({ host, port, dataDir }) {
           }));
         }
         if (req.method === 'POST') {
-          const body = await readJsonBody(req).catch(() => null);
-          if (body === null) {
-            return sendBadRequest(res, 'Invalid JSON body');
-          }
-          const promptMessage = createUserMessage({
-            sessionID: session.info.id,
-            agent: body?.agent,
-            providerID: body?.model?.providerID || PROVIDER_ID,
-            modelID: body?.model?.modelID || DEFAULT_MODEL_ID,
-            variant: body?.variant,
-            format: body?.format,
-          });
-          const promptParts = normalizeIncomingParts(session.info.id, promptMessage.id, body?.parts || []);
-          const entry = { info: promptMessage, parts: promptParts };
-          state.appendMessage(session.info.id, entry);
-          events.publish(session.info.directory, {
-            type: 'message.updated',
-            properties: {
-              sessionID: session.info.id,
-              info: entry.info,
-            },
-          });
-          for (const part of promptParts) {
-            events.publish(session.info.directory, {
-              type: 'message.part.updated',
-              properties: {
-                sessionID: session.info.id,
-                part,
-                time: Date.now(),
-              },
-            });
-          }
-          const replyInfo = createAssistantMessage({
-            sessionID: session.info.id,
-            parentID: promptMessage.id,
-            providerID: body?.model?.providerID || PROVIDER_ID,
-            modelID: body?.model?.modelID || DEFAULT_MODEL_ID,
-            agent: body?.agent,
-            variant: body?.variant,
-            directory: session.info.directory,
-            mode: DEFAULT_PERMISSION_MODE,
-          });
-          const reply = { info: replyInfo, parts: [createTextPart({ sessionID: session.info.id, messageID: replyInfo.id, text: 'Synchronous bridge prompt is not implemented. Use /prompt_async.' })] };
-          state.appendMessage(session.info.id, reply);
-          events.publish(session.info.directory, {
-            type: 'message.updated',
-            properties: {
-              sessionID: session.info.id,
-              info: reply.info,
-            },
-          });
-          for (const part of reply.parts) {
-            events.publish(session.info.directory, {
-              type: 'message.part.updated',
-              properties: {
-                sessionID: session.info.id,
-                part,
-                time: Date.now(),
-              },
-            });
-          }
-          return sendJson(res, 200, reply);
+          return sendBadRequest(res, 'Synchronous bridge prompt is not implemented. Use prompt_async instead.');
         }
       }
 
@@ -1735,12 +1779,14 @@ function createServer({ host, port, dataDir }) {
         if (!session) {
           return sendNotFound(res, `Session not found: ${promptAsyncMatch[1]}`);
         }
-        if (runner.isBusy(session.info.id)) {
-          return sendBadRequest(res, 'Session is already busy');
-        }
         const body = await readJsonBody(req).catch(() => null);
         if (body === null || typeof body !== 'object' || !Array.isArray(body.parts) || body.parts.length === 0) {
           return sendBadRequest(res, 'Prompt body must include at least one part');
+        }
+        // Checked after the await so the guard is atomic with the synchronous
+        // start(); concurrent prompts cannot both pass it.
+        if (runner.isBusy(session.info.id)) {
+          return sendBadRequest(res, 'Session is already busy');
         }
         runner.start(session, body);
         return sendNoContent(res);

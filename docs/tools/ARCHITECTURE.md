@@ -16,7 +16,7 @@ Manager deploys.
 | Neovim | `config/nvim/**/*` | `~/.config/nvim/lua/theme-state.json`, `~/.config/nvim/lua/neovide-theme.lua` | `standalone` | Home Manager symlinks the full tree; theming writes only state files; the runtime config sanitizes `background` to `dark`/`light` and otherwise falls back silently to the installed `gruvbox` scheme |
 | Alacritty | `config/alacritty/alacritty.toml` | `~/.config/alacritty/theme.toml` | `import` | Base config imports the generated fragment |
 | Ghostty | `config/ghostty/config` | `~/.config/ghostty/theme.conf` | `import` | Home Manager deploys the base config at `~/.config/ghostty/config`, and that base file uses Ghostty's native `config-file` directive to load the generated fragment |
-| OpenCode | `config/opencode/base.json` | `~/.config/opencode/tui.json` plus `~/.config/opencode/themes/desktopctl.json` | `concat` | Base config selects the managed global theme name; `persist()` writes the actual OpenCode palette JSON under `themes/` |
+| OpenCode | `config/opencode/base.json` | `~/.config/opencode/tui.json` plus `~/.config/opencode/themes/desktopctl.json` | `concat` | Base config is schema-only; the generated concat block sets the managed global theme name, and `persist()` writes the actual OpenCode palette JSON under `themes/` |
 | tmux | `config/tmux/tmux.conf` | `~/.config/tmux/colors.conf` | `import` | Base config sources the generated colors file |
 | Zsh | `home/shell.nix` | `~/.config/zsh/theme-colors` | `import` | Home Manager authors the main shell init; `programs.zsh.initContent` sources the generated fragment for autosuggestion highlighting |
 | Starship | `config/starship/base.toml` | `~/.config/starship.toml` | `concat` | Base prompt config plus generated palette block written at apply time |

@@ -24,9 +24,9 @@ Invariants:
   directly.
 - Transient feedback surfaces are independent; switching managed popups must
   not dismiss them.
-- Every managed popup exposes one host-facing shape: `active`,
-  `close()`, `overlayVisible`, `panelItem`, `focusTarget`, and scrim
-  properties (`scrimEnabled`, `scrimColor`, `scrimOpacity`).
+- Every managed popup exposes one host-facing shape: `active`, `close()`,
+  `overlayVisible`, and scrim properties (`scrimEnabled`, `scrimColor`,
+  `scrimOpacity`).
 
 ## State Ownership
 
@@ -76,7 +76,7 @@ Constraints:
 | Generated palette/font data | The theming pipeline via `GeneratedTheme.json` |
 | Theme file format and writes | `desktopctl theme` and the theming targets |
 | Layout geometry, popup sizing, and animation constants | Quickshell code |
-| Theme mutation commands | Settings host and shell IPC, both through `desktopctl theme` |
+| Theme mutation commands | Settings host only, through `desktopctl theme` |
 
 Invariants:
 

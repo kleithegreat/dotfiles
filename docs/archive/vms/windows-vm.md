@@ -39,7 +39,9 @@ The old physical-host baseline enabled the module with these defaults:
    that file is missing it will also auto-attach a lone `.iso` staged in the
    directory.
 2. If you want unattended setup, also copy an answer-file ISO to
-   `/var/lib/windows-vm/windows11/isos/unattend.iso`.
+   `/var/lib/windows-vm/windows11/isos/unattend.iso`. The last used answer
+   file is archived alongside this runbook as `autounattend.xml` (account
+   password scrubbed to `CHANGE_ME`); build `unattend.iso` from it.
 3. Rebuild if you have not already run `nixos-rebuild switch` since enabling the
    module.
 4. Launch the guest with `windows-vm`.

@@ -4,7 +4,7 @@ use crate::theme::{
     schema::{ColorScheme, ThemeState},
 };
 use serde_json::{Map, Value};
-use std::{fs, path::Path};
+use std::{fs, io, path::Path};
 
 pub const METADATA: TargetMetadata = TargetMetadata::new(
     "openchamber",
@@ -34,7 +34,7 @@ fn write_theme(path: &Path, colors: &ColorScheme, state: &ThemeState) -> crate::
 }
 
 fn write_settings(path: &Path, colors: &ColorScheme) -> crate::Result<()> {
-    let mut root = load_json_object(path);
+    let mut root = load_json_object(path)?;
     let variant = theme_variant(colors);
 
     root["themeId"] = Value::String(THEME_ID.to_owned());
@@ -49,22 +49,34 @@ fn write_settings(path: &Path, colors: &ColorScheme) -> crate::Result<()> {
     atomic_write(path, json::format_pretty_value(&root).as_bytes())
 }
 
-fn load_json_object(path: &Path) -> Value {
+// OpenChamber owns the rest of settings.json, so any failure to read it back
+// must abort the patch instead of replacing the file with only theme keys.
+fn load_json_object(path: &Path) -> crate::Result<Value> {
     if !path.exists() {
-        return Value::Object(Map::new());
+        return Ok(Value::Object(Map::new()));
     }
 
-    let Ok(text) = fs::read_to_string(path) else {
-        return Value::Object(Map::new());
-    };
+    let text = fs::read_to_string(path)?;
     if text.trim().is_empty() {
-        return Value::Object(Map::new());
+        return Ok(Value::Object(Map::new()));
     }
 
-    match serde_json::from_str::<Value>(&text) {
-        Ok(value) if value.is_object() => value,
-        _ => Value::Object(Map::new()),
+    let value: Value = serde_json::from_str(&text).map_err(|error| {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("Invalid JSON in {}: {error}", path.display()),
+        )
+    })?;
+
+    if !value.is_object() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("{}: expected top-level JSON object", path.display()),
+        )
+        .into());
     }
+
+    Ok(value)
 }
 
 fn render_theme(colors: &ColorScheme, state: &ThemeState) -> String {
@@ -476,6 +488,22 @@ mod tests {
         assert_eq!(value["themeVariant"], Value::String("dark".to_owned()));
         assert_eq!(value["useSystemTheme"], Value::Bool(false));
         assert_eq!(value["darkThemeId"], Value::String(THEME_ID.to_owned()));
+
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn write_settings_leaves_invalid_settings_file_untouched() {
+        let path = temp_path("openchamber-settings-invalid");
+        fs::write(&path, "not json").expect("fixture written");
+
+        let result = write_settings(&path, &dummy_colors());
+
+        assert!(result.is_err(), "invalid settings.json must fail loudly");
+        assert_eq!(
+            fs::read_to_string(&path).expect("settings still exist"),
+            "not json"
+        );
 
         let _ = fs::remove_file(path);
     }

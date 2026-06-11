@@ -42,19 +42,12 @@ pub(super) fn write_active_preferences(config_dir: &Path, state: &ThemeState) ->
 }
 
 fn write_preferences(path: &Path, state: &ThemeState) -> crate::Result<()> {
+    // load_preferences guarantees an object root and merge_value preserves it.
     let mut root = load_preferences(path)?;
     merge_value(&mut root, browser_theme_preferences(state));
     clear_managed_browser_theme_customizations(&mut root);
     merge_value(&mut root, font_preferences(state));
     clear_managed_font_sizes(&mut root);
-
-    let Value::Object(_) = root else {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            format!("{}: expected top-level JSON object", path.display()),
-        )
-        .into());
-    };
 
     let content = json::format_value(&root);
     atomic_write(path, content.as_bytes())

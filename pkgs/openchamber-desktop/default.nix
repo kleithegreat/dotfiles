@@ -7,12 +7,13 @@
   pkg-config,
   rustPlatform,
   webkitgtk_4_1,
-  wrapGAppsHook4,
+  wrapGAppsHook3,
   openchamberCli,
 }:
 
 rustPlatform.buildRustPackage {
   pname = "openchamber-desktop";
+  # Keep in sync with Cargo.toml and tauri.conf.json (three version sites).
   version = "1.11.4";
   src = ./.;
 
@@ -28,7 +29,7 @@ rustPlatform.buildRustPackage {
   nativeBuildInputs = [
     copyDesktopItems
     pkg-config
-    wrapGAppsHook4
+    wrapGAppsHook3
   ];
 
   buildInputs = [
@@ -39,12 +40,15 @@ rustPlatform.buildRustPackage {
 
   desktopItems = [
     (makeDesktopItem {
-      name = "openchamber";
+      # The desktop-file ID must equal the Wayland app_id ("openchamber-desktop",
+      # from --inherit-argv0) so switchers and bars can resolve the entry/icon.
+      name = "openchamber-desktop";
       desktopName = "OpenChamber";
       comment = "Run OpenChamber in a desktop window";
       exec = "openchamber-desktop";
       icon = "openchamber";
       terminal = false;
+      startupWMClass = "openchamber-desktop";
       categories = [ "Development" ];
       keywords = [ "OpenCode" "OpenChamber" "AI" "Assistant" ];
     })
@@ -55,7 +59,6 @@ rustPlatform.buildRustPackage {
   preFixup = ''
     gappsWrapperArgs+=(
       --set-default OPENCHAMBER_BINARY "${lib.getExe openchamberCli}"
-      --set-default GIO_MODULE_DIR "${glib-networking}/lib/gio/modules"
       --set-default WEBKIT_DISABLE_DMABUF_RENDERER 1
     )
   '';

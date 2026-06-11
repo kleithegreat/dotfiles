@@ -132,8 +132,16 @@ QtObject {
     property bool keybindsLoading: false
 
     // ── Keybind originals (for persistence) ──
-    // index -> { modmask, key } — tracks the pre-override state of changed binds
+    // index -> { modmask, key } — tracks the pre-override state of changed binds.
+    // Remapped to fresh indices on every refetch (see _remapKeybindState).
     property var keybindOriginals: ({})
+
+    // ── Animation session dirty tracking ──
+    // hyprctl reports base-config animation lines as overridden, so the raw
+    // snapshot flag cannot drive Save/Clear; track session edits by name.
+    property var animationsTouched: ({})
+    // Whether non-empty override files exist on disk (probed on refresh()).
+    property bool hasPersistedOverrides: false
 
     property bool loading: false
     property string error: ""
@@ -165,6 +173,7 @@ QtObject {
         error = "";
         _fetchProc.buf = "";
         _fetchProc.running = true;
+        _persistedProbeProc.running = true;
     }
 
     function fetchKeybinds() {
@@ -185,6 +194,17 @@ QtObject {
     function hasChildren(name) {
         let children = _animChildren[name];
         return children !== undefined && children.length > 0;
+    }
+
+    function childrenInCategory(name, category) {
+        let children = _animChildren[name] || [];
+        let result = [];
+        for (let i = 0; i < children.length; i++) {
+            let info = _animInfo[children[i]];
+            if (info && info.category === category)
+                result.push(children[i]);
+        }
+        return result;
     }
 
     function getEffective(name) {
@@ -215,6 +235,7 @@ QtObject {
     function resetAnimation(name) {
         let parentName = _animParents[name] || "";
         if (parentName === "") return;
+        _markAnimationTouched(name);
         let parentEff = getEffective(parentName);
 
         // Apply parent's values via IPC so the live state is correct
@@ -299,13 +320,7 @@ QtObject {
 
     // ── Persistence ──
 
-    readonly property bool hasAnimationOverrides: {
-        let anims = animations;
-        let keys = Object.keys(anims);
-        for (let i = 0; i < keys.length; i++)
-            if (anims[keys[i]].overridden) return true;
-        return false;
-    }
+    readonly property bool hasAnimationOverrides: Object.keys(animationsTouched).length > 0
 
     readonly property bool hasKeybindOverrides: {
         let originals = keybindOriginals;
@@ -332,17 +347,23 @@ QtObject {
     function clearAll() {
         if (saving) return;
         saving = true;
-        _clearKeybindsProc._pendingClear = true;
         _clearAnimationsProc.running = true;
     }
 
     function _resetAfterClear() {
         animations = ({});
+        animationsTouched = ({});
         keybindOriginals = ({});
         _undoStack = [];
         _redoStack = [];
         refresh();
         fetchKeybinds();
+    }
+
+    function _markAnimationTouched(name) {
+        let next = _cloneObj(animationsTouched);
+        next[name] = true;
+        animationsTouched = next;
     }
 
     function _saveAnimations() {
@@ -452,6 +473,34 @@ QtObject {
         _pushUndo({ type: "monitor", name: monitorName, oldState: _cloneObj(oldState), newState: _cloneObj(newState) });
     }
 
+    // ── Key-capture submap session ──
+    // Owned by the singleton so the submap teardown (and its safety timeout)
+    // survives destruction of the settings pane that started the capture.
+
+    property bool captureSessionActive: false
+
+    signal captureSessionReady()
+
+    function beginCaptureSession() {
+        captureSessionActive = true;
+        _captureSafetyTimer.restart();
+        _captureSetupProc.running = true;
+    }
+
+    function endCaptureSession() {
+        captureSessionActive = false;
+        _captureSafetyTimer.stop();
+        _captureResetProc.running = true;
+    }
+
+    property Timer _captureSafetyTimer: Timer {
+        interval: 10000
+        onTriggered: {
+            if (root.captureSessionActive)
+                root.endCaptureSession();
+        }
+    }
+
     // ── Keybind override ──
 
     function applyBindOverride(bindIndex, newModNames, newKey) {
@@ -543,6 +592,45 @@ QtObject {
         return f;
     }
 
+    // Stable bind identity: dispatcher/arg/description/flags plus the current
+    // combo (the combo disambiguates duplicate-identity binds).
+    function _bindIdentityMatches(a, b) {
+        return a.dispatcher === b.dispatcher
+            && (a.arg !== undefined ? a.arg : "") === (b.arg !== undefined ? b.arg : "")
+            && (a.description || "") === (b.description || "")
+            && (a.submap || "") === (b.submap || "")
+            && _buildBindFlags(a) === _buildBindFlags(b)
+            && a.modmask === b.modmask
+            && a.key === b.key;
+    }
+
+    // Re-key keybindOriginals from the previous local list onto a freshly
+    // fetched list: overrides reorder the bind list (unbind + append), so
+    // index-keyed tracking goes stale on every refetch. Index-keyed bind
+    // undo/redo entries cannot be trusted across a refetch either; drop them.
+    function _remapKeybindState(newBinds) {
+        let oldBinds = keybinds;
+        let originals = keybindOriginals;
+        let indices = Object.keys(originals);
+        let nextOriginals = {};
+        let used = {};
+        for (let i = 0; i < indices.length; i++) {
+            let oldBind = oldBinds[parseInt(indices[i])];
+            if (!oldBind) continue;
+            for (let j = 0; j < newBinds.length; j++) {
+                if (used[j]) continue;
+                if (_bindIdentityMatches(oldBind, newBinds[j])) {
+                    nextOriginals[j] = originals[indices[i]];
+                    used[j] = true;
+                    break;
+                }
+            }
+        }
+        keybindOriginals = nextOriginals;
+        _undoStack = _undoStack.filter((entry) => entry.type !== "bind");
+        _redoStack = _redoStack.filter((entry) => entry.type !== "bind");
+    }
+
     // ── Internal helpers ──
 
     function _cloneObj(obj) {
@@ -571,6 +659,7 @@ QtObject {
     }
 
     function _applyAnimationState(name, state) {
+        _markAnimationTouched(name);
         let nextAnims = _cloneObj(animations);
         nextAnims[name] = {
             overridden: true,
@@ -651,7 +740,7 @@ QtObject {
         let json = JSON.stringify(userCurves, null, 2);
         _saveCurvesProc.command = [
             "bash", "-c",
-            "mkdir -p \"$(dirname \"$1\")\" && printf '%s\\n' \"$2\" > \"$1\"",
+            "mkdir -p \"$(dirname \"$1\")\" && printf '%s\\n' \"$2\" > \"$1.tmp\" && mv \"$1.tmp\" \"$1\"",
             "_", _userCurvesPath, json
         ];
         _saveCurvesProc.running = true;
@@ -710,6 +799,36 @@ QtObject {
         }
     }
 
+    property Process _captureSetupProc: Process {
+        command: ["hyprctl", "--batch",
+            "keyword submap hyprmod_capture ; keyword bind , catchall, pass, ; keyword submap reset"]
+        running: false
+        stdout: SplitParser { onRead: (_) => {} }
+        onExited: (code) => {
+            if (code === 0 && root.captureSessionActive)
+                _captureEnterProc.running = true;
+        }
+    }
+
+    property Process _captureEnterProc: Process {
+        command: ["hyprctl", "dispatch", "submap", "hyprmod_capture"]
+        running: false
+        stdout: SplitParser { onRead: (_) => {} }
+        onExited: (code) => {
+            if (code === 0 && root.captureSessionActive)
+                root.captureSessionReady();
+        }
+    }
+
+    // Leaves the live submap, then unbinds the capture catchall so it does
+    // not accumulate in `hyprctl binds` across capture sessions.
+    property Process _captureResetProc: Process {
+        command: ["hyprctl", "--batch",
+            "dispatch submap reset ; keyword submap hyprmod_capture ; keyword unbind , catchall ; keyword submap reset"]
+        running: false
+        stdout: SplitParser { onRead: (_) => {} }
+    }
+
     property Process _fetchBindsProc: Process {
         command: ["hyprctl", "binds", "-j"]
         running: false
@@ -717,7 +836,13 @@ QtObject {
         stdout: SplitParser { onRead: (line) => { _fetchBindsProc.buf += line + "\n"; } }
         onExited: (code) => {
             if (code === 0 && _fetchBindsProc.buf.trim() !== "") {
-                try { root.keybinds = JSON.parse(_fetchBindsProc.buf); }
+                try {
+                    let parsed = JSON.parse(_fetchBindsProc.buf);
+                    if (Array.isArray(parsed)) {
+                        root._remapKeybindState(parsed);
+                        root.keybinds = parsed;
+                    }
+                }
                 catch (e) { console.log("[HyprlandConfigService] binds parse error:", e); }
             }
             _fetchBindsProc.buf = "";
@@ -731,11 +856,22 @@ QtObject {
             onRead: (line) => { console.log("[HyprlandConfigService] save animations error:", line); }
         }
         onExited: (code) => {
-            if (code !== 0)
+            if (code !== 0) {
                 root.error = "Failed to save animation overrides";
+            } else {
+                root.animationsTouched = ({});
+                _persistedProbeProc.running = true;
+            }
             if (!_saveKeybindsProc.running)
                 root.saving = false;
         }
+    }
+
+    property Process _persistedProbeProc: Process {
+        command: ["bash", "-c",
+            "test -s ~/.config/hypr/animations-override.conf -o -s ~/.config/hypr/keybinds-override.conf"]
+        running: false
+        onExited: (code) => { root.hasPersistedOverrides = code === 0; }
     }
 
     property Process _clearAnimationsProc: Process {
@@ -747,13 +883,8 @@ QtObject {
         onExited: (code) => {
             if (code !== 0)
                 root.error = "Failed to clear animation overrides";
-            // If clearing all, chain to keybinds clear
-            if (_clearKeybindsProc._pendingClear) {
-                _clearKeybindsProc._pendingClear = false;
-                _clearKeybindsProc.running = true;
-            } else if (!_saveKeybindsProc.running) {
-                root.saving = false;
-            }
+            // Only started by clearAll(); always chain to the keybinds clear.
+            _clearKeybindsProc.running = true;
         }
     }
 
@@ -763,8 +894,16 @@ QtObject {
             onRead: (line) => { console.log("[HyprlandConfigService] save keybinds error:", line); }
         }
         onExited: (code) => {
-            if (code !== 0)
+            if (code !== 0) {
                 root.error = "Failed to save keybind overrides";
+            } else {
+                // desktopctl runs `hyprctl reload`, which reorders the bind
+                // list; refetch so index-keyed tracking is remapped. Originals
+                // are kept: each save rewrites the override file wholesale, so
+                // they must accumulate across saves within the session.
+                root.fetchKeybinds();
+                _persistedProbeProc.running = true;
+            }
             if (!_saveAnimationsProc.running)
                 root.saving = false;
         }
@@ -773,7 +912,6 @@ QtObject {
     property Process _clearKeybindsProc: Process {
         command: ["desktopctl", "hypr", "keybinds", "clear"]
         running: false
-        property bool _pendingClear: false
         stderr: SplitParser {
             onRead: (line) => { console.log("[HyprlandConfigService] clear keybinds error:", line); }
         }

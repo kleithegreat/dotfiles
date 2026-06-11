@@ -3,7 +3,8 @@
 let
   sddmThemeBackgroundDir = "/var/lib/desktopctl/where-is-my-sddm-theme";
   sddmThemeBackgroundPath = "${sddmThemeBackgroundDir}/background";
-  sddmThemeStagingPath = "/tmp/desktopctl-where-is-my-sddm-theme/background";
+  sddmThemeStagingDir = "/tmp/desktopctl-where-is-my-sddm-theme";
+  sddmThemeStagingPath = "${sddmThemeStagingDir}/background";
   sddmTheme = pkgs.where-is-my-sddm-theme.override {
     themeConfig.General = {
       background = sddmThemeBackgroundPath;
@@ -29,6 +30,9 @@ in
 {
   systemd.tmpfiles.rules = [
     "d ${sddmThemeBackgroundDir} 0755 root root - -"
+    # Pre-create the staging dir in world-writable /tmp as kevin-owned 0700 so
+    # no other local user can plant a symlink for the root-run sync to follow.
+    "d ${sddmThemeStagingDir} 0700 kevin kevin - -"
   ];
 
   system.activationScripts.desktopctlSddmThemeBackground = {

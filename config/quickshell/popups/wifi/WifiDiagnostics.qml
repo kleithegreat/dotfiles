@@ -64,6 +64,14 @@ Item {
         if (v < 50) return Theme.yellowBright;
         return Theme.redBright;
     }
+    function dnsColor(ms) {
+        // Matches NetworkService.exportReport's lookup grading (30/100 ms).
+        let v = parseFloat(ms);
+        if (isNaN(v)) return Theme.fg4;
+        if (v <= 30) return Theme.greenBright;
+        if (v <= 100) return Theme.yellowBright;
+        return Theme.redBright;
+    }
     function lossColor(pct) {
         let v = parseFloat(pct);
         if (isNaN(v)) return Theme.fg4;
@@ -456,10 +464,10 @@ Item {
             RowLayout { Layout.fillWidth: true; spacing: 6
                 Text { text: "Lookup"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 50 }
                 Loader { Layout.fillWidth: true; Layout.preferredHeight: 20; active: root.histDnsTime.length >= 2; sourceComponent: sparklineComponent
-                    onLoaded: { item.dataPoints = Qt.binding(function() { return root.histDnsTime; }); item.lineColor = Qt.binding(function() { return root.pingColor(root.diagDnsTime); }); } }
+                    onLoaded: { item.dataPoints = Qt.binding(function() { return root.histDnsTime; }); item.lineColor = Qt.binding(function() { return root.dnsColor(root.diagDnsTime); }); } }
                 Item { visible: root.histDnsTime.length < 2; Layout.fillWidth: true }
                 Text { text: (root.diagDnsTime && root.diagDnsTime !== "--") ? root.diagDnsTime + " ms" : "--"
-                    color: (root.diagDnsTime && root.diagDnsTime !== "--") ? root.pingColor(root.diagDnsTime) : Theme.fg4
+                    color: (root.diagDnsTime && root.diagDnsTime !== "--") ? root.dnsColor(root.diagDnsTime) : Theme.fg4
                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 65; horizontalAlignment: Text.AlignRight }
             }
 
@@ -471,97 +479,45 @@ Item {
 
                 Text { text: "Switch:"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
 
-                Rectangle {
-                    property bool isCurrent: NetworkService.dnsSelection === "auto"
-                    width: dnsAutoLabel.implicitWidth + 16; height: 24; radius: Theme.btnRadius
-                    color: isCurrent ? Theme.accent : "transparent"
-                    border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
-                    Rectangle {
-                        visible: !parent.isCurrent
-                        anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                        opacity: dnsAutoA.pressed ? 0.9 : (dnsAutoA.containsMouse ? 0.6 : 0.3)
-                        Behavior on opacity {
-                            Components.Anim {
-                                duration: Theme.animHover
-                                easing.type: Easing.BezierSpline
-                                easing.bezierCurve: Theme.animCurveStandard
-                            }
-                        }
-                    }
-                    Text { id: dnsAutoLabel; anchors.centerIn: parent; text: "Router"
-                        color: parent.isCurrent ? Theme.bg : (dnsAutoA.containsMouse ? Theme.fg : Theme.fg4); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
-                        Behavior on color {
-                            Components.CAnim {
-                                duration: Theme.animHover
-                                easing.type: Easing.BezierSpline
-                                easing.bezierCurve: Theme.animCurveStandard
-                            }
-                        } }
-                    Components.HoverLayer { id: dnsAutoA; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 0.98
-                        disabled: NetworkService.dnsSwitchPending
-                        onClicked: root.dnsChanged("auto") }
-                }
+                Repeater {
+                    model: [
+                        { label: "Router", value: "auto" },
+                        { label: "Google", value: "8.8.8.8" },
+                        { label: "Cloudflare", value: "1.1.1.1" }
+                    ]
 
-                Rectangle {
-                    property bool isCurrent: NetworkService.dnsSelection === "8.8.8.8"
-                    width: dnsGoogleLabel.implicitWidth + 16; height: 24; radius: Theme.btnRadius
-                    color: isCurrent ? Theme.accent : "transparent"
-                    border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
                     Rectangle {
-                        visible: !parent.isCurrent
-                        anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                        opacity: dnsGoogleA.pressed ? 0.9 : (dnsGoogleA.containsMouse ? 0.6 : 0.3)
-                        Behavior on opacity {
-                            Components.Anim {
-                                duration: Theme.animHover
-                                easing.type: Easing.BezierSpline
-                                easing.bezierCurve: Theme.animCurveStandard
+                        id: dnsBtn
+                        required property var modelData
+                        property bool isCurrent: NetworkService.dnsSelection === modelData.value
+                        width: dnsBtnLabel.implicitWidth + 16; height: 24; radius: Theme.btnRadius
+                        color: isCurrent ? Theme.accent : "transparent"
+                        border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
+                        Rectangle {
+                            visible: !dnsBtn.isCurrent
+                            anchors.fill: parent; radius: parent.radius; color: Theme.bg2
+                            opacity: dnsBtnA.pressed ? 0.9 : (dnsBtnA.containsMouse ? 0.6 : 0.3)
+                            Behavior on opacity {
+                                Components.Anim {
+                                    duration: Theme.animHover
+                                    easing.type: Easing.BezierSpline
+                                    easing.bezierCurve: Theme.animCurveStandard
+                                }
                             }
                         }
+                        Text { id: dnsBtnLabel; anchors.centerIn: parent; text: dnsBtn.modelData.label
+                            color: dnsBtn.isCurrent ? Theme.bg : (dnsBtnA.containsMouse ? Theme.fg : Theme.fg4); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
+                            Behavior on color {
+                                Components.CAnim {
+                                    duration: Theme.animHover
+                                    easing.type: Easing.BezierSpline
+                                    easing.bezierCurve: Theme.animCurveStandard
+                                }
+                            } }
+                        Components.HoverLayer { id: dnsBtnA; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 0.98
+                            disabled: NetworkService.dnsSwitchPending
+                            onClicked: root.dnsChanged(dnsBtn.modelData.value) }
                     }
-                    Text { id: dnsGoogleLabel; anchors.centerIn: parent; text: "Google"
-                        color: parent.isCurrent ? Theme.bg : (dnsGoogleA.containsMouse ? Theme.fg : Theme.fg4); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
-                        Behavior on color {
-                            Components.CAnim {
-                                duration: Theme.animHover
-                                easing.type: Easing.BezierSpline
-                                easing.bezierCurve: Theme.animCurveStandard
-                            }
-                        } }
-                    Components.HoverLayer { id: dnsGoogleA; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 0.98
-                        disabled: NetworkService.dnsSwitchPending
-                        onClicked: root.dnsChanged("8.8.8.8") }
-                }
-
-                Rectangle {
-                    property bool isCurrent: NetworkService.dnsSelection === "1.1.1.1"
-                    width: dnsCfLabel.implicitWidth + 16; height: 24; radius: Theme.btnRadius
-                    color: isCurrent ? Theme.accent : "transparent"
-                    border.width: 1; border.color: isCurrent ? Theme.accent : Theme.bg3
-                    Rectangle {
-                        visible: !parent.isCurrent
-                        anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                        opacity: dnsCfA.pressed ? 0.9 : (dnsCfA.containsMouse ? 0.6 : 0.3)
-                        Behavior on opacity {
-                            Components.Anim {
-                                duration: Theme.animHover
-                                easing.type: Easing.BezierSpline
-                                easing.bezierCurve: Theme.animCurveStandard
-                            }
-                        }
-                    }
-                    Text { id: dnsCfLabel; anchors.centerIn: parent; text: "Cloudflare"
-                        color: parent.isCurrent ? Theme.bg : (dnsCfA.containsMouse ? Theme.fg : Theme.fg4); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
-                        Behavior on color {
-                            Components.CAnim {
-                                duration: Theme.animHover
-                                easing.type: Easing.BezierSpline
-                                easing.bezierCurve: Theme.animCurveStandard
-                            }
-                        } }
-                    Components.HoverLayer { id: dnsCfA; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 0.98
-                        disabled: NetworkService.dnsSwitchPending
-                        onClicked: root.dnsChanged("1.1.1.1") }
                 }
             }
 

@@ -15,8 +15,7 @@ as of 2026-05-09.
 
 | Host | GRUB settings | Notes |
 | --- | --- | --- |
-| `laptop` | `enable = true`, `efiSupport = true`, `device = "nodev"`, `useOSProber = false`, plus one Windows `extraEntries` block | Inherits the shared physical-host GRUB/EFI policy; the laptop host module only declares the `/boot/efi` filesystem mount |
-| `desktop` | `enable = true`, `efiSupport = true`, `device = "nodev"`, `useOSProber = false`, plus one Windows `extraEntries` block | Inherits the shared physical-host GRUB/EFI policy; the desktop host module only declares the `/boot/efi` filesystem mount |
+| `laptop` and `desktop` | `enable = true`, `efiSupport = true`, `device = "nodev"`, `useOSProber = false`, plus one Windows `extraEntries` block | Both hosts inherit the shared physical-host GRUB/EFI policy unchanged; each host module only declares its own `/boot/efi` filesystem mount |
 
 ## Shared Observations
 

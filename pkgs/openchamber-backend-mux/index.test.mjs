@@ -95,3 +95,73 @@ test('listExperimentalSessions merges, filters, and paginates sessions across ba
   assert.deepEqual(archivedPage.sessions.map((session) => session.id), ['open-archived']);
   assert.equal(archivedPage.nextCursor, null);
 });
+
+test('mergeProviders degrades to the healthy backend when the other is down', async (t) => {
+  const mux = createMux(t);
+  withMockedFetch(t, async (url) => {
+    if (url === 'http://opencode.test/provider') {
+      return createJsonResponse({
+        all: ['openai'],
+        default: { openai: 'gpt-5' },
+        connected: ['openai'],
+      });
+    }
+    throw new Error('connect ECONNREFUSED');
+  });
+
+  const merged = await mux.mergeProviders();
+
+  assert.deepEqual(merged.all, ['openai']);
+  assert.deepEqual(merged.connected, ['openai']);
+  assert.deepEqual(merged.default, { openai: 'gpt-5' });
+});
+
+test('listMergedSessions returns the healthy backend sessions when the other is down', async (t) => {
+  const mux = createMux(t);
+  withMockedFetch(t, async (url) => {
+    if (url === 'http://claude.test/session') {
+      return createJsonResponse([
+        { id: 'claude-1', title: 'Claude', directory: '/repo', time: { updated: 10 } },
+      ]);
+    }
+    throw new Error('connect ECONNREFUSED');
+  });
+
+  const sessions = await mux.listMergedSessions();
+
+  assert.deepEqual(sessions.map((session) => session.id), ['claude-1']);
+});
+
+test('merged GET /session re-applies the limit after merging', async (t) => {
+  const mux = createMux(t);
+  withMockedFetch(t, async (url) => {
+    if (url.startsWith('http://opencode.test/session')) {
+      return createJsonResponse([
+        { id: 'open-1', time: { updated: 40 } },
+        { id: 'open-2', time: { updated: 20 } },
+      ]);
+    }
+    if (url.startsWith('http://claude.test/session')) {
+      return createJsonResponse([
+        { id: 'claude-1', time: { updated: 30 } },
+        { id: 'claude-2', time: { updated: 10 } },
+      ]);
+    }
+    throw new Error(`Unexpected fetch: ${url}`);
+  });
+
+  const res = {
+    statusCode: null,
+    body: null,
+    writeHead(statusCode) {
+      this.statusCode = statusCode;
+    },
+    end(body) {
+      this.body = body;
+    },
+  };
+  await mux.handleSessionList(res, new URL('http://mux.test/session?limit=2'));
+
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(JSON.parse(res.body).map((session) => session.id), ['open-1', 'claude-1']);
+});

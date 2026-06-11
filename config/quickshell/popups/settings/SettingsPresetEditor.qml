@@ -29,6 +29,8 @@ Rectangle {
     signal saveRequested(string name, var presetData)
     signal cancelRequested()
 
+    HyprOptionCatalog { id: hyprOptionCatalog }
+
     property string draftName: ""
     property var draftPreset: ({})
     readonly property int includedFieldCount: Object.keys(root.draftPreset || {}).length
@@ -1053,14 +1055,7 @@ Rectangle {
         Text { text: "HYPRLAND"; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
 
         Repeater {
-            model: [
-                { key: "hypr_gaps_in", label: "Inner gaps", fallback: 4, minimum: 0, step: 1 },
-                { key: "hypr_gaps_out", label: "Outer gaps", fallback: 6, minimum: 0, step: 1 },
-                { key: "hypr_border_size", label: "Border size", fallback: 0, minimum: 0, step: 1 },
-                { key: "hypr_rounding", label: "Rounding", fallback: 8, minimum: 0, step: 1 },
-                { key: "hypr_blur_size", label: "Blur size", fallback: 3, minimum: 1, step: 1 },
-                { key: "hypr_blur_passes", label: "Blur passes", fallback: 4, minimum: 1, step: 1 }
-            ]
+            model: hyprOptionCatalog.intOptions
 
             delegate: ColumnLayout {
                 required property var modelData

@@ -2,6 +2,7 @@
   "family": "gruvbox",
   "variant": "light",
   "appearance": "light",
+  "dark_scheme": "gruvbox-dark",
   "app_themes": {
     "bat": "gruvbox-light",
     "ktexteditor": "gruvbox Light",

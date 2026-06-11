@@ -110,6 +110,15 @@ wine regsvr32 /run/current-system/sw/lib/wine/x86_64-unix/wineasio64.dll.so
 
 If you recreate the prefix, rerun those commands.
 
+Then in Ableton's audio settings choose:
+
+- Driver Type: `ASIO`
+- Audio Device: `WineASIO`
+
+The default PipeWire/WirePlumber configuration is left alone because this host
+only needs reliable playback for production work, not special low-latency live
+performance tuning.
+
 ## Prefix Runtime Tweaks
 
 The current working prefix also needs a few imperative post-install tweaks.
@@ -535,16 +544,7 @@ The most useful next steps, in order, are:
 6. Keep local ad hoc wrappers and temporary test EXEs out of the declarative
    repo until one approach actually improves the symptom cluster.
 
-Then in Ableton's audio settings choose:
-
-- Driver Type: `ASIO`
-- Audio Device: `WineASIO`
-
-The default PipeWire/WirePlumber configuration is left alone because this host
-only needs reliable playback for production work, not special low-latency live
-performance tuning.
-
-## Current Caveats
+## Caveats Observed During The Investigation
 
 - The plain Wine-generated launcher is known-bad and should not be used.
 - The Wine Wayland path launches, but consistently clips some amount of the
@@ -565,20 +565,22 @@ performance tuning.
 - The remaining click drift pattern is proportional to the vertical mouse
   position, which strongly suggests a client-height or DPI-awareness mismatch
   rather than a random compositor focus bug.
-- Keep Ableton floating in Hyprland; the repo has explicit rules for class
-  `ableton live 12 lite.exe` and the virtual desktop host window
-  `explorer.exe` titled `Ableton - Wine Desktop`.
+- Ableton had to stay floating in Hyprland. The repo carried explicit rules
+  for class `ableton live 12 lite.exe` and the virtual desktop host window
+  `explorer.exe` titled `Ableton - Wine Desktop`; those rules were removed
+  from `config/hypr/rules.conf` along with the rest of the live wiring and
+  would need to be re-added if the investigation resumes.
 
-## Useful Checks
+## Useful Checks (removed with the live wiring)
 
-After the rebuild and reboot, these commands should succeed:
+While the wiring existed, these commands succeeded after a rebuild and reboot:
 
 ```bash
-ls -l /dev/ntsync
-which pw-jack
+ls -l /dev/ntsync   # nothing loads ntsync anymore; fails on current builds
+which pw-jack       # requires services.pipewire.jack.enable, also removed
 systemctl --user --no-pager --type=service --state=running | rg 'pipewire|wireplumber'
 ```
 
-If Ableton starts but `WineASIO` is missing from the audio device list, rerun
-the registration commands in the same prefix and launch the app again with
-`ableton-live-12-lite`.
+If Ableton started but `WineASIO` was missing from the audio device list, the
+fix was rerunning the registration commands in the same prefix and launching
+the app again with `ableton-live-12-lite`.

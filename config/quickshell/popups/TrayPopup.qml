@@ -11,8 +11,9 @@ FocusScope {
     property bool closing: false
     readonly property bool hasItems: SystemTray.items.values.length > 0
     readonly property bool overlayVisible: (active || closing) && hasItems
-    readonly property Item panelItem: trayPanel
-    readonly property Item focusTarget: trayPop
+    // Approximate offset of the bar's tray button from the right screen edge;
+    // the bar lives in a separate window, so this cannot be anchored directly.
+    readonly property int trayButtonOffset: 140
     readonly property bool scrimEnabled: false
     readonly property color scrimColor: "transparent"
     readonly property real scrimOpacity: 0
@@ -92,7 +93,7 @@ FocusScope {
     Rectangle {
         id: trayPanel
         anchors.right: parent.right; anchors.top: parent.top
-        anchors.topMargin: Theme.popupTopMargin; anchors.rightMargin: Theme.gapOut + 140
+        anchors.topMargin: Theme.popupTopMargin; anchors.rightMargin: Theme.gapOut + trayPop.trayButtonOffset
         width: trayGrid.implicitWidth + Theme.barPadding * 2
         height: trayGrid.implicitHeight + Theme.barPadding * 2
         radius: Theme.popupRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
@@ -125,6 +126,19 @@ FocusScope {
                     Component.onCompleted: {
                         staggerAnim.delay = index * Theme.animStagger;
                         staggerAnim.start();
+                    }
+                    // Items created while the popup is hidden finish their stagger
+                    // invisibly, so replay it on every real open.
+                    Connections {
+                        target: trayPop
+                        function onActiveChanged() {
+                            if (trayPop.active) {
+                                trayItem.opacity = 0;
+                                trayItem.scale = Theme.popupStartScale;
+                                staggerAnim.delay = trayItem.index * Theme.animStagger;
+                                staggerAnim.restart();
+                            }
+                        }
                     }
                     SequentialAnimation {
                         id: staggerAnim

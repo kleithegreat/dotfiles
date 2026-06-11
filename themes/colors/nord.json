@@ -3,7 +3,8 @@
   "variant": "dark",
   "appearance": "dark",
   "app_themes": {
-    "bat": "base16",
+    "bat": "Nord",
+    "ktexteditor": "Nord",
     "snappy_switcher": "nord.ini",
     "vicinae": {
       "name": "nord",
@@ -23,7 +24,7 @@
     "bg3":          "#4c566a",
     "fg":           "#d8dee9",
     "fg2":          "#e5e9f0",
-    "fg3":          "#616e88",
+    "fg3":          "#7b88a1",
     "fg4":          "#4c566a",
     "red":          "#bf616a",
     "green":        "#a3be8c",

@@ -35,7 +35,14 @@ QtObject {
             let lastTime = _lastErrorTimes[message];
             if (lastTime !== undefined && now - lastTime < 1000)
                 return;
-            _lastErrorTimes[message] = now;
+            // Prune entries past the throttle window so the map stays bounded.
+            let next = {};
+            for (let key in _lastErrorTimes) {
+                if (now - _lastErrorTimes[key] < 1000)
+                    next[key] = _lastErrorTimes[key];
+            }
+            next[message] = now;
+            _lastErrorTimes = next;
         }
 
         // Duplicate suppression: skip if already displayed or queued

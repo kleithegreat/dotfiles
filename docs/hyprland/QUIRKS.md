@@ -30,6 +30,9 @@ documents `50` as the always-ratcheted value.
 **Impact / workaround:** Keep `hosts/laptop/autostart.conf` on
 `scroll-ratchet Ratcheted` plus `smart-shift 50` for the strongest supported
 ratcheted behavior instead of leaving a failing startup command.
+`hosts/desktop/autostart.conf` applies only the `smart-shift 50` command with
+no scroll-ratchet line; that asymmetry is the current deliberate state (owner
+question pending).
 
 ## D-Bus-activated windows can inherit stale workspace tokens
 
@@ -159,6 +162,46 @@ workspace overview, keep the binding on the core `gesture` keyword and use the
 `dispatcher` action to call `hyprexpo:expo toggle` from
 `hosts/laptop/input-devices.conf`. Reserve plugin-owned gesture keywords for
 files sourced after `plugins.conf`, or guard them with `hyprlang noerror`.
+`config/hypr/keybinds.conf` is sourced after `plugins.conf`, so it binds
+SUPER+grave to the `hyprexpo:expo` dispatcher directly; the dispatcher-action
+indirection remains required only for files sourced before `plugins.conf`,
+such as `hosts/laptop/input-devices.conf`.
+
+## hyprpolkitagent sets no app_id, so its window rule matches by title
+
+**Symptom:** A class-based window rule for the polkit prompt
+(`hyprland-polkitagent` or similar) never matches; the agent window reports an
+empty class in `hyprctl clients`.
+
+**Cause:** hyprpolkitagent v0.1.3 (Qt, Nix-wrapped) sets no app_id, so its
+Wayland class is empty. The window title comes from Qt
+`setApplicationName("Hyprland Polkit Agent")`.
+
+**Status:** Fixed in `config/hypr/rules.conf`.
+
+**Impact / workaround:** The rule is now `windowrule = match:title Hyprland
+Polkit Agent, float on, center on`. The title may drift with upstream
+hyprpolkitagent updates — same re-check caveat as other class/title-drift
+rules: verify with `hyprctl clients` while the prompt is open after bumping the
+package.
+
+## hyprlock enables fingerprint auth on every host, including hosts without fprintd
+
+**Symptom:** On the desktop, hyprlock logs a D-Bus error about fprintd at
+unlock time even though unlocking works fine with the password.
+
+**Cause:** The shared `config/hypr/hyprlock.conf` enables
+`auth { fingerprint { enabled = true } }` on every host, while only
+`hosts/laptop/system.nix` configures `services.fprintd`. On hosts without
+fprintd the D-Bus call fails and hyprlock silently degrades to password-only
+auth.
+
+**Status:** Documented fallback, deliberate.
+
+**Impact / workaround:** This is the documented fallback satisfying the SPEC
+static-base constraint ("Static files must not contain host-specific hardware
+assumptions unless guarded by a documented fallback"). A host config split is
+deliberately not done; treat the desktop's fprintd D-Bus error as noise.
 
 ## Rolling Hyprland input bumps can break the patched plugin stack at login
 
@@ -173,7 +216,7 @@ through `Config::Values::*Value::commence()` during
 `hyprbars` plugin-config registration path rather than PAM, SDDM, or the
 GPU-routing env.
 
-**Impact / workaround:** `patches/hyprland-plugins/hyprbars-hyprland-0.54.patch`
+**Impact / workaround:** `patches/hyprland-plugins/hyprbars-hyprland-0.55.patch`
 now refreshes the current rendering hunks and also moves `hyprbars` back to the
 legacy plugin-config path used by the other working plugins on this stack:
 `hyprbars/main.cpp` registers defaults through
@@ -199,11 +242,11 @@ absorb parts of a local patch before the local patch stack is refreshed.
 `patches/hyprland-plugins/` against the locked source revision, and prefer
 dropping hunks that upstream has already absorbed instead of preserving stale API
 porting context. The current Hyprland 0.55 lock required refreshing
-`patches/hyprland/hyprland-floating-top-decoration-rounding-0.54.patch` for the
+`patches/hyprland/hyprland-floating-top-decoration-rounding-0.55.patch` for the
 relocated `Window.hpp` method block, the reformatted shader-feature enum, and
 surface rounding calls now guarded by `!USE_MOTION_BLUR`, while dropping a stale
 no-newline hunk. The companion
-`patches/hyprland/hyprland-gcc15-designated-initializer-fix-0.54.patch` must
+`patches/hyprland/hyprland-gcc15-designated-initializer-fix-0.55.patch` must
 preserve newer texture fields such as `wrapX`, `wrapY`, `forceBlurBlend`,
 `blurAlphaMatte`, and `motionBlur` when rewriting designated initializers to
 assignment-based setup; the matching `hyprbars` plugin refresh also had to carry
@@ -226,13 +269,15 @@ kernel/NVIDIA stack.
 the upstream `hyprbars` source still references. The current Hyprland headers
 expose color parsing through `Config::ParserUtils::parseColor(...)` instead.
 
-**Status:** Fixed in
-`patches/hyprland-plugins/hyprbars-hyprland-0.54.patch`.
+**Status:** Absorbed upstream. The locked `hyprland-plugins` input (rev
+`8c3d2be`) already includes the ParserUtils include and uses
+`Config::ParserUtils::parseColor`, and the local
+`patches/hyprland-plugins/hyprbars-hyprland-0.55.patch` no longer carries any
+parseColor hunks (removed in commit `b74af9e`).
 
-**Impact / workaround:** Keep the local `hyprbars/main.cpp` and
-`hyprbars/barDeco.cpp` hunks on `Config::ParserUtils::parseColor(...)` while the
-plugin stack remains pinned to a Hyprland 0.55 input. Re-check the patch when
-upstream `hyprland-plugins` absorbs the same parser API change.
+**Impact / workaround:** Nothing to maintain locally; re-check only when the
+`hyprland-plugins` input is bumped, in case upstream and the Hyprland parser
+API diverge again.
 
 ## Official hyprland-plugins no longer ships Hyprexpo
 
@@ -248,7 +293,7 @@ break evaluation before Nix reaches the build phase.
 `hyprexpo` from `pkgs/hyprland-plugins/hyprexpo/default.nix`, a repo-local
 package that extracts the removed plugin source from upstream revision
 `eaf18d55d51cef00818c5a4fdd4170f8cc2de4dc` and applies
-`patches/hyprland-plugins/hyprexpo-hyprland-0.54.patch`. The main
+`patches/hyprland-plugins/hyprexpo-hyprland-0.55.patch`. The main
 `hyprland-plugins` flake input can keep rolling for still-shipped plugins such
 as `hyprbars`; Hyprexpo maintenance now means refreshing the local package or
 patch when Hyprland headers change.

@@ -15,6 +15,7 @@ mod openchamber;
 mod opencode;
 mod qt;
 mod quickshell;
+mod scheme_pair;
 mod snappy_switcher;
 mod spicetify;
 mod starship;
@@ -688,7 +689,7 @@ mod tests {
         let output = text(hyprland::generate(&dummy_colors(), &dummy_state()));
         assert_eq!(
             output,
-            "$theme_bg       = rgb(000000)\n$theme_bg_rgba  = rgba(000000ff)\n$theme_bg_dim   = rgb(010101)\n$theme_bg_dim_rgba = rgba(010101ff)\n$theme_bg1      = rgb(020202)\n$theme_bg1_rgba = rgba(020202ff)\n$theme_bg2      = rgb(030303)\n$theme_bg2_rgba = rgba(030303ff)\n$theme_bg3      = rgb(040404)\n$theme_bg3_rgba = rgba(040404ff)\n$theme_fg       = rgb(f0f0f0)\n$theme_fg_rgba  = rgba(f0f0f0ff)\n$theme_accent   = rgb(3366ff)\n$theme_accent_rgba = rgba(3366ffff)\n$theme_red      = rgb(ff0000)\n$theme_red_rgba = rgba(ff0000ff)\n$theme_green    = rgb(00ff00)\n$theme_green_rgba = rgba(00ff00ff)\n$theme_yellow   = rgb(ffff00)\n$theme_yellow_rgba = rgba(ffff00ff)\n$theme_blue     = rgb(0000ff)\n$theme_blue_rgba = rgba(0000ffff)\n$theme_purple   = rgb(ff00ff)\n$theme_purple_rgba = rgba(ff00ffff)\n$theme_cyan     = rgb(00ffff)\n$theme_cyan_rgba = rgba(00ffffff)\n$theme_orange   = rgb(ff8800)\n$theme_orange_rgba = rgba(ff8800ff)\n$theme_font     = JetBrains Mono Nerd Font\n$theme_sys_font = Overpass\n$theme_font_size = 11\n"
+            "$theme_bg       = rgb(000000)\n$theme_bg_rgba  = rgba(000000ff)\n$theme_bg_dim   = rgb(010101)\n$theme_bg_dim_rgba = rgba(010101ff)\n$theme_bg1      = rgb(020202)\n$theme_bg1_rgba = rgba(020202ff)\n$theme_bg2      = rgb(030303)\n$theme_bg2_rgba = rgba(030303ff)\n$theme_bg3      = rgb(040404)\n$theme_bg3_rgba = rgba(040404ff)\n$theme_fg       = rgb(f0f0f0)\n$theme_fg_rgba  = rgba(f0f0f0ff)\n$theme_accent   = rgb(3366ff)\n$theme_accent_rgba = rgba(3366ffff)\n$theme_red      = rgb(ff0000)\n$theme_red_rgba = rgba(ff0000ff)\n$theme_green    = rgb(00ff00)\n$theme_green_rgba = rgba(00ff00ff)\n$theme_yellow   = rgb(ffff00)\n$theme_yellow_rgba = rgba(ffff00ff)\n$theme_blue     = rgb(0000ff)\n$theme_blue_rgba = rgba(0000ffff)\n$theme_purple   = rgb(ff00ff)\n$theme_purple_rgba = rgba(ff00ffff)\n$theme_cyan     = rgb(00ffff)\n$theme_cyan_rgba = rgba(00ffffff)\n$theme_orange   = rgb(ff8800)\n$theme_orange_rgba = rgba(ff8800ff)\n$theme_font     = JetBrains Mono Nerd Font\n$theme_sys_font = Overpass\n"
         );
     }
 
@@ -882,8 +883,10 @@ mod tests {
             (
                 "catppuccin-frappe",
                 ColorSchemeAppearance::Dark,
+                None,
                 "Catppuccin Frappe",
-                "catppuccin-mocha.ini",
+                "Catppuccin Frapp\u{00e9}",
+                "catppuccin-frappe.ini",
                 "catppuccin-frappe",
                 "catppuccin-latte",
                 "Catppuccin Frapp\u{00e9}",
@@ -892,6 +895,8 @@ mod tests {
             (
                 "catppuccin-latte",
                 ColorSchemeAppearance::Light,
+                Some("catppuccin-mocha"),
+                "Catppuccin Latte",
                 "Catppuccin Latte",
                 "catppuccin-latte.ini",
                 "catppuccin-latte",
@@ -902,6 +907,8 @@ mod tests {
             (
                 "catppuccin-macchiato",
                 ColorSchemeAppearance::Dark,
+                None,
+                "Catppuccin Macchiato",
                 "Catppuccin Macchiato",
                 "catppuccin-mocha.ini",
                 "catppuccin-macchiato",
@@ -912,6 +919,8 @@ mod tests {
             (
                 "catppuccin-mocha",
                 ColorSchemeAppearance::Dark,
+                None,
+                "Catppuccin Mocha",
                 "Catppuccin Mocha",
                 "catppuccin-mocha.ini",
                 "catppuccin-mocha",
@@ -922,7 +931,9 @@ mod tests {
             (
                 "gruvbox-dark",
                 ColorSchemeAppearance::Dark,
+                None,
                 "gruvbox-dark",
+                "gruvbox Dark",
                 "gruvbox-dark.ini",
                 "gruvbox-dark",
                 "gruvbox-light",
@@ -932,7 +943,9 @@ mod tests {
             (
                 "gruvbox-light",
                 ColorSchemeAppearance::Light,
+                Some("gruvbox-dark"),
                 "gruvbox-light",
+                "gruvbox Light",
                 "catppuccin-latte.ini",
                 "gruvbox-light",
                 "gruvbox-light",
@@ -942,7 +955,9 @@ mod tests {
             (
                 "nord",
                 ColorSchemeAppearance::Dark,
-                "base16",
+                None,
+                "Nord",
+                "Nord",
                 "nord.ini",
                 "nord",
                 "nord-light",
@@ -952,7 +967,9 @@ mod tests {
             (
                 "nord-light",
                 ColorSchemeAppearance::Light,
+                Some("nord"),
                 "base16",
+                "Breeze Light",
                 "catppuccin-latte.ini",
                 "nord-light",
                 "nord-light",
@@ -962,7 +979,9 @@ mod tests {
             (
                 "rose-pine",
                 ColorSchemeAppearance::Dark,
+                None,
                 "base16",
+                "Breeze Dark",
                 "rose-pine.ini",
                 "rose-pine",
                 "rose-pine-dawn",
@@ -972,7 +991,9 @@ mod tests {
             (
                 "rose-pine-dawn",
                 ColorSchemeAppearance::Light,
+                Some("rose-pine"),
                 "base16",
+                "Breeze Light",
                 "catppuccin-latte.ini",
                 "rose-pine-dawn",
                 "rose-pine-dawn",
@@ -982,7 +1003,9 @@ mod tests {
             (
                 "solarized-dark",
                 ColorSchemeAppearance::Dark,
+                None,
                 "Solarized (dark)",
+                "Solarized Dark",
                 "snappy-slate.ini",
                 "solarized-dark",
                 "solarized-light",
@@ -992,7 +1015,9 @@ mod tests {
             (
                 "solarized-light",
                 ColorSchemeAppearance::Light,
+                Some("solarized-dark"),
                 "Solarized (light)",
+                "Solarized Light",
                 "catppuccin-latte.ini",
                 "solarized-light",
                 "solarized-light",
@@ -1002,7 +1027,9 @@ mod tests {
             (
                 "tokyo-night",
                 ColorSchemeAppearance::Dark,
+                None,
                 "base16",
+                "Tokyo Night",
                 "tokyo-night.ini",
                 "tokyo-night",
                 "tokyo-night-light",
@@ -1012,7 +1039,9 @@ mod tests {
             (
                 "tokyo-night-light",
                 ColorSchemeAppearance::Light,
+                Some("tokyo-night"),
                 "base16",
+                "Tokyo Night Light",
                 "catppuccin-latte.ini",
                 "tokyo-night-light",
                 "tokyo-night-light",
@@ -1024,7 +1053,9 @@ mod tests {
         for (
             scheme_name,
             appearance,
+            dark_scheme,
             bat_name,
+            ktexteditor_name,
             snappy_name,
             vicinae_name,
             vicinae_light_name,
@@ -1034,7 +1065,13 @@ mod tests {
         {
             let colors = load_repo_colors(scheme_name);
             assert_eq!(colors.appearance, appearance, "{scheme_name}");
+            assert_eq!(colors.dark_scheme.as_deref(), dark_scheme, "{scheme_name}");
             assert_eq!(colors.bat_theme_name(), bat_name, "{scheme_name}");
+            assert_eq!(
+                colors.ktexteditor_theme_name(),
+                ktexteditor_name,
+                "{scheme_name}"
+            );
             assert_eq!(
                 colors.snappy_switcher_theme_name(),
                 snappy_name,

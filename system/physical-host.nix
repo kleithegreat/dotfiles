@@ -59,7 +59,7 @@ in
       "mitigations=off"
       "transparent_hugepage=madvise"
     ];
-    boot.kernelModules = [ "kvm-intel" "iptable_nat" ];
+    boot.kernelModules = [ "kvm-intel" ];
     boot.loader.grub = {
       enable = true;
       efiSupport = true;
@@ -123,6 +123,10 @@ in
 
     hardware.enableRedistributableFirmware = true;
     hardware.i2c.enable = true;
+    hardware.logitech.wireless = {
+      enable = true;
+      enableGraphical = true;  # solaar
+    };
     hardware.cpu.intel.updateMicrocode =
       lib.mkDefault config.hardware.enableRedistributableFirmware;
 

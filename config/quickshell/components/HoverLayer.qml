@@ -12,12 +12,8 @@ MouseArea {
         if (!root.parent)
             return Root.Theme.hoverRadius;
 
-        try {
-            let parentRadius = root.parent.radius;
-            return parentRadius === undefined ? Root.Theme.hoverRadius : parentRadius;
-        } catch (error) {
-            return Root.Theme.hoverRadius;
-        }
+        let parentRadius = root.parent.radius;
+        return parentRadius === undefined ? Root.Theme.hoverRadius : parentRadius;
     }
     property real idleOpacity: 0.0
     property real hoverOpacity: 0.6

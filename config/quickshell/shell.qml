@@ -28,92 +28,6 @@ Scope {
         return monitor && monitor.id >= 0 && monitor.name !== "FALLBACK";
     }
 
-    function tokenizeThemeArgs(payload) {
-        if (Array.isArray(payload)) {
-            return {
-                argv: payload.map(part => String(part)),
-                error: ""
-            };
-        }
-
-        let text = payload === undefined || payload === null ? "" : String(payload);
-        let argv = [];
-        let current = "";
-        let quote = "";
-        let escaping = false;
-
-        for (let i = 0; i < text.length; ++i) {
-            let ch = text.charAt(i);
-
-            if (escaping) {
-                current += ch;
-                escaping = false;
-                continue;
-            }
-
-            if (quote === "'") {
-                if (ch === "'") {
-                    quote = "";
-                } else {
-                    current += ch;
-                }
-                continue;
-            }
-
-            if (quote === "\"") {
-                if (ch === "\"") {
-                    quote = "";
-                    continue;
-                }
-                if (ch === "\\") {
-                    escaping = true;
-                    continue;
-                }
-
-                current += ch;
-                continue;
-            }
-
-            if (ch === "'" || ch === "\"") {
-                quote = ch;
-                continue;
-            }
-
-            if (ch === "\\") {
-                escaping = true;
-                continue;
-            }
-
-            if (/\s/.test(ch)) {
-                if (current !== "") {
-                    argv.push(current);
-                    current = "";
-                }
-                continue;
-            }
-
-            current += ch;
-        }
-
-        if (escaping)
-            current += "\\";
-
-        if (quote !== "") {
-            return {
-                argv: [],
-                error: "theme.apply received an unterminated quoted argument"
-            };
-        }
-
-        if (current !== "")
-            argv.push(current);
-
-        return {
-            argv: argv,
-            error: ""
-        };
-    }
-
     readonly property string barMonitorName: {
         const monitors = Hyprland.monitors.values;
         let fallbackName = "";
@@ -417,48 +331,10 @@ Scope {
         }
     }
 
-    Process {
-        id: themeApplyProc
-        running: false
-        property string output: ""
-        stdout: SplitParser { onRead: data => { themeApplyProc.output += data; } }
-        stderr: SplitParser { onRead: data => { themeApplyProc.output += data; } }
-        onExited: (code, status) => {
-            let message = themeApplyProc.output.trim();
-            if (code !== 0)
-                ToastService.showError(message !== "" ? message : "Theme command failed");
-            else
-                ToastService.showInfo("Theme command completed");
-
-            themeApplyProc.output = "";
-        }
-    }
-
     IpcHandler {
         target: "theme"
 
         function open(): void { root.popupVisibility.toggleSettings(); }
-        function apply(args): void {
-            let parsed = root.tokenizeThemeArgs(args);
-            if (parsed.error !== "") {
-                ToastService.showError(parsed.error);
-                return;
-            }
-
-            if (parsed.argv.length === 0) {
-                ToastService.showError("theme.apply requires at least one argument");
-                return;
-            }
-
-            if (themeApplyProc.running) {
-                ToastService.showWarning("Theme command already running");
-                return;
-            }
-
-            themeApplyProc.output = "";
-            themeApplyProc.command = ["desktopctl", "theme"].concat(parsed.argv);
-            themeApplyProc.running = true;
-        }
     }
 
     IpcHandler {

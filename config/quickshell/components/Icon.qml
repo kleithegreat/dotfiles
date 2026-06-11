@@ -19,8 +19,6 @@ Item {
         let markerIndex = text.lastIndexOf(marker);
         if (markerIndex >= 0)
             return "../icons/" + text.slice(markerIndex + marker.length);
-        if (text.startsWith("icons/"))
-            return "../" + text;
 
         return text;
     }

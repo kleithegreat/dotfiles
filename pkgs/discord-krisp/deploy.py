@@ -7,7 +7,6 @@ import os
 import shutil
 import sys
 from pathlib import Path
-from shutil import COPY_BUFSIZE
 from threading import Event, Lock
 
 from watchdog.events import (
@@ -32,6 +31,7 @@ VERSION = "@discordVersion@"
 CONFIG_DIR = "@configDirName@"
 MARKER = ".nix-krisp-hash"
 PARENT_CHECK_INTERVAL = 1
+HASH_CHUNK_SIZE = 1024 * 1024
 WATCHED_EVENTS = [
     DirCreatedEvent,
     DirDeletedEvent,
@@ -53,7 +53,7 @@ def modules_dir() -> Path:
 def file_hash(path: Path) -> str:
     h = hashlib.sha256()
     with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(COPY_BUFSIZE), b""):
+        for chunk in iter(lambda: f.read(HASH_CHUNK_SIZE), b""):
             h.update(chunk)
     return h.hexdigest()
 
@@ -63,7 +63,7 @@ KRISP_HASH = hashlib.sha256(
 ).hexdigest()
 
 
-def needs_deploy(dest: Path, verify_node: bool = True) -> bool:
+def needs_deploy(dest: Path) -> bool:
     node = dest / "discord_krisp.node"
     index = dest / "index.js"
     marker = dest / MARKER
@@ -75,16 +75,11 @@ def needs_deploy(dest: Path, verify_node: bool = True) -> bool:
         return True
     if stored_hash != KRISP_HASH:
         return True
-    if not verify_node:
-        try:
-            return node.stat().st_mtime_ns > marker.stat().st_mtime_ns
-        except OSError:
-            return True
     return hashlib.sha256((file_hash(node) + file_hash(index)).encode()).hexdigest() != KRISP_HASH
 
 
-def deploy(dest: Path, quiet: bool = False, verify_node: bool = True) -> None:
-    if not needs_deploy(dest, verify_node):
+def deploy(dest: Path, quiet: bool = False) -> None:
+    if not needs_deploy(dest):
         if not quiet:
             print("[Nix] Krisp already deployed")
         return

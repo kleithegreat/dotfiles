@@ -23,3 +23,9 @@
 **Cause:** Name/icon resolution is built from `.desktop` files keyed by `StartupWMClass` and desktop-file basename; unmatched classes fall back to `(window_class, "")`.
 **Status:** Current behavior
 **Resolution:** If a label looks wrong, check whether the app's desktop entry exposes the same class that Hyprland reports.
+
+## The desktop-entry index is built once at daemon startup
+**Symptom:** An app installed (or whose `.desktop` entry changed) after `desktopctl daemon` started keeps showing its raw window class and an empty icon in the Screen Time pane.
+**Cause:** The focus tracker scans all `.desktop` application directories once when it starts and resolves every window class against that fixed in-memory index; nothing rescans while the daemon runs.
+**Status:** Current behavior
+**Resolution:** Restart `desktopctl daemon` after installing apps if the labels matter; accumulated seconds are unaffected because SQLite stores the raw class.

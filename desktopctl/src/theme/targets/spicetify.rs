@@ -14,26 +14,6 @@ pub const METADATA: TargetMetadata =
 const THEME_DIR: &str = "~/.config/spicetify/Themes/ApplyTheme";
 const USER_CSS_PATH: &str = "~/.config/spicetify/Themes/ApplyTheme/user.css";
 
-fn srgb_channel_to_linear(channel: u8) -> f64 {
-    let value = channel as f64 / 255.0;
-    if value <= 0.04045 {
-        value / 12.92
-    } else {
-        ((value + 0.055) / 1.055).powf(2.4)
-    }
-}
-
-fn relative_luminance(hex_color: &str) -> f64 {
-    let red = srgb_channel_to_linear(u8::from_str_radix(&hex_color[1..3], 16).unwrap());
-    let green = srgb_channel_to_linear(u8::from_str_radix(&hex_color[3..5], 16).unwrap());
-    let blue = srgb_channel_to_linear(u8::from_str_radix(&hex_color[5..7], 16).unwrap());
-    0.2126 * red + 0.7152 * green + 0.0722 * blue
-}
-
-fn is_light_scheme(colors: &ColorScheme) -> bool {
-    relative_luminance(&colors.bg) > relative_luminance(&colors.fg)
-}
-
 fn python_round(value: f64) -> i64 {
     let floor = value.floor();
     let diff = value - floor;
@@ -68,7 +48,7 @@ fn spice_hex(hex_color: &str) -> &str {
 }
 
 fn shadow(colors: &ColorScheme) -> String {
-    if is_light_scheme(colors) {
+    if colors.is_light() {
         colors.bg3.clone()
     } else {
         colors.bg_dim.clone()
@@ -80,7 +60,7 @@ fn button_active(colors: &ColorScheme) -> String {
 }
 
 fn button_disabled(colors: &ColorScheme) -> String {
-    if is_light_scheme(colors) {
+    if colors.is_light() {
         colors.fg4.clone()
     } else {
         colors.bg3.clone()
@@ -126,7 +106,7 @@ pub fn persist(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> 
     fs::create_dir_all(theme_dir)?;
     atomic_write(
         &user_css_path,
-        b"/* Optional Spicetify CSS overrides managed outside apply-theme. */\n",
+        b"/* Optional Spicetify CSS overrides managed outside desktopctl. */\n",
     )
 }
 

@@ -82,7 +82,20 @@ FocusScope {
 
                     opacity: 0
                     scale: Theme.popupStartScale
+                    // Covers opens that race the prewarm loader; the
+                    // Connections below replays the stagger on later opens.
                     Component.onCompleted: { pwrEnterAnim.start(); }
+                    Connections {
+                        target: powerMenu
+                        function onActiveChanged() {
+                            if (powerMenu.active) {
+                                pwrEnterAnim.stop();
+                                pwrBtn.opacity = 0;
+                                pwrBtn.scale = Theme.popupStartScale;
+                                pwrEnterAnim.restart();
+                            }
+                        }
+                    }
                     SequentialAnimation {
                         id: pwrEnterAnim
                         PauseAnimation { duration: pwrBtn.index * Theme.animStagger }

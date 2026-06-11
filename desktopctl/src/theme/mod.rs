@@ -1,5 +1,4 @@
 use crate::paths;
-use serde_json::error::Category as JsonErrorCategory;
 use serde_json::{Map, Value};
 use std::io::Write;
 use std::{
@@ -30,6 +29,7 @@ struct StateUpdateOutcome {
     value: Value,
     new_state: schema::ThemeState,
     affected_targets: std::collections::BTreeSet<String>,
+    registry: targets::TargetRegistry,
 }
 
 pub fn run(args: crate::ThemeArgs) -> crate::Result<()> {
@@ -41,16 +41,19 @@ pub fn run(args: crate::ThemeArgs) -> crate::Result<()> {
 }
 
 pub fn set_dark_hint(enabled: bool) -> crate::Result<()> {
+    set_dark_hint_internal(enabled).map(|_changed| ())
+}
+
+fn set_dark_hint_internal(enabled: bool) -> crate::Result<bool> {
     let outcome = set_state_key_internal("dark_hint", Value::Bool(enabled))?;
     if !outcome.changed {
-        return Ok(());
+        return Ok(false);
     }
 
     let colors_dir = resolve::colors_dir()?;
     let colors = resolve::load_colors(&outcome.new_state.color_scheme, &colors_dir)?;
-    let registry = targets::build_registry()?;
     orchestrator::apply_targets_quiet(
-        &registry,
+        &outcome.registry,
         outcome.affected_targets.iter(),
         &colors,
         &outcome.new_state,
@@ -61,8 +64,8 @@ pub fn set_dark_hint(enabled: bool) -> crate::Result<()> {
             "failed to apply affected theme targets for dark_hint: {error}"
         ))
     })?;
-    resolve::save_state(&outcome.new_state)?;
-    Ok(())
+    resolve::save_state_keys(&[("dark_hint", &outcome.value)])?;
+    Ok(true)
 }
 
 pub(crate) fn expand_user_path(path: &str) -> crate::Result<PathBuf> {
@@ -138,6 +141,65 @@ pub(crate) fn atomic_write(path: &Path, content: &[u8]) -> crate::Result<()> {
     Err(last_exists_error
         .unwrap_or_else(|| io::Error::other("failed to allocate a temporary file"))
         .into())
+}
+
+/// Atomically replace `link_path` with a symlink to `target` (symlink under a
+/// temporary name, then rename over the destination) so live consumers never
+/// observe a missing file.
+#[cfg(unix)]
+pub(crate) fn replace_with_symlink(link_path: &Path, target: &Path) -> crate::Result<()> {
+    use std::os::unix::fs::symlink;
+
+    let parent = link_path.parent().unwrap_or_else(|| Path::new("."));
+    let file_name = link_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("link");
+    let mut last_exists_error = None;
+
+    for attempt in 0..16 {
+        let temp_path = parent.join(format!(
+            ".{file_name}.desktopctl-{}-{attempt}.tmp",
+            process::id()
+        ));
+        match symlink(target, &temp_path) {
+            Ok(()) => {
+                if let Err(error) = fs::rename(&temp_path, link_path) {
+                    let _ = fs::remove_file(&temp_path);
+                    return Err(error.into());
+                }
+                return Ok(());
+            }
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
+                last_exists_error = Some(error);
+            }
+            Err(error) => return Err(error.into()),
+        }
+    }
+
+    Err(last_exists_error
+        .unwrap_or_else(|| io::Error::other("failed to allocate a temporary symlink"))
+        .into())
+}
+
+#[cfg(not(unix))]
+pub(crate) fn replace_with_symlink(_link_path: &Path, _target: &Path) -> crate::Result<()> {
+    Err(io::Error::new(
+        io::ErrorKind::Unsupported,
+        "symlink replacement requires a Unix platform",
+    )
+    .into())
+}
+
+/// 64-bit FNV-1a fingerprint shared by cache-key derivation (wallpaper
+/// previews, lutgen output). Not cryptographic; cache keys do not need to be.
+pub(crate) fn fnv1a_fingerprint(text: &str) -> String {
+    let mut hash = 0xcbf29ce484222325u64;
+    for byte in text.as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    format!("{hash:016x}")
 }
 
 pub(crate) fn run_command(command: &[&str]) -> crate::Result<()> {
@@ -297,11 +359,18 @@ fn cmd_target(args: crate::TargetArgs) -> CliResult<()> {
 fn cmd_set(args: crate::SetArgs) -> CliResult<()> {
     let crate::SetArgs { key, value } = args;
     if key == "dark_hint" {
-        let enabled = match map_user_err(coerce_theme_value(&key, Value::String(value.clone())))? {
+        let enabled = match map_user_err(coerce_theme_value(&key, Value::String(value)))? {
             Value::Bool(enabled) => enabled,
             _ => unreachable!("dark_hint is validated as a bool"),
         };
-        map_user_err(set_dark_hint(enabled))?;
+        if !map_user_err(set_dark_hint_internal(enabled))? {
+            println!(
+                "{} is already '{}', nothing to do.",
+                key,
+                python_display_value(&Value::Bool(enabled))
+            );
+            return Ok(());
+        }
         println!("Set {} = {}", key, python_repr_value(&Value::Bool(enabled)));
         return Ok(());
     }
@@ -318,8 +387,12 @@ fn cmd_set(args: crate::SetArgs) -> CliResult<()> {
     }
 
     println!("Set {} = {}", key, python_repr_value(&outcome.value));
-    apply_affected_targets(&outcome.new_state, &outcome.affected_targets)?;
-    map_user_err(resolve::save_state(&outcome.new_state))?;
+    apply_affected_targets(
+        &outcome.registry,
+        &outcome.new_state,
+        &outcome.affected_targets,
+    )?;
+    map_user_err(resolve::save_state_keys(&[(key.as_str(), &outcome.value)]))?;
     Ok(())
 }
 
@@ -353,7 +426,13 @@ fn cmd_preset(args: crate::NamedArg) -> CliResult<()> {
         if !orchestrator::apply_all(&registry, &colors, &new_state, true, false) {
             return Err(CliFailure::Reported);
         }
-        map_user_err(resolve::save_state(&new_state))?;
+        // Persist only the preset's keys so concurrent writers (e.g. the
+        // daemon's dark_hint edge) commute on disjoint keys.
+        let pairs = preset
+            .iter()
+            .map(|(key, value)| (key.as_str(), value))
+            .collect::<Vec<_>>();
+        map_user_err(resolve::save_state_keys(&pairs))?;
     }
 
     if let Some(enabled) = requested_dark_hint {
@@ -407,11 +486,7 @@ fn cmd_delete_preset(args: crate::NamedArg) -> CliResult<()> {
 
 fn cmd_list_schemes(json_output: bool) -> CliResult<()> {
     let colors_dir = map_user_err(resolve::colors_dir())?;
-    let schemes = if json_output {
-        map_user_err(json_file_stems_by_filename(&colors_dir))?
-    } else {
-        map_user_err(json_file_stems(&colors_dir))?
-    };
+    let schemes = map_user_err(json_file_stems_by_filename(&colors_dir))?;
 
     if !json_output {
         if schemes.is_empty() {
@@ -483,11 +558,7 @@ fn cmd_list_schemes(json_output: bool) -> CliResult<()> {
 
 fn cmd_list_presets(json_output: bool) -> CliResult<()> {
     let presets_dir = map_user_err(presets_dir())?;
-    let presets = if json_output {
-        map_user_err(json_file_stems_by_filename(&presets_dir))?
-    } else {
-        map_user_err(json_file_stems(&presets_dir))?
-    };
+    let presets = map_user_err(json_file_stems_by_filename(&presets_dir))?;
 
     if !json_output {
         if presets.is_empty() {
@@ -580,18 +651,18 @@ fn load_state_and_colors() -> CliResult<(schema::ThemeState, schema::ColorScheme
 }
 
 fn apply_affected_targets(
+    registry: &targets::TargetRegistry,
     state: &schema::ThemeState,
     affected_targets: &std::collections::BTreeSet<String>,
 ) -> CliResult<()> {
-    let colors_dir = map_user_err(resolve::colors_dir())?;
-    let colors = map_user_err(resolve::load_colors(&state.color_scheme, &colors_dir))?;
     if affected_targets.is_empty() {
         return Ok(());
     }
 
+    let colors_dir = map_user_err(resolve::colors_dir())?;
+    let colors = map_user_err(resolve::load_colors(&state.color_scheme, &colors_dir))?;
     println!("Applying affected targets...");
-    let registry = map_user_err(targets::build_registry())?;
-    if orchestrator::apply_targets(&registry, affected_targets.iter(), &colors, state, true) {
+    if orchestrator::apply_targets(registry, affected_targets.iter(), &colors, state, true) {
         Ok(())
     } else {
         Err(CliFailure::Reported)
@@ -603,17 +674,10 @@ fn set_state_key_internal(key: &str, raw_value: Value) -> crate::Result<StateUpd
     let mut state_map = state.to_ordered_json_map();
     let value = coerce_theme_value(key, raw_value)?;
 
-    let Some(current) = state_map.get(key).cloned() else {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            format!(
-                "unknown key '{}'. Valid: {}",
-                key,
-                valid_theme_keys().join(", ")
-            ),
-        )
-        .into());
-    };
+    let current = state_map
+        .get(key)
+        .cloned()
+        .expect("coerce_theme_value rejects unknown keys");
 
     state_map.insert(key.to_owned(), value.clone());
     let new_state = validated_theme_state(state_map, "theme state")?;
@@ -623,6 +687,7 @@ fn set_state_key_internal(key: &str, raw_value: Value) -> crate::Result<StateUpd
             value,
             new_state: state,
             affected_targets: std::collections::BTreeSet::new(),
+            registry: targets::TargetRegistry::new(),
         });
     }
     let registry = targets::build_registry()?;
@@ -633,6 +698,7 @@ fn set_state_key_internal(key: &str, raw_value: Value) -> crate::Result<StateUpd
         value,
         new_state,
         affected_targets,
+        registry,
     })
 }
 
@@ -849,31 +915,12 @@ fn missing_preset(preset_name: &str) -> CliResult<()> {
 }
 
 fn available_presets() -> crate::Result<Vec<String>> {
-    json_file_stems(&presets_dir()?).map_err(Into::into)
+    json_file_stems_by_filename(&presets_dir()?).map_err(Into::into)
 }
 
-fn json_file_stems(dir: &Path) -> io::Result<Vec<String>> {
-    json_file_stems_with(dir, |path| {
-        path.file_stem()
-            .and_then(|stem| stem.to_str())
-            .unwrap_or_default()
-            .to_owned()
-    })
-}
-
-fn json_file_stems_by_filename(dir: &Path) -> io::Result<Vec<String>> {
-    json_file_stems_with(dir, |path| {
-        path.file_name()
-            .and_then(|name| name.to_str())
-            .unwrap_or_default()
-            .to_owned()
-    })
-}
-
-fn json_file_stems_with<F>(dir: &Path, sort_key: F) -> io::Result<Vec<String>>
-where
-    F: Fn(&Path) -> String,
-{
+// Sorted by file name — the documented `--json` listing order, reused for the
+// human-facing listings as well.
+pub(crate) fn json_file_stems_by_filename(dir: &Path) -> io::Result<Vec<String>> {
     let mut stems: Vec<(String, String)> = Vec::new();
     let entries = match fs::read_dir(dir) {
         Ok(entries) => entries,
@@ -888,7 +935,12 @@ where
             .is_some_and(|extension| extension == "json")
             && let Some(stem) = path.file_stem().and_then(|stem| stem.to_str())
         {
-            stems.push((sort_key(&path), stem.to_owned()));
+            let file_name = path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or_default()
+                .to_owned();
+            stems.push((file_name, stem.to_owned()));
         }
     }
 
@@ -952,92 +1004,8 @@ fn python_bool(value: bool) -> &'static str {
 
 fn parse_json_value(text: &str) -> crate::Result<Value> {
     serde_json::from_str(text).map_err(|error| {
-        io::Error::new(io::ErrorKind::InvalidData, python_json_error(text, &error)).into()
+        io::Error::new(io::ErrorKind::InvalidData, format!("invalid JSON: {error}")).into()
     })
-}
-
-fn python_json_error(text: &str, error: &serde_json::Error) -> String {
-    if let Some(message) = leading_value_error(text) {
-        return message;
-    }
-
-    let line = error.line();
-    let column = error.column();
-    let offset = json_char_offset(text, line, column);
-
-    let message = match error.classify() {
-        JsonErrorCategory::Syntax | JsonErrorCategory::Eof => {
-            if error.to_string().starts_with("expected value") {
-                "Expecting value".to_owned()
-            } else {
-                error.to_string()
-            }
-        }
-        _ => error.to_string(),
-    };
-
-    format!("{message}: line {line} column {column} (char {offset})")
-}
-
-fn leading_value_error(text: &str) -> Option<String> {
-    let (offset, first) = text
-        .char_indices()
-        .find(|(_, character)| !character.is_whitespace())?;
-    let invalid = match first {
-        't' => !text[offset..].starts_with("true"),
-        'f' => !text[offset..].starts_with("false"),
-        'n' => !text[offset..].starts_with("null"),
-        _ => false,
-    };
-
-    if !invalid {
-        return None;
-    }
-
-    let (line, column) = line_column_for_offset(text, offset);
-    Some(format!(
-        "Expecting value: line {line} column {column} (char {offset})"
-    ))
-}
-
-fn json_char_offset(text: &str, line: usize, column: usize) -> usize {
-    if line == 0 || column == 0 {
-        return 0;
-    }
-
-    let mut current_line = 1;
-    let mut current_column = 1;
-
-    for (offset, character) in text.char_indices() {
-        if current_line == line && current_column == column {
-            return offset;
-        }
-
-        if character == '\n' {
-            current_line += 1;
-            current_column = 1;
-        } else {
-            current_column += 1;
-        }
-    }
-
-    text.len()
-}
-
-fn line_column_for_offset(text: &str, offset: usize) -> (usize, usize) {
-    let mut line = 1;
-    let mut column = 1;
-
-    for character in text[..offset].chars() {
-        if character == '\n' {
-            line += 1;
-            column = 1;
-        } else {
-            column += 1;
-        }
-    }
-
-    (line, column)
 }
 
 fn map_user_err<T, E>(result: Result<T, E>) -> CliResult<T>
@@ -1191,7 +1159,8 @@ mod tests {
 
         let dark_hint_outcome =
             set_state_key_internal("dark_hint", Value::Bool(false)).expect("set dark hint");
-        resolve::save_state(&dark_hint_outcome.new_state).expect("persist explicit dark hint");
+        resolve::save_state_keys(&[("dark_hint", &dark_hint_outcome.value)])
+            .expect("persist explicit dark hint");
 
         let outcome =
             set_state_key_internal("color_scheme", Value::String("catppuccin-mocha".to_owned()))

@@ -93,6 +93,7 @@ let
     netcat-openbsd
     mission-center
     neovim
+    gcc # nvim treesitter parser compilation (:TSUpdate / ensure_installed)
     neovide
     lua-language-server
     pyright

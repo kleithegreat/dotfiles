@@ -13,8 +13,6 @@ FocusScope {
     property bool contentLoaded: false
     property bool suppressHeightAnimation: false
     readonly property bool overlayVisible: active || closing
-    readonly property Item panelItem: calContentLoader.item
-    readonly property Item focusTarget: cal
     readonly property bool scrimEnabled: false
     readonly property color scrimColor: "transparent"
     readonly property real scrimOpacity: 0
@@ -40,6 +38,7 @@ FocusScope {
             closing = false;
             suppressHeightAnimation = true;
             let today = new Date();
+            todayDate = today;
             viewYear = today.getFullYear();
             viewMonth = today.getMonth();
             contentLoaded = true;
@@ -76,6 +75,18 @@ FocusScope {
         running: !cal.contentLoaded
         repeat: false
         onTriggered: cal.contentLoaded = true
+    }
+
+    Timer {
+        // Keeps the 'today' highlight correct if the popup stays open across midnight.
+        interval: 60 * 1000
+        running: cal.active
+        repeat: true
+        onTriggered: {
+            let n = new Date();
+            if (n.getDate() !== cal.todayDate.getDate())
+                cal.todayDate = n;
+        }
     }
 
     SequentialAnimation {
@@ -134,12 +145,15 @@ FocusScope {
         }
     }
 
+    // Refreshed on open and by the date-rollover timer so 'today' bindings stay reactive.
+    property var todayDate: new Date()
     property int viewYear: new Date().getFullYear()
     property int viewMonth: new Date().getMonth()
     property string currentView: "calendar"
     property bool gridVisible: true
     readonly property real calHighlightSize: Theme.calCellSize * 26 / 32
     readonly property real calendarPaneWidth: Theme.calCellSize * 7 + 12
+    // 344 is the weather page's minimum width; Theme.calWidth (306) is narrower today.
     readonly property real panelWidth: Math.max(Theme.calWidth, 344)
     property bool weatherLoading: false
     property bool weatherReady: false
@@ -283,22 +297,6 @@ FocusScope {
             return Theme.aqua;
         return isDay ? Theme.yellowBright : Theme.blueBright;
     }
-    function weatherGlowColor(code, isDay) {
-        if ([95, 96, 99].indexOf(code) >= 0)
-            return Theme.redBright;
-        if ([71, 73, 75, 77, 85, 86].indexOf(code) >= 0)
-            return Theme.fg2;
-        if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].indexOf(code) >= 0)
-            return Theme.aquaBright;
-        if (code === 45 || code === 48)
-            return Theme.blue;
-        if (code === 2 || code === 3)
-            return Theme.blue;
-        return isDay ? Theme.orangeBright : Theme.purpleBright;
-    }
-    function weatherCardColor() {
-        return Theme.bg2;
-    }
     function weatherStatusColor() {
         if (weatherErrorText !== "" && !weatherReady)
             return Theme.redBright;
@@ -343,7 +341,6 @@ FocusScope {
             + "&current=temperature_2m,relative_humidity_2m,is_day,weather_code,wind_speed_10m"
             + "&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max"
             + "&forecast_days=1&timezone=auto";
-        weatherFetchProc.buf = "";
         weatherFetchProc.command = ["curl", "-fsS", "--connect-timeout", "3", "--max-time", "6", url];
         weatherFetchProc.running = true;
     }
@@ -400,7 +397,6 @@ FocusScope {
         weatherLoading = true;
         if (!weatherReady)
             weatherErrorText = "";
-        sunStatusProc.buf = "";
         sunStatusProc.running = true;
     }
 
@@ -416,7 +412,6 @@ FocusScope {
         id: chip
         required property string label
         required property string value
-        required property color accentColor
 
         radius: 12
         color: Theme.bg2
@@ -489,7 +484,6 @@ FocusScope {
         required property int code
         required property bool isDay
         required property color accentColor
-        required property color glowColor
         clip: true
 
         readonly property bool showCloud: [2, 3, 45, 48, 51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 71, 73, 75, 77, 80, 81, 82, 85, 86, 95, 96, 99].indexOf(code) >= 0
@@ -938,10 +932,7 @@ FocusScope {
                                     required property int index
                                     property int dayNum: index - cal.firstDow(cal.viewYear, cal.viewMonth) + 1
                                     property bool isCur: dayNum >= 1 && dayNum <= cal.daysInMonth(cal.viewYear, cal.viewMonth)
-                                    property bool isToday: {
-                                        let n = new Date();
-                                        return isCur && dayNum === n.getDate() && cal.viewMonth === n.getMonth() && cal.viewYear === n.getFullYear();
-                                    }
+                                    property bool isToday: isCur && dayNum === cal.todayDate.getDate() && cal.viewMonth === cal.todayDate.getMonth() && cal.viewYear === cal.todayDate.getFullYear()
                                     width: Theme.calCellSize; height: Theme.calCellSize
 
                                     Rectangle {
@@ -978,7 +969,6 @@ FocusScope {
                                     }
                                     MouseArea {
                                         id: dayCellMouse; anchors.fill: parent; hoverEnabled: isCur
-                                        cursorShape: isCur ? Qt.PointingHandCursor : Qt.ArrowCursor
                                     }
                                 }
                             }
@@ -1075,7 +1065,7 @@ FocusScope {
                             Layout.fillWidth: true
                             radius: 16
                             clip: true
-                            color: cal.weatherCardColor()
+                            color: Theme.bg2
                             border.width: 1
                             border.color: Theme.bg3
                             implicitHeight: 162
@@ -1090,7 +1080,6 @@ FocusScope {
                                 code: cal.weatherCode
                                 isDay: cal.weatherIsDay
                                 accentColor: cal.weatherAccentColor(cal.weatherCode, cal.weatherIsDay)
-                                glowColor: cal.weatherGlowColor(cal.weatherCode, cal.weatherIsDay)
                             }
 
                             Column {
@@ -1143,14 +1132,12 @@ FocusScope {
                                 Layout.fillWidth: true
                                 label: "Humidity"
                                 value: cal.weatherReady ? cal.formatPercent(cal.weatherHumidity) : "--"
-                                accentColor: Theme.aquaBright
                             }
 
                             WeatherMetricChip {
                                 Layout.fillWidth: true
                                 label: "Wind"
                                 value: cal.weatherReady ? cal.formatWind(cal.weatherWindKph) : "--"
-                                accentColor: Theme.blueBright
                             }
                         }
 
@@ -1162,14 +1149,12 @@ FocusScope {
                                 Layout.fillWidth: true
                                 label: "Rain chance"
                                 value: cal.weatherReady ? cal.formatPercent(cal.weatherRainChance) : "--"
-                                accentColor: Theme.purpleBright
                             }
 
                             WeatherMetricChip {
                                 Layout.fillWidth: true
                                 label: "Updated"
                                 value: cal.weatherUpdatedLabel !== "" ? cal.weatherUpdatedLabel : "Waiting"
-                                accentColor: cal.weatherErrorText !== "" ? Theme.yellowBright : Theme.greenBright
                             }
                         }
 

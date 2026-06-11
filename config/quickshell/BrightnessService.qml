@@ -226,7 +226,11 @@ QtObject {
     Component.onCompleted: refresh()
 
     property Timer statusTimer: Timer {
-        interval: root.hasBrightness ? 5000 : 30000
+        // Cheap safety net only: each status call probes the DDC/I2C bus
+        // (~0.7s). Event-driven refreshes (monitor hotplug, set completions,
+        // brightness OSD IPC) already cover everything but external changes
+        // such as monitor OSD buttons.
+        interval: 30000
         running: true
         repeat: true
         onTriggered: root.refresh()

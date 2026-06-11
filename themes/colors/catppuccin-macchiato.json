@@ -4,6 +4,7 @@
   "appearance": "dark",
   "app_themes": {
     "bat": "Catppuccin Macchiato",
+    "ktexteditor": "Catppuccin Macchiato",
     "snappy_switcher": "catppuccin-mocha.ini",
     "vicinae": {
       "name": "catppuccin-macchiato",

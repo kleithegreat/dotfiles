@@ -4,6 +4,7 @@
   "appearance": "dark",
   "app_themes": {
     "bat": "base16",
+    "ktexteditor": "Tokyo Night",
     "snappy_switcher": "tokyo-night.ini",
     "vicinae": {
       "name": "tokyo-night",

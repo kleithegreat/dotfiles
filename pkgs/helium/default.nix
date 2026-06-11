@@ -66,8 +66,6 @@ let
     "${gtk4}/share/gsettings-schemas/${gtk4.name}"
   ];
 in
-assert lib.assertMsg (stdenv.hostPlatform.system == "x86_64-linux")
-  "pkgs.helium is currently packaged only for x86_64-linux.";
 stdenv.mkDerivation {
   pname = "helium";
   inherit version;

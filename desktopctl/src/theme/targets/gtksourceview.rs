@@ -1,6 +1,9 @@
-use super::{Assembly, GeneratedContent, TargetMetadata};
+use super::{
+    Assembly, GeneratedContent, TargetMetadata,
+    scheme_pair::{self, SchemeEntry},
+};
 use crate::theme::{
-    atomic_write, expand_user_path, resolve,
+    atomic_write, expand_user_path,
     schema::{ColorScheme, ColorSchemeAppearance, ThemeState},
 };
 use std::{collections::HashSet, fs, path::Path, process::Command};
@@ -14,12 +17,6 @@ const STYLES_DIR: &str = "~/.local/share/libgedit-gtksourceview-300/styles";
 const CURRENT_FILE_NAME: &str = "desktopctl-current.xml";
 const CURRENT_SCHEME_ID: &str = "desktopctl-current";
 const GENERATED_FILE_PREFIX: &str = "desktopctl-";
-
-#[derive(Clone)]
-struct SchemeEntry {
-    name: String,
-    colors: ColorScheme,
-}
 
 fn dconf_set(path: &str, value: &str) -> crate::Result<()> {
     let output = Command::new("dconf")
@@ -183,77 +180,6 @@ fn render_current_style_scheme(scheme_name: &str, colors: &ColorScheme) -> Strin
     )
 }
 
-fn load_scheme_catalog() -> crate::Result<Vec<SchemeEntry>> {
-    let colors_dir = resolve::colors_dir()?;
-    let mut names = fs::read_dir(&colors_dir)?
-        .filter_map(|entry| {
-            let entry = entry.ok()?;
-            let path = entry.path();
-            if path
-                .extension()
-                .is_some_and(|extension| extension == "json")
-            {
-                path.file_stem()
-                    .and_then(|stem| stem.to_str())
-                    .map(str::to_owned)
-            } else {
-                None
-            }
-        })
-        .collect::<Vec<_>>();
-    names.sort();
-
-    let mut catalog = Vec::with_capacity(names.len());
-    for name in names {
-        catalog.push(SchemeEntry {
-            colors: resolve::load_colors(&name, &colors_dir)?,
-            name,
-        });
-    }
-    Ok(catalog)
-}
-
-fn preferred_variant_name(
-    catalog: &[SchemeEntry],
-    current_name: &str,
-    current_colors: &ColorScheme,
-    desired_appearance: ColorSchemeAppearance,
-) -> String {
-    if current_colors.appearance == desired_appearance {
-        return current_name.to_owned();
-    }
-
-    let mut candidates = catalog
-        .iter()
-        .filter(|entry| {
-            entry.colors.family == current_colors.family
-                && entry.colors.appearance == desired_appearance
-        })
-        .collect::<Vec<_>>();
-
-    if candidates.is_empty() {
-        return current_name.to_owned();
-    }
-
-    candidates.sort_by(|left, right| left.name.cmp(&right.name));
-
-    let preferred_variants = match desired_appearance {
-        ColorSchemeAppearance::Dark => ["dark", "night", "mocha", "macchiato", "frappe"].as_slice(),
-        ColorSchemeAppearance::Light => ["light", "dawn", "latte"].as_slice(),
-    };
-
-    for variant in preferred_variants {
-        if let Some(entry) = candidates
-            .iter()
-            .find(|entry| entry.colors.variant == *variant)
-        {
-            return entry.name.clone();
-        }
-    }
-
-    candidates[0].name.clone()
-}
-
 fn cleanup_managed_styles(styles_dir: &Path, expected: &HashSet<String>) -> crate::Result<()> {
     for entry in fs::read_dir(styles_dir)? {
         let entry = entry?;
@@ -277,20 +203,12 @@ fn cleanup_managed_styles(styles_dir: &Path, expected: &HashSet<String>) -> crat
 
 fn style_scheme_id_for_appearance(
     catalog: &[SchemeEntry],
-    current_name: &str,
     current_colors: &ColorScheme,
     desired_appearance: ColorSchemeAppearance,
 ) -> String {
-    if current_colors.appearance == desired_appearance {
-        return CURRENT_SCHEME_ID.to_owned();
-    }
-
-    let variant_name =
-        preferred_variant_name(catalog, current_name, current_colors, desired_appearance);
-    if variant_name == current_name {
-        CURRENT_SCHEME_ID.to_owned()
-    } else {
-        style_scheme_id(&variant_name)
+    match scheme_pair::scheme_for_appearance(catalog, current_colors, desired_appearance) {
+        Some(entry) => style_scheme_id(&entry.name),
+        None => CURRENT_SCHEME_ID.to_owned(),
     }
 }
 
@@ -305,7 +223,7 @@ pub fn persist(_colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
     let styles_dir = expand_user_path(STYLES_DIR)?;
     fs::create_dir_all(&styles_dir)?;
 
-    let catalog = load_scheme_catalog()?;
+    let catalog = scheme_pair::load_scheme_catalog()?;
     let mut expected = HashSet::from([CURRENT_FILE_NAME.to_owned()]);
 
     for entry in catalog {
@@ -325,20 +243,12 @@ pub fn persist(_colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
     cleanup_managed_styles(&styles_dir, &expected)
 }
 
-pub fn on_apply(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
-    let catalog = load_scheme_catalog()?;
-    let dark_scheme_id = style_scheme_id_for_appearance(
-        &catalog,
-        &state.color_scheme,
-        colors,
-        ColorSchemeAppearance::Dark,
-    );
-    let light_scheme_id = style_scheme_id_for_appearance(
-        &catalog,
-        &state.color_scheme,
-        colors,
-        ColorSchemeAppearance::Light,
-    );
+pub fn on_apply(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
+    let catalog = scheme_pair::load_scheme_catalog()?;
+    let dark_scheme_id =
+        style_scheme_id_for_appearance(&catalog, colors, ColorSchemeAppearance::Dark);
+    let light_scheme_id =
+        style_scheme_id_for_appearance(&catalog, colors, ColorSchemeAppearance::Light);
 
     dconf_set(
         "/org/gnome/gedit/preferences/editor/style-scheme-for-dark-theme-variant",
@@ -439,56 +349,26 @@ mod tests {
     }
 
     #[test]
-    fn preferred_variant_name_picks_unique_light_pair() {
-        let catalog = catalog_fixture();
-        let current = colors_for_name(&catalog, "gruvbox-dark");
-        assert_eq!(
-            preferred_variant_name(
-                &catalog,
-                "gruvbox-dark",
-                &current,
-                ColorSchemeAppearance::Light,
-            ),
-            "gruvbox-light"
-        );
-    }
-
-    #[test]
-    fn preferred_variant_name_uses_dark_fallback_order_for_light_schemes() {
-        let catalog = catalog_fixture();
-        let current = colors_for_name(&catalog, "catppuccin-latte");
-        assert_eq!(
-            preferred_variant_name(
-                &catalog,
-                "catppuccin-latte",
-                &current,
-                ColorSchemeAppearance::Dark,
-            ),
-            "catppuccin-mocha"
-        );
-    }
-
-    #[test]
     fn style_scheme_id_for_appearance_uses_current_alias_when_current_scheme_matches() {
         let catalog = catalog_fixture();
         let current = colors_for_name(&catalog, "gruvbox-dark");
         assert_eq!(
-            style_scheme_id_for_appearance(
-                &catalog,
-                "gruvbox-dark",
-                &current,
-                ColorSchemeAppearance::Dark,
-            ),
+            style_scheme_id_for_appearance(&catalog, &current, ColorSchemeAppearance::Dark),
             "desktopctl-current"
         );
         assert_eq!(
-            style_scheme_id_for_appearance(
-                &catalog,
-                "gruvbox-dark",
-                &current,
-                ColorSchemeAppearance::Light,
-            ),
+            style_scheme_id_for_appearance(&catalog, &current, ColorSchemeAppearance::Light),
             "desktopctl-gruvbox-light"
+        );
+    }
+
+    #[test]
+    fn style_scheme_id_for_appearance_uses_dark_fallback_order_for_light_schemes() {
+        let catalog = catalog_fixture();
+        let current = colors_for_name(&catalog, "catppuccin-latte");
+        assert_eq!(
+            style_scheme_id_for_appearance(&catalog, &current, ColorSchemeAppearance::Dark),
+            "desktopctl-catppuccin-mocha"
         );
     }
 
@@ -506,12 +386,7 @@ mod tests {
             colors: current.clone(),
         }];
         assert_eq!(
-            style_scheme_id_for_appearance(
-                &catalog,
-                "gruvbox-dark",
-                &current,
-                ColorSchemeAppearance::Light,
-            ),
+            style_scheme_id_for_appearance(&catalog, &current, ColorSchemeAppearance::Light),
             "desktopctl-current"
         );
     }

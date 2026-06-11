@@ -1,6 +1,7 @@
-use crate::{hypr, paths};
+use crate::{hypr, paths, theme};
 use chrono::{Datelike, Duration, Local, NaiveDate, Timelike};
 use rusqlite::{Connection, Transaction, params};
+use serde::{Serialize, Serializer};
 use std::{
     collections::{HashMap, HashSet},
     fs,
@@ -289,7 +290,7 @@ fn write_summary(
     let summary = build_summary(connection, resolver, current_class, locked, now)?;
     let state_path = state_path()?;
     let temp_path = tmp_state_path(&state_path);
-    fs::write(&temp_path, summary.to_python_json())?;
+    fs::write(&temp_path, theme::json::to_python_string(&summary)?)?;
     fs::rename(temp_path, state_path)?;
     Ok(())
 }
@@ -379,7 +380,7 @@ fn load_daily_sums(
     let mut statement = connection.prepare(
         "SELECT date, SUM(seconds)
          FROM daily_totals
-         WHERE date BETWEEN ? AND ? AND app_class NOT IN (?, ?, ?)
+         WHERE date BETWEEN ? AND ? AND app_class NOT IN (?, ?, ?, ?)
          GROUP BY date",
     )?;
     let rows = statement.query_map(
@@ -389,6 +390,7 @@ fn load_daily_sums(
             LOCKED_CLASS,
             "Desktop",
             "Quickshell",
+            "",
         ],
         |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)),
     )?;
@@ -449,7 +451,7 @@ fn load_month(connection: &Connection, today: NaiveDate) -> crate::Result<Vec<Op
     let mut statement = connection.prepare(
         "SELECT date, SUM(seconds)
          FROM daily_totals
-         WHERE date LIKE ? AND app_class NOT IN (?, ?, ?)
+         WHERE date LIKE ? AND app_class NOT IN (?, ?, ?, ?)
          GROUP BY date",
     )?;
     let rows = statement.query_map(
@@ -457,7 +459,8 @@ fn load_month(connection: &Connection, today: NaiveDate) -> crate::Result<Vec<Op
             format!("{month_prefix}%"),
             LOCKED_CLASS,
             "Desktop",
-            "Quickshell"
+            "Quickshell",
+            ""
         ],
         |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)),
     )?;
@@ -638,7 +641,81 @@ fn signum(numerator: i64, denominator: i64) -> i64 {
 
 #[cfg(test)]
 mod tests {
-    use super::refresh_unlocked_class_name;
+    use super::{AppEntry, MonthEntry, Percent, Summary, WeekEntry, refresh_unlocked_class_name};
+
+    #[test]
+    fn summary_serialization_matches_the_python_style_runtime_contract() {
+        // The summary JSON is a byte-level contract with the Quickshell
+        // consumer; keep this in lockstep with theme::json::to_python_string.
+        let summary = Summary {
+            selected_date: "2026-06-10".to_owned(),
+            last_updated: 1_765_000_000,
+            total: 3600,
+            average: 1800,
+            week_range: "Jun 8 - Jun 14".to_owned(),
+            yesterday: 1200,
+            current: "Café".to_owned(),
+            apps: vec![
+                AppEntry {
+                    class_name: "kitty".to_owned(),
+                    name: "kitty".to_owned(),
+                    icon: "kitty-icon".to_owned(),
+                    seconds: 3000,
+                    percent: Percent::Tenths(833),
+                },
+                AppEntry {
+                    class_name: "café".to_owned(),
+                    name: "Café".to_owned(),
+                    icon: String::new(),
+                    seconds: 600,
+                    percent: Percent::Integer(0),
+                },
+            ],
+            week: vec![WeekEntry {
+                date: "2026-06-08".to_owned(),
+                day: "Mon".to_owned(),
+                total: 0,
+                is_target: false,
+            }],
+            month: vec![
+                None,
+                Some(MonthEntry {
+                    date: "2026-06-01".to_owned(),
+                    total: 42,
+                    is_target: true,
+                }),
+            ],
+        };
+
+        let rendered =
+            crate::theme::json::to_python_string(&summary).expect("summary should serialize");
+
+        assert_eq!(
+            rendered,
+            "{\"selected_date\": \"2026-06-10\", \"last_updated\": 1765000000, \"total\": 3600, \
+             \"average\": 1800, \"week_range\": \"Jun 8 - Jun 14\", \"yesterday\": 1200, \
+             \"current\": \"Caf\\u00e9\", \"apps\": [{\"class\": \"kitty\", \"name\": \"kitty\", \
+             \"icon\": \"kitty-icon\", \"seconds\": 3000, \"percent\": 83.3}, \
+             {\"class\": \"caf\\u00e9\", \"name\": \"Caf\\u00e9\", \"icon\": \"\", \
+             \"seconds\": 600, \"percent\": 0}], \"week\": [{\"date\": \"2026-06-08\", \
+             \"day\": \"Mon\", \"total\": 0, \"is_target\": false}], \"month\": [null, \
+             {\"date\": \"2026-06-01\", \"total\": 42, \"is_target\": true}]}"
+        );
+    }
+
+    #[test]
+    fn percent_tenths_serialize_with_one_decimal_digit() {
+        let whole = crate::theme::json::to_python_string(&Percent::Tenths(1000))
+            .expect("percent should serialize");
+        let fractional = crate::theme::json::to_python_string(&Percent::Tenths(123))
+            .expect("percent should serialize");
+        let zero = crate::theme::json::to_python_string(&Percent::Tenths(0))
+            .expect("percent should serialize");
+
+        assert_eq!(whole, "100.0");
+        assert_eq!(fractional, "12.3");
+        assert_eq!(zero, "0.0");
+    }
 
     #[test]
     fn refresh_unlocked_class_name_reseeds_empty_classes() {
@@ -775,6 +852,7 @@ fn parse_desktop_file(path: &Path, entries: &mut HashMap<String, (String, String
     }
 }
 
+#[derive(Serialize)]
 struct Summary {
     selected_date: String,
     last_updated: i64,
@@ -788,69 +866,9 @@ struct Summary {
     month: Vec<Option<MonthEntry>>,
 }
 
-impl Summary {
-    fn to_python_json(&self) -> String {
-        let mut out = String::new();
-        out.push('{');
-        push_json_key(&mut out, "selected_date");
-        push_json_string(&mut out, &self.selected_date);
-        out.push_str(", ");
-        push_json_key(&mut out, "last_updated");
-        out.push_str(&self.last_updated.to_string());
-        out.push_str(", ");
-        push_json_key(&mut out, "total");
-        out.push_str(&self.total.to_string());
-        out.push_str(", ");
-        push_json_key(&mut out, "average");
-        out.push_str(&self.average.to_string());
-        out.push_str(", ");
-        push_json_key(&mut out, "week_range");
-        push_json_string(&mut out, &self.week_range);
-        out.push_str(", ");
-        push_json_key(&mut out, "yesterday");
-        out.push_str(&self.yesterday.to_string());
-        out.push_str(", ");
-        push_json_key(&mut out, "current");
-        push_json_string(&mut out, &self.current);
-        out.push_str(", ");
-        push_json_key(&mut out, "apps");
-        out.push('[');
-        for (index, app) in self.apps.iter().enumerate() {
-            if index > 0 {
-                out.push_str(", ");
-            }
-            app.push_json(&mut out);
-        }
-        out.push(']');
-        out.push_str(", ");
-        push_json_key(&mut out, "week");
-        out.push('[');
-        for (index, week_entry) in self.week.iter().enumerate() {
-            if index > 0 {
-                out.push_str(", ");
-            }
-            week_entry.push_json(&mut out);
-        }
-        out.push(']');
-        out.push_str(", ");
-        push_json_key(&mut out, "month");
-        out.push('[');
-        for (index, day) in self.month.iter().enumerate() {
-            if index > 0 {
-                out.push_str(", ");
-            }
-            match day {
-                Some(day) => day.push_json(&mut out),
-                None => out.push_str("null"),
-            }
-        }
-        out.push(']');
-        out.push('}');
-        out
-    }
-}
-
+#[derive(Serialize)]
 struct AppEntry {
+    #[serde(rename = "class")]
     class_name: String,
     name: String,
     icon: String,
@@ -858,27 +876,7 @@ struct AppEntry {
     percent: Percent,
 }
 
-impl AppEntry {
-    fn push_json(&self, out: &mut String) {
-        out.push('{');
-        push_json_key(out, "class");
-        push_json_string(out, &self.class_name);
-        out.push_str(", ");
-        push_json_key(out, "name");
-        push_json_string(out, &self.name);
-        out.push_str(", ");
-        push_json_key(out, "icon");
-        push_json_string(out, &self.icon);
-        out.push_str(", ");
-        push_json_key(out, "seconds");
-        out.push_str(&self.seconds.to_string());
-        out.push_str(", ");
-        push_json_key(out, "percent");
-        self.percent.push_json(out);
-        out.push('}');
-    }
-}
-
+#[derive(Serialize)]
 struct WeekEntry {
     date: String,
     day: String,
@@ -886,44 +884,11 @@ struct WeekEntry {
     is_target: bool,
 }
 
-impl WeekEntry {
-    fn push_json(&self, out: &mut String) {
-        out.push('{');
-        push_json_key(out, "date");
-        push_json_string(out, &self.date);
-        out.push_str(", ");
-        push_json_key(out, "day");
-        push_json_string(out, &self.day);
-        out.push_str(", ");
-        push_json_key(out, "total");
-        out.push_str(&self.total.to_string());
-        out.push_str(", ");
-        push_json_key(out, "is_target");
-        push_json_bool(out, self.is_target);
-        out.push('}');
-    }
-}
-
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 struct MonthEntry {
     date: String,
     total: i64,
     is_target: bool,
-}
-
-impl MonthEntry {
-    fn push_json(&self, out: &mut String) {
-        out.push('{');
-        push_json_key(out, "date");
-        push_json_string(out, &self.date);
-        out.push_str(", ");
-        push_json_key(out, "total");
-        out.push_str(&self.total.to_string());
-        out.push_str(", ");
-        push_json_key(out, "is_target");
-        push_json_bool(out, self.is_target);
-        out.push('}');
-    }
 }
 
 enum Percent {
@@ -931,54 +896,13 @@ enum Percent {
     Tenths(i64),
 }
 
-impl Percent {
-    fn push_json(&self, out: &mut String) {
+impl Serialize for Percent {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match self {
-            Self::Integer(value) => out.push_str(&value.to_string()),
-            Self::Tenths(value) => {
-                let whole = value / 10;
-                let fractional = (value % 10).abs();
-                out.push_str(&format!("{whole}.{fractional}"));
-            }
+            // Tenths must render with one decimal digit (e.g. 83.3, 100.0) to
+            // keep the runtime JSON contract; ryu prints n/10.0 exactly so.
+            Self::Integer(value) => serializer.serialize_i64(*value),
+            Self::Tenths(value) => serializer.serialize_f64(*value as f64 / 10.0),
         }
     }
-}
-
-fn push_json_key(out: &mut String, key: &str) {
-    push_json_string(out, key);
-    out.push_str(": ");
-}
-
-fn push_json_bool(out: &mut String, value: bool) {
-    if value {
-        out.push_str("true");
-    } else {
-        out.push_str("false");
-    }
-}
-
-fn push_json_string(out: &mut String, value: &str) {
-    out.push('"');
-    for character in value.chars() {
-        match character {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\u{08}' => out.push_str("\\b"),
-            '\u{0c}' => out.push_str("\\f"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            character if character.is_ascii() && !character.is_control() => out.push(character),
-            character if (character as u32) <= 0xFFFF => {
-                out.push_str(&format!("\\u{:04x}", character as u32));
-            }
-            character => {
-                let code = character as u32 - 0x1_0000;
-                let high = 0xD800 + ((code >> 10) & 0x3FF);
-                let low = 0xDC00 + (code & 0x3FF);
-                out.push_str(&format!("\\u{high:04x}\\u{low:04x}"));
-            }
-        }
-    }
-    out.push('"');
 }

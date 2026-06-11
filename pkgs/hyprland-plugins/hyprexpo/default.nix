@@ -17,7 +17,7 @@ hyprlandPlugins.mkHyprlandPlugin {
   }}/hyprexpo";
 
   patches = [
-    ../../../patches/hyprland-plugins/hyprexpo-hyprland-0.54.patch
+    ../../../patches/hyprland-plugins/hyprexpo-hyprland-0.55.patch
   ];
 
   inherit (hyprland) nativeBuildInputs;

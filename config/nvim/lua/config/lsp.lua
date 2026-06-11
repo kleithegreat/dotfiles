@@ -38,7 +38,7 @@ local function on_attach(args)
     vim.diagnostic.jump({ count = 1, float = true })
   end, "Next diagnostic")
 
-  if client and client.supports_method("textDocument/documentSymbol") then
+  if client and client:supports_method("textDocument/documentSymbol", bufnr) then
     local ok, navic = pcall(require, "nvim-navic")
     if ok then
       navic.attach(client, bufnr)

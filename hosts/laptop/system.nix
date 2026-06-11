@@ -16,15 +16,14 @@ let
         done | sort -n
       }
 
-      thread_sibling_count() {
-        tr ',' '\n' < "$1" | wc -l
-      }
-
+      # A CPU is a P-core thread iff it has SMT siblings, i.e. its sibling list
+      # is not just its own number. The kernel emits cpulist ranges ("0-1") for
+      # adjacent siblings, so token-counting on ',' would miss them.
       p_core_cpus() {
         for cpu in $(cpu_numbers); do
           siblings="$profile_root/cpu$cpu/topology/thread_siblings_list"
           [ -f "$siblings" ] || continue
-          if [ "$(thread_sibling_count "$siblings")" -gt 1 ]; then
+          if [ "$(cat "$siblings")" != "$cpu" ]; then
             printf '%s\n' "$cpu"
           fi
         done
@@ -37,21 +36,19 @@ let
         done
       }
 
+      # Offlined CPUs lose their topology/ sysfs group, so sibling-based
+      # detection cannot work after the fact. This helper is the only thing
+      # offlining CPUs on this host and every standard profile re-onlines
+      # everything first, so: e-core-only is active iff any hotpluggable CPU
+      # is offline.
       is_efficiency_mode() {
-        local cpu online_path
-        local saw_hotpluggable_p_core=0
-
-        for cpu in $(p_core_cpus); do
-          online_path="$profile_root/cpu$cpu/online"
-          if [ -f "$online_path" ]; then
-            saw_hotpluggable_p_core=1
-            if [ "$(cat "$online_path")" != "0" ]; then
-              return 1
-            fi
+        local cpu
+        for cpu in $(all_hotpluggable_cpus); do
+          if [ "$(cat "$profile_root/cpu$cpu/online")" = "0" ]; then
+            return 0
           fi
         done
-
-        [ "$saw_hotpluggable_p_core" -eq 1 ]
+        return 1
       }
 
       set_cpu_online() {
@@ -175,7 +172,12 @@ in {
   };
 
   # NVIDIA hybrid graphics (Intel Iris Xe + RTX 3050 Mobile)
-  hardware.graphics.enable = true;
+  hardware.graphics = {
+    enable = true;
+    # Mesa does not ship iHD_drv_video.so; intel-media-driver backs the
+    # LIBVA_DRIVER_NAME=iHD selection in config/hypr/env.conf.
+    extraPackages = [ pkgs.intel-media-driver ];
+  };
   hardware.nvidia = {
     modesetting.enable = true;
     open = true;
@@ -193,11 +195,6 @@ in {
   services.xserver.videoDrivers = [ "modesetting" "nvidia" ];
   environment.sessionVariables.__EGL_VENDOR_LIBRARY_FILENAMES =
     "/run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json";
-
-  hardware.logitech.wireless = {
-    enable = true;
-    enableGraphical = true;  # solaar
-  };
 
   # Laptop overrides — disable laptop-only remote login.
   services.openssh.enable = lib.mkForce false;

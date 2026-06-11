@@ -62,16 +62,8 @@ struct BrightnessDeviceStatus {
 
 #[derive(Serialize)]
 struct BrightnessStatus {
-    available: bool,
-    kind: &'static str,
-    device: String,
-    label: String,
-    raw: u64,
-    max: u64,
-    fraction: f64,
-    percent: u64,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    connector: Option<String>,
+    #[serde(flatten)]
+    primary: BrightnessDeviceStatus,
     devices: Vec<BrightnessDeviceStatus>,
 }
 
@@ -144,21 +136,12 @@ pub fn dim(device: Option<&str>) -> Result<()> {
         return Ok(());
     }
 
-    let current_perceived = raw_to_perceived(current, max);
     let target = ((current as f64) * 0.3).floor() as u64;
-    let target_perceived = raw_to_perceived(target, max);
 
-    for index in 0..DIM_STEPS {
+    for raw in dim_ramp_raw_values(&state.device, current, target, max) {
         if DIM_ABORTED.load(Ordering::Relaxed) {
             break;
         }
-
-        let progress = (index + 1) as f64 / DIM_STEPS as f64;
-        let perceived = current_perceived + (target_perceived - current_perceived) * progress;
-        let raw = match &state.device {
-            BrightnessDevice::Backlight(_) => perceived_to_raw(perceived, max),
-            BrightnessDevice::Ddc { .. } => fraction_to_raw(perceived, max),
-        };
 
         set_raw(&state.device, raw)?;
 
@@ -170,6 +153,26 @@ pub fn dim(device: Option<&str>) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Compute the per-step raw values for the dim ramp. Both interpolation
+/// endpoints use the device's display curve (gamma for backlight, linear for
+/// DDC) so the per-step raw conversion is its exact inverse and the ramp moves
+/// monotonically from `current` toward `target`.
+fn dim_ramp_raw_values(device: &BrightnessDevice, current: u64, target: u64, max: u64) -> Vec<u64> {
+    let current_perceived = display_fraction_for_raw(device, current, max);
+    let target_perceived = display_fraction_for_raw(device, target, max);
+
+    (0..DIM_STEPS)
+        .map(|index| {
+            let progress = (index + 1) as f64 / DIM_STEPS as f64;
+            let perceived = current_perceived + (target_perceived - current_perceived) * progress;
+            match device {
+                BrightnessDevice::Backlight(_) => perceived_to_raw(perceived, max),
+                BrightnessDevice::Ddc { .. } => fraction_to_raw(perceived, max),
+            }
+        })
+        .collect()
 }
 
 pub fn restore(device: Option<&str>) -> Result<()> {
@@ -359,8 +362,10 @@ fn available_ddc_states() -> Vec<BrightnessState> {
 }
 
 fn status_payload_for_devices(devices: Vec<BrightnessDeviceStatus>) -> BrightnessStatus {
-    let Some(primary) = devices.first().cloned() else {
-        return BrightnessStatus {
+    let primary = devices
+        .first()
+        .cloned()
+        .unwrap_or_else(|| BrightnessDeviceStatus {
             available: false,
             kind: "",
             device: String::new(),
@@ -370,22 +375,9 @@ fn status_payload_for_devices(devices: Vec<BrightnessDeviceStatus>) -> Brightnes
             fraction: 0.0,
             percent: 0,
             connector: None,
-            devices,
-        };
-    };
+        });
 
-    BrightnessStatus {
-        available: primary.available,
-        kind: primary.kind,
-        device: primary.device,
-        label: primary.label,
-        raw: primary.raw,
-        max: primary.max,
-        fraction: primary.fraction,
-        percent: primary.percent,
-        connector: primary.connector,
-        devices,
-    }
+    BrightnessStatus { primary, devices }
 }
 
 fn status_payload(state: &BrightnessState) -> Result<BrightnessDeviceStatus> {
@@ -882,5 +874,36 @@ Display 2
         let device = BrightnessDevice::Backlight("intel_backlight".to_owned());
 
         assert!(display_fraction_for_raw(&device, 1, 100) > 0.0);
+    }
+
+    #[test]
+    fn ddc_dim_ramp_descends_monotonically_to_the_raw_target() {
+        let device = BrightnessDevice::Ddc {
+            display: None,
+            connector: None,
+            label: None,
+        };
+        let current = 80;
+        let target = 24; // floor(80 * 0.3)
+
+        let ramp = dim_ramp_raw_values(&device, current, target, 100);
+
+        assert_eq!(ramp.len(), DIM_STEPS as usize);
+        assert!(ramp.first().is_some_and(|raw| *raw <= current));
+        assert!(ramp.windows(2).all(|pair| pair[1] <= pair[0]));
+        assert_eq!(ramp.last(), Some(&target));
+    }
+
+    #[test]
+    fn backlight_dim_ramp_descends_monotonically_in_raw_space() {
+        let device = BrightnessDevice::Backlight("intel_backlight".to_owned());
+        let current = 80;
+        let target = 24;
+
+        let ramp = dim_ramp_raw_values(&device, current, target, 100);
+
+        assert!(ramp.first().is_some_and(|raw| *raw <= current));
+        assert!(ramp.windows(2).all(|pair| pair[1] <= pair[0]));
+        assert!(ramp.last().is_some_and(|raw| *raw <= target));
     }
 }

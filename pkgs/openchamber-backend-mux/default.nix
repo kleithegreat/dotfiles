@@ -4,6 +4,7 @@
   makeWrapper,
   nodejs,
   opencode,
+  openchamberClaudeBridge,
 }:
 
 stdenvNoCC.mkDerivation {
@@ -29,11 +30,12 @@ stdenvNoCC.mkDerivation {
     runHook preInstall
 
     mkdir -p "$out/bin" "$out/libexec/openchamber-backend-mux"
-    cp ${./index.mjs} "$out/libexec/openchamber-backend-mux/index.mjs"
+    cp index.mjs "$out/libexec/openchamber-backend-mux/index.mjs"
 
     makeWrapper ${lib.getExe nodejs} "$out/bin/openchamber-backend-mux" \
       --add-flags "$out/libexec/openchamber-backend-mux/index.mjs" \
-      --set-default OPENCHAMBER_BACKEND_MUX_OPENCODE_BINARY "${lib.getExe opencode}"
+      --set-default OPENCHAMBER_BACKEND_MUX_OPENCODE_BINARY "${lib.getExe opencode}" \
+      --set-default OPENCHAMBER_CLAUDE_BRIDGE_BINARY "${lib.getExe openchamberClaudeBridge}"
 
     runHook postInstall
   '';

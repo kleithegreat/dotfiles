@@ -130,10 +130,10 @@ Root object:
 | --- | --- | --- |
 | `selected_date` | string | Today's local date as `YYYY-MM-DD` |
 | `last_updated` | integer | Unix epoch seconds from `chrono::Local::now().timestamp()` for the summary rewrite that produced this file |
-| `total` | integer | Sum of today's `daily_totals.seconds`, excluding `__locked__`, `Desktop`, and `Quickshell` |
-| `average` | integer | Rounded average of non-zero daily totals in the current Monday-Sunday week, excluding `__locked__`, `Desktop`, and `Quickshell` |
+| `total` | integer | Sum of today's `daily_totals.seconds`, excluding `__locked__`, `Desktop`, `Quickshell`, and empty-string classes |
+| `average` | integer | Rounded average of non-zero daily totals in the current Monday-Sunday week, excluding `__locked__`, `Desktop`, `Quickshell`, and empty-string classes |
 | `week_range` | string | Current Monday-Sunday range formatted like `Apr 1 - Apr 7` |
-| `yesterday` | integer | Yesterday's total seconds, excluding `__locked__`, `Desktop`, and `Quickshell` |
+| `yesterday` | integer | Yesterday's total seconds, excluding `__locked__`, `Desktop`, `Quickshell`, and empty-string classes |
 | `current` | string | `"Locked"` while locked; otherwise the resolved app name for the current class unless that class is `""`, `Desktop`, or `Quickshell`; otherwise `""` |
 | `apps` | array | Per-app breakdown for today |
 | `week` | array | Seven daily totals for the current Monday-Sunday week |
@@ -161,7 +161,7 @@ Root object:
 | --- | --- | --- |
 | `date` | string | Calendar date as `YYYY-MM-DD` |
 | `day` | string | Three-letter local day label from `%a` |
-| `total` | integer | Whole seconds for that date, excluding `__locked__`, `Desktop`, and `Quickshell` |
+| `total` | integer | Whole seconds for that date, excluding `__locked__`, `Desktop`, `Quickshell`, and empty-string classes |
 | `is_target` | boolean | `true` on today's entry |
 
 `week` constraints:
@@ -175,24 +175,30 @@ Root object:
 | Shape | Meaning |
 | --- | --- |
 | `null` | Leading padding cell before day 1 so the month grid aligns to Monday-first headers |
-| object with `date`, `total`, `is_target` | Real day entry for the current month; `total` excludes `__locked__`, `Desktop`, and `Quickshell` |
+| object with `date`, `total`, `is_target` | Real day entry for the current month; `total` uses the same exclusions as the root `total` |
 
 Important current behavior:
 
 - `total`, `average`, `yesterday`, `week[*].total`, and `month[*].total`
-  exclude `__locked__`, `Desktop`, and `Quickshell`.
+  exclude `__locked__`, `Desktop`, `Quickshell`, and empty-string
+  classes (the latter possible only via legacy `focustime.db` imports), so
+  per-app percentages sum to 100.
 - The `apps` list and `current` string do hide `Desktop` and `Quickshell`.
 - The JSON has no schema version; `last_updated` is the only explicit liveness
   field.
 
 ## App Name And Icon Resolution
 
-The daemon resolves names and icons lazily the first time it needs them:
+The daemon scans all `.desktop` application directories once at focus-tracker
+startup and resolves window classes against that fixed in-memory index:
 
 - It parses `.desktop` files and records `(Name, Icon)` pairs keyed by both
   `StartupWMClass` and the desktop-file basename.
 - The lookup is case-insensitive.
-- If no entry matches, `resolve_app()` returns `(window_class, "")`.
+- If no entry matches, the resolver returns `(window_class, "")`.
+- Apps installed or `.desktop` entries changed after daemon startup show raw
+  class names and empty icons until the daemon restarts; see
+  `docs/focus-time/QUIRKS.md`.
 
 This resolution affects `apps[*].name`, `apps[*].icon`, and the unlocked
 `current` string.

@@ -23,6 +23,20 @@ Start with the spec if one exists, then read the architecture doc, then check th
 review and quirks docs for known issues related to your task. If the task touches
 multiple domains, read all relevant docs.
 
+The current domains are `nix`, `nvidia`, `grub`, `hyprland`, `tools`,
+`theming`, `quickshell`, `desktopctl`, `sun-schedule`, and `focus-time`.
+
+## Other Documents
+
+- `docs/review-audit.md` tracks still-open cross-domain findings. When you
+  resolve one, remove its row rather than leaving a historical status entry.
+- Domains may carry extra topic docs and runbooks (e.g. `docs/nix/fan-control.md`,
+  `docs/nix/bitwarden.md`) and retained historical records (e.g.
+  `docs/nix/ableton-live.md`). Setup runbooks belong under `docs/<domain>/`,
+  not the repo root.
+- `docs/archive/` holds intentionally inert retired modules and runbooks (see
+  `docs/archive/vms/README.md`); nothing there is imported by the live flake.
+
 For quickshell work, also read `docs/theming/SPEC.md` — the shell is tightly
 coupled to the theming pipeline.
 

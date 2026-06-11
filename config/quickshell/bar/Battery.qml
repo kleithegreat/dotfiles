@@ -8,8 +8,8 @@ RowLayout {
     id: batRoot; spacing: 4; visible: UPower.displayDevice.isPresent
     signal clicked()
 
-    property real rawPct: UPower.displayDevice.percentage
-    property real pct: rawPct <= 1.0 && rawPct > 0 ? rawPct * 100 : rawPct
+    // UPowerDevice.percentage is always 0..1
+    property real pct: UPower.displayDevice.percentage * 100
     property string tooltipText: "Battery: " + Math.round(pct) + "%" + (charging ? " (Charging)" : "")
 
     // ── Debounced charging state ──
@@ -37,10 +37,6 @@ RowLayout {
     Components.StyledIcon {
         id: batIcon
         animate: true
-        swapOpacityOutDuration: Theme.animFast
-        swapScaleOutDuration: Theme.animFast
-        swapOpacityInDuration: Theme.animMedium
-        swapScaleInDuration: Theme.animPopupIn
         source: {
             if (charging) return "../icons/battery-charging.svg";
             if (pct > 90) return "../icons/battery-full.svg";

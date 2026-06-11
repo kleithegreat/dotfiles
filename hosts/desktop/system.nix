@@ -2,11 +2,12 @@
 
 {
   boot.initrd.availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usbhid" "usb_storage" "sd_mod" ];
+  # Keep only the writeback tuning here; swappiness/vfs_cache_pressure stay at
+  # kernel defaults, which suit the shared zram-only swap policy better than
+  # the disk-swap-oriented values previously set.
   boot.kernel.sysctl = {
-    "vm.swappiness" = 10;
     "vm.dirty_ratio" = 10;
     "vm.dirty_background_ratio" = 5;
-    "vm.vfs_cache_pressure" = 50;
   };
   # Preserve VRAM across suspend/resume on this dedicated NVIDIA desktop.
   # /tmp is tmpfs-backed in shared config, so use disk-backed /var/tmp instead.
@@ -28,6 +29,8 @@
   fileSystems."/mnt/shared" = {
     device = "/dev/disk/by-uuid/426244fd-2b88-4eae-81fe-3466fc631d43";
     fsType = "ext4";
+    # Secondary data disk: never block boot on it.
+    options = [ "nofail" "x-systemd.device-timeout=10s" ];
   };
 
   services.power-profiles-daemon.enable = true;
@@ -56,11 +59,6 @@
   environment.sessionVariables.__EGL_VENDOR_LIBRARY_FILENAMES =
     "/run/opengl-driver/share/glvnd/egl_vendor.d/10_nvidia.json:/run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json";
 
-  hardware.logitech.wireless = {
-    enable = true;
-    enableGraphical = true;  # solaar
-  };
-
   # ── Steam ─────────────────────────────────────────────────────
   programs.steam = {
     enable = true;
@@ -68,8 +66,4 @@
     localNetworkGameTransfers.openFirewall = true;
     extest.enable = true;  # X11→uinput translation for controllers on Wayland
   };
-
-  environment.systemPackages = with pkgs; [
-    nvidia-vaapi-driver  # VA-API backend for NVIDIA (LIBVA_DRIVER_NAME=nvidia)
-  ];
 }

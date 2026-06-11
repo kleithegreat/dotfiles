@@ -7,7 +7,7 @@ final: prev: {
         url = "https://installers.lmstudio.ai/linux/x64/${version}/LM-Studio-${version}-x64.AppImage";
         hash = "sha256-M7doFWVEyzcDJF4M+h4WKR+Q45yn3FZc2vZbzjYWBPE=";
       };
-      appimageContents = final.appimageTools.extractType2 {
+      appimageContents = final.appimageTools.extract {
         inherit pname version src;
       };
     in
@@ -112,7 +112,9 @@ final: prev: {
   desktopctl = final.callPackage ../desktopctl { };
   helium = final.callPackage ../pkgs/helium { };
   snappy-switcher = final.callPackage ../pkgs/snappy-switcher { };
-  openchamber-backend-mux = final.callPackage ../pkgs/openchamber-backend-mux { };
+  openchamber-backend-mux = final.callPackage ../pkgs/openchamber-backend-mux {
+    openchamberClaudeBridge = final.openchamber-claude-bridge;
+  };
   openchamber-claude-bridge = final.callPackage ../pkgs/openchamber-claude-bridge { };
   openchamber-cli = final.callPackage ../pkgs/openchamber/cli.nix {
     openchamberBackendMux = final.openchamber-backend-mux;

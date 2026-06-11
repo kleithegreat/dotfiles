@@ -42,7 +42,8 @@ in
 {
   # ── Dell SMM userspace fan control ──────────────────────────
   #
-  # dell-smm-hwmon autoloads on XPS models via the pn*XPS* DMI alias;
+  # dell-smm-hwmon autoloads on XPS models via the pn*XPS* DMI alias, and the
+  # dell-bios-fan-control module below also lists its "i8k" modalias;
   # declaring it here makes the dependency explicit.
   boot.kernelModules = [ "dell-smm-hwmon" ];
 
@@ -63,10 +64,8 @@ in
   # Fan speeds: 0 = off, 1 = low (~2500 RPM), 2 = high (~4500 RPM)
   # Fields: {left right} temp_down_ac temp_up_ac temp_down_batt temp_up_batt
   environment.etc."i8kmon.conf".text = ''
-    set config(daemon)  0
     set config(verbose) 0
     set config(timeout) 2
-    set config(unit)    C
     set config(num_configs) 4
 
     set config(0) {{0 0}  -1  50  -1  50}
