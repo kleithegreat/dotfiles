@@ -7,6 +7,7 @@ QtObject {
     id: root
 
     property bool doNotDisturb: false
+    readonly property int historyLimit: 200
     readonly property int historyCount: historyEntriesModel.count
 
     property alias popupModel: popupEntriesModel
@@ -28,15 +29,6 @@ QtObject {
             return;
 
         removePopupEntryByEntryId(popupEntriesModel.get(popupIndex).entryId, "dismiss");
-    }
-
-    function removeHistory(nid) {
-        let historyIndex = indexOfEntry(historyEntriesModel, "nid", nid);
-        if (historyIndex < 0)
-            return;
-
-        historyEntriesModel.remove(historyIndex);
-        scheduleRelativeTimeRefresh();
     }
 
     function removeHistoryEntry(entryId) {
@@ -68,6 +60,10 @@ QtObject {
 
         let entry = entryDataFor(notification);
         historyEntriesModel.insert(0, entry);
+        // Bound the drawer model: trim oldest so chatty apps cannot grow
+        // memory and per-refresh work without limit.
+        while (historyEntriesModel.count > historyLimit)
+            historyEntriesModel.remove(historyEntriesModel.count - 1);
 
         let suppressPopup = doNotDisturb || (rule && rule.suppress);
         if (!suppressPopup) {

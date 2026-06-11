@@ -4,7 +4,6 @@ mod hypr;
 mod launch;
 mod night_light;
 mod paths;
-mod portal;
 mod solar;
 #[cfg(test)]
 mod test_support;
@@ -40,8 +39,6 @@ enum TopLevelCommand {
     Hypr(HyprArgs),
     /// Export cursor variables and launch Quickshell.
     LaunchQuickshell(LaunchQuickshellArgs),
-    /// Run xdg-desktop-portal helper commands.
-    Portal(PortalArgs),
     /// Inspect and control night-light override state.
     NightLight(NightLightArgs),
     /// Inspect solar scheduling state.
@@ -278,19 +275,6 @@ struct LaunchQuickshellArgs {
 
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true, subcommand_required = true)]
-struct PortalArgs {
-    #[command(subcommand)]
-    command: PortalCommand,
-}
-
-#[derive(Debug, Subcommand)]
-enum PortalCommand {
-    /// Open a directory picker and print the selected path.
-    PickDirectory,
-}
-
-#[derive(Debug, Args)]
-#[command(arg_required_else_help = true, subcommand_required = true)]
 struct NightLightArgs {
     #[command(subcommand)]
     command: NightLightCommand,
@@ -353,7 +337,6 @@ fn run() -> Result<()> {
         TopLevelCommand::Hypr(args) => run_hypr(args),
         TopLevelCommand::LaunchQuickshell(args) => launch::run(args.print_env),
         TopLevelCommand::NightLight(args) => night_light::run(args),
-        TopLevelCommand::Portal(args) => run_portal(args),
         TopLevelCommand::Daemon => daemon::run(),
         TopLevelCommand::Theme(args) => theme::run(args),
         TopLevelCommand::Sun(args) => run_sun(args),
@@ -404,18 +387,6 @@ fn run_hypr_input(args: HyprInputArgs) -> Result<()> {
         HyprInputCommand::Set(args) => {
             let setting = hypr::InputSetting::parse(&args.key)?;
             hypr::set_input_value(setting, &args.value)
-        }
-    }
-}
-
-fn run_portal(args: PortalArgs) -> Result<()> {
-    match args.command {
-        PortalCommand::PickDirectory => {
-            if let Some(path) = portal::pick_directory()? {
-                println!("{path}");
-            }
-
-            Ok(())
         }
     }
 }

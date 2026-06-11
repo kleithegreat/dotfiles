@@ -2,7 +2,10 @@
 
 This spec defines the current contract for solar-time automation: which
 component owns scheduled night-light transitions, how coordinates are resolved,
-and where the present ownership split around `dark_hint` still exists.
+and where the present ownership split around `dark_hint` still exists. The
+Ownership Boundaries table below is the canonical statement of the `dark_hint`
+split-ownership contract; other docs cross-reference it instead of restating
+it.
 
 ## Goals
 
@@ -38,16 +41,22 @@ Invariants:
 - Live `hyprsunset` state has exactly one arbiter inside `desktopctl daemon`.
 - `dark_hint` does not have a single arbiter today; docs and callers must treat
   the nightly solar enable and direct theme writes as separate supported paths.
+  Both paths persist through the theming pipeline's per-key upsert, so
+  concurrent writers commute on disjoint state keys instead of silently
+  reverting each other's unrelated state.
 - Manual override state is intentionally non-persistent. A daemon restart
   returns the mode to `auto`.
 
 ## Effective Mode Contract
 
-| Mode | `hyprsunset` | `dark_hint` |
-| --- | --- | --- |
-| `auto` | Follows the scheduled time window below | Unchanged except for the separate scheduled 23:00 enable and 06:00 disable |
-| `on` | On at the current manual target temperature | Unchanged except for the separate scheduled 23:00 enable and 06:00 disable |
-| `off` | Off | Unchanged except for the separate scheduled 23:00 enable and 06:00 disable |
+| Mode | `hyprsunset` |
+| --- | --- |
+| `auto` | Follows the scheduled time window below |
+| `on` | On at the current manual target temperature |
+| `off` | Off |
+
+In every mode, `dark_hint` is unchanged except for the separate scheduled
+23:00 enable and 06:00 disable edges.
 
 Rules:
 

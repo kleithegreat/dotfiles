@@ -1,9 +1,10 @@
-use super::atomic_write;
+use super::{atomic_write, fnv1a_fingerprint};
 use crate::paths;
 use image::ImageFormat;
 use image::ImageReader;
 use image::imageops::FilterType;
 use serde_json::{Map, Value};
+use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::fs;
 use std::io::Cursor;
@@ -71,7 +72,33 @@ pub(crate) fn list_wallpapers(directory: &Path) -> crate::Result<Vec<WallpaperEn
         });
     }
 
+    evict_stale_previews(&items);
+
     Ok(items)
+}
+
+// Previews are keyed by source path, size, and mtime, so renamed or edited
+// wallpapers leave orphaned cache files behind; drop everything the current
+// listing does not reference. Best-effort: eviction errors are ignored.
+fn evict_stale_previews(entries: &[WallpaperEntry]) {
+    let expected = entries
+        .iter()
+        .filter_map(|entry| entry.preview_path.clone())
+        .collect::<HashSet<_>>();
+
+    let Ok(cache_dir) = preview_cache_dir() else {
+        return;
+    };
+    let Ok(cache_entries) = fs::read_dir(&cache_dir) else {
+        return;
+    };
+
+    for cache_entry in cache_entries.flatten() {
+        let path = cache_entry.path();
+        if !expected.contains(&path) {
+            let _ = fs::remove_file(&path);
+        }
+    }
 }
 
 pub(crate) fn json_value(entries: &[WallpaperEntry]) -> Value {
@@ -118,7 +145,7 @@ fn preview_path(source: &Path) -> crate::Result<PathBuf> {
         .ok()
         .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
         .unwrap_or_default();
-    let fingerprint = fingerprint(&format!(
+    let fingerprint = fnv1a_fingerprint(&format!(
         "{}:{}:{}:{}:{}:{}",
         source.to_string_lossy(),
         metadata.len(),
@@ -177,15 +204,6 @@ fn sanitize_stem(stem: &str) -> String {
     }
 }
 
-fn fingerprint(text: &str) -> String {
-    let mut hash = 0xcbf29ce484222325u64;
-    for byte in text.as_bytes() {
-        hash ^= u64::from(*byte);
-        hash = hash.wrapping_mul(0x100000001b3);
-    }
-    format!("{hash:016x}")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -240,6 +258,32 @@ mod tests {
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].name, "broken.jpg");
         assert!(entries[0].preview_path.is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn list_wallpapers_evicts_stale_previews() -> crate::Result<()> {
+        let _lock = env_lock();
+        let wallpapers_dir = TempDir::new("desktopctl-wallpapers-evict").expect("temp dir");
+        let cache_dir = TempDir::new("desktopctl-wallpaper-cache-evict").expect("temp dir");
+        let _cache = ScopedEnvVar::set("XDG_CACHE_HOME", cache_dir.path().as_os_str());
+
+        write_test_image(&wallpapers_dir.path().join("sample.png"), 800, 600)?;
+
+        let preview_dir = cache_dir.path().join("desktopctl/wallpaper-previews");
+        fs::create_dir_all(&preview_dir)?;
+        let stale = preview_dir.join("stale-0000000000000000-640x400.png");
+        fs::write(&stale, b"stale preview")?;
+
+        let entries = list_wallpapers(wallpapers_dir.path())?;
+        assert_eq!(entries.len(), 1);
+        let preview_path = entries[0]
+            .preview_path
+            .as_ref()
+            .expect("preview path should be generated");
+
+        assert!(preview_path.is_file(), "live preview must be kept");
+        assert!(!stale.exists(), "stale preview must be evicted");
         Ok(())
     }
 

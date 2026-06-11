@@ -36,11 +36,20 @@ pub async fn run(controller: Controller, mut shutdown: watch::Receiver<bool>) ->
                     }
                 }
                 accepted = listener.accept() => {
-                    let (stream, _) = accepted?;
-                    let controller = controller.clone();
-                    tokio::spawn(async move {
-                        let _ = handle_client(stream, controller).await;
-                    });
+                    match accepted {
+                        Ok((stream, _)) => {
+                            let controller = controller.clone();
+                            tokio::spawn(async move {
+                                let _ = handle_client(stream, controller).await;
+                            });
+                        }
+                        // Transient accept failures (e.g. ECONNABORTED, EMFILE)
+                        // must not take the whole daemon down.
+                        Err(error) => {
+                            eprintln!("desktopctl socket accept failed: {error}");
+                            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                        }
+                    }
                 }
             }
         }

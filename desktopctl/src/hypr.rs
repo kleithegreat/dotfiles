@@ -749,7 +749,13 @@ fn validate_keybinds_payload(payload: &KeybindsPayload) -> Result<()> {
         validate_rendered_field("new modifiers", &keybind.new_mods)?;
         validate_non_empty_field("new key", &keybind.new_key)?;
         validate_keybind_flags(&keybind.flags)?;
-        validate_rendered_field("keybind description", &keybind.description)?;
+        if keybind.flags.contains('d') {
+            // bindd renders the description as its own field; an empty one
+            // would produce a malformed `bindd = MODS, key, , dispatcher, arg`.
+            validate_non_empty_field("keybind description", &keybind.description)?;
+        } else {
+            validate_rendered_field("keybind description", &keybind.description)?;
+        }
         validate_non_empty_field("keybind dispatcher", &keybind.dispatcher)?;
         validate_rendered_field("keybind argument", &keybind.arg)?;
     }
@@ -816,32 +822,17 @@ fn hyprctl_output(args: &[&str]) -> Result<Output> {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    let detail = if stderr.trim().is_empty() {
+    let mut detail = if stderr.trim().is_empty() {
         stdout.trim()
     } else {
         stderr.trim()
     };
-    let message = format!(
-        "hyprctl {} failed: {}",
-        args.join(" "),
-        detail.if_empty("(no output)")
-    );
+    if detail.is_empty() {
+        detail = "(no output)";
+    }
+    let message = format!("hyprctl {} failed: {detail}", args.join(" "));
 
     Err(io::Error::other(message).into())
-}
-
-trait IfEmpty {
-    fn if_empty(self, fallback: &str) -> String;
-}
-
-impl IfEmpty for &str {
-    fn if_empty(self, fallback: &str) -> String {
-        if self.is_empty() {
-            fallback.to_owned()
-        } else {
-            self.to_owned()
-        }
-    }
 }
 
 #[cfg(test)]
@@ -1057,6 +1048,26 @@ input {
                     "new_key": "Q",
                     "flags": "=",
                     "description": "Open terminal",
+                    "dispatcher": "exec",
+                    "arg": "alacritty"
+                }]
+            }"#,
+        )
+        .expect("payload should parse");
+        assert!(validate_keybinds_payload(&payload).is_err());
+    }
+
+    #[test]
+    fn validate_keybinds_requires_a_description_for_the_d_flag() {
+        let payload: KeybindsPayload = serde_json::from_str(
+            r#"{
+                "overrides": [{
+                    "original_mods": "SUPER",
+                    "original_key": "Q",
+                    "new_mods": "SUPER",
+                    "new_key": "Q",
+                    "flags": "d",
+                    "description": "",
                     "dispatcher": "exec",
                     "arg": "alacritty"
                 }]

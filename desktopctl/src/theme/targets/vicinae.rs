@@ -1,9 +1,9 @@
-use super::{Assembly, GeneratedContent, TargetMetadata};
+use super::{Assembly, GeneratedContent, TargetMetadata, scheme_pair};
 use crate::{
     paths,
     theme::{
         atomic_write, json, resolve,
-        schema::{ColorScheme, ThemeState},
+        schema::{ColorScheme, ColorSchemeAppearance, ThemeState},
     },
 };
 use serde_json::{Map, Value};
@@ -31,7 +31,10 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Gener
     let mut dark = Map::new();
     dark.insert(
         "name".to_owned(),
-        Value::String(colors.vicinae_theme_name()),
+        Value::String(match dark_companion(colors)? {
+            Some(companion) => companion.vicinae_theme_name(),
+            None => colors.vicinae_theme_name(),
+        }),
     );
     dark.insert(
         "icon_theme".to_owned(),
@@ -72,7 +75,28 @@ pub fn persist(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
         write_theme_file(&light_theme_name, &light_colors)?;
     }
 
+    if let Some(companion) = dark_companion(colors)? {
+        let dark_theme_name = companion.vicinae_theme_name();
+        if dark_theme_name != theme_name {
+            write_theme_file(&dark_theme_name, &companion)?;
+        }
+    }
+
     Ok(())
+}
+
+/// Same-family dark companion referenced by the generated dark slot, so the
+/// theme file it names always exists. `None` when the scheme is already dark.
+fn dark_companion(colors: &ColorScheme) -> crate::Result<Option<ColorScheme>> {
+    if colors.is_dark() {
+        return Ok(None);
+    }
+
+    let catalog = scheme_pair::load_scheme_catalog()?;
+    Ok(
+        scheme_pair::scheme_for_appearance(&catalog, colors, ColorSchemeAppearance::Dark)
+            .map(|entry| entry.colors.clone()),
+    )
 }
 
 fn write_theme_file(theme_name: &str, colors: &ColorScheme) -> crate::Result<()> {
@@ -224,6 +248,27 @@ mod tests {
     }
 
     #[test]
+    fn generate_dark_slot_uses_declared_dark_pairing_for_light_schemes() {
+        let _lock = env_lock();
+        let _repo = ScopedEnvVar::set("DESKTOPCTL_REPO", repo_root().as_os_str());
+
+        let rendered = text(generate(
+            &load_repo_colors("catppuccin-latte"),
+            &dummy_state(),
+        ));
+        let value: Value = serde_json::from_str(&rendered).expect("valid json");
+
+        assert_eq!(
+            value["theme"]["dark"]["name"],
+            Value::String("catppuccin-mocha".to_owned())
+        );
+        assert_eq!(
+            value["theme"]["light"]["name"],
+            Value::String("catppuccin-latte".to_owned())
+        );
+    }
+
+    #[test]
     fn render_theme_matches_expected_shape() {
         let rendered = render_theme("gruvbox-dark", &dummy_colors());
 
@@ -259,5 +304,22 @@ mod tests {
         assert!(dark.contains("background = \"#002b36\""));
         assert!(light.contains("variant = \"light\""));
         assert!(light.contains("background = \"#fdf6e3\""));
+    }
+
+    #[test]
+    fn persist_writes_dark_companion_theme_for_light_schemes() {
+        let _lock = env_lock();
+        let data_home = TempDir::new("desktopctl-vicinae-dark-data").expect("temp dir");
+        let _data = ScopedEnvVar::set("XDG_DATA_HOME", data_home.path().as_os_str());
+        let _repo = ScopedEnvVar::set("DESKTOPCTL_REPO", repo_root().as_os_str());
+        let colors = load_repo_colors("catppuccin-latte");
+
+        persist(&colors, &dummy_state()).expect("persist succeeds");
+
+        let dark =
+            fs::read_to_string(data_home.path().join("vicinae/themes/catppuccin-mocha.toml"))
+                .expect("dark companion written");
+        assert!(dark.contains("variant = \"dark\""));
+        assert!(dark.contains("background = \"#1e1e2e\""));
     }
 }

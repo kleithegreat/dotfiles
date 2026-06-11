@@ -1,7 +1,6 @@
 import qs
 import QtQuick
 import QtQuick.Layouts
-import Quickshell.Io
 import "../../components" as Components
 
 Item {
@@ -29,7 +28,7 @@ Item {
     property bool _animationsLoaded: false
     property bool _keybindsLoaded: false
     property int editingBindIndex: -1
-    property bool captureActive: false
+    readonly property bool captureActive: HyprlandConfigService.captureSessionActive
     property var capturedMods: []
     property string capturedKey: ""
     property string _capturePreview: ""
@@ -65,6 +64,10 @@ Item {
         let result = {};
         for (let i = 0; i < all.length; i++) {
             let b = all[i];
+            // Hide submap-internal binds (e.g. the capture catchall) from the
+            // editable list; unbinding them by index would target the wrong bind.
+            if (b.submap || b.catch_all)
+                continue;
             let cat = root._dispatcherCategoryMap[b.dispatcher] || "other";
             if (filter) {
                 let combo = root.formatBindCombo(b).toLowerCase();
@@ -107,7 +110,7 @@ Item {
         capturedMods = [];
         capturedKey = "";
         _capturePreview = "";
-        captureActive = false;
+        if (captureActive) stopCapture();
     }
 
     function cancelBindEdit() {
@@ -122,25 +125,20 @@ Item {
     }
 
     function startCapture() {
-        captureActive = true;
         _capturePreview = "";
-        _captureTimer.restart();
-        _submapSetupProc.command = ["hyprctl", "--batch",
-            "keyword submap hyprmod_capture ; keyword bind , catchall, pass, ; keyword submap reset"];
-        _submapSetupProc.running = true;
+        HyprlandConfigService.beginCaptureSession();
     }
 
     function stopCapture() {
-        captureActive = false;
         _capturePreview = "";
-        _captureTimer.stop();
-        _submapResetProc.running = true;
+        HyprlandConfigService.endCaptureSession();
     }
 
-    property Timer _captureTimer: Timer {
-        interval: 10000
-        onTriggered: {
-            if (root.captureActive) root.stopCapture();
+    Connections {
+        target: HyprlandConfigService
+        function onCaptureSessionReady() {
+            if (root.captureActive)
+                captureBox.forceActiveFocus();
         }
     }
 
@@ -199,29 +197,12 @@ Item {
         return "";
     }
 
-    property Process _submapSetupProc: Process {
-        running: false
-        stdout: SplitParser { onRead: (_) => {} }
-        onExited: (code) => { if (code === 0 && root.captureActive) root._submapEnterProc.running = true; }
-    }
-    property Process _submapEnterProc: Process {
-        command: ["hyprctl", "dispatch", "submap", "hyprmod_capture"]
-        running: false
-        stdout: SplitParser { onRead: (_) => {} }
-        onExited: (code) => { if (code === 0 && root.captureActive) captureBox.forceActiveFocus(); }
-    }
-    property Process _submapResetProc: Process {
-        command: ["hyprctl", "dispatch", "submap", "reset"]
-        running: false
-        stdout: SplitParser { onRead: (_) => {} }
-    }
-
     Component.onDestruction: {
-        if (captureActive || _submapSetupProc.running || _submapEnterProc.running) {
-            captureActive = false;
-            _captureTimer.stop();
-            _submapResetProc.running = true;
-        }
+        // The capture session (processes, safety timer, submap teardown)
+        // lives in the HyprlandConfigService singleton, so ending it here
+        // works even though this pane is being torn down.
+        if (HyprlandConfigService.captureSessionActive)
+            HyprlandConfigService.endCaptureSession();
     }
 
     // ── Shared helpers ──
@@ -262,13 +243,7 @@ Item {
     }
 
     function hasExpandableKids(name, category) {
-        if (!HyprlandConfigService.hasChildren(name)) return false;
-        let children = HyprlandConfigService._animChildren[name] || [];
-        for (let i = 0; i < children.length; i++) {
-            let ci = HyprlandConfigService.getAnimInfo(children[i]);
-            if (ci && ci.category === category) return true;
-        }
-        return false;
+        return HyprlandConfigService.childrenInCategory(name, category).length > 0;
     }
 
     Component {
@@ -325,6 +300,7 @@ Item {
 
             Components.ActionButton {
                 visible: HyprlandConfigService.hasAnimationOverrides || HyprlandConfigService.hasKeybindOverrides
+                    || HyprlandConfigService.hasPersistedOverrides
                 text: "Clear"
                 onClicked: HyprlandConfigService.clearAll()
             }

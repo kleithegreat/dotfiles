@@ -57,16 +57,9 @@ FocusScope {
     property string wallpaperDir: ""
     property var categoryNames: ["Network", "Bluetooth", "Audio", "Display", "Power", "Fingerprint", "Notifications", "Screen Time", "Presets", "Colors", "Fonts", "Wallpaper", "Icons", "Mouse", "Hyprland"]
     property var categoryIcons: ["../icons/wifi.svg", "../icons/bluetooth-on.svg", "../icons/volume-high.svg", "../icons/monitor.svg", "../icons/bolt.svg", "../icons/shield-lock.svg", "../icons/bell.svg", "../icons/hourglass.svg", "../icons/adjustments.svg", "../icons/palette.svg", "../icons/typography.svg", "../icons/photo.svg", "../icons/certificate.svg", "../icons/cursor.svg", "../icons/layout.svg"]
-    property var hyprOptionInfo: ({
-        "general:gaps_in": { label: "Inner gaps", type: "int", fallback: 4, minimum: 0, step: 1, stateKey: "hypr_gaps_in" },
-        "general:gaps_out": { label: "Outer gaps", type: "int", fallback: 6, minimum: 0, step: 1, stateKey: "hypr_gaps_out" },
-        "general:border_size": { label: "Border size", type: "int", fallback: 0, minimum: 0, step: 1, stateKey: "hypr_border_size" },
-        "decoration:rounding": { label: "Rounding", type: "int", fallback: 8, minimum: 0, step: 1, stateKey: "hypr_rounding" },
-        "decoration:blur:enabled": { label: "Enable blur", type: "bool", fallback: false, stateKey: "hypr_blur_enabled" },
-        "decoration:blur:size": { label: "Blur size", type: "int", fallback: 3, minimum: 1, step: 1, stateKey: "hypr_blur_size" },
-        "decoration:blur:passes": { label: "Blur passes", type: "int", fallback: 4, minimum: 1, step: 1, stateKey: "hypr_blur_passes" },
-        "animations:enabled": { label: "Enable animations", type: "bool", fallback: true, stateKey: "hypr_animations_enabled" }
-    })
+    readonly property var hyprOptionInfo: hyprOptionCatalog.optionInfo
+
+    Settings.HyprOptionCatalog { id: hyprOptionCatalog }
     property var hyprGeneralOptions: ["general:gaps_in", "general:gaps_out", "general:border_size"]
     property var hyprDecorationOptions: ["decoration:rounding"]
     property var hyprBlurOptions: ["decoration:blur:size", "decoration:blur:passes"]
@@ -101,7 +94,6 @@ FocusScope {
     readonly property bool mouseWritePending: mouseApplyProc.running && mouseApplyProc.pendingKey !== ""
     readonly property string pendingMouseKey: mouseApplyProc.pendingKey
     property string fingerprintDeviceName: ""
-    property string fingerprintDevicePath: ""
     property var fingerprintEnrolledFingers: []
     property string fingerprintRuntimeError: ""
     property bool fingerprintStateReloadPending: false
@@ -147,6 +139,7 @@ FocusScope {
             forceActiveFocus();
             contentLoaded = true;
             wallpaperDir = "";
+            listWallpapersProc.loaded = false;
             directoryBrowserPath = "";
             loadState();
             settingsRefreshTimer.stop();
@@ -257,7 +250,6 @@ FocusScope {
 
     function loadFingerprintDeviceMetadata() {
         if (!HostCapabilities.isLaptop || !HostCapabilities.hasFingerprintReader) {
-            fingerprintDevicePath = "";
             fingerprintEnrollStagesTotal = 0;
             fingerprintEnrollScanType = "press";
             return;
@@ -277,11 +269,6 @@ FocusScope {
         let trimmed = String(line || "").trim();
         if (trimmed === "")
             return;
-
-        if (trimmed.indexOf("path=") === 0) {
-            fingerprintDevicePath = trimmed.slice(5);
-            return;
-        }
 
         if (trimmed.indexOf("i ") === 0) {
             let parsedStages = Number(trimmed.slice(2).trim());
@@ -385,7 +372,6 @@ FocusScope {
     function loadFingerprintState() {
         if (!HostCapabilities.isLaptop || !HostCapabilities.hasFingerprintReader) {
             fingerprintDeviceName = "";
-            fingerprintDevicePath = "";
             fingerprintEnrolledFingers = [];
             fingerprintRuntimeError = "";
             fingerprintEnrollStagesTotal = 0;
@@ -521,10 +507,6 @@ FocusScope {
         mouseSettings = nextState;
     }
 
-    function isThemeKeyPending(key) {
-        return themeWritePending && pendingThemeKey === key;
-    }
-
     Process {
         id: stateProc; command: ["desktopctl", "theme", "status", "--json"]; running: false
         property string buf: ""
@@ -537,7 +519,8 @@ FocusScope {
                     settingsPop.themeState = JSON.parse(buf);
                     settingsPop.syncHyprDraftState();
                     settingsPop.syncWallpaperDirectoryFromThemeState();
-                    if (!listWallpapersProc.running)
+                    if (!listWallpapersProc.running
+                            && (!listWallpapersProc.loaded || listWallpapersProc.loadedDir !== settingsPop.wallpaperDir))
                         settingsPop.refreshWallpapers();
                     parsed = true;
                 }
@@ -551,6 +534,11 @@ FocusScope {
                 ToastService.showError("Theme state is empty");
 
             buf = "";
+
+            // Re-kick the Hyprland queue before any early return below so a
+            // drain with an empty theme queue cannot stall pending hypr writes.
+            if (settingsPop.hyprDirtyOrder.length > 0 || settingsPop.hyprApplyQueued)
+                hyprWriteTimer.restart();
 
             if (settingsPop.themeStateReloadPending) {
                 settingsPop.loadThemeState();
@@ -572,7 +560,13 @@ FocusScope {
         command: ["desktopctl", "theme", "list-schemes", "--json"]
         property string buf: ""
         stdout: SplitParser { onRead: (line) => { listColorsProc.buf += line; } }
-        onExited: {
+        onExited: (code) => {
+            if (code !== 0) {
+                ToastService.showError("Failed to list color schemes");
+                buf = "";
+                return;
+            }
+
             let items = [];
             try {
                 let parsed = JSON.parse(buf);
@@ -678,10 +672,8 @@ FocusScope {
         stdout: SplitParser { onRead: (line) => settingsPop.applyFingerprintMetadataLine(line) }
         stderr: SplitParser { onRead: (line) => { fingerprintMetadataProc.errorBuf += line + "\n"; } }
         onExited: (code) => {
-            if (code !== 0) {
-                settingsPop.fingerprintDevicePath = settingsPop.fingerprintDevicePath || "/net/reactivated/Fprint/Device/0";
+            if (code !== 0)
                 settingsPop.fingerprintEnrollScanType = settingsPop.fingerprintEnrollScanType || "press";
-            }
 
             errorBuf = "";
 
@@ -722,7 +714,13 @@ FocusScope {
         command: ["desktopctl", "theme", "list-presets", "--json"]
         property string buf: ""
         stdout: SplitParser { onRead: (line) => { listPresetsProc.buf += line; } }
-        onExited: {
+        onExited: (code) => {
+            if (code !== 0) {
+                ToastService.showError("Failed to list presets");
+                buf = "";
+                return;
+            }
+
             let items = [];
             try {
                 let parsed = JSON.parse(buf);
@@ -740,8 +738,19 @@ FocusScope {
             ? ["desktopctl", "theme", "list-wallpapers", "--json", "--directory", settingsPop.wallpaperDir]
             : ["desktopctl", "theme", "list-wallpapers", "--json"]
         property string buf: ""
+        // Tracks which directory the published wallpaper list came from so
+        // theme-state reloads only rescan when the directory actually changes.
+        property bool loaded: false
+        property string loadedDir: ""
+        property string pendingDir: ""
         stdout: SplitParser { onRead: (line) => { listWallpapersProc.buf += line; } }
-        onExited: {
+        onExited: (code) => {
+            if (code !== 0) {
+                ToastService.showError("Failed to list wallpapers");
+                buf = "";
+                return;
+            }
+
             let items = [];
             let previewPaths = {};
             try {
@@ -760,6 +769,8 @@ FocusScope {
             } catch (e) {}
             settingsPop.wallpapers = items;
             settingsPop.wallpaperPreviewPaths = previewPaths;
+            loaded = true;
+            loadedDir = pendingDir;
             buf = "";
         }
     }
@@ -810,6 +821,10 @@ FocusScope {
                 settingsPop.hyprApplyQueued = false;
                 hyprWriteTimer.restart();
             }
+
+            // Re-kick the general theme queue (needed on the failure path; the
+            // success path re-kicks via stateProc.onExited after the reload).
+            settingsPop.startNextThemeWrite();
         }
     }
 
@@ -829,13 +844,9 @@ FocusScope {
     }
 
     // ── Helper functions ──
-    function familyDisplayName(name) {
-        if (name === "tokyonight") return "Tokyo Night";
-        return name.charAt(0).toUpperCase() + name.slice(1);
-    }
-
     function refreshWallpapers() {
         listWallpapersProc.buf = "";
+        listWallpapersProc.pendingDir = settingsPop.wallpaperDir;
         listWallpapersProc.running = true;
     }
 
@@ -910,40 +921,6 @@ FocusScope {
             : joinPath(settingsPop.directoryBrowserPath, name);
         settingsPop.directoryBrowserPath = nextPath;
         refreshDirectoryBrowser();
-    }
-
-    function monoFontBaseSize() {
-        return settingsPop.themeState.mono_font_size || 11;
-    }
-
-    function monoFontSizeOffset(key) {
-        let value = settingsPop.themeState[key];
-        return value === undefined || value === null ? 0 : value;
-    }
-
-    function effectiveMonoFontSize(key) {
-        return monoFontBaseSize() + monoFontSizeOffset(key);
-    }
-
-    function minimumMonoFontSizeOffset() {
-        let minOffset = 0;
-        for (let i = 0; i < settingsPop.monoFontSizeOffsetTargets.length; i++) {
-            let offset = monoFontSizeOffset(settingsPop.monoFontSizeOffsetTargets[i].key);
-            if (offset < minOffset)
-                minOffset = offset;
-        }
-        return minOffset;
-    }
-
-    function formatSignedNumber(value) {
-        return value > 0 ? "+" + value : String(value);
-    }
-
-    function adjustMonoFontSizeOffset(key, delta) {
-        let next = monoFontSizeOffset(key) + delta;
-        if (monoFontBaseSize() + next < 1)
-            return;
-        settingsPop.runSet(key, String(next));
     }
 
     function confirmDirectoryBrowser() {
@@ -1086,12 +1063,20 @@ FocusScope {
             return;
         }
 
+        settingsPop.hyprApplyQueued = false;
         settingsPop.runNextHyprStateWrite();
     }
 
     function runNextHyprStateWrite() {
         if (hyprApplyProc.running)
             return;
+
+        // Serialize against the general theme queue: every `desktopctl theme set`
+        // rewrites the whole state map, so concurrent writers lose updates.
+        if (applyProc.running || stateProc.running) {
+            settingsPop.hyprApplyQueued = true;
+            return;
+        }
 
         for (let i = 0; i < settingsPop.hyprDirtyOrder.length; i++) {
             let stateKey = settingsPop.hyprDirtyOrder[i];
@@ -1216,7 +1201,7 @@ FocusScope {
     }
 
     function startNextThemeWrite() {
-        if (applyProc.running || stateProc.running || themeWriteDrainAfterReload || themeWriteQueue.length === 0)
+        if (applyProc.running || stateProc.running || hyprApplyProc.running || themeWriteDrainAfterReload || themeWriteQueue.length === 0)
             return;
 
         let nextQueue = themeWriteQueue.slice(0);
@@ -1284,6 +1269,9 @@ FocusScope {
             pendingKey = "";
             rollbackState = ({});
             errorBuf = "";
+
+            if (settingsPop.hyprDirtyOrder.length > 0 || settingsPop.hyprApplyQueued)
+                hyprWriteTimer.restart();
 
             if (code !== 0)
                 settingsPop.startNextThemeWrite();

@@ -6,7 +6,7 @@ const RELOAD_CMD: &[&str] = &["hyprctl", "reload"];
 pub const METADATA: TargetMetadata = TargetMetadata::new(
     "hyprland",
     Assembly::Standalone,
-    &["color_scheme", "mono_font", "system_font", "font_size"],
+    &["color_scheme", "mono_font", "system_font"],
 )
 .output("~/.config/hypr/colors.conf")
 .reload_cmd(RELOAD_CMD)
@@ -53,7 +53,6 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Gener
             "$theme_orange_rgba = {}\n",
             "$theme_font     = {}\n",
             "$theme_sys_font = {}\n",
-            "$theme_font_size = {}\n",
         ),
         rgb(&colors.bg),
         rgba(&colors.bg, "ff"),
@@ -85,6 +84,5 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Gener
         rgba(&colors.orange, "ff"),
         state.mono_font,
         state.system_font,
-        state.font_size,
     )))
 }

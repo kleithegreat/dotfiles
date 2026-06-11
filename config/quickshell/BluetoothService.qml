@@ -24,9 +24,13 @@ QtObject {
 
     Component.onCompleted: refreshSummary()
 
-    function refresh(preservePowerState) {
+    function refresh(preservePowerState, withScan) {
         if (preservePowerState === undefined)
             preservePowerState = false;
+        // Discovery scans cost battery and degrade co-located 2.4GHz Wi-Fi,
+        // so only chain into one when the caller shows the device list
+        // (settings pane / popup open); completion refreshes opt out.
+        _scanAfterRefresh = withScan === undefined ? true : withScan;
         scanning = false;
         pairedModel.clear();
         discoveredModel.clear();
@@ -151,6 +155,19 @@ QtObject {
     }
 
     property bool _refreshPending: false
+    property bool _scanAfterRefresh: false
+
+    // Shared by connInfoProc and summaryConnInfoProc; the Process objects stay
+    // separate so full refreshes and summary polls can run concurrently
+    // without sharing parse buffers.
+    readonly property string _connInfoScript:
+        "dev=$(bluetoothctl --timeout 2 devices Connected 2>/dev/null | head -1); " +
+        "[ -z \"$dev\" ] && exit 0; " +
+        "mac=$(echo \"$dev\" | awk '{print $2}'); " +
+        "name=$(echo \"$dev\" | sed 's/^Device [^ ]* //'); " +
+        "echo \"CONN|$mac|$name\"; " +
+        "batt=$(bluetoothctl --timeout 2 info \"$mac\" 2>/dev/null | awk -F'[()]' '/Battery Percentage/{print $2}'); " +
+        "[ -n \"$batt\" ] && echo \"BATT|$batt\""
     property bool _powerActionPending: false
     property bool _disconnectPending: false
     property bool _summaryPendingPowered: false
@@ -188,15 +205,7 @@ QtObject {
 
     property Process connInfoProc: Process {
         id: connInfoProc
-        command: ["bash", "-c",
-            "dev=$(bluetoothctl --timeout 2 devices Connected 2>/dev/null | head -1); " +
-            "[ -z \"$dev\" ] && exit 0; " +
-            "mac=$(echo \"$dev\" | awk '{print $2}'); " +
-            "name=$(echo \"$dev\" | sed 's/^Device [^ ]* //'); " +
-            "echo \"CONN|$mac|$name\"; " +
-            "batt=$(bluetoothctl --timeout 2 info \"$mac\" 2>/dev/null | awk -F'[()]' '/Battery Percentage/{print $2}'); " +
-            "[ -n \"$batt\" ] && echo \"BATT|$batt\""
-        ]
+        command: ["bash", "-c", root._connInfoScript]
         running: false
         property string pendingMac: ""
         property string pendingName: ""
@@ -216,7 +225,8 @@ QtObject {
                     connInfoProc.pendingName = parts.slice(1).join("|");
                 }
             } else if (line.startsWith("BATT|")) {
-                connInfoProc.pendingBattery = parseInt(line.substring(5)) || -1;
+                let batt = parseInt(line.substring(5), 10);
+                connInfoProc.pendingBattery = isNaN(batt) ? -1 : batt;
             }
         } }
         onExited: {
@@ -256,7 +266,7 @@ QtObject {
                 if (pairedModel.get(i).mac === mac) return;
             discoveredModel.append({ mac: mac, name: name });
         } }
-        onExited: { root.startScan(); }
+        onExited: { if (root._scanAfterRefresh) root.startScan(); }
     }
 
     property Process scanProc: Process {
@@ -273,7 +283,7 @@ QtObject {
             if (code === 0) {
                 root.connectingName = "";
                 root.connecting = false;
-                root.refresh(true);
+                root.refresh(true, false);
             } else {
                 root.connectError = "Connection failed";
                 root.connecting = false;
@@ -288,7 +298,7 @@ QtObject {
         onExited: (code) => {
             if (code === 0) {
                 root._disconnectPending = false;
-                root.refresh(true);
+                root.refresh(true, false);
             } else {
                 root.restoreSummaryState(root._disconnectRollbackState);
                 root._disconnectPending = false;
@@ -302,7 +312,7 @@ QtObject {
         onExited: (code, status) => {
             if (code === 0) {
                 root._powerActionPending = false;
-                root.refresh(true);
+                root.refresh(true, false);
             } else {
                 root.restoreSummaryState(root._powerRollbackState);
                 root._powerActionPending = false;
@@ -326,15 +336,7 @@ QtObject {
 
     property Process summaryConnInfoProc: Process {
         id: summaryConnInfoProc
-        command: ["bash", "-c",
-            "dev=$(bluetoothctl --timeout 2 devices Connected 2>/dev/null | head -1); " +
-            "[ -z \"$dev\" ] && exit 0; " +
-            "mac=$(echo \"$dev\" | awk '{print $2}'); " +
-            "name=$(echo \"$dev\" | sed 's/^Device [^ ]* //'); " +
-            "echo \"CONN|$mac|$name\"; " +
-            "batt=$(bluetoothctl --timeout 2 info \"$mac\" 2>/dev/null | awk -F'[()]' '/Battery Percentage/{print $2}'); " +
-            "[ -n \"$batt\" ] && echo \"BATT|$batt\""
-        ]
+        command: ["bash", "-c", root._connInfoScript]
         running: false
         property string pendingMac: ""
         property string pendingName: ""
@@ -354,7 +356,8 @@ QtObject {
                     summaryConnInfoProc.pendingName = parts.slice(1).join("|");
                 }
             } else if (line.startsWith("BATT|")) {
-                summaryConnInfoProc.pendingBattery = parseInt(line.substring(5)) || -1;
+                let batt = parseInt(line.substring(5), 10);
+                summaryConnInfoProc.pendingBattery = isNaN(batt) ? -1 : batt;
             }
         } }
         onExited: {

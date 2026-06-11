@@ -1,5 +1,4 @@
 import Quickshell
-import QtCore
 import QtQuick
 import QtQuick.Layouts
 import ".." as Root
@@ -75,13 +74,7 @@ Item {
         if (user !== null && user !== undefined && String(user).trim() !== "")
             return "/etc/profiles/per-user/" + String(user).trim() + "/share/icons";
 
-        let home = StandardPaths.writableLocation(StandardPaths.HomeLocation);
-        let parts = String(home || "").split("/");
-        let fallbackUser = parts.length ? parts[parts.length - 1] : "";
-        if (fallbackUser !== "")
-            return "/etc/profiles/per-user/" + fallbackUser + "/share/icons";
-
-        return "/etc/profiles/per-user/kevin/share/icons";
+        return "";
     }
 
     function fileUrl(path) {
@@ -158,6 +151,9 @@ Item {
     }
 
     function previewIconSourcesForTheme(value) {
+        if (root.iconThemeRoot === "")
+            return [];
+
         let rootPath = root.iconThemeRoot + "/" + String(value || "").trim();
 
         switch (String(value || "").trim()) {

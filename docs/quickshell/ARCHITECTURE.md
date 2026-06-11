@@ -15,6 +15,17 @@ integration.
 | `bar/Bar.qml` | Persistent chrome and popup toggles | Materialized through a loader only when a real monitor is available |
 | Root transient windows | Notification popup stack, OSD, toast window, tooltip window | Outside managed-popup exclusivity |
 
+Bar widget notes:
+
+- All five bar status icons (Network, Bluetooth, Volume, Brightness, Battery)
+  use `components/StyledIcon.qml`'s built-in animated source swap with its
+  default Theme timings instead of per-widget crossfade animations.
+  `bar/Brightness.qml` is icon-only (its unused label variant was removed).
+- Workspace pill occupancy in `bar/Workspaces.qml` derives from
+  `HyprlandWorkspace.toplevels` (the live-tracked toplevel model) rather than
+  any IPC snapshot field, so empty-but-existing workspaces on secondary
+  monitors render with the empty pill styling.
+
 Managed popups mounted by the overlay host remain:
 
 `CalendarPopup`, `TrayPopup`, `MprisPopup`, `QuickSettingsPopup`,
@@ -31,7 +42,7 @@ Managed popups mounted by the overlay host remain:
 | `components/SettingsPaneHeader.qml`, `components/ActionButton.qml`, `components/StepperButton.qml`, and `components/ValueStepper.qml` | Shared header, button, and numeric-stepper chrome for settings panes and the preset editor, replacing repeated local `Rectangle` + `HoverLayer` control scaffolding. | `config/quickshell/components/SettingsPaneHeader.qml`, `config/quickshell/components/ActionButton.qml`, `config/quickshell/components/StepperButton.qml`, `config/quickshell/components/ValueStepper.qml`, plus their use in `config/quickshell/popups/settings/SettingsFontsPane.qml`, `config/quickshell/popups/settings/SettingsMousePane.qml`, `config/quickshell/popups/settings/SettingsHyprlandPane.qml`, `config/quickshell/popups/settings/SettingsIconsPane.qml`, and `config/quickshell/popups/settings/SettingsPresetEditor.qml` |
 | `components/BrightnessSlider.qml` | Shared brightness slider chrome that binds one `BrightnessService` device object to per-device writes. | `config/quickshell/components/BrightnessSlider.qml`, plus its use in `config/quickshell/popups/QuickSettingsPopup.qml` and `config/quickshell/popups/settings/SettingsDisplayPane.qml` |
 | `components/ColorSchemeCard.qml` and `components/ColorSchemeCards.qml` | Shared responsive scheme-preview cards for the Colors pane and preset editor. They consume `colorFamilies`, adapt the column count to available width, and highlight the active scheme without falling back to dropdown-only selection. | `config/quickshell/components/ColorSchemeCard.qml`, `config/quickshell/components/ColorSchemeCards.qml`, `config/quickshell/popups/settings/SettingsColorsPane.qml`, and `config/quickshell/popups/settings/SettingsPresetEditor.qml` |
-| `components/IconThemeCard.qml` and `components/IconThemeCards.qml` | Shared responsive icon-theme preview cards for the Icons pane and preset editor. They keep icon-theme selection pointer-first while replacing the old bare dropdown with family/variant labeling plus representative icons loaded from each installed icon theme. | `config/quickshell/components/IconThemeCard.qml`, `config/quickshell/components/IconThemeCards.qml`, `config/quickshell/popups/settings/SettingsIconsPane.qml`, and `config/quickshell/popups/settings/SettingsPresetEditor.qml` |
+| `components/IconThemeCard.qml` and `components/IconThemeCards.qml` | Shared responsive icon-theme preview cards for the Icons pane and preset editor. They keep icon-theme selection pointer-first while replacing the old bare dropdown with family/variant labeling plus representative icons loaded from `/etc/profiles/per-user/$USER/share/icons`, derived solely from the `USER` environment variable; when `USER` is unset the preview row renders empty exactly like an unknown theme (no HomeLocation or hardcoded-username fallback). | `config/quickshell/components/IconThemeCard.qml`, `config/quickshell/components/IconThemeCards.qml`, `config/quickshell/popups/settings/SettingsIconsPane.qml`, and `config/quickshell/popups/settings/SettingsPresetEditor.qml` |
 | `components/Icon.qml` | Shared SVG tinting wrapper. It normalizes repo-local `icons/`, `../icons/`, and deeper `../../icons/` source strings to the component-local icon directory before loading, so callers at different QML depths do not silently break icon rendering. | `config/quickshell/components/Icon.qml` |
 | `components/InlineDropdown.qml` | Compact one-of-many selector with pointer-driven expansion, animated dropdown height, and `WheelFlickable`-backed option scrolling. | `config/quickshell/components/InlineDropdown.qml` |
 | `components/InlineSelect.qml` | Card-style one-of-many selector with the same pointer-first contract as `InlineDropdown`, plus current-option auto-scroll inside the shared flickable list. | `config/quickshell/components/InlineSelect.qml` |
@@ -45,10 +56,10 @@ Managed popups mounted by the overlay host remain:
 | `BrightnessService.qml` | Multi-device brightness status polling and per-device writes through `desktopctl brightness`, covering laptop backlights and DDC/CI external monitors | Bar brightness, Quick Settings, Display pane, and any brightness slider UI |
 | `DisplayService.qml` | Monitor refresh/apply and daemon-backed night-light status / override requests | Display pane |
 | `HostCapabilities.qml` | Detects laptop-chassis, Wi-Fi, battery, power-profile, and fingerprint-reader capabilities, while only surfacing interactive power-profile support on laptop-like hosts | Settings host category visibility plus power/fingerprint pane availability |
-| `HyprlandConfigService.qml` | Shared monitor-layout undo/redo state plus Hyprland animation/keybind override editing, save, and clear flows | Display pane, Hyprland pane, Settings host refresh path |
+| `HyprlandConfigService.qml` | Shared monitor-layout undo/redo state plus Hyprland animation/keybind override editing, save, and clear flows; see the Hyprland pane paragraph under Settings System for the dirty-tracking, keybind-identity, and key-capture session details | Display pane, Hyprland pane, Settings host refresh path |
 | `IdleInhibitService.qml` | Holds transient `systemd-inhibit` processes for idle inhibition and laptop lid-switch inhibition. The idle path uses `--what=idle` so hypridle pauses its timers while the shell toggle is active, auto-enabling shortly after shell startup when `DESKTOPCTL_IDLE_INHIBIT_DEFAULT` is truthy; the lid path uses `--what=handle-lid-switch --mode=block` so logind ignores lid-close actions while active. | Quick Settings idle/lid inhibit controls |
 | `NetworkService.qml` | Active network summary for Wi-Fi or ethernet via the default-route interface, Wi-Fi scans/known networks, active-transport diagnostics, DNS, captive portal, reporting | Bar network, quick settings, network pane |
-| `NotificationService.qml` | Popup/history models, DND, dismissal, relative-time refresh | Root notifications, drawer, bar bell, Notifications settings pane, IPC, and freedesktop notifications bridged from system services such as the physical-host kernel OOM notifier |
+| `NotificationService.qml` | Popup/history models, DND, dismissal, relative-time refresh; the history model is bounded at 200 entries with the oldest trimmed at insert, mirroring the bounded toast queue | Root notifications, drawer, bar bell, Notifications settings pane, IPC, and freedesktop notifications bridged from system services such as the physical-host kernel OOM notifier |
 | `PowerProfileService.qml` | CPU profiles and supported battery controls, including the laptop-only `e-core-only` profile when the `laptop-power-profile` helper is present | Power pane |
 | `Theme.qml` | Shell-facing facade over generated theme JSON | Imported throughout shell components |
 | `ToastService.qml` | Bounded toast queue | Shell toast window, IPC |
@@ -64,8 +75,12 @@ Direct-upstream or local exceptions:
   weather service. `config/quickshell/popups/CalendarPopup.qml` resolves the
   shell's current coordinates through `desktopctl sun status`, then fetches the
   current forecast from Open-Meteo with `curl` only while the popup is active.
-  It does not fetch against fallback coordinates if `desktopctl sun status`
-  cannot resolve a location.
+  The popup only skips fetching when `desktopctl sun status` fails or emits
+  unparsable output; `desktopctl` itself (`resolve_location` in
+  `desktopctl/src/solar.rs`) falls back cache → GeoClue → stale cache → the
+  default coordinates `30.6280, -96.3344` and prints defaults in the same
+  `Location:` format, so a host with no GeoClue and no cache still fetches and
+  shows a forecast for the default location, badged "Live".
 - Focus Time still polls `${XDG_RUNTIME_DIR:-/run/user/$UID}/focustime_state.json`
   inside its pane and treats payloads older than 5 seconds as stale; see
   `docs/focus-time/SPEC.md`.
@@ -97,12 +112,17 @@ completes; `BluetoothService.qml` stages power and
 disconnect actions; `VpnService.qml` stages Mullvad/Tailscale connect-disconnect
 intent until the next real status refresh confirms it; and
 `DisplayService.qml` stages night-light mode / target temperature while
-preserving a rollback snapshot for failures. Successful night-light writes now
+preserving a rollback snapshot for failures. Successful night-light writes
 rely on the service poll timer for confirmation instead of forcing an immediate
 status read, which avoids transient `hyprsunset` restart gaps from flipping the
-toggle off mid-adjustment. The Display pane's temperature slider now stages the
-value locally while dragging and commits one `desktopctl night-light ... --temp`
-request on release so `hyprsunset` is not restarted on every pointer move.
+toggle off mid-adjustment; that night-light status poll runs at a 5s baseline
+with a short three-tick 2s confirmation burst after each successful
+night-light command. `BrightnessService.qml` polls at a flat 30s safety-net
+cadence, with event-driven refreshes (monitor hotplug, set completions,
+brightness OSD IPC) covering the common cases. The Display pane's temperature
+slider stages the value locally while dragging and commits one
+`desktopctl night-light ... --temp` request on release so `hyprsunset` is not
+restarted on every pointer move.
 
 `DisplayService.qml` applies individual monitor changes through `hyprctl keyword
 monitor` and exposes `applyMonitorBatch(...)` for whole-snapshot restores through
@@ -126,14 +146,14 @@ paths and cleaning them through a shell trap.
 | Area | Current implementation |
 | --- | --- |
 | Host-owned data | Theme snapshot, shared mouse-input snapshot, fingerprint enrollment snapshot/status, colors, presets, wallpapers, directories, icon/cursor/font choices, and Hyprland appearance draft state |
-| Host loaders | `Process` helpers call `desktopctl theme status --json`, `desktopctl hypr input status --json`, `desktopctl theme list-schemes --json`, `desktopctl theme list-presets --json`, `desktopctl theme list-wallpapers --json`, `fprintd-list`, `busctl` fingerprint-device property reads, and shell commands for directory browsing |
+| Host loaders | `Process` helpers call `desktopctl theme status --json`, `desktopctl hypr input status --json`, `desktopctl theme list-schemes --json`, `desktopctl theme list-presets --json`, `desktopctl theme list-wallpapers --json`, `fprintd-list`, `busctl` fingerprint-device property reads, and shell commands for directory browsing. The read-only list loaders check exit codes, surface failures as error toasts, and keep the previously published list instead of silently publishing an empty one |
 | Service-driven panes | Network, Bluetooth, Audio, Display, Power, Notifications, Focus Time, Hyprland |
 | Host-driven panes | Fingerprint, Presets, Colors, Fonts, Wallpaper, Icons, Mouse |
 | Category gating | `HostCapabilities.qml` plus the `hiddenCategories` / category-visibility logic in `config/quickshell/popups/SettingsPopup.qml` hide Power when neither battery nor laptop-scoped power-profile support is present, and hide Fingerprint unless the chassis is laptop-like and the `busctl tree net.reactivated.Fprint` probe reports a device |
 | General theme writes | Serialized `desktopctl theme set` and `desktopctl theme preset` requests, with host-local staging for individual `set` writes before process exit and toast-visible backend errors |
 | Mouse input writes | Serialized `desktopctl hypr input set` requests, with host-local staging for shared mouse settings before the backend reload confirms or rolls them back |
 | Preset writes | `desktopctl theme save-preset` and `desktopctl theme delete-preset` |
-| Hyprland appearance writes | Debounced queue of `desktopctl theme set hypr_* ...` writes with desktop-notification feedback |
+| Hyprland appearance writes | Debounced queue of `desktopctl theme set hypr_* ...` writes with desktop-notification feedback. The debounced Hyprland queue serializes against the general theme write queue: the two queues cross-gate so at most one `desktopctl theme` process (set, preset, or status reload) runs at a time (the `docs/quickshell/SPEC.md` "one backend write at a time" invariant), and each queue re-kicks the other on process exit so neither can stall |
 
 Quick Settings expand affordances are consumed by the overlay host:
 `config/quickshell/PopupOverlayHost.qml` closes the current popup, selects the
@@ -198,10 +218,13 @@ behaviors:
   `config/quickshell/popups/settings/SettingsPresetsPane.qml`, and
   `config/quickshell/popups/settings/SettingsPresetEditor.qml`.
 - Loading wallpaper-grid previews through `desktopctl theme list-wallpapers
-  --json`, which now returns cached preview-image paths under
+  --json`, which returns cached preview-image paths under
   `$XDG_CACHE_HOME/desktopctl/wallpaper-previews/` so the pane reuses small
   disk-backed previews instead of decoding each original 20-35 MB wallpaper on
-  every open:
+  every open. The wallpaper list is rescanned only on the first theme-state
+  load after the popup opens, when the effective wallpaper directory changes,
+  or on explicit directory confirmation — no longer after every theme `set`
+  write:
   `config/quickshell/popups/SettingsPopup.qml` and
   `config/quickshell/popups/settings/SettingsWallpaperPane.qml`.
 - Keeping icon-theme selection separate from the Mouse page by routing it
@@ -248,6 +271,41 @@ mounts instead of firing on every Settings popup open. Evidence:
 the settings-detail loader in `config/quickshell/popups/SettingsPopup.qml` and
 the probe startup path in `config/quickshell/popups/settings/SettingsPowerPane.qml`.
 
+The Hyprland pane and `config/quickshell/HyprlandConfigService.qml` share these
+behaviors:
+
+- Animation dirty-tracking is session-based, not `hyprctl`-based: Save/Clear
+  visibility is driven by `HyprlandConfigService.animationsTouched` (marked in
+  `_applyAnimationState` and `resetAnimation`, cleared on clear-all and on
+  successful save), because base-config animation lines in
+  `config/hypr/appearance.conf` report `overridden=true` from `hyprctl`. The
+  Clear button is additionally visible when the persisted override files
+  (`~/.config/hypr/animations-override.conf` or `keybinds-override.conf`) are
+  non-empty, via `hasPersistedOverrides` probed on every `refresh()`. Saving
+  still persists the full overridden snapshot (base lines included) — that
+  payload model is intentional.
+- Keybind override tracking is index-keyed but remapped on every binds refetch
+  by stable bind identity (dispatcher + arg + description + submap + flags +
+  current combo); index-keyed bind undo/redo entries are dropped on refetch.
+  After a successful keybinds save, the service refetches binds (desktopctl
+  runs `hyprctl reload`, which reorders the list) and `keybindOriginals`
+  accumulate across saves within a session, since each save rewrites
+  `keybinds-override.conf` wholesale.
+- The key-capture submap session is owned by the `HyprlandConfigService`
+  singleton (`beginCaptureSession` / `endCaptureSession` plus a 10s safety
+  timer), so submap teardown survives settings-pane destruction; teardown also
+  unbinds the temporary catchall bind from the `hyprmod_capture` submap, and
+  the pane filters submap-internal and `catch_all` binds out of the editable
+  keybind list.
+- Hyprland option metadata (labels, fallbacks, minimums, state keys) lives in
+  the shared `config/quickshell/popups/settings/HyprOptionCatalog.qml`,
+  consumed by both `SettingsPopup.qml` (`hyprOptionInfo`) and
+  `SettingsPresetEditor.qml` (`intOptions`). The one-line hypr
+  value-resolution helpers (`hyprOptionMeta` / `hyprStateValue` and friends)
+  intentionally exist in both `SettingsPopup.qml` and
+  `SettingsHyprlandPane.qml`, because the pane resolves against passed-down
+  draft/theme state — accepted duplication.
+
 The settings sidebar remains click-driven. It uses the shared `WheelFlickable`
 for scrolling and `HoverLayer` for category hit targets, but it does not add a
 custom tab-order or focused-outline layer on top of the popup shell. Evidence:
@@ -255,11 +313,12 @@ custom tab-order or focused-outline layer on top of the popup shell. Evidence:
 
 `SettingsFocusTimePane.qml` still consumes the JSON summary directly, but it no
 longer paints charts from placeholder geometry on first load or tears down its
-models on each successful poll. The pane now reads from the daemon's
-XDG-runtime fallback path, treats payloads older than 5 seconds as stale, keeps
-the previous ready payload mounted until the next fresh payload parses, waits
-for the first fresh payload, and only then enables bar/heatmap/app-width
-animations after `chartVisualsReady` has been primed.
+models on each successful poll. The pane reads from the daemon's XDG-runtime
+fallback path, treats payloads older than 5 seconds as stale, and keeps the
+previous payload mounted only across consecutive successful polls — it tears
+down to the empty/stale state as soon as a poll is missing (exit 3), stale, or
+unparseable. It waits for the first fresh payload and only then enables
+bar/heatmap/app-width animations after `chartVisualsReady` has been primed.
 Evidence:
 `config/quickshell/popups/settings/SettingsFocusTimePane.qml`.
 
@@ -275,8 +334,7 @@ implementation.
 | `Theme.qml` | Watches the XDG-config-derived `GeneratedTheme.json` path, reparses on change, exposes the generated system-font shell baseline plus a separate mono-font alias for monospaced/glyph-oriented surfaces, and keeps shell-owned layout constants including the shared animation timing scale, popup start-scale, and popup scale-lead delay used by the shell popup surfaces |
 | `desktopctl/src/theme/targets/quickshell.rs` | Writes `GeneratedTheme.json`, maps theming names into Quickshell's `bg0_h` / `aqua` naming, emits both mono and system font families, and derives shell font sizes from `ThemeState.font_size + quickshell_font_size_offset` |
 | Recursive tree generated file | `config/quickshell/GeneratedTheme.json` is not committed. Home Manager deploys the Quickshell tree recursively, `Theme.qml` provides first-start fallback colors/fonts, and activation/runtime theme applies create or replace the live `${XDG_CONFIG_HOME:-~/.config}/quickshell/GeneratedTheme.json` path |
-| Settings host | Runs `desktopctl theme ...`, stages optimistic `themeState` updates for individual `set` writes, serializes general theme writes, shows toast-visible backend failures, then reloads or rolls back its local snapshot when the process exits |
-| Shell IPC | Provides a second command path into `desktopctl theme ...` through `theme.apply`, accepting either shell-quoted string payloads or structured argv arrays, rejecting concurrent theme commands, showing error toasts on failure, and showing an info toast when the command exits successfully |
+| Settings host | Runs `desktopctl theme ...`, stages optimistic `themeState` updates for individual `set` writes, serializes general theme writes, shows toast-visible backend failures, then reloads or rolls back its local snapshot when the process exits. This is the only shell-side theme command path; the shell `theme` IPC target only exposes `open()`, which toggles the Settings popup |
 
 `Theme.qml` still keeps hardcoded Gruvbox Dark fallbacks for the generated JSON
 surface in its fallback color/font object inside `config/quickshell/Theme.qml`.
@@ -323,13 +381,17 @@ The popup implementations are still not completely uniform, however:
   opening the weather view now defers its on-open refresh until after the
   entrance interval, still reusing `desktopctl sun status` for coordinates and
   sunrise/sunset labels before calling Open-Meteo through `curl`. Its weather
-  card styling now sticks to direct `Theme.*` palette slots for fills, borders,
-  and accents instead of blending intermediate colors inside QML, and the copy
-  stays terse and informational rather than novelty-oriented.
+  card styling sticks to direct `Theme.*` palette slots for fills, borders,
+  and accents instead of blending intermediate colors inside QML (the leftover
+  glow/accent styling inputs — `weatherGlowColor`, `WeatherMetricChip`
+  `accentColor`, and `weatherCardColor` — were removed), and the copy
+  stays terse and informational rather than novelty-oriented. The displayed
+  Fahrenheit/mph units, converted in QML from Open-Meteo's Celsius/kph, are a
+  deliberate owner choice.
 - `config/quickshell/NotifDrawer.qml` is a direct, always-materialized managed
   popup instead of an async loader-backed surface. It exposes the standard
-  host-facing popup shape (`active`, `close()`, `overlayVisible`, `panelItem`,
-  `focusTarget`, and scrim properties), caps a fixed-height panel to the
+  host-facing popup shape (`active`, `close()`, `overlayVisible`, and scrim
+  properties), caps a fixed-height panel to the
   available screen height, animates the panel's `opacity` / `scale` directly,
   and renders `NotificationService.historyModel` through
   `components/WheelFlickable.qml`. Its header and row actions call the shared
@@ -357,13 +419,18 @@ The popup implementations are still not completely uniform, however:
   smoother low-refresh sampling. Both surfaces clear their managed visibility
   request if the upstream tray/MPRIS model is empty, so the overlay registry
   cannot get stuck on a hidden active popup. `TrayPopup.qml` also animates a
-  small `y` offset and now uses the shared popup start-scale plus theme timing
-  tokens for its tray-item stagger.
+  small `y` offset and uses the shared popup start-scale plus theme timing
+  tokens for its tray-item stagger; the stagger replays on every popup open
+  (delegates reset opacity/scale and restart the staggered animation when the
+  popup activates), rather than only at item creation, which used to complete
+  invisibly at shell startup.
 - `config/quickshell/PowerMenu.qml` avoids a popup-container open/close
   transform entirely. The overlay host only fades the scrim, while the menu
   prewarms its loader after startup and its buttons run staggered `opacity` /
   `scale` entrance animations inside a stable layout using the shared popup
-  start-scale and theme timing tokens. Power actions are stored as argv arrays
+  start-scale and theme timing tokens; the entrance replays on every real open
+  (buttons reset and restart on `active`), with the creation-time path kept for
+  opens that race the prewarm loader. Power actions are stored as argv arrays
   rather than shell strings, and subprocess failures surface through toast
   feedback.
 

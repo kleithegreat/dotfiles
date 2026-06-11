@@ -65,6 +65,14 @@ local function setup_legacy_treesitter()
   end
 
   local compiler_available = has_c_compiler()
+  if not compiler_available then
+    vim.schedule(function()
+      vim.notify_once(
+        "No C compiler found; skipping treesitter parser installation.",
+        vim.log.levels.WARN
+      )
+    end)
+  end
   vim.opt.runtimepath:prepend(parser_install_dir)
 
   configs.setup({

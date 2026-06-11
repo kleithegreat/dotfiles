@@ -64,7 +64,7 @@ mod tests {
             ("catppuccin-mocha", "fg4"),
             ("gruvbox-dark", "fg4"),
             ("gruvbox-light", "fg4"),
-            ("nord", "fg"),
+            ("nord", "fg3"),
             ("nord-light", "fg4"),
             ("rose-pine", "fg3"),
             ("rose-pine-dawn", "fg2"),

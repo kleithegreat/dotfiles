@@ -1,5 +1,3 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-
 use anyhow::{anyhow, Context, Result};
 use reqwest::blocking::Client;
 use serde_json::{json, Value};
@@ -66,14 +64,6 @@ fn focus_main_window(app: &tauri::AppHandle) {
 
 fn create_main_window(app: &tauri::AppHandle, url: &str) -> Result<()> {
     let parsed = Url::parse(url).with_context(|| format!("invalid OpenChamber URL: {url}"))?;
-
-    if let Some(window) = app.get_webview_window(WINDOW_LABEL) {
-        window
-            .navigate(parsed)
-            .map_err(|err| anyhow!(err.to_string()))?;
-        focus_main_window(app);
-        return Ok(());
-    }
 
     WebviewWindowBuilder::new(app, WINDOW_LABEL, WebviewUrl::External(parsed))
         .title(WINDOW_TITLE)
@@ -330,15 +320,8 @@ fn settings_file_path() -> PathBuf {
         }
     }
 
-    if let Ok(dir) = env::var("XDG_CONFIG_HOME") {
-        let trimmed = dir.trim();
-        if !trimmed.is_empty() {
-            return PathBuf::from(trimmed)
-                .join("openchamber")
-                .join("settings.json");
-        }
-    }
-
+    // Match the server's resolution (~/.config/openchamber, no XDG_CONFIG_HOME
+    // branch) so both sides always read and write the same settings.json.
     let home = env::var("HOME").unwrap_or_default();
     PathBuf::from(home)
         .join(".config")
@@ -364,16 +347,26 @@ fn write_desktop_local_port(port: u16) -> Result<()> {
     }
 
     let mut root = match fs::read_to_string(&path) {
-        Ok(raw) => serde_json::from_str(&raw).unwrap_or_else(|_| json!({})),
+        // Never rewrite a settings file we cannot parse: it holds all server
+        // state, and resetting it to {} would destroy data we do not own.
+        Ok(raw) => match serde_json::from_str::<Value>(&raw) {
+            Ok(value) if value.is_object() => value,
+            _ => return Ok(()),
+        },
         Err(_) => json!({}),
     };
 
-    if !root.is_object() {
-        root = json!({});
+    if root.get("desktopLocalPort").and_then(Value::as_u64) == Some(u64::from(port)) {
+        return Ok(());
     }
 
     root["desktopLocalPort"] = Value::Number(serde_json::Number::from(port));
 
-    fs::write(&path, serde_json::to_string_pretty(&root)?)
-        .with_context(|| format!("failed to write {}", path.display()))
+    // Atomic replace: the server and desktopctl read-modify-write this file,
+    // so a partial in-place write here could wipe it.
+    let tmp = path.with_extension("json.openchamber-desktop.tmp");
+    fs::write(&tmp, serde_json::to_string_pretty(&root)?)
+        .with_context(|| format!("failed to write {}", tmp.display()))?;
+    fs::rename(&tmp, &path)
+        .with_context(|| format!("failed to replace {}", path.display()))
 }

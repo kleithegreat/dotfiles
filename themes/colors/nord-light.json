@@ -2,6 +2,7 @@
   "family": "nord",
   "variant": "light",
   "appearance": "light",
+  "dark_scheme": "nord",
   "app_themes": {
     "bat": "base16",
     "snappy_switcher": "catppuccin-latte.ini",
@@ -44,7 +45,7 @@
   "palette": [
     "#d8dee9", "#bf616a", "#a3be8c", "#ebcb8b",
     "#5e81ac", "#b48ead", "#88c0d0", "#3b4252",
-    "#e5e9f0", "#bf616a", "#a3be8c", "#ebcb8b",
+    "#7b88a1", "#bf616a", "#a3be8c", "#ebcb8b",
     "#81a1c1", "#b48ead", "#8fbcbb", "#2e3440"
   ]
 }

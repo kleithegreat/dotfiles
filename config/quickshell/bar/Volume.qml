@@ -15,23 +15,18 @@ Item {
 
     RowLayout {
         id: volumeRow; anchors.fill: parent; spacing: 4
-        Components.Icon {
+        Components.StyledIcon {
             id: volIcon
-            source: { if (muted || volume === 0) return "../icons/volume-mute.svg"; if (volume < 0.5) return "../icons/volume-low.svg"; return "../icons/volume-high.svg"; }
+            animate: true
+            source: AudioService.volumeIconFor(Math.round(volume * 100), muted)
             color: hoverA.containsMouse ? Theme.yellowBright : (muted ? Theme.fg4 : Theme.fg)
-            Behavior on source {
-                SequentialAnimation {
-                    Components.Anim { target: volIcon; property: "opacity"; to: 0; duration: Theme.animFast; easing.type: Easing.InQuad }
-                    PropertyAction { target: volIcon; property: "source" }
-                    Components.Anim { target: volIcon; property: "opacity"; to: 1; duration: Theme.animNormal; easing.type: Easing.OutCubic }
-                }
-            }
             Behavior on color { Components.CAnim { duration: Theme.animHover } }
         }
     }
     MouseArea {
         id: hoverA; anchors.fill: parent
-        acceptedButtons: Qt.LeftButton | Qt.MiddleButton; hoverEnabled: true
+        acceptedButtons: Qt.LeftButton | Qt.MiddleButton
+        cursorShape: Qt.PointingHandCursor; hoverEnabled: true
         onContainsMouseChanged: {
             if (containsMouse) {
                 let p = volumeRoot.mapToGlobal(Qt.point(volumeRoot.width / 2, volumeRoot.height));

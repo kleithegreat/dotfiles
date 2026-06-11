@@ -2,8 +2,10 @@
   "family": "solarized",
   "variant": "light",
   "appearance": "light",
+  "dark_scheme": "solarized-dark",
   "app_themes": {
     "bat": "Solarized (light)",
+    "ktexteditor": "Solarized Light",
     "snappy_switcher": "catppuccin-latte.ini",
     "vicinae": {
       "name": "solarized-light",
@@ -45,6 +47,6 @@
     "#eee8d5", "#dc322f", "#859900", "#b58900",
     "#268bd2", "#6c71c4", "#2aa198", "#073642",
     "#fdf6e3", "#cb4b16", "#93a1a1", "#839496",
-    "#657b83", "#586e75", "#6c71c4", "#002b36"
+    "#657b83", "#6c71c4", "#586e75", "#002b36"
   ]
 }

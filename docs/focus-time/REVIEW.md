@@ -1,19 +1,17 @@
 # Focus Time Review
 
-Reviewed on 2026-04-03.
+Reviewed on 2026-06-10.
 
 ## Verdict
 
-The subsystem is small and understandable, and the 2026-04-03 reliability audit
+The subsystem is small and understandable, and the earlier reliability audit
 items around liveness, aggregate alignment, reconnect re-seeding, startup empty
 class handling, empty-state messaging, and minute-table retention are now
 addressed.
 
 ## Findings
 
-| Severity | Finding | Why it matters | Evidence |
-| --- | --- | --- | --- |
-No open review findings in this domain as of 2026-04-18.
+No open review findings in this domain as of 2026-06-10.
 
 ## Open Questions
 

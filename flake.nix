@@ -4,7 +4,6 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     nixpkgs-claude.url = "github:NixOS/nixpkgs/master";
-    nixpkgs-stable.url = "github:NixOS/nixpkgs/nixos-25.05";
     home-manager = {
       url = "github:nix-community/home-manager/master";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -21,7 +20,7 @@
     vicinae.url = "github:vicinaehq/vicinae";
   };
 
-  outputs = { self, nixpkgs, nixpkgs-claude, nixpkgs-stable, home-manager, hyprland, hyprland-plugins, hyprqt6engine, vicinae, ... }:
+  outputs = { self, nixpkgs, nixpkgs-claude, home-manager, hyprland, hyprland-plugins, hyprqt6engine, vicinae, ... }:
   let
     system = "x86_64-linux";
     localPackagesOverlay = import ./overlays/local-packages.nix;
@@ -39,7 +38,6 @@
       inherit
         nixpkgs
         nixpkgs-claude
-        nixpkgs-stable
         home-manager
         hyprland
         hyprland-plugins

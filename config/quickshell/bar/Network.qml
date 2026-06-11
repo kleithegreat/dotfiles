@@ -16,19 +16,11 @@ RowLayout {
         return displayName;
     }
 
-    Components.Icon {
+    Components.StyledIcon {
         id: netIcon
+        animate: true
         source: !connected ? "../icons/wifi-off.svg" : (connectionType === "ethernet" ? "../icons/ethernet.svg" : "../icons/wifi.svg")
         color: netArea.containsMouse ? Theme.yellowBright : (connected ? Theme.fg : Theme.fg4)
-
-        // Smooth icon swap: crossfade
-        Behavior on source {
-            SequentialAnimation {
-                Components.Anim { target: netIcon; property: "opacity"; to: 0; duration: Theme.animHover; easing.type: Easing.InQuad }
-                PropertyAction { target: netIcon; property: "source" }
-                Components.Anim { target: netIcon; property: "opacity"; to: 1; duration: Theme.animNormal; easing.type: Easing.OutCubic }
-            }
-        }
         Behavior on color { Components.CAnim { duration: Theme.animHover } }
     }
 

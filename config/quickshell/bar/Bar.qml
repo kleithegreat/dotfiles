@@ -59,7 +59,7 @@ PanelWindow {
                 Network { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleQuickSettings(); } }
                 Bluetooth { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleQuickSettings(); } }
                 Volume { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleQuickSettings(); } }
-                Brightness { visible: bar.brightnessDevices.length > 0; showLabel: false; onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleQuickSettings(); } }
+                Brightness { visible: bar.brightnessDevices.length > 0; onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleQuickSettings(); } }
                 Battery { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleQuickSettings(); } }
             }
         }

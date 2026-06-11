@@ -48,6 +48,30 @@
 **Status:** Open
 **Resolution:** The Qt target regenerates the color config and swaps the dark/light SVGs, but exact background matching would require custom SVG assets.
 
+## The SDDM staging directory is pre-created by systemd-tmpfiles
+**Symptom:** `/tmp/desktopctl-where-is-my-sddm-theme` already exists, owned `0700 kevin:kevin`, before any theme apply has run.
+**Cause:** The root-run `desktopctl-sddm-theme-sync` service copies whatever the staging path points at into `/var/lib/desktopctl`. If an arbitrary local user could pre-create the directory in world-writable `/tmp`, they could symlink-feed the root-run copy. `system/services.nix` therefore pre-creates the directory at boot via a systemd-tmpfiles `d` rule owned by the theme-writing user, making the target's own `create_dir_all` a no-op.
+**Status:** Hardening in place
+**Resolution:** Keep the tmpfiles rule in `system/services.nix` in sync with the staging path in `desktopctl/src/theme/targets/where_is_my_sddm_theme.rs`; do not relax the `0700` mode.
+
+## bat themes use exact bundled names where they exist
+**Symptom:** Most schemes set `app_themes.bat` to a real bat theme name, but a few say `base16` and render with generic ANSI colors.
+**Cause:** bat only bundles certain themes. The catalog policy is: declare the exact bundled bat theme when one exists (for example nord uses `Nord`, the Catppuccin variants use their bundled names); `base16` remains only for schemes bat does not bundle (rose-pine, rose-pine-dawn, tokyo-night, tokyo-night-light, nord-light), verified against `bat --list-themes`.
+**Status:** Current behavior
+**Resolution:** When bumping bat, re-check `bat --list-themes` before adding or renaming `app_themes.bat` values.
+
+## KTextEditor theme names are declared only where KDE bundles them
+**Symptom:** Kate/KWrite follow the scheme on most themes but fall back to Breeze Dark/Light on rose-pine, rose-pine-dawn, and nord-light.
+**Cause:** `app_themes.ktexteditor` is declared on 11 of 14 schemes with exact bundled KTextEditor theme names (Catppuccin Frappé/Latte/Macchiato/Mocha, gruvbox Dark/Light, Nord, Solarized Dark/Light, Tokyo Night, Tokyo Night Light), verified against `ksyntaxhighlighter6 --list-themes`; the other three have no bundled match and intentionally fall back to Breeze.
+**Status:** Current behavior
+**Resolution:** Only declare `ktexteditor` names that the installed KDE frameworks actually bundle. (Related catalog fix: catppuccin-frappe's `snappy_switcher` mapping now points at the real `catppuccin-frappe.ini` shipped by snappy-switcher.)
+
+## Palette data follows upstream semantics, not monotonic muting
+**Symptom:** Consumers that assume `fg > fg2 > fg3 > fg4` brightness ordering or distinct `fg4`/`bg3` values misrender on some schemes.
+**Cause:** `fg4 == bg3` in nord, solarized-dark, and solarized-light is intentional upstream comment-tier semantics (fg4-on-bg3 text is invisible by design), and on nord/solarized-dark `fg2` is brighter than `fg` ("emphasized" semantics). Past data bugs in this area are fixed: the solarized bright-magenta/bright-cyan palette transposition, nord's unusably dark `fg3` (now `#7b88a1`, ~3.5:1 on bg, which zsh autosuggestions use), nord-light's `palette[8]`, and tokyo-night-light's ANSI palette alignment.
+**Status:** Current behavior
+**Resolution:** Targets must select tiers by contrast against `bg` (as `zsh.rs` does) instead of assuming monotonic muting or unique tier values.
+
 ## Chromium-family prefs are profile-local and not live-reloaded
 **Symptom:** Chromium or Helium font and browser chrome changes can appear to do nothing until the browser restarts, and inactive profiles keep their old settings.
 **Cause:** The `chromium` and `helium` targets patch each active profile's `Preferences` file based on `Local State` `profile.last_active_profiles`, falling back to `Default` when that list is unavailable. They set `webkit.webprefs.fonts` plus `browser.theme.color_scheme2` from `dark_hint`, remove Chrome color-picker keys such as `user_color2` / `color_variant2`, and remove any previously managed `default_font_size` and `default_fixed_font_size` prefs so page text stays on browser defaults. Chromium-family browsers keep one prefs file per profile, and a live browser session may rewrite an active profile's file on exit.

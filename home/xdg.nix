@@ -1,7 +1,18 @@
 { lib, dotfilesPath, host, snappySwitcherPkg, bambuStudioPkg }:
+{ config, ... }:
 
 let
   dotfilesSource = path: "${dotfilesPath}/${path}";
+  # Deploy nvim from the store minus lazy-lock.json, which is instead a
+  # writable out-of-store symlink into the repo checkout below so
+  # `:Lazy update` writes the committed lock directly (review + commit the
+  # diff afterward). Assumes the checkout lives at ~/repos/dotfiles, same as
+  # the DESKTOPCTL_REPO fallback in config/hypr/keybinds.conf.
+  nvimSource = lib.cleanSourceWith {
+    name = "nvim-config";
+    src = "${dotfilesPath}/config/nvim";
+    filter = path: _type: baseNameOf path != "lazy-lock.json";
+  };
   staticConfigSources = lib.mapAttrs (_: source: { inherit source; }) {
     "hypr/hyprland.conf" = dotfilesSource "config/hypr/hyprland.conf";
     "hypr/appearance.conf" = dotfilesSource "config/hypr/appearance.conf";
@@ -24,7 +35,7 @@ let
     recursive = true;
   }) {
     quickshell = dotfilesSource "config/quickshell";
-    nvim = dotfilesSource "config/nvim";
+    nvim = nvimSource;
   };
   mkHostConfigFile = key: fallback:
     let
@@ -85,6 +96,9 @@ let
 in
 {
   xdg.configFile = staticConfigSources // recursiveConfigSources // {
+    "nvim/lazy-lock.json".source =
+      config.lib.file.mkOutOfStoreSymlink "/home/kevin/repos/dotfiles/config/nvim/lazy-lock.json";
+
     "hypr/autostart-host.conf" = mkHostConfigFile "autostartHost" "";
     "hypr/input-devices.conf" = mkHostConfigFile "inputDevices" "";
     "hypr/monitors.conf" = mkHostConfigFile "monitors" "monitor = ,preferred,auto,1\n";

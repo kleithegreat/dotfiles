@@ -2,8 +2,10 @@
   "family": "catppuccin",
   "variant": "latte",
   "appearance": "light",
+  "dark_scheme": "catppuccin-mocha",
   "app_themes": {
     "bat": "Catppuccin Latte",
+    "ktexteditor": "Catppuccin Latte",
     "snappy_switcher": "catppuccin-latte.ini",
     "vicinae": {
       "name": "catppuccin-latte",

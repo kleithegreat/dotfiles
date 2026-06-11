@@ -14,7 +14,6 @@ describing an intended future migration.
 | `desktopctl brightness ...` | Short-lived helpers for multi-device brightness status, perceptual stepping, dimming, restoring, and Quickshell brightness OSD notification |
 | `desktopctl hypr ...` | Hyprland helper surface for `toggle-float`, laptop lid-switch output policy, managed shared input settings, and generated animation/keybind override files |
 | `desktopctl launch-quickshell` | Reads cursor env overrides from `~/.config/hypr/cursor.conf`, then launches Quickshell against the repo checkout |
-| `desktopctl portal ...` | Short-lived portal helper surface; today this is only `pick-directory` |
 | `desktopctl night-light ...` | CLI client for daemon-owned `hyprsunset` override state and fallback status reporting |
 | `desktopctl sun status` | Read-only solar-status inspection surface |
 
@@ -43,7 +42,9 @@ Additional path rules:
   with any managed overrides found in `~/.config/hypr/input-runtime.conf`.
 - `desktopctl theme list-wallpapers --json` caches scaled preview images under
   `$XDG_CACHE_HOME/desktopctl/wallpaper-previews/`, keyed by wallpaper path,
-  file metadata, and the fixed preview bounds used for Quickshell cards.
+  file metadata, and the fixed preview bounds used for Quickshell cards. Each
+  listing best-effort evicts cached preview files the current listing does not
+  reference; previews for other directories regenerate on the next browse.
 - `launch-quickshell`, brightness OSD notifications, and repo-relative concat
   target base paths all depend on that repo-root resolution when they need the
   repo's `config/` tree.
@@ -58,21 +59,19 @@ Additional path rules:
 | --- | --- | --- |
 | Live `hyprsunset` process lifecycle | `desktopctl daemon` night-light controller | Quickshell and Hyprland request mode changes through `desktopctl night-light ...`; they do not spawn `hyprsunset` directly |
 | Persisted theme state | `desktopctl theme` | Stored in the `theme_state` table inside `desktopctl.db` |
-| Scheduled `dark_hint` reconciliation plus edges at 23:00 and 06:00 local time | `desktopctl daemon` via `theme::set_dark_hint()` | The daemon computes solar status at startup and reconciles the persisted `dark_hint` to the current scheduled window once, then detects later entry into the late-night dark-on window and enables `dark_hint` through the theming module; when the local clock reaches 06:00, it disables `dark_hint` through the same path without tying any write to `hyprsunset` mode |
-| Manual and preset `dark_hint` changes | `desktopctl theme set dark_hint ...` and `desktopctl theme preset ...` | Direct `dark_hint` writes still persist and apply directly; presets that omit `dark_hint` preserve the current persisted hint even when they change `color_scheme` |
+| Scheduled `dark_hint` reconciliation plus edges at 23:00 and 06:00 local time | `desktopctl daemon` via `theme::set_dark_hint()` | See `docs/sun-schedule/SPEC.md` (Ownership Boundaries) for the canonical `dark_hint` schedule contract; manual `theme set dark_hint` / preset writes remain a separate supported path |
 | Persisted Hyprland mouse defaults | `desktopctl hypr input` | Stored in `~/.config/hypr/input-runtime.conf`, applied live through `hyprctl keyword`, and rolled back if the live apply fails |
 | Persisted Hyprland animation overrides | `desktopctl hypr animations` | Stored in `~/.config/hypr/animations-override.conf` and reloaded through `hyprctl reload` |
 | Persisted Hyprland keybind overrides | `desktopctl hypr keybinds` | Stored in `~/.config/hypr/keybinds-override.conf` and reloaded through `hyprctl reload` |
 | Focus-time SQLite writes and JSON summaries | `desktopctl daemon` focus tracker | Quickshell is read-only for this data |
 | Generated theme outputs and runtime side effects | `desktopctl theme` targets | Includes files under `~/.config`, dconf writes, cursor updates, wallpaper apply, and editor/shell state files |
-| Quickshell shell IPC | Quickshell | Shell IPC is only a requester; it calls `desktopctl` and does not mutate theme state itself |
+| Quickshell requests | Quickshell | Quickshell services and the settings host are only requesters; they call `desktopctl` and do not mutate theme state themselves |
 
 Important current behavior:
 
 - `hyprsunset` has a single live arbiter in the daemon.
-- `dark_hint` does not: the daemon issues one startup reconciliation plus
-  scheduled 23:00 enable and 06:00 disable writes, but manual theme surfaces
-  can also write it directly.
+- `dark_hint` does not; see `docs/sun-schedule/SPEC.md` for the split-ownership
+  contract between the daemon's scheduled writes and direct theme writes.
 - Persisted `theme_state` rows and legacy `themes/state.json` imports that are
   missing newly added required keys are backfilled from compiled defaults and
   then rewritten through the SQLite-backed theme-state path.
@@ -89,7 +88,9 @@ Important current behavior:
   - focus tracker
   - solar scheduler
   - Unix-socket server
-- Shuts down on `SIGTERM` or `SIGINT`.
+- Shuts down on `SIGTERM` or `SIGINT`, exiting with status 0 on clean
+  signal-driven shutdown; it exits nonzero only when a task fails or exits
+  unexpectedly while the daemon is not shutting down.
 - Recomputes solar status early on `SIGUSR1`.
 
 ### `desktopctl theme`
@@ -120,9 +121,9 @@ Inspection:
 | Command | Current behavior |
 | --- | --- |
 | `theme status [--json]` | Prints the current canonical theme state |
-| `theme list-schemes [--json]` | Lists color-scheme files; `--json` returns filename-ordered scheme preview objects with identity, appearance, named colors, and terminal palette entries for UI consumers |
+| `theme list-schemes [--json]` | Lists color-scheme files in filename order for both human and `--json` output; `--json` returns scheme preview objects with identity, appearance, named colors, and terminal palette entries for UI consumers |
 | `theme list-wallpapers [--json] [--directory <path>]` | Lists supported wallpaper files from the current wallpaper directory or an explicit directory; `--json` returns filename-ordered entries with absolute source paths plus cached preview paths for UI consumers |
-| `theme list-presets [--json]` | Lists preset files |
+| `theme list-presets [--json]` | Lists preset files in filename order for both human and `--json` output |
 
 Theming invariants:
 
@@ -163,7 +164,7 @@ Brightness rules:
 
 - Device auto-detection for step/dim/set without `--device` prefers the first backlight name in sorted `/sys/class/backlight` order, then falls back to DDC/CI VCP code `0x10` through `ddcutil`.
 - JSON status lists all readable backlights plus DDC/CI displays discovered through `ddcutil detect --brief`; DDC entries include connector metadata when `ddcutil` reports a DRM connector.
-- `--device <name>` still selects a backlight device; `--device ddc` selects the default DDC display, and `--device ddc:<display>` passes an explicit `ddcutil --display` value.
+- `--device <name>` still selects a backlight device; `--device ddc` selects the default DDC display, and `--device ddc:<display>` passes an explicit `ddcutil --display` value. `ddc-<display>` is accepted as a compatibility alias of `ddc:<display>`.
 - If neither a backlight nor DDC/CI brightness is reachable, mutating commands and non-JSON `status` fail; JSON `status` reports `available: false` with an empty `devices` array.
 - `set`, `up`, and `down` emit the Quickshell OSD IPC call today.
 - The old `/tmp/quickshell-brightness` file contract no longer exists.
@@ -173,12 +174,12 @@ Brightness rules:
 | Command | Current behavior |
 | --- | --- |
 | `hypr toggle-float` | If the active window is tiled, toggles floating, resizes it to `75% 75%`, and centers it; if already floating, toggles floating off |
-| `hypr lid-switch <open/closed/sync> [--internal <monitor>] [--open-spec <spec>]` | Applies the laptop lid monitor policy. `closed` disables the internal monitor only when another output is active, `open` restores the internal monitor with the provided Hyprland monitor spec, and `sync` reads `/proc/acpi/button/lid/*/state` and applies only the closed-lid action when needed. |
+| `hypr lid-switch <open/closed/sync> [--internal <monitor>] [--open-spec <spec>]` | Applies the laptop lid monitor policy. `closed` disables the internal monitor only when another output is active (`close` is accepted as a compatibility alias), `open` restores the internal monitor with the provided Hyprland monitor spec, and `sync` reads `/proc/acpi/button/lid/*/state` and applies only the closed-lid action when needed. |
 | `hypr input status [--json]` | Prints the effective managed shared input state by layering `~/.config/hypr/input.conf` defaults with `~/.config/hypr/input-runtime.conf` overrides |
 | `hypr input set <key> <value>` | Validates one managed shared input key (`sensitivity`, `accel_profile`, or `scroll_factor`), atomically rewrites `input-runtime.conf`, applies the same value live through `hyprctl keyword`, and restores the previous file if that live apply fails |
 | `hypr animations save <json>` | Validates one JSON payload, rewrites `animations-override.conf`, and reloads Hyprland so the generated overrides apply on top of `appearance.conf` |
 | `hypr animations clear` | Clears all managed animation overrides, rewrites `animations-override.conf` to an empty managed file, and reloads Hyprland |
-| `hypr keybinds save <json>` | Validates one JSON payload, rewrites `keybinds-override.conf`, and reloads Hyprland so the generated remaps apply on top of `keybinds.conf` |
+| `hypr keybinds save <json>` | Validates one JSON payload (entries whose flags contain `d` must carry a non-empty description, since `bindd` renders the description as its own field), rewrites `keybinds-override.conf`, and reloads Hyprland so the generated remaps apply on top of `keybinds.conf` |
 | `hypr keybinds clear` | Clears all managed keybind overrides, rewrites `keybinds-override.conf` to an empty managed file, and reloads Hyprland |
 
 ### `desktopctl launch-quickshell`
@@ -186,13 +187,7 @@ Brightness rules:
 | Command | Current behavior |
 | --- | --- |
 | `launch-quickshell` | Reads cursor env overrides from `~/.config/hypr/cursor.conf`, resolves the repo-root Quickshell path, and `exec()`s `quickshell -p <repo>/config/quickshell` |
-| `launch-quickshell --print-env` | Prints `XCURSOR_THEME|HYPRCURSOR_THEME|XCURSOR_SIZE` and exits |
-
-### `desktopctl portal`
-
-| Command | Current behavior |
-| --- | --- |
-| `portal pick-directory` | Opens the XDG file chooser through `busctl`, captures the returned request handle, watches `dbus-monitor` for the matching portal `Response` signal only, and prints the selected directory path when one is returned |
+| `launch-quickshell --print-env` | Prints `XCURSOR_THEME` \| `HYPRCURSOR_THEME` \| `XCURSOR_SIZE` and exits. Manual debugging aid only — it has no automated consumers |
 
 ### `desktopctl night-light`
 
@@ -208,12 +203,8 @@ Night-light rules:
 
 - Mode is in-memory only and resets to `auto` when the daemon restarts.
 - `auto` follows solar status for `hyprsunset`.
-- `on` and `off` only change `hyprsunset`.
-- The initial solar reconcile sets `dark_hint` to the current scheduled value
-  once when the daemon starts. After that, the separate 23:00 solar edge enables
-  `dark_hint` once when the daemon enters the late-night dark-on window, and the
-  separate 06:00 local-time edge disables it once, regardless of the current
-  night-light mode.
+- `on` and `off` only change `hyprsunset`; the scheduled `dark_hint` edges are
+  a separate contract — see `docs/sun-schedule/SPEC.md` (Ownership Boundaries).
 
 ### `desktopctl sun`
 
@@ -252,7 +243,6 @@ Response shape:
 | Hyprland keybinds | Use `desktopctl brightness`, `desktopctl hypr toggle-float`, laptop-host `desktopctl hypr lid-switch ...` switch binds, and `desktopctl night-light ...` |
 | Hypridle | Uses `desktopctl brightness dim` and `desktopctl brightness restore` |
 | Quickshell settings | Reads theme state, scheme lists, and presets through `desktopctl theme ... --json`, reads shared mouse defaults through `desktopctl hypr input status --json`, and sends writes back through `desktopctl theme ...` plus `desktopctl hypr input set ...` |
-| Quickshell shell IPC | Routes `theme.apply` to `desktopctl theme ...` with argv-safe tokenization, rejects concurrent theme commands, and reports failures through toast feedback |
 
 ## Packaging
 

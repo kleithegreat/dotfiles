@@ -1,6 +1,7 @@
 # Review Audit
 
-Audited on 2026-04-19 against the current repository state.
+Audited on 2026-04-19; re-audited on 2026-06-10 against the post-fix-pass
+repository state.
 
 This audit now tracks only still-relevant cross-domain findings. Remove resolved
 items instead of keeping historical status rows here.
@@ -22,5 +23,5 @@ Status meanings:
 | NVIDIA | Medium | The desktop no-overlay resume stack is still untested on real hardware. | open | `docs/nvidia/ARCHITECTURE.md`, `docs/nvidia/REVIEW.md`, and `docs/nvidia/QUIRKS.md` all document that the old PR #996 overlay has been removed, but `hosts/desktop/system.nix` still keeps `kernelSuspendNotifier = false`, `NVreg_TemporaryFilePath=/var/tmp`, and the systemd sleep-freeze workaround until a real suspend/resume cycle validates the new stack. |
 | NVIDIA | Low | The shared unfree allowlist exposes NVIDIA and CUDA closure details without documenting ownership. | open | `allowedUnfreePackageNames` in `system/configuration.nix` still has no per-entry reason or host annotation for the shared NVIDIA/CUDA-related allowlist entries. |
 | Theming | Low | `neovim` still consumes raw `family` and `variant` strings by design. | open | Centralized app-theme metadata now exists in `desktopctl/src/theme/schema.rs`, but `desktopctl/src/theme/targets/neovim.rs` still passes raw values through. |
-| Theming / Sun Schedule | Medium | `dark_hint` still has multiple live policy initiators and no daemon-owned override model. | open | `update_solar_status()` / `reconcile_locked()` in `desktopctl/src/daemon/night_light.rs` now issue the scheduled 23:00 enable and 06:00 disable, but `desktopctl/src/theme/mod.rs` still lets theme surfaces write `dark_hint` directly through `set_dark_hint()`, `cmd_set()`, and `cmd_preset()`. |
+| Theming / Sun Schedule | Medium | `dark_hint` still has multiple live policy initiators and no daemon-owned override model. | partially addressed | The 2026-06 fix pass made concurrent writers commute mechanically: `theme set` / `dark_hint` / `preset` now persist only mutated keys via per-key upserts (`resolve::save_state_keys`), and the Quickshell settings host cross-gates its theme and Hyprland write queues so one `desktopctl theme` process runs at a time. The policy split itself remains: `update_solar_status()` / `reconcile_locked()` in `desktopctl/src/daemon/night_light.rs` issue the scheduled 23:00 enable and 06:00 disable while `desktopctl/src/theme/mod.rs` still lets theme surfaces write `dark_hint` directly through `set_dark_hint()`, `cmd_set()`, and `cmd_preset()`. |
 | Nix | Low | The recursive Quickshell tree plus writable generated sibling file remains a deliberate special case. | partially addressed | The implementation is still the same special case in `home/default.nix` and `desktopctl/src/theme/targets/quickshell.rs`, but the repo no longer carries a missing committed snapshot; docs now describe the `Theme.qml` fallback path plus the runtime-generated `~/.config/quickshell/GeneratedTheme.json` file. |

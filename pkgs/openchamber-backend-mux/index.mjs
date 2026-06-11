@@ -181,11 +181,6 @@ function buildSessionQuery(requestUrl, { includeLimit = false } = {}) {
   return query ? `?${query}` : '';
 }
 
-function requestPathFor(req) {
-  const rawUrl = typeof req.url === 'string' ? req.url : '/';
-  return new URL(rawUrl, 'http://127.0.0.1').pathname;
-}
-
 async function allocatePort(host) {
   return new Promise((resolve, reject) => {
     const server = net.createServer();
@@ -215,6 +210,17 @@ async function fetchJson(url, options = {}) {
   });
   const data = await response.json().catch(() => null);
   return { response, data };
+}
+
+// Like fetchJson, but a dead backend degrades to empty data instead of
+// rejecting the whole merged request.
+async function fetchJsonSafe(url, options = {}) {
+  try {
+    return await fetchJson(url, options);
+  } catch (error) {
+    console.warn(`[openchamber-backend-mux] backend request failed (${url}):`, error?.message || error);
+    return { response: null, data: null };
+  }
 }
 
 async function waitForPort(host, port, timeoutMs) {
@@ -322,6 +328,7 @@ class BackendMux {
     this.bindingStore = new BindingStore(options.dataDir);
     this.backends = new Map();
     this.server = null;
+    this.closing = false;
   }
 
   async start() {
@@ -376,12 +383,16 @@ class BackendMux {
   }
 
   async close() {
-    if (this.server) {
-      await new Promise((resolve) => this.server.close(() => resolve()));
-      this.server = null;
-    }
+    this.closing = true;
+    // Kill the children first: server.close() waits for in-flight requests,
+    // and a held SSE connection would otherwise block shutdown forever.
     for (const backend of this.backends.values()) {
       backend.child.kill('SIGTERM');
+    }
+    if (this.server) {
+      this.server.closeAllConnections?.();
+      await new Promise((resolve) => this.server.close(() => resolve()));
+      this.server = null;
     }
   }
 
@@ -417,6 +428,21 @@ class BackendMux {
       throw new Error(`Timed out waiting for ${spec.kind} backend. Output: ${output}`);
     }
 
+    // After startup, a dead child means the mux can no longer honestly report
+    // healthy; exit so the OpenChamber lifecycle restarts the whole pair.
+    child.on('exit', (code, signal) => {
+      if (this.closing) {
+        return;
+      }
+      console.error(`[openchamber-backend-mux] ${spec.kind} backend exited (code=${code} signal=${signal}); shutting down mux for lifecycle restart`);
+      for (const other of this.backends.values()) {
+        if (other.child !== child) {
+          other.child.kill('SIGTERM');
+        }
+      }
+      process.exit(1);
+    });
+
     return { ...spec, child, origin };
   }
 
@@ -430,12 +456,17 @@ class BackendMux {
 
   async listSessionsFor(kind, query = '') {
     const backend = this.getBackend(kind);
-    const { data } = await fetchJson(new URL(`/session${query}`, backend.origin).toString());
+    const { data } = await fetchJsonSafe(new URL(`/session${query}`, backend.origin).toString());
     const sessions = Array.isArray(data) ? data : [];
+    let changed = false;
     for (const session of sessions) {
-      if (typeof session?.id === 'string') {
+      if (typeof session?.id === 'string' && this.bindingStore.sessionBindings.get(session.id) !== kind) {
         this.bindingStore.sessionBindings.set(session.id, kind);
+        changed = true;
       }
+    }
+    if (changed) {
+      this.bindingStore.save();
     }
     return sessions;
   }
@@ -487,8 +518,8 @@ class BackendMux {
 
   async mergeProviders() {
     const [openCodeResult, claudeResult] = await Promise.all([
-      fetchJson(`${this.getBackend(BACKEND_OPENCODE).origin}/provider`),
-      fetchJson(`${this.getBackend(BACKEND_CLAUDE).origin}/provider`),
+      fetchJsonSafe(`${this.getBackend(BACKEND_OPENCODE).origin}/provider`),
+      fetchJsonSafe(`${this.getBackend(BACKEND_CLAUDE).origin}/provider`),
     ]);
     const all = mergeByKey(
       [
@@ -515,8 +546,8 @@ class BackendMux {
 
   async mergeConfigProviders() {
     const [openCodeResult, claudeResult] = await Promise.all([
-      fetchJson(`${this.getBackend(BACKEND_OPENCODE).origin}/config/providers`),
-      fetchJson(`${this.getBackend(BACKEND_CLAUDE).origin}/config/providers`),
+      fetchJsonSafe(`${this.getBackend(BACKEND_OPENCODE).origin}/config/providers`),
+      fetchJsonSafe(`${this.getBackend(BACKEND_CLAUDE).origin}/config/providers`),
     ]);
     return {
       providers: mergeByKey(
@@ -562,8 +593,8 @@ class BackendMux {
 
   async mergeModels() {
     const [openCodeResult, claudeResult] = await Promise.all([
-      fetchJson(`${this.getBackend(BACKEND_OPENCODE).origin}/model`),
-      fetchJson(`${this.getBackend(BACKEND_CLAUDE).origin}/model`),
+      fetchJsonSafe(`${this.getBackend(BACKEND_OPENCODE).origin}/model`),
+      fetchJsonSafe(`${this.getBackend(BACKEND_CLAUDE).origin}/model`),
     ]);
     return mergeByKey(
       [
@@ -576,8 +607,8 @@ class BackendMux {
 
   async mergeAgents() {
     const [openCodeResult, claudeResult] = await Promise.all([
-      fetchJson(`${this.getBackend(BACKEND_OPENCODE).origin}/agent`),
-      fetchJson(`${this.getBackend(BACKEND_CLAUDE).origin}/agent`),
+      fetchJsonSafe(`${this.getBackend(BACKEND_OPENCODE).origin}/agent`),
+      fetchJsonSafe(`${this.getBackend(BACKEND_CLAUDE).origin}/agent`),
     ]);
     return mergeByKey(
       [
@@ -592,7 +623,7 @@ class BackendMux {
     const merged = {};
     for (const kind of [BACKEND_OPENCODE, BACKEND_CLAUDE]) {
       const backend = this.getBackend(kind);
-      const { data } = await fetchJson(new URL(`${pathname}${requestUrl.search}`, backend.origin).toString());
+      const { data } = await fetchJsonSafe(new URL(`${pathname}${requestUrl.search}`, backend.origin).toString());
       if (data && typeof data === 'object') {
         Object.assign(merged, data);
       }
@@ -602,8 +633,8 @@ class BackendMux {
 
   async mergeSimpleLists(pathname) {
     const [openCodeResult, claudeResult] = await Promise.all([
-      fetchJson(`${this.getBackend(BACKEND_OPENCODE).origin}${pathname}`),
-      fetchJson(`${this.getBackend(BACKEND_CLAUDE).origin}${pathname}`),
+      fetchJsonSafe(`${this.getBackend(BACKEND_OPENCODE).origin}${pathname}`),
+      fetchJsonSafe(`${this.getBackend(BACKEND_CLAUDE).origin}${pathname}`),
     ]);
     return mergeByKey(
       [
@@ -719,18 +750,20 @@ class BackendMux {
       }
     };
 
-    try {
-      await Promise.all([
-        forwardStream(BACKEND_OPENCODE),
-        forwardStream(BACKEND_CLAUDE),
-      ]);
-    } catch (error) {
-      if (!abortController.signal.aborted) {
-        console.warn('[openchamber-backend-mux] SSE merge failed:', error?.message || error);
+    // allSettled keeps the merged stream alive while at least one backend
+    // stream is healthy; res only ends once both settle or the client aborts.
+    const results = await Promise.allSettled([
+      forwardStream(BACKEND_OPENCODE),
+      forwardStream(BACKEND_CLAUDE),
+    ]);
+    if (!abortController.signal.aborted) {
+      for (const result of results) {
+        if (result.status === 'rejected') {
+          console.warn('[openchamber-backend-mux] SSE merge failed:', result.reason?.message || result.reason);
+        }
       }
-    } finally {
-      res.end();
     }
+    res.end();
   }
 
   async handleSessionCreate(req, res, requestUrl) {
@@ -763,7 +796,10 @@ class BackendMux {
 
   async handleSessionList(res, requestUrl) {
     const sessions = await this.listMergedSessions(buildSessionQuery(requestUrl, { includeLimit: true }));
-    sendJson(res, 200, sessions);
+    // Each backend already applied the limit; re-apply it to the merged list
+    // so the response never exceeds the requested count.
+    const limit = parsePositiveInteger(requestUrl.searchParams.get('limit'));
+    sendJson(res, 200, limit ? sessions.slice(0, limit) : sessions);
   }
 
   async handleExperimentalSessionList(res, requestUrl) {

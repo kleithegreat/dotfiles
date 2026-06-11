@@ -24,6 +24,12 @@
 **Status:** By design
 **Resolution:** Treat `desktopctl daemon` as the session owner for solar automation and restart it if solar events stop firing.
 
+## Solar reconcile failures are logged and retried, not fatal
+**Symptom:** A `solar reconcile failed (will retry at next event or repair tick)` line appears in the daemon log, but the daemon keeps running and night-light/dark-hint state self-heals later.
+**Cause:** Reconcile work shells out to `hyprctl` / `pkill` and applies dark-hint targets; any of those can fail transiently (for example during compositor restart). `desktopctl/src/daemon/solar.rs` treats reconcile errors as non-fatal and retries at the next solar event, `SIGUSR1`, or the 2-hour repair tick; a pending `dark_hint` target survives until a successful apply. Only `update_solar_status` failures remain fatal.
+**Status:** Current behavior
+**Resolution:** One-off reconcile failures need no action. If the message repeats across repair ticks, debug the underlying tool failure under the daemon's session environment.
+
 ## The scheduler still depends on helper tools being on `PATH`
 **Symptom:** Solar state recomputes, but location lookup or night-light application silently falls back or does nothing.
 **Cause:** The daemon invokes `timeout`, `where-am-i`, `hyprctl`, `hyprsunset`, `ps`, and `pkill` by name.

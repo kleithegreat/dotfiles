@@ -53,10 +53,11 @@ async fn run_async() -> crate::Result<()> {
     let mut sigterm = signal(SignalKind::terminate())?;
     let mut sigint = signal(SignalKind::interrupt())?;
     let mut task_failure: Option<Box<dyn std::error::Error + Send + Sync>> = None;
+    let mut shutdown_requested = false;
 
     tokio::select! {
-        _ = sigterm.recv() => {}
-        _ = sigint.recv() => {}
+        _ = sigterm.recv() => { shutdown_requested = true; }
+        _ = sigint.recv() => { shutdown_requested = true; }
         task = tasks.join_next() => {
             task_failure = Some(handle_task_exit(task)?);
         }
@@ -68,7 +69,7 @@ async fn run_async() -> crate::Result<()> {
     while let Some(task) = tasks.join_next().await {
         match task {
             Ok((name, Ok(()))) => {
-                if task_failure.is_none() {
+                if !shutdown_requested && task_failure.is_none() {
                     task_failure =
                         Some(io::Error::other(format!("{name} exited unexpectedly")).into());
                 }

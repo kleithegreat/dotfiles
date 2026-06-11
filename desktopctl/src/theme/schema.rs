@@ -196,6 +196,9 @@ pub struct ColorScheme {
     pub family: String,
     pub variant: String,
     pub appearance: ColorSchemeAppearance,
+    /// Same-family scheme to pair with when a dark appearance is requested
+    /// (set on light schemes, e.g. catppuccin-latte -> catppuccin-mocha).
+    pub dark_scheme: Option<String>,
     pub app_themes: ColorSchemeAppThemes,
     pub bg: String,
     pub bg_dim: String,
@@ -257,6 +260,8 @@ struct ColorSchemeWire {
     family: String,
     variant: String,
     appearance: ColorSchemeAppearance,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    dark_scheme: Option<String>,
     #[serde(default, skip_serializing_if = "ColorSchemeAppThemes::is_empty")]
     app_themes: ColorSchemeAppThemes,
     colors: NamedColors,
@@ -350,6 +355,7 @@ impl Serialize for ColorScheme {
             family: self.family.clone(),
             variant: self.variant.clone(),
             appearance: self.appearance,
+            dark_scheme: self.dark_scheme.clone(),
             app_themes: self.app_themes.clone(),
             colors: NamedColors {
                 bg: self.bg.clone(),
@@ -393,6 +399,7 @@ impl<'de> Deserialize<'de> for ColorScheme {
             family: wire.family,
             variant: wire.variant,
             appearance: wire.appearance,
+            dark_scheme: wire.dark_scheme,
             app_themes: wire.app_themes,
             bg: wire.colors.bg,
             bg_dim: wire.colors.bg_dim,
@@ -530,7 +537,6 @@ impl ThemeState {
             "quickshell" => self.quickshell_font_size_offset,
             "gtk" => self.gtk_font_size_offset,
             "qt" => self.qt_font_size_offset,
-            "chromium" => self.chromium_font_size_offset,
             _ => {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
@@ -571,116 +577,13 @@ impl ThemeState {
     }
 
     pub fn to_ordered_json_map(&self) -> Map<String, Value> {
-        let mut map = Map::new();
-        map.insert(
-            "color_scheme".to_owned(),
-            Value::String(self.color_scheme.clone()),
-        );
-        map.insert(
-            "wallpaper".to_owned(),
-            Value::String(self.wallpaper.clone()),
-        );
-        map.insert(
-            "filter_wallpaper".to_owned(),
-            Value::Bool(self.filter_wallpaper),
-        );
-        map.insert(
-            "system_font".to_owned(),
-            Value::String(self.system_font.clone()),
-        );
-        map.insert(
-            "mono_font".to_owned(),
-            Value::String(self.mono_font.clone()),
-        );
-        map.insert(
-            "icon_theme".to_owned(),
-            Value::String(self.icon_theme.clone()),
-        );
-        map.insert(
-            "cursor_theme".to_owned(),
-            Value::String(self.cursor_theme.clone()),
-        );
-        map.insert("cursor_size".to_owned(), Value::from(self.cursor_size));
-        map.insert("font_size".to_owned(), Value::from(self.font_size));
-        map.insert(
-            "quickshell_font_size_offset".to_owned(),
-            Value::from(self.quickshell_font_size_offset),
-        );
-        map.insert(
-            "gtk_font_size_offset".to_owned(),
-            Value::from(self.gtk_font_size_offset),
-        );
-        map.insert(
-            "qt_font_size_offset".to_owned(),
-            Value::from(self.qt_font_size_offset),
-        );
-        map.insert(
-            "chromium_font_size_offset".to_owned(),
-            Value::from(self.chromium_font_size_offset),
-        );
-        map.insert(
-            "mono_font_size".to_owned(),
-            Value::from(self.mono_font_size),
-        );
-        map.insert(
-            "alacritty_mono_font_size_offset".to_owned(),
-            Value::from(self.alacritty_mono_font_size_offset),
-        );
-        map.insert(
-            "ghostty_mono_font_size_offset".to_owned(),
-            Value::from(self.ghostty_mono_font_size_offset),
-        );
-        map.insert(
-            "gtk_mono_font_size_offset".to_owned(),
-            Value::from(self.gtk_mono_font_size_offset),
-        );
-        map.insert(
-            "neovide_mono_font_size_offset".to_owned(),
-            Value::from(self.neovide_mono_font_size_offset),
-        );
-        map.insert(
-            "qt_mono_font_size_offset".to_owned(),
-            Value::from(self.qt_mono_font_size_offset),
-        );
-        map.insert(
-            "vscode_mono_font_size_offset".to_owned(),
-            Value::from(self.vscode_mono_font_size_offset),
-        );
-        map.insert(
-            "zed_mono_font_size_offset".to_owned(),
-            Value::from(self.zed_mono_font_size_offset),
-        );
-        map.insert("dark_hint".to_owned(), Value::Bool(self.dark_hint));
-        map.insert("hypr_gaps_in".to_owned(), Value::from(self.hypr_gaps_in));
-        map.insert("hypr_gaps_out".to_owned(), Value::from(self.hypr_gaps_out));
-        map.insert(
-            "hypr_border_size".to_owned(),
-            Value::from(self.hypr_border_size),
-        );
-        map.insert("hypr_rounding".to_owned(), Value::from(self.hypr_rounding));
-        map.insert(
-            "hypr_blur_enabled".to_owned(),
-            Value::Bool(self.hypr_blur_enabled),
-        );
-        map.insert(
-            "hypr_blur_size".to_owned(),
-            Value::from(self.hypr_blur_size),
-        );
-        map.insert(
-            "hypr_blur_passes".to_owned(),
-            Value::from(self.hypr_blur_passes),
-        );
-        map.insert(
-            "hypr_animations_enabled".to_owned(),
-            Value::Bool(self.hypr_animations_enabled),
-        );
-
-        for (key, value) in &self.extra {
-            if !map.contains_key(key) {
-                map.insert(key.clone(), value.clone());
-            }
+        // serde_json's preserve_order feature keeps struct declaration order,
+        // which matches THEME_STATE_FIELD_ORDER; flattened `extra` keys land
+        // after the typed fields. The exact output is pinned by the
+        // state_serialization_matches_legacy_output test.
+        match serde_json::to_value(self) {
+            Ok(Value::Object(map)) => map,
+            _ => unreachable!("ThemeState serializes to a JSON object"),
         }
-
-        map
     }
 }

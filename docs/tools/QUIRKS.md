@@ -40,6 +40,27 @@ Home Manager with host-specific content:
 These are not missing — they are intentionally generated at activation or
 theme-apply time. Do not create placeholder files for them in `config/hypr/`.
 
+## Spellfile is a read-only nix-store symlink, so `zg`/`zw` cannot write it
+
+**Symptom:** In the spell-enabled markdown/tex/plaintex ftplugins, adding a
+word with `zg` or `zw` fails with an E510-class "Cannot open spell file for
+writing" error.
+
+**Cause:** `config/nvim/lua/config/options.lua` points `spellfile` at
+`stdpath("config")/spell/en.utf-8.add`, and the deployed `~/.config/nvim` tree
+is a recursive nix-store symlink, so the `.add` file is read-only. The
+committed `en.utf-8.add.spl` also goes stale whenever the `.add` file is
+hand-edited, because nvim cannot recompile it in place.
+
+**Status:** Known limitation (TOOLSCONFIGS-2), doc-only handling per owner
+decision.
+
+**Impact / workaround:** To add words, edit
+`config/nvim/spell/en.utf-8.add` in the repo, regenerate the `.spl` with
+`nvim -u NONE -c 'mkspell! config/nvim/spell/en.utf-8.add' -c q`, commit both
+files, and rebuild. The proposed future fix is seeding a writable copy under
+`stdpath("data")/spell` and dropping the committed `.spl`.
+
 ## VS Code Non-Standard Output Path
 
 The VS Code theme target writes to `~/.config/Code/User/settings.json`, not an
@@ -109,3 +130,17 @@ Home Manager deploys `snappy-switcher/themes` from the snappy-switcher
 package, not from the repo. The repo's `config/snappy-switcher/base.ini`
 provides only the non-theming settings (layout, icon preferences) and is
 consumed by the theme pipeline, not symlinked by Home Manager.
+
+## Neovim lazy-lock.json Is a Writable Out-of-Store Symlink
+
+`home/xdg.nix` deploys `config/nvim` from the store but filters out
+`lazy-lock.json`, deploying it instead via `mkOutOfStoreSymlink` pointing at
+`/home/kevin/repos/dotfiles/config/nvim/lazy-lock.json` (the checkout path is
+assumed, matching the `DESKTOPCTL_REPO` fallback in
+`config/hypr/keybinds.conf`).
+
+This is the owner-chosen update workflow: `:Lazy update` writes the committed
+lock in the repo working tree directly — review the `lazy-lock.json` diff and
+commit it afterward. On a host where the repo is not checked out at that path,
+the symlink dangles and lazy.nvim treats it as a missing lock (it will
+recreate it on the next update); clone the repo to `~/repos/dotfiles` first.

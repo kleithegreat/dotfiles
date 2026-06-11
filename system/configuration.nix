@@ -33,8 +33,8 @@ let
 
   patchedHyprland = nativeOptimizations.optimizeCCPackage (
     appendPatches [
-      ../patches/hyprland/hyprland-floating-top-decoration-rounding-0.54.patch
-      ../patches/hyprland/hyprland-gcc15-designated-initializer-fix-0.54.patch
+      ../patches/hyprland/hyprland-floating-top-decoration-rounding-0.55.patch
+      ../patches/hyprland/hyprland-gcc15-designated-initializer-fix-0.55.patch
     ] hyprland.packages.${system}.hyprland
   );
 
@@ -61,7 +61,7 @@ let
     upstreamHyprPluginPkgs
     // {
       hyprbars = mkPatchedHyprPlugin upstreamHyprPluginPkgs.hyprbars [
-        ../patches/hyprland-plugins/hyprbars-hyprland-0.54.patch
+        ../patches/hyprland-plugins/hyprbars-hyprland-0.55.patch
       ];
 
       hyprexpo = nativeOptimizations.optimizeCCPackage localHyprexpo;

@@ -179,10 +179,8 @@ QtObject {
     }
 
     function monitorSpec(name, width, height, rate, x, y, scale, transform, extras) {
-        if (x === "auto") {
-            let autoScale = scale !== undefined ? scale : y;
-            return name + "," + width + "x" + height + "@" + rate.toFixed(2) + ",auto," + autoScale;
-        }
+        if (x === "auto")
+            return name + "," + width + "x" + height + "@" + rate.toFixed(2) + ",auto," + scale;
 
         let cmd = name + "," + width + "x" + height + "@" + rate.toFixed(2)
                 + "," + x + "x" + y + "," + scale;
@@ -269,11 +267,22 @@ QtObject {
 
     Component.onCompleted: refresh()
 
+    // Remaining 2s fast polls after a night-light command; 0 = baseline cadence.
+    property int _nightLightBurstTicks: 0
+
     property Timer nightLightPollTimer: Timer {
-        interval: 2000
+        // 5s baseline keeps external changes (e.g. the $mainMod+F8/F9
+        // hotkeys, which call desktopctl directly) reasonably fresh; the
+        // short 2s burst after a command preserves prompt confirmation and
+        // hyprsunset-restart false-negative self-healing.
+        interval: display._nightLightBurstTicks > 0 ? 2000 : 5000
         running: true
         repeat: true
-        onTriggered: display.refreshNightLight()
+        onTriggered: {
+            if (display._nightLightBurstTicks > 0)
+                display._nightLightBurstTicks--;
+            display.refreshNightLight();
+        }
     }
 
     property Process nightLightStatusProc: Process {
@@ -311,8 +320,9 @@ QtObject {
             } else {
                 display.clearPendingNightLightAction();
                 // Hyprsunset restarts can report a brief false negative, so let
-                // the next poll confirm the settled state instead of forcing an
-                // immediate status read here.
+                // a short burst of 2s polls confirm the settled state instead
+                // of forcing an immediate status read here.
+                display._nightLightBurstTicks = 3;
                 display.nightLightPollTimer.restart();
             }
         }

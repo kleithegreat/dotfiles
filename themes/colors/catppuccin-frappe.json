@@ -4,7 +4,8 @@
   "appearance": "dark",
   "app_themes": {
     "bat": "Catppuccin Frappe",
-    "snappy_switcher": "catppuccin-mocha.ini",
+    "ktexteditor": "Catppuccin Frappé",
+    "snappy_switcher": "catppuccin-frappe.ini",
     "vicinae": {
       "name": "catppuccin-frappe",
       "light_name": "catppuccin-latte"

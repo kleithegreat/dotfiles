@@ -105,7 +105,7 @@ Item {
                 Root.Theme.green,
                 Root.Theme.blue,
                 Root.Theme.purple,
-                Root.Theme.cyan
+                Root.Theme.aqua
             ];
 
         return colors.slice(0, 8);

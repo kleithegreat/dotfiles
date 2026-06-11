@@ -19,7 +19,6 @@ QtObject {
     property real osdValue: 0
     property string osdIcon: ""
     property string osdLabel: ""
-    property alias osdTimer: osdHideTimer
 
     function clampVolume(value) {
         return Math.max(0, Math.min(1, value));

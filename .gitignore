@@ -12,6 +12,7 @@ result
 *.key
 *.pem
 id_*
+.claude/settings.local.json
 
 *.qcow2
 

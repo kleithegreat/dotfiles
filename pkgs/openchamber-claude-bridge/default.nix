@@ -20,7 +20,7 @@ stdenvNoCC.mkDerivation {
     runHook preInstall
 
     mkdir -p "$out/bin" "$out/libexec/openchamber-claude-bridge"
-    cp ${./index.mjs} "$out/libexec/openchamber-claude-bridge/index.mjs"
+    cp index.mjs "$out/libexec/openchamber-claude-bridge/index.mjs"
 
     makeWrapper ${lib.getExe nodejs} "$out/bin/openchamber-claude-bridge" \
       --add-flags "$out/libexec/openchamber-claude-bridge/index.mjs" \

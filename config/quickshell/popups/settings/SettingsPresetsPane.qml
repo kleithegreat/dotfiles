@@ -29,20 +29,8 @@ Components.WheelFlickable {
     property int editorRevision: 0
     property string pendingDeleteName: ""
     property int handledMutationToken: presetMutationToken
-    readonly property var monoFontOffsetKeys: [
-        "alacritty_mono_font_size_offset",
-        "ghostty_mono_font_size_offset",
-        "gtk_mono_font_size_offset",
-        "neovide_mono_font_size_offset",
-        "qt_mono_font_size_offset",
-        "vscode_mono_font_size_offset",
-        "zed_mono_font_size_offset"
-    ]
-    readonly property var fontSizeOffsetKeys: [
-        "quickshell_font_size_offset",
-        "gtk_font_size_offset",
-        "qt_font_size_offset"
-    ]
+    readonly property var monoFontOffsetKeys: root.monoFontSizeOffsetTargets.map((target) => target.key)
+    readonly property var fontSizeOffsetKeys: root.fontSizeOffsetTargets.map((target) => target.key)
     readonly property var fontOffsetKeys: root.monoFontOffsetKeys.concat(root.fontSizeOffsetKeys)
     readonly property var hyprIntKeys: [
         "hypr_gaps_in",

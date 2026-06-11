@@ -11,8 +11,6 @@ FocusScope {
     property bool contentLoaded: false
     property bool suppressHeightAnimation: false
     readonly property bool overlayVisible: active || closing
-    readonly property Item panelItem: qsContentLoader.item
-    readonly property Item focusTarget: qsPop
     readonly property bool scrimEnabled: false
     readonly property color scrimColor: "transparent"
     readonly property real scrimOpacity: 0
@@ -42,6 +40,7 @@ FocusScope {
     }
     property bool batCharging: UPower.displayDevice.state === UPowerDeviceState.Charging
                                 || UPower.displayDevice.state === UPowerDeviceState.FullyCharged
+    property bool batFull: UPower.displayDevice.state === UPowerDeviceState.FullyCharged
     property bool batPresent: UPower.displayDevice.isPresent
 
     function batIcon() {
@@ -252,533 +251,533 @@ FocusScope {
                 ColumnLayout {
                     id: qsMainCol
                     width: qsScroll.width
-                spacing: Theme.sectionSpacing
+                    spacing: Theme.sectionSpacing
 
-                // ═══════════════════ Toggle Tile Grid ═══════════════════
+                    // ═══════════════════ Toggle Tile Grid ═══════════════════
 
-                Grid {
-                    id: tileGrid
-                    Layout.fillWidth: true
-                    columns: 2; rowSpacing: 8; columnSpacing: 8
+                    Grid {
+                        id: tileGrid
+                        Layout.fillWidth: true
+                        columns: 2; rowSpacing: 8; columnSpacing: 8
 
-                    Repeater {
-                        model: {
-                            var tiles = [];
-                            if (HostCapabilities.hasWifi) tiles.push({ key: "wifi", label: "Wi-Fi" });
-                            tiles.push({ key: "bluetooth", label: "Bluetooth" });
-                            tiles.push({ key: "vpn", label: "VPN" });
-                            tiles.push({ key: "dnd", label: "Do Not Disturb" });
-                            if (HostCapabilities.isLaptop)
-                                tiles.push({ key: "inhibitors", label: "Inhibitors", split: true, expandable: false });
-                            else
-                                tiles.push({ key: "idle", label: "Idle Inhibit", expandable: false });
-                            if (HostCapabilities.hasPowerProfiles) tiles.push({ key: "power", label: "Power Profile" });
-                            return tiles;
-                        }
-
-                        Rectangle {
-                            id: tile
-                            required property var modelData
-                            required property int index
-                            width: (tileGrid.width - tileGrid.columnSpacing) / 2
-                            height: 56
-                            radius: Theme.hoverRadius
-                            color: "transparent"
-
-                            property bool isActive: {
-                                switch (modelData.key) {
-                                case "wifi": return NetworkService.wifiEnabled;
-                                case "bluetooth": return BluetoothService.powered;
-                                case "vpn": return VpnService.mullvadState === "connected" || VpnService.mullvadState === "connecting";
-                                case "dnd": return NotificationService.doNotDisturb;
-                                case "idle": return IdleInhibitService.inhibited;
-                                case "power": return PowerProfileService.currentProfile !== "balanced" && PowerProfileService.currentProfile !== "unknown";
-                                case "inhibitors": return IdleInhibitService.inhibited || IdleInhibitService.lidInhibited;
-                                default: return false;
-                                }
-                            }
-
-                            readonly property bool canExpand: modelData.expandable !== false
-                            readonly property bool isSplit: modelData.split === true
-                            readonly property int splitInset: 2
-
-                            property bool isPending: {
-                                switch (modelData.key) {
-                                case "wifi": return NetworkService.wifiRadioBusy;
-                                case "bluetooth": return BluetoothService.powerBusy;
-                                case "vpn": return VpnService.mullvadBusy;
-                                case "power": return PowerProfileService.pendingProfile !== "";
-                                default: return false;
-                                }
-                            }
-
-                            property string tileIcon: {
-                                switch (modelData.key) {
-                                case "wifi": return qsPop.wifiConnected ? "../icons/wifi.svg" : "../icons/wifi-off.svg";
-                                case "bluetooth":
-                                    if (!BluetoothService.powered) return "../icons/bluetooth-off.svg";
-                                    return BluetoothService.connectedName !== "" ? "../icons/bluetooth-connected.svg" : "../icons/bluetooth-on.svg";
-                                case "vpn": return "../icons/shield-lock.svg";
-                                case "dnd": return NotificationService.doNotDisturb ? "../icons/bell-off.svg" : "../icons/bell.svg";
-                                case "idle": return "../icons/zzz.svg";
-                                case "power":
-                                    if (PowerProfileService.currentProfile === "performance") return "../icons/flame.svg";
-                                    if (PowerProfileService.currentProfile === "e-core-only") return "../icons/leaf-filled.svg";
-                                    if (PowerProfileService.currentProfile === "power-saver") return "../icons/leaf.svg";
-                                    return "../icons/speed.svg";
-                                default: return "";
-                                }
-                            }
-
-                            property string tileSublabel: {
-                                switch (modelData.key) {
-                                case "wifi":
-                                    if (NetworkService.wifiRadioBusy)
-                                        return NetworkService.wifiEnabled ? "Turning on…" : "Turning off…";
-                                    if (!NetworkService.wifiRadioReady) return "Checking…";
-                                    if (!NetworkService.wifiEnabled) return "Off";
-                                    return qsPop.wifiConnected ? qsPop.wifiSsid : "Not connected";
-                                case "bluetooth":
-                                    if (BluetoothService.powerBusy)
-                                        return BluetoothService.powered ? "Turning on…" : "Turning off…";
-                                    if (!BluetoothService.powered) return "Off";
-                                    return BluetoothService.connectedName !== "" ? BluetoothService.connectedName : "On";
-                                case "vpn":
-                                    if (VpnService.mullvadState === "disconnecting") return "Disconnecting…";
-                                    if (VpnService.mullvadState === "connected")
-                                        return VpnService.mullvadCity || VpnService.mullvadCountry || "Connected";
-                                    if (VpnService.mullvadState === "connecting") return "Connecting…";
-                                    return "Off";
-                                case "dnd": return NotificationService.doNotDisturb ? "On" : "Off";
-                                case "idle": return IdleInhibitService.inhibited ? "On" : "Off";
-                                case "power":
-                                    if (PowerProfileService.currentProfile === "performance") return "Performance";
-                                    if (PowerProfileService.currentProfile === "e-core-only") return "E-Cores";
-                                    if (PowerProfileService.currentProfile === "power-saver") return "Power Saver";
-                                    if (PowerProfileService.currentProfile === "balanced") return "Balanced";
-                                    return PowerProfileService.currentProfile;
-                                default: return "";
-                                }
-                            }
-
-                            property color tileActiveColor: {
-                                switch (modelData.key) {
-                                case "dnd": return Theme.orangeBright;
-                                case "idle": return Theme.yellowBright;
-                                case "power":
-                                    if (PowerProfileService.currentProfile === "performance") return Theme.redBright;
-                                    if (PowerProfileService.currentProfile === "e-core-only") return Theme.green;
-                                    if (PowerProfileService.currentProfile === "power-saver") return Theme.greenBright;
-                                    return Theme.blueBright;
-                                default: return Theme.blueBright;
-                                }
-                            }
-
-                            function tileToggle() {
-                                switch (modelData.key) {
-                                case "wifi": NetworkService.toggleWifiRadio(); break;
-                                case "bluetooth": BluetoothService.togglePower(); break;
-                                case "vpn":
-                                    if (VpnService.mullvadState === "connected" || VpnService.mullvadState === "connecting")
-                                        VpnService.mullvadDisconnect();
-                                    else
-                                        VpnService.mullvadConnect();
-                                    break;
-                                case "dnd": NotificationService.toggleDnd(); break;
-                                case "idle": IdleInhibitService.toggle(); break;
-                                case "power": qsPop.cyclePowerProfile(); break;
-                                }
-                            }
-
-                            function tileExpand() {
-                                switch (modelData.key) {
-                                case "wifi": qsPop.wifiExpandRequested(); break;
-                                case "bluetooth": qsPop.bluetoothExpandRequested(); break;
-                                case "vpn": qsPop.vpnExpandRequested(); break;
-                                case "dnd": qsPop.dndExpandRequested(); break;
-                                case "power": qsPop.powerProfileExpandRequested(); break;
-                                }
-                            }
-
-                            // ── Tile visuals ──
-
-                            opacity: tile.isPending ? 0.72 : 1
-                            Behavior on opacity { Components.Anim { duration: Theme.animHover } }
-
-                            Rectangle {
-                                anchors.fill: parent; radius: parent.radius
-                                visible: !tile.isSplit
-                                color: tile.isActive
-                                    ? Qt.rgba(tile.tileActiveColor.r, tile.tileActiveColor.g, tile.tileActiveColor.b, 0.15)
-                                    : Theme.bg2
-                                Behavior on color {
-                                    Components.CAnim {
-                                        duration: Theme.animSpring
-                                        easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
-                                    }
-                                }
+                        Repeater {
+                            model: {
+                                var tiles = [];
+                                if (HostCapabilities.hasWifi) tiles.push({ key: "wifi", label: "Wi-Fi" });
+                                tiles.push({ key: "bluetooth", label: "Bluetooth" });
+                                tiles.push({ key: "vpn", label: "VPN" });
+                                tiles.push({ key: "dnd", label: "Do Not Disturb" });
+                                if (HostCapabilities.isLaptop)
+                                    tiles.push({ key: "inhibitors", label: "Inhibitors", split: true, expandable: false });
+                                else
+                                    tiles.push({ key: "idle", label: "Idle Inhibit", expandable: false });
+                                if (HostCapabilities.hasPowerProfiles) tiles.push({ key: "power", label: "Power Profile" });
+                                return tiles;
                             }
 
                             Rectangle {
-                                anchors.fill: parent
-                                radius: parent.radius
-                                visible: tile.isSplit
-                                color: Theme.bg2
-                                Behavior on color {
-                                    Components.CAnim {
-                                        duration: Theme.animSpring
-                                        easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
-                                    }
-                                }
-                            }
-
-                            Rectangle {
-                                visible: tile.isSplit
-                                width: 1
-                                height: parent.height - tile.splitInset * 4
-                                radius: 1
-                                x: Math.round((parent.width - width) / 2)
-                                y: tile.splitInset * 2
-                                color: Theme.bg3
-                                opacity: 0.75
-                            }
-
-                            Rectangle {
-                                anchors.fill: parent; radius: parent.radius
-                                visible: !tile.isSplit
+                                id: tile
+                                required property var modelData
+                                required property int index
+                                width: (tileGrid.width - tileGrid.columnSpacing) / 2
+                                height: 56
+                                radius: Theme.hoverRadius
                                 color: "transparent"
-                                border.width: tile.isActive ? 1 : 0; border.color: tile.tileActiveColor
-                                opacity: tile.isActive ? 0.5 : 0
-                                Behavior on opacity {
-                                    Components.Anim {
-                                        duration: Theme.animSpring
-                                        easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
+
+                                property bool isActive: {
+                                    switch (modelData.key) {
+                                    case "wifi": return NetworkService.wifiEnabled;
+                                    case "bluetooth": return BluetoothService.powered;
+                                    case "vpn": return VpnService.mullvadState === "connected" || VpnService.mullvadState === "connecting";
+                                    case "dnd": return NotificationService.doNotDisturb;
+                                    case "idle": return IdleInhibitService.inhibited;
+                                    case "power": return PowerProfileService.currentProfile !== "balanced" && PowerProfileService.currentProfile !== "unknown";
+                                    case "inhibitors": return IdleInhibitService.inhibited || IdleInhibitService.lidInhibited;
+                                    default: return false;
                                     }
                                 }
-                            }
 
-                            Rectangle {
-                                anchors.fill: parent; radius: parent.radius
-                                color: Theme.fg
-                                opacity: tileMainArea.containsMouse
-                                    && !tile.isSplit
-                                    ? (tileMainArea.pressed ? 0.08 : 0.04)
-                                    : 0
+                                readonly property bool canExpand: modelData.expandable !== false
+                                readonly property bool isSplit: modelData.split === true
+                                readonly property int splitInset: 2
+
+                                property bool isPending: {
+                                    switch (modelData.key) {
+                                    case "wifi": return NetworkService.wifiRadioBusy;
+                                    case "bluetooth": return BluetoothService.powerBusy;
+                                    case "vpn": return VpnService.mullvadBusy;
+                                    case "power": return PowerProfileService.pendingProfile !== "";
+                                    default: return false;
+                                    }
+                                }
+
+                                property string tileIcon: {
+                                    switch (modelData.key) {
+                                    case "wifi": return qsPop.wifiConnected ? "../icons/wifi.svg" : "../icons/wifi-off.svg";
+                                    case "bluetooth":
+                                        if (!BluetoothService.powered) return "../icons/bluetooth-off.svg";
+                                        return BluetoothService.connectedName !== "" ? "../icons/bluetooth-connected.svg" : "../icons/bluetooth-on.svg";
+                                    case "vpn": return "../icons/shield-lock.svg";
+                                    case "dnd": return NotificationService.doNotDisturb ? "../icons/bell-off.svg" : "../icons/bell.svg";
+                                    case "idle": return "../icons/zzz.svg";
+                                    case "power":
+                                        if (PowerProfileService.currentProfile === "performance") return "../icons/flame.svg";
+                                        if (PowerProfileService.currentProfile === "e-core-only") return "../icons/leaf-filled.svg";
+                                        if (PowerProfileService.currentProfile === "power-saver") return "../icons/leaf.svg";
+                                        return "../icons/speed.svg";
+                                    default: return "";
+                                    }
+                                }
+
+                                property string tileSublabel: {
+                                    switch (modelData.key) {
+                                    case "wifi":
+                                        if (NetworkService.wifiRadioBusy)
+                                            return NetworkService.wifiEnabled ? "Turning on…" : "Turning off…";
+                                        if (!NetworkService.wifiRadioReady) return "Checking…";
+                                        if (!NetworkService.wifiEnabled) return "Off";
+                                        return qsPop.wifiConnected ? qsPop.wifiSsid : "Not connected";
+                                    case "bluetooth":
+                                        if (BluetoothService.powerBusy)
+                                            return BluetoothService.powered ? "Turning on…" : "Turning off…";
+                                        if (!BluetoothService.powered) return "Off";
+                                        return BluetoothService.connectedName !== "" ? BluetoothService.connectedName : "On";
+                                    case "vpn":
+                                        if (VpnService.mullvadState === "disconnecting") return "Disconnecting…";
+                                        if (VpnService.mullvadState === "connected")
+                                            return VpnService.mullvadCity || VpnService.mullvadCountry || "Connected";
+                                        if (VpnService.mullvadState === "connecting") return "Connecting…";
+                                        return "Off";
+                                    case "dnd": return NotificationService.doNotDisturb ? "On" : "Off";
+                                    case "idle": return IdleInhibitService.inhibited ? "On" : "Off";
+                                    case "power":
+                                        if (PowerProfileService.currentProfile === "performance") return "Performance";
+                                        if (PowerProfileService.currentProfile === "e-core-only") return "E-Cores";
+                                        if (PowerProfileService.currentProfile === "power-saver") return "Power Saver";
+                                        if (PowerProfileService.currentProfile === "balanced") return "Balanced";
+                                        return PowerProfileService.currentProfile;
+                                    default: return "";
+                                    }
+                                }
+
+                                property color tileActiveColor: {
+                                    switch (modelData.key) {
+                                    case "dnd": return Theme.orangeBright;
+                                    case "idle": return Theme.yellowBright;
+                                    case "power":
+                                        if (PowerProfileService.currentProfile === "performance") return Theme.redBright;
+                                        if (PowerProfileService.currentProfile === "e-core-only") return Theme.green;
+                                        if (PowerProfileService.currentProfile === "power-saver") return Theme.greenBright;
+                                        return Theme.blueBright;
+                                    default: return Theme.blueBright;
+                                    }
+                                }
+
+                                function tileToggle() {
+                                    switch (modelData.key) {
+                                    case "wifi": NetworkService.toggleWifiRadio(); break;
+                                    case "bluetooth": BluetoothService.togglePower(); break;
+                                    case "vpn":
+                                        if (VpnService.mullvadState === "connected" || VpnService.mullvadState === "connecting")
+                                            VpnService.mullvadDisconnect();
+                                        else
+                                            VpnService.mullvadConnect();
+                                        break;
+                                    case "dnd": NotificationService.toggleDnd(); break;
+                                    case "idle": IdleInhibitService.toggle(); break;
+                                    case "power": qsPop.cyclePowerProfile(); break;
+                                    }
+                                }
+
+                                function tileExpand() {
+                                    switch (modelData.key) {
+                                    case "wifi": qsPop.wifiExpandRequested(); break;
+                                    case "bluetooth": qsPop.bluetoothExpandRequested(); break;
+                                    case "vpn": qsPop.vpnExpandRequested(); break;
+                                    case "dnd": qsPop.dndExpandRequested(); break;
+                                    case "power": qsPop.powerProfileExpandRequested(); break;
+                                    }
+                                }
+
+                                // ── Tile visuals ──
+
+                                opacity: tile.isPending ? 0.72 : 1
                                 Behavior on opacity { Components.Anim { duration: Theme.animHover } }
-                            }
 
-                            scale: !tile.isSplit && tileMainArea.pressed ? 0.97 : 1.0
-                            Behavior on scale { Components.Anim { duration: Theme.animMicro } }
-
-                            MouseArea {
-                                id: tileMainArea
-                                anchors.fill: parent
-                                enabled: !tile.isSplit && !tile.isPending
-                                hoverEnabled: true
-                                cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                                onClicked: tile.tileToggle()
-                            }
-
-                            RowLayout {
-                                visible: tile.isSplit
-                                anchors.fill: parent
-                                anchors.margins: tile.splitInset
-                                spacing: tile.splitInset
-
-                                Repeater {
-                                    model: [
-                                        { key: "idle", label: "Idle", icon: "../icons/zzz.svg" },
-                                        { key: "lid", label: "Lid", icon: "../icons/laptop.svg" }
-                                    ]
-
-                                    Rectangle {
-                                        id: splitPart
-                                        required property var modelData
-
-                                        Layout.fillWidth: true
-                                        Layout.fillHeight: true
-                                        radius: Math.max(0, tile.radius - tile.splitInset)
-
-                                        readonly property bool partActive: modelData.key === "idle" ? IdleInhibitService.inhibited : IdleInhibitService.lidInhibited
-                                        readonly property color partActiveColor: modelData.key === "idle" ? Theme.yellowBright : Theme.blueBright
-
-                                        color: partActive
-                                            ? Qt.rgba(partActiveColor.r, partActiveColor.g, partActiveColor.b, 0.15)
-                                            : "transparent"
-                                        border.width: partActive ? 1 : 0
-                                        border.color: partActiveColor
-
-                                        Behavior on color {
-                                            Components.CAnim {
-                                                duration: Theme.animSpring
-                                                easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
-                                            }
+                                Rectangle {
+                                    anchors.fill: parent; radius: parent.radius
+                                    visible: !tile.isSplit
+                                    color: tile.isActive
+                                        ? Qt.rgba(tile.tileActiveColor.r, tile.tileActiveColor.g, tile.tileActiveColor.b, 0.15)
+                                        : Theme.bg2
+                                    Behavior on color {
+                                        Components.CAnim {
+                                            duration: Theme.animSpring
+                                            easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
                                         }
-
-                                        Rectangle {
-                                            anchors.fill: parent
-                                            radius: parent.radius
-                                            color: Theme.fg
-                                            opacity: splitPartArea.containsMouse
-                                                ? (splitPartArea.pressed ? 0.08 : 0.04)
-                                                : 0
-                                            Behavior on opacity { Components.Anim { duration: Theme.animHover } }
-                                        }
-
-                                        scale: splitPartArea.pressed ? 0.96 : 1.0
-                                        Behavior on scale { Components.Anim { duration: Theme.animMicro } }
-
-                                        MouseArea {
-                                            id: splitPartArea
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: {
-                                                if (splitPart.modelData.key === "idle")
-                                                    IdleInhibitService.toggle();
-                                                else
-                                                    IdleInhibitService.toggleLid();
-                                            }
-                                        }
-
-                                        RowLayout {
-                                            anchors.fill: parent
-                                            anchors.leftMargin: 6
-                                            anchors.rightMargin: 4
-                                            spacing: 3
-
-                                            Components.Icon {
-                                                source: splitPart.modelData.icon
-                                                color: splitPart.partActive ? splitPart.partActiveColor : Theme.fg4
-                                                iconSize: 14
-                                                Behavior on color { Components.CAnim { duration: Theme.animHover } }
-                                            }
-
-                                            ColumnLayout {
-                                                Layout.fillWidth: true
-                                                spacing: 0
-
-                                                Text {
-                                                    text: splitPart.modelData.label
-                                                    color: splitPart.partActive ? Theme.fg : Theme.fg2
-                                                    font.family: Theme.systemFamily
-                                                    font.pixelSize: Theme.fontSizeSmall - 1
-                                                    font.bold: splitPart.partActive
-                                                    elide: Text.ElideRight
-                                                    Layout.fillWidth: true
-                                                }
-                                                Text {
-                                                    text: splitPart.partActive ? "On" : "Off"
-                                                    color: Theme.fg4
-                                                    font.family: Theme.systemFamily
-                                                    font.pixelSize: Theme.fontSizeSmall - 2
-                                                    elide: Text.ElideRight
-                                                    Layout.fillWidth: true
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            RowLayout {
-                                visible: !tile.isSplit
-                                anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 4; spacing: 6
-
-                                Components.Icon {
-                                    source: tile.tileIcon
-                                    color: tile.isActive ? tile.tileActiveColor : Theme.fg4
-                                    Behavior on color { Components.CAnim { duration: Theme.animHover } }
-                                }
-
-                                ColumnLayout {
-                                    Layout.fillWidth: true; spacing: 0
-                                    Text {
-                                        text: tile.modelData.label
-                                        color: tile.isActive ? Theme.fg : Theme.fg2
-                                        font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
-                                        font.bold: tile.isActive
-                                        elide: Text.ElideRight; Layout.fillWidth: true
-                                    }
-                                    Text {
-                                        text: tile.tileSublabel
-                                        color: Theme.fg4
-                                        font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall - 1
-                                        elide: Text.ElideRight; Layout.fillWidth: true
                                     }
                                 }
 
                                 Rectangle {
-                                    width: 22; height: 22; radius: 11
-                                    visible: tile.canExpand
-                                    color: expandBtnArea.containsMouse
-                                        ? (expandBtnArea.pressed ? Theme.bg3 : Qt.rgba(Theme.fg.r, Theme.fg.g, Theme.fg.b, 0.08))
-                                        : "transparent"
-                                    Behavior on color { Components.CAnim { duration: Theme.animHover } }
+                                    anchors.fill: parent
+                                    radius: parent.radius
+                                    visible: tile.isSplit
+                                    color: Theme.bg2
+                                    Behavior on color {
+                                        Components.CAnim {
+                                            duration: Theme.animSpring
+                                            easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
+                                        }
+                                    }
+                                }
 
-                                    Text {
-                                        anchors.centerIn: parent; text: ">"
-                                        color: expandBtnArea.containsMouse ? Theme.fg : Theme.fg4
-                                        font.family: Theme.monoFamily; font.pixelSize: 10
+                                Rectangle {
+                                    visible: tile.isSplit
+                                    width: 1
+                                    height: parent.height - tile.splitInset * 4
+                                    radius: 1
+                                    x: Math.round((parent.width - width) / 2)
+                                    y: tile.splitInset * 2
+                                    color: Theme.bg3
+                                    opacity: 0.75
+                                }
+
+                                Rectangle {
+                                    anchors.fill: parent; radius: parent.radius
+                                    visible: !tile.isSplit
+                                    color: "transparent"
+                                    border.width: tile.isActive ? 1 : 0; border.color: tile.tileActiveColor
+                                    opacity: tile.isActive ? 0.5 : 0
+                                    Behavior on opacity {
+                                        Components.Anim {
+                                            duration: Theme.animSpring
+                                            easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
+                                        }
+                                    }
+                                }
+
+                                Rectangle {
+                                    anchors.fill: parent; radius: parent.radius
+                                    color: Theme.fg
+                                    opacity: tileMainArea.containsMouse
+                                        && !tile.isSplit
+                                        ? (tileMainArea.pressed ? 0.08 : 0.04)
+                                        : 0
+                                    Behavior on opacity { Components.Anim { duration: Theme.animHover } }
+                                }
+
+                                scale: !tile.isSplit && tileMainArea.pressed ? 0.97 : 1.0
+                                Behavior on scale { Components.Anim { duration: Theme.animMicro } }
+
+                                MouseArea {
+                                    id: tileMainArea
+                                    anchors.fill: parent
+                                    enabled: !tile.isSplit && !tile.isPending
+                                    hoverEnabled: true
+                                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                    onClicked: tile.tileToggle()
+                                }
+
+                                RowLayout {
+                                    visible: tile.isSplit
+                                    anchors.fill: parent
+                                    anchors.margins: tile.splitInset
+                                    spacing: tile.splitInset
+
+                                    Repeater {
+                                        model: [
+                                            { key: "idle", label: "Idle", icon: "../icons/zzz.svg" },
+                                            { key: "lid", label: "Lid", icon: "../icons/laptop.svg" }
+                                        ]
+
+                                        Rectangle {
+                                            id: splitPart
+                                            required property var modelData
+
+                                            Layout.fillWidth: true
+                                            Layout.fillHeight: true
+                                            radius: Math.max(0, tile.radius - tile.splitInset)
+
+                                            readonly property bool partActive: modelData.key === "idle" ? IdleInhibitService.inhibited : IdleInhibitService.lidInhibited
+                                            readonly property color partActiveColor: modelData.key === "idle" ? Theme.yellowBright : Theme.blueBright
+
+                                            color: partActive
+                                                ? Qt.rgba(partActiveColor.r, partActiveColor.g, partActiveColor.b, 0.15)
+                                                : "transparent"
+                                            border.width: partActive ? 1 : 0
+                                            border.color: partActiveColor
+
+                                            Behavior on color {
+                                                Components.CAnim {
+                                                    duration: Theme.animSpring
+                                                    easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
+                                                }
+                                            }
+
+                                            Rectangle {
+                                                anchors.fill: parent
+                                                radius: parent.radius
+                                                color: Theme.fg
+                                                opacity: splitPartArea.containsMouse
+                                                    ? (splitPartArea.pressed ? 0.08 : 0.04)
+                                                    : 0
+                                                Behavior on opacity { Components.Anim { duration: Theme.animHover } }
+                                            }
+
+                                            scale: splitPartArea.pressed ? 0.96 : 1.0
+                                            Behavior on scale { Components.Anim { duration: Theme.animMicro } }
+
+                                            MouseArea {
+                                                id: splitPartArea
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: {
+                                                    if (splitPart.modelData.key === "idle")
+                                                        IdleInhibitService.toggle();
+                                                    else
+                                                        IdleInhibitService.toggleLid();
+                                                }
+                                            }
+
+                                            RowLayout {
+                                                anchors.fill: parent
+                                                anchors.leftMargin: 6
+                                                anchors.rightMargin: 4
+                                                spacing: 3
+
+                                                Components.Icon {
+                                                    source: splitPart.modelData.icon
+                                                    color: splitPart.partActive ? splitPart.partActiveColor : Theme.fg4
+                                                    iconSize: 14
+                                                    Behavior on color { Components.CAnim { duration: Theme.animHover } }
+                                                }
+
+                                                ColumnLayout {
+                                                    Layout.fillWidth: true
+                                                    spacing: 0
+
+                                                    Text {
+                                                        text: splitPart.modelData.label
+                                                        color: splitPart.partActive ? Theme.fg : Theme.fg2
+                                                        font.family: Theme.systemFamily
+                                                        font.pixelSize: Theme.fontSizeSmall - 1
+                                                        font.bold: splitPart.partActive
+                                                        elide: Text.ElideRight
+                                                        Layout.fillWidth: true
+                                                    }
+                                                    Text {
+                                                        text: splitPart.partActive ? "On" : "Off"
+                                                        color: Theme.fg4
+                                                        font.family: Theme.systemFamily
+                                                        font.pixelSize: Theme.fontSizeSmall - 2
+                                                        elide: Text.ElideRight
+                                                        Layout.fillWidth: true
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                RowLayout {
+                                    visible: !tile.isSplit
+                                    anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 4; spacing: 6
+
+                                    Components.Icon {
+                                        source: tile.tileIcon
+                                        color: tile.isActive ? tile.tileActiveColor : Theme.fg4
                                         Behavior on color { Components.CAnim { duration: Theme.animHover } }
                                     }
 
-                                    MouseArea {
-                                        id: expandBtnArea
-                                        anchors.fill: parent
-                                        enabled: tile.canExpand && !tile.isPending
-                                        hoverEnabled: true
-                                        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                                        onClicked: tile.tileExpand()
+                                    ColumnLayout {
+                                        Layout.fillWidth: true; spacing: 0
+                                        Text {
+                                            text: tile.modelData.label
+                                            color: tile.isActive ? Theme.fg : Theme.fg2
+                                            font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
+                                            font.bold: tile.isActive
+                                            elide: Text.ElideRight; Layout.fillWidth: true
+                                        }
+                                        Text {
+                                            text: tile.tileSublabel
+                                            color: Theme.fg4
+                                            font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall - 1
+                                            elide: Text.ElideRight; Layout.fillWidth: true
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        width: 22; height: 22; radius: 11
+                                        visible: tile.canExpand
+                                        color: expandBtnArea.containsMouse
+                                            ? (expandBtnArea.pressed ? Theme.bg3 : Qt.rgba(Theme.fg.r, Theme.fg.g, Theme.fg.b, 0.08))
+                                            : "transparent"
+                                        Behavior on color { Components.CAnim { duration: Theme.animHover } }
+
+                                        Text {
+                                            anchors.centerIn: parent; text: ">"
+                                            color: expandBtnArea.containsMouse ? Theme.fg : Theme.fg4
+                                            font.family: Theme.monoFamily; font.pixelSize: 10
+                                            Behavior on color { Components.CAnim { duration: Theme.animHover } }
+                                        }
+
+                                        MouseArea {
+                                            id: expandBtnArea
+                                            anchors.fill: parent
+                                            enabled: tile.canExpand && !tile.isPending
+                                            hoverEnabled: true
+                                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                            onClicked: tile.tileExpand()
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                }
 
-                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+                    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
 
-                // ═══════════════════ Volume Slider ═══════════════════
+                    // ═══════════════════ Volume Slider ═══════════════════
 
-                RowLayout {
-                    Layout.fillWidth: true; spacing: 8
+                    RowLayout {
+                        Layout.fillWidth: true; spacing: 8
 
-                    Components.Icon {
-                        source: AudioService.muted ? "../icons/volume-mute.svg" : "../icons/volume-high.svg"
-                        color: Theme.fg4
-                        Layout.preferredWidth: 16; Layout.alignment: Qt.AlignHCenter
+                        Components.Icon {
+                            source: AudioService.muted ? "../icons/volume-mute.svg" : "../icons/volume-high.svg"
+                            color: Theme.fg4
+                            Layout.preferredWidth: 16; Layout.alignment: Qt.AlignHCenter
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true; height: Theme.sliderHeight; radius: Theme.sliderHeight / 2; color: Theme.bg3
+
+                            Rectangle {
+                                anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
+                                width: parent.width * Math.min(1.0, AudioService.volume)
+                                radius: parent.radius; color: Theme.greenBright
+                                Behavior on width {
+                                    Components.Anim {
+                                        duration: Theme.animMicro
+                                        easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                width: 12; height: 12; radius: 6; color: Theme.fg
+                                y: (parent.height - height) / 2
+                                x: Math.max(0, Math.min(parent.width - width, parent.width * Math.min(1.0, AudioService.volume) - width / 2))
+                                scale: volSliderMouse.pressed ? 1.2 : (volSliderMouse.containsMouse ? 1.1 : 1.0)
+                                Behavior on scale {
+                                    Components.Anim {
+                                        duration: Theme.animMicro
+                                        easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
+                                    }
+                                }
+                                Behavior on x {
+                                    SpringAnimation { spring: 4; damping: 0.4 }
+                                }
+                            }
+
+                            Components.HoverLayer {
+                                id: volSliderMouse
+                                hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
+                                onPressed: { AudioService.suppressOsd = true; }
+                                onReleased: { Qt.callLater(() => { AudioService.suppressOsd = false; }); }
+                                onClicked: (mouse) => { AudioService.setVolume(mouse.x / parent.width); }
+                                onPositionChanged: (mouse) => { if (pressed) AudioService.setVolume(mouse.x / parent.width); }
+                            }
+                        }
+
+                        Text {
+                            text: Math.round(AudioService.volume * 100) + "%"
+                            color: Theme.fg3; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
+                            Layout.preferredWidth: qsPop.metricLabelWidth; horizontalAlignment: Text.AlignRight
+                        }
                     }
+
+                    // ═══════════════════ Brightness Slider ═══════════════════
+
+                    Repeater {
+                        model: qsPop.brightnessDevices
+
+                        delegate: Components.BrightnessSlider {
+                            required property var modelData
+
+                            brightnessDevice: modelData
+                            valueWidth: qsPop.metricLabelWidth
+                        }
+                    }
+
+                    // ═══════════════════ Battery Status ═══════════════════
+
+                    RowLayout {
+                        visible: qsPop.batPresent
+                        Layout.fillWidth: true; spacing: 8
+
+                        Components.Icon {
+                            source: qsPop.batIcon()
+                            color: {
+                                if (qsPop.batCharging) return Theme.greenBright;
+                                if (qsPop.batPct < 15) return Theme.redBright;
+                                if (qsPop.batPct < 30) return Theme.yellowBright;
+                                return Theme.fg;
+                            }
+                        }
+
+                        Text {
+                            text: Math.round(qsPop.batPct) + "%"
+                            color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
+                            font.bold: true
+                        }
+
+                        Text {
+                            text: qsPop.batFull ? "Charged" : (qsPop.batCharging ? "Charging" : "On Battery")
+                            color: Theme.fg3; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
+                            Layout.fillWidth: true
+                        }
+                    }
+
+                    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+
+                    // ═══════════════════ Settings Footer ═══════════════════
 
                     Rectangle {
-                        Layout.fillWidth: true; height: Theme.sliderHeight; radius: Theme.sliderHeight / 2; color: Theme.bg3
-
-                        Rectangle {
-                            anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
-                            width: parent.width * Math.min(1.0, AudioService.volume)
-                            radius: parent.radius; color: Theme.greenBright
-                            Behavior on width {
-                                Components.Anim {
-                                    duration: Theme.animMicro
-                                    easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
-                                }
-                            }
-                        }
-
-                        Rectangle {
-                            width: 12; height: 12; radius: 6; color: Theme.fg
-                            y: (parent.height - height) / 2
-                            x: Math.max(0, Math.min(parent.width - width, parent.width * Math.min(1.0, AudioService.volume) - width / 2))
-                            scale: volSliderMouse.pressed ? 1.2 : (volSliderMouse.containsMouse ? 1.1 : 1.0)
-                            Behavior on scale {
-                                Components.Anim {
-                                    duration: Theme.animMicro
-                                    easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
-                                }
-                            }
-                            Behavior on x {
-                                SpringAnimation { spring: 4; damping: 0.4 }
-                            }
-                        }
+                        Layout.fillWidth: true; height: Theme.listItemHeight
+                        radius: Theme.hoverRadius; color: "transparent"
 
                         Components.HoverLayer {
-                            id: volSliderMouse
-                            hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
-                            onPressed: { AudioService.suppressOsd = true; }
-                            onReleased: { Qt.callLater(() => { AudioService.suppressOsd = false; }); }
-                            onClicked: (mouse) => { AudioService.setVolume(mouse.x / parent.width); }
-                            onPositionChanged: (mouse) => { if (pressed) AudioService.setVolume(mouse.x / parent.width); }
-                        }
-                    }
+                            id: settingsArea
+                            hoverOpacity: 0.4; pressedOpacity: 0.7; pressedScale: 0.98
+                            color: Theme.bg2
+                            onClicked: qsPop.settingsRequested()
 
-                    Text {
-                        text: Math.round(AudioService.volume * 100) + "%"
-                        color: Theme.fg3; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
-                        Layout.preferredWidth: qsPop.metricLabelWidth; horizontalAlignment: Text.AlignRight
-                    }
-                }
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: Theme.listItemPadding; anchors.rightMargin: Theme.listItemPadding
+                                spacing: 8
 
-                // ═══════════════════ Brightness Slider ═══════════════════
-
-                Repeater {
-                    model: qsPop.brightnessDevices
-
-                    delegate: Components.BrightnessSlider {
-                        required property var modelData
-
-                        brightnessDevice: modelData
-                        valueWidth: qsPop.metricLabelWidth
-                    }
-                }
-
-                // ═══════════════════ Battery Status ═══════════════════
-
-                RowLayout {
-                    visible: qsPop.batPresent
-                    Layout.fillWidth: true; spacing: 8
-
-                    Components.Icon {
-                        source: qsPop.batIcon()
-                        color: {
-                            if (qsPop.batCharging) return Theme.greenBright;
-                            if (qsPop.batPct < 15) return Theme.redBright;
-                            if (qsPop.batPct < 30) return Theme.yellowBright;
-                            return Theme.fg;
-                        }
-                    }
-
-                    Text {
-                        text: Math.round(qsPop.batPct) + "%"
-                        color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
-                        font.bold: true
-                    }
-
-                    Text {
-                        text: qsPop.batCharging ? "Charging" : "On Battery"
-                        color: Theme.fg3; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
-                        Layout.fillWidth: true
-                    }
-                }
-
-                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
-
-                // ═══════════════════ Settings Footer ═══════════════════
-
-                Rectangle {
-                    Layout.fillWidth: true; height: Theme.listItemHeight
-                    radius: Theme.hoverRadius; color: "transparent"
-
-                    Components.HoverLayer {
-                        id: settingsArea
-                        hoverOpacity: 0.4; pressedOpacity: 0.7; pressedScale: 0.98
-                        color: Theme.bg2
-                        onClicked: qsPop.settingsRequested()
-
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.leftMargin: Theme.listItemPadding; anchors.rightMargin: Theme.listItemPadding
-                            spacing: 8
-
-                            Components.Icon {
-                                source: "../icons/adjustments.svg"
-                                color: settingsArea.containsMouse ? Theme.fg : Theme.fg4
-                                Behavior on color { Components.CAnim { duration: Theme.animHover } }
-                            }
-                            Text {
-                                text: "All Settings"
-                                color: settingsArea.containsMouse ? Theme.fg : Theme.fg2
-                                font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
-                                Layout.fillWidth: true
-                                Behavior on color { Components.CAnim { duration: Theme.animHover } }
-                            }
-                            Text {
-                                text: ">"
-                                color: Theme.fg4; font.family: Theme.monoFamily; font.pixelSize: 10
+                                Components.Icon {
+                                    source: "../icons/adjustments.svg"
+                                    color: settingsArea.containsMouse ? Theme.fg : Theme.fg4
+                                    Behavior on color { Components.CAnim { duration: Theme.animHover } }
+                                }
+                                Text {
+                                    text: "All Settings"
+                                    color: settingsArea.containsMouse ? Theme.fg : Theme.fg2
+                                    font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
+                                    Layout.fillWidth: true
+                                    Behavior on color { Components.CAnim { duration: Theme.animHover } }
+                                }
+                                Text {
+                                    text: ">"
+                                    color: Theme.fg4; font.family: Theme.monoFamily; font.pixelSize: 10
+                                }
                             }
                         }
                     }
                 }
-            }
             }
         }
     }

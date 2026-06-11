@@ -2,8 +2,10 @@
   "family": "tokyonight",
   "variant": "light",
   "appearance": "light",
+  "dark_scheme": "tokyo-night",
   "app_themes": {
     "bat": "base16",
+    "ktexteditor": "Tokyo Night Light",
     "snappy_switcher": "catppuccin-latte.ini",
     "vicinae": {
       "name": "tokyo-night-light",
@@ -42,9 +44,9 @@
     "orange_bright":"#965027"
   },
   "palette": [
-    "#343b58", "#8c4351", "#33635c", "#8f5e15",
-    "#2959aa", "#7b43ba", "#006c86", "#707280",
-    "#343b58", "#8c4351", "#33635c", "#8f5e15",
-    "#2959aa", "#7b43ba", "#006c86", "#707280"
+    "#d6d8df", "#8c4351", "#33635c", "#8f5e15",
+    "#2959aa", "#7b43ba", "#006c86", "#5a607d",
+    "#9da0ab", "#8c4351", "#33635c", "#8f5e15",
+    "#2959aa", "#7b43ba", "#006c86", "#343b59"
   ]
 }

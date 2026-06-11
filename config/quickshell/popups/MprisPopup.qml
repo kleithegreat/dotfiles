@@ -10,8 +10,6 @@ FocusScope {
     property bool closing: false
     readonly property bool hasPlayers: Mpris.players.values.length > 0
     readonly property bool overlayVisible: (active || closing) && hasPlayers
-    readonly property Item panelItem: mprisPanel
-    readonly property Item focusTarget: mprisPop
     readonly property bool scrimEnabled: false
     readonly property color scrimColor: "transparent"
     readonly property real scrimOpacity: 0
@@ -37,22 +35,25 @@ FocusScope {
     // Track art cross-fade state
     property string currentArtUrl: player?.trackArtUrl ?? ""
     property string prevArtUrl: ""
+    Component.onCompleted: prevArtUrl = currentArtUrl
 
     onCurrentArtUrlChanged: {
         if (prevArtUrl !== currentArtUrl) {
-            prevArtUrl = artImg.source;
             artImgOld.source = prevArtUrl;
             artCrossfade.start();
         }
+        prevArtUrl = currentArtUrl;
     }
 
     Timer {
         interval: 500; running: mprisPop.active && (player?.isPlaying ?? false); repeat: true
-        onTriggered: mprisPop.pos = player?.position ?? 0
+        // position is computed on demand; emitting its notify signal re-evaluates
+        // the pos binding without destroying it (paused seeks/track changes still work).
+        onTriggered: mprisPop.player?.positionChanged()
     }
 
-    function fmtTime(us) {
-        let s = Math.floor(us / 1000000);
+    function fmtTime(seconds) {
+        let s = Math.floor(seconds);
         let m = Math.floor(s / 60); s = s % 60;
         return m + ":" + s.toString().padStart(2, '0');
     }

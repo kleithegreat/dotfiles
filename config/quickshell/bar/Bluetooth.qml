@@ -14,18 +14,11 @@ RowLayout {
         return "Bluetooth off";
     }
 
-    Components.Icon {
+    Components.StyledIcon {
         id: btIcon
+        animate: true
         source: connected ? "../icons/bluetooth-connected.svg" : (powered ? "../icons/bluetooth-on.svg" : "../icons/bluetooth-off.svg")
         color: btArea.containsMouse ? Theme.yellowBright : (connected ? Theme.fg : Theme.fg4)
-
-        Behavior on source {
-            SequentialAnimation {
-                Components.Anim { target: btIcon; property: "opacity"; to: 0; duration: 120; easing.type: Easing.InQuad }
-                PropertyAction { target: btIcon; property: "source" }
-                Components.Anim { target: btIcon; property: "opacity"; to: 1; duration: 200; easing.type: Easing.OutCubic }
-            }
-        }
         Behavior on color { Components.CAnim { duration: Theme.animHover } }
     }
 

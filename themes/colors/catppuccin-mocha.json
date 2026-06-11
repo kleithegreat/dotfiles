@@ -4,6 +4,7 @@
   "appearance": "dark",
   "app_themes": {
     "bat": "Catppuccin Mocha",
+    "ktexteditor": "Catppuccin Mocha",
     "snappy_switcher": "catppuccin-mocha.ini",
     "vicinae": {
       "name": "catppuccin-mocha",

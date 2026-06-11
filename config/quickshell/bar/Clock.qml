@@ -12,6 +12,8 @@ Item {
     property string prevTimeStr: ""
     property color textColor: clockArea.containsMouse ? Theme.yellowBright : Theme.fg
     property string tooltipText: {
+        // Reference timeStr only to register a binding dependency, so the
+        // date below re-evaluates with each tick (e.g. across midnight).
         let _t = timeStr;
         let d = new Date();
         let days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];

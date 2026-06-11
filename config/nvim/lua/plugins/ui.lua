@@ -22,7 +22,9 @@ return {
           if vim.wo.diff then
             return "]c"
           end
-          vim.schedule(gs.next_hunk)
+          vim.schedule(function()
+            gs.nav_hunk("next")
+          end)
           return "<Ignore>"
         end, { expr = true, buffer = bufnr, desc = "Next git hunk" })
 
@@ -30,7 +32,9 @@ return {
           if vim.wo.diff then
             return "[c"
           end
-          vim.schedule(gs.prev_hunk)
+          vim.schedule(function()
+            gs.nav_hunk("prev")
+          end)
           return "<Ignore>"
         end, { expr = true, buffer = bufnr, desc = "Previous git hunk" })
       end,
@@ -88,7 +92,6 @@ return {
       "nvim-tree/nvim-web-devicons",
     },
     opts = {
-      theme = "gruvbox",
       show_modified = true,
       show_dirname = true,
       show_basename = true,

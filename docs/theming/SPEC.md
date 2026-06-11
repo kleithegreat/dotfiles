@@ -148,6 +148,7 @@ Constraints:
 | Group | Required fields |
 | --- | --- |
 | Identity | `family`, `variant`, `appearance` |
+| Dark pairing | Optional `dark_scheme`: the same-family scheme to use when a dark appearance is requested. Set on all six light schemes (`catppuccin-latte`→`catppuccin-mocha`, `gruvbox-light`→`gruvbox-dark`, `nord-light`→`nord`, `rose-pine-dawn`→`rose-pine`, `solarized-light`→`solarized-dark`, `tokyo-night-light`→`tokyo-night`); dark schemes omit it |
 | App metadata | `app_themes` entries for targets that need app-specific theme names or identifiers |
 | Backgrounds | `bg`, `bg_dim`, `bg1`, `bg2`, `bg3` |
 | Foregrounds | `fg`, `fg2`, `fg3`, `fg4` |
@@ -184,6 +185,9 @@ Constraints:
 - Theme-state storage is row-oriented (`key` + JSON-encoded `value`), but
   `desktopctl theme status --json` must preserve the canonical field order from
   `THEME_STATE_FIELD_ORDER`.
+- State mutations persist only the mutated keys (per-key upserts in one
+  transaction), so concurrent writers commute on disjoint keys; full-table
+  rewrites are reserved for first-seed initialization and load-path backfill.
 - Targets that need dark/light behavior must use `ColorScheme.appearance`,
   documented state, or another documented normalization rule; they must not
   assume variant strings are binary.
@@ -218,7 +222,7 @@ Constraints:
 | `vicinae` | `import` | `~/.config/vicinae/settings.theme.json` with Vicinae theme names, icon theme, and font, plus generated custom themes under `~/.local/share/vicinae/themes/` |
 | `vscode` | `concat` | `~/.config/Code/User/settings.json` plus state DB adjustments |
 | `wallpaper` | `command` | `awww` apply and optional filtered wallpaper cache |
-| `where_is_my_sddm_theme` | `command` | Staged `/tmp/desktopctl-where-is-my-sddm-theme/background` wallpaper bridge for the root-owned SDDM background sync |
+| `where_is_my_sddm_theme` | `command` | Staged `/tmp/desktopctl-where-is-my-sddm-theme/background` wallpaper bridge for the root-owned SDDM background sync. `system/services.nix` pre-creates the staging directory at boot via systemd-tmpfiles as `0700 kevin:kevin`, so no other local user can pre-create it or symlink-swap the staged image the root-run sync copies |
 | `zathura` | `import` | `~/.config/zathura/colors` |
 | `zed` | `concat` | `~/.config/zed/settings.json` |
 | `zsh` | `import` | `~/.config/zsh/theme-colors` |
@@ -234,7 +238,7 @@ State changes fan out by ownership, not by CLI convenience.
 | `system_font` | `chromium`, `gtk`, `helium`, `hyprland`, `openchamber`, `qt`, `quickshell`, `snappy_switcher`, `vicinae`, `zed` |
 | `mono_font` | `alacritty`, `chromium`, `ghostty`, `gtk`, `helium`, `hyprland`, `neovide`, `openchamber`, `qt`, `quickshell`, `vscode`, `zed` |
 | `icon_theme` | `gtk`, `qt`, `snappy_switcher`, `vicinae` |
-| `font_size` | `gtk`, `hyprland`, `qt`, `quickshell`, `snappy_switcher`, `zed` |
+| `font_size` | `gtk`, `qt`, `quickshell`, `snappy_switcher`, `zed` |
 | `quickshell_font_size_offset` | `quickshell` |
 | `gtk_font_size_offset` | `gtk` |
 | `qt_font_size_offset` | `qt` |
@@ -263,9 +267,9 @@ the documented wallpaper filter exception above.
 | Gedit / GtkSourceView | Reads generated styles from `~/.local/share/libgedit-gtksourceview-300/styles/`; gedit's light/dark source-style selection is theme-owned |
 | Hyprland | Reads `colors.conf` and `appearance-theme.conf` |
 | Neovim / Neovide | Read generated theme state files rather than embedding palette logic in Home Manager |
-| OpenChamber | Reads desktop-managed `themeId` / `themeVariant` keys from `~/.config/openchamber/settings.json` and the generated `~/.config/openchamber/themes/desktopctl.json`; the target patches only those theme-owned settings keys so OpenChamber keeps owning the rest of `settings.json` |
+| OpenChamber | Reads desktop-managed `themeId` / `themeVariant` keys from `~/.config/openchamber/settings.json` and the generated `~/.config/openchamber/themes/desktopctl.json`; the target patches only those theme-owned settings keys so OpenChamber keeps owning the rest of `settings.json`. When the existing settings file is unreadable, invalid JSON, or has a non-object root, the target fails loudly and leaves the file untouched (matching `chromium`) instead of replacing it with a theme-only file |
 | OpenCode | Reads the generated global `tui.json` theme selection and the generated `themes/desktopctl.json` palette under `~/.config/opencode/`; the target is intentionally color-only because upstream TUI theming exposes a `theme` selector plus theme-color JSON keys, while later project-local OpenCode config layers can still override the global theme by upstream precedence |
-| Zed | The `zed` target concats `config/zed/base.json` with theme-managed `theme`, `buffer_font_family`, `buffer_font_size`, `ui_font_family`, and `ui_font_size` keys to produce `~/.config/zed/settings.json`. Home Manager does not deploy `zed/settings.json`; the user-owned base lives in the repo at `config/zed/base.json`. Themes whose Zed name comes from an extension (Catppuccin, Tokyo Night, Nord) require the extension to be installed in Zed once. |
+| Zed | The `zed` target concats `config/zed/base.json` with theme-managed `theme`, `buffer_font_family`, `buffer_font_size`, `ui_font_family`, and `ui_font_size` keys to produce `~/.config/zed/settings.json`. Home Manager does not deploy `zed/settings.json`; the user-owned base lives in the repo at `config/zed/base.json`. Themes whose Zed name comes from an extension (Catppuccin, Tokyo Night, Nord, Rosé Pine, Solarized) require the extension to be installed in Zed once; `nord-light` intentionally maps to the built-in `One Light` so it needs no extension. |
 | Zsh | `home/shell.nix` `programs.zsh.initContent` sources `~/.config/zsh/theme-colors`; the generated fragment only sets `ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE` |
 
 Constraint:
@@ -279,7 +283,11 @@ Constraint:
 Qt theming is intentionally multi-layered because a plain Qt palette is not
 enough for KDE and Kirigami apps on Hyprland. The `qt` target treats
 `dark_hint` as the GUI polarity input; when the selected `color_scheme` has the
-opposite `appearance`, it should use a same-family scheme with the requested
-appearance when one is available, and fall back to the selected scheme
-otherwise. See `docs/theming/QUIRKS.md` for the rationale and current
-limitations.
+opposite `appearance`, it uses a same-family scheme with the requested
+appearance when one is available, and falls back to the selected scheme
+otherwise. Same-family resolution is shared across `qt`, `gtksourceview`, and
+`vicinae` through one resolver: an explicit scheme-level `dark_scheme` pairing
+wins for dark requests; otherwise candidates are ranked by variant preference
+(`dark`/`night`/`mocha`/`macchiato`/`frappe` for dark, `light`/`dawn`/`latte`
+for light), then alphabetically. See `docs/theming/QUIRKS.md` for the rationale
+and current limitations.

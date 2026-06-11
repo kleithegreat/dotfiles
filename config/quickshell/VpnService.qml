@@ -50,6 +50,8 @@ QtObject {
     readonly property string tailscaleState: {
         if (_tailscalePendingAction === "up")
             return "starting";
+        if (_tailscalePendingAction === "down")
+            return "stopping";
         return _tailscaleState;
     }
     readonly property string tailscaleError: _tailscaleError

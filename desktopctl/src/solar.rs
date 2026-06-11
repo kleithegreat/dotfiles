@@ -72,10 +72,10 @@ pub fn resolve_location() -> io::Result<Coordinates> {
     let cache_path = paths::xdg_cache_home()?.join("sun-schedule/location.json");
     let cached_location = read_cached_location(&cache_path);
 
-    if let Some(location) = cached_location.as_ref().copied() {
-        if cached_location_is_fresh(&cache_path) {
-            return Ok(location);
-        }
+    if let Some(location) = cached_location.as_ref().copied()
+        && cached_location_is_fresh(&cache_path)
+    {
+        return Ok(location);
     }
 
     if let Some(location) = query_geoclue() {
@@ -208,7 +208,10 @@ pub fn sun_times(latitude: f64, longitude: f64, date: NaiveDate) -> (DateTime<Ut
         };
 
         let local_mean_time = hour_angle + right_ascension - 0.06571 * t - 6.622;
-        (local_mean_time - lng_hour).rem_euclid(24.0)
+        // Wrap the local mean time into [0, 24) first, then subtract lng_hour
+        // WITHOUT re-wrapping so the UTC instant may legitimately land on the
+        // previous or next UTC day for far-eastern/-western longitudes.
+        local_mean_time.rem_euclid(24.0) - lng_hour
     };
 
     let base = Utc
@@ -298,16 +301,18 @@ fn parse_coordinate_line(line: &str) -> Option<f64> {
 }
 
 fn local_datetime(date: NaiveDate, hour: u32, minute: u32, second: u32) -> DateTime<Local> {
-    match Local.with_ymd_and_hms(date.year(), date.month(), date.day(), hour, minute, second) {
+    let naive = date
+        .and_hms_opt(hour, minute, second)
+        .expect("valid local time fallback");
+    match Local.from_local_datetime(&naive) {
         LocalResult::Single(dt) => dt,
         LocalResult::Ambiguous(dt, _) => dt,
-        LocalResult::None => Local
-            .from_utc_datetime(
-                &date
-                    .and_hms_opt(hour, minute, second)
-                    .expect("valid local time fallback"),
-            )
-            .with_timezone(&Local),
+        // DST gap: the wall-clock time does not exist; fall back to one hour
+        // later, which lands past any standard transition gap.
+        LocalResult::None => match Local.from_local_datetime(&(naive + Duration::hours(1))) {
+            LocalResult::Single(dt) | LocalResult::Ambiguous(dt, _) => dt,
+            LocalResult::None => Local.from_utc_datetime(&naive),
+        },
     }
 }
 
@@ -338,6 +343,20 @@ mod tests {
         let (sunrise, sunset) = sun_times(DEFAULT_LATITUDE, DEFAULT_LONGITUDE, date);
 
         assert_eq!(sunrise.date_naive(), date);
+        assert!(sunset > sunrise);
+        assert!(sunset - sunrise > Duration::hours(6));
+    }
+
+    #[test]
+    fn sun_times_assign_far_eastern_events_to_the_requested_local_day() {
+        // Regression: longitudes past roughly +90°E wrap the rising-event UT
+        // past midnight; the events must still fall on the requested local day.
+        let date = NaiveDate::from_ymd_opt(2026, 6, 10).expect("valid date");
+        let offset = chrono::FixedOffset::east_opt(8 * 3600).expect("valid +08:00 offset");
+        let (sunrise, sunset) = sun_times(31.0, 120.0, date);
+
+        assert_eq!(sunrise.with_timezone(&offset).date_naive(), date);
+        assert_eq!(sunset.with_timezone(&offset).date_naive(), date);
         assert!(sunset > sunrise);
         assert!(sunset - sunrise > Duration::hours(6));
     }
