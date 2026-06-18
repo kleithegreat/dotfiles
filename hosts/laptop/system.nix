@@ -263,6 +263,14 @@ in {
     interface = "wlp0s20f3";
   };
 
+  # ── Steam ─────────────────────────────────────────────────────
+  programs.steam = {
+    enable = true;
+    remotePlay.openFirewall = true;
+    localNetworkGameTransfers.openFirewall = true;
+    extest.enable = true;  # X11→uinput translation for controllers on Wayland
+  };
+
   environment.systemPackages = with pkgs; [
     libsmbios
     laptopPowerProfile
