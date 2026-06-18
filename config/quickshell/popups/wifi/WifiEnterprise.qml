@@ -54,7 +54,7 @@ ColumnLayout {
     Text { text: "Network: " + root.targetSsid; color: Theme.fg
         font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; elide: Text.ElideRight; Layout.fillWidth: true }
     Text { text: "802.1X \u00b7 PEAP / MSCHAPv2"; color: Theme.fg4
-        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
+        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeMini }
 
     Rectangle {
         Layout.fillWidth: true; height: 36; radius: Theme.btnRadius; color: Theme.bg2
@@ -137,7 +137,7 @@ ColumnLayout {
         text: root.identityErrorText
         color: Theme.redBright
         font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontSizeSmall - 1
+        font.pixelSize: Theme.fontSizeMini
         Layout.fillWidth: true
         wrapMode: Text.WordWrap
     }
@@ -179,7 +179,7 @@ ColumnLayout {
                     text: root.passwordVisible ? "Hide" : "Show"
                     color: Theme.fg4
                     font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall - 1
+                    font.pixelSize: Theme.fontSizeMini
                 }
 
                 Components.HoverLayer {
@@ -255,7 +255,7 @@ ColumnLayout {
         text: root.passwordErrorText
         color: Theme.redBright
         font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontSizeSmall - 1
+        font.pixelSize: Theme.fontSizeMini
         Layout.fillWidth: true
         wrapMode: Text.WordWrap
     }
@@ -292,5 +292,5 @@ ColumnLayout {
     }
 
     Text { text: "Only PEAP/MSCHAPv2 is supported."; color: Theme.fg4; wrapMode: Text.WordWrap
-        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 2; Layout.fillWidth: true }
+        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeMicro; Layout.fillWidth: true }
 }

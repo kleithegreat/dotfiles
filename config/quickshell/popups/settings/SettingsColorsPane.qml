@@ -27,23 +27,17 @@ Components.WheelFlickable {
         width: root.width
         spacing: 12
 
-        RowLayout { Layout.fillWidth: true; spacing: 8
-            Components.Icon { source: "../icons/palette.svg"; color: Theme.fg }
-            Text { text: "Colors"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true; Layout.fillWidth: true }
+        Components.SettingsPaneHeader {
+            title: "Colors"
+            iconSource: "../icons/palette.svg"
         }
-
-        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
 
         ColumnLayout {
             Layout.fillWidth: true
             spacing: 8
 
-            Text {
+            Components.SectionLabel {
                 text: "COLOR SCHEME"
-                color: Theme.fg4
-                font.family: Theme.systemFamily
-                font.pixelSize: Theme.fontSizeSmall
-                font.bold: true
             }
 
             Text {
@@ -51,8 +45,8 @@ Components.WheelFlickable {
                     ? "1 scheme available"
                     : root.colorFamilies.length + " schemes available"
                 color: Theme.fg4
-                font.family: Theme.systemFamily
-                font.pixelSize: Theme.fontSizeSmall - 1
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSizeMini
             }
 
             Components.ColorSchemeCards {
@@ -66,11 +60,7 @@ Components.WheelFlickable {
             }
         }
 
-        Rectangle {
-            Layout.fillWidth: true
-            height: 1
-            color: Theme.bg3
-        }
+        Components.Divider {}
 
         ColumnLayout {
             Layout.fillWidth: true
@@ -85,7 +75,7 @@ Components.WheelFlickable {
                 Text {
                     text: root.themeState.dark_hint === false ? "Prefer light browser theme" : "Prefer dark browser theme"
                     color: Theme.fg
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -93,7 +83,7 @@ Components.WheelFlickable {
                 Text {
                     text: root.themeState.dark_hint === false ? "Light" : "Dark"
                     color: root.themeState.dark_hint === false ? Theme.fg4 : Theme.fg3
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                 }
 

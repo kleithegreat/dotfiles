@@ -30,10 +30,10 @@ FocusScope {
     property bool wifiConnected: NetworkService.connectedSsid !== ""
     property string wifiSsid: NetworkService.connectedSsid
     property real panelHeightHint: 360
-    readonly property int metricLabelWidth: Math.max(Theme.fontSize * 3, 32)
+    readonly property int metricLabelWidth: Theme.metricValueWidth
     readonly property var brightnessDevices: BrightnessService.devicesForMonitors(DisplayService.monitors, BrightnessService.brightnessDevices)
 
-    // ── Battery ──
+    // Battery
     property real batPct: {
         let r = UPower.displayDevice.percentage;
         return (r <= 1.0 && r > 0) ? r * 100 : r;
@@ -51,7 +51,7 @@ FocusScope {
         return "../icons/battery-low.svg";
     }
 
-    // ── Power profile cycling ──
+    // Power profile cycling
     function cyclePowerProfile() {
         let profiles = PowerProfileService.availableProfiles;
         if (!profiles.length)
@@ -66,7 +66,7 @@ FocusScope {
         PowerProfileService.setProfile(profiles[(currentIndex + 1) % profiles.length].name);
     }
 
-    // ── Standard popup lifecycle ──
+    // Standard popup lifecycle
     function preparePanelForOpen() {
         let item = qsContentLoader.item;
         if (!item)
@@ -253,8 +253,7 @@ FocusScope {
                     width: qsScroll.width
                     spacing: Theme.sectionSpacing
 
-                    // ═══════════════════ Toggle Tile Grid ═══════════════════
-
+                    // Toggle tile grid
                     Grid {
                         id: tileGrid
                         Layout.fillWidth: true
@@ -280,7 +279,7 @@ FocusScope {
                                 required property var modelData
                                 required property int index
                                 width: (tileGrid.width - tileGrid.columnSpacing) / 2
-                                height: 56
+                                height: Theme.qsTileHeight
                                 radius: Theme.hoverRadius
                                 color: "transparent"
 
@@ -399,7 +398,7 @@ FocusScope {
                                     }
                                 }
 
-                                // ── Tile visuals ──
+                                // Tile visuals
 
                                 opacity: tile.isPending ? 0.72 : 1
                                 Behavior on opacity { Components.Anim { duration: Theme.animHover } }
@@ -560,8 +559,8 @@ FocusScope {
                                                     Text {
                                                         text: splitPart.modelData.label
                                                         color: splitPart.partActive ? Theme.fg : Theme.fg2
-                                                        font.family: Theme.systemFamily
-                                                        font.pixelSize: Theme.fontSizeSmall - 1
+                                                        font.family: Theme.fontFamily
+                                                        font.pixelSize: Theme.fontSizeMini
                                                         font.bold: splitPart.partActive
                                                         elide: Text.ElideRight
                                                         Layout.fillWidth: true
@@ -569,8 +568,8 @@ FocusScope {
                                                     Text {
                                                         text: splitPart.partActive ? "On" : "Off"
                                                         color: Theme.fg4
-                                                        font.family: Theme.systemFamily
-                                                        font.pixelSize: Theme.fontSizeSmall - 2
+                                                        font.family: Theme.fontFamily
+                                                        font.pixelSize: Theme.fontSizeMicro
                                                         elide: Text.ElideRight
                                                         Layout.fillWidth: true
                                                     }
@@ -595,20 +594,20 @@ FocusScope {
                                         Text {
                                             text: tile.modelData.label
                                             color: tile.isActive ? Theme.fg : Theme.fg2
-                                            font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
+                                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                                             font.bold: tile.isActive
                                             elide: Text.ElideRight; Layout.fillWidth: true
                                         }
                                         Text {
                                             text: tile.tileSublabel
                                             color: Theme.fg4
-                                            font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall - 1
+                                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeMini
                                             elide: Text.ElideRight; Layout.fillWidth: true
                                         }
                                     }
 
                                     Rectangle {
-                                        width: 22; height: 22; radius: 11
+                                        width: Theme.qsTileExpandSize; height: Theme.qsTileExpandSize; radius: Theme.qsTileExpandSize / 2
                                         visible: tile.canExpand
                                         color: expandBtnArea.containsMouse
                                             ? (expandBtnArea.pressed ? Theme.bg3 : Qt.rgba(Theme.fg.r, Theme.fg.g, Theme.fg.b, 0.08))
@@ -636,69 +635,34 @@ FocusScope {
                         }
                     }
 
-                    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+                    Components.Divider {}
 
-                    // ═══════════════════ Volume Slider ═══════════════════
-
+                    // Volume
                     RowLayout {
                         Layout.fillWidth: true; spacing: 8
 
                         Components.Icon {
                             source: AudioService.muted ? "../icons/volume-mute.svg" : "../icons/volume-high.svg"
                             color: Theme.fg4
-                            Layout.preferredWidth: 16; Layout.alignment: Qt.AlignHCenter
+                            Layout.preferredWidth: Theme.metricIconWidth; Layout.alignment: Qt.AlignHCenter
                         }
 
-                        Rectangle {
-                            Layout.fillWidth: true; height: Theme.sliderHeight; radius: Theme.sliderHeight / 2; color: Theme.bg3
-
-                            Rectangle {
-                                anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
-                                width: parent.width * Math.min(1.0, AudioService.volume)
-                                radius: parent.radius; color: Theme.greenBright
-                                Behavior on width {
-                                    Components.Anim {
-                                        duration: Theme.animMicro
-                                        easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
-                                    }
-                                }
-                            }
-
-                            Rectangle {
-                                width: 12; height: 12; radius: 6; color: Theme.fg
-                                y: (parent.height - height) / 2
-                                x: Math.max(0, Math.min(parent.width - width, parent.width * Math.min(1.0, AudioService.volume) - width / 2))
-                                scale: volSliderMouse.pressed ? 1.2 : (volSliderMouse.containsMouse ? 1.1 : 1.0)
-                                Behavior on scale {
-                                    Components.Anim {
-                                        duration: Theme.animMicro
-                                        easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
-                                    }
-                                }
-                                Behavior on x {
-                                    SpringAnimation { spring: 4; damping: 0.4 }
-                                }
-                            }
-
-                            Components.HoverLayer {
-                                id: volSliderMouse
-                                hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
-                                onPressed: { AudioService.suppressOsd = true; }
-                                onReleased: { Qt.callLater(() => { AudioService.suppressOsd = false; }); }
-                                onClicked: (mouse) => { AudioService.setVolume(mouse.x / parent.width); }
-                                onPositionChanged: (mouse) => { if (pressed) AudioService.setVolume(mouse.x / parent.width); }
-                            }
+                        Components.SliderTrack {
+                            fillColor: Theme.greenBright
+                            fraction: Math.min(1.0, AudioService.volume)
+                            onMoved: (f) => AudioService.setVolume(f)
+                            onPressStarted: AudioService.suppressOsd = true
+                            onPressEnded: Qt.callLater(() => { AudioService.suppressOsd = false; })
                         }
 
                         Text {
                             text: Math.round(AudioService.volume * 100) + "%"
-                            color: Theme.fg3; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
+                            color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                             Layout.preferredWidth: qsPop.metricLabelWidth; horizontalAlignment: Text.AlignRight
                         }
                     }
 
-                    // ═══════════════════ Brightness Slider ═══════════════════
-
+                    // Brightness
                     Repeater {
                         model: qsPop.brightnessDevices
 
@@ -710,8 +674,7 @@ FocusScope {
                         }
                     }
 
-                    // ═══════════════════ Battery Status ═══════════════════
-
+                    // Battery
                     RowLayout {
                         visible: qsPop.batPresent
                         Layout.fillWidth: true; spacing: 8
@@ -728,21 +691,20 @@ FocusScope {
 
                         Text {
                             text: Math.round(qsPop.batPct) + "%"
-                            color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
+                            color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                             font.bold: true
                         }
 
                         Text {
                             text: qsPop.batFull ? "Charged" : (qsPop.batCharging ? "Charging" : "On Battery")
-                            color: Theme.fg3; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
+                            color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                             Layout.fillWidth: true
                         }
                     }
 
-                    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+                    Components.Divider {}
 
-                    // ═══════════════════ Settings Footer ═══════════════════
-
+                    // All settings footer
                     Rectangle {
                         Layout.fillWidth: true; height: Theme.listItemHeight
                         radius: Theme.hoverRadius; color: "transparent"
@@ -766,7 +728,7 @@ FocusScope {
                                 Text {
                                     text: "All Settings"
                                     color: settingsArea.containsMouse ? Theme.fg : Theme.fg2
-                                    font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
+                                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                                     Layout.fillWidth: true
                                     Behavior on color { Components.CAnim { duration: Theme.animHover } }
                                 }

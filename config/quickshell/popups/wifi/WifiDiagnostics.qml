@@ -136,7 +136,7 @@ Item {
         return Theme.redBright;
     }
 
-    // ── Sparkline component ───────────────────────────────────
+    // Sparkline component
     Component {
         id: sparklineComponent
         Canvas {
@@ -182,7 +182,7 @@ Item {
         }
     }
 
-    // ── Skeleton loading ────────────────────────
+    // Skeleton loading
     Column {
         visible: root.diagLoading
         anchors.fill: parent; anchors.topMargin: 4
@@ -222,7 +222,7 @@ Item {
         }
     }
 
-    // ── Diagnostics results ─────────────────────
+    // Diagnostics results
     Components.WheelFlickable {
         visible: !root.diagLoading
         anchors.fill: parent
@@ -231,7 +231,7 @@ Item {
         ColumnLayout {
             id: diagCol; width: parent.width; spacing: 6
 
-            // ── Quality score ──────────────────
+            // Quality score
             RowLayout {
                 visible: !root.diagLoading && root.qualityScore() >= 0
                 Layout.fillWidth: true; spacing: 8; Layout.bottomMargin: 4
@@ -248,29 +248,29 @@ Item {
                         font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
                     }
                     Text { text: "Connection Quality"; color: Theme.fg4
-                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
+                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeMini }
                 }
             }
 
-            // ── Network header ──────────────────
+            // Network header
             RowLayout { Layout.fillWidth: true; spacing: 6
                 Text { text: root.connectedLabel; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true; Layout.fillWidth: true; elide: Text.ElideRight }
                 Rectangle {
                     visible: root.connectionType === "wifi" && root.diagBand !== "" && root.diagBand !== "unknown"
                     width: bandLabel.implicitWidth + 10; height: 18; radius: 4; color: Theme.bg3
-                    Text { id: bandLabel; anchors.centerIn: parent; text: root.diagBand; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 2 }
+                    Text { id: bandLabel; anchors.centerIn: parent; text: root.diagBand; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeMicro }
                 }
                 Rectangle {
                     visible: root.connectionType === "ethernet"
                     width: ethLabel.implicitWidth + 10; height: 18; radius: 4; color: Theme.bg3
-                    Text { id: ethLabel; anchors.centerIn: parent; text: "Ethernet"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 2 }
+                    Text { id: ethLabel; anchors.centerIn: parent; text: "Ethernet"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeMicro }
                 }
             }
             // Wi-Fi standard
             Text {
                 visible: root.connectionType === "wifi" && root.diagWifiStandard !== "" && root.diagWifiStandard !== "unknown"
                 text: root.diagWifiStandard
-                color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
+                color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeMini
             }
             // Upgrade warning for old standards
             Rectangle {
@@ -283,12 +283,12 @@ Item {
                     text: root.diagBand === "2.4 GHz"
                         ? "Using an older Wi-Fi standard \u2014 try connecting to a 5 GHz network for better speeds."
                         : "Using an older Wi-Fi standard. Your router may need a firmware update."
-                    color: Theme.yellowBright; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
+                    color: Theme.yellowBright; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeMini
                     wrapMode: Text.WordWrap
                 }
             }
 
-            // ── Link Rate ───────────────────────
+            // Link Rate
             RowLayout { visible: root.connectionType === "wifi"; Layout.fillWidth: true
                 Text { text: "Link Rate"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 50; Layout.fillWidth: true }
                 Text { text: (root.diagLinkRate && root.diagLinkRate !== "--") ? root.diagLinkRate + " Mbps" : "--"
@@ -297,7 +297,7 @@ Item {
                     Layout.preferredWidth: 65; horizontalAlignment: Text.AlignRight }
             }
 
-            // ── Signal ──────────────────────────
+            // Signal
             RowLayout { visible: root.connectionType === "wifi"; Layout.fillWidth: true; spacing: 6
                 Text { text: "Signal"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                     Layout.preferredWidth: 50 }
@@ -333,12 +333,12 @@ Item {
                     if (v >= -70) return "Weak signal \u2014 functional but not ideal. Try moving closer or adjusting router placement.";
                     return "Very weak signal. Walls and distance are significantly degrading your connection.";
                 }
-                color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
+                color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeMini
                 wrapMode: Text.WordWrap; Layout.fillWidth: true
                 opacity: 0.8
             }
 
-            // ── Noise ───────────────────────────
+            // Noise
             RowLayout { visible: root.connectionType === "wifi"; Layout.fillWidth: true; spacing: 6
                 Text { text: "Noise"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                     Layout.preferredWidth: 50 }
@@ -384,8 +384,8 @@ Item {
                     Layout.preferredWidth: 80; horizontalAlignment: Text.AlignRight }
             }
 
-            // ── Router section ──────────────────
-            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3; Layout.topMargin: 4 }
+            // Router section
+            Components.Divider { Layout.topMargin: 4 }
             RowLayout { spacing: 6
                 Components.Icon { source: "../icons/router.svg"; color: Theme.fg }
                 Text { text: "Router" + (root.diagGateway && root.diagGateway !== "--" ? " \u00b7 " + root.diagGateway : ""); color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
@@ -419,8 +419,8 @@ Item {
                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 65; horizontalAlignment: Text.AlignRight }
             }
 
-            // ── Internet section ────────────────
-            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3; Layout.topMargin: 4 }
+            // Internet section
+            Components.Divider { Layout.topMargin: 4 }
             RowLayout { spacing: 6
                 Components.Icon { source: "../icons/wifi.svg"; color: Theme.fg }
                 Text { text: "Internet \u00b7 1.1.1.1"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
@@ -454,8 +454,8 @@ Item {
                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 65; horizontalAlignment: Text.AlignRight }
             }
 
-            // ── DNS section ─────────────────────
-            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3; Layout.topMargin: 4 }
+            // DNS section
+            Components.Divider { Layout.topMargin: 4 }
             RowLayout { spacing: 6
                 Components.Icon { source: "../icons/world.svg"; color: Theme.fg }
                 Text { text: "DNS" + (root.diagDnsServer && root.diagDnsServer !== "--" ? " \u00b7 " + root.diagDnsServer : ""); color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
@@ -477,7 +477,7 @@ Item {
                 opacity: NetworkService.dnsSwitchPending ? 0.72 : 1
                 Behavior on opacity { Components.Anim { duration: Theme.animHover } }
 
-                Text { text: "Switch:"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
+                Text { text: "Switch:"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeMini }
 
                 Repeater {
                     model: [
@@ -506,7 +506,7 @@ Item {
                             }
                         }
                         Text { id: dnsBtnLabel; anchors.centerIn: parent; text: dnsBtn.modelData.label
-                            color: dnsBtn.isCurrent ? Theme.bg : (dnsBtnA.containsMouse ? Theme.fg : Theme.fg4); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
+                            color: dnsBtn.isCurrent ? Theme.bg : (dnsBtnA.containsMouse ? Theme.fg : Theme.fg4); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeMini
                             Behavior on color {
                                 Components.CAnim {
                                     duration: Theme.animHover
@@ -521,8 +521,8 @@ Item {
                 }
             }
 
-            // ── Scan Channels ─────────────────
-            Rectangle { visible: root.connectionType === "wifi"; Layout.fillWidth: true; height: 1; color: Theme.bg3; Layout.topMargin: 4 }
+            // Scan Channels
+            Components.Divider { visible: root.connectionType === "wifi"; Layout.topMargin: 4 }
             Rectangle {
                 visible: root.connectionType === "wifi"
                 Layout.fillWidth: true; height: Theme.btnHeight; radius: Theme.btnRadius
@@ -563,8 +563,8 @@ Item {
                     onClicked: root.channelScanRequested() }
             }
 
-            // ── Speed Test section ──────────────
-            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3; Layout.topMargin: 4 }
+            // Speed Test section
+            Components.Divider { Layout.topMargin: 4 }
             RowLayout { spacing: 6
                 Components.Icon { source: "../icons/speed.svg"; color: Theme.fg }
                 Text { text: "Speed Test"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
@@ -575,11 +575,11 @@ Item {
                 Layout.fillWidth: true; spacing: 12
                 ColumnLayout { spacing: 2
                     Text { text: root.diagDownload || "--"; color: Theme.greenBright; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeLarge; font.bold: true }
-                    Text { text: "\u2193 Mbps"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
+                    Text { text: "\u2193 Mbps"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeMini }
                 }
                 ColumnLayout { spacing: 2
                     Text { text: root.diagUpload || "--"; color: Theme.greenBright; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeLarge; font.bold: true }
-                    Text { text: "\u2191 Mbps"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
+                    Text { text: "\u2191 Mbps"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeMini }
                 }
                 Item { Layout.fillWidth: true }
                 Rectangle {
@@ -654,7 +654,7 @@ Item {
                             text: "15-30s"
                             color: Theme.fg4
                             font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSizeSmall - 1
+                            font.pixelSize: Theme.fontSizeMini
                         }
                     }
 
@@ -663,7 +663,7 @@ Item {
                         text: "Measuring download, upload, and latency under load."
                         color: Theme.fg4
                         font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeSmall - 1
+                        font.pixelSize: Theme.fontSizeMini
                         wrapMode: Text.WordWrap
                     }
                 }
@@ -679,7 +679,7 @@ Item {
                 }
                 Text {
                     text: root.diagBufferbloat
-                    color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
+                    color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeMini
                     wrapMode: Text.WordWrap; Layout.fillWidth: true
                 }
             }
@@ -721,8 +721,8 @@ Item {
                     onClicked: root.speedTestRequested() }
             }
 
-            // ── Bottom actions ──────────────────
-            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+            // Bottom actions
+            Components.Divider {}
             RowLayout {
                 Layout.fillWidth: true; spacing: 6
 

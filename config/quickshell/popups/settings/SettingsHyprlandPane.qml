@@ -7,7 +7,7 @@ Item {
     id: root
     anchors.fill: parent
 
-    // ── Required properties for Options tab (kept from existing) ──
+    // Required properties for Options tab (kept from existing)
     required property string hyprRuntimeError
     required property var hyprOptionInfo
     required property var hyprGeneralOptions
@@ -19,11 +19,11 @@ Item {
     signal hyprOptionToggled(string option)
     signal hyprOptionAdjusted(string option, int direction)
 
-    // ── Hub state ──
+    // Hub state
     property string activeTab: "options"
     property var expandedAnimations: ({})
 
-    // ── Keybind state ──
+    // Keybind state
     property string keybindSearch: ""
     property bool _animationsLoaded: false
     property bool _keybindsLoaded: false
@@ -205,7 +205,7 @@ Item {
             HyprlandConfigService.endCaptureSession();
     }
 
-    // ── Shared helpers ──
+    // Shared helpers
     function hyprOptionMeta(option) { return root.hyprOptionInfo[option] || ({}); }
     function hyprStateKey(option) { return root.hyprOptionMeta(option).stateKey || ""; }
     function hyprThemeStateValue(stateKey, fallback) { let v = root.themeState[stateKey]; return v === undefined || v === null ? fallback : v; }
@@ -276,7 +276,7 @@ Item {
         anchors.fill: parent
         spacing: 0
 
-        // ── Header ──
+        // Header
         Components.SettingsPaneHeader {
             title: "Hyprland"
             iconSource: "../../icons/layout.svg"
@@ -319,7 +319,7 @@ Item {
             }
         }
 
-        // ── Tab bar ──
+        // Tab bar
         Row {
             Layout.fillWidth: true
             Layout.bottomMargin: 8
@@ -347,9 +347,9 @@ Item {
             }
         }
 
-        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+        Components.Divider {}
 
-        // ── Error banner (visible on all tabs) ──
+        // Error banner (visible on all tabs)
         Text {
             visible: HyprlandConfigService.error !== ""
             text: HyprlandConfigService.error
@@ -357,15 +357,13 @@ Item {
             Layout.fillWidth: true; Layout.topMargin: 4; wrapMode: Text.WordWrap
         }
 
-        // ── Content area ──
+        // Content area
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.topMargin: 8
 
-            // ═══════════════════════════════════════════
-            //  OPTIONS TAB
-            // ═══════════════════════════════════════════
+            // Options tab
             Components.WheelFlickable {
                 anchors.fill: parent
                 visible: root.activeTab === "options"
@@ -386,27 +384,27 @@ Item {
                     }
 
                     // GENERAL
-                    Text { text: "GENERAL"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+                    Components.SectionLabel { text: "GENERAL" }
 
                     Repeater {
                         model: root.hyprGeneralOptions
                         delegate: hyprIntOptionDelegate
                     }
 
-                    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+                    Components.Divider {}
 
                     // DECORATION
-                    Text { text: "DECORATION"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+                    Components.SectionLabel { text: "DECORATION" }
 
                     Repeater {
                         model: root.hyprDecorationOptions
                         delegate: hyprIntOptionDelegate
                     }
 
-                    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+                    Components.Divider {}
 
                     // BLUR
-                    Text { text: "BLUR"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+                    Components.SectionLabel { text: "BLUR" }
 
                     RowLayout {
                         Layout.fillWidth: true; spacing: 8
@@ -422,10 +420,10 @@ Item {
 
                     Text { text: "Blur size and passes must stay at 1 or above."; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.fillWidth: true; wrapMode: Text.WordWrap }
 
-                    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+                    Components.Divider {}
 
                     // ANIMATIONS master toggle
-                    Text { text: "ANIMATIONS"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+                    Components.SectionLabel { text: "ANIMATIONS" }
 
                     RowLayout {
                         Layout.fillWidth: true; spacing: 8
@@ -436,9 +434,7 @@ Item {
                 }
             }
 
-            // ═══════════════════════════════════════════
-            //  ANIMATIONS TAB
-            // ═══════════════════════════════════════════
+            // Animations tab
             Components.WheelFlickable {
                 anchors.fill: parent
                 visible: root.activeTab === "animations"
@@ -474,9 +470,8 @@ Item {
                             spacing: 2
 
                             // Category header
-                            Text {
+                            Components.SectionLabel {
                                 text: catDelegate.categoryName.toUpperCase()
-                                color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
                                 Layout.topMargin: 10
                             }
 
@@ -536,7 +531,7 @@ Item {
                                             }
                                         }
 
-                                        // ── Inherited state ──
+                                        // Inherited state
                                         Text {
                                             visible: !animRow.isOverridden
                                             text: {
@@ -557,11 +552,11 @@ Item {
                                             color: overrideArea.containsMouse ? Theme.bg2 : Theme.bg1
                                             border.width: 1; border.color: Theme.bg3
                                             Behavior on color { Components.CAnim { duration: Theme.animHover } }
-                                            Text { id: overrideLabel; anchors.centerIn: parent; text: "Override"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall }
+                                            Text { id: overrideLabel; anchors.centerIn: parent; text: "Override"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
                                             Components.HoverLayer { id: overrideArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0; onClicked: HyprlandConfigService.overrideAnimation(animRow.animName) }
                                         }
 
-                                        // ── Overridden controls ──
+                                        // Overridden controls
 
                                         // Enabled toggle
                                         Components.ToggleSwitch {
@@ -646,15 +641,13 @@ Item {
                                 }
                             }
 
-                            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3; Layout.topMargin: 4 }
+                            Components.Divider { Layout.topMargin: 4 }
                         }
                     }
                 }
             }
 
-            // ═══════════════════════════════════════════
-            //  BEZIERS TAB
-            // ═══════════════════════════════════════════
+            // Beziers tab
             Components.WheelFlickable {
                 anchors.fill: parent
                 visible: root.activeTab === "beziers"
@@ -672,9 +665,7 @@ Item {
                 }
             }
 
-            // ═══════════════════════════════════════════
-            //  KEYBINDS TAB
-            // ═══════════════════════════════════════════
+            // Keybinds tab
             Item {
                 anchors.fill: parent
                 visible: root.activeTab === "keybinds"
@@ -688,7 +679,7 @@ Item {
                         root.stopCapture();
                 }
 
-                // ── Bind list ──
+                // Bind list
                 Components.WheelFlickable {
                     anchors.fill: parent
                     visible: root.editingBindIndex < 0
@@ -766,12 +757,8 @@ Item {
                                 Layout.fillWidth: true
                                 spacing: 2
 
-                                Text {
+                                Components.SectionLabel {
                                     text: catBindDelegate.modelData.label
-                                    color: Theme.fg4
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.fontSizeSmall
-                                    font.bold: true
                                     Layout.topMargin: 10
                                 }
 
@@ -811,8 +798,8 @@ Item {
                                                             anchors.centerIn: parent
                                                             text: modelData
                                                             color: Theme.bg
-                                                            font.family: Theme.systemFamily
-                                                            font.pixelSize: Theme.fontSizeSmall - 2
+                                                            font.family: Theme.fontFamily
+                                                            font.pixelSize: Theme.fontSizeMicro
                                                             font.bold: true
                                                         }
                                                     }
@@ -830,8 +817,8 @@ Item {
                                                     anchors.centerIn: parent
                                                     text: bindRowRect.modelData.bind.key
                                                     color: Theme.fg
-                                                    font.family: Theme.systemFamily
-                                                    font.pixelSize: Theme.fontSizeSmall - 1
+                                                    font.family: Theme.fontFamily
+                                                    font.pixelSize: Theme.fontSizeMini
                                                 }
                                             }
 
@@ -857,8 +844,8 @@ Item {
                                                 text: bindRowRect.modelData.bind.mouse ? "mouse"
                                                     : (bindRowRect.modelData.bind.repeat ? "repeat" : "locked")
                                                 color: Theme.fg4
-                                                font.family: Theme.systemFamily
-                                                font.pixelSize: Theme.fontSizeSmall - 2
+                                                font.family: Theme.fontFamily
+                                                font.pixelSize: Theme.fontSizeMicro
                                                 font.italic: true
                                             }
 
@@ -875,7 +862,7 @@ Item {
                                                     anchors.centerIn: parent
                                                     text: "Edit"
                                                     color: Theme.fg
-                                                    font.family: Theme.systemFamily
+                                                    font.family: Theme.fontFamily
                                                     font.pixelSize: Theme.fontSizeSmall
                                                 }
                                                 Components.HoverLayer {
@@ -897,13 +884,13 @@ Item {
                                     }
                                 }
 
-                                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3; Layout.topMargin: 4 }
+                                Components.Divider { Layout.topMargin: 4 }
                             }
                         }
                     }
                 }
 
-                // ── Key capture overlay ──
+                // Key capture overlay
                 Rectangle {
                     anchors.fill: parent
                     visible: root.editingBindIndex >= 0
@@ -1025,7 +1012,7 @@ Item {
                                     anchors.centerIn: parent
                                     text: root.captureActive ? "Cancel" : "Record"
                                     color: Theme.bg
-                                    font.family: Theme.systemFamily
+                                    font.family: Theme.fontFamily
                                     font.pixelSize: Theme.fontSizeSmall
                                 }
                                 Components.HoverLayer {
@@ -1048,7 +1035,7 @@ Item {
                                     anchors.centerIn: parent
                                     text: "Apply"
                                     color: Theme.bg
-                                    font.family: Theme.systemFamily
+                                    font.family: Theme.fontFamily
                                     font.pixelSize: Theme.fontSizeSmall
                                 }
                                 Components.HoverLayer {
@@ -1070,7 +1057,7 @@ Item {
                                     anchors.centerIn: parent
                                     text: "Close"
                                     color: Theme.fg
-                                    font.family: Theme.systemFamily
+                                    font.family: Theme.fontFamily
                                     font.pixelSize: Theme.fontSizeSmall
                                 }
                                 Components.HoverLayer {

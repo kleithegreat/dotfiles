@@ -11,8 +11,6 @@ FocusScope {
     signal close()
 
     readonly property bool overlayVisible: active || closing
-    readonly property Item panelItem: panel
-    readonly property Item focusTarget: drawer
     readonly property bool scrimEnabled: false
     readonly property color scrimColor: "transparent"
     readonly property real scrimOpacity: 0
@@ -191,7 +189,7 @@ FocusScope {
                     Text {
                         text: "Notifications"
                         color: Theme.fg
-                        font.family: Theme.systemFamily
+                        font.family: Theme.fontFamily
                         font.pixelSize: Theme.headerFontSize
                         font.bold: true
                         Layout.fillWidth: true
@@ -200,7 +198,7 @@ FocusScope {
                     Text {
                         text: drawer.historyLabel
                         color: Theme.fg4
-                        font.family: Theme.systemFamily
+                        font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSizeSmall
                         Layout.fillWidth: true
                     }
@@ -222,11 +220,7 @@ FocusScope {
                 }
             }
 
-            Rectangle {
-                Layout.fillWidth: true
-                height: 1
-                color: Theme.bg3
-            }
+            Components.Divider {}
 
             Rectangle {
                 Layout.fillWidth: true
@@ -257,7 +251,7 @@ FocusScope {
                         Text {
                             text: "Do Not Disturb"
                             color: Theme.fg
-                            font.family: Theme.systemFamily
+                            font.family: Theme.fontFamily
                             font.pixelSize: Theme.fontSizeSmall
                             font.bold: true
                             Layout.fillWidth: true
@@ -268,8 +262,8 @@ FocusScope {
                                 ? "Popups are muted. History is still saved."
                                 : "Popups are shown and saved to history."
                             color: Theme.fg4
-                            font.family: Theme.systemFamily
-                            font.pixelSize: Theme.fontSizeSmall - 1
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeMini
                             wrapMode: Text.WordWrap
                             Layout.fillWidth: true
                         }
@@ -334,8 +328,8 @@ FocusScope {
                                         Text {
                                             text: card.appName
                                             color: Theme.fg4
-                                            font.family: Theme.systemFamily
-                                            font.pixelSize: Theme.fontSizeSmall - 1
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: Theme.fontSizeMini
                                             elide: Text.ElideRight
                                             Layout.fillWidth: true
                                         }
@@ -344,8 +338,8 @@ FocusScope {
                                             text: card.timeStr
                                             visible: text !== ""
                                             color: Theme.fg4
-                                            font.family: Theme.systemFamily
-                                            font.pixelSize: Theme.fontSizeSmall - 2
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: Theme.fontSizeMicro
                                         }
 
                                         IconButton {
@@ -360,7 +354,7 @@ FocusScope {
                                     Text {
                                         text: card.summary !== "" ? card.summary : "Notification"
                                         color: Theme.fg
-                                        font.family: Theme.systemFamily
+                                        font.family: Theme.fontFamily
                                         font.pixelSize: Theme.fontSizeSmall
                                         font.bold: true
                                         wrapMode: Text.WordWrap
@@ -372,8 +366,8 @@ FocusScope {
                                         visible: card.body !== ""
                                         text: card.body
                                         color: Theme.fg3
-                                        font.family: Theme.systemFamily
-                                        font.pixelSize: Theme.fontSizeSmall - 1
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSizeMini
                                         wrapMode: Text.WordWrap
                                         maximumLineCount: 4
                                         elide: Text.ElideRight
@@ -405,7 +399,7 @@ FocusScope {
                         Text {
                             text: "No notifications"
                             color: Theme.fg
-                            font.family: Theme.systemFamily
+                            font.family: Theme.fontFamily
                             font.pixelSize: Theme.fontSize
                             font.bold: true
                             horizontalAlignment: Text.AlignHCenter
@@ -415,7 +409,7 @@ FocusScope {
                         Text {
                             text: "New notifications will appear here after they arrive."
                             color: Theme.fg4
-                            font.family: Theme.systemFamily
+                            font.family: Theme.fontFamily
                             font.pixelSize: Theme.fontSizeSmall
                             wrapMode: Text.WordWrap
                             horizontalAlignment: Text.AlignHCenter

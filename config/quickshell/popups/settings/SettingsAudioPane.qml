@@ -12,7 +12,7 @@ Components.WheelFlickable {
 
     property var sink: AudioService.sink
     property var source: Pipewire.defaultAudioSource
-    readonly property int valueLabelWidth: Math.max(Theme.fontSize * 3, 32)
+    readonly property int valueLabelWidth: Theme.metricValueWidth
     readonly property int appLabelPreferredWidth: Math.max(Theme.fontSize * 9, 120)
     PwObjectTracker { objects: [root.sink, root.source] }
 
@@ -21,18 +21,13 @@ Components.WheelFlickable {
         width: parent.width
         spacing: 16
 
-        // ── Header ───────────────────────────────────────────
-
-        RowLayout { Layout.fillWidth: true; spacing: 8
-            Components.Icon { source: "../icons/volume-high.svg"; color: Theme.fg }
-            Text { text: "Audio"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true; Layout.fillWidth: true }
+        Components.SettingsPaneHeader {
+            title: "Audio"
+            iconSource: "../icons/volume-high.svg"
         }
 
-        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
-
-        // ── Output ───────────────────────────────────────────
-
-        Text { text: "OUTPUT"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+        // Output
+        Components.SectionLabel { text: "OUTPUT" }
 
         RowLayout { Layout.fillWidth: true; spacing: 8
             Components.Icon { source: "../icons/volume-high.svg"; color: Theme.fg }
@@ -58,40 +53,22 @@ Components.WheelFlickable {
             Components.Icon {
                 source: (root.sink?.audio?.muted ?? false) ? "../icons/volume-mute.svg" : "../icons/volume-high.svg"
                 color: Theme.fg4
-                Layout.preferredWidth: 16
+                Layout.preferredWidth: Theme.metricIconWidth
             }
-            Rectangle {
-                Layout.fillWidth: true; height: Theme.sliderHeight; radius: Theme.sliderHeight / 2; color: Theme.bg3
-                Rectangle {
-                    anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
-                    width: parent.width * Math.min(1.0, root.sink?.audio?.volume ?? 0)
-                    radius: parent.radius; color: Theme.greenBright
-                    Behavior on width { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                }
-                Rectangle {
-                    width: 12; height: 12; radius: 6; color: Theme.fg
-                    y: (parent.height - height) / 2
-                    x: Math.max(0, Math.min(parent.width - width, parent.width * Math.min(1.0, root.sink?.audio?.volume ?? 0) - width / 2))
-                    scale: outSlider.pressed ? 1.2 : (outSlider.containsMouse ? 1.1 : 1.0)
-                    Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    Behavior on x { SpringAnimation { spring: 4; damping: 0.4 } }
-                }
-                Components.HoverLayer {
-                    id: outSlider; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
-                    onPressed: { AudioService.suppressOsd = true; }
-                    onReleased: { Qt.callLater(() => { AudioService.suppressOsd = false; }); }
-                    onClicked: (mouse) => { AudioService.setVolume(mouse.x / parent.width); }
-                    onPositionChanged: (mouse) => { if (pressed) AudioService.setVolume(mouse.x / parent.width); }
-                }
+            Components.SliderTrack {
+                fillColor: Theme.greenBright
+                fraction: Math.min(1.0, root.sink?.audio?.volume ?? 0)
+                onMoved: (f) => AudioService.setVolume(f)
+                onPressStarted: AudioService.suppressOsd = true
+                onPressEnded: Qt.callLater(() => { AudioService.suppressOsd = false; })
             }
             Text { text: Math.round((root.sink?.audio?.volume ?? 0) * 100) + "%"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: root.valueLabelWidth; horizontalAlignment: Text.AlignRight }
         }
 
-        // ── Input ────────────────────────────────────────────
+        // Input
+        Components.Divider {}
 
-        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
-
-        Text { text: "INPUT"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+        Components.SectionLabel { text: "INPUT" }
 
         RowLayout { Layout.fillWidth: true; spacing: 8
             Components.Icon { source: "../icons/microphone.svg"; color: Theme.fg }
@@ -117,40 +94,22 @@ Components.WheelFlickable {
             Components.Icon {
                 source: (root.source?.audio?.muted ?? true) ? "../icons/microphone-off.svg" : "../icons/microphone.svg"
                 color: Theme.fg4
-                Layout.preferredWidth: 16
+                Layout.preferredWidth: Theme.metricIconWidth
             }
-            Rectangle {
-                Layout.fillWidth: true; height: Theme.sliderHeight; radius: Theme.sliderHeight / 2; color: Theme.bg3
-                Rectangle {
-                    anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
-                    width: parent.width * Math.min(1.0, root.source?.audio?.volume ?? 0)
-                    radius: parent.radius; color: Theme.aquaBright
-                    Behavior on width { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                }
-                Rectangle {
-                    width: 12; height: 12; radius: 6; color: Theme.fg
-                    y: (parent.height - height) / 2
-                    x: Math.max(0, Math.min(parent.width - width, parent.width * Math.min(1.0, root.source?.audio?.volume ?? 0) - width / 2))
-                    scale: inSlider.pressed ? 1.2 : (inSlider.containsMouse ? 1.1 : 1.0)
-                    Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    Behavior on x { SpringAnimation { spring: 4; damping: 0.4 } }
-                }
-                Components.HoverLayer {
-                    id: inSlider; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
-                    onPressed: { AudioService.suppressOsd = true; }
-                    onReleased: { Qt.callLater(() => { AudioService.suppressOsd = false; }); }
-                    onClicked: (mouse) => { if (root.source?.audio) root.source.audio.volume = mouse.x / parent.width; }
-                    onPositionChanged: (mouse) => { if (pressed && root.source?.audio) root.source.audio.volume = Math.max(0, Math.min(1, mouse.x / parent.width)); }
-                }
+            Components.SliderTrack {
+                fillColor: Theme.aquaBright
+                fraction: Math.min(1.0, root.source?.audio?.volume ?? 0)
+                onMoved: (f) => { if (root.source?.audio) root.source.audio.volume = f; }
+                onPressStarted: AudioService.suppressOsd = true
+                onPressEnded: Qt.callLater(() => { AudioService.suppressOsd = false; })
             }
             Text { text: Math.round((root.source?.audio?.volume ?? 0) * 100) + "%"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: root.valueLabelWidth; horizontalAlignment: Text.AlignRight }
         }
 
-        // ── Applications ─────────────────────────────────────
+        // Applications
+        Components.Divider {}
 
-        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
-
-        Text { text: "APPLICATIONS"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+        Components.SectionLabel { text: "APPLICATIONS" }
 
         ColumnLayout {
             id: appCol
@@ -173,29 +132,13 @@ Components.WheelFlickable {
                         Layout.preferredWidth: root.appLabelPreferredWidth
                         Layout.maximumWidth: Math.max(root.appLabelPreferredWidth, Math.round(audioCol.width * 0.35))
                     }
-                    Rectangle {
-                        Layout.fillWidth: true; height: Theme.sliderHeight; radius: Theme.sliderHeight / 2; color: Theme.bg3
-                        Rectangle {
-                            anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
-                            width: parent.width * Math.min(1.0, appRow.modelData.audio?.volume ?? 0)
-                            radius: parent.radius; color: Theme.yellowBright
-                            Behavior on width { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        }
-                        Rectangle {
-                            width: 10; height: 10; radius: 5; color: Theme.fg
-                            y: (parent.height - height) / 2
-                            x: Math.max(0, Math.min(parent.width - width, parent.width * Math.min(1.0, appRow.modelData.audio?.volume ?? 0) - width / 2))
-                            scale: appSlider.pressed ? 1.2 : (appSlider.containsMouse ? 1.1 : 1.0)
-                            Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                            Behavior on x { SpringAnimation { spring: 4; damping: 0.4 } }
-                        }
-                        Components.HoverLayer {
-                            id: appSlider; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
-                            onPressed: { AudioService.suppressOsd = true; }
-                            onReleased: { Qt.callLater(() => { AudioService.suppressOsd = false; }); }
-                            onClicked: (mouse) => { if (appRow.modelData.audio) appRow.modelData.audio.volume = mouse.x / parent.width; }
-                            onPositionChanged: (mouse) => { if (pressed && appRow.modelData.audio) appRow.modelData.audio.volume = Math.max(0, Math.min(1, mouse.x / parent.width)); }
-                        }
+                    Components.SliderTrack {
+                        fillColor: Theme.yellowBright
+                        knobSize: Theme.sliderKnobSizeSmall
+                        fraction: Math.min(1.0, appRow.modelData.audio?.volume ?? 0)
+                        onMoved: (f) => { if (appRow.modelData.audio) appRow.modelData.audio.volume = f; }
+                        onPressStarted: AudioService.suppressOsd = true
+                        onPressEnded: Qt.callLater(() => { AudioService.suppressOsd = false; })
                     }
                     Text { text: Math.round((appRow.modelData.audio?.volume ?? 0) * 100) + "%"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: root.valueLabelWidth; horizontalAlignment: Text.AlignRight }
                 }

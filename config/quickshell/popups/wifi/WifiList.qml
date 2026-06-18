@@ -32,7 +32,7 @@ Item {
         Column {
             id: netCol; width: parent.width; spacing: 2
 
-            // ── Captive portal warning ────────────────────────
+            // Captive portal warning
             Rectangle {
                 visible: root.isCaptivePortal
                 width: parent.width
@@ -52,7 +52,7 @@ Item {
                     }
                     Text {
                         text: "This network requires login. Open a browser to authenticate."
-                        color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
+                        color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeMini
                         wrapMode: Text.WordWrap; Layout.fillWidth: true
                     }
                     Rectangle {
@@ -127,7 +127,7 @@ Item {
                         Components.Icon { visible: netItem.security !== "" && !root.isEnterprise(netItem.security); source: "../icons/lock.svg"; color: Theme.fg4 }
                         // Signal %
                         Text { text: netItem.signal + "%"; color: Theme.fg4
-                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1 }
+                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeMini }
                         // info button
                             Rectangle {
                                 width: 24; height: 24; radius: 12
@@ -171,7 +171,7 @@ Item {
         }
     }
 
-    // ── Skeleton loading rows ─────────────────────
+    // Skeleton loading rows
     Column {
         id: skeletonCol
         visible: root.netModel.count === 0

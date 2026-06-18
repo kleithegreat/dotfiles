@@ -120,7 +120,7 @@ FocusScope {
                     id: trayItem; required property var modelData; required property int index
                     width: Theme.iconSize + 4; height: Theme.iconSize + 4
 
-                    // ── Staggered entrance animation ──
+                    // Staggered entrance animation
                     opacity: 0
                     scale: Theme.popupStartScale
                     Component.onCompleted: {

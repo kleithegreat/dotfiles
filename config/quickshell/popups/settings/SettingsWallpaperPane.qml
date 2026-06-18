@@ -48,12 +48,10 @@ Components.WheelFlickable {
         width: parent.width
         spacing: 8
 
-        RowLayout { Layout.fillWidth: true; spacing: 8
-            Components.Icon { source: "../icons/photo.svg"; color: Theme.fg }
-            Text { text: "Wallpaper"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true; Layout.fillWidth: true }
+        Components.SettingsPaneHeader {
+            title: "Wallpaper"
+            iconSource: "../icons/photo.svg"
         }
-
-        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
 
         RowLayout {
             Layout.fillWidth: true
@@ -79,7 +77,7 @@ Components.WheelFlickable {
             }
         }
 
-        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+        Components.Divider {}
 
         Text {
             visible: !root.directoryBrowserOpen && root.wallpapers.length === 0
@@ -173,7 +171,7 @@ Components.WheelFlickable {
             }
         }
 
-        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3; Layout.topMargin: 8 }
+        Components.Divider { Layout.topMargin: 8 }
 
         RowLayout {
             Layout.fillWidth: true

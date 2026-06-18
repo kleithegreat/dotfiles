@@ -15,7 +15,7 @@ Components.WheelFlickable {
     property real selectedRate: -1
     readonly property int sliderValueWidth: Math.max(Theme.fontSize * 4, 40)
 
-    // ── Transform labels (Hyprland transform 0-7) ──
+    // Transform labels (Hyprland transform 0-7)
     readonly property var transformLabels: [
         "Normal", "90°", "180°", "270°",
         "Flipped", "Flipped 90°", "Flipped 180°", "Flipped 270°"
@@ -23,7 +23,7 @@ Components.WheelFlickable {
     readonly property var vrrLabels: ["Off", "On", "Fullscreen only"]
     readonly property var vrrValues: [0, 1, 2]
 
-    // ── Confirmation state ──
+    // Confirmation state
     property bool confirmVisible: false
     property int confirmSecondsLeft: 15
     property var _preChangeSnapshot: null  // { monitors: [...] } before risky change
@@ -78,7 +78,7 @@ Components.WheelFlickable {
     readonly property var resolutions: root.parsedModes.resolutions
     readonly property var currentRates: root.parsedModes.ratesByRes[root.selectedResolution] || []
 
-    // ── Mirror choices for current monitor ──
+    // Mirror choices for current monitor
     readonly property var mirrorChoices: {
         let mon = root.currentMonitor;
         if (!mon) return [];
@@ -163,7 +163,7 @@ Components.WheelFlickable {
         root._applyRiskyMonitorState(mon.name, oldState, newState);
     }
 
-    // ── Full config apply (position, transform, extras) ──
+    // Full config apply (position, transform, extras)
     function _snapshotMonitors() {
         let snap = [];
         let all = DisplayService.monitors;
@@ -271,7 +271,7 @@ Components.WheelFlickable {
         root._applyRiskyMonitorState(mon.name, oldState, newState);
     }
 
-    // ── Confirmation countdown ──
+    // Confirmation countdown
     // Capture the "safe" state before any risky change (only once per sequence)
     function _captureSnapshot() {
         if (!root._preChangeSnapshot)
@@ -346,7 +346,7 @@ Components.WheelFlickable {
         width: parent.width
         spacing: 16
 
-        // ── Header ───────────────────────────────────────────
+        // Header
 
         RowLayout { Layout.fillWidth: true; spacing: 8
             Components.Icon { source: "../icons/monitor.svg"; color: Theme.fg }
@@ -373,9 +373,9 @@ Components.WheelFlickable {
             }
         }
 
-        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+        Components.Divider {}
 
-        // ── Confirmation Banner ──────────────────────────────
+        // Confirmation banner
 
         Rectangle {
             visible: root.confirmVisible
@@ -410,7 +410,7 @@ Components.WheelFlickable {
                     color: keepArea.containsMouse ? Theme.greenBright : Theme.green
                     Behavior on color { Components.CAnim { duration: Theme.animHover } }
 
-                    Text { id: keepLabel; anchors.centerIn: parent; text: "Confirm"; color: Theme.bg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+                    Text { id: keepLabel; anchors.centerIn: parent; text: "Confirm"; color: Theme.bg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
                     Components.HoverLayer { id: keepArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0; onClicked: root._confirmChanges() }
                 }
 
@@ -421,21 +421,17 @@ Components.WheelFlickable {
                     border.width: 1; border.color: Theme.bg3
                     Behavior on color { Components.CAnim { duration: Theme.animHover } }
 
-                    Text { id: revertLabel; anchors.centerIn: parent; text: "Revert"; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall }
+                    Text { id: revertLabel; anchors.centerIn: parent; text: "Revert"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
                     Components.HoverLayer { id: revertArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0; onClicked: root._revertChanges() }
                 }
             }
         }
 
-        // ── Monitors ─────────────────────────────────────────
+        // Monitors
 
-        Text {
+        Components.SectionLabel {
             visible: root.enabledMonitors.length > 0
             text: "MONITORS"
-            color: Theme.fg4
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontSizeSmall
-            font.bold: true
         }
 
         Flow {
@@ -488,7 +484,7 @@ Components.WheelFlickable {
             }
         }
 
-        // ── Monitor Layout Canvas ────────────────────────────
+        // Monitor layout canvas
 
         Rectangle {
             visible: root.enabledMonitors.length > 0
@@ -569,7 +565,7 @@ Components.WheelFlickable {
             font.pixelSize: Theme.fontSizeSmall
         }
 
-        // ── Monitor Info ─────────────────────────────────────
+        // Monitor info
 
         RowLayout {
             visible: root.currentMonitor !== null
@@ -606,15 +602,11 @@ Components.WheelFlickable {
             }
         }
 
-        // ── Resolution ───────────────────────────────────────
+        // Resolution
 
-        Text {
+        Components.SectionLabel {
             visible: root.resolutions.length > 0
             text: "RESOLUTION"
-            color: Theme.fg4
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontSizeSmall
-            font.bold: true
         }
 
         Components.InlineDropdown {
@@ -638,15 +630,11 @@ Components.WheelFlickable {
             onActivated: (resolution) => { root.selectResolution(resolution); }
         }
 
-        // ── Refresh Rate ─────────────────────────────────────
+        // Refresh rate
 
-        Text {
+        Components.SectionLabel {
             visible: root.currentRates.length > 0
             text: "REFRESH RATE"
-            color: Theme.fg4
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontSizeSmall
-            font.bold: true
         }
 
         Components.InlineDropdown {
@@ -682,22 +670,13 @@ Components.WheelFlickable {
             font.pixelSize: Theme.fontSizeSmall
         }
 
-        Rectangle {
-            visible: root.enabledMonitors.length > 0
-            Layout.fillWidth: true
-            height: 1
-            color: Theme.bg3
-        }
+        Components.Divider { visible: root.enabledMonitors.length > 0 }
 
-        // ── Transform ────────────────────────────────────────
+        // Transform
 
-        Text {
+        Components.SectionLabel {
             visible: root.currentMonitor !== null
             text: "TRANSFORM"
-            color: Theme.fg4
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontSizeSmall
-            font.bold: true
         }
 
         Components.InlineDropdown {
@@ -724,15 +703,11 @@ Components.WheelFlickable {
             }
         }
 
-        // ── VRR ──────────────────────────────────────────────
+        // VRR
 
-        Text {
+        Components.SectionLabel {
             visible: root.currentMonitor !== null
             text: "VARIABLE REFRESH RATE"
-            color: Theme.fg4
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontSizeSmall
-            font.bold: true
         }
 
         Components.InlineDropdown {
@@ -767,15 +742,11 @@ Components.WheelFlickable {
             }
         }
 
-        // ── Mirror ───────────────────────────────────────────
+        // Mirror
 
-        Text {
+        Components.SectionLabel {
             visible: root.enabledMonitors.length > 1
             text: "MIRROR"
-            color: Theme.fg4
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontSizeSmall
-            font.bold: true
         }
 
         Components.InlineDropdown {
@@ -818,16 +789,11 @@ Components.WheelFlickable {
             }
         }
 
-        Rectangle {
-            visible: root.currentMonitor !== null
-            Layout.fillWidth: true
-            height: 1
-            color: Theme.bg3
-        }
+        Components.Divider { visible: root.currentMonitor !== null }
 
-        // ── Brightness ───────────────────────────────────────
+        // Brightness
 
-        Text { visible: root.brightnessDevices.length > 0; text: "BRIGHTNESS"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+        Components.SectionLabel { visible: root.brightnessDevices.length > 0; text: "BRIGHTNESS" }
 
         Repeater {
             model: root.brightnessDevices
@@ -875,11 +841,11 @@ Components.WheelFlickable {
             }
         }
 
-        Rectangle { visible: root.brightnessDevices.length > 0; Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+        Components.Divider { visible: root.brightnessDevices.length > 0 }
 
-        // ── Night Light ──────────────────────────────────────
+        // Night light
 
-        Text { text: "NIGHT LIGHT"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+        Components.SectionLabel { text: "NIGHT LIGHT" }
 
         RowLayout {
             Layout.fillWidth: true
@@ -927,40 +893,15 @@ Components.WheelFlickable {
             Components.Icon {
                 source: "../icons/temperature.svg"
                 color: Theme.fg4
-                Layout.preferredWidth: 16
+                Layout.preferredWidth: Theme.metricIconWidth
             }
 
-            Rectangle {
-                Layout.fillWidth: true; height: Theme.sliderHeight; radius: Theme.sliderHeight / 2; color: Theme.bg3
-
-                Rectangle {
-                    anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
-                    width: parent.width * DisplayService.nightLightTemperatureFraction
-                    radius: parent.radius; color: Theme.orangeBright
-                    Behavior on width {
-                        Components.Anim {
-                            duration: Theme.animMicro
-                            easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
-                        }
-                    }
-                }
-
-                Rectangle {
-                    width: 12; height: 12; radius: 6; color: Theme.fg
-                    y: (parent.height - height) / 2
-                    x: Math.max(0, Math.min(parent.width - width, parent.width * DisplayService.nightLightTemperatureFraction - width / 2))
-                    scale: nlSlider.pressed ? 1.2 : (nlSlider.containsMouse ? 1.1 : 1.0)
-                    Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    Behavior on x { SpringAnimation { spring: 4; damping: 0.4 } }
-                }
-
-                Components.HoverLayer {
-                    id: nlSlider; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
-                    disabled: DisplayService.nightLightBusy
-                    onPressed: (mouse) => { DisplayService.setNightLightTemperatureFromFraction(mouse.x / parent.width); }
-                    onPositionChanged: (mouse) => { if (pressed) DisplayService.setNightLightTemperatureFromFraction(mouse.x / parent.width); }
-                    onReleased: { DisplayService.commitNightLightTemperature(); }
-                }
+            Components.SliderTrack {
+                fillColor: Theme.orangeBright
+                disabled: DisplayService.nightLightBusy
+                fraction: DisplayService.nightLightTemperatureFraction
+                onMoved: (f) => DisplayService.setNightLightTemperatureFromFraction(f)
+                onPressEnded: DisplayService.commitNightLightTemperature()
             }
 
             Text {

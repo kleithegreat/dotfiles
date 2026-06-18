@@ -5,12 +5,12 @@ import "." as Root
 QtObject {
     id: root
 
-    // ── Public properties for UI binding ──
+    // Public properties for UI binding
     property string currentMessage: ""
     property string currentLevel: ""
     property bool toastVisible: false
 
-    // ── Internal state ──
+    // Internal state
     property var _queue: []
     property var _lastErrorTimes: ({})
 
@@ -21,7 +21,7 @@ QtObject {
         "error": 5000
     })
 
-    // ── Public API ──
+    // Public API
     function showToast(message, level) {
         if (!message)
             return;
@@ -73,7 +73,7 @@ QtObject {
         _advanceTimer.restart();
     }
 
-    // ── Internal helpers ──
+    // Internal helpers
     function _showImmediate(message, level) {
         currentMessage = message;
         currentLevel = level;

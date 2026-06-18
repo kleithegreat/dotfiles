@@ -59,7 +59,7 @@ FocusScope {
         width: root.width
         spacing: root.expanded ? 4 : 0
 
-        // ── Trigger ──────────────────────────────────────
+        // Trigger
         Rectangle {
             id: triggerBtn
             width: parent.width
@@ -82,7 +82,7 @@ FocusScope {
                 }
                 text: root.currentDisplayText()
                 color: Root.Theme.fg
-                font.family: Root.Theme.systemFamily
+                font.family: Root.Theme.fontFamily
                 font.pixelSize: Root.Theme.fontSizeSmall
                 elide: Text.ElideRight
             }
@@ -95,7 +95,7 @@ FocusScope {
                 }
                 text: "▾"
                 color: root.expanded ? Root.Theme.accent : Root.Theme.fg4
-                font.family: Root.Theme.systemFamily
+                font.family: Root.Theme.fontFamily
                 font.pixelSize: Root.Theme.fontSizeSmall
                 rotation: root.expanded ? 180 : 0
                 Behavior on color { CAnim { duration: Root.Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Root.Theme.animCurveStandard } }
@@ -112,7 +112,7 @@ FocusScope {
             }
         }
 
-        // ── Options panel ────────────────────────────────
+        // Options panel
         Item {
             width: parent.width
             height: root.expanded ? panelBg.implicitHeight : 0
@@ -175,7 +175,7 @@ FocusScope {
                                     }
                                     text: root.optionText(modelData)
                                     color: isCurrent ? Root.Theme.bg : Root.Theme.fg
-                                    font.family: Root.Theme.systemFamily
+                                    font.family: Root.Theme.fontFamily
                                     font.pixelSize: Root.Theme.fontSizeSmall
                                     elide: Text.ElideRight
                                 }

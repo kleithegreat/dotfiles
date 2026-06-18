@@ -11,7 +11,7 @@ Rectangle {
     property color textColor: Root.Theme.fg
     property int buttonWidth: 28
     property int fontPixelSize: Root.Theme.fontSize
-    property string fontFamily: Root.Theme.systemFamily
+    property string fontFamily: Root.Theme.fontFamily
     property bool interactive: true
 
     signal clicked()

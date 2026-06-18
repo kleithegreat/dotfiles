@@ -72,7 +72,7 @@ Item {
         width: root.width
         text: "No color schemes found."
         color: Root.Theme.fg4
-        font.family: Root.Theme.systemFamily
+        font.family: Root.Theme.fontFamily
         font.pixelSize: Root.Theme.fontSizeSmall
         wrapMode: Text.WordWrap
     }

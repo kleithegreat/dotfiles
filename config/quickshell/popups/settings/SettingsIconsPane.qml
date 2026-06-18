@@ -36,14 +36,14 @@ Components.WheelFlickable {
             Text {
                 text: "Icon Theme"
                 color: Theme.fg3
-                font.family: Theme.systemFamily
+                font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontSizeSmall
             }
 
             Text {
                 text: "Choose the icon pack GTK, Qt, and the app switcher should use. Cards show representative icons from each theme."
                 color: Theme.fg4
-                font.family: Theme.systemFamily
+                font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontSizeSmall
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap

@@ -246,7 +246,7 @@ Item {
                     StyledText {
                         text: root.config.title
                         color: Root.Theme.fg
-                        font.family: Root.Theme.systemFamily
+                        font.family: Root.Theme.fontFamily
                         font.pixelSize: Root.Theme.fontSize
                         font.bold: true
                         Layout.fillWidth: true
@@ -267,8 +267,8 @@ Item {
                             anchors.centerIn: parent
                             text: root.config.variant
                             color: Root.Theme.fg3
-                            font.family: Root.Theme.systemFamily
-                            font.pixelSize: Root.Theme.fontSizeSmall - 1
+                            font.family: Root.Theme.fontFamily
+                            font.pixelSize: Root.Theme.fontSizeMini
                             font.bold: true
                         }
                     }

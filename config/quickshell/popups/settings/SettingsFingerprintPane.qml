@@ -139,26 +139,7 @@ Components.WheelFlickable {
         width: parent.width
         spacing: 16
 
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 8
-
-            Components.Icon {
-                source: "../icons/shield-lock.svg"
-                color: Theme.fg
-            }
-
-            Text {
-                text: "Fingerprint"
-                color: Theme.fg
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.headerFontSize
-                font.bold: true
-                Layout.fillWidth: true
-            }
-        }
-
-        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+        Components.SettingsPaneHeader { title: "Fingerprint"; iconSource: "../icons/shield-lock.svg" }
 
         Rectangle {
             id: summaryCard
@@ -195,7 +176,7 @@ Components.WheelFlickable {
                     Text {
                         text: root.summaryText()
                         color: Theme.fg
-                        font.family: Theme.systemFamily
+                        font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSize
                         font.bold: true
                         Layout.fillWidth: true
@@ -204,7 +185,7 @@ Components.WheelFlickable {
                     Text {
                         text: root.deviceName !== "" ? root.deviceName : "Fingerprint reader"
                         color: Theme.fg3
-                        font.family: Theme.systemFamily
+                        font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSizeSmall
                         Layout.fillWidth: true
                         wrapMode: Text.WordWrap
@@ -259,7 +240,7 @@ Components.WheelFlickable {
                 Text {
                     text: "Enrolling " + root.fingerLabel(root.actionFinger)
                     color: Theme.fg
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSize
                     font.bold: true
                     horizontalAlignment: Text.AlignHCenter
@@ -362,7 +343,7 @@ Components.WheelFlickable {
                                 anchors.bottomMargin: 14
                                 text: root.enrollStagesTotal > 0 ? (root.enrollStagesCompleted + "/" + root.enrollStagesTotal) : "..."
                                 color: Theme.fg
-                                font.family: Theme.systemFamily
+                                font.family: Theme.fontFamily
                                 font.pixelSize: Theme.fontSizeSmall
                                 font.bold: true
                             }
@@ -392,7 +373,7 @@ Components.WheelFlickable {
                 Text {
                     text: root.enrollmentSummaryText()
                     color: root.enrollAccent
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                     font.bold: true
                     horizontalAlignment: Text.AlignHCenter
@@ -402,7 +383,7 @@ Components.WheelFlickable {
                 Text {
                     text: root.actionStatus !== "" ? root.actionStatus : root.enrollmentGuidanceText()
                     color: root.enrollAccent
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                     horizontalAlignment: Text.AlignHCenter
                     wrapMode: Text.WordWrap
@@ -412,8 +393,8 @@ Components.WheelFlickable {
                 Text {
                     text: root.enrollmentGuidanceText()
                     color: Theme.fg4
-                    font.family: Theme.systemFamily
-                    font.pixelSize: Theme.fontSizeSmall - 1
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontSizeMini
                     horizontalAlignment: Text.AlignHCenter
                     wrapMode: Text.WordWrap
                     Layout.fillWidth: true
@@ -434,7 +415,7 @@ Components.WheelFlickable {
                         anchors.centerIn: parent
                         text: "Cancel"
                         color: Theme.fg
-                        font.family: Theme.systemFamily
+                        font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSizeSmall
                     }
 
@@ -468,7 +449,7 @@ Components.WheelFlickable {
                 Text {
                     text: root.statusText
                     color: root.statusColor
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
@@ -479,19 +460,13 @@ Components.WheelFlickable {
         Text {
             text: "Choose a finger to add it. Click an enrolled finger to select it for removal."
             color: Theme.fg3
-            font.family: Theme.systemFamily
+            font.family: Theme.fontFamily
             font.pixelSize: Theme.fontSizeSmall
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
         }
 
-        Text {
-            text: "FINGERS"
-            color: Theme.fg4
-            font.family: Theme.systemFamily
-            font.pixelSize: Theme.fontSizeSmall
-            font.bold: true
-        }
+        Components.SectionLabel { text: "FINGERS" }
 
         GridLayout {
             Layout.fillWidth: true
@@ -522,7 +497,7 @@ Components.WheelFlickable {
                         Text {
                             text: sectionCard.modelData.title
                             color: Theme.fg
-                            font.family: Theme.systemFamily
+                            font.family: Theme.fontFamily
                             font.pixelSize: Theme.fontSize
                             font.bold: true
                             Layout.fillWidth: true
@@ -588,7 +563,7 @@ Components.WheelFlickable {
                                         Text {
                                             text: fingerCard.modelData.label
                                             color: Theme.fg
-                                            font.family: Theme.systemFamily
+                                            font.family: Theme.fontFamily
                                             font.pixelSize: Theme.fontSizeSmall
                                             font.bold: true
                                             Layout.fillWidth: true
@@ -599,8 +574,8 @@ Components.WheelFlickable {
                                             color: fingerCard.activeBusy
                                                 ? root.enrollAccent
                                                 : (fingerCard.selected ? Theme.orangeBright : (fingerCard.enrolled ? Theme.greenBright : Theme.fg4))
-                                            font.family: Theme.systemFamily
-                                            font.pixelSize: Theme.fontSizeSmall - 1
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: Theme.fontSizeMini
                                             Layout.fillWidth: true
                                         }
                                     }
@@ -640,7 +615,7 @@ Components.WheelFlickable {
                 Text {
                     text: "Remove " + root.fingerLabel(root.selectedEnrolledFinger) + "?"
                     color: Theme.fg
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSize
                     font.bold: true
                     Layout.fillWidth: true
@@ -649,7 +624,7 @@ Components.WheelFlickable {
                 Text {
                     text: "This removes the saved fingerprint for that slot and keeps your other enrolled fingers intact."
                     color: Theme.fg3
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
@@ -672,7 +647,7 @@ Components.WheelFlickable {
                             anchors.centerIn: parent
                             text: "Remove"
                             color: removeArea.containsMouse ? Theme.bg : Theme.redBright
-                            font.family: Theme.systemFamily
+                            font.family: Theme.fontFamily
                             font.pixelSize: Theme.fontSizeSmall
                             font.bold: true
                             Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
@@ -705,7 +680,7 @@ Components.WheelFlickable {
                             anchors.centerIn: parent
                             text: "Keep"
                             color: Theme.fg
-                            font.family: Theme.systemFamily
+                            font.family: Theme.fontFamily
                             font.pixelSize: Theme.fontSizeSmall
                         }
 

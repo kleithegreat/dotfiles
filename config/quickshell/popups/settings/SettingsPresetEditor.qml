@@ -281,7 +281,7 @@ Rectangle {
                 Text {
                     text: root.mode === "edit" ? "Edit Preset" : "Create Preset"
                     color: Theme.fg
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSize
                     font.bold: true
                 }
@@ -289,7 +289,7 @@ Rectangle {
                 Text {
                     text: String(root.includedFieldCount) + " fields included"
                     color: Theme.fg4
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                 }
             }
@@ -307,7 +307,7 @@ Rectangle {
         Text {
             text: "Presets are partial overrides. Toggle only the fields you want this preset to change."
             color: Theme.fg4
-            font.family: Theme.systemFamily
+            font.family: Theme.fontFamily
             font.pixelSize: Theme.fontSizeSmall
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
@@ -317,13 +317,7 @@ Rectangle {
             Layout.fillWidth: true
             spacing: 6
 
-            Text {
-                text: "PRESET NAME"
-                color: Theme.fg4
-                font.family: Theme.systemFamily
-                font.pixelSize: Theme.fontSizeSmall
-                font.bold: true
-            }
+            Components.SectionLabel { text: "PRESET NAME" }
 
             Rectangle {
                 Layout.fillWidth: true
@@ -342,7 +336,7 @@ Rectangle {
                     color: Theme.fg
                     selectionColor: Theme.blueBright
                     selectedTextColor: Theme.bg
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                     clip: true
                     onTextEdited: root.draftName = text
@@ -356,7 +350,7 @@ Rectangle {
                     anchors.left: parent.left
                     anchors.leftMargin: 8
                     anchors.verticalCenter: parent.verticalCenter
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                 }
 
@@ -369,7 +363,7 @@ Rectangle {
                     }
                     text: root.initialName
                     color: Theme.fg
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                 }
             }
@@ -378,7 +372,7 @@ Rectangle {
                 visible: root.mode === "edit"
                 text: "Rename by creating a new preset, then deleting the old one."
                 color: Theme.fg4
-                font.family: Theme.systemFamily
+                font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontSizeSmall
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
@@ -389,15 +383,15 @@ Rectangle {
             visible: root.errorMessage !== ""
             text: root.errorMessage
             color: Theme.redBright
-            font.family: Theme.systemFamily
+            font.family: Theme.fontFamily
             font.pixelSize: Theme.fontSizeSmall
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
         }
 
-        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+        Components.Divider {}
 
-        Text { text: "APPEARANCE"; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+        Components.SectionLabel { text: "APPEARANCE" }
 
         ColumnLayout {
             Layout.fillWidth: true
@@ -410,7 +404,7 @@ Rectangle {
                 Text {
                     text: "Color scheme"
                     color: Theme.fg
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -442,7 +436,7 @@ Rectangle {
                 Text {
                     text: "Browser / electron hint"
                     color: Theme.fg
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -450,7 +444,7 @@ Rectangle {
                 Text {
                     text: root.inclusionStateLabel("dark_hint")
                     color: Theme.fg4
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                 }
 
@@ -468,7 +462,7 @@ Rectangle {
                 Text {
                     text: root.currentBoolValue("dark_hint", true) ? "Prefer dark browser theme" : "Prefer light browser theme"
                     color: Theme.fg
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -476,7 +470,7 @@ Rectangle {
                 Text {
                     text: root.currentBoolValue("dark_hint", true) ? "Dark" : "Light"
                     color: root.currentBoolValue("dark_hint", true) ? Theme.fg3 : Theme.fg4
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                 }
 
@@ -487,9 +481,9 @@ Rectangle {
             }
         }
 
-        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+        Components.Divider {}
 
-        Text { text: "WALLPAPER"; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+        Components.SectionLabel { text: "WALLPAPER" }
 
         ColumnLayout {
             Layout.fillWidth: true
@@ -502,7 +496,7 @@ Rectangle {
                 Text {
                     text: "Wallpaper path"
                     color: Theme.fg
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -532,7 +526,7 @@ Rectangle {
                     color: Theme.fg
                     selectionColor: Theme.blueBright
                     selectedTextColor: Theme.bg
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                     clip: true
                     onTextEdited: {
@@ -549,7 +543,7 @@ Rectangle {
                     anchors.left: parent.left
                     anchors.leftMargin: 8
                     anchors.verticalCenter: parent.verticalCenter
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                 }
             }
@@ -579,7 +573,7 @@ Rectangle {
                         anchors.centerIn: parent
                         text: "Apply"
                         color: root.wallpaperPathStatus === "valid" && root.wallpaperDraftPath.trim() !== String(root.currentValue("wallpaper") || "") ? Theme.bg : Theme.fg4
-                        font.family: Theme.systemFamily
+                        font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSizeSmall
                         font.bold: root.wallpaperPathStatus === "valid" && root.wallpaperDraftPath.trim() !== String(root.currentValue("wallpaper") || "")
                     }
@@ -609,7 +603,7 @@ Rectangle {
                         anchors.centerIn: parent
                         text: "Clear"
                         color: Theme.fg
-                        font.family: Theme.systemFamily
+                        font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSizeSmall
                     }
 
@@ -630,8 +624,8 @@ Rectangle {
                 visible: root.hasField("wallpaper") && root.wallpaperStatusText() !== ""
                 text: root.wallpaperStatusText()
                 color: root.wallpaperStatusColor()
-                font.family: Theme.systemFamily
-                font.pixelSize: Theme.fontSizeSmall - 1
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSizeMini
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
             }
@@ -640,8 +634,8 @@ Rectangle {
                 visible: root.hasField("wallpaper") && root.wallpapers.length > 0
                 text: "Pick from current wallpaper directory"
                 color: Theme.fg4
-                font.family: Theme.systemFamily
-                font.pixelSize: Theme.fontSizeSmall - 1
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSizeMini
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
             }
@@ -654,7 +648,7 @@ Rectangle {
                 currentText: root.wallpaperPickerValue() || ""
                 placeholderText: "Pick a wallpaper file"
                 secondaryText: root.wallpapers.length + " files"
-                fontFamily: Theme.systemFamily
+                fontFamily: Theme.fontFamily
                 maxVisibleItems: 6
                 onActivated: (name) => root.chooseWallpaperOption(name)
             }
@@ -671,7 +665,7 @@ Rectangle {
                 Text {
                     text: "Filter wallpaper"
                     color: Theme.fg
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -679,7 +673,7 @@ Rectangle {
                 Text {
                     text: root.inclusionStateLabel("filter_wallpaper")
                     color: Theme.fg4
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                 }
 
@@ -697,7 +691,7 @@ Rectangle {
                 Text {
                     text: root.currentBoolValue("filter_wallpaper", false) ? "Filter wallpaper when applied" : "Do not filter wallpaper when applied"
                     color: Theme.fg
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -705,7 +699,7 @@ Rectangle {
                 Text {
                     text: root.currentBoolValue("filter_wallpaper", false) ? "On" : "Off"
                     color: root.currentBoolValue("filter_wallpaper", false) ? Theme.fg3 : Theme.fg4
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                 }
 
@@ -716,9 +710,9 @@ Rectangle {
             }
         }
 
-        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+        Components.Divider {}
 
-        Text { text: "FONTS"; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+        Components.SectionLabel { text: "FONTS" }
 
         ColumnLayout {
             Layout.fillWidth: true
@@ -731,7 +725,7 @@ Rectangle {
                 Text {
                     text: "System font"
                     color: Theme.fg
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -751,7 +745,7 @@ Rectangle {
                 currentText: root.currentValue("system_font") || ""
                 secondaryText: ShellOptions.systemFontOptions.length + " fonts"
                 isOptionDisabled: function(fontName) { return ShellOptions.isFontUnavailable(fontName); }
-                fontFamily: Theme.systemFamily
+                fontFamily: Theme.fontFamily
                 maxVisibleItems: 7
                 onExpandedChanged: {
                     if (expanded)
@@ -772,7 +766,7 @@ Rectangle {
                 Text {
                     text: "System font size"
                     color: Theme.fg
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -811,7 +805,7 @@ Rectangle {
                     Text {
                         text: modelData.label + " offset"
                         color: Theme.fg
-                        font.family: Theme.systemFamily
+                        font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSizeSmall
                         Layout.fillWidth: true
                     }
@@ -844,7 +838,7 @@ Rectangle {
                 Text {
                     text: "Coding font"
                     color: Theme.fg
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -865,7 +859,7 @@ Rectangle {
                 secondaryText: ShellOptions.presetMonoFontOptions.length + " fonts"
                 matchesCurrent: function(fontName, currentValue) { return ShellOptions.monoFontOptionMatchesCurrent(fontName, currentValue); }
                 isOptionDisabled: function(fontName) { return ShellOptions.isMonoFontUnavailable(fontName); }
-                fontFamily: Theme.systemFamily
+                fontFamily: Theme.fontFamily
                 maxVisibleItems: 6
                 textForValue: function(fontName) { return ShellOptions.monoFontLabel(fontName); }
                 onExpandedChanged: {
@@ -887,7 +881,7 @@ Rectangle {
                 Text {
                     text: "Coding font size"
                     color: Theme.fg
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -926,7 +920,7 @@ Rectangle {
                     Text {
                         text: modelData.label + " offset"
                         color: Theme.fg
-                        font.family: Theme.systemFamily
+                        font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSizeSmall
                         Layout.fillWidth: true
                     }
@@ -948,9 +942,9 @@ Rectangle {
             }
         }
 
-        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+        Components.Divider {}
 
-        Text { text: "ICONS & CURSORS"; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+        Components.SectionLabel { text: "ICONS & CURSORS" }
 
         ColumnLayout {
             Layout.fillWidth: true
@@ -963,7 +957,7 @@ Rectangle {
                 Text {
                     text: "Icon theme"
                     color: Theme.fg
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -994,7 +988,7 @@ Rectangle {
                 Text {
                     text: "Cursor theme"
                     color: Theme.fg
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -1012,7 +1006,7 @@ Rectangle {
                 currentValue: root.currentValue("cursor_theme")
                 currentText: root.currentValue("cursor_theme") || ""
                 secondaryText: ShellOptions.cursorThemeOptions.length + " themes"
-                fontFamily: Theme.systemFamily
+                fontFamily: Theme.fontFamily
                 maxVisibleItems: 7
                 onActivated: (value) => root.setField("cursor_theme", value)
             }
@@ -1029,7 +1023,7 @@ Rectangle {
                 Text {
                     text: "Cursor size"
                     color: Theme.fg
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -1050,9 +1044,9 @@ Rectangle {
             }
         }
 
-        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+        Components.Divider {}
 
-        Text { text: "HYPRLAND"; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+        Components.SectionLabel { text: "HYPRLAND" }
 
         Repeater {
             model: hyprOptionCatalog.intOptions
@@ -1071,7 +1065,7 @@ Rectangle {
                     Text {
                         text: modelData.label
                         color: Theme.fg
-                        font.family: Theme.systemFamily
+                        font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSizeSmall
                         Layout.fillWidth: true
                     }
@@ -1107,7 +1101,7 @@ Rectangle {
                 Text {
                     text: "Enable blur"
                     color: Theme.fg
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -1115,7 +1109,7 @@ Rectangle {
                 Text {
                     text: root.inclusionStateLabel("hypr_blur_enabled")
                     color: Theme.fg4
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                 }
 
@@ -1133,7 +1127,7 @@ Rectangle {
                 Text {
                     text: root.currentBoolValue("hypr_blur_enabled", false) ? "Enable blur when applied" : "Disable blur when applied"
                     color: Theme.fg
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -1141,7 +1135,7 @@ Rectangle {
                 Text {
                     text: root.currentBoolValue("hypr_blur_enabled", false) ? "On" : "Off"
                     color: root.currentBoolValue("hypr_blur_enabled", false) ? Theme.fg3 : Theme.fg4
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                 }
 
@@ -1163,7 +1157,7 @@ Rectangle {
                 Text {
                     text: "Enable animations"
                     color: Theme.fg
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -1171,7 +1165,7 @@ Rectangle {
                 Text {
                     text: root.inclusionStateLabel("hypr_animations_enabled")
                     color: Theme.fg4
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                 }
 
@@ -1189,7 +1183,7 @@ Rectangle {
                 Text {
                     text: root.currentBoolValue("hypr_animations_enabled", true) ? "Enable animations when applied" : "Disable animations when applied"
                     color: Theme.fg
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true
                 }
@@ -1197,7 +1191,7 @@ Rectangle {
                 Text {
                     text: root.currentBoolValue("hypr_animations_enabled", true) ? "On" : "Off"
                     color: root.currentBoolValue("hypr_animations_enabled", true) ? Theme.fg3 : Theme.fg4
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                 }
 
@@ -1208,7 +1202,7 @@ Rectangle {
             }
         }
 
-        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+        Components.Divider {}
 
         RowLayout {
             Layout.fillWidth: true
@@ -1221,7 +1215,7 @@ Rectangle {
                         : "Saving " + root.busyTargetName + "…"
                 ) : ""
                 color: Theme.fg4
-                font.family: Theme.systemFamily
+                font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontSizeSmall
                 Layout.fillWidth: true
             }

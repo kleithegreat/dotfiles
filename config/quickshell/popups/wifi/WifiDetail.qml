@@ -34,7 +34,7 @@ ColumnLayout {
 
     spacing: 12
 
-    // ── Status badge ─────────────────────────────────────
+    // Status badge
     Rectangle {
         Layout.fillWidth: true
         implicitHeight: statusRow.implicitHeight + 20
@@ -88,7 +88,7 @@ ColumnLayout {
         }
     }
 
-    // ── Network info card ────────────────────────────────
+    // Network info card
     Rectangle {
         Layout.fillWidth: true
         implicitHeight: infoGrid.implicitHeight + 20
@@ -112,7 +112,7 @@ ColumnLayout {
             Text { visible: root.connectionType === "wifi"; text: root.targetSignal + "%"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                 Layout.fillWidth: true; horizontalAlignment: Text.AlignRight }
 
-            Rectangle { visible: root.targetIsConnected; Layout.columnSpan: 2; Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+            Components.Divider { visible: root.targetIsConnected; Layout.columnSpan: 2 }
 
             Text { visible: root.targetIsConnected; text: "IP Address"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
             Text { visible: root.targetIsConnected; text: root.detailIp || "\u2026"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
@@ -140,7 +140,7 @@ ColumnLayout {
         }
     }
 
-    // ── Error message ────────────────────────────────────
+    // Error message
     Text {
         visible: root.connectError !== ""
         Layout.fillWidth: true
@@ -150,8 +150,8 @@ ColumnLayout {
         wrapMode: Text.WordWrap
     }
 
-    // ── Actions ──────────────────────────────────────────
-    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+    // Actions
+    Components.Divider {}
 
     ColumnLayout {
         Layout.fillWidth: true; spacing: 6

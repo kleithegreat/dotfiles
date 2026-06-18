@@ -6,7 +6,7 @@ import Quickshell.Io
 QtObject {
     id: root
 
-    // ── Animation tree metadata (Hyprland animation hierarchy) ──
+    // Animation tree metadata (Hyprland animation hierarchy)
     // Each entry: { name, parent, depth, styles, category }
     readonly property var animTree: [
         { name: "global", parent: "", depth: 0, styles: [], category: "Global" },
@@ -48,7 +48,7 @@ QtObject {
         { name: "monitorAdded", parent: "global", depth: 1, styles: [], category: "Other" }
     ]
 
-    // ── Computed lookups ──
+    // Computed lookups
     readonly property var _animChildren: {
         let r = {};
         for (let i = 0; i < animTree.length; i++) {
@@ -99,7 +99,7 @@ QtObject {
         return r;
     }
 
-    // ── CSS easing presets ──
+    // CSS easing presets
     readonly property var builtinPresets: ({
         "ease": [0.25, 0.1, 0.25, 1.0],
         "easeIn": [0.42, 0.0, 1.0, 1.0],
@@ -122,21 +122,21 @@ QtObject {
         "easeInOutBack": [0.68, -0.6, 0.32, 1.6]
     })
 
-    // ── Live state from IPC ──
+    // Live state from IPC
     property var animations: ({})       // name -> { overridden, enabled, speed, curve, style }
     property var bezierCurves: ({})     // name -> [x1, y1, x2, y2]
     property var userCurves: ({})       // name -> [x1, y1, x2, y2] (persisted)
 
-    // ── Keybind state ──
+    // Keybind state
     property var keybinds: []           // Array of bind objects from hyprctl binds -j
     property bool keybindsLoading: false
 
-    // ── Keybind originals (for persistence) ──
+    // Keybind originals (for persistence)
     // index -> { modmask, key } — tracks the pre-override state of changed binds.
     // Remapped to fresh indices on every refetch (see _remapKeybindState).
     property var keybindOriginals: ({})
 
-    // ── Animation session dirty tracking ──
+    // Animation session dirty tracking
     // hyprctl reports base-config animation lines as overridden, so the raw
     // snapshot flag cannot drive Save/Clear; track session edits by name.
     property var animationsTouched: ({})
@@ -147,16 +147,16 @@ QtObject {
     property string error: ""
     property bool saving: false
 
-    // ── Undo / redo ──
+    // Undo / redo
     property var _undoStack: []
     property var _redoStack: []
     readonly property bool canUndo: _undoStack.length > 0
     readonly property bool canRedo: _redoStack.length > 0
 
-    // ── Command queue ──
+    // Command queue
     property var _commandQueue: []
 
-    // ── User curves path ──
+    // User curves path
     readonly property string _userCurvesPath: {
         let cfg = StandardPaths.writableLocation(StandardPaths.ConfigLocation);
         if (cfg !== "")
@@ -164,7 +164,7 @@ QtObject {
         return StandardPaths.writableLocation(StandardPaths.HomeLocation) + "/.config/quickshell/user_curves.json";
     }
 
-    // ── Public API ──
+    // Public API
 
     function refresh() {
         if (_fetchProc.running)
@@ -260,7 +260,7 @@ QtObject {
         animations = nextAnims;
     }
 
-    // ── Curve management ──
+    // Curve management
 
     function getAllCurveNames() {
         let names = [];
@@ -318,7 +318,7 @@ QtObject {
         return "custom" + i;
     }
 
-    // ── Persistence ──
+    // Persistence
 
     readonly property bool hasAnimationOverrides: Object.keys(animationsTouched).length > 0
 
@@ -431,7 +431,7 @@ QtObject {
         _saveKeybindsProc.running = true;
     }
 
-    // ── Undo / redo ──
+    // Undo / redo
 
     function undo() {
         if (_undoStack.length === 0) return;
@@ -473,7 +473,7 @@ QtObject {
         _pushUndo({ type: "monitor", name: monitorName, oldState: _cloneObj(oldState), newState: _cloneObj(newState) });
     }
 
-    // ── Key-capture submap session ──
+    // Key-capture submap session
     // Owned by the singleton so the submap teardown (and its safety timeout)
     // survives destruction of the settings pane that started the capture.
 
@@ -501,7 +501,7 @@ QtObject {
         }
     }
 
-    // ── Keybind override ──
+    // Keybind override
 
     function applyBindOverride(bindIndex, newModNames, newKey) {
         let binds = keybinds.slice();
@@ -631,7 +631,7 @@ QtObject {
         _redoStack = _redoStack.filter((entry) => entry.type !== "bind");
     }
 
-    // ── Internal helpers ──
+    // Internal helpers
 
     function _cloneObj(obj) {
         return JSON.parse(JSON.stringify(obj || {}));
@@ -746,7 +746,7 @@ QtObject {
         _saveCurvesProc.running = true;
     }
 
-    // ── Processes ──
+    // Processes
 
     property Process _fetchProc: Process {
         command: ["hyprctl", "animations", "-j"]

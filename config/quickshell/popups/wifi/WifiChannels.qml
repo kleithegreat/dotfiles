@@ -18,9 +18,9 @@ ColumnLayout {
         color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
     }
 
-    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+    Components.Divider {}
 
-    // ── Skeleton loading ──
+    // Skeleton loading
     Column {
         visible: root.scanning
         Layout.fillWidth: true
@@ -99,18 +99,18 @@ ColumnLayout {
                                 width: chanBandBadge.implicitWidth + 6; height: 14; radius: 3
                                 color: Theme.bg2; border.width: 1; border.color: Theme.bg3
                                 Text { id: chanBandBadge; anchors.centerIn: parent; text: band + " GHz"
-                                    color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 3 }
+                                    color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeMicro - 1 }
                             }
                             Item { Layout.fillWidth: true }
                             Text {
                                 text: count === 1 ? "1 network" : count + " networks"
                                 color: count <= 2 ? Theme.greenBright : (count <= 5 ? Theme.yellowBright : Theme.redBright)
-                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
+                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeMini
                             }
                         }
                         Text {
                             text: networks; color: Theme.fg4
-                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 2
+                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeMicro
                             wrapMode: Text.WordWrap; Layout.fillWidth: true
                             maximumLineCount: 2; elide: Text.ElideRight
                         }
@@ -133,7 +133,7 @@ ColumnLayout {
             }
             return "";
         }
-        color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
+        color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeMini
         wrapMode: Text.WordWrap; Layout.fillWidth: true; Layout.topMargin: 2
     }
 }

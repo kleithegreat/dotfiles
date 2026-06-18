@@ -22,7 +22,7 @@ Item {
 
     implicitHeight: 180
 
-    // ── Layout transform ──
+    // Layout transform
     // Maps monitor pixel coords → canvas coords
     property real _pad: 16
     property real _layoutScale: 1.0
@@ -31,7 +31,7 @@ Item {
     property real _minX: 0
     property real _minY: 0
 
-    // ── Drag state ──
+    // Drag state
     property int _draggingIdx: -1
     property bool _dragMoved: false
     property real _dragStartCanvasX: 0
@@ -113,7 +113,7 @@ Item {
         return -1;
     }
 
-    // ── Collision resolution (ported from hyprmod) ──
+    // Collision resolution (ported from hyprmod)
     function _resolveCollisions(dragIdx, x, y) {
         if (monitors.length < 2) return { x: x, y: y };
         let dragged = monitors[dragIdx];
@@ -172,7 +172,7 @@ Item {
         return { x: x, y: y };
     }
 
-    // ── Bounding-box clamping (ported from hyprmod) ──
+    // Bounding-box clamping (ported from hyprmod)
     function _clampToNeighbors(dragIdx, x, y) {
         let dragged = monitors[dragIdx];
         let ds = effectiveSize(dragged);
@@ -215,7 +215,7 @@ Item {
         return { x: x, y: y };
     }
 
-    // ── Mirror lookup ──
+    // Mirror lookup
     function _mirrorBadges(monitorName) {
         let badges = [];
         for (let i = 0; i < monitors.length; i++) {
@@ -225,7 +225,7 @@ Item {
         return badges;
     }
 
-    // ── Monitor rectangles ──
+    // Monitor rectangles
     Repeater {
         id: monRepeater
         model: root.monitors
@@ -319,7 +319,7 @@ Item {
         }
     }
 
-    // ── Drag overlay ──
+    // Drag overlay
     MouseArea {
         id: dragArea
         anchors.fill: parent

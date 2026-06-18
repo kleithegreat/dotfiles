@@ -156,7 +156,7 @@ Item {
                     StyledText {
                         text: root.familyLabel()
                         color: root.foregroundColor()
-                        font.family: Root.Theme.systemFamily
+                        font.family: Root.Theme.fontFamily
                         font.pixelSize: Root.Theme.fontSize
                         font.bold: true
                         Layout.fillWidth: true
@@ -167,7 +167,7 @@ Item {
                         text: root.variantLabel()
                         color: root.secondaryForegroundColor()
                         opacity: 0.82
-                        font.family: Root.Theme.systemFamily
+                        font.family: Root.Theme.fontFamily
                         font.pixelSize: Root.Theme.fontSizeSmall
                         Layout.fillWidth: true
                         elide: Text.ElideRight

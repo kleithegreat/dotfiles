@@ -10,8 +10,6 @@ FocusScope {
     property bool closing: false
     property bool contentLoaded: false
     readonly property bool overlayVisible: active || closing
-    readonly property Item panelItem: powerMenuContentLoader.item
-    readonly property Item focusTarget: powerMenu
     readonly property bool scrimEnabled: true
     readonly property color scrimColor: Theme.bg0_h
     readonly property real scrimOpacity: 0.72
@@ -148,7 +146,7 @@ FocusScope {
                                     }
                                 }
                                 iconSize: Theme.powerIconSize; Layout.alignment: Qt.AlignHCenter }
-                            Text { text: pwrBtn.modelData.label; color: Theme.fg3; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; Layout.alignment: Qt.AlignHCenter }
+                            Text { text: pwrBtn.modelData.label; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.alignment: Qt.AlignHCenter }
                         }
                     }
                 }

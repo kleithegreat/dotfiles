@@ -12,8 +12,6 @@ FocusScope {
     property bool closing: false
     property bool contentLoaded: false
     readonly property bool overlayVisible: active || closing
-    readonly property Item panelItem: settingsContentLoader.item
-    readonly property Item focusTarget: settingsPop
     readonly property bool scrimEnabled: false
     readonly property color scrimColor: "transparent"
     readonly property real scrimOpacity: 0
@@ -22,7 +20,7 @@ FocusScope {
     focus: active
     Keys.priority: Keys.BeforeItem
 
-    // ── State ──
+    // State
     property var themeState: ({})
     property var colorSchemes: []
     property var colorFamilies: []
@@ -180,7 +178,7 @@ FocusScope {
         onTriggered: settingsPop.contentLoaded = true
     }
 
-    // ── Data loading ──
+    // Data loading
     function refreshSystemServices() {
         NetworkService.scan();
         NetworkService.loadKnown();
@@ -843,7 +841,7 @@ FocusScope {
         onTriggered: settingsPop.flushHyprStateWrites()
     }
 
-    // ── Helper functions ──
+    // Helper functions
     function refreshWallpapers() {
         listWallpapersProc.buf = "";
         listWallpapersProc.pendingDir = settingsPop.wallpaperDir;
@@ -1241,7 +1239,7 @@ FocusScope {
         mouseApplyProc.running = true;
     }
 
-    // ── Apply commands ──
+    // Apply commands
     Process {
         id: applyProc; running: false
         property string mode: ""
@@ -1437,10 +1435,10 @@ FocusScope {
         }
     }
 
-    // ── Backdrop ──
+    // Backdrop
     Keys.onEscapePressed: settingsPop.close()
 
-    // ── Animations ──
+    // Animations
     SequentialAnimation {
         id: settingsOpenAnim
         ParallelAnimation {
@@ -1525,7 +1523,7 @@ FocusScope {
     Component {
         id: settingsPanelComponent
 
-        // ── Panel ──
+        // Panel
         Rectangle {
             id: panel
             anchors.fill: parent

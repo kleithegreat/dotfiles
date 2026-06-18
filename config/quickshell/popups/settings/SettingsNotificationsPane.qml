@@ -14,20 +14,9 @@ Components.WheelFlickable {
         width: parent.width
         spacing: 16
 
-        RowLayout { Layout.fillWidth: true; spacing: 8
-            Components.Icon { source: "../icons/bell.svg"; color: Theme.fg }
-            Text { text: "Notifications"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true; Layout.fillWidth: true }
-        }
+        Components.SettingsPaneHeader { title: "Notifications"; iconSource: "../icons/bell.svg" }
 
-        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
-
-        Text {
-            text: "DO NOT DISTURB"
-            color: Theme.fg4
-            font.family: Theme.systemFamily
-            font.pixelSize: Theme.fontSizeSmall
-            font.bold: true
-        }
+        Components.SectionLabel { text: "DO NOT DISTURB" }
 
         RowLayout {
             Layout.fillWidth: true
@@ -46,7 +35,7 @@ Components.WheelFlickable {
                 Text {
                     text: "Do Not Disturb"
                     color: Theme.fg
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSize
                     font.bold: true
                 }
@@ -56,7 +45,7 @@ Components.WheelFlickable {
                         ? "Popups are suppressed while history keeps collecting."
                         : "Popups are shown normally and still saved to history."
                     color: Theme.fg3
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                     wrapMode: Text.WordWrap
                     Layout.fillWidth: true
@@ -69,15 +58,9 @@ Components.WheelFlickable {
             }
         }
 
-        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+        Components.Divider {}
 
-        Text {
-            text: "HISTORY"
-            color: Theme.fg4
-            font.family: Theme.systemFamily
-            font.pixelSize: Theme.fontSizeSmall
-            font.bold: true
-        }
+        Components.SectionLabel { text: "HISTORY" }
 
         RowLayout {
             Layout.fillWidth: true
@@ -100,7 +83,7 @@ Components.WheelFlickable {
                             ? "1 notification saved"
                             : NotificationService.historyCount + " notifications saved"
                     color: Theme.fg
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSize
                     font.bold: true
                 }
@@ -110,7 +93,7 @@ Components.WheelFlickable {
                         ? "The drawer is empty until new notifications arrive."
                         : "Clear the drawer history without changing the DND state."
                     color: Theme.fg3
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                     wrapMode: Text.WordWrap
                     Layout.fillWidth: true
@@ -138,7 +121,7 @@ Components.WheelFlickable {
                     anchors.centerIn: parent
                     text: "Clear"
                     color: clearArea.containsMouse ? Theme.redBright : Theme.fg4
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                     Behavior on color {
                         Components.CAnim {

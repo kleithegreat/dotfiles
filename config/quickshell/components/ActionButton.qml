@@ -13,7 +13,7 @@ Rectangle {
     property int fixedWidth: 0
     property int paddingH: Root.Theme.btnPaddingH
     property int fontPixelSize: Root.Theme.fontSizeSmall
-    property string fontFamily: Root.Theme.systemFamily
+    property string fontFamily: Root.Theme.fontFamily
     property bool fontBold: false
 
     signal clicked()

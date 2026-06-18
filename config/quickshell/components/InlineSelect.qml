@@ -9,7 +9,7 @@ FocusScope {
     property string currentText: ""
     property string placeholderText: "Select"
     property string secondaryText: ""
-    property string fontFamily: Root.Theme.systemFamily
+    property string fontFamily: Root.Theme.fontFamily
     property bool disabled: root.optionCount === 0
     property bool pending: false
     property bool expanded: false

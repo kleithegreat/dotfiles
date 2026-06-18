@@ -10,8 +10,7 @@ Components.WheelFlickable {
     contentHeight: mainCol.implicitHeight
     clip: true
 
-    // ── Data ──────────────────────────────────────────────
-
+    // Data
     property var stateData: ({})
     property string loadState: "loading"
     property bool hasData: loadState === "ready"
@@ -27,10 +26,10 @@ Components.WheelFlickable {
     property bool chartVisualsReady: false
     readonly property int staleAfterSeconds: 5
     readonly property real weekChartHeight: Math.max(Theme.fontSize * 8, 96)
-    readonly property real weekValueFontSize: Math.max(Theme.fontSizeSmall - 2, 8)
+    readonly property real weekValueFontSize: Math.max(Theme.fontSizeMicro, 8)
     readonly property real monthCellSize: Math.max(Theme.fontSize + 8, 20)
     readonly property real monthCellGap: Math.max(2, Math.round(Theme.fontSizeSmall / 3))
-    readonly property real monthLabelFontSize: Math.max(Theme.fontSizeSmall - 2, 8)
+    readonly property real monthLabelFontSize: Math.max(Theme.fontSizeMicro, 8)
     property string emptyStateMessage: {
         if (loadState === "missing")
             return "The focus time daemon is not running.\nStart it with: desktopctl daemon";
@@ -53,8 +52,7 @@ Components.WheelFlickable {
         return max;
     }
 
-    // ── Data loading ─────────────────────────────────────
-
+    // Data loading
     Process {
         id: stateProc
         command: ["bash", "-c", "state_root=\"${XDG_RUNTIME_DIR:-/run/user/$(id -u)}\"; state_path=\"$state_root/focustime_state.json\"; [ -f \"$state_path\" ] || exit 3; cat -- \"$state_path\""]
@@ -105,8 +103,7 @@ Components.WheelFlickable {
         onTriggered: { if (!stateProc.running) { stateProc.buf = ""; stateProc.running = true; } }
     }
 
-    // ── Helpers ──────────────────────────────────────────
-
+    // Helpers
     function formatDuration(seconds) {
         if (seconds < 60) return "< 1m";
         let h = Math.floor(seconds / 3600);
@@ -135,15 +132,13 @@ Components.WheelFlickable {
         return diff > 0 ? Theme.orangeBright : (diff < 0 ? Theme.greenBright : Theme.fg4);
     }
 
-    // ── Content ──────────────────────────────────────────
-
+    // Content
     ColumnLayout {
         id: mainCol
         width: parent.width
         spacing: 16
 
-        // ── Empty state ──────────────────────────────────
-
+        // Empty state
         ColumnLayout {
             visible: !root.hasData && root.firstLoadDone
             Layout.fillWidth: true
@@ -167,7 +162,7 @@ Components.WheelFlickable {
             Text {
                 text: root.emptyStateMessage
                 color: Theme.fg4
-                font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
+                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                 Layout.alignment: Qt.AlignHCenter
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.WordWrap
@@ -175,22 +170,13 @@ Components.WheelFlickable {
             }
         }
 
-        // ── Header ───────────────────────────────────────
+        // Header
+        Components.SettingsPaneHeader { title: "Screen Time"; iconSource: "../icons/hourglass.svg" }
 
-        RowLayout { Layout.fillWidth: true; spacing: 8
-            Components.Icon { source: "../icons/hourglass.svg"; color: Theme.fg }
-            Text { text: "Screen Time"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true; Layout.fillWidth: true }
-        }
-
-        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
-
-        // ── Screen Time ──────────────────────────────────
-
-        Text {
+        // Screen Time
+        Components.SectionLabel {
             visible: root.hasData
             text: "TODAY"
-            color: Theme.fg4
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
         }
 
         ColumnLayout {
@@ -237,15 +223,12 @@ Components.WheelFlickable {
             }
         }
 
-        // ── This Week ────────────────────────────────────
+        // This week
+        Components.Divider { visible: root.hasData }
 
-        Rectangle { visible: root.hasData; Layout.fillWidth: true; height: 1; color: Theme.bg3 }
-
-        Text {
+        Components.SectionLabel {
             visible: root.hasData
             text: "THIS WEEK"
-            color: Theme.fg4
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
         }
 
         Row {
@@ -309,22 +292,19 @@ Components.WheelFlickable {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: barItem.dayData.day || ""
                         color: barItem.isToday ? Theme.fg : Theme.fg4
-                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
+                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeMini
                         font.bold: barItem.isToday
                     }
                 }
             }
         }
 
-        // ── This Month ───────────────────────────────────
+        // This month
+        Components.Divider { visible: root.hasData }
 
-        Rectangle { visible: root.hasData; Layout.fillWidth: true; height: 1; color: Theme.bg3 }
-
-        Text {
+        Components.SectionLabel {
             visible: root.hasData
             text: "THIS MONTH"
-            color: Theme.fg4
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
         }
 
         Row {
@@ -381,15 +361,12 @@ Components.WheelFlickable {
             }
         }
 
-        // ── Apps ─────────────────────────────────────────
+        // Apps
+        Components.Divider { visible: root.hasData && root.apps.length > 0 }
 
-        Rectangle { visible: root.hasData && root.apps.length > 0; Layout.fillWidth: true; height: 1; color: Theme.bg3 }
-
-        Text {
+        Components.SectionLabel {
             visible: root.hasData && root.apps.length > 0
             text: "APPS"
-            color: Theme.fg4
-            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
         }
 
         Repeater {
