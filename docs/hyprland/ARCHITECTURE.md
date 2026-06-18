@@ -139,9 +139,10 @@ against the patched Hyprland headers.
 keeps `hyprbars` on the legacy `HyprlandAPI::addConfigValue(...)` plus
 `HyprlandAPI::getConfigValue(...)` path, carries upstream `bar_text_weight`
 through a string-backed legacy helper, renders the bar background with top-only
-rounded corners, opts the custom bar pass out of render-pass simplification,
-and updates plugin unload monitor iteration to `State::monitorState()->monitors()`
-for Hyprland 0.55. It also replaces the animated bar color update
+rounded corners, and opts the custom bar pass out of render-pass simplification.
+The locked upstream `hyprbars` source already uses
+`State::monitorState()->monitors()` for plugin unload monitor iteration. The
+local patch also replaces the animated bar color update
 (`*m_cRealBarColor = DEST_COLOR`) with
 `m_cRealBarColor->setValueAndWarp(DEST_COLOR)` and renders the destination
 color directly, so hyprbars bar color changes are intentionally not animated on
@@ -152,8 +153,10 @@ opening the overview, guards stale `startedOn` workspace checks with
 `valid(startedOn)`, and lets `Config::Actions::changeWorkspace(...)` own the
 workspace transition without duplicating desktop-animation calls. It also keeps
 the removed Hyprexpo source compiling against Hyprland 0.55's
-`Monitor::CMonitor` / `output/Monitor.hpp` API and uses a namespace-agnostic
-damage-hook symbol lookup.
+`Monitor::CMonitor` / `output/Monitor.hpp` API, rewrites removed compositor
+workspace/frame APIs to `State::workspaceState()->query().id(...).run()` and
+`CMonitor::scheduleFrame()`, and uses a namespace-agnostic damage-hook symbol
+lookup.
 
 Monitor behavior follows the same host split as inputs:
 
