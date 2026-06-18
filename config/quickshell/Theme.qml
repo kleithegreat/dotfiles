@@ -76,6 +76,9 @@ QtObject {
     readonly property int fontSize:         _fonts.size         || 12
     readonly property int fontSizeSmall:    _fonts.sizeSmall    || 10
     readonly property int fontSizeLarge:    _fonts.sizeLarge    || 14
+    // Sub-small steps for dense secondary text (sublabels, captions).
+    readonly property int fontSizeMini:     fontSizeSmall - 1
+    readonly property int fontSizeMicro:    fontSizeSmall - 2
     readonly property int iconSize: 14
 
     readonly property int notifWidth: 380
@@ -104,6 +107,15 @@ QtObject {
 
     readonly property int audioPopupWidth: 340
     readonly property int sliderHeight: 6
+    // Shared SliderTrack knob + drag-spring geometry.
+    readonly property int sliderKnobSize: 12
+    readonly property int sliderKnobSizeSmall: 10
+    readonly property real sliderSpring: 4
+    readonly property real sliderDamping: 0.4
+
+    // Metric rows (slider + value readouts in audio/brightness/battery panes).
+    readonly property int metricIconWidth: 16
+    readonly property int metricValueWidth: Math.max(fontSize * 3, 32)
 
     readonly property int calCellSize: 38
     readonly property int calWidth: calCellSize * 7 + popupPadding * 2 + 12
@@ -176,4 +188,8 @@ QtObject {
     readonly property int btnRadius: 6
     readonly property int btnHeight: 26
     readonly property int btnPaddingH: 12
+
+    // Quick Settings toggle tiles
+    readonly property int qsTileHeight: 56
+    readonly property int qsTileExpandSize: 22
 }

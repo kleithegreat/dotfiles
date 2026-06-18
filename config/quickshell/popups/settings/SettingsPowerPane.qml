@@ -26,18 +26,11 @@ Components.WheelFlickable {
         width: parent.width
         spacing: 16
 
-        // ── Header ───────────────────────────────────────────
+        // Header
+        Components.SettingsPaneHeader { title: "Power"; iconSource: "../icons/bolt.svg" }
 
-        RowLayout { Layout.fillWidth: true; spacing: 8
-            Components.Icon { source: "../icons/bolt.svg"; color: Theme.fg }
-            Text { text: "Power"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true; Layout.fillWidth: true }
-        }
-
-        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
-
-        // ── Power Profile ────────────────────────────────────
-
-        Text { text: "POWER PROFILE"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+        // Power profile
+        Components.SectionLabel { text: "POWER PROFILE" }
 
         RowLayout {
             Layout.fillWidth: true
@@ -90,8 +83,8 @@ Components.WheelFlickable {
                         Text {
                             text: ppBtn.modelData.label
                             color: ppBtn.isCur ? Theme.bg : (ppBtn.isPending ? Theme.fg : Theme.fg3)
-                            font.family: Theme.systemFamily
-                            font.pixelSize: Theme.fontSizeSmall - 1
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeMini
                             font.bold: ppBtn.isCur
                             Layout.alignment: Qt.AlignHCenter
                             Behavior on color { Components.CAnim { duration: Theme.animSpring; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
@@ -111,34 +104,32 @@ Components.WheelFlickable {
             visible: PowerProfileService.backend === "laptop-helper"
             text: "E-Cores leaves the boot P-core online because Linux does not expose cpu0 hot-unplug on this host."
             color: Theme.fg4
-            font.family: Theme.systemFamily
-            font.pixelSize: Theme.fontSizeSmall - 1
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSizeMini
             wrapMode: Text.WordWrap
             Layout.fillWidth: true
         }
 
-        // ── Battery ──────────────────────────────────────────
+        // Battery
+        Components.Divider {}
 
-        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
-
-        Text { text: "BATTERY"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+        Components.SectionLabel { text: "BATTERY" }
 
         Text {
             text: "Battery: " + Math.round(root.batPct) + "%" + (root.charging ? " (Charging)" : " (Discharging)")
-            color: Theme.fg3; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
+            color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
         }
 
         Text {
             visible: PowerProfileService.backend === "autocpufreq"
             text: "Using auto-cpufreq (pkexec for changes)"
-            color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall - 1
+            color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeMini
         }
 
-        // ── Charge Limit ─────────────────────────────────────
+        // Charge limit
+        Components.Divider {}
 
-        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
-
-        Text { text: "CHARGE LIMIT"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+        Components.SectionLabel { text: "CHARGE LIMIT" }
 
         ColumnLayout {
             Layout.fillWidth: true
@@ -150,14 +141,14 @@ Components.WheelFlickable {
 
                 Text {
                     text: "Battery Charge Cap"
-                    color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
+                    color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                     Layout.fillWidth: true; Layout.alignment: Qt.AlignVCenter
                 }
 
                 Text {
                     text: PowerProfileService.chargeLimitStateText
                     color: PowerProfileService.chargeLimitError !== "" ? Theme.redBright : (PowerProfileService.chargeLimitEnabled ? Theme.fg3 : Theme.fg4)
-                    font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                     Layout.alignment: Qt.AlignVCenter
                 }
 
@@ -171,7 +162,7 @@ Components.WheelFlickable {
             Text {
                 text: PowerProfileService.chargeLimitDetailText
                 color: PowerProfileService.chargeLimitError !== "" ? Theme.redBright : Theme.fg4
-                font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall - 1
+                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeMini
                 wrapMode: Text.WordWrap; Layout.fillWidth: true
             }
         }

@@ -219,8 +219,7 @@ FocusScope {
         anchors.fill: parent
         spacing: 8
 
-        // ── Header ───────────────────────────────────────────
-
+        // Header
         RowLayout {
             Layout.fillWidth: true
 
@@ -317,8 +316,7 @@ FocusScope {
             }
         }
 
-        // ── Error message ────────────────────────────────────
-
+        // Error message
         Item {
             Layout.fillWidth: true; visible: NetworkService.connectError !== ""
             implicitHeight: netErrorText.implicitHeight
@@ -328,9 +326,9 @@ FocusScope {
             }
         }
 
-        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+        Components.Divider {}
 
-        // ── LIST state: WiFi list + VPN ──────────────────────
+        // LIST state: WiFi list + VPN
 
         Components.WheelFlickable {
             id: listStateFlick
@@ -485,9 +483,8 @@ FocusScope {
                     }
                 }
 
-                // ── VPN section ──────────────────────────────
-
-                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3; Layout.topMargin: 8 }
+                // VPN section
+                Components.Divider { Layout.topMargin: 8 }
 
                 ColumnLayout {
                     Layout.fillWidth: true
@@ -554,17 +551,17 @@ FocusScope {
                     Text {
                         visible: VpnService.mullvadRelaySetting
                         text: "Applying location…"
-                        color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
+                        color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeMini
                         Layout.fillWidth: true
                     }
                     Text {
                         visible: VpnService.mullvadRelayError !== ""
                         text: VpnService.mullvadRelayError
-                        color: Theme.redBright; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
+                        color: Theme.redBright; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeMini
                         wrapMode: Text.WordWrap; Layout.fillWidth: true
                     }
 
-                    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+                    Components.Divider {}
 
                     RowLayout { Layout.fillWidth: true; spacing: 8
                         Components.Icon { source: "../icons/tailscale.svg"; color: Theme.fg }
@@ -599,7 +596,7 @@ FocusScope {
                     Text {
                         visible: VpnService.tailscaleError !== ""
                         text: VpnService.tailscaleError
-                        color: Theme.redBright; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
+                        color: Theme.redBright; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeMini
                         wrapMode: Text.WordWrap; Layout.fillWidth: true
                     }
                 }
@@ -634,7 +631,7 @@ FocusScope {
                             text: "Selected location"
                             color: Theme.fg4
                             font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSizeSmall - 1
+                            font.pixelSize: Theme.fontSizeMini
                         }
                         Text {
                             text: root.mullvadSelectedLocation
@@ -651,7 +648,7 @@ FocusScope {
                                 : "Choose a city or keep an automatic city in " + root.mullvadBrowseCountryName + "."
                             color: Theme.fg4
                             font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSizeSmall - 1
+                            font.pixelSize: Theme.fontSizeMini
                             wrapMode: Text.WordWrap
                             Layout.fillWidth: true
                         }
@@ -663,7 +660,7 @@ FocusScope {
                     text: "Applying location…"
                     color: Theme.fg4
                     font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall - 1
+                    font.pixelSize: Theme.fontSizeMini
                     Layout.fillWidth: true
                 }
 
@@ -672,7 +669,7 @@ FocusScope {
                     text: VpnService.mullvadRelayError
                     color: Theme.redBright
                     font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall - 1
+                    font.pixelSize: Theme.fontSizeMini
                     wrapMode: Text.WordWrap
                     Layout.fillWidth: true
                 }
@@ -807,7 +804,7 @@ FocusScope {
                                         text: "Let Mullvad pick any country."
                                         color: Theme.fg4
                                         font.family: Theme.fontFamily
-                                        font.pixelSize: Theme.fontSizeSmall - 1
+                                        font.pixelSize: Theme.fontSizeMini
                                         Layout.fillWidth: true
                                     }
                                 }
@@ -888,7 +885,7 @@ FocusScope {
                                         text: "Let Mullvad pick any city in this country."
                                         color: Theme.fg4
                                         font.family: Theme.fontFamily
-                                        font.pixelSize: Theme.fontSizeSmall - 1
+                                        font.pixelSize: Theme.fontSizeMini
                                         Layout.fillWidth: true
                                     }
                                 }
@@ -987,7 +984,7 @@ FocusScope {
                                             text: countryMode ? root.mullvadCountryDetailText(modelData) : root.mullvadCityDetailText(modelData)
                                             color: Theme.fg4
                                             font.family: Theme.fontFamily
-                                            font.pixelSize: Theme.fontSizeSmall - 1
+                                            font.pixelSize: Theme.fontSizeMini
                                             wrapMode: Text.WordWrap
                                             Layout.fillWidth: true
                                         }
@@ -1028,8 +1025,7 @@ FocusScope {
             }
         }
 
-        // ── DETAIL state ─────────────────────────────────────
-
+        // DETAIL state
         Wifi.WifiDetail {
             visible: root.paneState === "detail"
             opacity: root.paneState === "detail" ? 1 : 0
@@ -1057,8 +1053,7 @@ FocusScope {
             onDiagnosticsRequested: root.startDiagnostics()
         }
 
-        // ── PASSWORD state ───────────────────────────────────
-
+        // PASSWORD state
         Wifi.WifiPassword {
             visible: root.paneState === "password"
             opacity: root.paneState === "password" ? 1 : 0
@@ -1072,8 +1067,7 @@ FocusScope {
             onBackRequested: root.resetState()
         }
 
-        // ── ENTERPRISE state ─────────────────────────────────
-
+        // ENTERPRISE state
         Wifi.WifiEnterprise {
             visible: root.paneState === "enterprise"
             opacity: root.paneState === "enterprise" ? 1 : 0
@@ -1087,8 +1081,7 @@ FocusScope {
             onBackRequested: root.resetState()
         }
 
-        // ── CONNECTING state ─────────────────────────────────
-
+        // CONNECTING state
         Wifi.WifiConnecting {
             visible: root.paneState === "connecting"
             opacity: root.paneState === "connecting" ? 1 : 0
@@ -1099,8 +1092,7 @@ FocusScope {
             targetSsid: NetworkService.targetSsid
         }
 
-        // ── DIAGNOSTICS state ────────────────────────────────
-
+        // DIAGNOSTICS state
         Wifi.WifiDiagnostics {
             Layout.fillWidth: true; Layout.fillHeight: true
             visible: root.paneState === "diagnostics"
@@ -1150,8 +1142,7 @@ FocusScope {
             onRerunRequested: root.startDiagnostics()
         }
 
-        // ── CHANNELS state ───────────────────────────────────
-
+        // CHANNELS state
         Item {
             id: channelSection
             Layout.fillWidth: true

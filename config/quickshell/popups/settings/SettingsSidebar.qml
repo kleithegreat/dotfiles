@@ -51,8 +51,7 @@ Rectangle {
                 anchors.margins: root.contentPadding
                 spacing: 2
 
-                // ── System section ───────────────────────────────────
-
+                // System section
                 Item {
                     visible: root.systemCategoryCount > 0
                     Layout.fillWidth: true
@@ -66,17 +65,14 @@ Rectangle {
                             verticalCenter: parent.verticalCenter
                         }
                         color: Theme.fg
-                        font.family: Theme.systemFamily
+                        font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSizeLarge
                         font.bold: true
                     }
                 }
 
-                Rectangle {
+                Components.Divider {
                     visible: root.systemCategoryCount > 0
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 1
-                    color: Theme.bg3
                 }
 
                 Item {
@@ -132,7 +128,7 @@ Rectangle {
                                 text: root.categoryNames[sysCatItem.categoryIndex]
                                 color: sysCatItem.isSelected ? Theme.fg : Theme.fg3
                                 Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                                font.family: Theme.systemFamily
+                                font.family: Theme.fontFamily
                                 font.pixelSize: Theme.fontSize
                                 Layout.alignment: Qt.AlignVCenter
                                 Layout.fillWidth: true
@@ -152,15 +148,13 @@ Rectangle {
                     }
                 }
 
-                // ── Spacer between sections ──────────────────────────
-
+                // Spacer between sections
                 Item {
                     visible: root.systemCategoryCount > 0
                     Layout.preferredHeight: 8
                 }
 
-                // ── Appearance section ───────────────────────────────
-
+                // Appearance section
                 Item {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 36
@@ -173,17 +167,13 @@ Rectangle {
                             verticalCenter: parent.verticalCenter
                         }
                         color: Theme.fg
-                        font.family: Theme.systemFamily
+                        font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSizeLarge
                         font.bold: true
                     }
                 }
 
-                Rectangle {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 1
-                    color: Theme.bg3
-                }
+                Components.Divider {}
 
                 Item {
                     Layout.preferredHeight: 4
@@ -236,7 +226,7 @@ Rectangle {
                                 text: root.categoryNames[appCatItem.categoryIndex]
                                 color: appCatItem.isSelected ? Theme.fg : Theme.fg3
                                 Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                                font.family: Theme.systemFamily
+                                font.family: Theme.fontFamily
                                 font.pixelSize: Theme.fontSize
                                 Layout.alignment: Qt.AlignVCenter
                                 Layout.fillWidth: true

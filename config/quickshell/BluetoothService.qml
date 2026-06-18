@@ -176,7 +176,7 @@ QtObject {
     property var _powerRollbackState: ({})
     property var _disconnectRollbackState: ({})
 
-    // ── Processes ─────────────────────────────────────────────
+    // Processes
 
     property Process showProc: Process {
         id: showProc

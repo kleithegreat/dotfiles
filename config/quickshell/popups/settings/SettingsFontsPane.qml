@@ -93,7 +93,7 @@ Components.WheelFlickable {
             iconSource: "../icons/typography.svg"
         }
 
-        Text { text: "CODING FONT"; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+        Components.SectionLabel { text: "CODING FONT" }
 
         Components.InlineSelect {
             id: monoFontSelect
@@ -107,7 +107,7 @@ Components.WheelFlickable {
             textForValue: function(fontName) { return ShellOptions.monoFontLabel(fontName); }
             matchesCurrent: function(fontName, currentValue) { return ShellOptions.monoFontOptionMatchesCurrent(fontName, currentValue); }
             isOptionDisabled: function(fontName) { return ShellOptions.isMonoFontUnavailable(fontName); }
-            fontFamily: Theme.systemFamily
+            fontFamily: Theme.fontFamily
             maxVisibleItems: 6
             onExpandedChanged: {
                 if (expanded)
@@ -135,7 +135,7 @@ Components.WheelFlickable {
             Text {
                 text: "Per-target offsets"
                 color: Theme.fg3
-                font.family: Theme.systemFamily
+                font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontSizeSmall
             }
 
@@ -159,9 +159,9 @@ Components.WheelFlickable {
             }
         }
 
-        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+        Components.Divider {}
 
-        Text { text: "SYSTEM FONT"; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
+        Components.SectionLabel { text: "SYSTEM FONT" }
 
         Components.InlineSelect {
             id: systemFontSelect
@@ -173,7 +173,7 @@ Components.WheelFlickable {
             currentText: root.themeState.system_font || ""
             secondaryText: ShellOptions.systemFontOptions.length + " fonts"
             isOptionDisabled: function(fontName) { return ShellOptions.isFontUnavailable(fontName); }
-            fontFamily: Theme.systemFamily
+            fontFamily: Theme.fontFamily
             maxVisibleItems: 7
             onExpandedChanged: {
                 if (expanded)
@@ -202,7 +202,7 @@ Components.WheelFlickable {
             Text {
                 text: "Per-target offsets"
                 color: Theme.fg3
-                font.family: Theme.systemFamily
+                font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontSizeSmall
             }
 

@@ -85,7 +85,7 @@ ColumnLayout {
                     text: root.passwordVisible ? "Hide" : "Show"
                     color: Theme.fg4
                     font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall - 1
+                    font.pixelSize: Theme.fontSizeMini
                 }
 
                 Components.HoverLayer {
@@ -161,7 +161,7 @@ ColumnLayout {
         text: root.passwordErrorText
         color: Theme.redBright
         font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontSizeSmall - 1
+        font.pixelSize: Theme.fontSizeMini
         Layout.fillWidth: true
         wrapMode: Text.WordWrap
     }

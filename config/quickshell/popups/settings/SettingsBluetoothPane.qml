@@ -44,8 +44,7 @@ FocusScope {
             width: parent.width
             spacing: 12
 
-            // ── Header ───────────────────────────────────────
-
+            // Header
             RowLayout {
                 Layout.fillWidth: true
 
@@ -83,9 +82,9 @@ FocusScope {
             }
             }
 
-            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+            Components.Divider {}
 
-            // ── Powered off empty state ──────────────────────
+            // Powered off empty state
 
             Item {
                 visible: root.listStateResolved && !BluetoothService.powered
@@ -94,8 +93,7 @@ FocusScope {
                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
             }
 
-            // ── Connected device ─────────────────────────────
-
+            // Connected device
             Item {
                 visible: root.listStateResolved && BluetoothService.powered && BluetoothService.connectedName !== ""
                 Layout.fillWidth: true; implicitHeight: 30
@@ -115,7 +113,7 @@ FocusScope {
                     id: connBattText; visible: BluetoothService.connectedBattery >= 0
                     anchors.right: connDcBtn.left; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
                     text: BluetoothService.connectedBattery + "%"; color: Theme.fg4
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeMini
                 }
 
                 Rectangle {
@@ -135,8 +133,7 @@ FocusScope {
                 }
             }
 
-            // ── Error message ────────────────────────────────
-
+            // Error message
             Item {
                 Layout.fillWidth: true; visible: BluetoothService.connectError !== ""
                 implicitHeight: btErrorText.implicitHeight
@@ -146,8 +143,7 @@ FocusScope {
                 }
             }
 
-            // ── Device list ──────────────────────────────────
-
+            // Device list
             ColumnLayout {
                 visible: root.listStateResolved && BluetoothService.powered
                 Layout.fillWidth: true
@@ -157,7 +153,7 @@ FocusScope {
                 Text {
                     visible: BluetoothService.pairedModel.count > 0
                     text: "PAIRED"; color: Theme.fg4
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1; font.bold: true
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeMini; font.bold: true
                     topPadding: 4; bottomPadding: 2; leftPadding: Theme.listItemPadding
                 }
 
@@ -203,7 +199,7 @@ FocusScope {
                 Text {
                     visible: BluetoothService.discoveredModel.count > 0
                     text: "DISCOVERED"; color: Theme.fg4
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall - 1; font.bold: true
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeMini; font.bold: true
                     topPadding: 4; bottomPadding: 2; leftPadding: Theme.listItemPadding
                 }
 
@@ -246,8 +242,7 @@ FocusScope {
                 }
             }
 
-            // ── Scanning indicator ───────────────────────────
-
+            // Scanning indicator
             Item {
                 visible: root.listStateResolved && BluetoothService.powered && !root.deviceListLoading
                     && BluetoothService.scanning && BluetoothService.pairedModel.count === 0 && BluetoothService.discoveredModel.count === 0
@@ -266,8 +261,7 @@ FocusScope {
                 }
             }
 
-            // ── Connecting state ─────────────────────────────
-
+            // Connecting state
             ColumnLayout {
                 visible: root.popupState === "connecting"
                 Layout.fillWidth: true; spacing: 8; Layout.alignment: Qt.AlignHCenter
@@ -288,8 +282,7 @@ FocusScope {
                 }
             }
 
-            // ── Skeleton loading ─────────────────────────────
-
+            // Skeleton loading
             ColumnLayout {
                 visible: root.deviceListLoading
                 Layout.fillWidth: true

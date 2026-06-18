@@ -19,7 +19,7 @@ Scope {
         onTriggered: IdleInhibitService.applyBootDefault()
     }
 
-    // ── Popup state ──
+    // Popup state
     property QtObject popupVisibility: PopupVisibility {}
 
     // Drive bar lifetime from Hyprland's real monitor model; Qt keeps a
@@ -63,11 +63,11 @@ Scope {
         return null;
     }
 
-    // ── Notification state (compat for existing popup/bar wiring) ──
+    // Notification state (compat for existing popup/bar wiring)
     readonly property bool doNotDisturb: NotificationService.doNotDisturb
     readonly property int historyCount: NotificationService.historyCount
 
-    // ── Tooltip ──
+    // Tooltip
     TooltipWindow {}
 
     Connections {
@@ -82,7 +82,7 @@ Scope {
         }
     }
 
-    // ── Bar ──
+    // Bar
     Loader {
         active: root.barMonitorName !== "" && root.barScreen !== null
 
@@ -94,7 +94,7 @@ Scope {
         }
     }
 
-    // ── Notification Popups ──
+    // Notification popups
     PanelWindow {
         anchors { top: true; right: true }
         margins { top: Theme.barHeight + Theme.barMargin + Theme.gapOut; right: Theme.gapOut }
@@ -126,12 +126,12 @@ Scope {
                         id: cardC; spacing: 4
                         anchors { left: parent.left; right: parent.right; top: parent.top; margins: Theme.notifPadding }
                         RowLayout { Layout.fillWidth: true
-                            Text { text: card.appName; color: Theme.fg4; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; elide: Text.ElideRight; Layout.fillWidth: true }
+                            Text { text: card.appName; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; elide: Text.ElideRight; Layout.fillWidth: true }
                             Components.Icon { source: "../icons/close.svg"; color: pcA.containsMouse ? Theme.redBright : Theme.fg4; iconSize: Theme.fontSizeSmall
                                 MouseArea { id: pcA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: NotificationService.removeNotifPopup(card.nid) } }
                         }
-                        Text { text: card.summary; color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true; visible: text !== "" }
-                        Text { text: card.body; color: Theme.fg3; font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; wrapMode: Text.WordWrap; maximumLineCount: 3; elide: Text.ElideRight; Layout.fillWidth: true; visible: text !== "" }
+                        Text { text: card.summary; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true; visible: text !== "" }
+                        Text { text: card.body; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; wrapMode: Text.WordWrap; maximumLineCount: 3; elide: Text.ElideRight; Layout.fillWidth: true; visible: text !== "" }
                     }
                 }
             }
@@ -199,7 +199,7 @@ Scope {
                 }
                 Text {
                     text: AudioService.osdLabel
-                    font.family: Theme.systemFamily
+                    font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                     color: Theme.fg3
                     elide: Text.ElideRight
@@ -211,7 +211,7 @@ Scope {
         }
     }
 
-    // ── Toast ──
+    // Toast
     PanelWindow {
         visible: ToastService.toastVisible || toastPanel.opacity > 0.001
         anchors { bottom: true }
@@ -260,7 +260,7 @@ Scope {
 
                 Text {
                     text: ToastService.currentMessage
-                    font.family: Theme.systemFamily; font.pixelSize: Theme.fontSize
+                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize
                     color: Theme.fg
                     width: Math.min(implicitWidth, Math.max(Theme.osdWidth, (root.barScreen ? root.barScreen.width : 900) - Theme.popupPadding * 2 - Theme.gapOut * 4 - 32))
                     elide: Text.ElideRight
@@ -271,7 +271,7 @@ Scope {
         }
     }
 
-    // ── Shared Overlay Host ──
+    // Shared overlay host
     PopupOverlayHost { popupVisibility: root.popupVisibility }
 
     IpcHandler {

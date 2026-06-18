@@ -73,18 +73,14 @@ Components.WheelFlickable {
             visible: root.mouseRuntimeError !== ""
             text: root.mouseRuntimeError
             color: Theme.redBright
-            font.family: Theme.systemFamily
+            font.family: Theme.fontFamily
             font.pixelSize: Theme.fontSizeSmall
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
         }
 
-        Text {
+        Components.SectionLabel {
             text: "CURSOR"
-            color: Theme.fg4
-            font.family: Theme.systemFamily
-            font.pixelSize: Theme.fontSizeSmall
-            font.bold: true
         }
 
         RowLayout {
@@ -94,7 +90,7 @@ Components.WheelFlickable {
             Text {
                 text: "Cursor Theme"
                 color: Theme.fg3
-                font.family: Theme.systemFamily
+                font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontSizeSmall
                 Layout.preferredWidth: Math.max(Theme.fontSize * 8, 104)
             }
@@ -108,7 +104,7 @@ Components.WheelFlickable {
                 currentValue: root.themeState.cursor_theme
                 currentText: root.themeState.cursor_theme || ""
                 secondaryText: ShellOptions.cursorThemeOptions.length + " themes"
-                fontFamily: Theme.systemFamily
+                fontFamily: Theme.fontFamily
                 maxVisibleItems: 7
                 onActivated: (value) => root.themeSetRequested("cursor_theme", value)
             }
@@ -127,14 +123,10 @@ Components.WheelFlickable {
             onIncrement: root.themeSetRequested("cursor_size", String((root.themeState.cursor_size || 24) + 4))
         }
 
-        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.bg3 }
+        Components.Divider {}
 
-        Text {
+        Components.SectionLabel {
             text: "POINTER"
-            color: Theme.fg4
-            font.family: Theme.systemFamily
-            font.pixelSize: Theme.fontSizeSmall
-            font.bold: true
         }
 
         Components.ValueStepper {
@@ -153,8 +145,8 @@ Components.WheelFlickable {
         Text {
             text: "Applies to the shared Hyprland default. Device-specific overrides can still replace it."
             color: Theme.fg4
-            font.family: Theme.systemFamily
-            font.pixelSize: Theme.fontSizeSmall - 1
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSizeMini
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
         }
@@ -166,7 +158,7 @@ Components.WheelFlickable {
             Text {
                 text: "Acceleration"
                 color: Theme.fg3
-                font.family: Theme.systemFamily
+                font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontSizeSmall
                 Layout.preferredWidth: Math.max(Theme.fontSize * 8, 104)
             }
@@ -180,7 +172,7 @@ Components.WheelFlickable {
                 currentValue: root.mouseSettings.accel_profile || "flat"
                 currentText: root.mouseSettings.accel_profile || "flat"
                 secondaryText: "libinput profile"
-                fontFamily: Theme.systemFamily
+                fontFamily: Theme.fontFamily
                 maxVisibleItems: 4
                 onActivated: (value) => root.mouseSetRequested("accel_profile", value)
             }

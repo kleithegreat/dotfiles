@@ -428,13 +428,13 @@ FocusScope {
             Text {
                 text: chip.label
                 color: Theme.fg4
-                font.family: Theme.systemFamily
+                font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontSizeSmall
             }
             Text {
                 text: chip.value
                 color: Theme.fg
-                font.family: Theme.systemFamily
+                font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontSize
                 font.bold: true
             }
@@ -473,7 +473,7 @@ FocusScope {
             anchors.centerIn: parent
             text: toggle.label
             color: toggle.selected ? toggle.accentColor : Theme.fg3
-            font.family: Theme.systemFamily
+            font.family: Theme.fontFamily
             font.pixelSize: Theme.fontSizeSmall
             font.bold: toggle.selected
         }
@@ -815,11 +815,7 @@ FocusScope {
                     }
                 }
 
-                Rectangle {
-                    Layout.fillWidth: true
-                    height: 1
-                    color: Theme.bg3
-                }
+                Components.Divider {}
 
                 RowLayout {
                     Layout.alignment: Qt.AlignHCenter
@@ -879,7 +875,7 @@ FocusScope {
                             }
                             Text {
                                 text: ["January","February","March","April","May","June","July","August","September","October","November","December"][cal.viewMonth] + " " + cal.viewYear
-                                color: Theme.fg; font.family: Theme.systemFamily; font.pixelSize: Theme.headerFontSize; font.bold: true
+                                color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true
                                 Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter
                             }
                             Rectangle {
@@ -910,7 +906,7 @@ FocusScope {
                         RowLayout { spacing: 0; Layout.fillWidth: true
                             Repeater { model: ["Su","Mo","Tu","We","Th","Fr","Sa"]
                                 Text { required property string modelData; text: modelData; color: Theme.fg4
-                                    font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall
+                                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                                     Layout.preferredWidth: Theme.calCellSize; horizontalAlignment: Text.AlignHCenter }
                             }
                         }
@@ -965,7 +961,7 @@ FocusScope {
                                     Text {
                                         anchors.centerIn: parent; text: isCur ? dayNum : ""
                                         color: isToday ? Theme.bg : (((index % 7) === 0 || (index % 7) === 6) ? Theme.fg4 : Theme.fg)
-                                        font.family: Theme.systemFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: isToday
+                                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: isToday
                                     }
                                     MouseArea {
                                         id: dayCellMouse; anchors.fill: parent; hoverEnabled: isCur
@@ -1002,7 +998,7 @@ FocusScope {
                                 Text {
                                     text: "Local forecast"
                                     color: Theme.fg
-                                    font.family: Theme.systemFamily
+                                    font.family: Theme.fontFamily
                                     font.pixelSize: Theme.headerFontSize
                                     font.bold: true
                                     Layout.fillWidth: true
@@ -1011,7 +1007,7 @@ FocusScope {
                                 Text {
                                     text: cal.weatherReady ? "Live local conditions." : "Fetching local conditions."
                                     color: Theme.fg4
-                                    font.family: Theme.systemFamily
+                                    font.family: Theme.fontFamily
                                     font.pixelSize: Theme.fontSizeSmall
                                     Layout.fillWidth: true
                                     elide: Text.ElideRight
@@ -1031,7 +1027,7 @@ FocusScope {
                                     anchors.centerIn: parent
                                     text: cal.weatherBadgeText
                                     color: cal.weatherStatusColor()
-                                    font.family: Theme.systemFamily
+                                    font.family: Theme.fontFamily
                                     font.pixelSize: Theme.fontSizeSmall
                                     font.bold: true
                                 }
@@ -1092,14 +1088,14 @@ FocusScope {
                                 Text {
                                     text: cal.weatherReady ? cal.formatTemperature(cal.weatherTemperatureC) : "--F"
                                     color: Theme.fg
-                                    font.family: Theme.systemFamily
+                                    font.family: Theme.fontFamily
                                     font.pixelSize: Theme.fontSizeLarge * 2 + 2
                                     font.bold: true
                                 }
                                 Text {
                                     text: cal.weatherReady ? cal.weatherConditionText(cal.weatherCode) : (cal.weatherLoading ? "Looking outside..." : "Forecast offline")
                                     color: cal.weatherAccentColor(cal.weatherCode, cal.weatherIsDay)
-                                    font.family: Theme.systemFamily
+                                    font.family: Theme.fontFamily
                                     font.pixelSize: Theme.fontSizeLarge
                                     font.bold: true
                                 }
@@ -1109,7 +1105,7 @@ FocusScope {
                                         ? cal.weatherVibeText(cal.weatherCode, cal.weatherIsDay, cal.weatherTemperatureC)
                                         : (cal.weatherErrorText !== "" ? cal.weatherErrorText : "Resolving local weather now.")
                                     color: Theme.fg3
-                                    font.family: Theme.systemFamily
+                                    font.family: Theme.fontFamily
                                     font.pixelSize: Theme.fontSizeSmall
                                     wrapMode: Text.Wrap
                                 }
@@ -1118,7 +1114,7 @@ FocusScope {
                                         ? "High " + cal.formatTemperature(cal.weatherHighC) + "  Low " + cal.formatTemperature(cal.weatherLowC)
                                         : "Sunrise " + cal.weatherSunriseLabel + "  Sunset " + cal.weatherSunsetLabel
                                     color: Theme.fg2
-                                    font.family: Theme.systemFamily
+                                    font.family: Theme.fontFamily
                                     font.pixelSize: Theme.fontSizeSmall
                                 }
                             }
@@ -1179,13 +1175,13 @@ FocusScope {
                                     Text {
                                         text: "Sunrise"
                                         color: Theme.fg4
-                                        font.family: Theme.systemFamily
+                                        font.family: Theme.fontFamily
                                         font.pixelSize: Theme.fontSizeSmall
                                     }
                                     Text {
                                         text: cal.weatherSunriseLabel
                                         color: Theme.fg
-                                        font.family: Theme.systemFamily
+                                        font.family: Theme.fontFamily
                                         font.pixelSize: Theme.fontSize
                                         font.bold: true
                                     }
@@ -1204,13 +1200,13 @@ FocusScope {
                                     Text {
                                         text: "Sunset"
                                         color: Theme.fg4
-                                        font.family: Theme.systemFamily
+                                        font.family: Theme.fontFamily
                                         font.pixelSize: Theme.fontSizeSmall
                                     }
                                     Text {
                                         text: cal.weatherSunsetLabel
                                         color: Theme.fg
-                                        font.family: Theme.systemFamily
+                                        font.family: Theme.fontFamily
                                         font.pixelSize: Theme.fontSize
                                         font.bold: true
                                     }

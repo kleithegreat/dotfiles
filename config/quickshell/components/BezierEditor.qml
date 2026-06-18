@@ -62,7 +62,7 @@ ColumnLayout {
         selectCurve(allNames.length > 0 ? allNames[0] : "ease");
     }
 
-    // ── Preset dropdown ──
+    // Preset dropdown
     InlineDropdown {
         Layout.fillWidth: true
         model: Root.HyprlandConfigService.getAllCurveNames()
@@ -73,7 +73,7 @@ ColumnLayout {
         onActivated: (value) => root.selectCurve(value)
     }
 
-    // ── Canvas ──
+    // Canvas
     BezierCanvas {
         id: canvas
         Layout.fillWidth: true
@@ -87,14 +87,14 @@ ColumnLayout {
         }
     }
 
-    // ── Preview ──
+    // Preview
     AnimPreviewDot {
         id: preview
         Layout.fillWidth: true
         Layout.preferredHeight: 32
     }
 
-    // ── Values display ──
+    // Values display
     RowLayout {
         Layout.fillWidth: true
         spacing: 12
@@ -117,7 +117,7 @@ ColumnLayout {
         }
     }
 
-    // ── Save input (inline, shown when Save As clicked) ──
+    // Save input (inline, shown when Save As clicked)
     RowLayout {
         Layout.fillWidth: true
         visible: root.showSaveInput
@@ -138,7 +138,7 @@ ColumnLayout {
                 anchors.rightMargin: Root.Theme.listItemPadding
                 verticalAlignment: TextInput.AlignVCenter
                 color: Root.Theme.fg
-                font.family: Root.Theme.systemFamily
+                font.family: Root.Theme.fontFamily
                 font.pixelSize: Root.Theme.fontSizeSmall
                 clip: true
                 onAccepted: {
@@ -158,7 +158,7 @@ ColumnLayout {
             Text {
                 anchors.centerIn: parent; text: "Save"
                 color: saveConfirmArea.containsMouse ? Root.Theme.bg : Root.Theme.fg
-                font.family: Root.Theme.systemFamily; font.pixelSize: Root.Theme.fontSizeSmall
+                font.family: Root.Theme.fontFamily; font.pixelSize: Root.Theme.fontSizeSmall
             }
 
             HoverLayer {
@@ -191,7 +191,7 @@ ColumnLayout {
         }
     }
 
-    // ── Action buttons ──
+    // Action buttons
     RowLayout {
         Layout.fillWidth: true
         visible: !root.showSaveInput
@@ -205,7 +205,7 @@ ColumnLayout {
             color: revertArea.containsMouse ? Root.Theme.bg2 : Root.Theme.bg1
             border.width: 1; border.color: Root.Theme.bg3
             Behavior on color { CAnim { duration: Root.Theme.animHover } }
-            Text { id: revertText; anchors.centerIn: parent; text: "Revert"; color: Root.Theme.fg; font.family: Root.Theme.systemFamily; font.pixelSize: Root.Theme.fontSizeSmall }
+            Text { id: revertText; anchors.centerIn: parent; text: "Revert"; color: Root.Theme.fg; font.family: Root.Theme.fontFamily; font.pixelSize: Root.Theme.fontSizeSmall }
             HoverLayer { id: revertArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0; onClicked: root.revert() }
         }
 
@@ -217,7 +217,7 @@ ColumnLayout {
             color: saveArea.containsMouse ? Root.Theme.accent : Root.Theme.bg2
             border.width: 1; border.color: Root.Theme.bg3
             Behavior on color { CAnim { duration: Root.Theme.animHover } }
-            Text { id: saveText; anchors.centerIn: parent; text: "Save"; color: saveArea.containsMouse ? Root.Theme.bg : Root.Theme.fg; font.family: Root.Theme.systemFamily; font.pixelSize: Root.Theme.fontSizeSmall }
+            Text { id: saveText; anchors.centerIn: parent; text: "Save"; color: saveArea.containsMouse ? Root.Theme.bg : Root.Theme.fg; font.family: Root.Theme.fontFamily; font.pixelSize: Root.Theme.fontSizeSmall }
             HoverLayer { id: saveArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0; onClicked: root.doSave(root.currentCurveName) }
         }
 
@@ -229,7 +229,7 @@ ColumnLayout {
             color: saveAsArea.containsMouse ? Root.Theme.accent : Root.Theme.bg2
             border.width: 1; border.color: Root.Theme.bg3
             Behavior on color { CAnim { duration: Root.Theme.animHover } }
-            Text { id: saveAsText; anchors.centerIn: parent; text: "Save as\u2026"; color: saveAsArea.containsMouse ? Root.Theme.bg : Root.Theme.fg; font.family: Root.Theme.systemFamily; font.pixelSize: Root.Theme.fontSizeSmall }
+            Text { id: saveAsText; anchors.centerIn: parent; text: "Save as\u2026"; color: saveAsArea.containsMouse ? Root.Theme.bg : Root.Theme.fg; font.family: Root.Theme.fontFamily; font.pixelSize: Root.Theme.fontSizeSmall }
             HoverLayer {
                 id: saveAsArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
                 onClicked: {
@@ -251,7 +251,7 @@ ColumnLayout {
             color: deleteArea.containsMouse ? Root.Theme.red : Root.Theme.bg1
             border.width: 1; border.color: Root.Theme.bg3
             Behavior on color { CAnim { duration: Root.Theme.animHover } }
-            Text { id: deleteText; anchors.centerIn: parent; text: "Delete"; color: deleteArea.containsMouse ? Root.Theme.fg : Root.Theme.red; font.family: Root.Theme.systemFamily; font.pixelSize: Root.Theme.fontSizeSmall }
+            Text { id: deleteText; anchors.centerIn: parent; text: "Delete"; color: deleteArea.containsMouse ? Root.Theme.fg : Root.Theme.red; font.family: Root.Theme.fontFamily; font.pixelSize: Root.Theme.fontSizeSmall }
             HoverLayer { id: deleteArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0; onClicked: root.doDelete() }
         }
     }

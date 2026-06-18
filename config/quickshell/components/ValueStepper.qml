@@ -19,9 +19,9 @@ RowLayout {
     property color valueColor: Root.Theme.fg
     property color baseColor: Root.Theme.bg1
     property color hoverColor: Root.Theme.bg2
-    property string labelFontFamily: Root.Theme.systemFamily
-    property string valueFontFamily: Root.Theme.systemFamily
-    property string buttonFontFamily: Root.Theme.systemFamily
+    property string labelFontFamily: Root.Theme.fontFamily
+    property string valueFontFamily: Root.Theme.fontFamily
+    property string buttonFontFamily: Root.Theme.fontFamily
     property int labelPixelSize: Root.Theme.fontSizeSmall
     property int valuePixelSize: Root.Theme.fontSize
     property int buttonPixelSize: Root.Theme.fontSize

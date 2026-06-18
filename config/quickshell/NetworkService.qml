@@ -6,7 +6,7 @@ import "." as Root
 QtObject {
     id: root
 
-    // ── Connection state ──
+    // Connection state
     readonly property bool wifiEnabled: _wifiRadioPending ? _wifiPendingValue : _wifiEnabled
     readonly property bool wifiRadioReady: _wifiRadioReady
     readonly property bool wifiRadioPending: _wifiRadioPending
@@ -30,11 +30,11 @@ QtObject {
         ? _dnsPendingProfile
         : ((_diagDnsServer === _diagGateway || _diagDnsServer === "--") ? "auto" : _diagDnsServer)
 
-    // ── Network models ──
+    // Network models
     readonly property var networksModel: netModel
     readonly property var knownNetworksModel: knownModel
 
-    // ── Target network state ──
+    // Target network state
     readonly property string targetSsid: _targetSsid
     readonly property string targetSecurity: _targetSecurity
     readonly property int targetSignal: _targetSignal
@@ -43,7 +43,7 @@ QtObject {
     readonly property string targetConnectionId: _targetConnectionId
     readonly property string targetConnectionUuid: _targetConnectionUuid
 
-    // ── Detail state ──
+    // Detail state
     readonly property string activeIp: _activeIp
     readonly property string activeGateway: _activeGateway
     readonly property string activeDns: _activeDns
@@ -52,7 +52,7 @@ QtObject {
     readonly property string detailDns: _detailDns
     readonly property string detailFreq: _detailFreq
 
-    // ── Diagnostics state ──
+    // Diagnostics state
     readonly property bool diagLoading: _diagLoading
     readonly property bool speedTestRunning: _speedTestRunning
     readonly property string diagBand: _diagBand
@@ -75,7 +75,7 @@ QtObject {
     readonly property string diagWifiStandard: _diagWifiStandard
     readonly property bool exportCopied: _exportCopied
 
-    // ── Sparkline history (last 30 samples) ──
+    // Sparkline history (last 30 samples)
     readonly property var histSignal: _histSignal
     readonly property var histNoise: _histNoise
     readonly property var histGwPing: _histGwPing
@@ -86,20 +86,20 @@ QtObject {
     readonly property var histNetLoss: _histNetLoss
     readonly property var histDnsTime: _histDnsTime
 
-    // ── Channel scanner state ──
+    // Channel scanner state
     readonly property string currentChannel: _currentChannel
     readonly property string currentBand: _currentBand
     readonly property var channelEntriesModel: channelModel
     readonly property bool scanning: scanProc.running
     readonly property bool channelScanning: channelScanProc.running
 
-    // ── Signals for async results ──
+    // Signals for async results
     signal connectSucceeded()
     signal connectFailed()
     signal disconnected()
     signal networkForgotten()
 
-    // ── Internal staging ──────────────────────────────────────
+    // Internal staging
 
     property bool _wifiEnabled: false
     property bool _wifiRadioReady: false
@@ -184,14 +184,14 @@ QtObject {
     property var _dnsRollbackState: ({})
     property bool _wifiTargetEnabled: false
 
-    // ── Models ──
+    // Models
     property ListModel netModel: ListModel {}
     property ListModel knownModel: ListModel {}
     property ListModel channelModel: ListModel {}
 
     Component.onCompleted: refreshSummary()
 
-    // ── Public API ────────────────────────────────────────────
+    // Public API
 
     function refreshSummary() {
         refreshRadio();
@@ -679,7 +679,7 @@ QtObject {
         _detailFreq = state.detailFreq || "";
     }
 
-    // ── Utility functions ─────────────────────────────────────
+    // Utility functions
 
     function parseNmcli(line) {
         let fields = [], cur = "";
@@ -821,7 +821,7 @@ QtObject {
         return Root.Theme.redBright;
     }
 
-    // ── Radio processes ───────────────────────────────────────
+    // Radio processes
 
     property Process routeProc: Process {
         running: false
@@ -906,7 +906,7 @@ QtObject {
         }
     }
 
-    // ── Scan processes ────────────────────────────────────────
+    // Scan processes
 
     property Process scanProc: Process {
         command: [
@@ -1042,7 +1042,7 @@ QtObject {
         }
     }
 
-    // ── Connection processes ──────────────────────────────────
+    // Connection processes
 
     property Process connectProc: Process {
         running: false
@@ -1142,7 +1142,7 @@ QtObject {
         }
     }
 
-    // ── Diagnostics processes ─────────────────────────────────
+    // Diagnostics processes
 
     property Process wifiInfoProc: Process {
         running: false
@@ -1385,7 +1385,7 @@ QtObject {
         onExited: { root._speedTestRunning = false; }
     }
 
-    // ── Captive portal processes ──────────────────────────────
+    // Captive portal processes
 
     property Process connectivityProc: Process {
         running: false
@@ -1406,7 +1406,7 @@ QtObject {
         ]
     }
 
-    // ── Channel scanner process ───────────────────────────────
+    // Channel scanner process
 
     property Process channelScanProc: Process {
         running: false
@@ -1450,7 +1450,7 @@ QtObject {
         }
     }
 
-    // ── DNS switching processes ────────────────────────────────
+    // DNS switching processes
 
     property Process dnsSwitchProc: Process {
         running: false
@@ -1479,7 +1479,7 @@ QtObject {
         }
     }
 
-    // ── Export process ─────────────────────────────────────────
+    // Export process
 
     property Process exportProc: Process {
         running: false
@@ -1491,7 +1491,7 @@ QtObject {
         }
     }
 
-    // ── Timers ────────────────────────────────────────────────
+    // Timers
 
     property Timer exportResetTimer: Timer {
         interval: 2000

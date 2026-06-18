@@ -50,7 +50,7 @@ PanelWindow {
             anchors.margins: Theme.barPadding / 2
             text: TooltipService.text
             color: Theme.fg
-            font.family: Theme.systemFamily
+            font.family: Theme.fontFamily
             font.pixelSize: Theme.fontSizeSmall
             wrapMode: Text.WordWrap
             horizontalAlignment: Text.AlignHCenter

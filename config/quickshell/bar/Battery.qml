@@ -12,7 +12,7 @@ RowLayout {
     property real pct: UPower.displayDevice.percentage * 100
     property string tooltipText: "Battery: " + Math.round(pct) + "%" + (charging ? " (Charging)" : "")
 
-    // ── Debounced charging state ──
+    // Debounced charging state
     // UPower can transiently report Discharging during AC state transitions.
     // We delay "unplug" events by 2s but reflect "plug in" instantly.
     property bool _rawCharging: UPower.displayDevice.state === UPowerDeviceState.Charging

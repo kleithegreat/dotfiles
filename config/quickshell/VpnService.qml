@@ -5,7 +5,7 @@ import Quickshell.Io
 QtObject {
     id: root
 
-    // ── Mullvad state ──
+    // Mullvad state
     readonly property string mullvadPendingAction: _mullvadPendingAction
     readonly property bool mullvadBusy: mullvadConnectProc.running || mullvadDisconnectProc.running || _mullvadPendingAction !== ""
     readonly property string mullvadState: {
@@ -44,7 +44,7 @@ QtObject {
         return country;
     }
 
-    // ── Tailscale state ──
+    // Tailscale state
     readonly property string tailscalePendingAction: _tailscalePendingAction
     readonly property bool tailscaleBusy: tailscaleUpProc.running || tailscaleDownProc.running || _tailscalePendingAction !== ""
     readonly property string tailscaleState: {
@@ -59,7 +59,7 @@ QtObject {
     readonly property string tailscaleIp: _tailscaleIp
     readonly property bool tailscaleExitNode: _tailscaleExitNode
 
-    // ── Internal staging ──
+    // Internal staging
     property string _mullvadState: "disconnected"
     property string _mullvadCountry: ""
     property string _mullvadCity: ""
@@ -93,7 +93,7 @@ QtObject {
 
     Component.onCompleted: refresh()
 
-    // ── Public API ──
+    // Public API
 
     function refresh() {
         refreshMullvadStatus();
@@ -319,7 +319,7 @@ QtObject {
         _mullvadSelectedHostname = hostname;
     }
 
-    // ── Mullvad status ──
+    // Mullvad status
 
     property Process mullvadProc: Process {
         command: ["mullvad", "status", "-j"]
@@ -399,7 +399,7 @@ QtObject {
         }
     }
 
-    // ── Tailscale status ──
+    // Tailscale status
 
     property Process tailscaleProc: Process {
         command: ["tailscale", "status", "--json"]
@@ -456,7 +456,7 @@ QtObject {
         }
     }
 
-    // ── Action processes ──
+    // Action processes
 
     property Process mullvadConnectProc: Process {
         command: ["mullvad", "connect"]
@@ -544,7 +544,7 @@ QtObject {
         }
     }
 
-    // ── Poll timer ──
+    // Poll timer
 
     property Timer pollTimer: Timer {
         interval: 15000
