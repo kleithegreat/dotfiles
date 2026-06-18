@@ -84,6 +84,12 @@
 **Status:** Stock kernel path in place
 **Resolution:** `system/physical-host.nix` now sets `boot.kernelPackages = pkgs.linuxPackages`, and the repo no longer carries `system/native-kernel-packages.nix`. Keep low-risk runtime policy in `boot.kernelParams`, `boot.kernel.sysctl`, and systemd services instead of reintroducing a shared CachyOS/native kernel rebuild path.
 
+## Laptop Kconfig parent trims need child-symbol unsets
+**Symptom:** The laptop rebuild can fail in `linux-config-6.18.*` with `unused option` errors for symbols such as `DRM_HYPERV`, `FB_HYPERV`, `DRM_NOUVEAU_SVM`, `KVM_AMD_SEV`, or `SEV_GUEST`.
+**Cause:** `hosts/laptop/system.nix` intentionally forces some parent subsystems off for the Intel/NVIDIA laptop, but nixpkgs' stock `common-config.nix` still contributes mandatory child settings for those subsystems. Once the parent is disabled, those child symbols are unreachable in Kconfig and the kernel config builder treats mandatory unused settings as errors.
+**Status:** Workaround in place
+**Resolution:** Keep the parent subsystem trims in `hosts/laptop/system.nix`, but pair them with `lib.kernel.unset` for inherited child settings that become unreachable. Do not replace this with broad `ignoreConfigErrors`; that would hide real kernel config drift on future updates.
+
 ## Physical-host working-set protection uses MGLRU `min_ttl_ms`
 **Symptom:** Desktop and laptop now ask for LE9/LE10-style working-set and file-cache protection, but the active tuning path is not an obvious `vm.*_kbytes` sysctl block in the host modules.
 **Cause:** The shared kernel config keeps `LRU_GEN=y` and `LRU_GEN_ENABLED=y`, and `system/physical-host.nix` now applies the runtime policy through `systemd.services.mglru-tuning`, which writes `y` to `/sys/kernel/mm/lru_gen/enabled` and `1000` to `/sys/kernel/mm/lru_gen/min_ttl_ms`. The repo intentionally uses MGLRU's own thrash-prevention knob as the active protection path.

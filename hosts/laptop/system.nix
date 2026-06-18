@@ -145,6 +145,8 @@ in {
         KVM_AMD = lib.mkForce lib.kernel.no;
         X86_AMD_PLATFORM_DEVICE = lib.mkForce lib.kernel.no;
         AMD_MEM_ENCRYPT = lib.mkForce lib.kernel.no;
+        KVM_AMD_SEV = lib.mkForce lib.kernel.unset;
+        SEV_GUEST = lib.mkForce lib.kernel.unset;
         AMD_PMC = lib.mkForce lib.kernel.no;
         AMD_IOMMU = lib.mkForce lib.kernel.no;
 
@@ -152,10 +154,13 @@ in {
         # weight even though it still hosts local KVM guests.
         XEN = lib.mkForce lib.kernel.no;
         HYPERV = lib.mkForce lib.kernel.no;
+        DRM_HYPERV = lib.mkForce lib.kernel.unset;
+        FB_HYPERV = lib.mkForce lib.kernel.unset;
         KVM_GUEST = lib.mkForce lib.kernel.no;
 
         # The laptop uses the NVIDIA stack, so Nouveau is unused.
         DRM_NOUVEAU = lib.mkForce lib.kernel.no;
+        DRM_NOUVEAU_SVM = lib.mkForce lib.kernel.unset;
       };
     }
   ];
