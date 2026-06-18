@@ -1,9 +1,10 @@
 diff -ruN -x '*.orig' -x '*.rej' a/main.cpp b/main.cpp
 --- a/main.cpp
 +++ b/main.cpp
-@@ -5,5 +5,6 @@
+@@ -5,5 +5,7 @@
  #include <hyprland/src/Compositor.hpp>
 +#include <hyprland/src/output/Monitor.hpp>
++#include <hyprland/src/state/WorkspaceState.hpp>
  #include <hyprland/src/desktop/state/FocusState.hpp>
  #include <hyprland/src/desktop/view/Window.hpp>
  #include <hyprland/src/config/ConfigManager.hpp>
@@ -17,6 +18,9 @@ diff -ruN -x '*.orig' -x '*.rej' a/main.cpp b/main.cpp
 @@ -67 +71 @@ static void hkAddDamageB(void* thisptr, const pixman_region32_t* rg) {
 -    const auto PMONITOR = (CMonitor*)thisptr;
 +    const auto PMONITOR = (Monitor::CMonitor*)thisptr;
+@@ -104 +108 @@ static SDispatchResult bringWindowFromWorkspace(int64_t sourceWorkspaceID) {
+-    const auto SOURCEWORKSPACE = g_pCompositor->getWorkspaceByID(sourceWorkspaceID);
++    const auto SOURCEWORKSPACE = State::workspaceState()->query().id(sourceWorkspaceID).run();
 @@ -296 +300 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
 -    FNS = HyprlandAPI::findFunctionsByName(PHANDLE, "_ZN8CMonitor9addDamageERKN9Hyprutils4Math4CBoxE");
 +    FNS = HyprlandAPI::findFunctionsByName(PHANDLE, "addDamageERKN9Hyprutils4Math4CBoxE");
@@ -42,6 +46,14 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
  #include <cmath>
  #define private   public
  #define protected public
+@@ -21,0 +23 @@
++#include <hyprland/src/state/WorkspaceState.hpp>
+@@ -135 +138 @@
+-        auto PWORKSPACESTART = g_pCompositor->getWorkspaceByID(currentID);
++        auto PWORKSPACESTART = State::workspaceState()->query().id(currentID).run();
+@@ -183 +186 @@
+-        const auto PWORKSPACE = g_pCompositor->getWorkspaceByID(image.workspaceID);
++        const auto PWORKSPACE = State::workspaceState()->query().id(image.workspaceID).run();
 @@ -241,21 +241,26 @@
      Cursor::overrideController->setOverride("left_ptr", Cursor::CURSOR_OVERRIDE_UNKNOWN);
  
@@ -79,9 +91,13 @@ diff -ruN -x '*.orig' -x '*.rej' a/overview.cpp b/overview.cpp
          // likely user changed.
          onWorkspaceChange();
      }
+@@ -383 +390 @@
+-    g_pCompositor->scheduleFrameForMonitor(pMonitor.lock());
++    pMonitor->scheduleFrame();
 @@ -422,15 +427,10 @@
  
-         const auto NEWIDWS = g_pCompositor->getWorkspaceByID(NEWID);
+-        const auto NEWIDWS = g_pCompositor->getWorkspaceByID(NEWID);
++        const auto NEWIDWS = State::workspaceState()->query().id(NEWID).run();
  
 -        const auto OLDWS = pMonitor->m_activeWorkspace;
 -
