@@ -129,11 +129,11 @@ final: prev: {
   };
   sf-pro = final.stdenvNoCC.mkDerivation {
     pname = "sf-pro";
-    version = "2026-05-23";
+    version = "2026-06-13";
 
     src = final.fetchurl {
       url = "https://devimages-cdn.apple.com/design/resources/download/SF-Pro.dmg";
-      hash = "sha256-W0sZkipBtrduInk0oocbFAXX1qy0Z+yk2xUyFfDWx4s=";
+      hash = "sha256-YxGk8IQ6TS5hagsFx3US0x0uqVBFnPUmzbW5CZageU8=";
     };
 
     nativeBuildInputs = [
