@@ -79,6 +79,12 @@ not try to download libvips during `npm rebuild`.
 | Home Manager consumers | `home/default.nix` now takes Snappy Switcher from the repo-local `pkgs.snappy-switcher` package exported through `overlays/local-packages.nix`, which fetches the upstream source snapshot and applies `patches/snappy-switcher/workspace-scope-filter.patch` directly instead of routing through a separate flake input. Vicinae keeps the upstream flake input only for the optional `vicinae.homeManagerModules.default` option surface, while `home/packages.nix` installs the cached `pkgs.vicinae` package directly and leaves `services.vicinae` disabled because Hyprland owns `vicinae server` startup. OpenCode and Haruna now come straight from `pkgs.opencode` and `pkgs.haruna` in the pinned `nixpkgs` set instead of separate upstream-flake or stable-package source overrides; Haruna must stay on the same Qt/KDE package set as the session-wide `hyprqt6engine` platform theme plugin. `home/packages.nix` then installs the selected host-native user packages explicitly. |
 | Desktop-only extras | `hosts/desktop/system.nix` keeps the desktop-only NVIDIA suspend settings (`NVreg_TemporaryFilePath=/var/tmp`, `hardware.nvidia.powerManagement.kernelSuspendNotifier = false`, and the systemd sleep freeze workaround) plus the desktop's forced performance profile. The old PR #996 overlay has been removed because the current upstream NVIDIA open-kernel source already carries that fix, but this removal is still untested on real desktop suspend/resume hardware. |
 
+`overlays/local-packages.nix` also overrides the `cantarell-fonts` attribute to
+pass Meson flags `-Dbuildvf=false` and `-Dbuildstatics=true`, keeping Cantarell
+available from `system/configuration.nix` `fonts.packages` as static OTF files
+while avoiding the current variable-font autohint failure documented in
+`docs/nix/QUIRKS.md`.
+
 ## Shared Runtime Highlights
 
 | Surface | Current implementation |

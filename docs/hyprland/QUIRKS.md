@@ -261,6 +261,27 @@ Rebuild the patched Hyprland package and plugin stack before running a full
 system rebuild, because the full desktop closure may also rebuild the system
 kernel/NVIDIA stack.
 
+## `hyprland-guiutils` needs explicit Pango cflags on this input lock
+
+**Symptom:** `nrs` fails while building `hyprland-guiutils` with
+`fatal error: pango/pango-font.h: No such file or directory` from
+`hyprgraphics/resource/resources/TextResource.hpp`.
+
+**Cause:** The locked `hyprgraphics` public header includes Pango headers, but
+the nested `hyprland-guiutils` package does not request Pango's pkg-config cflags
+when compiling utilities that include `hyprtoolkit/element/Text.hpp`.
+
+**Status:** Workaround in place. `system/configuration.nix` defines
+`patchedHyprlandGuiutils`, appends `pkgs.pango` to the package inputs, exports
+`NIX_CFLAGS_COMPILE` from `pkg-config --cflags pango` in `preConfigure`, and
+passes that package into the patched Hyprland derivation through the
+`hyprland-guiutils` override argument.
+
+**Impact / workaround:** Keep this override until the Hyprland input set updates
+either `hyprgraphics` or `hyprland-guiutils` so the required Pango include flags
+are provided upstream. Re-test `nix build .#nixosConfigurations.laptop.config.programs.hyprland.package`
+before removing it.
+
 ## Hyprbars color parsing follows Hyprland parser utils on 0.55
 
 **Symptom:** `nrs` fails while building `hyprbars` with
