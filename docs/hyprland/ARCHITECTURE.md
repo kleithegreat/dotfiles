@@ -112,7 +112,11 @@ Current host input fragments differ materially:
 | `hypridle.conf` and `hyprlock.conf` | Idle, lock, DPMS, suspend, and lock-screen presentation. `config/hypr/hypridle.conf` explicitly keeps `ignore_systemd_inhibit = false`, so `config/quickshell/IdleInhibitService.qml` can suppress the hypridle timers by holding `systemd-inhibit --what=idle`, and can separately block logind lid-switch handling with `systemd-inhibit --what=handle-lid-switch --mode=block`, but it does not edit these files. |
 
 `system/configuration.nix` also wires the repo-local Hyprland patch stack into the
-installed compositor and plugin packages. The local
+installed compositor and plugin packages. The `patchedHyprlandGuiutils` binding
+overrides Hyprland's nested `hyprland-guiutils` package with a Pango compile-flag
+workaround before that utility package is passed into the patched compositor
+derivation; this keeps Hyprland's wrapped runtime helpers building against the
+current `hyprgraphics` headers. The local
 `patches/hyprland/hyprland-floating-top-decoration-rounding-0.55.patch`
 extends the renderer's rounding shader so both texture and rect passes can
 select which corners stay rounded; `src/desktop/view/Window.cpp`

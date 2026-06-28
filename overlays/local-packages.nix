@@ -1,4 +1,13 @@
 final: prev: {
+  cantarell-fonts = prev.cantarell-fonts.overrideAttrs (old: {
+    # The variable OTF autohint step fails on the current nixpkgs pin; static
+    # OTFs preserve the family without depending on that broken target.
+    mesonFlags = (old.mesonFlags or []) ++ [
+      "-Dbuildvf=false"
+      "-Dbuildstatics=true"
+    ];
+  });
+
   lmstudio =
     let
       pname = "lmstudio";

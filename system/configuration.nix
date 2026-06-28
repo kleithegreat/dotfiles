@@ -31,11 +31,21 @@ let
       })
     );
 
+  patchedHyprlandGuiutils =
+    hyprland.inputs.hyprland-guiutils.packages.${system}.hyprland-guiutils.overrideAttrs (old: {
+      buildInputs = (old.buildInputs or []) ++ [ pkgs.pango ];
+      preConfigure = (old.preConfigure or "") + ''
+        export NIX_CFLAGS_COMPILE="$NIX_CFLAGS_COMPILE $(pkg-config --cflags pango)"
+      '';
+    });
+
   patchedHyprland = nativeOptimizations.optimizeCCPackage (
     appendPatches [
       ../patches/hyprland/hyprland-floating-top-decoration-rounding-0.55.patch
       ../patches/hyprland/hyprland-gcc15-designated-initializer-fix-0.55.patch
-    ] hyprland.packages.${system}.hyprland
+    ] (hyprland.packages.${system}.hyprland.override {
+      hyprland-guiutils = patchedHyprlandGuiutils;
+    })
   );
 
   patchedHyprlandPortal = nativeOptimizations.optimizeCCPackage (

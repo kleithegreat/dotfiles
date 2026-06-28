@@ -144,6 +144,12 @@
 **Status:** Workaround in place
 **Resolution:** `overlays/local-packages.nix` now defines a local `pkgs.sf-pro` derivation that fetches the pinned Apple DMG directly and extracts `Payload~` with `cpio` when possible, falling back to `7z` for older layouts. `system/configuration.nix` installs that local package instead of the upstream `apple-fonts.nix` derivation.
 
+## `cantarell-fonts` variable OTF autohinting fails on this nixpkgs revision
+**Symptom:** `nixos-rebuild switch` fails while building `cantarell-fonts-0.311`; `scripts/make-variable-font.py` aborts when `otfautohint --exclude-glyphs uni0424 ... Cantarell-VF.otf` exits non-zero.
+**Cause:** The current nixpkgs `pkgs/by-name/ca/cantarell-fonts/package.nix` recipe builds Cantarell's variable OTF target by default, and that upstream autohint step is broken with the current font build toolchain on the pinned input.
+**Status:** Workaround in place
+**Resolution:** `overlays/local-packages.nix` overrides `pkgs.cantarell-fonts` with Meson flags `-Dbuildvf=false` and `-Dbuildstatics=true`. This keeps `system/configuration.nix` `fonts.packages` installing Cantarell, but as static OTF files. Remove the override after a nixpkgs update proves the default variable-font build succeeds again.
+
 ## Generic `SF Pro` can look soft on Linux without extra fontconfig tuning
 **Symptom:** UI text that explicitly requests `SF Pro`, especially bold labels at normal desktop sizes, can look fuzzier than expected even though the correct font package is installed.
 **Cause:** The shared NixOS fontconfig defaults use grayscale antialiasing (`10-sub-pixel-none.conf`), and Apple's font package also exposes a catch-all `SF Pro` variable face that fontconfig can choose before the `SF Pro Text` optical cut that is better suited to small UI sizes.
