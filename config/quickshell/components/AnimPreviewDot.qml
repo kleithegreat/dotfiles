@@ -65,11 +65,6 @@ Canvas {
         onTriggered: { root._progress = 0; root._waiting = false; root.requestPaint(); }
     }
 
-    function _c(color, alpha) {
-        return "rgba(" + Math.round(color.r * 255) + "," + Math.round(color.g * 255)
-            + "," + Math.round(color.b * 255) + "," + alpha + ")";
-    }
-
     onPaint: {
         let ctx = getContext("2d");
         ctx.reset();
@@ -88,30 +83,30 @@ Canvas {
 
         // Undershoot track
         if (bounds.lo < 0) {
-            ctx.setLineDash([4, 4]); ctx.strokeStyle = _c(fg, 0.15); ctx.lineWidth = 2;
+            ctx.setLineDash([4, 4]); ctx.strokeStyle = Qt.alpha(fg, 0.15); ctx.lineWidth = 2;
             ctx.beginPath(); ctx.moveTo(valToX(bounds.lo), trackY); ctx.lineTo(valToX(0), trackY); ctx.stroke();
             ctx.setLineDash([]);
         }
 
         // Main track [0,1]
-        ctx.strokeStyle = _c(fg, 0.25); ctx.lineWidth = 2;
+        ctx.strokeStyle = Qt.alpha(fg, 0.25); ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(valToX(0), trackY); ctx.lineTo(valToX(1), trackY); ctx.stroke();
 
         // Overshoot track
         if (bounds.hi > 1) {
-            ctx.setLineDash([4, 4]); ctx.strokeStyle = _c(fg, 0.15); ctx.lineWidth = 2;
+            ctx.setLineDash([4, 4]); ctx.strokeStyle = Qt.alpha(fg, 0.15); ctx.lineWidth = 2;
             ctx.beginPath(); ctx.moveTo(valToX(1), trackY); ctx.lineTo(valToX(bounds.hi), trackY); ctx.stroke();
             ctx.setLineDash([]);
         }
 
         // Endpoints
-        ctx.fillStyle = _c(fg, 0.25);
+        ctx.fillStyle = Qt.alpha(fg, 0.25);
         ctx.beginPath(); ctx.arc(valToX(0), trackY, 2.5, 0, 2 * Math.PI); ctx.fill();
         ctx.beginPath(); ctx.arc(valToX(1), trackY, 2.5, 0, 2 * Math.PI); ctx.fill();
 
         // Dot
         let eased = ease(_progress);
-        ctx.fillStyle = _c(accent, 1.0);
+        ctx.fillStyle = Qt.alpha(accent, 1.0);
         ctx.beginPath(); ctx.arc(valToX(eased), trackY, dotR, 0, 2 * Math.PI); ctx.fill();
     }
 

@@ -52,6 +52,14 @@ QtObject {
         sinkAudio.muted = !muted;
     }
 
+    // Run fn with volume-OSD suppression, releasing it after the pending
+    // Pipewire change callbacks have settled.
+    function suppressOsdDuring(fn) {
+        suppressOsd = true;
+        fn();
+        Qt.callLater(() => suppressOsd = false);
+    }
+
     function volumeIconFor(percent, isMuted) {
         if (isMuted || percent === 0)
             return "../icons/volume-mute.svg";
@@ -91,14 +99,11 @@ QtObject {
                 return;
             }
 
-            if (root.suppressOsd)
-                return;
-
             root.showVolumeOsd();
         }
 
         function onMutedChanged() {
-            if (!root.osdVolInit || root.suppressOsd)
+            if (!root.osdVolInit)
                 return;
 
             root.showVolumeOsd();

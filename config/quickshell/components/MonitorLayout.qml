@@ -15,7 +15,6 @@ Item {
         && (dragArea.containsMouse && _hitTest(dragArea.mouseX, dragArea.mouseY) >= 0
             || _draggingIdx >= 0)
 
-    signal positionChanged(int index, int newX, int newY)
     signal dragStarted()
     signal dragEnded()
     signal monitorClicked(int index)
@@ -250,8 +249,8 @@ Item {
             // Background fill
             Rectangle {
                 anchors.fill: parent
-                color: monItem.isSelected ? Qt.rgba(Root.Theme.accent.r, Root.Theme.accent.g, Root.Theme.accent.b, 0.15)
-                     : Qt.rgba(Root.Theme.fg.r, Root.Theme.fg.g, Root.Theme.fg.b, 0.06)
+                color: monItem.isSelected ? Qt.alpha(Root.Theme.accent, 0.15)
+                     : Qt.alpha(Root.Theme.fg, 0.06)
                 Behavior on color { CAnim { duration: Root.Theme.animHover } }
             }
 
@@ -260,8 +259,8 @@ Item {
                 anchors.fill: parent
                 color: "transparent"
                 border.width: monItem.isDragging ? 2 : 1.5
-                border.color: monItem.isSelected ? Qt.rgba(Root.Theme.accent.r, Root.Theme.accent.g, Root.Theme.accent.b, 0.7)
-                            : Qt.rgba(Root.Theme.fg.r, Root.Theme.fg.g, Root.Theme.fg.b, 0.3)
+                border.color: monItem.isSelected ? Qt.alpha(Root.Theme.accent, 0.7)
+                            : Qt.alpha(Root.Theme.fg, 0.3)
                 Behavior on border.color { CAnim { duration: Root.Theme.animHover } }
             }
 
@@ -270,8 +269,8 @@ Item {
                 anchors.centerIn: parent
                 anchors.verticalCenterOffset: -6
                 text: String(monItem.index + 1)
-                color: monItem.isSelected ? Qt.rgba(Root.Theme.accent.r, Root.Theme.accent.g, Root.Theme.accent.b, 0.6)
-                     : Qt.rgba(Root.Theme.fg.r, Root.Theme.fg.g, Root.Theme.fg.b, 0.2)
+                color: monItem.isSelected ? Qt.alpha(Root.Theme.accent, 0.6)
+                     : Qt.alpha(Root.Theme.fg, 0.2)
                 font.family: Root.Theme.fontFamily
                 font.pixelSize: Math.min(monItem.width, monItem.height) * 0.35
                 font.bold: true
@@ -283,9 +282,9 @@ Item {
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: 4
                 text: monItem.modelData.name
-                color: Qt.rgba(Root.Theme.fg.r, Root.Theme.fg.g, Root.Theme.fg.b, 0.6)
+                color: Qt.alpha(Root.Theme.fg, 0.6)
                 font.family: Root.Theme.fontFamily
-                font.pixelSize: 10
+                font.pixelSize: Root.Theme.fontSizeSmall
             }
 
             // Mirror badges (top-right)
@@ -302,14 +301,14 @@ Item {
                         required property var modelData
                         width: badgeText.implicitWidth + 8
                         height: badgeText.implicitHeight + 4
-                        color: Qt.rgba(Root.Theme.accent.r, Root.Theme.accent.g, Root.Theme.accent.b, 0.25)
+                        color: Qt.alpha(Root.Theme.accent, 0.25)
                         border.width: 1
-                        border.color: Qt.rgba(Root.Theme.accent.r, Root.Theme.accent.g, Root.Theme.accent.b, 0.6)
+                        border.color: Qt.alpha(Root.Theme.accent, 0.6)
                         Text {
                             id: badgeText
                             anchors.centerIn: parent
                             text: String(modelData)
-                            color: Qt.rgba(Root.Theme.accent.r, Root.Theme.accent.g, Root.Theme.accent.b, 0.8)
+                            color: Qt.alpha(Root.Theme.accent, 0.8)
                             font.family: Root.Theme.fontFamily
                             font.pixelSize: Math.min(monItem.width, monItem.height) * 0.18
                         }
@@ -367,7 +366,6 @@ Item {
                 root._dragMoved = true;
                 root.monitorsChanged();
                 root._recalcLayout();
-                root.positionChanged(root._draggingIdx, newX, newY);
             }
         }
 

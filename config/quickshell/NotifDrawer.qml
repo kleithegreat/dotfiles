@@ -15,6 +15,7 @@ FocusScope {
     readonly property color scrimColor: "transparent"
     readonly property real scrimOpacity: 0
     readonly property real availableHeight: Math.max(0, height - Theme.popupTopMargin - Theme.gapOut)
+    readonly property string bellIcon: NotificationService.doNotDisturb ? "icons/bell-off.svg" : "icons/bell.svg"
     readonly property string historyLabel: NotificationService.historyCount === 0
         ? "No notifications"
         : NotificationService.historyCount === 1
@@ -177,7 +178,7 @@ FocusScope {
                 spacing: 8
 
                 Components.Icon {
-                    source: NotificationService.doNotDisturb ? "icons/bell-off.svg" : "icons/bell.svg"
+                    source: drawer.bellIcon
                     color: NotificationService.doNotDisturb ? Theme.orangeBright : Theme.fg
                     iconSize: Theme.fontSizeLarge
                 }
@@ -240,7 +241,7 @@ FocusScope {
                     spacing: 8
 
                     Components.Icon {
-                        source: NotificationService.doNotDisturb ? "icons/bell-off.svg" : "icons/bell.svg"
+                        source: drawer.bellIcon
                         color: NotificationService.doNotDisturb ? Theme.orangeBright : Theme.fg4
                     }
 

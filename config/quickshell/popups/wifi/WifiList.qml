@@ -22,8 +22,6 @@ Item {
         return "../icons/wifi-poor.svg";
     }
 
-    function isEnterprise(sec) { return sec.indexOf("802.1X") >= 0; }
-
     Components.WheelFlickable {
         id: netFlick
         anchors.fill: parent
@@ -36,7 +34,7 @@ Item {
             Rectangle {
                 visible: root.isCaptivePortal
                 width: parent.width
-                height: visible ? captiveCol.implicitHeight + 12 : 0
+                height: captiveCol.implicitHeight + 12
                 radius: Theme.btnRadius
                 color: Theme.bg2
                 border.width: 1; border.color: Theme.yellowBright
@@ -60,10 +58,8 @@ Item {
                         height: Theme.btnHeight; radius: Theme.btnRadius
                         color: Theme.yellowBright
                         Components.HoverLayer {
-                            id: captiveLoginA
                             hoverOpacity: 0
                             pressedOpacity: 0
-                            pressedScale: 0.98
                             onClicked: root.captiveLoginRequested()
 
                             Text { id: captiveLoginLabel; anchors.centerIn: parent; text: "Open Login Page"
@@ -78,29 +74,16 @@ Item {
                 Rectangle {
                     id: netItem; required property string ssid; required property int signal
                     required property string security; required property bool active
-                    required property int index
                     width: netCol.width; height: 34; radius: Theme.hoverRadius
                     color: "transparent"
 
                     Rectangle {
                         anchors.fill: parent; radius: parent.radius; color: Theme.bg2
                         opacity: niRowArea.pressed ? 0.9 : (niRowArea.containsMouse ? 0.6 : 0)
-                        Behavior on opacity {
-                            Components.Anim {
-                                duration: Theme.animHover
-                                easing.type: Easing.BezierSpline
-                                easing.bezierCurve: Theme.animCurveStandard
-                            }
-                        }
+                        Behavior on opacity { Components.StdAnim { duration: Theme.animHover } }
                     }
                     scale: niRowArea.pressed ? 0.98 : 1.0
-                    Behavior on scale {
-                        Components.Anim {
-                            duration: Theme.animMicro
-                            easing.type: Easing.BezierSpline
-                            easing.bezierCurve: Theme.animCurveStandard
-                        }
-                    }
+                    Behavior on scale { Components.StdAnim { duration: Theme.animMicro } }
                     transformOrigin: Item.Center
 
                     RowLayout {
@@ -115,16 +98,16 @@ Item {
                                 if (netItem.signal > 30) return Theme.fg3;
                                 return Theme.fg4;
                             }
-                            Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                            Behavior on color { Components.StdCAnim { duration: Theme.animHover } }
                         }
                         // SSID
                         Text { text: netItem.ssid; color: netItem.active ? Theme.greenBright : Theme.fg
                             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                             Layout.fillWidth: true; elide: Text.ElideRight }
                         // Enterprise badge
-                        Components.Icon { visible: root.isEnterprise(netItem.security); source: "../icons/certificate.svg"; color: Theme.yellowBright }
+                        Components.Icon { visible: NetworkService.isEnterprise(netItem.security); source: "../icons/certificate.svg"; color: Theme.yellowBright }
                         // Lock icon
-                        Components.Icon { visible: netItem.security !== "" && !root.isEnterprise(netItem.security); source: "../icons/lock.svg"; color: Theme.fg4 }
+                        Components.Icon { visible: netItem.security !== "" && !NetworkService.isEnterprise(netItem.security); source: "../icons/lock.svg"; color: Theme.fg4 }
                         // Signal %
                         Text { text: netItem.signal + "%"; color: Theme.fg4
                             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeMini }
@@ -140,13 +123,7 @@ Item {
                                     onClicked: root.detailRequested(netItem.ssid, netItem.security, netItem.signal, netItem.active)
 
                                     Components.Icon { anchors.centerIn: parent; source: "../icons/info-circle.svg"; color: infoA.containsMouse ? Theme.blueBright : Theme.fg4
-                                        Behavior on color {
-                                            Components.CAnim {
-                                                duration: Theme.animHover
-                                                easing.type: Easing.BezierSpline
-                                                easing.bezierCurve: Theme.animCurveStandard
-                                            }
-                                        }
+                                        Behavior on color { Components.StdCAnim { duration: Theme.animHover } }
                                     }
                                 }
                             }
@@ -156,9 +133,7 @@ Item {
                     Components.HoverLayer {
                         id: niRowArea; anchors.left: parent.left; anchors.top: parent.top
                         anchors.bottom: parent.bottom; anchors.right: parent.right; anchors.rightMargin: 30
-                        hoverOpacity: 0
-                        pressedOpacity: 0
-                        pressedScale: 1.0
+                        flat: true
                         onClicked: {
                             if (netItem.active)
                                 root.detailRequested(netItem.ssid, netItem.security, netItem.signal, true);

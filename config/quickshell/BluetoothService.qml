@@ -25,8 +25,6 @@ QtObject {
     Component.onCompleted: refreshSummary()
 
     function refresh(preservePowerState, withScan) {
-        if (preservePowerState === undefined)
-            preservePowerState = false;
         // Discovery scans cost battery and degrade co-located 2.4GHz Wi-Fi,
         // so only chain into one when the caller shows the device list
         // (settings pane / popup open); completion refreshes opt out.
@@ -107,6 +105,31 @@ QtObject {
 
     function isMacAddress(name) {
         return /^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$/.test(name);
+    }
+
+    function _applyConnInfoLine(proc, line) {
+        if (line.startsWith("CONN|")) {
+            let parts = line.substring(5).split("|");
+            if (parts.length >= 2) {
+                proc.pendingMac = parts[0];
+                proc.pendingName = parts.slice(1).join("|");
+            }
+        } else if (line.startsWith("BATT|")) {
+            let batt = parseInt(line.substring(5), 10);
+            proc.pendingBattery = isNaN(batt) ? -1 : batt;
+        }
+    }
+
+    function _deviceFromLine(line) {
+        let m = line.match(/^Device\s+(\S+)\s+(.+)$/);
+        if (!m)
+            return null;
+        let mac = m[1], name = m[2];
+        if (isMacAddress(name))
+            return null;
+        if (mac === connectedMac)
+            return null;
+        return { mac: mac, name: name };
     }
 
     function snapshotSummaryState() {
@@ -217,18 +240,7 @@ QtObject {
                 pendingBattery = -1;
             }
         }
-        stdout: SplitParser { onRead: (line) => {
-            if (line.startsWith("CONN|")) {
-                let parts = line.substring(5).split("|");
-                if (parts.length >= 2) {
-                    connInfoProc.pendingMac = parts[0];
-                    connInfoProc.pendingName = parts.slice(1).join("|");
-                }
-            } else if (line.startsWith("BATT|")) {
-                let batt = parseInt(line.substring(5), 10);
-                connInfoProc.pendingBattery = isNaN(batt) ? -1 : batt;
-            }
-        } }
+        stdout: SplitParser { onRead: (line) => root._applyConnInfoLine(connInfoProc, line) }
         onExited: {
             root.connectedMac = connInfoProc.pendingMac;
             root.connectedName = connInfoProc.pendingName;
@@ -242,12 +254,9 @@ QtObject {
         command: ["bluetoothctl", "--timeout", "2", "devices", "Paired"]
         running: false
         stdout: SplitParser { onRead: (line) => {
-            let m = line.match(/^Device\s+(\S+)\s+(.+)$/);
-            if (!m) return;
-            let mac = m[1], name = m[2];
-            if (root.isMacAddress(name)) return;
-            if (mac === root.connectedMac) return;
-            pairedModel.append({ mac: mac, name: name });
+            let dev = root._deviceFromLine(line);
+            if (dev)
+                pairedModel.append(dev);
         } }
         onExited: { allDevicesProc.running = true; }
     }
@@ -257,14 +266,11 @@ QtObject {
         command: ["bluetoothctl", "--timeout", "2", "devices"]
         running: false
         stdout: SplitParser { onRead: (line) => {
-            let m = line.match(/^Device\s+(\S+)\s+(.+)$/);
-            if (!m) return;
-            let mac = m[1], name = m[2];
-            if (root.isMacAddress(name)) return;
-            if (mac === root.connectedMac) return;
+            let dev = root._deviceFromLine(line);
+            if (!dev) return;
             for (let i = 0; i < pairedModel.count; i++)
-                if (pairedModel.get(i).mac === mac) return;
-            discoveredModel.append({ mac: mac, name: name });
+                if (pairedModel.get(i).mac === dev.mac) return;
+            discoveredModel.append(dev);
         } }
         onExited: { if (root._scanAfterRefresh) root.startScan(); }
     }
@@ -279,7 +285,7 @@ QtObject {
     property Process connectProc: Process {
         id: connectProc
         running: false
-        onExited: (code, status) => {
+        onExited: (code) => {
             if (code === 0) {
                 root.connectingName = "";
                 root.connecting = false;
@@ -309,7 +315,7 @@ QtObject {
     property Process powerProc: Process {
         id: powerProc
         running: false
-        onExited: (code, status) => {
+        onExited: (code) => {
             if (code === 0) {
                 root._powerActionPending = false;
                 root.refresh(true, false);
@@ -348,18 +354,7 @@ QtObject {
                 pendingBattery = -1;
             }
         }
-        stdout: SplitParser { onRead: (line) => {
-            if (line.startsWith("CONN|")) {
-                let parts = line.substring(5).split("|");
-                if (parts.length >= 2) {
-                    summaryConnInfoProc.pendingMac = parts[0];
-                    summaryConnInfoProc.pendingName = parts.slice(1).join("|");
-                }
-            } else if (line.startsWith("BATT|")) {
-                let batt = parseInt(line.substring(5), 10);
-                summaryConnInfoProc.pendingBattery = isNaN(batt) ? -1 : batt;
-            }
-        } }
+        stdout: SplitParser { onRead: (line) => root._applyConnInfoLine(summaryConnInfoProc, line) }
         onExited: {
             root._summaryConnDone = true;
             root._commitSummaryRefresh();

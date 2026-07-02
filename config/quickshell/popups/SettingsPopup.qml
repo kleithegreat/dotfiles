@@ -22,7 +22,6 @@ FocusScope {
 
     // State
     property var themeState: ({})
-    property var colorSchemes: []
     property var colorFamilies: []
     property var presets: []
     property var wallpapers: []
@@ -55,6 +54,12 @@ FocusScope {
     property string wallpaperDir: ""
     property var categoryNames: ["Network", "Bluetooth", "Audio", "Display", "Power", "Fingerprint", "Notifications", "Screen Time", "Presets", "Colors", "Fonts", "Wallpaper", "Icons", "Mouse", "Hyprland"]
     property var categoryIcons: ["../icons/wifi.svg", "../icons/bluetooth-on.svg", "../icons/volume-high.svg", "../icons/monitor.svg", "../icons/bolt.svg", "../icons/shield-lock.svg", "../icons/bell.svg", "../icons/hourglass.svg", "../icons/adjustments.svg", "../icons/palette.svg", "../icons/typography.svg", "../icons/photo.svg", "../icons/certificate.svg", "../icons/cursor.svg", "../icons/layout.svg"]
+    // Pane components in categoryNames order.
+    readonly property var paneComponents: [
+        networkPane, bluetoothPane, audioPane, displayPane, powerPane,
+        fingerprintPane, notificationsPane, focusTimePane, presetsPane, colorsPane,
+        fontsPane, wallpaperPane, iconsPane, mousePane, hyprlandPane
+    ]
     readonly property var hyprOptionInfo: hyprOptionCatalog.optionInfo
 
     Settings.HyprOptionCatalog { id: hyprOptionCatalog }
@@ -107,16 +112,17 @@ FocusScope {
     property string fingerprintEnrollScanType: "press"
     readonly property bool fingerprintStateLoading: fingerprintListProc.running
     readonly property bool fingerprintActionBusy: fingerprintEnrollProc.running || fingerprintDeleteProc.running
+    readonly property int panelUnit: Theme.fontSize + Theme.popupPadding
     readonly property int panelWidth: {
         let available = Math.max(420, settingsPop.width - Theme.gapOut * 4);
-        let preferred = Math.round((Theme.fontSize + Theme.popupPadding) * 28);
-        let minimum = Math.round((Theme.fontSize + Theme.popupPadding) * 22);
+        let preferred = Math.round(panelUnit * 28);
+        let minimum = Math.round(panelUnit * 22);
         return Math.max(Math.min(available, preferred), Math.min(available, minimum));
     }
     readonly property int panelHeight: {
         let available = Math.max(320, settingsPop.height - Theme.popupTopMargin - Theme.gapOut * 2);
-        let preferred = Math.round((Theme.fontSize + Theme.popupPadding) * 19);
-        let minimum = Math.round((Theme.fontSize + Theme.popupPadding) * 16);
+        let preferred = Math.round(panelUnit * 19);
+        let minimum = Math.round(panelUnit * 16);
         return Math.max(Math.min(available, preferred), Math.min(available, minimum));
     }
 
@@ -246,6 +252,15 @@ FocusScope {
         fingerprintActionTone = "";
     }
 
+    function finishFingerprintAction(proc) {
+        fingerprintActionMode = "";
+        fingerprintActionFinger = "";
+        fingerprintCancelRequested = false;
+        proc.buf = "";
+        proc.errorBuf = "";
+        loadFingerprintState();
+    }
+
     function loadFingerprintDeviceMetadata() {
         if (!HostCapabilities.isLaptop || !HostCapabilities.hasFingerprintReader) {
             fingerprintEnrollStagesTotal = 0;
@@ -259,7 +274,6 @@ FocusScope {
         }
 
         fingerprintMetadataReloadPending = false;
-        fingerprintMetadataProc.errorBuf = "";
         fingerprintMetadataProc.running = true;
     }
 
@@ -468,6 +482,15 @@ FocusScope {
         return JSON.parse(JSON.stringify(source || ({})));
     }
 
+    function parseJsonArray(buf) {
+        try {
+            let parsed = JSON.parse(buf);
+            if (Array.isArray(parsed))
+                return parsed;
+        } catch(e) {}
+        return [];
+    }
+
     function coerceThemeValue(key, value) {
         if (key === "dark_hint") {
             if (value === "light" || value === false || value === "false" || value === "off")
@@ -543,12 +566,7 @@ FocusScope {
                 return;
             }
 
-            if (settingsPop.themeWriteDrainAfterReload) {
-                settingsPop.themeWriteDrainAfterReload = false;
-                settingsPop.startNextThemeWrite();
-                return;
-            }
-
+            settingsPop.themeWriteDrainAfterReload = false;
             settingsPop.startNextThemeWrite();
         }
     }
@@ -565,18 +583,10 @@ FocusScope {
                 return;
             }
 
-            let items = [];
-            try {
-                let parsed = JSON.parse(buf);
-                if (Array.isArray(parsed))
-                    items = parsed;
-            } catch(e) {}
-
-            let schemes = [];
+            let items = settingsPop.parseJsonArray(buf);
             let result = [];
             for (let i = 0; i < items.length; i++) {
                 let d = items[i];
-                schemes.push(d.schemeName);
                 result.push({
                     schemeName: d.schemeName,
                     family: d.family || d.schemeName,
@@ -602,7 +612,6 @@ FocusScope {
                     palette: Array.isArray(d.palette) ? d.palette : []
                 });
             }
-            settingsPop.colorSchemes = schemes;
             settingsPop.colorFamilies = result;
             buf = "";
         }
@@ -648,12 +657,7 @@ FocusScope {
                 return;
             }
 
-            if (settingsPop.mouseWriteDrainAfterReload) {
-                settingsPop.mouseWriteDrainAfterReload = false;
-                settingsPop.startNextMouseWrite();
-                return;
-            }
-
+            settingsPop.mouseWriteDrainAfterReload = false;
             settingsPop.startNextMouseWrite();
         }
     }
@@ -666,15 +670,9 @@ FocusScope {
             "path=$(busctl call net.reactivated.Fprint /net/reactivated/Fprint/Manager net.reactivated.Fprint.Manager GetDefaultDevice); path=${path#*\\\"}; path=${path%%\\\"*}; printf 'path=%s\\n' \"$path\"; busctl get-property net.reactivated.Fprint \"$path\" net.reactivated.Fprint.Device num-enroll-stages; busctl get-property net.reactivated.Fprint \"$path\" net.reactivated.Fprint.Device scan-type"
         ]
         running: false
-        property string errorBuf: ""
         stdout: SplitParser { onRead: (line) => settingsPop.applyFingerprintMetadataLine(line) }
-        stderr: SplitParser { onRead: (line) => { fingerprintMetadataProc.errorBuf += line + "\n"; } }
-        onExited: (code) => {
-            if (code !== 0)
-                settingsPop.fingerprintEnrollScanType = settingsPop.fingerprintEnrollScanType || "press";
-
-            errorBuf = "";
-
+        stderr: SplitParser { onRead: (_) => {} }
+        onExited: {
             if (settingsPop.fingerprintMetadataReloadPending)
                 settingsPop.loadFingerprintDeviceMetadata();
         }
@@ -719,13 +717,7 @@ FocusScope {
                 return;
             }
 
-            let items = [];
-            try {
-                let parsed = JSON.parse(buf);
-                if (Array.isArray(parsed))
-                    items = parsed;
-            } catch(e) {}
-            settingsPop.presets = items;
+            settingsPop.presets = settingsPop.parseJsonArray(buf);
             buf = "";
         }
     }
@@ -751,20 +743,16 @@ FocusScope {
 
             let items = [];
             let previewPaths = {};
-            try {
-                let parsed = JSON.parse(buf);
-                if (Array.isArray(parsed)) {
-                    for (let i = 0; i < parsed.length; i++) {
-                        let entry = parsed[i] || {};
-                        let name = String(entry.name || "").trim();
-                        if (name === "")
-                            continue;
-                        items.push(name);
-                        if (entry.preview_path)
-                            previewPaths[name] = String(entry.preview_path);
-                    }
-                }
-            } catch (e) {}
+            let parsed = settingsPop.parseJsonArray(buf);
+            for (let i = 0; i < parsed.length; i++) {
+                let entry = parsed[i] || {};
+                let name = String(entry.name || "").trim();
+                if (name === "")
+                    continue;
+                items.push(name);
+                if (entry.preview_path)
+                    previewPaths[name] = String(entry.preview_path);
+            }
             settingsPop.wallpapers = items;
             settingsPop.wallpaperPreviewPaths = previewPaths;
             loaded = true;
@@ -792,11 +780,10 @@ FocusScope {
         running: false
         property string buf: ""
         property string pendingStateKey: ""
-        property string pendingValue: ""
         property string pendingLabel: ""
         stdout: SplitParser { onRead: (line) => { hyprApplyProc.buf += line; } }
         stderr: SplitParser { onRead: (line) => { hyprApplyProc.buf += line; } }
-        onExited: (code, status) => {
+        onExited: (code) => {
             let output = (buf || "").trim();
             if (code !== 0) {
                 settingsPop.hyprRuntimeError = output !== "" ? output : "Failed to update Hyprland";
@@ -812,7 +799,6 @@ FocusScope {
 
             buf = "";
             pendingStateKey = "";
-            pendingValue = "";
             pendingLabel = "";
 
             if (settingsPop.hyprApplyQueued || settingsPop.hyprDirtyOrder.length > 0) {
@@ -1052,7 +1038,7 @@ FocusScope {
     }
 
     function hyprCommandValue(value) {
-        return typeof value === "boolean" ? (value ? "true" : "false") : String(value);
+        return String(value);
     }
 
     function flushHyprStateWrites() {
@@ -1087,9 +1073,9 @@ FocusScope {
                 continue;
             }
 
+            let commandValue = settingsPop.hyprCommandValue(value);
             hyprApplyProc.buf = "";
             hyprApplyProc.pendingStateKey = stateKey;
-            hyprApplyProc.pendingValue = settingsPop.hyprCommandValue(value);
             hyprApplyProc.pendingLabel = settingsPop.hyprLabelForStateKey(stateKey);
             settingsPop.removeHyprDirtyKey(stateKey);
             hyprApplyProc.command = [
@@ -1097,7 +1083,7 @@ FocusScope {
                 "theme",
                 "set",
                 stateKey,
-                hyprApplyProc.pendingValue
+                commandValue
             ];
             hyprApplyProc.running = true;
             return;
@@ -1252,7 +1238,7 @@ FocusScope {
                 console.log("[desktopctl theme stderr]", line);
             }
         }
-        onExited: (code, status) => {
+        onExited: (code) => {
             let errorMessage = applyProc.errorBuf.trim();
             if (code !== 0) {
                 if (mode === "set")
@@ -1311,7 +1297,7 @@ FocusScope {
         property string targetName: ""
         stdout: SplitParser { onRead: (line) => { presetCommandProc.buf += line; } }
         stderr: SplitParser { onRead: (line) => { presetCommandProc.buf += line; } }
-        onExited: (code, status) => {
+        onExited: (code) => {
             let output = (buf || "").trim();
 
             if (code !== 0) {
@@ -1396,12 +1382,7 @@ FocusScope {
                 settingsPop.fingerprintActionStatus = "Saved " + displayName + ".";
             }
 
-            settingsPop.fingerprintActionMode = "";
-            settingsPop.fingerprintActionFinger = "";
-            settingsPop.fingerprintCancelRequested = false;
-            buf = "";
-            errorBuf = "";
-            settingsPop.loadFingerprintState();
+            settingsPop.finishFingerprintAction(fingerprintEnrollProc);
         }
     }
 
@@ -1426,12 +1407,7 @@ FocusScope {
                 settingsPop.fingerprintActionStatus = "Removed " + displayName + ".";
             }
 
-            settingsPop.fingerprintActionMode = "";
-            settingsPop.fingerprintActionFinger = "";
-            settingsPop.fingerprintCancelRequested = false;
-            buf = "";
-            errorBuf = "";
-            settingsPop.loadFingerprintState();
+            settingsPop.finishFingerprintAction(fingerprintDeleteProc);
         }
     }
 
@@ -1491,7 +1467,6 @@ FocusScope {
         width: settingsContentLoader.width
         height: settingsContentLoader.height
         visible: settingsPop.overlayVisible && !settingsPop.closing && !settingsContentLoader.item
-        opacity: 1
         radius: Theme.popupRadius
         color: Theme.bg
         border.width: 1
@@ -1513,8 +1488,7 @@ FocusScope {
         sourceComponent: settingsPanelComponent
 
         onLoaded: {
-            item.opacity = 0;
-            item.scale = Theme.popupStartScale;
+            settingsPop.preparePanelForOpen();
             if (settingsPop.active)
                 settingsOpenAnim.start();
         }
@@ -1597,26 +1571,7 @@ FocusScope {
                         id: detailLoader
                         anchors.fill: parent
                         anchors.margins: Theme.popupPadding
-                        sourceComponent: {
-                            switch (paneContainer._activePane) {
-                                case 0: return networkPane;
-                                case 1: return bluetoothPane;
-                                case 2: return audioPane;
-                                case 3: return displayPane;
-                                case 4: return powerPane;
-                                case 5: return fingerprintPane;
-                                case 6: return notificationsPane;
-                                case 7: return focusTimePane;
-                                case 8: return presetsPane;
-                                case 9: return colorsPane;
-                                case 10: return fontsPane;
-                                case 11: return wallpaperPane;
-                                case 12: return iconsPane;
-                                case 13: return mousePane;
-                                case 14: return hyprlandPane;
-                                default: return null;
-                            }
-                        }
+                        sourceComponent: settingsPop.paneComponents[paneContainer._activePane] ?? null
                     }
                 }
             }

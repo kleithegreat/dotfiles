@@ -43,6 +43,46 @@ Components.WheelFlickable {
     contentHeight: wpCol.implicitHeight
     clip: true
 
+    component DirectoryRow: Rectangle {
+        id: dirRow
+
+        required property string label
+        property bool rowEnabled: true
+
+        signal activated()
+
+        width: directoryListContent.width
+        height: 32
+        radius: Theme.hoverRadius
+        color: dirRowArea.containsMouse && dirRow.rowEnabled ? Theme.bg2 : "transparent"
+        border.width: 1
+        border.color: dirRowArea.containsMouse && dirRow.rowEnabled ? Theme.bg3 : "transparent"
+        Behavior on color { Components.StdCAnim { duration: Theme.animHover } }
+        Behavior on border.color { Components.StdCAnim { duration: Theme.animHover } }
+
+        Text {
+            anchors {
+                left: parent.left
+                leftMargin: 10
+                right: parent.right
+                rightMargin: 10
+                verticalCenter: parent.verticalCenter
+            }
+            text: dirRow.label
+            color: dirRow.rowEnabled ? Theme.fg : Theme.fg4
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSizeSmall
+            elide: Text.ElideMiddle
+        }
+
+        Components.HoverLayer {
+            id: dirRowArea
+            disabled: !dirRow.rowEnabled
+            flat: true
+            onClicked: dirRow.activated()
+        }
+    }
+
     ColumnLayout {
         id: wpCol
         width: parent.width
@@ -103,15 +143,14 @@ Components.WheelFlickable {
                 delegate: Item {
                     id: wpCard
                     required property string modelData
-                    required property int index
                     property bool isCurrent: root.themeState.wallpaper === root.wallpaperDir + "/" + modelData
 
                     width: (wpGrid.width - Math.max(0, wpGrid.columns - 1) * wpGrid.spacing) / Math.max(1, wpGrid.columns)
                     height: width * 0.65 + 24
-                    opacity: root.isPending("wallpaper") && wpCard.isCurrent ? 0.72 : 1
-                    Behavior on opacity { Components.Anim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                    opacity: root.isPending("wallpaper") && wpCard.isCurrent ? Theme.pendingOpacity : 1
+                    Behavior on opacity { Components.StdAnim { duration: Theme.animHover } }
                     scale: wpArea.pressed ? 0.97 : 1.0
-                    Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                    Behavior on scale { Components.StdAnim { duration: Theme.animMicro } }
                     transformOrigin: Item.Center
 
                     Column {
@@ -126,7 +165,7 @@ Components.WheelFlickable {
                             color: Theme.bg1
                             border.width: wpCard.isCurrent ? 2 : 1
                             border.color: wpCard.isCurrent ? Theme.accent : (wpArea.containsMouse ? Theme.fg4 : Theme.bg3)
-                            Behavior on border.color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                            Behavior on border.color { Components.StdCAnim { duration: Theme.animHover } }
 
                             Image {
                                 anchors.fill: parent
@@ -142,7 +181,7 @@ Components.WheelFlickable {
                             height: Math.max(Theme.fontSizeSmall + 10, 20)
                             text: wpCard.modelData.replace(/\.\w+$/, "")
                             color: wpCard.isCurrent ? Theme.accent : Theme.fg3
-                            Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                            Behavior on color { Components.StdCAnim { duration: Theme.animHover } }
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.fontSizeSmall
                             horizontalAlignment: Text.AlignHCenter
@@ -155,16 +194,8 @@ Components.WheelFlickable {
 
                     Components.HoverLayer {
                         id: wpArea
-                        anchors.fill: parent
                         disabled: root.writePending
-                        cursorShape: Qt.PointingHandCursor
-                        hoverEnabled: true
-
-                        hoverOpacity: 0
-
-                        pressedOpacity: 0
-
-                        pressedScale: 1.0
+                        flat: true
                         onClicked: root.setRequested("wallpaper", root.wallpaperDir + "/" + wpCard.modelData)
                     }
                 }
@@ -187,33 +218,10 @@ Components.WheelFlickable {
                 elide: Text.ElideMiddle
             }
 
-            Rectangle {
-                width: changeDirLabel.implicitWidth + 16
-                height: Theme.btnHeight
-                radius: Theme.btnRadius
-                color: changeDirArea.containsMouse ? Theme.bg2 : Theme.bg1
-                Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                border.width: 1
-                border.color: Theme.bg3
-                scale: changeDirArea.pressed ? 0.95 : 1.0
-                Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                transformOrigin: Item.Center
-
-                Text { id: changeDirLabel; anchors.centerIn: parent; text: "Change Directory..."; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-
-                Components.HoverLayer {
-                    id: changeDirArea
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    hoverEnabled: true
-
-                    hoverOpacity: 0
-
-                    pressedOpacity: 0
-
-                    pressedScale: 1.0
-                    onClicked: root.openDirectoryBrowserRequested()
-                }
+            Components.ActionButton {
+                text: "Change Directory..."
+                paddingH: 8
+                onClicked: root.openDirectoryBrowserRequested()
             }
         }
 
@@ -223,7 +231,6 @@ Components.WheelFlickable {
             Layout.fillWidth: true
             Layout.topMargin: 8
             implicitHeight: directoryBrowserContent.implicitHeight + 24
-            Layout.preferredHeight: implicitHeight
             radius: Theme.btnRadius + 2
             color: Theme.bg1
             border.width: 1
@@ -261,7 +268,7 @@ Components.WheelFlickable {
                     wrapMode: Text.WrapAnywhere
                 }
 
-                Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Theme.bg3 }
+                Components.Divider {}
 
                 Rectangle {
                     Layout.fillWidth: true
@@ -284,92 +291,20 @@ Components.WheelFlickable {
                             width: directoryListFlick.width
                             spacing: 4
 
-                            Rectangle {
-                                id: parentDirectoryEntry
-                                width: directoryListContent.width
-                                height: 32
-                                radius: Theme.hoverRadius
-                                color: parentDirectoryArea.containsMouse && root.directoryBrowserPath !== "/" ? Theme.bg2 : "transparent"
-                                border.width: 1
-                                border.color: parentDirectoryArea.containsMouse && root.directoryBrowserPath !== "/" ? Theme.bg3 : "transparent"
-                                Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                                Behavior on border.color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-
-                                Text {
-                                    anchors {
-                                        left: parent.left
-                                        leftMargin: 10
-                                        right: parent.right
-                                        rightMargin: 10
-                                        verticalCenter: parent.verticalCenter
-                                    }
-                                    text: ".."
-                                    color: root.directoryBrowserPath === "/" ? Theme.fg4 : Theme.fg
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.fontSizeSmall
-                                    elide: Text.ElideMiddle
-                                }
-
-                                Components.HoverLayer {
-                                    id: parentDirectoryArea
-                                    anchors.fill: parent
-                                    enabled: root.directoryBrowserPath !== "/"
-                                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                                    hoverEnabled: true
-
-                                    hoverOpacity: 0
-
-                                    pressedOpacity: 0
-
-                                    pressedScale: 1.0
-                                    onClicked: root.browseDirectoryRequested("..")
-                                }
+                            DirectoryRow {
+                                label: ".."
+                                rowEnabled: root.directoryBrowserPath !== "/"
+                                onActivated: root.browseDirectoryRequested("..")
                             }
 
                             Repeater {
                                 model: root.directoryBrowserEntries
 
-                                delegate: Rectangle {
-                                    id: subdirEntry
+                                delegate: DirectoryRow {
                                     required property string modelData
 
-                                    width: directoryListContent.width
-                                    height: 32
-                                    radius: Theme.hoverRadius
-                                    color: subdirEntryArea.containsMouse ? Theme.bg2 : "transparent"
-                                    border.width: 1
-                                    border.color: subdirEntryArea.containsMouse ? Theme.bg3 : "transparent"
-                                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                                    Behavior on border.color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-
-                                    Text {
-                                        anchors {
-                                            left: parent.left
-                                            leftMargin: 10
-                                            right: parent.right
-                                            rightMargin: 10
-                                            verticalCenter: parent.verticalCenter
-                                        }
-                                        text: subdirEntry.modelData
-                                        color: Theme.fg
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: Theme.fontSizeSmall
-                                        elide: Text.ElideMiddle
-                                    }
-
-                                    Components.HoverLayer {
-                                        id: subdirEntryArea
-                                        anchors.fill: parent
-                                        cursorShape: Qt.PointingHandCursor
-                                        hoverEnabled: true
-
-                                        hoverOpacity: 0
-
-                                        pressedOpacity: 0
-
-                                        pressedScale: 1.0
-                                        onClicked: root.browseDirectoryRequested(subdirEntry.modelData)
-                                    }
+                                    label: modelData
+                                    onActivated: root.browseDirectoryRequested(modelData)
                                 }
                             }
 
@@ -397,76 +332,21 @@ Components.WheelFlickable {
 
                     Item { Layout.fillWidth: true }
 
-                    Rectangle {
-                        width: cancelDirLabel.implicitWidth + 20
-                        height: Theme.btnHeight
-                        radius: Theme.btnRadius
-                        color: cancelDirArea.containsMouse ? Theme.bg2 : Theme.bg
-                        border.width: 1
-                        border.color: Theme.bg3
-                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        scale: cancelDirArea.pressed ? 0.95 : 1.0
-                        Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        transformOrigin: Item.Center
-
-                        Text {
-                            id: cancelDirLabel
-                            anchors.centerIn: parent
-                            text: "Cancel"
-                            color: Theme.fg
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSizeSmall
-                        }
-
-                        Components.HoverLayer {
-                            id: cancelDirArea
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            hoverEnabled: true
-
-                            hoverOpacity: 0
-
-                            pressedOpacity: 0
-
-                            pressedScale: 1.0
-                            onClicked: root.closeDirectoryBrowserRequested()
-                        }
+                    Components.ActionButton {
+                        text: "Cancel"
+                        baseColor: Theme.bg
+                        paddingH: 10
+                        onClicked: root.closeDirectoryBrowserRequested()
                     }
 
-                    Rectangle {
-                        width: selectDirLabel.implicitWidth + 20
-                        height: Theme.btnHeight
-                        radius: Theme.btnRadius
-                        color: selectDirArea.containsMouse ? Theme.greenBright : Theme.accent
-                        border.width: 1
-                        border.color: Theme.accent
-                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        scale: selectDirArea.pressed ? 0.95 : 1.0
-                        Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        transformOrigin: Item.Center
-
-                        Text {
-                            id: selectDirLabel
-                            anchors.centerIn: parent
-                            text: "Select"
-                            color: Theme.bg
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSizeSmall
-                        }
-
-                        Components.HoverLayer {
-                            id: selectDirArea
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            hoverEnabled: true
-
-                            hoverOpacity: 0
-
-                            pressedOpacity: 0
-
-                            pressedScale: 1.0
-                            onClicked: root.confirmDirectoryBrowserRequested()
-                        }
+                    Components.ActionButton {
+                        text: "Select"
+                        baseColor: Theme.accent
+                        hoverColor: Theme.greenBright
+                        borderColor: Theme.accent
+                        textColor: Theme.bg
+                        paddingH: 10
+                        onClicked: root.confirmDirectoryBrowserRequested()
                     }
                 }
             }

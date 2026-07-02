@@ -10,15 +10,12 @@ Item {
 
     property string timeStr: ""
     property string prevTimeStr: ""
-    property color textColor: clockArea.containsMouse ? Theme.yellowBright : Theme.fg
-    property string tooltipText: {
+    readonly property color textColor: clockArea.containsMouse ? Theme.yellowBright : Theme.fg
+    readonly property string tooltipText: {
         // Reference timeStr only to register a binding dependency, so the
         // date below re-evaluates with each tick (e.g. across midnight).
         let _t = timeStr;
-        let d = new Date();
-        let days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-        let months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-        return days[d.getDay()] + ", " + months[d.getMonth()] + " " + d.getDate() + ", " + d.getFullYear();
+        return new Date().toLocaleDateString(Qt.locale("en_US"), "dddd, MMMM d, yyyy");
     }
 
     // Measure a single monospace cell for slot dimensions
@@ -73,20 +70,18 @@ Item {
                     }
                 }
 
-                Text {
+                Components.StyledText {
                     id: outText
                     width: slot.width
                     font: refChar.font
-                    renderType: Text.NativeRendering
                     color: clockRoot.textColor
                     y: -slot.height
                 }
 
-                Text {
+                Components.StyledText {
                     id: inText
                     width: slot.width
                     font: refChar.font
-                    renderType: Text.NativeRendering
                     color: clockRoot.textColor
                 }
 
@@ -113,19 +108,9 @@ Item {
         }
     }
 
-    MouseArea {
+    Components.BarTooltipArea {
         id: clockArea
-        anchors.fill: parent
-        cursorShape: Qt.PointingHandCursor
-        hoverEnabled: true
+        tip: clockRoot.tooltipText
         onClicked: clockRoot.clicked()
-        onContainsMouseChanged: {
-            if (containsMouse) {
-                let p = clockRoot.mapToGlobal(Qt.point(clockRoot.width / 2, clockRoot.height));
-                TooltipService.show(clockRoot.tooltipText, p.x, p.y);
-            } else {
-                TooltipService.hide();
-            }
-        }
     }
 }

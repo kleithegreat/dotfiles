@@ -6,25 +6,8 @@ QtObject {
     id: root
 
     property var brightnessDevices: []
-    property string brightnessDevice: ""
-    property string brightnessKind: ""
-    property string brightnessLabel: ""
-    property int brightnessRaw: 0
-    property int brightnessMax: 0
-    property real pendingBrightnessFraction: -1
     property var _pendingBrightnessFractions: ({})
     property string _activeSetDevice: ""
-
-    readonly property bool hasBrightness: brightnessDevices.length > 0
-    readonly property bool hasBacklight: hasBrightness
-    readonly property bool brightnessAvailable: brightnessDevice !== "" && brightnessMax > 0
-    readonly property real brightnessRawFraction: brightnessAvailable ? Math.max(0, Math.min(1, brightnessRaw / brightnessMax)) : 0
-    readonly property real brightnessFraction: brightnessAvailable ? Math.max(0, Math.min(1, brightnessStatusFraction)) : 0
-    readonly property int brightnessPercent: Math.round(brightnessFraction * 100)
-    readonly property bool brightnessBusy: brightnessSetProc.running || statusProc.running
-    readonly property string backlightDevice: brightnessDevice
-    readonly property string backlightLabel: brightnessLabel !== "" ? brightnessLabel : brightnessDevice.replace(/_/g, " ")
-    property real brightnessStatusFraction: 0
 
     function clamp01(value) {
         return Math.max(0, Math.min(1, value));
@@ -53,7 +36,6 @@ QtObject {
         }
 
         brightnessDevices = nextDevices;
-        syncPrimaryDevice();
     }
 
     function normalizeDevice(payload) {
@@ -80,43 +62,14 @@ QtObject {
         };
     }
 
-    function syncPrimaryDevice() {
-        let primary = brightnessDevices.length > 0 ? brightnessDevices[0] : null;
-        if (!primary) {
-            brightnessDevice = "";
-            brightnessKind = "";
-            brightnessLabel = "";
-            brightnessRaw = 0;
-            brightnessMax = 0;
-            brightnessStatusFraction = 0;
-            pendingBrightnessFraction = -1;
-            return;
-        }
-
-        brightnessDevice = primary.device || "";
-        brightnessKind = primary.kind || "";
-        brightnessLabel = primary.label || brightnessDevice.replace(/_/g, " ");
-        brightnessRaw = Math.max(0, parseInt(primary.raw || 0, 10));
-        brightnessMax = Math.max(0, parseInt(primary.max || 0, 10));
-        brightnessStatusFraction = clamp01(Number(primary.fraction || 0));
-        pendingBrightnessFraction = pendingFractionForDevice(brightnessDevice);
-    }
-
     function clearState() {
         brightnessDevices = [];
-        brightnessDevice = "";
-        brightnessKind = "";
-        brightnessLabel = "";
-        brightnessRaw = 0;
-        brightnessMax = 0;
-        brightnessStatusFraction = 0;
-        pendingBrightnessFraction = -1;
         _pendingBrightnessFractions = ({});
         _activeSetDevice = "";
     }
 
     function isInternalMonitorName(name) {
-        return /^eDP(-|$)/.test(name || "") || /^LVDS(-|$)/.test(name || "") || /^DSI(-|$)/.test(name || "");
+        return /^(eDP|LVDS|DSI)(-|$)/.test(name || "");
     }
 
     function internalDisplayEnabled(monitors) {
@@ -192,13 +145,6 @@ QtObject {
             next.push(device);
         }
         brightnessDevices = next;
-        syncPrimaryDevice();
-    }
-
-    function setBrightnessFraction(value) {
-        if (brightnessDevice === "")
-            return;
-        setBrightnessFractionForDevice(brightnessDevice, value);
     }
 
     function setBrightnessFractionForDevice(deviceId, value) {

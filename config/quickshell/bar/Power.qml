@@ -8,16 +8,8 @@ Item {
         id: powerIcon; anchors.centerIn: parent; source: "../icons/power.svg"
         color: powerArea.containsMouse ? Theme.redBright : Theme.fg
     }
-    MouseArea {
-        id: powerArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+    Components.BarTooltipArea {
+        id: powerArea; tip: "Power / Session"
         onClicked: powerRoot.clicked()
-        onContainsMouseChanged: {
-            if (containsMouse) {
-                let p = powerRoot.mapToGlobal(Qt.point(powerRoot.width / 2, powerRoot.height));
-                TooltipService.show("Power / Session", p.x, p.y);
-            } else {
-                TooltipService.hide();
-            }
-        }
     }
 }

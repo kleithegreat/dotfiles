@@ -32,6 +32,43 @@ ColumnLayout {
         return "../icons/wifi-poor.svg";
     }
 
+    component InfoLabel: Text {
+        color: Theme.fg4
+        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+    }
+
+    component InfoValue: Text {
+        color: Theme.fg
+        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+        Layout.fillWidth: true; elide: Text.ElideRight; horizontalAlignment: Text.AlignRight
+    }
+
+    // Ghost action button: transparent until hovered, with pending-state label.
+    component DetailActionButton: Rectangle {
+        id: actionBtn
+
+        required property string text
+        property string pendingText: ""
+        property bool pending: false
+        property color hoverColor: Theme.fg
+
+        signal clicked()
+
+        Layout.fillWidth: true; height: 32; radius: Theme.btnRadius
+        color: "transparent"
+        Components.HoverLayer {
+            id: actionArea
+            disabled: actionBtn.pending
+            onClicked: actionBtn.clicked()
+
+            Text { anchors.centerIn: parent
+                text: actionBtn.pending && actionBtn.pendingText !== "" ? actionBtn.pendingText : actionBtn.text
+                color: actionArea.containsMouse ? actionBtn.hoverColor : Theme.fg4
+                Behavior on color { Components.StdCAnim { duration: Theme.animHover } }
+                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+        }
+    }
+
     spacing: 12
 
     // Status badge
@@ -46,12 +83,8 @@ ColumnLayout {
         border.color: root.targetIsConnected
             ? Qt.rgba(Theme.greenBright.r, Theme.greenBright.g, Theme.greenBright.b, 0.2)
             : "transparent"
-        Behavior on color {
-            Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard }
-        }
-        Behavior on border.color {
-            Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard }
-        }
+        Behavior on color { Components.StdCAnim { duration: Theme.animHover } }
+        Behavior on border.color { Components.StdCAnim { duration: Theme.animHover } }
 
         RowLayout {
             id: statusRow
@@ -61,18 +94,14 @@ ColumnLayout {
             Rectangle {
                 width: 8; height: 8; radius: 4
                 color: root.targetIsConnected ? Theme.greenBright : Theme.fg4
-                Behavior on color {
-                    Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard }
-                }
+                Behavior on color { Components.StdCAnim { duration: Theme.animHover } }
             }
 
             Text {
                 text: root.targetIsConnected ? "Connected" : (root.targetIsKnown ? "Saved Network" : "Not Connected")
                 color: root.targetIsConnected ? Theme.greenBright : Theme.fg4
                 font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
-                Behavior on color {
-                    Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard }
-                }
+                Behavior on color { Components.StdCAnim { duration: Theme.animHover } }
             }
 
             Item { Layout.fillWidth: true }
@@ -81,9 +110,7 @@ ColumnLayout {
                 source: root.connectionType === "ethernet" ? "../icons/ethernet.svg" : root.signalIcon(root.targetSignal)
                 color: root.targetIsConnected ? Theme.greenBright : Theme.fg4
                 iconSize: Theme.iconSize
-                Behavior on color {
-                    Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard }
-                }
+                Behavior on color { Components.StdCAnim { duration: Theme.animHover } }
             }
         }
     }
@@ -100,43 +127,34 @@ ColumnLayout {
             anchors.fill: parent; anchors.margins: 10
             columns: 2; columnSpacing: 12; rowSpacing: 8
 
-            Text { visible: root.connectionType === "ethernet"; text: "Connection"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-            Text { visible: root.connectionType === "ethernet"; text: root.connectionLabel || "Ethernet"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                Layout.fillWidth: true; elide: Text.ElideRight; horizontalAlignment: Text.AlignRight }
+            InfoLabel { visible: root.connectionType === "ethernet"; text: "Connection" }
+            InfoValue { visible: root.connectionType === "ethernet"; text: root.connectionLabel || "Ethernet" }
 
-            Text { visible: root.connectionType === "wifi"; text: "Security"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-            Text { visible: root.connectionType === "wifi"; text: root.targetSecurity || "Open"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                Layout.fillWidth: true; elide: Text.ElideRight; horizontalAlignment: Text.AlignRight }
+            InfoLabel { visible: root.connectionType === "wifi"; text: "Security" }
+            InfoValue { visible: root.connectionType === "wifi"; text: root.targetSecurity || "Open" }
 
-            Text { visible: root.connectionType === "wifi"; text: "Signal"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-            Text { visible: root.connectionType === "wifi"; text: root.targetSignal + "%"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                Layout.fillWidth: true; horizontalAlignment: Text.AlignRight }
+            InfoLabel { visible: root.connectionType === "wifi"; text: "Signal" }
+            InfoValue { visible: root.connectionType === "wifi"; text: root.targetSignal + "%" }
 
             Components.Divider { visible: root.targetIsConnected; Layout.columnSpan: 2 }
 
-            Text { visible: root.targetIsConnected; text: "IP Address"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-            Text { visible: root.targetIsConnected; text: root.detailIp || "\u2026"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                Layout.fillWidth: true; elide: Text.ElideRight; horizontalAlignment: Text.AlignRight }
+            InfoLabel { visible: root.targetIsConnected; text: "IP Address" }
+            InfoValue { visible: root.targetIsConnected; text: root.detailIp || "\u2026" }
 
-            Text { visible: root.targetIsConnected; text: "Gateway"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-            Text { visible: root.targetIsConnected; text: root.detailGateway || "\u2026"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                Layout.fillWidth: true; elide: Text.ElideRight; horizontalAlignment: Text.AlignRight }
+            InfoLabel { visible: root.targetIsConnected; text: "Gateway" }
+            InfoValue { visible: root.targetIsConnected; text: root.detailGateway || "\u2026" }
 
-            Text { visible: root.targetIsConnected; text: "DNS"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-            Text { visible: root.targetIsConnected; text: root.detailDns || "\u2026"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                Layout.fillWidth: true; elide: Text.ElideRight; horizontalAlignment: Text.AlignRight }
+            InfoLabel { visible: root.targetIsConnected; text: "DNS" }
+            InfoValue { visible: root.targetIsConnected; text: root.detailDns || "\u2026" }
 
-            Text { visible: root.targetIsConnected && root.connectionType === "wifi" && root.detailFreq !== ""; text: "Frequency"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-            Text { visible: root.targetIsConnected && root.connectionType === "wifi" && root.detailFreq !== ""; text: root.detailFreq; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                Layout.fillWidth: true; elide: Text.ElideRight; horizontalAlignment: Text.AlignRight }
+            InfoLabel { visible: root.targetIsConnected && root.connectionType === "wifi" && root.detailFreq !== ""; text: "Frequency" }
+            InfoValue { visible: root.targetIsConnected && root.connectionType === "wifi" && root.detailFreq !== ""; text: root.detailFreq }
 
-            Text { visible: root.targetIsConnected && root.connectionType === "ethernet"; text: "Link Speed"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-            Text { visible: root.targetIsConnected && root.connectionType === "ethernet"; text: root.detailLinkSpeed !== "" ? root.detailLinkSpeed + " Mbps" : "\u2026"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                Layout.fillWidth: true; elide: Text.ElideRight; horizontalAlignment: Text.AlignRight }
+            InfoLabel { visible: root.targetIsConnected && root.connectionType === "ethernet"; text: "Link Speed" }
+            InfoValue { visible: root.targetIsConnected && root.connectionType === "ethernet"; text: root.detailLinkSpeed !== "" ? root.detailLinkSpeed + " Mbps" : "\u2026" }
 
-            Text { visible: root.targetIsConnected && root.connectionType === "ethernet"; text: "Duplex"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-            Text { visible: root.targetIsConnected && root.connectionType === "ethernet"; text: root.detailDuplex || "\u2026"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                Layout.fillWidth: true; elide: Text.ElideRight; horizontalAlignment: Text.AlignRight }
+            InfoLabel { visible: root.targetIsConnected && root.connectionType === "ethernet"; text: "Duplex" }
+            InfoValue { visible: root.targetIsConnected && root.connectionType === "ethernet"; text: root.detailDuplex || "\u2026" }
         }
     }
 
@@ -161,58 +179,33 @@ ColumnLayout {
             visible: !root.targetIsConnected && root.connectionType === "wifi"
             Layout.fillWidth: true; height: 32; radius: Theme.btnRadius
             color: connectArea.containsMouse ? Theme.blueBright : Theme.bg3
-            Behavior on color {
-                Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard }
-            }
+            Behavior on color { Components.StdCAnim { duration: Theme.animHover } }
             Components.HoverLayer {
                 id: connectArea
-                hoverOpacity: 0; pressedOpacity: 0; pressedScale: 0.98
+                hoverOpacity: 0; pressedOpacity: 0
                 onClicked: root.connectRequested(root.targetSsid, root.targetSecurity)
 
                 Text { anchors.centerIn: parent; text: "Connect"; color: connectArea.containsMouse ? Theme.bg : Theme.fg
-                    Behavior on color {
-                        Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard }
-                    }
+                    Behavior on color { Components.StdCAnim { duration: Theme.animHover } }
                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
             }
         }
 
-        // Disconnect button (connected only)
-        Rectangle {
+        DetailActionButton {
             visible: root.targetIsConnected
-            Layout.fillWidth: true; height: 32; radius: Theme.btnRadius
-            color: "transparent"
-            Components.HoverLayer {
-                id: disconnectArea
-                color: Theme.bg2; hoverOpacity: 0.6; pressedOpacity: 0.9; pressedScale: 0.98
-                disabled: NetworkService.disconnectPending
-                onClicked: root.disconnectRequested()
-
-                Text { anchors.centerIn: parent; text: NetworkService.disconnectPending ? "Disconnecting…" : "Disconnect"; color: disconnectArea.containsMouse ? Theme.fg : Theme.fg4
-                    Behavior on color {
-                        Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard }
-                    }
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-            }
+            text: "Disconnect"
+            pendingText: "Disconnecting\u2026"
+            pending: NetworkService.disconnectPending
+            onClicked: root.disconnectRequested()
         }
 
-        // Forget button (known networks only)
-        Rectangle {
+        DetailActionButton {
             visible: root.targetIsKnown && root.connectionType === "wifi"
-            Layout.fillWidth: true; height: 32; radius: Theme.btnRadius
-            color: "transparent"
-            Components.HoverLayer {
-                id: forgetArea
-                color: Theme.bg2; hoverOpacity: 0.6; pressedOpacity: 0.9; pressedScale: 0.98
-                disabled: NetworkService.forgetPending
-                onClicked: root.forgetRequested()
-
-                Text { anchors.centerIn: parent; text: NetworkService.forgetPending ? "Forgetting…" : "Forget This Network"; color: forgetArea.containsMouse ? Theme.redBright : Theme.fg4
-                    Behavior on color {
-                        Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard }
-                    }
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-            }
+            text: "Forget This Network"
+            pendingText: "Forgetting\u2026"
+            pending: NetworkService.forgetPending
+            hoverColor: Theme.redBright
+            onClicked: root.forgetRequested()
         }
 
         // Diagnostics button (connected only)
@@ -222,19 +215,15 @@ ColumnLayout {
             color: "transparent"
             Components.HoverLayer {
                 id: diagArea
-                color: Theme.bg2; idleOpacity: 0.3; hoverOpacity: 0.6; pressedOpacity: 0.9; pressedScale: 0.98
+                idleOpacity: 0.3
                 onClicked: root.diagnosticsRequested()
 
                 Row { anchors.centerIn: parent; spacing: 6
                     Components.Icon { source: "../icons/stethoscope.svg"; color: diagArea.containsMouse ? Theme.blueBright : Theme.fg4; anchors.verticalCenter: parent.verticalCenter
-                        Behavior on color {
-                            Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard }
-                        }
+                        Behavior on color { Components.StdCAnim { duration: Theme.animHover } }
                     }
                     Text { text: "Run Diagnostics"; color: diagArea.containsMouse ? Theme.blueBright : Theme.fg4; anchors.verticalCenter: parent.verticalCenter
-                        Behavior on color {
-                            Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard }
-                        }
+                        Behavior on color { Components.StdCAnim { duration: Theme.animHover } }
                         font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
                 }
             }

@@ -25,33 +25,15 @@ Components.WheelFlickable {
         return root.themeState.font_size || 11;
     }
 
-    function fontSizeOffset(key) {
-        let value = root.themeState[key];
-        return value === undefined || value === null ? 0 : value;
+    function offsetValue(key) {
+        return root.themeState[key] ?? 0;
     }
 
-    function minimumFontSizeOffset() {
+    function minimumOffset(targets) {
         let minOffset = 0;
 
-        for (let i = 0; i < root.fontSizeOffsetTargets.length; i++) {
-            let offset = fontSizeOffset(root.fontSizeOffsetTargets[i].key);
-            if (offset < minOffset)
-                minOffset = offset;
-        }
-
-        return minOffset;
-    }
-
-    function monoFontSizeOffset(key) {
-        let value = root.themeState[key];
-        return value === undefined || value === null ? 0 : value;
-    }
-
-    function minimumMonoFontSizeOffset() {
-        let minOffset = 0;
-
-        for (let i = 0; i < root.monoFontSizeOffsetTargets.length; i++) {
-            let offset = monoFontSizeOffset(root.monoFontSizeOffsetTargets[i].key);
+        for (let i = 0; i < targets.length; i++) {
+            let offset = offsetValue(targets[i].key);
             if (offset < minOffset)
                 minOffset = offset;
         }
@@ -64,7 +46,7 @@ Components.WheelFlickable {
     }
 
     function adjustMonoFontSizeOffset(key, delta) {
-        let next = monoFontSizeOffset(key) + delta;
+        let next = offsetValue(key) + delta;
         if (monoFontBaseSize() + next < 1)
             return;
 
@@ -72,7 +54,7 @@ Components.WheelFlickable {
     }
 
     function adjustFontSizeOffset(key, delta) {
-        let next = fontSizeOffset(key) + delta;
+        let next = offsetValue(key) + delta;
         if (fontBaseSize() + next < 1)
             return;
 
@@ -117,12 +99,12 @@ Components.WheelFlickable {
         }
 
         Components.ValueStepper {
-            opacity: root.isPending("mono_font_size") ? 0.72 : 1
+            pending: root.isPending("mono_font_size")
             label: "Size:"
             valueText: String(root.monoFontBaseSize())
             valueWidth: 24
             controlsEnabled: !root.writePending
-            decreaseEnabled: root.monoFontBaseSize() > 6 && root.monoFontBaseSize() - 1 + root.minimumMonoFontSizeOffset() >= 1
+            decreaseEnabled: root.monoFontBaseSize() > 6 && root.monoFontBaseSize() - 1 + root.minimumOffset(root.monoFontSizeOffsetTargets) >= 1
             increaseEnabled: root.monoFontBaseSize() < 24
             onDecrement: root.setRequested("mono_font_size", String(root.monoFontBaseSize() - 1))
             onIncrement: root.setRequested("mono_font_size", String(root.monoFontBaseSize() + 1))
@@ -144,13 +126,12 @@ Components.WheelFlickable {
 
                 delegate: Components.ValueStepper {
                     required property var modelData
-                    required property int index
 
                     Layout.fillWidth: true
                     pending: root.isPending(modelData.key)
                     label: modelData.label
                     labelColor: Theme.fg
-                    valueText: root.formatSignedNumber(root.monoFontSizeOffset(modelData.key))
+                    valueText: root.formatSignedNumber(root.offsetValue(modelData.key))
                     valueWidth: 36
                     controlsEnabled: !root.writePending
                     onDecrement: root.adjustMonoFontSizeOffset(modelData.key, -1)
@@ -183,12 +164,12 @@ Components.WheelFlickable {
         }
 
         Components.ValueStepper {
-            opacity: root.isPending("font_size") ? 0.72 : 1
+            pending: root.isPending("font_size")
             label: "Size:"
             valueText: String(root.fontBaseSize())
             valueWidth: 24
             controlsEnabled: !root.writePending
-            decreaseEnabled: root.fontBaseSize() > 6 && root.fontBaseSize() - 1 + root.minimumFontSizeOffset() >= 1
+            decreaseEnabled: root.fontBaseSize() > 6 && root.fontBaseSize() - 1 + root.minimumOffset(root.fontSizeOffsetTargets) >= 1
             increaseEnabled: root.fontBaseSize() < 24
             onDecrement: root.setRequested("font_size", String(root.fontBaseSize() - 1))
             onIncrement: root.setRequested("font_size", String(root.fontBaseSize() + 1))
@@ -211,13 +192,12 @@ Components.WheelFlickable {
 
                 delegate: Components.ValueStepper {
                     required property var modelData
-                    required property int index
 
                     Layout.fillWidth: true
                     pending: root.isPending(modelData.key)
                     label: modelData.label
                     labelColor: Theme.fg
-                    valueText: root.formatSignedNumber(root.fontSizeOffset(modelData.key))
+                    valueText: root.formatSignedNumber(root.offsetValue(modelData.key))
                     valueWidth: 36
                     controlsEnabled: !root.writePending
                     onDecrement: root.adjustFontSizeOffset(modelData.key, -1)

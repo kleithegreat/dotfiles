@@ -27,20 +27,16 @@ Components.WheelFlickable {
     property string selectedEnrolledFinger: ""
 
     readonly property int enrolledCount: Array.isArray(root.enrolledFingers) ? root.enrolledFingers.length : 0
-    readonly property var leftFingerSlots: [
-        { key: "left-thumb", label: "Left Thumb" },
-        { key: "left-index-finger", label: "Left Index Finger" },
-        { key: "left-middle-finger", label: "Left Middle Finger" },
-        { key: "left-ring-finger", label: "Left Ring Finger" },
-        { key: "left-little-finger", label: "Left Little Finger" }
+    readonly property var fingerBaseSlots: [
+        { key: "thumb", label: "Thumb" },
+        { key: "index-finger", label: "Index Finger" },
+        { key: "middle-finger", label: "Middle Finger" },
+        { key: "ring-finger", label: "Ring Finger" },
+        { key: "little-finger", label: "Little Finger" }
     ]
-    readonly property var rightFingerSlots: [
-        { key: "right-thumb", label: "Right Thumb" },
-        { key: "right-index-finger", label: "Right Index Finger" },
-        { key: "right-middle-finger", label: "Right Middle Finger" },
-        { key: "right-ring-finger", label: "Right Ring Finger" },
-        { key: "right-little-finger", label: "Right Little Finger" }
-    ]
+    readonly property var leftFingerSlots: root.fingerBaseSlots.map((slot) => ({ key: "left-" + slot.key, label: "Left " + slot.label }))
+    readonly property var rightFingerSlots: root.fingerBaseSlots.map((slot) => ({ key: "right-" + slot.key, label: "Right " + slot.label }))
+    readonly property var allFingerSlots: root.leftFingerSlots.concat(root.rightFingerSlots)
     readonly property var handSections: [
         { title: "Left Hand", fingers: root.leftFingerSlots },
         { title: "Right Hand", fingers: root.rightFingerSlots }
@@ -53,9 +49,7 @@ Components.WheelFlickable {
         : (root.runtimeError !== "" ? root.runtimeError : root.actionStatus)
     readonly property color statusColor: root.actionError !== "" || root.runtimeError !== ""
         ? Theme.redBright
-        : (root.actionBusy
-            ? (root.actionTone === "retry" ? Theme.orangeBright : Theme.blueBright)
-            : Theme.greenBright)
+        : (root.actionBusy ? root.enrollAccent : Theme.greenBright)
 
     anchors.fill: parent
     contentHeight: fingerprintCol.implicitHeight
@@ -66,21 +60,15 @@ Components.WheelFlickable {
             root.selectedEnrolledFinger = "";
     }
 
-    function tint(baseColor, alpha) {
-        return Qt.rgba(baseColor.r, baseColor.g, baseColor.b, alpha);
-    }
-
     function isEnrolled(finger) {
         return Array.isArray(root.enrolledFingers) && root.enrolledFingers.indexOf(finger) !== -1;
     }
 
     function fingerLabel(finger) {
-        let sets = [root.leftFingerSlots, root.rightFingerSlots];
-        for (let i = 0; i < sets.length; i++) {
-            for (let j = 0; j < sets[i].length; j++) {
-                if (sets[i][j].key === finger)
-                    return sets[i][j].label;
-            }
+        let slots = root.allFingerSlots;
+        for (let i = 0; i < slots.length; i++) {
+            if (slots[i].key === finger)
+                return slots[i].label;
         }
 
         return finger;
@@ -160,7 +148,7 @@ Components.WheelFlickable {
                     width: 38
                     height: 38
                     radius: 19
-                    color: root.tint(Theme.accent, 0.14)
+                    color: Qt.alpha(Theme.accent, 0.14)
 
                     Components.Icon {
                         anchors.centerIn: parent
@@ -200,7 +188,7 @@ Components.WheelFlickable {
                     color: refreshArea.containsMouse && !refreshArea.disabled ? Theme.bg2 : Theme.bg
                     border.width: 1
                     border.color: Theme.bg3
-                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                    Behavior on color { Components.StdCAnim { duration: Theme.animHover } }
                     Behavior on opacity { Components.Anim { duration: Theme.animHover } }
 
                     Components.Icon {
@@ -212,9 +200,7 @@ Components.WheelFlickable {
                     Components.HoverLayer {
                         id: refreshArea
                         disabled: root.stateLoading || root.actionBusy
-                        hoverOpacity: 0
-                        pressedOpacity: 0
-                        pressedScale: 1.0
+                        flat: true
                         onClicked: root.refreshRequested()
                     }
                 }
@@ -227,7 +213,7 @@ Components.WheelFlickable {
             Layout.fillWidth: true
             implicitHeight: enrollCol.implicitHeight + 28
             radius: Theme.popupRadius
-            color: root.tint(root.enrollAccent, 0.08)
+            color: Qt.alpha(root.enrollAccent, 0.08)
             border.width: 1
             border.color: root.enrollAccent
 
@@ -265,13 +251,13 @@ Components.WheelFlickable {
                             width: 16
                             height: 6
                             radius: 3
-                            color: completed ? root.enrollAccent : (nextStage ? root.tint(root.enrollAccent, 0.55) : Theme.bg3)
+                            color: completed ? root.enrollAccent : (nextStage ? Qt.alpha(root.enrollAccent, 0.55) : Theme.bg3)
                             opacity: completed ? 1 : (nextStage ? 0.9 : 0.5)
                             x: (parent.width / 2) + (Math.cos(angle) * 76) - (width / 2)
                             y: (parent.height / 2) + (Math.sin(angle) * 76) - (height / 2)
                             rotation: (angle * 180 / Math.PI) + 90
                             transformOrigin: Item.Center
-                            Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                            Behavior on color { Components.StdCAnim { duration: Theme.animHover } }
                             Behavior on opacity { Components.Anim { duration: Theme.animHover } }
                         }
                     }
@@ -281,7 +267,7 @@ Components.WheelFlickable {
                         width: 118
                         height: 118
                         radius: 59
-                        color: root.tint(root.enrollAccent, 0.12)
+                        color: Qt.alpha(root.enrollAccent, 0.12)
                         border.width: 1
                         border.color: root.enrollAccent
 
@@ -400,32 +386,11 @@ Components.WheelFlickable {
                     Layout.fillWidth: true
                 }
 
-                Rectangle {
-                    width: cancelEnrollLabel.implicitWidth + Theme.btnPaddingH * 2
-                    height: Theme.btnHeight
-                    radius: Theme.btnRadius
-                    color: cancelEnrollArea.containsMouse ? Theme.bg2 : Theme.bg
-                    border.width: 1
-                    border.color: Theme.bg3
+                Components.ActionButton {
+                    text: "Cancel"
+                    baseColor: Theme.bg
                     Layout.alignment: Qt.AlignHCenter
-                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-
-                    Text {
-                        id: cancelEnrollLabel
-                        anchors.centerIn: parent
-                        text: "Cancel"
-                        color: Theme.fg
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeSmall
-                    }
-
-                    Components.HoverLayer {
-                        id: cancelEnrollArea
-                        hoverOpacity: 0
-                        pressedOpacity: 0
-                        pressedScale: 1.0
-                        onClicked: root.cancelRequested()
-                    }
+                    onClicked: root.cancelRequested()
                 }
             }
         }
@@ -434,26 +399,20 @@ Components.WheelFlickable {
             id: statusCard
             visible: root.statusText !== "" && !root.enrollmentActive
             Layout.fillWidth: true
-            implicitHeight: statusCol.implicitHeight + 28
+            implicitHeight: statusLabel.implicitHeight + 28
             radius: Theme.popupRadius
-            color: root.tint(root.statusColor, 0.1)
+            color: Qt.alpha(root.statusColor, 0.1)
             border.width: 1
             border.color: root.statusColor
 
-            ColumnLayout {
-                id: statusCol
-                anchors.fill: parent
-                anchors.margins: 14
-                spacing: 10
-
-                Text {
-                    text: root.statusText
-                    color: root.statusColor
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                    Layout.fillWidth: true
-                    wrapMode: Text.WordWrap
-                }
+            Text {
+                id: statusLabel
+                anchors { left: parent.left; right: parent.right; top: parent.top; margins: 14 }
+                text: root.statusText
+                color: root.statusColor
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSizeSmall
+                wrapMode: Text.WordWrap
             }
         }
 
@@ -514,21 +473,20 @@ Components.WheelFlickable {
                                 readonly property bool enrolled: root.isEnrolled(fingerKey)
                                 readonly property bool selected: root.selectedEnrolledFinger === fingerKey
                                 readonly property bool activeBusy: root.actionBusy && root.actionFinger === fingerKey
+                                readonly property color stateAccent: activeBusy
+                                    ? root.enrollAccent
+                                    : (selected ? Theme.orangeBright : (enrolled ? Theme.greenBright : Theme.fg4))
 
                                 Layout.fillWidth: true
                                 implicitHeight: fingerRow.implicitHeight + 24
                                 radius: Theme.btnRadius
-                                color: activeBusy
-                                    ? root.tint(root.enrollAccent, 0.12)
-                                    : (selected
-                                        ? root.tint(Theme.orangeBright, 0.12)
-                                        : (enrolled ? root.tint(Theme.greenBright, 0.1) : (fingerArea.containsMouse ? Theme.bg2 : Theme.bg)))
+                                color: activeBusy || selected
+                                    ? Qt.alpha(stateAccent, 0.12)
+                                    : (enrolled ? Qt.alpha(stateAccent, 0.1) : (fingerArea.containsMouse ? Theme.bg2 : Theme.bg))
                                 border.width: 1
-                                border.color: activeBusy
-                                    ? root.enrollAccent
-                                    : (selected ? Theme.orangeBright : (enrolled ? Theme.greenBright : Theme.bg3))
-                                Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                                Behavior on border.color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                                border.color: activeBusy || selected || enrolled ? stateAccent : Theme.bg3
+                                Behavior on color { Components.StdCAnim { duration: Theme.animHover } }
+                                Behavior on border.color { Components.StdCAnim { duration: Theme.animHover } }
 
                                 RowLayout {
                                     id: fingerRow
@@ -540,18 +498,13 @@ Components.WheelFlickable {
                                         width: 28
                                         height: 28
                                         radius: 14
-                                        color: fingerCard.activeBusy
-                                            ? root.tint(root.enrollAccent, 0.18)
-                                            : (fingerCard.selected
-                                                ? root.tint(Theme.orangeBright, 0.18)
-                                                : (fingerCard.enrolled ? root.tint(Theme.greenBright, 0.18) : root.tint(Theme.fg4, 0.12)))
+                                        color: Qt.alpha(fingerCard.stateAccent,
+                                            fingerCard.activeBusy || fingerCard.selected || fingerCard.enrolled ? 0.18 : 0.12)
 
                                         Components.Icon {
                                             anchors.centerIn: parent
                                             source: fingerCard.enrolled ? "../icons/circle-check.svg" : "../icons/lock.svg"
-                                            color: fingerCard.activeBusy
-                                                ? root.enrollAccent
-                                                : (fingerCard.selected ? Theme.orangeBright : (fingerCard.enrolled ? Theme.greenBright : Theme.fg4))
+                                            color: fingerCard.stateAccent
                                             iconSize: 16
                                         }
                                     }
@@ -571,9 +524,7 @@ Components.WheelFlickable {
 
                                         Text {
                                             text: root.fingerStatusText(fingerCard.fingerKey)
-                                            color: fingerCard.activeBusy
-                                                ? root.enrollAccent
-                                                : (fingerCard.selected ? Theme.orangeBright : (fingerCard.enrolled ? Theme.greenBright : Theme.fg4))
+                                            color: fingerCard.stateAccent
                                             font.family: Theme.fontFamily
                                             font.pixelSize: Theme.fontSizeMini
                                             Layout.fillWidth: true
@@ -584,9 +535,7 @@ Components.WheelFlickable {
                                 Components.HoverLayer {
                                     id: fingerArea
                                     disabled: root.actionBusy || root.stateLoading
-                                    hoverOpacity: 0
-                                    pressedOpacity: 0
-                                    pressedScale: 1.0
+                                    flat: true
                                     onClicked: root.activateFinger(fingerCard.fingerKey)
                                 }
                             }
@@ -602,7 +551,7 @@ Components.WheelFlickable {
             Layout.fillWidth: true
             implicitHeight: removeCol.implicitHeight + 28
             radius: Theme.popupRadius
-            color: root.tint(Theme.orangeBright, 0.1)
+            color: Qt.alpha(Theme.orangeBright, 0.1)
             border.width: 1
             border.color: Theme.orangeBright
 
@@ -633,64 +582,25 @@ Components.WheelFlickable {
                 RowLayout {
                     spacing: 8
 
-                    Rectangle {
-                        width: removeLabel.implicitWidth + Theme.btnPaddingH * 2
-                        height: Theme.btnHeight
-                        radius: Theme.btnRadius
-                        color: removeArea.containsMouse ? Theme.redBright : Theme.bg
-                        border.width: 1
-                        border.color: Theme.redBright
-                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-
-                        Text {
-                            id: removeLabel
-                            anchors.centerIn: parent
-                            text: "Remove"
-                            color: removeArea.containsMouse ? Theme.bg : Theme.redBright
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSizeSmall
-                            font.bold: true
-                            Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        }
-
-                        Components.HoverLayer {
-                            id: removeArea
-                            hoverOpacity: 0
-                            pressedOpacity: 0
-                            pressedScale: 1.0
-                            onClicked: {
-                                let finger = root.selectedEnrolledFinger;
-                                root.selectedEnrolledFinger = "";
-                                root.deleteRequested(finger);
-                            }
+                    Components.ActionButton {
+                        text: "Remove"
+                        baseColor: Theme.bg
+                        hoverColor: Theme.redBright
+                        borderColor: Theme.redBright
+                        textColor: Theme.redBright
+                        hoverTextColor: Theme.bg
+                        fontBold: true
+                        onClicked: {
+                            let finger = root.selectedEnrolledFinger;
+                            root.selectedEnrolledFinger = "";
+                            root.deleteRequested(finger);
                         }
                     }
 
-                    Rectangle {
-                        width: keepLabel.implicitWidth + Theme.btnPaddingH * 2
-                        height: Theme.btnHeight
-                        radius: Theme.btnRadius
-                        color: keepArea.containsMouse ? Theme.bg2 : Theme.bg
-                        border.width: 1
-                        border.color: Theme.bg3
-                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-
-                        Text {
-                            id: keepLabel
-                            anchors.centerIn: parent
-                            text: "Keep"
-                            color: Theme.fg
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSizeSmall
-                        }
-
-                        Components.HoverLayer {
-                            id: keepArea
-                            hoverOpacity: 0
-                            pressedOpacity: 0
-                            pressedScale: 1.0
-                            onClicked: root.selectedEnrolledFinger = ""
-                        }
+                    Components.ActionButton {
+                        text: "Keep"
+                        baseColor: Theme.bg
+                        onClicked: root.selectedEnrolledFinger = ""
                     }
                 }
             }

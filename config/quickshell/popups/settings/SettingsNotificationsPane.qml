@@ -100,48 +100,12 @@ Components.WheelFlickable {
                 }
             }
 
-            Rectangle {
+            Components.ActionButton {
                 visible: NotificationService.historyCount > 0
-                width: clearLabel.implicitWidth + Theme.btnPaddingH * 2
-                height: Theme.btnHeight
-                radius: Theme.btnRadius
-                color: clearArea.containsMouse ? Theme.bg2 : Theme.bg1
-                border.width: 1
-                border.color: Theme.bg3
-                Behavior on color {
-                    Components.CAnim {
-                        duration: Theme.animHover
-                        easing.type: Easing.BezierSpline
-                        easing.bezierCurve: Theme.animCurveStandard
-                    }
-                }
-
-                Text {
-                    id: clearLabel
-                    anchors.centerIn: parent
-                    text: "Clear"
-                    color: clearArea.containsMouse ? Theme.redBright : Theme.fg4
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                    Behavior on color {
-                        Components.CAnim {
-                            duration: Theme.animHover
-                            easing.type: Easing.BezierSpline
-                            easing.bezierCurve: Theme.animCurveStandard
-                        }
-                    }
-                }
-
-                Components.HoverLayer {
-                    id: clearArea
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    hoverEnabled: true
-                    hoverOpacity: 0
-                    pressedOpacity: 0
-                    pressedScale: 1.0
-                    onClicked: NotificationService.clearHistory()
-                }
+                text: "Clear"
+                textColor: Theme.fg4
+                hoverTextColor: Theme.redBright
+                onClicked: NotificationService.clearHistory()
             }
         }
     }

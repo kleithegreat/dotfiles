@@ -35,11 +35,7 @@ Rectangle {
         radius: parent.radius
         color: track.fillColor
         Behavior on width {
-            Anim {
-                duration: Root.Theme.animMicro
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: Root.Theme.animCurveStandard
-            }
+            StdAnim { duration: Root.Theme.animMicro }
         }
     }
 
@@ -52,11 +48,7 @@ Rectangle {
         x: Math.max(0, Math.min(parent.width - width, parent.width * track._clamped - width / 2))
         scale: area.pressed ? 1.2 : (area.containsMouse ? 1.1 : 1.0)
         Behavior on scale {
-            Anim {
-                duration: Root.Theme.animMicro
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: Root.Theme.animCurveStandard
-            }
+            StdAnim { duration: Root.Theme.animMicro }
         }
         Behavior on x { SpringAnimation { spring: Root.Theme.sliderSpring; damping: Root.Theme.sliderDamping } }
     }
@@ -64,9 +56,7 @@ Rectangle {
     HoverLayer {
         id: area
         disabled: track.disabled
-        hoverOpacity: 0
-        pressedOpacity: 0
-        pressedScale: 1.0
+        flat: true
         onPressed: (mouse) => { track.pressStarted(); track._emit(mouse.x); }
         onPositionChanged: (mouse) => { if (pressed) track._emit(mouse.x); }
         onReleased: track.pressEnded()

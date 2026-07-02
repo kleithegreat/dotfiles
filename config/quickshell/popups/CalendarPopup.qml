@@ -1,6 +1,5 @@
 import qs
 import QtQuick
-import QtCore
 import QtQuick.Layouts
 import Quickshell.Io
 import "../components" as Components
@@ -176,6 +175,9 @@ FocusScope {
     property string weatherSunsetLabel: "--:--"
     property string weatherUpdatedLabel: ""
     property double weatherLastFetchMs: 0
+    readonly property var rainCodes: [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82]
+    readonly property var snowCodes: [71, 73, 75, 77, 85, 86]
+    readonly property var stormCodes: [95, 96, 99]
     readonly property string weatherBadgeText: {
         if (weatherLoading)
             return "Refreshing";
@@ -191,8 +193,22 @@ FocusScope {
 
     function daysInMonth(y, m) { return new Date(y, m + 1, 0).getDate(); }
     function firstDow(y, m) { return new Date(y, m, 1).getDay(); }
-    function prevMonth() { gridVisible = false; swapTimer.action = function() { if (cal.viewMonth === 0) { cal.viewMonth = 11; cal.viewYear--; } else cal.viewMonth--; }; swapTimer.start(); }
-    function nextMonth() { gridVisible = false; swapTimer.action = function() { if (cal.viewMonth === 11) { cal.viewMonth = 0; cal.viewYear++; } else cal.viewMonth++; }; swapTimer.start(); }
+    function shiftMonth(delta) {
+        gridVisible = false;
+        swapTimer.action = function() {
+            let next = cal.viewMonth + delta;
+            if (next < 0) {
+                cal.viewMonth = 11;
+                cal.viewYear--;
+            } else if (next > 11) {
+                cal.viewMonth = 0;
+                cal.viewYear++;
+            } else {
+                cal.viewMonth = next;
+            }
+        };
+        swapTimer.start();
+    }
     function formatTemperature(value) {
         return Math.round((value * 9 / 5) + 32) + "F";
     }
@@ -272,11 +288,11 @@ FocusScope {
             return "Cloudy conditions outside.";
         if (code === 45 || code === 48)
             return "Fog is reducing visibility.";
-        if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].indexOf(code) >= 0)
+        if (rainCodes.indexOf(code) >= 0)
             return "Rain is likely. Take an umbrella.";
-        if ([71, 73, 75, 77, 85, 86].indexOf(code) >= 0)
+        if (snowCodes.indexOf(code) >= 0)
             return "Snowy conditions outside.";
-        if ([95, 96, 99].indexOf(code) >= 0)
+        if (stormCodes.indexOf(code) >= 0)
             return "Storms are nearby. Keep an eye on conditions.";
         if (temperatureC >= 27)
             return "Warm conditions outside.";
@@ -285,11 +301,11 @@ FocusScope {
         return "Current local conditions.";
     }
     function weatherAccentColor(code, isDay) {
-        if ([95, 96, 99].indexOf(code) >= 0)
+        if (stormCodes.indexOf(code) >= 0)
             return Theme.purpleBright;
-        if ([71, 73, 75, 77, 85, 86].indexOf(code) >= 0)
+        if (snowCodes.indexOf(code) >= 0)
             return Theme.aquaBright;
-        if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].indexOf(code) >= 0)
+        if (rainCodes.indexOf(code) >= 0)
             return Theme.blueBright;
         if (code === 45 || code === 48)
             return Theme.fg3;
@@ -297,7 +313,7 @@ FocusScope {
             return Theme.aqua;
         return isDay ? Theme.yellowBright : Theme.blueBright;
     }
-    function weatherStatusColor() {
+    readonly property color weatherStatusColor: {
         if (weatherErrorText !== "" && !weatherReady)
             return Theme.redBright;
         if (weatherLoading)
@@ -406,7 +422,33 @@ FocusScope {
     }
 
     Keys.onEscapePressed: cal.close()
-    readonly property int gridCellCount: Math.ceil((firstDow(viewYear, viewMonth) + daysInMonth(viewYear, viewMonth)) / 7) * 7
+    readonly property int viewFirstDow: firstDow(viewYear, viewMonth)
+    readonly property int viewDaysInMonth: daysInMonth(viewYear, viewMonth)
+    readonly property int gridCellCount: Math.ceil((viewFirstDow + viewDaysInMonth) / 7) * 7
+
+    component IconButton: Rectangle {
+        id: iconButton
+        required property string icon
+        property int size: 24
+        signal clicked()
+
+        width: size
+        height: size
+        radius: Theme.hoverRadius
+        color: "transparent"
+
+        Components.HoverLayer {
+            id: iconButtonHover
+            onClicked: iconButton.clicked()
+
+            Components.Icon {
+                anchors.centerIn: parent
+                source: iconButton.icon
+                color: iconButtonHover.containsMouse ? Theme.fg : Theme.fg4
+                Behavior on color { Components.StdCAnim { duration: Theme.animHover } }
+            }
+        }
+    }
 
     component WeatherMetricChip: Rectangle {
         id: chip
@@ -487,9 +529,9 @@ FocusScope {
         clip: true
 
         readonly property bool showCloud: [2, 3, 45, 48, 51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 71, 73, 75, 77, 80, 81, 82, 85, 86, 95, 96, 99].indexOf(code) >= 0
-        readonly property bool showRain: [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].indexOf(code) >= 0
-        readonly property bool showSnow: [71, 73, 75, 77, 85, 86].indexOf(code) >= 0
-        readonly property bool showStorm: [95, 96, 99].indexOf(code) >= 0
+        readonly property bool showRain: cal.rainCodes.indexOf(code) >= 0
+        readonly property bool showSnow: cal.snowCodes.indexOf(code) >= 0
+        readonly property bool showStorm: cal.stormCodes.indexOf(code) >= 0
         readonly property bool showFog: code === 45 || code === 48
 
         Rectangle {
@@ -510,8 +552,6 @@ FocusScope {
             x: parent.width * 0.12
             y: parent.height * 0.10
             color: art.accentColor
-            border.width: 0
-            border.color: "transparent"
         }
 
         Rectangle {
@@ -525,20 +565,10 @@ FocusScope {
         }
 
         Rectangle {
-            visible: !art.showCloud && art.isDay
-            width: 4
-            height: 4
-            radius: 2
-            x: parent.width * 0.66
-            y: parent.height * 0.18
-            color: Theme.fg2
-        }
-
-        Rectangle {
-            visible: !art.showCloud && !art.isDay
-            width: 5
-            height: 5
-            radius: 3
+            visible: !art.showCloud
+            width: art.isDay ? 4 : 5
+            height: art.isDay ? 4 : 5
+            radius: width / 2
             x: parent.width * 0.66
             y: parent.height * 0.18
             color: Theme.fg2
@@ -702,7 +732,6 @@ FocusScope {
         width: calContentLoader.width
         height: calContentLoader.height
         visible: cal.overlayVisible && !cal.closing && height > 0 && !calContentLoader.item
-        opacity: 1
         radius: Theme.popupRadius
         color: Theme.bg1
         border.width: 1
@@ -726,17 +755,12 @@ FocusScope {
         sourceComponent: calPanelComponent
         Behavior on height {
             enabled: !cal.suppressHeightAnimation
-            Components.Anim {
-                duration: Theme.animHeightResize
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: Theme.animCurveStandard
-            }
+            Components.StdAnim { duration: Theme.animHeightResize }
         }
 
         onLoaded: {
             cal.panelHeightHint = item.implicitHeight;
-            item.opacity = 0;
-            item.scale = Theme.popupStartScale;
+            cal.preparePanelForOpen();
             if (cal.active)
                 calOpenAnim.start();
         }
@@ -767,23 +791,19 @@ FocusScope {
             SequentialAnimation {
                 id: pageSwapAnim
                 ParallelAnimation {
-                    Components.Anim {
+                    Components.StdAnim {
                         target: pageLoader.item
                         property: "opacity"
                         from: 0
                         to: 1
                         duration: Theme.animContentSwap
-                        easing.type: Easing.BezierSpline
-                        easing.bezierCurve: Theme.animCurveStandard
                     }
-                    Components.Anim {
+                    Components.StdAnim {
                         target: pageLoader.item
                         property: "scale"
                         from: 0.985
                         to: 1.0
                         duration: Theme.animContentSwap
-                        easing.type: Easing.BezierSpline
-                        easing.bezierCurve: Theme.animCurveStandard
                     }
                 }
             }
@@ -800,11 +820,7 @@ FocusScope {
                     Layout.preferredHeight: item ? item.implicitHeight : 0
                     sourceComponent: cal.currentView === "weather" ? weatherPageComponent : calendarPageComponent
                     Behavior on Layout.preferredHeight {
-                        Components.Anim {
-                            duration: Theme.animHeightResize
-                            easing.type: Easing.BezierSpline
-                            easing.bezierCurve: Theme.animCurveStandard
-                        }
+                        Components.StdAnim { duration: Theme.animHeightResize }
                     }
                     onLoaded: {
                         if (item) {
@@ -850,56 +866,18 @@ FocusScope {
 
                         RowLayout {
                             Layout.fillWidth: true
-                            Rectangle {
-                                width: 24; height: 24; radius: Theme.hoverRadius; color: "transparent"
-                                Components.HoverLayer {
-                                    id: navL
-                                    color: Theme.bg2
-                                    hoverOpacity: 0.6
-                                    pressedOpacity: 0.9
-                                    pressedScale: 0.98
-                                    onClicked: cal.prevMonth()
-
-                                    Components.Icon {
-                                        anchors.centerIn: parent; source: "../icons/chevron-left.svg"
-                                        color: navL.containsMouse ? Theme.fg : Theme.fg4
-                                        Behavior on color {
-                                            Components.CAnim {
-                                                duration: Theme.animHover
-                                                easing.type: Easing.BezierSpline
-                                                easing.bezierCurve: Theme.animCurveStandard
-                                            }
-                                        }
-                                    }
-                                }
+                            IconButton {
+                                icon: "../icons/chevron-left.svg"
+                                onClicked: cal.shiftMonth(-1)
                             }
                             Text {
                                 text: ["January","February","March","April","May","June","July","August","September","October","November","December"][cal.viewMonth] + " " + cal.viewYear
                                 color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true
                                 Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter
                             }
-                            Rectangle {
-                                width: 24; height: 24; radius: Theme.hoverRadius; color: "transparent"
-                                Components.HoverLayer {
-                                    id: navR
-                                    color: Theme.bg2
-                                    hoverOpacity: 0.6
-                                    pressedOpacity: 0.9
-                                    pressedScale: 0.98
-                                    onClicked: cal.nextMonth()
-
-                                    Components.Icon {
-                                        anchors.centerIn: parent; source: "../icons/chevron-right.svg"
-                                        color: navR.containsMouse ? Theme.fg : Theme.fg4
-                                        Behavior on color {
-                                            Components.CAnim {
-                                                duration: Theme.animHover
-                                                easing.type: Easing.BezierSpline
-                                                easing.bezierCurve: Theme.animCurveStandard
-                                            }
-                                        }
-                                    }
-                                }
+                            IconButton {
+                                icon: "../icons/chevron-right.svg"
+                                onClicked: cal.shiftMonth(1)
                             }
                         }
 
@@ -915,19 +893,15 @@ FocusScope {
                             columns: 7; Layout.fillWidth: true; spacing: 0
                             opacity: cal.gridVisible ? 1 : 0
                             Behavior on opacity {
-                                Components.Anim {
-                                    duration: Theme.animContentSwap
-                                    easing.type: Easing.BezierSpline
-                                    easing.bezierCurve: Theme.animCurveStandard
-                                }
+                                Components.StdAnim { duration: Theme.animContentSwap }
                             }
 
                             Repeater {
                                 model: cal.gridCellCount
                                 Item {
                                     required property int index
-                                    property int dayNum: index - cal.firstDow(cal.viewYear, cal.viewMonth) + 1
-                                    property bool isCur: dayNum >= 1 && dayNum <= cal.daysInMonth(cal.viewYear, cal.viewMonth)
+                                    property int dayNum: index - cal.viewFirstDow + 1
+                                    property bool isCur: dayNum >= 1 && dayNum <= cal.viewDaysInMonth
                                     property bool isToday: isCur && dayNum === cal.todayDate.getDate() && cal.viewMonth === cal.todayDate.getMonth() && cal.viewYear === cal.todayDate.getFullYear()
                                     width: Theme.calCellSize; height: Theme.calCellSize
 
@@ -936,11 +910,7 @@ FocusScope {
                                         color: Theme.bg2
                                         opacity: isCur && !isToday && dayCellMouse.containsMouse ? 0.5 : 0
                                         Behavior on opacity {
-                                            Components.Anim {
-                                                duration: Theme.animHover
-                                                easing.type: Easing.BezierSpline
-                                                easing.bezierCurve: Theme.animCurveStandard
-                                            }
+                                            Components.StdAnim { duration: Theme.animHover }
                                         }
                                     }
 
@@ -950,7 +920,7 @@ FocusScope {
                                         color: isToday ? Theme.blueBright : "transparent"
                                         scale: isToday && cal.active ? 1.0 : 0.8
                                         Behavior on scale {
-                                            NumberAnimation {
+                                            Components.Anim {
                                                 duration: Theme.animSpring
                                                 easing.type: Easing.BezierSpline
                                                 easing.bezierCurve: Theme.animCurveEmphasizedEnter
@@ -1018,7 +988,7 @@ FocusScope {
                                 radius: 999
                                 color: Theme.bg2
                                 border.width: 1
-                                border.color: cal.weatherStatusColor()
+                                border.color: cal.weatherStatusColor
                                 implicitWidth: badgeLabel.implicitWidth + 12
                                 implicitHeight: badgeLabel.implicitHeight + 6
 
@@ -1026,34 +996,17 @@ FocusScope {
                                     id: badgeLabel
                                     anchors.centerIn: parent
                                     text: cal.weatherBadgeText
-                                    color: cal.weatherStatusColor()
+                                    color: cal.weatherStatusColor
                                     font.family: Theme.fontFamily
                                     font.pixelSize: Theme.fontSizeSmall
                                     font.bold: true
                                 }
                             }
 
-                            Rectangle {
-                                width: 26
-                                height: 26
-                                radius: 13
-                                color: "transparent"
-
-                                Components.HoverLayer {
-                                    id: weatherRefreshHover
-                                    color: Theme.bg2
-                                    hoverOpacity: 1.0
-                                    pressedOpacity: 1.0
-                                    pressedScale: 0.97
-                                    onClicked: cal.refreshWeather(true)
-
-                                    Components.Icon {
-                                        anchors.centerIn: parent
-                                        source: "../icons/refresh.svg"
-                                        color: weatherRefreshHover.containsMouse ? Theme.fg : Theme.fg4
-                                        Behavior on color { Components.CAnim { duration: Theme.animHover } }
-                                    }
-                                }
+                            IconButton {
+                                size: 26
+                                icon: "../icons/refresh.svg"
+                                onClicked: cal.refreshWeather(true)
                             }
                         }
 

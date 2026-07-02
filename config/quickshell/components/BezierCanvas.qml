@@ -9,10 +9,7 @@ Canvas {
     property real x2: 0.25
     property real y2: 1.0
 
-    readonly property bool isDragging: _dragging !== ""
-
     signal pointsChanged(real x1, real y1, real x2, real y2)
-    signal dragEnded()
 
     property string _dragging: ""
     property real _dragScale: 1.0
@@ -28,7 +25,7 @@ Canvas {
 
     function setPoints(nx1, ny1, nx2, ny2) {
         x1 = nx1; y1 = ny1; x2 = nx2; y2 = ny2;
-        _updateViewRange(false);
+        _updateViewRange();
         requestPaint();
     }
 
@@ -66,21 +63,10 @@ Canvas {
         return "";
     }
 
-    function _updateViewRange(expandOnly) {
+    function _updateViewRange() {
         let margin = 0.1;
-        let lo = Math.min(0.0, y1, y2) - margin;
-        let hi = Math.max(1.0, y1, y2) + margin;
-        if (expandOnly) {
-            _viewYLo = Math.min(_viewYLo, lo);
-            _viewYHi = Math.max(_viewYHi, hi);
-        } else {
-            _viewYLo = lo; _viewYHi = hi;
-        }
-    }
-
-    function _c(color, alpha) {
-        return "rgba(" + Math.round(color.r * 255) + "," + Math.round(color.g * 255)
-            + "," + Math.round(color.b * 255) + "," + alpha + ")";
+        _viewYLo = Math.min(0.0, y1, y2) - margin;
+        _viewYHi = Math.max(1.0, y1, y2) + margin;
     }
 
     onPaint: {
@@ -96,7 +82,7 @@ Canvas {
         let gH = g0.y - g1.y;
 
         // Grid (10x10)
-        ctx.strokeStyle = _c(fg, 0.08);
+        ctx.strokeStyle = Qt.alpha(fg, 0.08);
         ctx.lineWidth = 0.5;
         for (let i = 0; i <= 10; i++) {
             let f = i / 10;
@@ -105,24 +91,24 @@ Canvas {
         }
 
         // Border
-        ctx.strokeStyle = _c(fg, 0.25); ctx.lineWidth = 1;
+        ctx.strokeStyle = Qt.alpha(fg, 0.25); ctx.lineWidth = 1;
         ctx.strokeRect(g0.x, g1.y, gW, gH);
 
         // Diagonal reference (dashed)
         ctx.setLineDash([4, 4]);
-        ctx.strokeStyle = _c(fg, 0.15); ctx.lineWidth = 1;
+        ctx.strokeStyle = Qt.alpha(fg, 0.15); ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(g0.x, g0.y); ctx.lineTo(g1.x, g1.y); ctx.stroke();
         ctx.setLineDash([]);
 
         // Control handles (lines from endpoints to control points)
         let cp1 = _toCanvas(x1, y1);
         let cp2 = _toCanvas(x2, y2);
-        ctx.strokeStyle = _c(fg, 0.35); ctx.lineWidth = 1.5;
+        ctx.strokeStyle = Qt.alpha(fg, 0.35); ctx.lineWidth = 1.5;
         ctx.beginPath(); ctx.moveTo(g0.x, g0.y); ctx.lineTo(cp1.x, cp1.y); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(g1.x, g1.y); ctx.lineTo(cp2.x, cp2.y); ctx.stroke();
 
         // Bezier curve
-        ctx.strokeStyle = _c(accent, 1.0); ctx.lineWidth = 2.5;
+        ctx.strokeStyle = Qt.alpha(accent, 1.0); ctx.lineWidth = 2.5;
         ctx.beginPath(); ctx.moveTo(g0.x, g0.y);
         let steps = 80;
         for (let i = 1; i <= steps; i++) {
@@ -137,7 +123,7 @@ Canvas {
         for (let i = 0; i < pts.length; i++) {
             let p = pts[i];
             let active = _dragging === p.id;
-            let col = active ? _c(fg, 1.0) : _c(accent, 1.0);
+            let col = active ? Qt.alpha(fg, 1.0) : Qt.alpha(accent, 1.0);
 
             ctx.fillStyle = col;
             ctx.beginPath(); ctx.arc(p.cx, p.cy, _handleRadius, 0, 2 * Math.PI); ctx.fill();
@@ -179,7 +165,7 @@ Canvas {
             by = Math.round(by * 1000) / 1000;
             if (root._dragging === "p1") { root.x1 = bx; root.y1 = by; }
             else { root.x2 = bx; root.y2 = by; }
-            root._updateViewRange(false);
+            root._updateViewRange();
             root.requestPaint();
             root.pointsChanged(root.x1, root.y1, root.x2, root.y2);
         }
@@ -187,9 +173,8 @@ Canvas {
         onReleased: {
             if (root._dragging !== "") {
                 root._dragging = "";
-                root._updateViewRange(false);
+                root._updateViewRange();
                 root.requestPaint();
-                root.dragEnded();
             }
         }
     }

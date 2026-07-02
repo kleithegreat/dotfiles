@@ -79,6 +79,35 @@ FocusScope {
     }
     Keys.onEscapePressed: mprisPop.close()
 
+    component MediaButton: Rectangle {
+        id: mediaButton
+        required property real size
+        required property string icon
+        required property int iconSize
+        required property color idleColor
+        required property color hoverColor
+        signal clicked()
+
+        width: size
+        height: size
+        radius: Theme.hoverRadius
+        color: "transparent"
+
+        Components.HoverLayer {
+            id: mediaButtonHover
+            pressedScale: 0.85
+            onClicked: mediaButton.clicked()
+
+            Components.Icon {
+                anchors.centerIn: parent
+                source: mediaButton.icon
+                iconSize: mediaButton.iconSize
+                color: mediaButtonHover.containsMouse ? mediaButton.hoverColor : mediaButton.idleColor
+                Behavior on color { Components.StdCAnim { duration: Theme.animHover } }
+            }
+        }
+    }
+
     SequentialAnimation {
         id: mprisOpenAnim
         ParallelAnimation {
@@ -163,8 +192,8 @@ FocusScope {
                     // Cross-fade animation
                     SequentialAnimation {
                         id: artCrossfade
-                        NumberAnimation { target: artImgOld; property: "opacity"; to: 1; duration: 0 }
-                        NumberAnimation { target: artImg; property: "opacity"; to: 0; duration: 0 }
+                        PropertyAction { target: artImgOld; property: "opacity"; value: 1 }
+                        PropertyAction { target: artImg; property: "opacity"; value: 0 }
                         ParallelAnimation {
                             Components.Anim {
                                 target: artImgOld
@@ -304,81 +333,29 @@ FocusScope {
 
             // Controls
             RowLayout { Layout.alignment: Qt.AlignHCenter; spacing: 24
-                // Previous
-                Rectangle {
-                    width: 28; height: 28; radius: Theme.hoverRadius; color: "transparent"
-                    Components.HoverLayer {
-                        id: pA
-                        color: Theme.bg2
-                        hoverOpacity: 0.6
-                        pressedOpacity: 0.9
-                        pressedScale: 0.85
-                        onClicked: { if (mprisPop.player?.canGoPrevious) mprisPop.player.previous(); }
-
-                        Components.Icon {
-                            anchors.centerIn: parent; source: "../icons/player-prev.svg"
-                            color: pA.containsMouse ? Theme.fg : Theme.fg3
-                            Behavior on color {
-                                Components.CAnim {
-                                    duration: Theme.animHover
-                                    easing.type: Easing.BezierSpline
-                                    easing.bezierCurve: Theme.animCurveStandard
-                                }
-                            }
-                            iconSize: 18
-                        }
-                    }
+                MediaButton {
+                    size: 28
+                    icon: "../icons/player-prev.svg"
+                    iconSize: 18
+                    idleColor: Theme.fg3
+                    hoverColor: Theme.fg
+                    onClicked: { if (mprisPop.player?.canGoPrevious) mprisPop.player.previous(); }
                 }
-                // Play/Pause
-                Rectangle {
-                    width: 32; height: 32; radius: Theme.hoverRadius; color: "transparent"
-                    Components.HoverLayer {
-                        id: ppA
-                        color: Theme.bg2
-                        hoverOpacity: 0.6
-                        pressedOpacity: 0.9
-                        pressedScale: 0.85
-                        onClicked: { if (mprisPop.player?.canTogglePlaying ?? false) mprisPop.player.isPlaying = !mprisPop.player.isPlaying; }
-
-                        Components.Icon {
-                            anchors.centerIn: parent
-                            source: (mprisPop.player?.isPlaying ?? false) ? "../icons/player-pause.svg" : "../icons/player-play.svg"
-                            color: ppA.containsMouse ? Theme.yellowBright : Theme.fg
-                            Behavior on color {
-                                Components.CAnim {
-                                    duration: Theme.animHover
-                                    easing.type: Easing.BezierSpline
-                                    easing.bezierCurve: Theme.animCurveStandard
-                                }
-                            }
-                            iconSize: 22
-                        }
-                    }
+                MediaButton {
+                    size: 32
+                    icon: (mprisPop.player?.isPlaying ?? false) ? "../icons/player-pause.svg" : "../icons/player-play.svg"
+                    iconSize: 22
+                    idleColor: Theme.fg
+                    hoverColor: Theme.yellowBright
+                    onClicked: { if (mprisPop.player?.canTogglePlaying) mprisPop.player.isPlaying = !mprisPop.player.isPlaying; }
                 }
-                // Next
-                Rectangle {
-                    width: 28; height: 28; radius: Theme.hoverRadius; color: "transparent"
-                    Components.HoverLayer {
-                        id: nA
-                        color: Theme.bg2
-                        hoverOpacity: 0.6
-                        pressedOpacity: 0.9
-                        pressedScale: 0.85
-                        onClicked: { if (mprisPop.player?.canGoNext) mprisPop.player.next(); }
-
-                        Components.Icon {
-                            anchors.centerIn: parent; source: "../icons/player-next.svg"
-                            color: nA.containsMouse ? Theme.fg : Theme.fg3
-                            Behavior on color {
-                                Components.CAnim {
-                                    duration: Theme.animHover
-                                    easing.type: Easing.BezierSpline
-                                    easing.bezierCurve: Theme.animCurveStandard
-                                }
-                            }
-                            iconSize: 18
-                        }
-                    }
+                MediaButton {
+                    size: 28
+                    icon: "../icons/player-next.svg"
+                    iconSize: 18
+                    idleColor: Theme.fg3
+                    hoverColor: Theme.fg
+                    onClicked: { if (mprisPop.player?.canGoNext) mprisPop.player.next(); }
                 }
             }
         }

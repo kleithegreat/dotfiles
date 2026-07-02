@@ -36,9 +36,5 @@ ColumnLayout {
         }
     }
 
-    Rectangle {
-        Layout.fillWidth: true
-        Layout.preferredHeight: 1
-        color: Root.Theme.bg3
-    }
+    Divider {}
 }

@@ -10,6 +10,8 @@ Components.WheelFlickable {
     required property bool writePending
     required property string pendingKey
 
+    readonly property bool prefersLight: root.themeState.dark_hint === false
+
     signal colorSchemeSelected(string schemeName)
     signal darkHintSelected(string value)
 
@@ -51,7 +53,6 @@ Components.WheelFlickable {
 
             Components.ColorSchemeCards {
                 Layout.fillWidth: true
-                Layout.preferredHeight: implicitHeight
                 model: root.colorFamilies
                 currentValue: root.themeState.color_scheme || ""
                 disabled: root.writePending
@@ -69,11 +70,11 @@ Components.WheelFlickable {
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 8
-                opacity: root.isPending("dark_hint") ? 0.72 : 1
+                opacity: root.isPending("dark_hint") ? Theme.pendingOpacity : 1
                 Behavior on opacity { Components.Anim { duration: Theme.animHover } }
 
                 Text {
-                    text: root.themeState.dark_hint === false ? "Prefer light browser theme" : "Prefer dark browser theme"
+                    text: root.prefersLight ? "Prefer light browser theme" : "Prefer dark browser theme"
                     color: Theme.fg
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
@@ -81,17 +82,17 @@ Components.WheelFlickable {
                 }
 
                 Text {
-                    text: root.themeState.dark_hint === false ? "Light" : "Dark"
-                    color: root.themeState.dark_hint === false ? Theme.fg4 : Theme.fg3
+                    text: root.prefersLight ? "Light" : "Dark"
+                    color: root.prefersLight ? Theme.fg4 : Theme.fg3
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeSmall
                 }
 
                 Components.ToggleSwitch {
-                    checked: root.themeState.dark_hint !== false
+                    checked: !root.prefersLight
                     disabled: root.writePending
                     pending: root.isPending("dark_hint")
-                    onToggled: root.darkHintSelected(root.themeState.dark_hint === false ? "dark" : "light")
+                    onToggled: root.darkHintSelected(root.prefersLight ? "dark" : "light")
                 }
             }
         }

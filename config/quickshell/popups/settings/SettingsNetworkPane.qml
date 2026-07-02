@@ -25,6 +25,11 @@ FocusScope {
         ? VpnService.mullvadRelayCountries.length === 0
         : mullvadBrowseCities.length === 0
 
+    readonly property bool mullvadAnyCountrySelected: VpnService.mullvadSelectedCountryCode === "any"
+        && !VpnService.mullvadSelectedCityCode && !VpnService.mullvadSelectedHostname
+    readonly property bool mullvadBrowseCountrySelected: VpnService.mullvadSelectedCountryCode === mullvadBrowseCountryCode
+        && !VpnService.mullvadSelectedCityCode && !VpnService.mullvadSelectedHostname
+
     readonly property bool mullvadOn: VpnService.mullvadState === "connected" || VpnService.mullvadState === "connecting"
     readonly property bool tailscaleOn: VpnService.tailscalePendingAction === "down"
         ? false
@@ -74,6 +79,13 @@ FocusScope {
         VpnService.refresh();
         VpnService.ensureMullvadRelayLocations();
     }
+
+    onVisibleChanged: {
+        if (!visible)
+            root.resetState();
+    }
+
+    Component.onDestruction: NetworkService.resetTarget()
 
     Connections {
         target: NetworkService
@@ -188,10 +200,8 @@ FocusScope {
         VpnService.mullvadSetLocation(countryCode, cityCode || "");
     }
 
-    function selectionTint(color, alpha) {
-        if (alpha === undefined)
-            alpha = 0.12;
-        return Qt.rgba(color.r, color.g, color.b, alpha);
+    function selectionTint(color) {
+        return Qt.rgba(color.r, color.g, color.b, 0.12);
     }
 
     function mullvadCountryDetailText(country) {
@@ -209,6 +219,123 @@ FocusScope {
 
     function mullvadCityDetailText(city) {
         return city.relayCount === 1 ? "1 relay" : city.relayCount + " relays";
+    }
+
+    component LinkPillButton: Rectangle {
+        id: pill
+
+        property alias text: pillLabel.text
+        property bool disabled: false
+
+        signal clicked()
+
+        width: pillLabel.implicitWidth + Theme.btnPaddingH * 2
+        height: Theme.btnHeight
+        radius: Theme.btnRadius
+        color: "transparent"
+
+        Components.HoverLayer {
+            id: pillArea
+            disabled: pill.disabled
+            onClicked: pill.clicked()
+
+            Text {
+                id: pillLabel
+                anchors.centerIn: parent
+                color: pillArea.containsMouse ? Theme.blueBright : Theme.fg4
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSizeSmall
+                Behavior on color { Components.StdCAnim { duration: Theme.animHover } }
+            }
+        }
+    }
+
+    component LocationCard: Rectangle {
+        id: card
+
+        required property string title
+        required property string subtitle
+        property bool selected: false
+        property bool showArrow: false
+        property bool disabled: false
+
+        signal activated()
+
+        width: parent.width
+        height: cardCol.implicitHeight + 16
+        radius: Theme.hoverRadius
+        color: card.selected ? root.selectionTint(Theme.blueBright) : "transparent"
+        border.width: card.selected ? 1 : 0
+        border.color: Theme.blueBright
+
+        scale: cardArea.pressed ? 0.98 : 1.0
+        Behavior on scale { Components.StdAnim { duration: Theme.animMicro } }
+        transformOrigin: Item.Center
+
+        Components.HoverLayer {
+            id: cardArea
+            pressedScale: 1.0
+            disabled: card.disabled
+            onClicked: card.activated()
+        }
+
+        ColumnLayout {
+            id: cardCol
+            anchors.fill: parent
+            anchors.leftMargin: Theme.listItemPadding
+            anchors.rightMargin: Theme.listItemPadding
+            anchors.topMargin: 8
+            anchors.bottomMargin: 8
+            spacing: 4
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                Text {
+                    text: card.title
+                    color: card.selected ? Theme.blueBright : Theme.fg
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontSizeSmall
+                    font.bold: true
+                    Layout.fillWidth: true
+                    elide: Text.ElideRight
+                }
+
+                Text {
+                    visible: card.showArrow
+                    text: "→"
+                    color: card.selected ? Theme.blueBright : Theme.fg4
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontSizeSmall
+                }
+                Components.Icon {
+                    visible: !card.showArrow && card.selected
+                    source: "../icons/circle-check.svg"
+                    color: Theme.blueBright
+                }
+            }
+
+            Text {
+                text: card.subtitle
+                color: Theme.fg4
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSizeMini
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+        }
+    }
+
+    component SkeletonPulse: SequentialAnimation {
+        id: pulse
+
+        property int delay: 0
+
+        loops: Animation.Infinite
+        PauseAnimation { duration: pulse.delay }
+        Components.Anim { from: 0.4; to: 0.8; duration: 800; easing.type: Easing.InOutQuad }
+        Components.Anim { from: 0.8; to: 0.4; duration: 800; easing.type: Easing.InOutQuad }
     }
 
     Keys.onEscapePressed: {
@@ -250,48 +377,23 @@ FocusScope {
                 Layout.fillWidth: true; elide: Text.ElideRight
             }
 
-            Rectangle {
+            LinkPillButton {
                 visible: root.paneState !== "list" && root.paneState !== "connecting"
-                width: backLabel.implicitWidth + Theme.btnPaddingH * 2; height: Theme.btnHeight; radius: Theme.btnRadius
-                color: "transparent"
-                Components.HoverLayer {
-                    id: backA; color: Theme.bg2; hoverOpacity: 0.6; pressedOpacity: 0.9; pressedScale: 0.98
-                    onClicked: root.goBack()
-                    Text { id: backLabel; anchors.centerIn: parent; text: "← Back"
-                        color: backA.containsMouse ? Theme.blueBright : Theme.fg4
-                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-                }
+                text: "← Back"
+                onClicked: root.goBack()
             }
 
-            Rectangle {
+            LinkPillButton {
                 visible: root.mullvadLocationView
-                width: refreshLabel.implicitWidth + Theme.btnPaddingH * 2; height: Theme.btnHeight; radius: Theme.btnRadius
-                color: "transparent"
-                Components.HoverLayer {
-                    id: refreshA; color: Theme.bg2; hoverOpacity: 0.6; pressedOpacity: 0.9; pressedScale: 0.98
-                    disabled: VpnService.mullvadRelayListLoading
-                    onClicked: VpnService.refreshMullvadRelayLocations(true)
-                    Text { id: refreshLabel; anchors.centerIn: parent
-                        text: VpnService.mullvadRelayListLoading ? "Refreshing…" : "Refresh"
-                        color: refreshA.containsMouse ? Theme.blueBright : Theme.fg4
-                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-                }
+                text: VpnService.mullvadRelayListLoading ? "Refreshing…" : "Refresh"
+                disabled: VpnService.mullvadRelayListLoading
+                onClicked: VpnService.refreshMullvadRelayLocations(true)
             }
 
-            Rectangle {
+            LinkPillButton {
                 visible: root.paneState === "list" && HostCapabilities.hasWifi && NetworkService.wifiEnabled
-                width: rescanLabel.implicitWidth + Theme.btnPaddingH * 2; height: Theme.btnHeight; radius: Theme.btnRadius
-                color: "transparent"
-                Components.HoverLayer {
-                    id: rescanA; color: Theme.bg2; hoverOpacity: 0.6; pressedOpacity: 0.9; pressedScale: 0.98
-                    onClicked: NetworkService.scan()
-                    Text { id: rescanLabel; anchors.centerIn: parent; text: "Rescan"
-                        color: rescanA.containsMouse ? Theme.blueBright : Theme.fg4
-                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-                }
+                text: "Rescan"
+                onClicked: NetworkService.scan()
             }
         }
 
@@ -344,7 +446,6 @@ FocusScope {
                 spacing: 0
 
                 Wifi.WifiDetail {
-                    id: ethernetDetailCard
                     visible: root.ethernetActive
                     Layout.fillWidth: true
                     Layout.topMargin: 4
@@ -362,9 +463,7 @@ FocusScope {
                     detailLinkSpeed: NetworkService.ethernetLinkSpeed
                     detailDuplex: NetworkService.ethernetDuplex
                     connectError: NetworkService.connectError
-                    onConnectRequested: (ssid, security) => {}
                     onDisconnectRequested: NetworkService.disconnect()
-                    onForgetRequested: () => {}
                     onDiagnosticsRequested: root.startDiagnostics()
                 }
 
@@ -394,7 +493,7 @@ FocusScope {
                         opacity: root.listLoading ? 0 : 1
                         enabled: opacity > 0.01
                         Behavior on opacity {
-                            Components.Anim { duration: Theme.animContentSwap; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard }
+                            Components.StdAnim { duration: Theme.animContentSwap }
                         }
                         netModel: NetworkService.networksModel
                         connectedSsid: NetworkService.connectedSsid
@@ -431,7 +530,7 @@ FocusScope {
                         opacity: root.listLoading ? 1 : 0
                         visible: opacity > 0; z: 1
                         Behavior on opacity {
-                            Components.Anim { duration: Theme.animContentSwap; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard }
+                            Components.StdAnim { duration: Theme.animContentSwap }
                         }
 
                         Repeater {
@@ -458,12 +557,7 @@ FocusScope {
                                     Rectangle { width: 24; height: 24; radius: 12; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
                                 }
 
-                                SequentialAnimation on opacity {
-                                    loops: Animation.Infinite
-                                    PauseAnimation { duration: index * 120 }
-                                    Components.Anim { from: 0.4; to: 0.8; duration: 800; easing.type: Easing.InOutQuad }
-                                    Components.Anim { from: 0.8; to: 0.4; duration: 800; easing.type: Easing.InOutQuad }
-                                }
+                                SkeletonPulse on opacity { delay: index * 120 }
                             }
                         }
                     }
@@ -499,7 +593,7 @@ FocusScope {
                             color: VpnService.mullvadState === "connected" ? Theme.fg3
                                  : VpnService.mullvadState === "error" ? Theme.redBright
                                  : Theme.fg4
-                            Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                            Behavior on color { Components.StdCAnim { duration: Theme.animHover } }
                             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                         }
                         Components.ToggleSwitch {
@@ -535,17 +629,9 @@ FocusScope {
                             elide: Text.ElideRight
                         }
 
-                        Rectangle {
-                            width: browseLabel.implicitWidth + Theme.btnPaddingH * 2; height: Theme.btnHeight; radius: Theme.btnRadius
-                            color: "transparent"
-                            Components.HoverLayer {
-                                id: browseA; color: Theme.bg2; hoverOpacity: 0.6; pressedOpacity: 0.9; pressedScale: 0.98
-                                onClicked: root.openMullvadLocations()
-                                Text { id: browseLabel; anchors.centerIn: parent; text: "Browse"
-                                    color: browseA.containsMouse ? Theme.blueBright : Theme.fg4
-                                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-                            }
+                        LinkPillButton {
+                            text: "Browse"
+                            onClicked: root.openMullvadLocations()
                         }
                     }
                     Text {
@@ -571,7 +657,7 @@ FocusScope {
                             color: VpnService.tailscaleState === "running" ? Theme.fg3
                                  : VpnService.tailscaleState === "needs-login" ? Theme.yellowBright
                                  : Theme.fg4
-                            Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                            Behavior on color { Components.StdCAnim { duration: Theme.animHover } }
                             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
                         }
                         Components.ToggleSwitch {
@@ -686,7 +772,7 @@ FocusScope {
                         visible: opacity > 0
                         z: 1
                         Behavior on opacity {
-                            Components.Anim { duration: Theme.animContentSwap; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard }
+                            Components.StdAnim { duration: Theme.animContentSwap }
                         }
 
                         Repeater {
@@ -717,12 +803,7 @@ FocusScope {
                                     Rectangle { width: Math.max(80, skelWidth - 40); height: 8; radius: 4; color: Theme.bg3 }
                                 }
 
-                                SequentialAnimation on opacity {
-                                    loops: Animation.Infinite
-                                    PauseAnimation { duration: index * 120 }
-                                    Components.Anim { from: 0.4; to: 0.8; duration: 800; easing.type: Easing.InOutQuad }
-                                    Components.Anim { from: 0.8; to: 0.4; duration: 800; easing.type: Easing.InOutQuad }
-                                }
+                                SkeletonPulse on opacity { delay: index * 120 }
                             }
                         }
                     }
@@ -738,270 +819,46 @@ FocusScope {
                             width: parent.width
                             spacing: 6
 
-                            Rectangle {
+                            LocationCard {
                                 visible: root.paneState === "vpnCountries"
-                                width: parent.width
-                                height: anyCountryCol.implicitHeight + 16
-                                radius: Theme.hoverRadius
-                                color: VpnService.mullvadSelectedCountryCode === "any" && !VpnService.mullvadSelectedCityCode && !VpnService.mullvadSelectedHostname
-                                    ? root.selectionTint(Theme.blueBright)
-                                    : "transparent"
-                                border.width: VpnService.mullvadSelectedCountryCode === "any" && !VpnService.mullvadSelectedCityCode && !VpnService.mullvadSelectedHostname ? 1 : 0
-                                border.color: Theme.blueBright
-
-                                Rectangle {
-                                    anchors.fill: parent
-                                    radius: parent.radius
-                                    color: Theme.bg2
-                                    opacity: anyCountryArea.pressed ? 0.9 : (anyCountryArea.containsMouse ? 0.6 : 0)
-                                    Behavior on opacity {
-                                        Components.Anim {
-                                            duration: Theme.animHover
-                                            easing.type: Easing.BezierSpline
-                                            easing.bezierCurve: Theme.animCurveStandard
-                                        }
-                                    }
-                                }
-                                scale: anyCountryArea.pressed ? 0.98 : 1.0
-                                Behavior on scale {
-                                    Components.Anim {
-                                        duration: Theme.animMicro
-                                        easing.type: Easing.BezierSpline
-                                        easing.bezierCurve: Theme.animCurveStandard
-                                    }
-                                }
-                                transformOrigin: Item.Center
-
-                                ColumnLayout {
-                                    id: anyCountryCol
-                                    anchors.fill: parent
-                                    anchors.leftMargin: Theme.listItemPadding
-                                    anchors.rightMargin: Theme.listItemPadding
-                                    anchors.topMargin: 8
-                                    anchors.bottomMargin: 8
-                                    spacing: 4
-
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        spacing: 8
-                                        Text {
-                                            text: "Any country"
-                                            color: VpnService.mullvadSelectedCountryCode === "any" && !VpnService.mullvadSelectedCityCode && !VpnService.mullvadSelectedHostname ? Theme.blueBright : Theme.fg
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: Theme.fontSizeSmall
-                                            font.bold: true
-                                            Layout.fillWidth: true
-                                            elide: Text.ElideRight
-                                        }
-                                        Components.Icon {
-                                            visible: VpnService.mullvadSelectedCountryCode === "any" && !VpnService.mullvadSelectedCityCode && !VpnService.mullvadSelectedHostname
-                                            source: "../icons/circle-check.svg"
-                                            color: Theme.blueBright
-                                        }
-                                    }
-
-                                    Text {
-                                        text: "Let Mullvad pick any country."
-                                        color: Theme.fg4
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: Theme.fontSizeMini
-                                        Layout.fillWidth: true
-                                    }
-                                }
-
-                                Components.HoverLayer {
-                                    id: anyCountryArea
-                                    hoverOpacity: 0
-                                    pressedOpacity: 0
-                                    pressedScale: 1.0
-                                    disabled: VpnService.mullvadRelaySetting
-                                    onClicked: root.selectMullvadLocation("any", "")
-                                }
+                                title: "Any country"
+                                subtitle: "Let Mullvad pick any country."
+                                selected: root.mullvadAnyCountrySelected
+                                disabled: VpnService.mullvadRelaySetting
+                                onActivated: root.selectMullvadLocation("any", "")
                             }
 
-                            Rectangle {
+                            LocationCard {
                                 visible: root.paneState === "vpnCities"
-                                width: parent.width
-                                height: anyCityCol.implicitHeight + 16
-                                radius: Theme.hoverRadius
-                                color: VpnService.mullvadSelectedCountryCode === root.mullvadBrowseCountryCode && !VpnService.mullvadSelectedCityCode && !VpnService.mullvadSelectedHostname
-                                    ? root.selectionTint(Theme.blueBright)
-                                    : "transparent"
-                                border.width: VpnService.mullvadSelectedCountryCode === root.mullvadBrowseCountryCode && !VpnService.mullvadSelectedCityCode && !VpnService.mullvadSelectedHostname ? 1 : 0
-                                border.color: Theme.blueBright
-
-                                Rectangle {
-                                    anchors.fill: parent
-                                    radius: parent.radius
-                                    color: Theme.bg2
-                                    opacity: anyCityArea.pressed ? 0.9 : (anyCityArea.containsMouse ? 0.6 : 0)
-                                    Behavior on opacity {
-                                        Components.Anim {
-                                            duration: Theme.animHover
-                                            easing.type: Easing.BezierSpline
-                                            easing.bezierCurve: Theme.animCurveStandard
-                                        }
-                                    }
-                                }
-                                scale: anyCityArea.pressed ? 0.98 : 1.0
-                                Behavior on scale {
-                                    Components.Anim {
-                                        duration: Theme.animMicro
-                                        easing.type: Easing.BezierSpline
-                                        easing.bezierCurve: Theme.animCurveStandard
-                                    }
-                                }
-                                transformOrigin: Item.Center
-
-                                ColumnLayout {
-                                    id: anyCityCol
-                                    anchors.fill: parent
-                                    anchors.leftMargin: Theme.listItemPadding
-                                    anchors.rightMargin: Theme.listItemPadding
-                                    anchors.topMargin: 8
-                                    anchors.bottomMargin: 8
-                                    spacing: 4
-
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        spacing: 8
-                                        Text {
-                                            text: "Any city in " + root.mullvadBrowseCountryName
-                                            color: VpnService.mullvadSelectedCountryCode === root.mullvadBrowseCountryCode && !VpnService.mullvadSelectedCityCode && !VpnService.mullvadSelectedHostname ? Theme.blueBright : Theme.fg
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: Theme.fontSizeSmall
-                                            font.bold: true
-                                            Layout.fillWidth: true
-                                            elide: Text.ElideRight
-                                        }
-                                        Components.Icon {
-                                            visible: VpnService.mullvadSelectedCountryCode === root.mullvadBrowseCountryCode && !VpnService.mullvadSelectedCityCode && !VpnService.mullvadSelectedHostname
-                                            source: "../icons/circle-check.svg"
-                                            color: Theme.blueBright
-                                        }
-                                    }
-
-                                    Text {
-                                        text: "Let Mullvad pick any city in this country."
-                                        color: Theme.fg4
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: Theme.fontSizeMini
-                                        Layout.fillWidth: true
-                                    }
-                                }
-
-                                Components.HoverLayer {
-                                    id: anyCityArea
-                                    hoverOpacity: 0
-                                    pressedOpacity: 0
-                                    pressedScale: 1.0
-                                    disabled: VpnService.mullvadRelaySetting
-                                    onClicked: root.selectMullvadLocation(root.mullvadBrowseCountryCode, "")
-                                }
+                                title: "Any city in " + root.mullvadBrowseCountryName
+                                subtitle: "Let Mullvad pick any city in this country."
+                                selected: root.mullvadBrowseCountrySelected
+                                disabled: VpnService.mullvadRelaySetting
+                                onActivated: root.selectMullvadLocation(root.mullvadBrowseCountryCode, "")
                             }
 
                             Repeater {
                                 model: root.paneState === "vpnCountries" ? VpnService.mullvadRelayCountries : root.mullvadBrowseCities
 
-                                Rectangle {
+                                LocationCard {
                                     required property var modelData
 
                                     readonly property bool countryMode: root.paneState === "vpnCountries"
-                                    readonly property bool selected: countryMode
+
+                                    title: modelData.name
+                                    subtitle: countryMode ? root.mullvadCountryDetailText(modelData) : root.mullvadCityDetailText(modelData)
+                                    selected: countryMode
                                         ? VpnService.mullvadSelectedCountryCode === modelData.code
                                         : VpnService.mullvadSelectedCountryCode === root.mullvadBrowseCountryCode
                                             && VpnService.mullvadSelectedCityCode === modelData.code
                                             && !VpnService.mullvadSelectedHostname
-
-                                    width: parent.width
-                                    height: locationRowCol.implicitHeight + 16
-                                    radius: Theme.hoverRadius
-                                    color: selected ? root.selectionTint(Theme.blueBright) : "transparent"
-                                    border.width: selected ? 1 : 0
-                                    border.color: Theme.blueBright
-
-                                    Rectangle {
-                                        anchors.fill: parent
-                                        radius: parent.radius
-                                        color: Theme.bg2
-                                        opacity: locationArea.pressed ? 0.9 : (locationArea.containsMouse ? 0.6 : 0)
-                                        Behavior on opacity {
-                                            Components.Anim {
-                                                duration: Theme.animHover
-                                                easing.type: Easing.BezierSpline
-                                                easing.bezierCurve: Theme.animCurveStandard
-                                            }
-                                        }
-                                    }
-                                    scale: locationArea.pressed ? 0.98 : 1.0
-                                    Behavior on scale {
-                                        Components.Anim {
-                                            duration: Theme.animMicro
-                                            easing.type: Easing.BezierSpline
-                                            easing.bezierCurve: Theme.animCurveStandard
-                                        }
-                                    }
-                                    transformOrigin: Item.Center
-
-                                    ColumnLayout {
-                                        id: locationRowCol
-                                        anchors.fill: parent
-                                        anchors.leftMargin: Theme.listItemPadding
-                                        anchors.rightMargin: Theme.listItemPadding
-                                        anchors.topMargin: 8
-                                        anchors.bottomMargin: 8
-                                        spacing: 4
-
-                                        RowLayout {
-                                            Layout.fillWidth: true
-                                            spacing: 8
-
-                                            Text {
-                                                text: modelData.name
-                                                color: selected ? Theme.blueBright : Theme.fg
-                                                font.family: Theme.fontFamily
-                                                font.pixelSize: Theme.fontSizeSmall
-                                                font.bold: true
-                                                Layout.fillWidth: true
-                                                elide: Text.ElideRight
-                                            }
-
-                                            Text {
-                                                visible: countryMode
-                                                text: "→"
-                                                color: selected ? Theme.blueBright : Theme.fg4
-                                                font.family: Theme.fontFamily
-                                                font.pixelSize: Theme.fontSizeSmall
-                                            }
-                                            Components.Icon {
-                                                visible: !countryMode && selected
-                                                source: "../icons/circle-check.svg"
-                                                color: Theme.blueBright
-                                            }
-                                        }
-
-                                        Text {
-                                            text: countryMode ? root.mullvadCountryDetailText(modelData) : root.mullvadCityDetailText(modelData)
-                                            color: Theme.fg4
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: Theme.fontSizeMini
-                                            wrapMode: Text.WordWrap
-                                            Layout.fillWidth: true
-                                        }
-                                    }
-
-                                    Components.HoverLayer {
-                                        id: locationArea
-                                        hoverOpacity: 0
-                                        pressedOpacity: 0
-                                        pressedScale: 1.0
-                                        disabled: VpnService.mullvadRelaySetting
-                                        onClicked: {
-                                            if (countryMode)
-                                                root.openMullvadCities(modelData.code);
-                                            else
-                                                root.selectMullvadLocation(root.mullvadBrowseCountryCode, modelData.code);
-                                        }
+                                    showArrow: countryMode
+                                    disabled: VpnService.mullvadRelaySetting
+                                    onActivated: {
+                                        if (countryMode)
+                                            root.openMullvadCities(modelData.code);
+                                        else
+                                            root.selectMullvadLocation(root.mullvadBrowseCountryCode, modelData.code);
                                     }
                                 }
                             }
@@ -1030,7 +887,7 @@ FocusScope {
             visible: root.paneState === "detail"
             opacity: root.paneState === "detail" ? 1 : 0
             Behavior on opacity {
-                Components.Anim { duration: Theme.animContentSwap; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard }
+                Components.StdAnim { duration: Theme.animContentSwap }
             }
             Layout.fillWidth: true
             connectionType: "wifi"
@@ -1058,7 +915,7 @@ FocusScope {
             visible: root.paneState === "password"
             opacity: root.paneState === "password" ? 1 : 0
             Behavior on opacity {
-                Components.Anim { duration: Theme.animContentSwap; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard }
+                Components.StdAnim { duration: Theme.animContentSwap }
             }
             Layout.fillWidth: true
             targetSsid: NetworkService.targetSsid
@@ -1072,7 +929,7 @@ FocusScope {
             visible: root.paneState === "enterprise"
             opacity: root.paneState === "enterprise" ? 1 : 0
             Behavior on opacity {
-                Components.Anim { duration: Theme.animContentSwap; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard }
+                Components.StdAnim { duration: Theme.animContentSwap }
             }
             Layout.fillWidth: true
             targetSsid: NetworkService.targetSsid
@@ -1086,7 +943,7 @@ FocusScope {
             visible: root.paneState === "connecting"
             opacity: root.paneState === "connecting" ? 1 : 0
             Behavior on opacity {
-                Components.Anim { duration: Theme.animContentSwap; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard }
+                Components.StdAnim { duration: Theme.animContentSwap }
             }
             Layout.fillWidth: true; Layout.alignment: Qt.AlignHCenter
             targetSsid: NetworkService.targetSsid
@@ -1098,7 +955,7 @@ FocusScope {
             visible: root.paneState === "diagnostics"
             opacity: root.paneState === "diagnostics" ? 1 : 0
             Behavior on opacity {
-                Components.Anim { duration: Theme.animContentSwap; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard }
+                Components.StdAnim { duration: Theme.animContentSwap }
             }
             diagLoading: NetworkService.diagLoading
             speedTestRunning: NetworkService.speedTestRunning
@@ -1144,19 +1001,17 @@ FocusScope {
 
         // CHANNELS state
         Item {
-            id: channelSection
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: root.paneState === "channels"
             clip: true
 
             Wifi.WifiChannels {
-                id: channelView
                 anchors.fill: parent
                 opacity: root.channelLoading ? 0 : 1
                 enabled: opacity > 0.01
                 Behavior on opacity {
-                    Components.Anim { duration: Theme.animContentSwap; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard }
+                    Components.StdAnim { duration: Theme.animContentSwap }
                 }
                 channelModel: NetworkService.channelEntriesModel
                 currentChannel: NetworkService.currentChannel
@@ -1170,7 +1025,7 @@ FocusScope {
                 opacity: root.channelLoading ? 1 : 0
                 visible: opacity > 0; z: 1
                 Behavior on opacity {
-                    Components.Anim { duration: Theme.animContentSwap; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard }
+                    Components.StdAnim { duration: Theme.animContentSwap }
                 }
 
                 Column {
@@ -1201,12 +1056,7 @@ FocusScope {
                                 Rectangle { width: skelWidth; height: 8; radius: 4; color: Theme.bg3 }
                             }
 
-                            SequentialAnimation on opacity {
-                                loops: Animation.Infinite
-                                PauseAnimation { duration: index * 120 }
-                                Components.Anim { from: 0.4; to: 0.8; duration: 800; easing.type: Easing.InOutQuad }
-                                Components.Anim { from: 0.8; to: 0.4; duration: 800; easing.type: Easing.InOutQuad }
-                            }
+                            SkeletonPulse on opacity { delay: index * 120 }
                         }
                     }
                 }

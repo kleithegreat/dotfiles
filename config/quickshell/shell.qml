@@ -6,7 +6,6 @@ import QtQuick.Layouts
 import Quickshell.Io
 import qs
 import qs.bar as Bar
-import qs.popups as Popups
 import "components" as Components
 
 Scope {
@@ -63,9 +62,13 @@ Scope {
         return null;
     }
 
-    // Notification state (compat for existing popup/bar wiring)
-    readonly property bool doNotDisturb: NotificationService.doNotDisturb
-    readonly property int historyCount: NotificationService.historyCount
+    readonly property real barScreenWidth: barScreen ? barScreen.width : 900
+
+    component OsdAnim: Components.Anim {
+        property bool showing: false
+        duration: showing ? Theme.animOsdIn : Theme.animOsdOut
+        easing.type: showing ? Easing.OutCubic : Easing.InCubic
+    }
 
     // Tooltip
     TooltipWindow {}
@@ -89,15 +92,15 @@ Scope {
         sourceComponent: Bar.Bar {
             screen: root.barScreen
             popupVisibility: root.popupVisibility
-            doNotDisturb: root.doNotDisturb
-            historyCount: root.historyCount
+            doNotDisturb: NotificationService.doNotDisturb
+            historyCount: NotificationService.historyCount
         }
     }
 
     // Notification popups
     PanelWindow {
         anchors { top: true; right: true }
-        margins { top: Theme.barHeight + Theme.barMargin + Theme.gapOut; right: Theme.gapOut }
+        margins { top: Theme.popupTopMargin; right: Theme.gapOut }
         implicitWidth: Theme.notifWidth; implicitHeight: notifColumn.implicitHeight
         visible: NotificationService.popupModel.count > 0; color: "transparent"
         WlrLayershell.namespace: "quickshell:notifications"; WlrLayershell.layer: WlrLayer.Overlay; exclusionMode: ExclusionMode.Ignore
@@ -152,7 +155,7 @@ Scope {
     PanelWindow {
         visible: AudioService.showOsd || osdPanel.opacity > 0.001
         anchors { top: true }
-        margins { top: Theme.barHeight + Theme.barMargin + Theme.gapOut }
+        margins { top: Theme.popupTopMargin }
         implicitWidth: Theme.osdWidth; implicitHeight: Theme.osdHeight; color: "transparent"; mask: Region {}
         WlrLayershell.namespace: "quickshell:osd"; WlrLayershell.layer: WlrLayer.Overlay; exclusionMode: ExclusionMode.Ignore
         Rectangle {
@@ -161,18 +164,8 @@ Scope {
             radius: Theme.osdRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
             scale: AudioService.showOsd ? 1.0 : 0.85
             opacity: AudioService.showOsd ? 1.0 : 0.0
-            Behavior on scale {
-                Components.Anim {
-                    duration: AudioService.showOsd ? Theme.animOsdIn : Theme.animOsdOut
-                    easing.type: AudioService.showOsd ? Easing.OutCubic : Easing.InCubic
-                }
-            }
-            Behavior on opacity {
-                Components.Anim {
-                    duration: AudioService.showOsd ? Theme.animOsdIn : Theme.animOsdOut
-                    easing.type: AudioService.showOsd ? Easing.OutCubic : Easing.InCubic
-                }
-            }
+            Behavior on scale { OsdAnim { showing: AudioService.showOsd } }
+            Behavior on opacity { OsdAnim { showing: AudioService.showOsd } }
             RowLayout {
                 anchors.fill: parent
                 anchors.leftMargin: Theme.popupPadding
@@ -216,7 +209,7 @@ Scope {
         visible: ToastService.toastVisible || toastPanel.opacity > 0.001
         anchors { bottom: true }
         margins { bottom: Theme.gapOut }
-        implicitWidth: Math.min(toastContent.implicitWidth + Theme.popupPadding * 2, Math.max(Theme.osdWidth, (root.barScreen ? root.barScreen.width : 900) - Theme.gapOut * 4))
+        implicitWidth: Math.min(toastContent.implicitWidth + Theme.popupPadding * 2, Math.max(Theme.osdWidth, root.barScreenWidth - Theme.gapOut * 4))
         implicitHeight: Theme.osdHeight
         color: "transparent"; mask: Region {}
         WlrLayershell.namespace: "quickshell:toast"; WlrLayershell.layer: WlrLayer.Overlay; exclusionMode: ExclusionMode.Ignore
@@ -232,18 +225,8 @@ Scope {
             scale: ToastService.toastVisible ? 1.0 : 0.85
             opacity: ToastService.toastVisible ? 1.0 : 0.0
 
-            Behavior on scale {
-                Components.Anim {
-                    duration: ToastService.toastVisible ? Theme.animOsdIn : Theme.animOsdOut
-                    easing.type: ToastService.toastVisible ? Easing.OutCubic : Easing.InCubic
-                }
-            }
-            Behavior on opacity {
-                Components.Anim {
-                    duration: ToastService.toastVisible ? Theme.animOsdIn : Theme.animOsdOut
-                    easing.type: ToastService.toastVisible ? Easing.OutCubic : Easing.InCubic
-                }
-            }
+            Behavior on scale { OsdAnim { showing: ToastService.toastVisible } }
+            Behavior on opacity { OsdAnim { showing: ToastService.toastVisible } }
 
             Row {
                 id: toastContent
@@ -262,7 +245,7 @@ Scope {
                     text: ToastService.currentMessage
                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize
                     color: Theme.fg
-                    width: Math.min(implicitWidth, Math.max(Theme.osdWidth, (root.barScreen ? root.barScreen.width : 900) - Theme.popupPadding * 2 - Theme.gapOut * 4 - 32))
+                    width: Math.min(implicitWidth, Math.max(Theme.osdWidth, root.barScreenWidth - Theme.popupPadding * 2 - Theme.gapOut * 4 - 32))
                     elide: Text.ElideRight
                     maximumLineCount: 1
                     anchors.verticalCenter: parent.verticalCenter

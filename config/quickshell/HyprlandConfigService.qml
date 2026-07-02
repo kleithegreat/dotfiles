@@ -239,19 +239,7 @@ QtObject {
         let parentEff = getEffective(parentName);
 
         // Apply parent's values via IPC so the live state is correct
-        let parts = [name];
-        parts.push(parentEff.enabled ? "1" : "0");
-        parts.push(String(parentEff.speed));
-        parts.push(parentEff.curve || "default");
-        if (parentEff.style) parts.push(parentEff.style);
-        let animCmd = "keyword animation " + parts.join(", ");
-        let curve = parentEff.curve || "default";
-        let curvePoints = getCurvePoints(curve);
-        let batch = [];
-        if (curve !== "default" && curve !== "linear" && curvePoints)
-            batch.push("keyword bezier " + curve + ", " + curvePoints.join(", "));
-        batch.push(animCmd);
-        _queueCommand(batch);
+        _queueCommand(_animationBatch(name, parentEff));
 
         // Mark as not overridden locally so UI shows "inherited"
         // and saveAll() won't include this animation
@@ -520,8 +508,8 @@ QtObject {
 
         _pushUndo({
             type: "bind", name: String(bindIndex),
-            oldState: _cloneObj({ modmask: oldModmask, key: oldKey }),
-            newState: _cloneObj({ modmask: newModmask, key: newKey })
+            oldState: { modmask: oldModmask, key: oldKey },
+            newState: { modmask: newModmask, key: newKey }
         });
 
         let updated = _cloneObj(bind);
@@ -641,8 +629,7 @@ QtObject {
         let stack = _undoStack.slice();
         if (stack.length > 0) {
             let top = stack[stack.length - 1];
-            if (top.type === entry.type && top.name === entry.name
-                    && (entry.type === "animation" || entry.type === "monitor" || entry.type === "bind")) {
+            if (top.type === entry.type && top.name === entry.name) {
                 stack[stack.length - 1] = {
                     type: entry.type, name: entry.name,
                     oldState: top.oldState, newState: entry.newState
@@ -670,6 +657,10 @@ QtObject {
         };
         animations = nextAnims;
 
+        _queueCommand(_animationBatch(name, state));
+    }
+
+    function _animationBatch(name, state) {
         let parts = [name];
         parts.push(state.enabled ? "1" : "0");
         parts.push(String(state.speed));
@@ -683,7 +674,7 @@ QtObject {
         if (curve !== "default" && curve !== "linear" && curvePoints)
             batch.push("keyword bezier " + curve + ", " + curvePoints.join(", "));
         batch.push(animCmd);
-        _queueCommand(batch);
+        return batch;
     }
 
     function _queueCommand(batch) {
@@ -765,7 +756,6 @@ QtObject {
 
     property Process _keywordProc: Process {
         running: false
-        stdout: SplitParser { onRead: (_) => {} }
         stderr: SplitParser {
             onRead: (line) => { console.log("[HyprlandConfigService] hyprctl stderr:", line); }
         }
@@ -803,7 +793,6 @@ QtObject {
         command: ["hyprctl", "--batch",
             "keyword submap hyprmod_capture ; keyword bind , catchall, pass, ; keyword submap reset"]
         running: false
-        stdout: SplitParser { onRead: (_) => {} }
         onExited: (code) => {
             if (code === 0 && root.captureSessionActive)
                 _captureEnterProc.running = true;
@@ -813,7 +802,6 @@ QtObject {
     property Process _captureEnterProc: Process {
         command: ["hyprctl", "dispatch", "submap", "hyprmod_capture"]
         running: false
-        stdout: SplitParser { onRead: (_) => {} }
         onExited: (code) => {
             if (code === 0 && root.captureSessionActive)
                 root.captureSessionReady();
@@ -826,7 +814,6 @@ QtObject {
         command: ["hyprctl", "--batch",
             "dispatch submap reset ; keyword submap hyprmod_capture ; keyword unbind , catchall ; keyword submap reset"]
         running: false
-        stdout: SplitParser { onRead: (_) => {} }
     }
 
     property Process _fetchBindsProc: Process {

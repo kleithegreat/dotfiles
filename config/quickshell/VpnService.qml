@@ -64,14 +64,9 @@ QtObject {
     property string _mullvadCountry: ""
     property string _mullvadCity: ""
     property string _mullvadIp: ""
-    property string _mullvadBuf: ""
     property var _mullvadRelayCountries: []
     property var _mullvadRelayCountryIndex: ({})
     property bool _mullvadRelayListLoaded: false
-    property string _mullvadRelayListBuf: ""
-    property string _mullvadRelayListErrBuf: ""
-    property string _mullvadRelayGetBuf: ""
-    property string _mullvadRelayGetErrBuf: ""
     property string _mullvadRelayError: ""
     property string _mullvadSelectedCountryCode: ""
     property string _mullvadSelectedCityCode: ""
@@ -106,7 +101,6 @@ QtObject {
             _mullvadRefreshPending = true;
             return;
         }
-        _mullvadBuf = "";
         mullvadProc.running = true;
     }
 
@@ -115,8 +109,6 @@ QtObject {
             _mullvadSelectionRefreshPending = true;
             return;
         }
-        _mullvadRelayGetBuf = "";
-        _mullvadRelayGetErrBuf = "";
         mullvadRelayGetProc.running = true;
     }
 
@@ -134,13 +126,9 @@ QtObject {
     }
 
     function refreshMullvadRelayLocations(force) {
-        if (force === undefined)
-            force = false;
         if (!force && (_mullvadRelayListLoaded || mullvadRelayListProc.running))
             return;
         _mullvadRelayError = "";
-        _mullvadRelayListBuf = "";
-        _mullvadRelayListErrBuf = "";
         mullvadRelayListProc.running = true;
     }
 
@@ -199,10 +187,6 @@ QtObject {
         return country && Array.isArray(country.cities) ? country.cities : [];
     }
 
-    function mullvadCountryName(countryCode) {
-        return resolveMullvadCountryName(countryCode);
-    }
-
     function resolveMullvadCountryName(countryCode) {
         if (!countryCode)
             return "";
@@ -224,6 +208,26 @@ QtObject {
         }
 
         return cityCode.toUpperCase();
+    }
+
+    function _mullvadActionExited(code) {
+        if (code === 0)
+            _mullvadActionRefreshPending = true;
+        else
+            _mullvadPendingAction = "";
+        refreshMullvadStatus();
+        refreshMullvadSelection();
+    }
+
+    function _tailscaleActionExited(code, errBuf, fallback) {
+        if (code === 0) {
+            _tailscaleError = "";
+            _tailscaleActionRefreshPending = true;
+        } else {
+            _tailscaleError = normalizeCommandError(errBuf, fallback);
+            _tailscalePendingAction = "";
+        }
+        refreshTailscaleStatus();
     }
 
     function normalizeCommandError(errBuf, fallbackMessage) {
@@ -324,13 +328,14 @@ QtObject {
     property Process mullvadProc: Process {
         command: ["mullvad", "status", "-j"]
         running: false
+        property string buf: ""
         stdout: SplitParser {
-            onRead: (line) => { root._mullvadBuf += line; }
+            onRead: (line) => { mullvadProc.buf += line; }
         }
-        onExited: (code, status) => {
-            if (code === 0 && root._mullvadBuf) {
+        onExited: (code) => {
+            if (code === 0 && mullvadProc.buf) {
                 try {
-                    let d = JSON.parse(root._mullvadBuf);
+                    let d = JSON.parse(mullvadProc.buf);
                     root._mullvadState = d.state || "disconnected";
                     let loc = d.details?.location;
                     root._mullvadCountry = loc?.country ?? "";
@@ -340,7 +345,7 @@ QtObject {
                     console.log("[VpnService] mullvad parse error:", e);
                 }
             }
-            root._mullvadBuf = "";
+            mullvadProc.buf = "";
             if (root._mullvadActionRefreshPending) {
                 root._mullvadActionRefreshPending = false;
                 root._mullvadPendingAction = "";
@@ -355,20 +360,22 @@ QtObject {
     property Process mullvadRelayGetProc: Process {
         command: ["mullvad", "relay", "get"]
         running: false
+        property string buf: ""
+        property string errBuf: ""
         stdout: SplitParser {
-            onRead: (line) => { root._mullvadRelayGetBuf += line + "\n"; }
+            onRead: (line) => { mullvadRelayGetProc.buf += line + "\n"; }
         }
         stderr: SplitParser {
-            onRead: (line) => { root._mullvadRelayGetErrBuf += line + "\n"; }
+            onRead: (line) => { mullvadRelayGetProc.errBuf += line + "\n"; }
         }
-        onExited: (code, status) => {
-            if (code === 0 && root._mullvadRelayGetBuf) {
-                root.applyMullvadRelaySelection(root._mullvadRelayGetBuf);
+        onExited: (code) => {
+            if (code === 0 && mullvadRelayGetProc.buf) {
+                root.applyMullvadRelaySelection(mullvadRelayGetProc.buf);
             } else if (code !== 0) {
-                console.log("[VpnService] mullvad relay get failed:", root.normalizeCommandError(root._mullvadRelayGetErrBuf, "relay get failed"));
+                console.log("[VpnService] mullvad relay get failed:", root.normalizeCommandError(mullvadRelayGetProc.errBuf, "relay get failed"));
             }
-            root._mullvadRelayGetBuf = "";
-            root._mullvadRelayGetErrBuf = "";
+            mullvadRelayGetProc.buf = "";
+            mullvadRelayGetProc.errBuf = "";
             if (root._mullvadSelectionRefreshPending) {
                 root._mullvadSelectionRefreshPending = false;
                 mullvadRelayGetProc.running = true;
@@ -379,23 +386,25 @@ QtObject {
     property Process mullvadRelayListProc: Process {
         command: ["mullvad", "relay", "list"]
         running: false
+        property string buf: ""
+        property string errBuf: ""
         stdout: SplitParser {
-            onRead: (line) => { root._mullvadRelayListBuf += line + "\n"; }
+            onRead: (line) => { mullvadRelayListProc.buf += line + "\n"; }
         }
         stderr: SplitParser {
-            onRead: (line) => { root._mullvadRelayListErrBuf += line + "\n"; }
+            onRead: (line) => { mullvadRelayListProc.errBuf += line + "\n"; }
         }
-        onExited: (code, status) => {
-            if (code === 0 && root._mullvadRelayListBuf) {
+        onExited: (code) => {
+            if (code === 0 && mullvadRelayListProc.buf) {
                 root._mullvadRelayError = "";
                 root._mullvadRelayListLoaded = true;
-                root.applyMullvadRelayList(root._mullvadRelayListBuf);
+                root.applyMullvadRelayList(mullvadRelayListProc.buf);
             } else if (code !== 0) {
-                root._mullvadRelayError = root.normalizeCommandError(root._mullvadRelayListErrBuf, "Failed to load Mullvad locations");
+                root._mullvadRelayError = root.normalizeCommandError(mullvadRelayListProc.errBuf, "Failed to load Mullvad locations");
                 console.log("[VpnService] mullvad relay list failed:", root._mullvadRelayError);
             }
-            root._mullvadRelayListBuf = "";
-            root._mullvadRelayListErrBuf = "";
+            mullvadRelayListProc.buf = "";
+            mullvadRelayListProc.errBuf = "";
         }
     }
 
@@ -407,7 +416,7 @@ QtObject {
         stdout: SplitParser {
             onRead: (line) => { root._tailscaleBuf += line; }
         }
-        onExited: (code, status) => {
+        onExited: (code) => {
             if (code === 0 && root._tailscaleBuf) {
                 try {
                     let d = JSON.parse(root._tailscaleBuf);
@@ -461,29 +470,13 @@ QtObject {
     property Process mullvadConnectProc: Process {
         command: ["mullvad", "connect"]
         running: false
-        onExited: (code) => {
-            if (code === 0) {
-                root._mullvadActionRefreshPending = true;
-            } else {
-                root._mullvadPendingAction = "";
-            }
-            root.refreshMullvadStatus();
-            root.refreshMullvadSelection();
-        }
+        onExited: (code) => root._mullvadActionExited(code)
     }
 
     property Process mullvadDisconnectProc: Process {
         command: ["mullvad", "disconnect"]
         running: false
-        onExited: (code) => {
-            if (code === 0) {
-                root._mullvadActionRefreshPending = true;
-            } else {
-                root._mullvadPendingAction = "";
-            }
-            root.refreshMullvadStatus();
-            root.refreshMullvadSelection();
-        }
+        onExited: (code) => root._mullvadActionExited(code)
     }
 
     property Process mullvadSetLocationProc: Process {
@@ -492,7 +485,7 @@ QtObject {
         stderr: SplitParser {
             onRead: (line) => { mullvadSetLocationProc.errBuf += line + "\n"; }
         }
-        onExited: (code, status) => {
+        onExited: (code) => {
             if (code !== 0)
                 root._mullvadRelayError = root.normalizeCommandError(mullvadSetLocationProc.errBuf, "Failed to set Mullvad location");
             else
@@ -512,15 +505,8 @@ QtObject {
             onRead: (line) => { tailscaleUpProc.errBuf += line + "\n"; }
         }
         onExited: (code) => {
-            if (code === 0) {
-                root._tailscaleError = "";
-                root._tailscaleActionRefreshPending = true;
-            } else {
-                root._tailscaleError = root.normalizeCommandError(tailscaleUpProc.errBuf, "Failed to start Tailscale");
-                root._tailscalePendingAction = "";
-            }
+            root._tailscaleActionExited(code, tailscaleUpProc.errBuf, "Failed to start Tailscale");
             tailscaleUpProc.errBuf = "";
-            root.refreshTailscaleStatus();
         }
     }
 
@@ -532,15 +518,8 @@ QtObject {
             onRead: (line) => { tailscaleDownProc.errBuf += line + "\n"; }
         }
         onExited: (code) => {
-            if (code === 0) {
-                root._tailscaleError = "";
-                root._tailscaleActionRefreshPending = true;
-            } else {
-                root._tailscaleError = root.normalizeCommandError(tailscaleDownProc.errBuf, "Failed to stop Tailscale");
-                root._tailscalePendingAction = "";
-            }
+            root._tailscaleActionExited(code, tailscaleDownProc.errBuf, "Failed to stop Tailscale");
             tailscaleDownProc.errBuf = "";
-            root.refreshTailscaleStatus();
         }
     }
 

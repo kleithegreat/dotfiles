@@ -30,6 +30,7 @@ Components.WheelFlickable {
 
     property var layoutMonitors: []
     property bool monitorDragActive: false
+    readonly property var _dropdowns: [resolutionSelect, rateSelect, transformSelect, vrrSelect, mirrorSelect]
     readonly property var brightnessDevices: BrightnessService.devicesForMonitors(DisplayService.monitors, BrightnessService.brightnessDevices)
 
     readonly property var enabledMonitors: {
@@ -124,6 +125,13 @@ Components.WheelFlickable {
         root.selectedResolution = mon.width + "x" + mon.height;
         let rates = root.parsedModes.ratesByRes[root.selectedResolution] || [];
         root.selectedRate = root.findClosestRate(rates, mon.refreshRate);
+    }
+
+    function _collapseOthers(active) {
+        for (let i = 0; i < root._dropdowns.length; i++) {
+            if (root._dropdowns[i] !== active)
+                root._dropdowns[i].expanded = false;
+        }
     }
 
     function findClosestRate(rates, target) {
@@ -348,32 +356,26 @@ Components.WheelFlickable {
 
         // Header
 
-        RowLayout { Layout.fillWidth: true; spacing: 8
-            Components.Icon { source: "../icons/monitor.svg"; color: Theme.fg }
-            Text { text: "Display"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.headerFontSize; font.bold: true; Layout.fillWidth: true }
+        Components.SettingsPaneHeader {
+            title: "Display"
+            iconSource: "../icons/monitor.svg"
 
-            // Undo / Redo (monitor entries)
-            Rectangle {
+            Components.ActionButton {
                 visible: HyprlandConfigService.canUndo
-                width: 28; height: Theme.btnHeight; radius: Theme.btnRadius
-                color: undoArea.containsMouse ? Theme.bg2 : Theme.bg1
-                border.width: 1; border.color: Theme.bg3
-                Behavior on color { Components.CAnim { duration: Theme.animHover } }
-                Text { anchors.centerIn: parent; text: "\u21b6"; color: Theme.fg; font.pixelSize: Theme.fontSize }
-                Components.HoverLayer { id: undoArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0; onClicked: HyprlandConfigService.undo() }
+                fixedWidth: 28
+                text: "\u21b6"
+                fontPixelSize: Theme.fontSize
+                onClicked: HyprlandConfigService.undo()
             }
-            Rectangle {
+
+            Components.ActionButton {
                 visible: HyprlandConfigService.canRedo
-                width: 28; height: Theme.btnHeight; radius: Theme.btnRadius
-                color: redoArea.containsMouse ? Theme.bg2 : Theme.bg1
-                border.width: 1; border.color: Theme.bg3
-                Behavior on color { Components.CAnim { duration: Theme.animHover } }
-                Text { anchors.centerIn: parent; text: "\u21b7"; color: Theme.fg; font.pixelSize: Theme.fontSize }
-                Components.HoverLayer { id: redoArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0; onClicked: HyprlandConfigService.redo() }
+                fixedWidth: 28
+                text: "\u21b7"
+                fontPixelSize: Theme.fontSize
+                onClicked: HyprlandConfigService.redo()
             }
         }
-
-        Components.Divider {}
 
         // Confirmation banner
 
@@ -382,12 +384,12 @@ Components.WheelFlickable {
             Layout.fillWidth: true
             height: visible ? confirmRow.implicitHeight + 16 : 0
             radius: Theme.btnRadius + 2
-            color: root.confirmSecondsLeft <= 5 ? Qt.rgba(Theme.red.r, Theme.red.g, Theme.red.b, 0.15)
-                 : root.confirmSecondsLeft <= 10 ? Qt.rgba(Theme.yellow.r, Theme.yellow.g, Theme.yellow.b, 0.12)
-                 : Qt.rgba(Theme.fg.r, Theme.fg.g, Theme.fg.b, 0.06)
+            color: root.confirmSecondsLeft <= 5 ? Qt.alpha(Theme.red, 0.15)
+                 : root.confirmSecondsLeft <= 10 ? Qt.alpha(Theme.yellow, 0.12)
+                 : Qt.alpha(Theme.fg, 0.06)
             border.width: 1
-            border.color: root.confirmSecondsLeft <= 5 ? Qt.rgba(Theme.red.r, Theme.red.g, Theme.red.b, 0.4)
-                        : root.confirmSecondsLeft <= 10 ? Qt.rgba(Theme.yellow.r, Theme.yellow.g, Theme.yellow.b, 0.3)
+            border.color: root.confirmSecondsLeft <= 5 ? Qt.alpha(Theme.red, 0.4)
+                        : root.confirmSecondsLeft <= 10 ? Qt.alpha(Theme.yellow, 0.3)
                         : Theme.bg3
             Behavior on color { Components.CAnim { duration: Theme.animHover } }
             Behavior on border.color { Components.CAnim { duration: Theme.animHover } }
@@ -404,25 +406,19 @@ Components.WheelFlickable {
                     Layout.fillWidth: true
                 }
 
-                Rectangle {
-                    width: keepLabel.implicitWidth + Theme.btnPaddingH * 2
-                    height: Theme.btnHeight; radius: Theme.btnRadius
-                    color: keepArea.containsMouse ? Theme.greenBright : Theme.green
-                    Behavior on color { Components.CAnim { duration: Theme.animHover } }
-
-                    Text { id: keepLabel; anchors.centerIn: parent; text: "Confirm"; color: Theme.bg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
-                    Components.HoverLayer { id: keepArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0; onClicked: root._confirmChanges() }
+                Components.ActionButton {
+                    text: "Confirm"
+                    baseColor: Theme.green
+                    hoverColor: Theme.greenBright
+                    borderColor: baseColor
+                    textColor: Theme.bg
+                    fontBold: true
+                    onClicked: root._confirmChanges()
                 }
 
-                Rectangle {
-                    width: revertLabel.implicitWidth + Theme.btnPaddingH * 2
-                    height: Theme.btnHeight; radius: Theme.btnRadius
-                    color: revertArea.containsMouse ? Theme.bg2 : Theme.bg1
-                    border.width: 1; border.color: Theme.bg3
-                    Behavior on color { Components.CAnim { duration: Theme.animHover } }
-
-                    Text { id: revertLabel; anchors.centerIn: parent; text: "Revert"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-                    Components.HoverLayer { id: revertArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0; onClicked: root._revertChanges() }
+                Components.ActionButton {
+                    text: "Revert"
+                    onClicked: root._revertChanges()
                 }
             }
         }
@@ -442,44 +438,20 @@ Components.WheelFlickable {
             Repeater {
                 model: root.enabledMonitors
 
-                delegate: Rectangle {
+                delegate: Components.ActionButton {
                     required property var modelData
                     required property int index
                     property bool isCurrent: index === root.selectedMonitorIdx
 
-                    width: monLabel.implicitWidth + 16
-                    height: Theme.btnHeight
-                    radius: Theme.btnRadius
-                    color: isCurrent ? Theme.accent : (monArea.containsMouse ? Theme.bg2 : Theme.bg1)
-                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    border.width: 1
-                    border.color: isCurrent ? Theme.accent : Theme.bg3
-                    Behavior on border.color { Components.CAnim { duration: Theme.animSpring; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    scale: monArea.pressed ? 0.95 : 1.0
-                    Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    transformOrigin: Item.Center
-
-                    Text {
-                        id: monLabel
-                        anchors.centerIn: parent
-                        text: modelData.name
-                        color: isCurrent ? Theme.bg : Theme.fg
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeSmall
-                        Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    }
-
-                    Components.HoverLayer {
-                        id: monArea
-                        anchors.fill: parent
-                        disabled: DisplayService.monitorApplyBusy
-                        cursorShape: Qt.PointingHandCursor
-                        hoverEnabled: true
-                        hoverOpacity: 0
-                        pressedOpacity: 0
-                        pressedScale: 1.0
-                        onClicked: root.selectedMonitorIdx = index
-                    }
+                    text: modelData.name
+                    paddingH: 8
+                    baseColor: isCurrent ? Theme.accent : Theme.bg1
+                    hoverColor: isCurrent ? Theme.accent : Theme.bg2
+                    borderColor: isCurrent ? Theme.accent : Theme.bg3
+                    textColor: isCurrent ? Theme.bg : Theme.fg
+                    enabled: !DisplayService.monitorApplyBusy
+                    disabledOpacity: 1
+                    onClicked: root.selectedMonitorIdx = index
                 }
             }
         }
@@ -619,14 +591,7 @@ Components.WheelFlickable {
             currentValue: root.selectedResolution
             textForValue: function(resolution) { return root.formatResolution(resolution); }
             maxVisibleItems: 7
-            onExpandedChanged: {
-                if (expanded) {
-                    rateSelect.expanded = false;
-                    transformSelect.expanded = false;
-                    vrrSelect.expanded = false;
-                    mirrorSelect.expanded = false;
-                }
-            }
+            onExpandedChanged: if (expanded) root._collapseOthers(this)
             onActivated: (resolution) => { root.selectResolution(resolution); }
         }
 
@@ -647,14 +612,7 @@ Components.WheelFlickable {
             currentValue: root.selectedRate
             textForValue: function(rate) { return root.formatRate(rate, root.currentRates); }
             maxVisibleItems: 6
-            onExpandedChanged: {
-                if (expanded) {
-                    resolutionSelect.expanded = false;
-                    transformSelect.expanded = false;
-                    vrrSelect.expanded = false;
-                    mirrorSelect.expanded = false;
-                }
-            }
+            onExpandedChanged: if (expanded) root._collapseOthers(this)
             onActivated: (rate) => { root.selectRate(rate); }
         }
 
@@ -688,14 +646,7 @@ Components.WheelFlickable {
             model: root.transformLabels
             currentValue: root.currentMonitor ? root.transformLabels[root.currentMonitor.transform || 0] : root.transformLabels[0]
             maxVisibleItems: 8
-            onExpandedChanged: {
-                if (expanded) {
-                    resolutionSelect.expanded = false;
-                    rateSelect.expanded = false;
-                    vrrSelect.expanded = false;
-                    mirrorSelect.expanded = false;
-                }
-            }
+            onExpandedChanged: if (expanded) root._collapseOthers(this)
             onActivated: (label) => {
                 let idx = root.transformLabels.indexOf(label);
                 if (idx >= 0)
@@ -727,14 +678,7 @@ Components.WheelFlickable {
                 return root.vrrLabels[0];
             }
             maxVisibleItems: 3
-            onExpandedChanged: {
-                if (expanded) {
-                    resolutionSelect.expanded = false;
-                    rateSelect.expanded = false;
-                    transformSelect.expanded = false;
-                    mirrorSelect.expanded = false;
-                }
-            }
+            onExpandedChanged: if (expanded) root._collapseOthers(this)
             onActivated: (label) => {
                 let idx = root.vrrLabels.indexOf(label);
                 if (idx >= 0)
@@ -771,14 +715,7 @@ Components.WheelFlickable {
                 return "Off";
             }
             maxVisibleItems: 5
-            onExpandedChanged: {
-                if (expanded) {
-                    resolutionSelect.expanded = false;
-                    rateSelect.expanded = false;
-                    transformSelect.expanded = false;
-                    vrrSelect.expanded = false;
-                }
-            }
+            onExpandedChanged: if (expanded) root._collapseOthers(this)
             onActivated: (label) => {
                 for (let i = 0; i < root.mirrorChoices.length; i++) {
                     if (root.mirrorChoices[i].label === label) {
@@ -887,7 +824,7 @@ Components.WheelFlickable {
         RowLayout {
             Layout.fillWidth: true
             spacing: 8
-            opacity: DisplayService.nightLightBusy ? 0.72 : 1
+            opacity: DisplayService.nightLightBusy ? Theme.pendingOpacity : 1
             Behavior on opacity { Components.Anim { duration: Theme.animHover } }
 
             Components.Icon {
