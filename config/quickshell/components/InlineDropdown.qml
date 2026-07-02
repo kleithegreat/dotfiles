@@ -68,10 +68,10 @@ FocusScope {
             color: root.disabled ? Root.Theme.bg : (triggerArea.containsMouse || root.expanded ? Root.Theme.bg2 : Root.Theme.bg1)
             border.width: 1
             border.color: root.expanded ? Root.Theme.accent : (root.interactive && triggerArea.containsMouse ? Root.Theme.fg4 : Root.Theme.bg3)
-            Behavior on color { CAnim { duration: Root.Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Root.Theme.animCurveStandard } }
-            Behavior on border.color { CAnim { duration: Root.Theme.animSpring; easing.type: Easing.BezierSpline; easing.bezierCurve: Root.Theme.animCurveStandard } }
+            Behavior on color { StdCAnim { duration: Root.Theme.animHover } }
+            Behavior on border.color { StdCAnim { duration: Root.Theme.animSpring } }
             scale: triggerArea.pressed ? 0.98 : 1.0
-            Behavior on scale { Anim { duration: Root.Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Root.Theme.animCurveStandard } }
+            Behavior on scale { StdAnim { duration: Root.Theme.animMicro } }
             transformOrigin: Item.Center
 
             Text {
@@ -98,16 +98,14 @@ FocusScope {
                 font.family: Root.Theme.fontFamily
                 font.pixelSize: Root.Theme.fontSizeSmall
                 rotation: root.expanded ? 180 : 0
-                Behavior on color { CAnim { duration: Root.Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Root.Theme.animCurveStandard } }
-                Behavior on rotation { Anim { duration: Root.Theme.animSpring; easing.type: Easing.BezierSpline; easing.bezierCurve: Root.Theme.animCurveStandard } }
+                Behavior on color { StdCAnim { duration: Root.Theme.animHover } }
+                Behavior on rotation { StdAnim { duration: Root.Theme.animSpring } }
             }
 
             HoverLayer {
                 id: triggerArea
                 disabled: !root.interactive
-                hoverOpacity: 0
-                pressedOpacity: 0
-                pressedScale: 1.0
+                flat: true
                 onClicked: root.expanded = !root.expanded
             }
         }
@@ -118,7 +116,7 @@ FocusScope {
             height: root.expanded ? panelBg.implicitHeight : 0
             clip: true
             visible: height > 0 || root.expanded
-            Behavior on height { Anim { duration: Root.Theme.animSpring; easing.type: Easing.BezierSpline; easing.bezierCurve: Root.Theme.animCurveStandard } }
+            Behavior on height { StdAnim { duration: Root.Theme.animSpring } }
 
             Rectangle {
                 id: panelBg
@@ -131,8 +129,8 @@ FocusScope {
                 color: Root.Theme.bg
                 border.width: 1
                 border.color: Root.Theme.bg3
-                Behavior on opacity { Anim { duration: Root.Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Root.Theme.animCurveStandard } }
-                Behavior on y { Anim { duration: Root.Theme.animSpring; easing.type: Easing.BezierSpline; easing.bezierCurve: Root.Theme.animCurveStandard } }
+                Behavior on opacity { StdAnim { duration: Root.Theme.animHover } }
+                Behavior on y { StdAnim { duration: Root.Theme.animSpring } }
 
                 WheelFlickable {
                     id: optionFlick
@@ -161,10 +159,10 @@ FocusScope {
                                 color: isCurrent ? Root.Theme.accent : (optArea.containsMouse ? Root.Theme.bg2 : "transparent")
                                 border.width: 1
                                 border.color: isCurrent ? Root.Theme.accent : (optArea.containsMouse ? Root.Theme.bg3 : "transparent")
-                                Behavior on color { CAnim { duration: Root.Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Root.Theme.animCurveStandard } }
-                                Behavior on border.color { CAnim { duration: Root.Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Root.Theme.animCurveStandard } }
+                                Behavior on color { StdCAnim { duration: Root.Theme.animHover } }
+                                Behavior on border.color { StdCAnim { duration: Root.Theme.animHover } }
                                 scale: optArea.pressed ? 0.98 : 1.0
-                                Behavior on scale { Anim { duration: Root.Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Root.Theme.animCurveStandard } }
+                                Behavior on scale { StdAnim { duration: Root.Theme.animMicro } }
                                 transformOrigin: Item.Center
 
                                 Text {
@@ -182,9 +180,7 @@ FocusScope {
 
                                 HoverLayer {
                                     id: optArea
-                                    hoverOpacity: 0
-                                    pressedOpacity: 0
-                                    pressedScale: 1.0
+                                    flat: true
                                     onClicked: {
                                         root.expanded = false;
                                         root.activated(modelData);

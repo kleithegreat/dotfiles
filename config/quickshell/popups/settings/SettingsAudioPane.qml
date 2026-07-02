@@ -16,6 +16,61 @@ Components.WheelFlickable {
     readonly property int appLabelPreferredWidth: Math.max(Theme.fontSize * 9, 120)
     PwObjectTracker { objects: [root.sink, root.source] }
 
+    // Device section: mute status/toggle header, description, volume slider.
+    component AudioDeviceSection: ColumnLayout {
+        id: section
+
+        required property var device
+        required property string title
+        required property string deviceIcon
+        required property string mutedIcon
+        required property string emptyText
+        required property color fillColor
+        property bool mutedFallback: false
+
+        readonly property bool isMuted: section.device?.audio?.muted ?? section.mutedFallback
+
+        signal muteToggled()
+        signal volumeMoved(real fraction)
+
+        Layout.fillWidth: true
+        spacing: 16
+
+        Components.SectionLabel { text: section.title.toUpperCase() }
+
+        RowLayout { Layout.fillWidth: true; spacing: 8
+            Components.Icon { source: section.deviceIcon; color: Theme.fg }
+            Text { text: section.title; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; font.bold: true; Layout.fillWidth: true }
+            Text {
+                text: section.isMuted ? "Muted" : "On"
+                color: section.isMuted ? Theme.fg4 : Theme.fg3
+                Behavior on color { Components.StdCAnim { duration: Theme.animHover } }
+                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+            }
+            Components.ToggleSwitch {
+                checked: !(section.device?.audio?.muted ?? true)
+                onToggled: AudioService.suppressOsdDuring(() => section.muteToggled())
+            }
+        }
+        Text { text: section.device?.description ?? section.emptyText; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; elide: Text.ElideRight; Layout.fillWidth: true }
+
+        RowLayout { Layout.fillWidth: true; spacing: 8
+            Components.Icon {
+                source: section.isMuted ? section.mutedIcon : section.deviceIcon
+                color: Theme.fg4
+                Layout.preferredWidth: Theme.metricIconWidth
+            }
+            Components.SliderTrack {
+                fillColor: section.fillColor
+                fraction: Math.min(1.0, section.device?.audio?.volume ?? 0)
+                onMoved: (f) => section.volumeMoved(f)
+                onPressStarted: AudioService.suppressOsd = true
+                onPressEnded: Qt.callLater(() => { AudioService.suppressOsd = false; })
+            }
+            Text { text: Math.round((section.device?.audio?.volume ?? 0) * 100) + "%"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: root.valueLabelWidth; horizontalAlignment: Text.AlignRight }
+        }
+    }
+
     ColumnLayout {
         id: audioCol
         width: parent.width
@@ -26,84 +81,35 @@ Components.WheelFlickable {
             iconSource: "../icons/volume-high.svg"
         }
 
-        // Output
-        Components.SectionLabel { text: "OUTPUT" }
-
-        RowLayout { Layout.fillWidth: true; spacing: 8
-            Components.Icon { source: "../icons/volume-high.svg"; color: Theme.fg }
-            Text { text: "Output"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; font.bold: true; Layout.fillWidth: true }
-            Text {
-                text: (root.sink?.audio?.muted ?? false) ? "Muted" : "On"
-                color: (root.sink?.audio?.muted ?? false) ? Theme.fg4 : Theme.fg3
-                Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-            }
-            Components.ToggleSwitch {
-                checked: !(root.sink?.audio?.muted ?? true)
-                onToggled: {
-                    AudioService.suppressOsd = true;
-                    AudioService.toggleMute();
-                    Qt.callLater(() => { AudioService.suppressOsd = false; });
-                }
-            }
-        }
-        Text { text: root.sink?.description ?? "No output"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; elide: Text.ElideRight; Layout.fillWidth: true }
-
-        RowLayout { Layout.fillWidth: true; spacing: 8
-            Components.Icon {
-                source: (root.sink?.audio?.muted ?? false) ? "../icons/volume-mute.svg" : "../icons/volume-high.svg"
-                color: Theme.fg4
-                Layout.preferredWidth: Theme.metricIconWidth
-            }
-            Components.SliderTrack {
-                fillColor: Theme.greenBright
-                fraction: Math.min(1.0, root.sink?.audio?.volume ?? 0)
-                onMoved: (f) => AudioService.setVolume(f)
-                onPressStarted: AudioService.suppressOsd = true
-                onPressEnded: Qt.callLater(() => { AudioService.suppressOsd = false; })
-            }
-            Text { text: Math.round((root.sink?.audio?.volume ?? 0) * 100) + "%"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: root.valueLabelWidth; horizontalAlignment: Text.AlignRight }
+        AudioDeviceSection {
+            device: root.sink
+            title: "Output"
+            deviceIcon: "../icons/volume-high.svg"
+            mutedIcon: "../icons/volume-mute.svg"
+            emptyText: "No output"
+            fillColor: Theme.greenBright
+            onMuteToggled: AudioService.toggleMute()
+            onVolumeMoved: (f) => AudioService.setVolume(f)
         }
 
-        // Input
         Components.Divider {}
 
-        Components.SectionLabel { text: "INPUT" }
-
-        RowLayout { Layout.fillWidth: true; spacing: 8
-            Components.Icon { source: "../icons/microphone.svg"; color: Theme.fg }
-            Text { text: "Input"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; font.bold: true; Layout.fillWidth: true }
-            Text {
-                text: (root.source?.audio?.muted ?? true) ? "Muted" : "On"
-                color: (root.source?.audio?.muted ?? true) ? Theme.fg4 : Theme.fg3
-                Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+        AudioDeviceSection {
+            device: root.source
+            title: "Input"
+            deviceIcon: "../icons/microphone.svg"
+            mutedIcon: "../icons/microphone-off.svg"
+            emptyText: "No input"
+            fillColor: Theme.aquaBright
+            mutedFallback: true
+            onMuteToggled: {
+                if (root.source?.audio)
+                    root.source.audio.muted = !root.source.audio.muted;
             }
-            Components.ToggleSwitch {
-                checked: !(root.source?.audio?.muted ?? true)
-                onToggled: {
-                    AudioService.suppressOsd = true;
-                    if (root.source?.audio) root.source.audio.muted = !root.source.audio.muted;
-                    Qt.callLater(() => { AudioService.suppressOsd = false; });
-                }
+            onVolumeMoved: (f) => {
+                if (root.source?.audio)
+                    root.source.audio.volume = f;
             }
-        }
-        Text { text: root.source?.description ?? "No input"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; elide: Text.ElideRight; Layout.fillWidth: true }
-
-        RowLayout { Layout.fillWidth: true; spacing: 8
-            Components.Icon {
-                source: (root.source?.audio?.muted ?? true) ? "../icons/microphone-off.svg" : "../icons/microphone.svg"
-                color: Theme.fg4
-                Layout.preferredWidth: Theme.metricIconWidth
-            }
-            Components.SliderTrack {
-                fillColor: Theme.aquaBright
-                fraction: Math.min(1.0, root.source?.audio?.volume ?? 0)
-                onMoved: (f) => { if (root.source?.audio) root.source.audio.volume = f; }
-                onPressStarted: AudioService.suppressOsd = true
-                onPressEnded: Qt.callLater(() => { AudioService.suppressOsd = false; })
-            }
-            Text { text: Math.round((root.source?.audio?.volume ?? 0) * 100) + "%"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: root.valueLabelWidth; horizontalAlignment: Text.AlignRight }
         }
 
         // Applications
@@ -120,7 +126,7 @@ Components.WheelFlickable {
                 id: appRepeater
                 model: Pipewire.nodes
                 RowLayout {
-                    id: appRow; required property var modelData; required property int index
+                    id: appRow; required property var modelData
                     visible: modelData.isStream && !modelData.isSink && modelData.audio !== null
                     Layout.fillWidth: true; spacing: 8
                     PwObjectTracker { objects: [appRow.modelData] }

@@ -25,6 +25,8 @@ Rectangle {
     property string wallpaperValidationRequestedPath: ""
     property string wallpaperValidationRunningPath: ""
     property string wallpaperPathStatus: "empty"
+    readonly property bool wallpaperApplyReady: root.wallpaperPathStatus === "valid"
+        && root.wallpaperDraftPath.trim() !== String(root.currentValue("wallpaper") || "")
 
     signal saveRequested(string name, var presetData)
     signal cancelRequested()
@@ -50,15 +52,6 @@ Rectangle {
         return root.hasField(key) ? "Included" : "Ignored";
     }
 
-    function wallpaperFileName(path) {
-        let value = String(path || "");
-        let parts = value.split("/");
-
-        if (!parts.length)
-            return value;
-        return parts[parts.length - 1] || value;
-    }
-
     function wallpaperPickerValue() {
         let value = root.wallpaperDraftPath.trim();
         let prefix = root.wallpaperDir + "/";
@@ -78,7 +71,7 @@ Rectangle {
             return "Use an absolute path.";
         if (root.wallpaperPathStatus === "invalid")
             return "Path not found.";
-        if (root.wallpaperPathStatus === "valid" && root.wallpaperDraftPath.trim() !== String(root.currentValue("wallpaper") || ""))
+        if (root.wallpaperApplyReady)
             return "Path found. Click Apply to include it.";
         if (root.wallpaperPathStatus === "valid")
             return "Path found.";
@@ -222,6 +215,120 @@ Rectangle {
         root.saveRequested(root.effectiveName, root.cloneMap(root.draftPreset));
     }
 
+    // Label + inclusion ToggleSwitch header shared by every preset field editor.
+    component InclusionRow: RowLayout {
+        id: inclusionRow
+
+        required property string label
+        required property string fieldKey
+        required property var fallback
+        property bool showState: false
+
+        Layout.fillWidth: true
+        spacing: 8
+
+        Text {
+            text: inclusionRow.label
+            color: Theme.fg
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSizeSmall
+            Layout.fillWidth: true
+        }
+
+        Text {
+            visible: inclusionRow.showState
+            text: root.inclusionStateLabel(inclusionRow.fieldKey)
+            color: Theme.fg4
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSizeSmall
+        }
+
+        Components.ToggleSwitch {
+            checked: root.hasField(inclusionRow.fieldKey)
+            onToggled: root.toggleFieldInclusion(inclusionRow.fieldKey, inclusionRow.fallback)
+        }
+    }
+
+    component BoolFieldEditor: ColumnLayout {
+        id: boolEditor
+
+        required property string label
+        required property string fieldKey
+        required property bool inclusionFallback
+        required property bool boolFallback
+        required property string onLabel
+        required property string offLabel
+        property string onStateText: "On"
+        property string offStateText: "Off"
+        readonly property bool value: root.currentBoolValue(fieldKey, boolFallback)
+
+        Layout.fillWidth: true
+        spacing: 8
+
+        InclusionRow {
+            label: boolEditor.label
+            fieldKey: boolEditor.fieldKey
+            fallback: boolEditor.inclusionFallback
+            showState: true
+        }
+
+        RowLayout {
+            visible: root.hasField(boolEditor.fieldKey)
+            Layout.fillWidth: true
+            spacing: 8
+
+            Text {
+                text: boolEditor.value ? boolEditor.onLabel : boolEditor.offLabel
+                color: Theme.fg
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSizeSmall
+                Layout.fillWidth: true
+            }
+
+            Text {
+                text: boolEditor.value ? boolEditor.onStateText : boolEditor.offStateText
+                color: boolEditor.value ? Theme.fg3 : Theme.fg4
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSizeSmall
+            }
+
+            Components.ToggleSwitch {
+                checked: boolEditor.value
+                onToggled: root.setField(boolEditor.fieldKey, !boolEditor.value)
+            }
+        }
+    }
+
+    component IntFieldEditor: ColumnLayout {
+        id: intEditor
+
+        required property string label
+        required property string fieldKey
+        required property var inclusionFallback
+        required property int displayFallback
+        property int step: 1
+        property var minimum
+        property var maximum
+
+        Layout.fillWidth: true
+        spacing: 8
+
+        InclusionRow {
+            label: intEditor.label
+            fieldKey: intEditor.fieldKey
+            fallback: intEditor.inclusionFallback
+        }
+
+        Components.ValueStepper {
+            visible: root.hasField(intEditor.fieldKey)
+            baseColor: Theme.bg
+            valueText: String(root.currentIntValue(intEditor.fieldKey, intEditor.displayFallback))
+            valueWidth: 28
+            onDecrement: root.stepField(intEditor.fieldKey, -intEditor.step, intEditor.minimum, intEditor.maximum)
+            onIncrement: root.stepField(intEditor.fieldKey, intEditor.step, intEditor.minimum, intEditor.maximum)
+        }
+    }
+
     Component.onCompleted: root.resetFromInitial()
     onRevisionChanged: root.resetFromInitial()
 
@@ -326,7 +433,7 @@ Rectangle {
                 color: root.mode === "edit" ? Theme.bg : Theme.bg2
                 border.width: 1
                 border.color: root.mode === "create" && nameInput.activeFocus ? Theme.blueBright : Theme.bg3
-                Behavior on border.color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                Behavior on border.color { Components.StdCAnim { duration: Theme.animHover } }
 
                 TextInput {
                     id: nameInput
@@ -397,88 +504,30 @@ Rectangle {
             Layout.fillWidth: true
             spacing: 8
 
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                Text {
-                    text: "Color scheme"
-                    color: Theme.fg
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                    Layout.fillWidth: true
-                }
-
-                Components.ToggleSwitch {
-                    checked: root.hasField("color_scheme")
-                    onToggled: root.toggleFieldInclusion("color_scheme", root.themeState.color_scheme || "")
-                }
+            InclusionRow {
+                label: "Color scheme"
+                fieldKey: "color_scheme"
+                fallback: root.themeState.color_scheme || ""
             }
 
             Components.ColorSchemeCards {
                 visible: root.hasField("color_scheme")
                 Layout.fillWidth: true
-                Layout.preferredHeight: visible ? implicitHeight : 0
                 model: root.colorFamilies
                 currentValue: root.currentValue("color_scheme") || ""
                 onActivated: (schemeName) => root.setField("color_scheme", schemeName)
             }
         }
 
-        ColumnLayout {
-            Layout.fillWidth: true
-            spacing: 8
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                Text {
-                    text: "Browser / electron hint"
-                    color: Theme.fg
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                    Layout.fillWidth: true
-                }
-
-                Text {
-                    text: root.inclusionStateLabel("dark_hint")
-                    color: Theme.fg4
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                }
-
-                Components.ToggleSwitch {
-                    checked: root.hasField("dark_hint")
-                    onToggled: root.toggleFieldInclusion("dark_hint", root.themeState.dark_hint !== false)
-                }
-            }
-
-            RowLayout {
-                visible: root.hasField("dark_hint")
-                Layout.fillWidth: true
-                spacing: 8
-
-                Text {
-                    text: root.currentBoolValue("dark_hint", true) ? "Prefer dark browser theme" : "Prefer light browser theme"
-                    color: Theme.fg
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                    Layout.fillWidth: true
-                }
-
-                Text {
-                    text: root.currentBoolValue("dark_hint", true) ? "Dark" : "Light"
-                    color: root.currentBoolValue("dark_hint", true) ? Theme.fg3 : Theme.fg4
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                }
-
-                Components.ToggleSwitch {
-                    checked: root.currentBoolValue("dark_hint", true)
-                    onToggled: root.setField("dark_hint", !root.currentBoolValue("dark_hint", true))
-                }
-            }
+        BoolFieldEditor {
+            label: "Browser / electron hint"
+            fieldKey: "dark_hint"
+            inclusionFallback: root.themeState.dark_hint !== false
+            boolFallback: true
+            onLabel: "Prefer dark browser theme"
+            offLabel: "Prefer light browser theme"
+            onStateText: "Dark"
+            offStateText: "Light"
         }
 
         Components.Divider {}
@@ -489,22 +538,10 @@ Rectangle {
             Layout.fillWidth: true
             spacing: 8
 
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                Text {
-                    text: "Wallpaper path"
-                    color: Theme.fg
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                    Layout.fillWidth: true
-                }
-
-                Components.ToggleSwitch {
-                    checked: root.hasField("wallpaper")
-                    onToggled: root.toggleFieldInclusion("wallpaper", root.themeState.wallpaper || "")
-                }
+            InclusionRow {
+                label: "Wallpaper path"
+                fieldKey: "wallpaper"
+                fallback: root.themeState.wallpaper || ""
             }
 
             Rectangle {
@@ -517,7 +554,7 @@ Rectangle {
                 border.color: root.wallpaperPathStatus === "invalid" || root.wallpaperPathStatus === "relative"
                     ? Theme.redBright
                     : (wallpaperInput.activeFocus ? Theme.blueBright : Theme.bg3)
-                Behavior on border.color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                Behavior on border.color { Components.StdCAnim { duration: Theme.animHover } }
 
                 TextInput {
                     id: wallpaperInput
@@ -553,68 +590,25 @@ Rectangle {
                 Layout.fillWidth: true
                 spacing: 8
 
-                Rectangle {
-                    Layout.preferredWidth: applyWallpaperLabel.implicitWidth + 18
-                    height: Theme.btnHeight
-                    radius: Theme.btnRadius
-                    color: root.wallpaperPathStatus === "valid" && root.wallpaperDraftPath.trim() !== String(root.currentValue("wallpaper") || "")
-                        ? (applyWallpaperArea.containsMouse ? Theme.greenBright : Theme.accent)
-                        : Theme.bg
-                    border.width: 1
-                    border.color: root.wallpaperPathStatus === "valid" && root.wallpaperDraftPath.trim() !== String(root.currentValue("wallpaper") || "")
-                        ? Theme.accent
-                        : Theme.bg3
-                    opacity: root.wallpaperPathStatus === "valid" && root.wallpaperDraftPath.trim() !== String(root.currentValue("wallpaper") || "") ? 1 : 0.6
-                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    Behavior on border.color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-
-                    Text {
-                        id: applyWallpaperLabel
-                        anchors.centerIn: parent
-                        text: "Apply"
-                        color: root.wallpaperPathStatus === "valid" && root.wallpaperDraftPath.trim() !== String(root.currentValue("wallpaper") || "") ? Theme.bg : Theme.fg4
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeSmall
-                        font.bold: root.wallpaperPathStatus === "valid" && root.wallpaperDraftPath.trim() !== String(root.currentValue("wallpaper") || "")
-                    }
-
-                    Components.HoverLayer {
-                        id: applyWallpaperArea
-                        anchors.fill: parent
-                        disabled: !(root.wallpaperPathStatus === "valid" && root.wallpaperDraftPath.trim() !== String(root.currentValue("wallpaper") || ""))
-                        hoverOpacity: 0
-                        pressedOpacity: 0
-                        pressedScale: 1.0
-                        onClicked: root.commitWallpaperDraft()
-                    }
+                Components.ActionButton {
+                    text: "Apply"
+                    paddingH: 9
+                    baseColor: root.wallpaperApplyReady ? Theme.accent : Theme.bg
+                    hoverColor: root.wallpaperApplyReady ? Theme.greenBright : Theme.bg
+                    borderColor: root.wallpaperApplyReady ? Theme.accent : Theme.bg3
+                    textColor: root.wallpaperApplyReady ? Theme.bg : Theme.fg4
+                    fontBold: root.wallpaperApplyReady
+                    disabledOpacity: 0.6
+                    enabled: root.wallpaperApplyReady
+                    onClicked: root.commitWallpaperDraft()
                 }
 
-                Rectangle {
-                    Layout.preferredWidth: clearWallpaperLabel.implicitWidth + 18
-                    height: Theme.btnHeight
-                    radius: Theme.btnRadius
-                    color: clearWallpaperArea.containsMouse ? Theme.bg2 : Theme.bg
-                    border.width: 1
-                    border.color: Theme.bg3
-                    Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-
-                    Text {
-                        id: clearWallpaperLabel
-                        anchors.centerIn: parent
-                        text: "Clear"
-                        color: Theme.fg
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeSmall
-                    }
-
-                    Components.HoverLayer {
-                        id: clearWallpaperArea
-                        anchors.fill: parent
-                        hoverOpacity: 0
-                        pressedOpacity: 0
-                        pressedScale: 1.0
-                        onClicked: root.excludeField("wallpaper")
-                    }
+                Components.ActionButton {
+                    text: "Clear"
+                    paddingH: 9
+                    baseColor: Theme.bg
+                    hoverColor: Theme.bg2
+                    onClicked: root.excludeField("wallpaper")
                 }
 
                 Item { Layout.fillWidth: true }
@@ -654,60 +648,13 @@ Rectangle {
             }
         }
 
-        ColumnLayout {
-            Layout.fillWidth: true
-            spacing: 8
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                Text {
-                    text: "Filter wallpaper"
-                    color: Theme.fg
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                    Layout.fillWidth: true
-                }
-
-                Text {
-                    text: root.inclusionStateLabel("filter_wallpaper")
-                    color: Theme.fg4
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                }
-
-                Components.ToggleSwitch {
-                    checked: root.hasField("filter_wallpaper")
-                    onToggled: root.toggleFieldInclusion("filter_wallpaper", root.themeState.filter_wallpaper === true)
-                }
-            }
-
-            RowLayout {
-                visible: root.hasField("filter_wallpaper")
-                Layout.fillWidth: true
-                spacing: 8
-
-                Text {
-                    text: root.currentBoolValue("filter_wallpaper", false) ? "Filter wallpaper when applied" : "Do not filter wallpaper when applied"
-                    color: Theme.fg
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                    Layout.fillWidth: true
-                }
-
-                Text {
-                    text: root.currentBoolValue("filter_wallpaper", false) ? "On" : "Off"
-                    color: root.currentBoolValue("filter_wallpaper", false) ? Theme.fg3 : Theme.fg4
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                }
-
-                Components.ToggleSwitch {
-                    checked: root.currentBoolValue("filter_wallpaper", false)
-                    onToggled: root.setField("filter_wallpaper", !root.currentBoolValue("filter_wallpaper", false))
-                }
-            }
+        BoolFieldEditor {
+            label: "Filter wallpaper"
+            fieldKey: "filter_wallpaper"
+            inclusionFallback: root.themeState.filter_wallpaper === true
+            boolFallback: false
+            onLabel: "Filter wallpaper when applied"
+            offLabel: "Do not filter wallpaper when applied"
         }
 
         Components.Divider {}
@@ -718,22 +665,10 @@ Rectangle {
             Layout.fillWidth: true
             spacing: 8
 
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                Text {
-                    text: "System font"
-                    color: Theme.fg
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                    Layout.fillWidth: true
-                }
-
-                Components.ToggleSwitch {
-                    checked: root.hasField("system_font")
-                    onToggled: root.toggleFieldInclusion("system_font", root.themeState.system_font || "Overpass")
-                }
+            InclusionRow {
+                label: "System font"
+                fieldKey: "system_font"
+                fallback: root.themeState.system_font || "Overpass"
             }
 
             Components.InlineSelect {
@@ -755,75 +690,25 @@ Rectangle {
             }
         }
 
-        ColumnLayout {
-            Layout.fillWidth: true
-            spacing: 8
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                Text {
-                    text: "System font size"
-                    color: Theme.fg
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                    Layout.fillWidth: true
-                }
-
-                Components.ToggleSwitch {
-                    checked: root.hasField("font_size")
-                    onToggled: root.toggleFieldInclusion("font_size", root.themeState.font_size || 11)
-                }
-            }
-
-            Components.ValueStepper {
-                visible: root.hasField("font_size")
-                baseColor: Theme.bg
-                valueText: String(root.currentIntValue("font_size", 11))
-                valueWidth: 28
-                onDecrement: root.stepField("font_size", -1, 6, 24)
-                onIncrement: root.stepField("font_size", 1, 6, 24)
-            }
+        IntFieldEditor {
+            label: "System font size"
+            fieldKey: "font_size"
+            inclusionFallback: root.themeState.font_size || 11
+            displayFallback: 11
+            minimum: 6
+            maximum: 24
         }
 
         Repeater {
             model: root.fontSizeOffsetTargets
 
-            delegate: ColumnLayout {
+            delegate: IntFieldEditor {
                 required property var modelData
-                required property int index
-                property string fieldKey: modelData.key
 
-                Layout.fillWidth: true
-                spacing: 8
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 8
-
-                    Text {
-                        text: modelData.label + " offset"
-                        color: Theme.fg
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeSmall
-                        Layout.fillWidth: true
-                    }
-
-                    Components.ToggleSwitch {
-                        checked: root.hasField(fieldKey)
-                        onToggled: root.toggleFieldInclusion(fieldKey, root.themeState[fieldKey] === undefined ? 0 : root.themeState[fieldKey])
-                    }
-                }
-
-                Components.ValueStepper {
-                    visible: root.hasField(fieldKey)
-                    baseColor: Theme.bg
-                    valueText: String(root.currentIntValue(fieldKey, 0))
-                    valueWidth: 28
-                    onDecrement: root.stepField(fieldKey, -1)
-                    onIncrement: root.stepField(fieldKey, 1)
-                }
+                label: modelData.label + " offset"
+                fieldKey: modelData.key
+                inclusionFallback: root.themeState[modelData.key] === undefined ? 0 : root.themeState[modelData.key]
+                displayFallback: 0
             }
         }
 
@@ -831,22 +716,10 @@ Rectangle {
             Layout.fillWidth: true
             spacing: 8
 
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                Text {
-                    text: "Coding font"
-                    color: Theme.fg
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                    Layout.fillWidth: true
-                }
-
-                Components.ToggleSwitch {
-                    checked: root.hasField("mono_font")
-                    onToggled: root.toggleFieldInclusion("mono_font", root.themeState.mono_font || ShellOptions.monoFontValue("JetBrains Mono Nerd Font"))
-                }
+            InclusionRow {
+                label: "Coding font"
+                fieldKey: "mono_font"
+                fallback: root.themeState.mono_font || ShellOptions.monoFontValue("JetBrains Mono Nerd Font")
             }
 
             Components.InlineSelect {
@@ -870,75 +743,25 @@ Rectangle {
             }
         }
 
-        ColumnLayout {
-            Layout.fillWidth: true
-            spacing: 8
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                Text {
-                    text: "Coding font size"
-                    color: Theme.fg
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                    Layout.fillWidth: true
-                }
-
-                Components.ToggleSwitch {
-                    checked: root.hasField("mono_font_size")
-                    onToggled: root.toggleFieldInclusion("mono_font_size", root.themeState.mono_font_size || 11)
-                }
-            }
-
-            Components.ValueStepper {
-                visible: root.hasField("mono_font_size")
-                baseColor: Theme.bg
-                valueText: String(root.currentIntValue("mono_font_size", 11))
-                valueWidth: 28
-                onDecrement: root.stepField("mono_font_size", -1, 6, 24)
-                onIncrement: root.stepField("mono_font_size", 1, 6, 24)
-            }
+        IntFieldEditor {
+            label: "Coding font size"
+            fieldKey: "mono_font_size"
+            inclusionFallback: root.themeState.mono_font_size || 11
+            displayFallback: 11
+            minimum: 6
+            maximum: 24
         }
 
         Repeater {
             model: root.monoFontSizeOffsetTargets
 
-            delegate: ColumnLayout {
+            delegate: IntFieldEditor {
                 required property var modelData
-                required property int index
-                property string fieldKey: modelData.key
 
-                Layout.fillWidth: true
-                spacing: 8
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 8
-
-                    Text {
-                        text: modelData.label + " offset"
-                        color: Theme.fg
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeSmall
-                        Layout.fillWidth: true
-                    }
-
-                    Components.ToggleSwitch {
-                        checked: root.hasField(fieldKey)
-                        onToggled: root.toggleFieldInclusion(fieldKey, root.themeState[fieldKey] === undefined ? 0 : root.themeState[fieldKey])
-                    }
-                }
-
-                Components.ValueStepper {
-                    visible: root.hasField(fieldKey)
-                    baseColor: Theme.bg
-                    valueText: String(root.currentIntValue(fieldKey, 0))
-                    valueWidth: 28
-                    onDecrement: root.stepField(fieldKey, -1)
-                    onIncrement: root.stepField(fieldKey, 1)
-                }
+                label: modelData.label + " offset"
+                fieldKey: modelData.key
+                inclusionFallback: root.themeState[modelData.key] === undefined ? 0 : root.themeState[modelData.key]
+                displayFallback: 0
             }
         }
 
@@ -950,22 +773,10 @@ Rectangle {
             Layout.fillWidth: true
             spacing: 8
 
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                Text {
-                    text: "Icon theme"
-                    color: Theme.fg
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                    Layout.fillWidth: true
-                }
-
-                Components.ToggleSwitch {
-                    checked: root.hasField("icon_theme")
-                    onToggled: root.toggleFieldInclusion("icon_theme", root.themeState.icon_theme || "Neuwaita")
-                }
+            InclusionRow {
+                label: "Icon theme"
+                fieldKey: "icon_theme"
+                fallback: root.themeState.icon_theme || "Neuwaita"
             }
 
             Components.IconThemeCards {
@@ -981,22 +792,10 @@ Rectangle {
             Layout.fillWidth: true
             spacing: 8
 
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                Text {
-                    text: "Cursor theme"
-                    color: Theme.fg
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                    Layout.fillWidth: true
-                }
-
-                Components.ToggleSwitch {
-                    checked: root.hasField("cursor_theme")
-                    onToggled: root.toggleFieldInclusion("cursor_theme", root.themeState.cursor_theme || "Adwaita")
-                }
+            InclusionRow {
+                label: "Cursor theme"
+                fieldKey: "cursor_theme"
+                fallback: root.themeState.cursor_theme || "Adwaita"
             }
 
             Components.InlineSelect {
@@ -1012,36 +811,14 @@ Rectangle {
             }
         }
 
-        ColumnLayout {
-            Layout.fillWidth: true
-            spacing: 8
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                Text {
-                    text: "Cursor size"
-                    color: Theme.fg
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                    Layout.fillWidth: true
-                }
-
-                Components.ToggleSwitch {
-                    checked: root.hasField("cursor_size")
-                    onToggled: root.toggleFieldInclusion("cursor_size", root.themeState.cursor_size || 24)
-                }
-            }
-
-            Components.ValueStepper {
-                visible: root.hasField("cursor_size")
-                baseColor: Theme.bg
-                valueText: String(root.currentIntValue("cursor_size", 24))
-                valueWidth: 28
-                onDecrement: root.stepField("cursor_size", -4, 16, 48)
-                onIncrement: root.stepField("cursor_size", 4, 16, 48)
-            }
+        IntFieldEditor {
+            label: "Cursor size"
+            fieldKey: "cursor_size"
+            inclusionFallback: root.themeState.cursor_size || 24
+            displayFallback: 24
+            step: 4
+            minimum: 16
+            maximum: 48
         }
 
         Components.Divider {}
@@ -1051,155 +828,34 @@ Rectangle {
         Repeater {
             model: hyprOptionCatalog.intOptions
 
-            delegate: ColumnLayout {
+            delegate: IntFieldEditor {
                 required property var modelData
-                required property int index
 
-                Layout.fillWidth: true
-                spacing: 8
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 8
-
-                    Text {
-                        text: modelData.label
-                        color: Theme.fg
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeSmall
-                        Layout.fillWidth: true
-                    }
-
-                    Components.ToggleSwitch {
-                        checked: root.hasField(modelData.key)
-                        onToggled: root.toggleFieldInclusion(
-                            modelData.key,
-                            root.themeState[modelData.key] === undefined ? modelData.fallback : root.themeState[modelData.key]
-                        )
-                    }
-                }
-
-                Components.ValueStepper {
-                    visible: root.hasField(modelData.key)
-                    baseColor: Theme.bg
-                    valueText: String(root.currentIntValue(modelData.key, modelData.minimum))
-                    valueWidth: 28
-                    onDecrement: root.stepField(modelData.key, -(modelData.step || 1), modelData.minimum)
-                    onIncrement: root.stepField(modelData.key, modelData.step || 1, modelData.minimum)
-                }
+                label: modelData.label
+                fieldKey: modelData.key
+                inclusionFallback: root.themeState[modelData.key] === undefined ? modelData.fallback : root.themeState[modelData.key]
+                displayFallback: modelData.minimum
+                step: modelData.step || 1
+                minimum: modelData.minimum
             }
         }
 
-        ColumnLayout {
-            Layout.fillWidth: true
-            spacing: 8
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                Text {
-                    text: "Enable blur"
-                    color: Theme.fg
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                    Layout.fillWidth: true
-                }
-
-                Text {
-                    text: root.inclusionStateLabel("hypr_blur_enabled")
-                    color: Theme.fg4
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                }
-
-                Components.ToggleSwitch {
-                    checked: root.hasField("hypr_blur_enabled")
-                    onToggled: root.toggleFieldInclusion("hypr_blur_enabled", root.themeState.hypr_blur_enabled === true)
-                }
-            }
-
-            RowLayout {
-                visible: root.hasField("hypr_blur_enabled")
-                Layout.fillWidth: true
-                spacing: 8
-
-                Text {
-                    text: root.currentBoolValue("hypr_blur_enabled", false) ? "Enable blur when applied" : "Disable blur when applied"
-                    color: Theme.fg
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                    Layout.fillWidth: true
-                }
-
-                Text {
-                    text: root.currentBoolValue("hypr_blur_enabled", false) ? "On" : "Off"
-                    color: root.currentBoolValue("hypr_blur_enabled", false) ? Theme.fg3 : Theme.fg4
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                }
-
-                Components.ToggleSwitch {
-                    checked: root.currentBoolValue("hypr_blur_enabled", false)
-                    onToggled: root.setField("hypr_blur_enabled", !root.currentBoolValue("hypr_blur_enabled", false))
-                }
-            }
+        BoolFieldEditor {
+            label: "Enable blur"
+            fieldKey: "hypr_blur_enabled"
+            inclusionFallback: root.themeState.hypr_blur_enabled === true
+            boolFallback: false
+            onLabel: "Enable blur when applied"
+            offLabel: "Disable blur when applied"
         }
 
-        ColumnLayout {
-            Layout.fillWidth: true
-            spacing: 8
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                Text {
-                    text: "Enable animations"
-                    color: Theme.fg
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                    Layout.fillWidth: true
-                }
-
-                Text {
-                    text: root.inclusionStateLabel("hypr_animations_enabled")
-                    color: Theme.fg4
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                }
-
-                Components.ToggleSwitch {
-                    checked: root.hasField("hypr_animations_enabled")
-                    onToggled: root.toggleFieldInclusion("hypr_animations_enabled", root.themeState.hypr_animations_enabled !== false)
-                }
-            }
-
-            RowLayout {
-                visible: root.hasField("hypr_animations_enabled")
-                Layout.fillWidth: true
-                spacing: 8
-
-                Text {
-                    text: root.currentBoolValue("hypr_animations_enabled", true) ? "Enable animations when applied" : "Disable animations when applied"
-                    color: Theme.fg
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                    Layout.fillWidth: true
-                }
-
-                Text {
-                    text: root.currentBoolValue("hypr_animations_enabled", true) ? "On" : "Off"
-                    color: root.currentBoolValue("hypr_animations_enabled", true) ? Theme.fg3 : Theme.fg4
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                }
-
-                Components.ToggleSwitch {
-                    checked: root.currentBoolValue("hypr_animations_enabled", true)
-                    onToggled: root.setField("hypr_animations_enabled", !root.currentBoolValue("hypr_animations_enabled", true))
-                }
-            }
+        BoolFieldEditor {
+            label: "Enable animations"
+            fieldKey: "hypr_animations_enabled"
+            inclusionFallback: root.themeState.hypr_animations_enabled !== false
+            boolFallback: true
+            onLabel: "Enable animations when applied"
+            offLabel: "Disable animations when applied"
         }
 
         Components.Divider {}

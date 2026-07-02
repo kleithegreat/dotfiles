@@ -30,9 +30,9 @@ Item {
             color: Root.Theme.fg
 
             scale: knobMouse.pressed ? 1.1 : 1.0
-            Behavior on scale { NumberAnimation { duration: Root.Theme.animMicro; easing.type: Easing.OutCubic } }
+            Behavior on scale { Anim { duration: Root.Theme.animMicro } }
             Behavior on x {
-                NumberAnimation {
+                Anim {
                     duration: Root.Theme.animSpring
                     easing.type: Easing.BezierSpline
                     easing.bezierCurve: Root.Theme.animCurveEmphasizedEnter

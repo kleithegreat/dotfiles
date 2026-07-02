@@ -6,6 +6,9 @@ import QtQuick.Layouts
 
 PanelWindow {
     id: bar
+
+    component VDivider: Rectangle { width: 1; height: Theme.barHeight * 0.4; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
+
     property QtObject popupVisibility: null
     property bool doNotDisturb: false
     property int historyCount: 0
@@ -23,20 +26,20 @@ PanelWindow {
         anchors.leftMargin: Theme.barPadding; spacing: Theme.barSpacing
         Workspaces {}
         ExpoButton {}
-        Rectangle { visible: mpris.visible; width: 1; height: Theme.barHeight * 0.4; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
-        Mpris { id: mpris; onLabelClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleMpris(); } }
+        VDivider { visible: mpris.visible }
+        Mpris { id: mpris; onLabelClicked: bar.popupVisibility?.toggleMpris() }
     }
 
     Clock {
         anchors.centerIn: parent
-        onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleCalendar(); }
+        onClicked: bar.popupVisibility?.toggleCalendar()
     }
 
     RowLayout {
         anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
         anchors.rightMargin: Theme.barPadding; spacing: Theme.barSpacing
 
-        TrayExpand { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleTray(); } }
+        TrayExpand { onClicked: bar.popupVisibility?.toggleTray() }
 
         Rectangle {
             color: Theme.bg1
@@ -48,7 +51,7 @@ PanelWindow {
             MouseArea {
                 anchors.fill: parent
                 cursorShape: Qt.PointingHandCursor
-                onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleQuickSettings(); }
+                onClicked: bar.popupVisibility?.toggleQuickSettings()
             }
 
             RowLayout {
@@ -56,22 +59,22 @@ PanelWindow {
                 anchors.centerIn: parent
                 spacing: Theme.barSpacing
 
-                Network { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleQuickSettings(); } }
-                Bluetooth { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleQuickSettings(); } }
-                Volume { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleQuickSettings(); } }
-                Brightness { visible: bar.brightnessDevices.length > 0; onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleQuickSettings(); } }
-                Battery { onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleQuickSettings(); } }
+                Network { onClicked: bar.popupVisibility?.toggleQuickSettings() }
+                Bluetooth { onClicked: bar.popupVisibility?.toggleQuickSettings() }
+                Volume { onClicked: bar.popupVisibility?.toggleQuickSettings() }
+                Brightness { visible: bar.brightnessDevices.length > 0; onClicked: bar.popupVisibility?.toggleQuickSettings() }
+                Battery { onClicked: bar.popupVisibility?.toggleQuickSettings() }
             }
         }
 
-        Rectangle { width: 1; height: Theme.barHeight * 0.4; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
+        VDivider {}
         Bell {
             doNotDisturb: bar.doNotDisturb
             historyCount: bar.historyCount
-            onClicked: { if (bar.popupVisibility) bar.popupVisibility.toggleDrawer(); }
+            onClicked: bar.popupVisibility?.toggleDrawer()
         }
 
-        Rectangle { width: 1; height: Theme.barHeight * 0.4; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
-        Power { onClicked: { if (bar.popupVisibility) bar.popupVisibility.togglePowerMenu(); } }
+        VDivider {}
+        Power { onClicked: bar.popupVisibility?.togglePowerMenu() }
     }
 }

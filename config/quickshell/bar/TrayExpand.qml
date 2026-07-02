@@ -12,16 +12,8 @@ Item {
         color: chevArea.containsMouse ? Theme.yellowBright : Theme.fg4
         iconSize: Theme.fontSizeSmall
     }
-    MouseArea {
-        id: chevArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+    Components.BarTooltipArea {
+        id: chevArea; tip: "System tray"
         onClicked: trayExpand.clicked()
-        onContainsMouseChanged: {
-            if (containsMouse) {
-                let p = trayExpand.mapToGlobal(Qt.point(trayExpand.width / 2, trayExpand.height));
-                TooltipService.show("System tray", p.x, p.y);
-            } else {
-                TooltipService.hide();
-            }
-        }
     }
 }

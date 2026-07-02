@@ -67,6 +67,10 @@ PanelWindow {
             overlayHost.popupVisibility.closeAll();
     }
 
+    function popupZ(p) {
+        return p.active ? 2 : (p.overlayVisible ? 1 : 0);
+    }
+
     readonly property var primaryPopup: {
         let popup = firstActivePopup();
         return popup ? popup : firstVisiblePopup();
@@ -129,7 +133,7 @@ PanelWindow {
     Popups.CalendarPopup {
         id: calendarPopup
         anchors.fill: parent
-        z: active ? 2 : (overlayVisible ? 1 : 0)
+        z: overlayHost.popupZ(this)
         active: overlayHost.popupVisibility.calendarVisible
         onClose: overlayHost.popupVisibility.calendarVisible = false
     }
@@ -137,7 +141,7 @@ PanelWindow {
     Popups.TrayPopup {
         id: trayPopup
         anchors.fill: parent
-        z: active ? 2 : (overlayVisible ? 1 : 0)
+        z: overlayHost.popupZ(this)
         active: overlayHost.popupVisibility.trayVisible
         onClose: overlayHost.popupVisibility.trayVisible = false
     }
@@ -145,7 +149,7 @@ PanelWindow {
     Popups.MprisPopup {
         id: mprisPopup
         anchors.fill: parent
-        z: active ? 2 : (overlayVisible ? 1 : 0)
+        z: overlayHost.popupZ(this)
         active: overlayHost.popupVisibility.mprisVisible
         onClose: overlayHost.popupVisibility.mprisVisible = false
     }
@@ -153,7 +157,7 @@ PanelWindow {
     Popups.SettingsPopup {
         id: settingsPopup
         anchors.fill: parent
-        z: active ? 2 : (overlayVisible ? 1 : 0)
+        z: overlayHost.popupZ(this)
         active: overlayHost.popupVisibility.settingsVisible
         onClose: overlayHost.popupVisibility.settingsVisible = false
     }
@@ -161,7 +165,7 @@ PanelWindow {
     Popups.QuickSettingsPopup {
         id: quickSettingsPopup
         anchors.fill: parent
-        z: active ? 2 : (overlayVisible ? 1 : 0)
+        z: overlayHost.popupZ(this)
         active: overlayHost.popupVisibility.quickSettingsVisible
         onClose: overlayHost.popupVisibility.quickSettingsVisible = false
         onSettingsRequested: overlayHost.popupVisibility.toggleSettings()
@@ -175,7 +179,7 @@ PanelWindow {
     NotifDrawer {
         id: drawer
         anchors.fill: parent
-        z: active ? 2 : (overlayVisible ? 1 : 0)
+        z: overlayHost.popupZ(this)
         active: overlayHost.popupVisibility.drawerVisible
         onClose: overlayHost.popupVisibility.drawerVisible = false
     }
@@ -183,7 +187,7 @@ PanelWindow {
     PowerMenu {
         id: powerMenu
         anchors.fill: parent
-        z: active ? 2 : (overlayVisible ? 1 : 0)
+        z: overlayHost.popupZ(this)
         active: overlayHost.popupVisibility.powerMenuVisible
         onClose: overlayHost.popupVisibility.powerMenuVisible = false
     }

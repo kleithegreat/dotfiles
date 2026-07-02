@@ -8,7 +8,6 @@ Item {
     property string source
     property color color: Root.Theme.fg
     property real iconSize: Root.Theme.iconSize
-    property alias status: img.status
 
     function resolvedSource(path) {
         if (path === "")

@@ -55,7 +55,7 @@ QtObject {
 
     function detect() { helperProc.running = true; }
     function detectChargeLimit() {
-        if (chargeCfgProc.running || chargeSetProc.running) return;
+        if (chargeLimitBusy) return;
         chargeLimitError = "";
         pendingChargeLimit = "";
         chargeCfgProc.running = true;
@@ -105,8 +105,7 @@ QtObject {
             setProc.command = ["powerprofilesctl", "set", profile];
         } else {
             let m = profile === "performance" ? "performance" : (profile === "power-saver" ? "powersave" : "reset");
-            if (m === "reset") setProc.command = ["pkexec", "auto-cpufreq", "--force=reset"];
-            else setProc.command = ["pkexec", "auto-cpufreq", "--force=" + m];
+            setProc.command = ["pkexec", "auto-cpufreq", "--force=" + m];
         }
         setProc.running = true;
         refreshTimer.restart();

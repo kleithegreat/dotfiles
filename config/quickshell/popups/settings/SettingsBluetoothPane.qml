@@ -13,7 +13,7 @@ FocusScope {
         return "list";
     }
     readonly property bool listStateResolved: popupState === "list" && BluetoothService.powerStateKnown
-    property bool deviceListLoading: root.listStateResolved
+    readonly property bool deviceListLoading: root.listStateResolved
         && BluetoothService.powered
         && BluetoothService.pairedModel.count === 0
         && BluetoothService.discoveredModel.count === 0
@@ -32,6 +32,45 @@ FocusScope {
     Timer {
         id: errorTimer; interval: 2000
         onTriggered: BluetoothService.clearConnectError()
+    }
+
+    component DeviceRow: Rectangle {
+        id: deviceRow
+        required property string mac
+        required property string name
+        property color iconColor: Theme.fg
+
+        Layout.fillWidth: true; height: 30; radius: Theme.hoverRadius; color: "transparent"
+
+        Rectangle {
+            anchors.fill: parent; radius: parent.radius; color: Theme.bg2
+            opacity: deviceArea.pressed ? 0.9 : (deviceArea.containsMouse ? 0.6 : 0)
+            Behavior on opacity { Components.StdAnim { duration: Theme.animHover } }
+        }
+        scale: deviceArea.pressed ? 0.98 : 1.0
+        Behavior on scale { Components.StdAnim { duration: Theme.animMicro } }
+        transformOrigin: Item.Center
+
+        Components.Icon {
+            id: deviceIcon
+            anchors.left: parent.left; anchors.leftMargin: Theme.listItemPadding; anchors.verticalCenter: parent.verticalCenter
+            source: "../icons/bluetooth-on.svg"; color: deviceRow.iconColor
+        }
+        Text {
+            anchors.left: deviceIcon.right; anchors.leftMargin: 6
+            anchors.right: deviceConnect.left; anchors.rightMargin: 6; anchors.verticalCenter: parent.verticalCenter
+            text: deviceRow.name; color: Theme.fg
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; elide: Text.ElideRight
+        }
+        Text {
+            id: deviceConnect
+            anchors.right: parent.right; anchors.rightMargin: Theme.listItemPadding; anchors.verticalCenter: parent.verticalCenter
+            text: "Connect"; color: deviceArea.containsMouse ? Theme.blueBright : Theme.fg4
+            Behavior on color { Components.StdCAnim { duration: Theme.animHover } }
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+        }
+        Components.HoverLayer { id: deviceArea; flat: true
+            onClicked: BluetoothService.connectDevice(deviceRow.mac, deviceRow.name) }
     }
 
     Components.WheelFlickable {
@@ -65,7 +104,7 @@ FocusScope {
                         Text { id: scanLabel; anchors.centerIn: parent
                             text: BluetoothService.scanning ? "Scanning…" : "Scan"
                             color: scanA.containsMouse ? Theme.blueBright : Theme.fg4
-                            Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                            Behavior on color { Components.StdCAnim { duration: Theme.animHover } }
                             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
                     }
                 }
@@ -74,12 +113,12 @@ FocusScope {
             RowLayout {
                 Layout.fillWidth: true; spacing: 8
                 Text { text: "Power"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.fillWidth: true }
-            Components.ToggleSwitch {
-                checked: BluetoothService.powered
-                disabled: BluetoothService.powerBusy
-                pending: BluetoothService.powerBusy
-                onToggled: BluetoothService.togglePower()
-            }
+                Components.ToggleSwitch {
+                    checked: BluetoothService.powered
+                    disabled: BluetoothService.powerBusy
+                    pending: BluetoothService.powerBusy
+                    onToggled: BluetoothService.togglePower()
+                }
             }
 
             Components.Divider {}
@@ -127,7 +166,7 @@ FocusScope {
                         onClicked: BluetoothService.disconnectDevice()
                         Text { id: connDcLabel; anchors.centerIn: parent; text: BluetoothService.disconnectBusy ? "Disconnecting…" : "Disconnect"
                             color: connDcA.containsMouse ? Theme.redBright : Theme.fg4
-                            Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                            Behavior on color { Components.StdCAnim { duration: Theme.animHover } }
                             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
                     }
                 }
@@ -159,40 +198,7 @@ FocusScope {
 
                 Repeater {
                     model: BluetoothService.pairedModel
-                    Rectangle {
-                        id: pItem; required property string mac; required property string name; required property int index
-                        Layout.fillWidth: true; height: 30; radius: Theme.hoverRadius; color: "transparent"
-
-                        Rectangle {
-                            anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                            opacity: pArea.pressed ? 0.9 : (pArea.containsMouse ? 0.6 : 0)
-                            Behavior on opacity { Components.Anim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        }
-                        scale: pArea.pressed ? 0.98 : 1.0
-                        Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        transformOrigin: Item.Center
-
-                        Components.Icon {
-                            id: pIcon
-                            anchors.left: parent.left; anchors.leftMargin: Theme.listItemPadding; anchors.verticalCenter: parent.verticalCenter
-                            source: "../icons/bluetooth-on.svg"; color: Theme.fg
-                        }
-                        Text {
-                            anchors.left: pIcon.right; anchors.leftMargin: 6
-                            anchors.right: pConnect.left; anchors.rightMargin: 6; anchors.verticalCenter: parent.verticalCenter
-                            text: pItem.name; color: Theme.fg
-                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; elide: Text.ElideRight
-                        }
-                        Text {
-                            id: pConnect
-                            anchors.right: parent.right; anchors.rightMargin: Theme.listItemPadding; anchors.verticalCenter: parent.verticalCenter
-                            text: "Connect"; color: pArea.containsMouse ? Theme.blueBright : Theme.fg4
-                            Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                        }
-                        Components.HoverLayer { id: pArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
-                            onClicked: BluetoothService.connectDevice(pItem.mac, pItem.name) }
-                    }
+                    DeviceRow {}
                 }
 
                 // DISCOVERED header
@@ -205,40 +211,7 @@ FocusScope {
 
                 Repeater {
                     model: BluetoothService.discoveredModel
-                    Rectangle {
-                        id: dItem; required property string mac; required property string name; required property int index
-                        Layout.fillWidth: true; height: 30; radius: Theme.hoverRadius; color: "transparent"
-
-                        Rectangle {
-                            anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                            opacity: dArea.pressed ? 0.9 : (dArea.containsMouse ? 0.6 : 0)
-                            Behavior on opacity { Components.Anim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        }
-                        scale: dArea.pressed ? 0.98 : 1.0
-                        Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                        transformOrigin: Item.Center
-
-                        Components.Icon {
-                            id: dIcon
-                            anchors.left: parent.left; anchors.leftMargin: Theme.listItemPadding; anchors.verticalCenter: parent.verticalCenter
-                            source: "../icons/bluetooth-on.svg"; color: Theme.fg4
-                        }
-                        Text {
-                            anchors.left: dIcon.right; anchors.leftMargin: 6
-                            anchors.right: dConnect.left; anchors.rightMargin: 6; anchors.verticalCenter: parent.verticalCenter
-                            text: dItem.name; color: Theme.fg
-                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; elide: Text.ElideRight
-                        }
-                        Text {
-                            id: dConnect
-                            anchors.right: parent.right; anchors.rightMargin: Theme.listItemPadding; anchors.verticalCenter: parent.verticalCenter
-                            text: "Connect"; color: dArea.containsMouse ? Theme.blueBright : Theme.fg4
-                            Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                        }
-                        Components.HoverLayer { id: dArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
-                            onClicked: BluetoothService.connectDevice(dItem.mac, dItem.name) }
-                    }
+                    DeviceRow { iconColor: Theme.fg4 }
                 }
             }
 
@@ -253,8 +226,8 @@ FocusScope {
                     Components.Icon { source: "../icons/bluetooth-on.svg"; color: Theme.fg4
                         SequentialAnimation on opacity {
                             loops: Animation.Infinite
-                            NumberAnimation { from: 1; to: 0.3; duration: 800; easing.type: Easing.InOutQuad }
-                            NumberAnimation { from: 0.3; to: 1; duration: 800; easing.type: Easing.InOutQuad }
+                            Components.Anim { from: 1; to: 0.3; duration: 800; easing.type: Easing.InOutQuad }
+                            Components.Anim { from: 0.3; to: 1; duration: 800; easing.type: Easing.InOutQuad }
                         }
                     }
                     Text { text: "Scanning…"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
@@ -275,8 +248,8 @@ FocusScope {
                         height: parent.height; radius: parent.radius; color: Theme.blueBright
                         SequentialAnimation on width {
                             loops: Animation.Infinite
-                            NumberAnimation { from: 0; to: 120; duration: 1200; easing.type: Easing.InOutQuad }
-                            NumberAnimation { from: 120; to: 0; duration: 1200; easing.type: Easing.InOutQuad }
+                            Components.Anim { from: 0; to: 120; duration: 1200; easing.type: Easing.InOutQuad }
+                            Components.Anim { from: 120; to: 0; duration: 1200; easing.type: Easing.InOutQuad }
                         }
                     }
                 }

@@ -71,7 +71,6 @@ QtObject {
 
     // ── Fonts ──
     readonly property string fontFamily:    _fonts.systemFamily || "Overpass"
-    readonly property string systemFamily:  _fonts.systemFamily || "Overpass"
     readonly property string monoFamily:    _fonts.family       || "JetBrainsMono Nerd Font"
     readonly property int fontSize:         _fonts.size         || 12
     readonly property int fontSizeSmall:    _fonts.sizeSmall    || 10
@@ -100,12 +99,10 @@ QtObject {
     readonly property int powerBtnSpacing: 24
     readonly property int powerIconSize: 28
 
-    readonly property int popupWidth: 320
     readonly property int popupRadius: 10
     readonly property int popupPadding: 14
     readonly property int popupTopMargin: barHeight + barMargin + gapOut
 
-    readonly property int audioPopupWidth: 340
     readonly property int sliderHeight: 6
     // Shared SliderTrack knob + drag-spring geometry.
     readonly property int sliderKnobSize: 12
@@ -152,7 +149,6 @@ QtObject {
 
     // Notification slide
     readonly property int animNotifIn:     Math.round(280 * animScale)
-    readonly property int animNotifOut:    Math.round(180 * animScale)
 
     // Stagger delay per item in lists/grids
     readonly property int animStagger:     Math.round(30  * animScale)
@@ -173,6 +169,7 @@ QtObject {
 
     // ── Shared interactive element geometry ──
     readonly property int hoverRadius: 8        // unified hover highlight corner radius
+    readonly property real pendingOpacity: 0.72 // controls staging an optimistic write
     readonly property int listItemHeight: 40    // standard interactive row height
     readonly property int listItemPadding: 10   // standard row left/right inset
     readonly property int sectionSpacing: 12    // space between logical sections in a popup

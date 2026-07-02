@@ -21,10 +21,6 @@ ColumnLayout {
 
     readonly property bool isCustom: Root.HyprlandConfigService.isUserCurve(currentCurveName)
 
-    signal curveChanged(real x1, real y1, real x2, real y2)
-    signal curveSaved(string name)
-    signal curveDeleted(string name)
-
     spacing: 10
 
     function selectCurve(name) {
@@ -51,13 +47,10 @@ ColumnLayout {
         currentCurveName = name;
         basePoints = pts.slice();
         showSaveInput = false;
-        curveSaved(name);
     }
 
     function doDelete() {
-        let name = currentCurveName;
-        Root.HyprlandConfigService.deleteUserCurve(name);
-        curveDeleted(name);
+        Root.HyprlandConfigService.deleteUserCurve(currentCurveName);
         let allNames = Root.HyprlandConfigService.getAllCurveNames();
         selectCurve(allNames.length > 0 ? allNames[0] : "ease");
     }
@@ -83,7 +76,6 @@ ColumnLayout {
         onPointsChanged: (nx1, ny1, nx2, ny2) => {
             preview.x1 = nx1; preview.y1 = ny1;
             preview.x2 = nx2; preview.y2 = ny2;
-            root.curveChanged(nx1, ny1, nx2, ny2);
         }
     }
 
@@ -91,7 +83,6 @@ ColumnLayout {
     AnimPreviewDot {
         id: preview
         Layout.fillWidth: true
-        Layout.preferredHeight: 32
     }
 
     // Values display
@@ -148,46 +139,23 @@ ColumnLayout {
             }
         }
 
-        Rectangle {
-            width: 56; height: Root.Theme.btnHeight
-            radius: Root.Theme.btnRadius
-            color: saveConfirmArea.containsMouse ? Root.Theme.accent : Root.Theme.bg2
-            border.width: 1; border.color: Root.Theme.bg3
-            Behavior on color { CAnim { duration: Root.Theme.animHover } }
-
-            Text {
-                anchors.centerIn: parent; text: "Save"
-                color: saveConfirmArea.containsMouse ? Root.Theme.bg : Root.Theme.fg
-                font.family: Root.Theme.fontFamily; font.pixelSize: Root.Theme.fontSizeSmall
-            }
-
-            HoverLayer {
-                id: saveConfirmArea
-                hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
-                onClicked: {
-                    let name = saveNameInput.text.trim();
-                    if (name !== "") root.doSave(name);
-                }
+        ActionButton {
+            fixedWidth: 56
+            text: "Save"
+            baseColor: Root.Theme.bg2
+            hoverColor: Root.Theme.accent
+            hoverTextColor: Root.Theme.bg
+            onClicked: {
+                let name = saveNameInput.text.trim();
+                if (name !== "") root.doSave(name);
             }
         }
 
-        Rectangle {
-            width: Root.Theme.btnHeight; height: Root.Theme.btnHeight
-            radius: Root.Theme.btnRadius
-            color: saveCancelArea.containsMouse ? Root.Theme.bg2 : Root.Theme.bg1
-            border.width: 1; border.color: Root.Theme.bg3
-            Behavior on color { CAnim { duration: Root.Theme.animHover } }
-
-            Text {
-                anchors.centerIn: parent; text: "\u00d7"
-                color: Root.Theme.fg; font.pixelSize: Root.Theme.fontSize
-            }
-
-            HoverLayer {
-                id: saveCancelArea
-                hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
-                onClicked: root.showSaveInput = false
-            }
+        ActionButton {
+            fixedWidth: Root.Theme.btnHeight
+            text: "\u00d7"
+            fontPixelSize: Root.Theme.fontSize
+            onClicked: root.showSaveInput = false
         }
     }
 
@@ -198,61 +166,47 @@ ColumnLayout {
         spacing: 4
 
         // Revert
-        Rectangle {
+        ActionButton {
             visible: root.isModified
-            Layout.preferredWidth: revertText.implicitWidth + Root.Theme.btnPaddingH * 2
-            height: Root.Theme.btnHeight; radius: Root.Theme.btnRadius
-            color: revertArea.containsMouse ? Root.Theme.bg2 : Root.Theme.bg1
-            border.width: 1; border.color: Root.Theme.bg3
-            Behavior on color { CAnim { duration: Root.Theme.animHover } }
-            Text { id: revertText; anchors.centerIn: parent; text: "Revert"; color: Root.Theme.fg; font.family: Root.Theme.fontFamily; font.pixelSize: Root.Theme.fontSizeSmall }
-            HoverLayer { id: revertArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0; onClicked: root.revert() }
+            text: "Revert"
+            onClicked: root.revert()
         }
 
         // Save (update existing custom curve)
-        Rectangle {
+        ActionButton {
             visible: root.isModified && root.isCustom
-            Layout.preferredWidth: saveText.implicitWidth + Root.Theme.btnPaddingH * 2
-            height: Root.Theme.btnHeight; radius: Root.Theme.btnRadius
-            color: saveArea.containsMouse ? Root.Theme.accent : Root.Theme.bg2
-            border.width: 1; border.color: Root.Theme.bg3
-            Behavior on color { CAnim { duration: Root.Theme.animHover } }
-            Text { id: saveText; anchors.centerIn: parent; text: "Save"; color: saveArea.containsMouse ? Root.Theme.bg : Root.Theme.fg; font.family: Root.Theme.fontFamily; font.pixelSize: Root.Theme.fontSizeSmall }
-            HoverLayer { id: saveArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0; onClicked: root.doSave(root.currentCurveName) }
+            text: "Save"
+            baseColor: Root.Theme.bg2
+            hoverColor: Root.Theme.accent
+            hoverTextColor: Root.Theme.bg
+            onClicked: root.doSave(root.currentCurveName)
         }
 
         // Save As
-        Rectangle {
+        ActionButton {
             visible: root.isModified
-            Layout.preferredWidth: saveAsText.implicitWidth + Root.Theme.btnPaddingH * 2
-            height: Root.Theme.btnHeight; radius: Root.Theme.btnRadius
-            color: saveAsArea.containsMouse ? Root.Theme.accent : Root.Theme.bg2
-            border.width: 1; border.color: Root.Theme.bg3
-            Behavior on color { CAnim { duration: Root.Theme.animHover } }
-            Text { id: saveAsText; anchors.centerIn: parent; text: "Save as\u2026"; color: saveAsArea.containsMouse ? Root.Theme.bg : Root.Theme.fg; font.family: Root.Theme.fontFamily; font.pixelSize: Root.Theme.fontSizeSmall }
-            HoverLayer {
-                id: saveAsArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
-                onClicked: {
-                    root.showSaveInput = true;
-                    saveNameInput.text = Root.HyprlandConfigService.nextCustomName();
-                    saveNameInput.forceActiveFocus();
-                    saveNameInput.selectAll();
-                }
+            text: "Save as\u2026"
+            baseColor: Root.Theme.bg2
+            hoverColor: Root.Theme.accent
+            hoverTextColor: Root.Theme.bg
+            onClicked: {
+                root.showSaveInput = true;
+                saveNameInput.text = Root.HyprlandConfigService.nextCustomName();
+                saveNameInput.forceActiveFocus();
+                saveNameInput.selectAll();
             }
         }
 
         Item { Layout.fillWidth: true }
 
         // Delete
-        Rectangle {
+        ActionButton {
             visible: root.isCustom && !root.isModified
-            Layout.preferredWidth: deleteText.implicitWidth + Root.Theme.btnPaddingH * 2
-            height: Root.Theme.btnHeight; radius: Root.Theme.btnRadius
-            color: deleteArea.containsMouse ? Root.Theme.red : Root.Theme.bg1
-            border.width: 1; border.color: Root.Theme.bg3
-            Behavior on color { CAnim { duration: Root.Theme.animHover } }
-            Text { id: deleteText; anchors.centerIn: parent; text: "Delete"; color: deleteArea.containsMouse ? Root.Theme.fg : Root.Theme.red; font.family: Root.Theme.fontFamily; font.pixelSize: Root.Theme.fontSizeSmall }
-            HoverLayer { id: deleteArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0; onClicked: root.doDelete() }
+            text: "Delete"
+            hoverColor: Root.Theme.red
+            textColor: Root.Theme.red
+            hoverTextColor: Root.Theme.fg
+            onClicked: root.doDelete()
         }
     }
 

@@ -10,6 +10,8 @@ ColumnLayout {
     required property string currentBand
     required property bool scanning
 
+    readonly property int maxListHeight: 300
+
     spacing: 8
 
     Text {
@@ -65,8 +67,7 @@ ColumnLayout {
 
     Components.WheelFlickable {
         visible: !root.scanning
-        Layout.fillWidth: true; Layout.preferredHeight: Math.min(channelCol.implicitHeight, 300)
-        Layout.maximumHeight: 300
+        Layout.fillWidth: true; Layout.preferredHeight: Math.min(channelCol.implicitHeight, root.maxListHeight)
         contentHeight: channelCol.implicitHeight; clip: true
 
         ColumnLayout {

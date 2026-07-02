@@ -41,7 +41,6 @@ Components.WheelFlickable {
                 Rectangle {
                     id: ppBtn
                     required property var modelData
-                    required property int index
                     property bool isCur: PowerProfileService.currentProfile === modelData.name
                     property bool isPending: PowerProfileService.pendingProfile === modelData.name && !isCur
 
@@ -51,10 +50,10 @@ Components.WheelFlickable {
                     color: isCur ? Theme.blueBright : (ppArea.containsMouse ? Theme.bg2 : Theme.bg1)
                     border.width: 1
                     border.color: isCur ? Theme.blueBright : Theme.bg3
-                    Behavior on color { Components.CAnim { duration: Theme.animSpring; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                    Behavior on border.color { Components.CAnim { duration: Theme.animSpring; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                    Behavior on color { Components.StdCAnim { duration: Theme.animSpring } }
+                    Behavior on border.color { Components.StdCAnim { duration: Theme.animSpring } }
                     scale: ppArea.pressed ? 0.95 : 1.0
-                    Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                    Behavior on scale { Components.StdAnim { duration: Theme.animMicro } }
                     transformOrigin: Item.Center
 
                     Rectangle {
@@ -77,7 +76,7 @@ Components.WheelFlickable {
                             source: ppBtn.modelData.icon
                             color: ppBtn.isCur ? Theme.bg : (ppBtn.isPending ? Theme.blueBright : Theme.fg3)
                             Layout.alignment: Qt.AlignHCenter
-                            Behavior on color { Components.CAnim { duration: Theme.animSpring; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                            Behavior on color { Components.StdCAnim { duration: Theme.animSpring } }
                         }
 
                         Text {
@@ -87,13 +86,13 @@ Components.WheelFlickable {
                             font.pixelSize: Theme.fontSizeMini
                             font.bold: ppBtn.isCur
                             Layout.alignment: Qt.AlignHCenter
-                            Behavior on color { Components.CAnim { duration: Theme.animSpring; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                            Behavior on color { Components.StdCAnim { duration: Theme.animSpring } }
                         }
                     }
 
                     Components.HoverLayer {
                         id: ppArea
-                        hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
+                        flat: true
                         onClicked: PowerProfileService.setProfile(ppBtn.modelData.name)
                     }
                 }

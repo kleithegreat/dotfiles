@@ -9,14 +9,14 @@ RowLayout {
     signal clicked()
 
     // UPowerDevice.percentage is always 0..1
-    property real pct: UPower.displayDevice.percentage * 100
-    property string tooltipText: "Battery: " + Math.round(pct) + "%" + (charging ? " (Charging)" : "")
+    readonly property real pct: UPower.displayDevice.percentage * 100
+    readonly property string tooltipText: "Battery: " + Math.round(pct) + "%" + (charging ? " (Charging)" : "")
 
     // Debounced charging state
     // UPower can transiently report Discharging during AC state transitions.
     // We delay "unplug" events by 2s but reflect "plug in" instantly.
-    property bool _rawCharging: UPower.displayDevice.state === UPowerDeviceState.Charging
-                                || UPower.displayDevice.state === UPowerDeviceState.FullyCharged
+    readonly property bool _rawCharging: UPower.displayDevice.state === UPowerDeviceState.Charging
+                                         || UPower.displayDevice.state === UPowerDeviceState.FullyCharged
     property bool charging: _rawCharging
 
     on_RawChargingChanged: {
@@ -62,17 +62,8 @@ RowLayout {
         color: batIcon.color
     }
 
-    MouseArea {
-        id: batArea; anchors.fill: parent
-        cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+    Components.BarTooltipArea {
+        id: batArea; tip: batRoot.tooltipText
         onClicked: batRoot.clicked()
-        onContainsMouseChanged: {
-            if (containsMouse) {
-                let p = batRoot.mapToGlobal(Qt.point(batRoot.width / 2, batRoot.height));
-                TooltipService.show(batRoot.tooltipText, p.x, p.y);
-            } else {
-                TooltipService.hide();
-            }
-        }
     }
 }

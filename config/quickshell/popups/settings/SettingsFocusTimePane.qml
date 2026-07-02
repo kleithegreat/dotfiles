@@ -13,16 +13,16 @@ Components.WheelFlickable {
     // Data
     property var stateData: ({})
     property string loadState: "loading"
-    property bool hasData: loadState === "ready"
+    readonly property bool hasData: loadState === "ready"
     property bool firstLoadDone: false
-    property int totalSeconds: hasData ? (stateData.total || 0) : 0
-    property int yesterdaySeconds: hasData ? (stateData.yesterday || 0) : 0
-    property int averageSeconds: hasData ? (stateData.average || 0) : 0
-    property string currentApp: hasData ? (stateData.current || "") : ""
-    property var apps: hasData ? (stateData.apps || []) : []
-    property var weekData: hasData ? (stateData.week || []) : []
-    property var monthData: hasData ? (stateData.month || []) : []
-    property string weekRange: hasData ? (stateData.week_range || "") : ""
+    readonly property int totalSeconds: hasData ? (stateData.total || 0) : 0
+    readonly property int yesterdaySeconds: hasData ? (stateData.yesterday || 0) : 0
+    readonly property int averageSeconds: hasData ? (stateData.average || 0) : 0
+    readonly property string currentApp: hasData ? (stateData.current || "") : ""
+    readonly property var apps: hasData ? (stateData.apps || []) : []
+    readonly property var weekData: hasData ? (stateData.week || []) : []
+    readonly property var monthData: hasData ? (stateData.month || []) : []
+    readonly property string weekRange: hasData ? (stateData.week_range || "") : ""
     property bool chartVisualsReady: false
     readonly property int staleAfterSeconds: 5
     readonly property real weekChartHeight: Math.max(Theme.fontSize * 8, 96)
@@ -38,14 +38,14 @@ Components.WheelFlickable {
         return "Unable to read focus time data";
     }
 
-    property int weekMax: {
+    readonly property int weekMax: {
         let max = 1;
         for (let i = 0; i < weekData.length; i++)
             if (weekData[i] && weekData[i].total > max) max = weekData[i].total;
         return max;
     }
 
-    property int monthMax: {
+    readonly property int monthMax: {
         let max = 1;
         for (let i = 0; i < monthData.length; i++)
             if (monthData[i] && monthData[i].total > max) max = monthData[i].total;
@@ -278,11 +278,7 @@ Components.WheelFlickable {
 
                         Behavior on height {
                             enabled: root.chartVisualsReady
-                            Components.Anim {
-                                duration: Theme.animNormal
-                                easing.type: Easing.BezierSpline
-                                easing.bezierCurve: Theme.animCurveStandard
-                            }
+                            Components.StdAnim { duration: Theme.animNormal }
                         }
                     }
 
@@ -377,7 +373,6 @@ Components.WheelFlickable {
                 required property int index
                 property var appData: root.apps[index] || {}
 
-                visible: root.hasData
                 Layout.fillWidth: true
                 spacing: 4
 
@@ -413,11 +408,7 @@ Components.WheelFlickable {
 
                         Behavior on width {
                             enabled: root.chartVisualsReady
-                            Components.Anim {
-                                duration: Theme.animNormal
-                                easing.type: Easing.BezierSpline
-                                easing.bezierCurve: Theme.animCurveStandard
-                            }
+                            Components.StdAnim { duration: Theme.animNormal }
                         }
                     }
                 }

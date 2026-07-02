@@ -7,6 +7,8 @@ MouseArea {
     // Fill-parent interactive wrapper. Place visual children inside this item
     // so the hover layer stays behind them.
     property bool disabled: false
+    // Invisible hit-area mode: no hover/press visuals and no press scale.
+    property bool flat: false
     property color color: Root.Theme.bg2
     property real radius: {
         if (!root.parent)
@@ -16,9 +18,9 @@ MouseArea {
         return parentRadius === undefined ? Root.Theme.hoverRadius : parentRadius;
     }
     property real idleOpacity: 0.0
-    property real hoverOpacity: 0.6
-    property real pressedOpacity: 0.9
-    property real pressedScale: 0.98
+    property real hoverOpacity: flat ? 0.0 : 0.6
+    property real pressedOpacity: flat ? 0.0 : 0.9
+    property real pressedScale: flat ? 1.0 : 0.98
 
     anchors.fill: parent
     enabled: !root.disabled

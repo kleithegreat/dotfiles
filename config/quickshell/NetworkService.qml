@@ -1,7 +1,6 @@
 pragma Singleton
 import QtQuick
 import Quickshell.Io
-import "." as Root
 
 QtObject {
     id: root
@@ -9,13 +8,8 @@ QtObject {
     // Connection state
     readonly property bool wifiEnabled: _wifiRadioPending ? _wifiPendingValue : _wifiEnabled
     readonly property bool wifiRadioReady: _wifiRadioReady
-    readonly property bool wifiRadioPending: _wifiRadioPending
     readonly property bool wifiRadioBusy: wifiRadioCheckProc.running || wifiRadioToggleProc.running || _wifiRadioPending
     readonly property string connectedSsid: _connectedSsid
-    readonly property string connectedConnectionId: _connectedConnectionId
-    readonly property string connectedConnectionUuid: _connectedConnectionUuid
-    readonly property string connectivityState: _connectivityState
-    readonly property string activeInterface: _activeInterface
     readonly property string primaryConnectionType: _primaryConnectionType
     readonly property string primaryConnectionLabel: _primaryConnectionLabel
     readonly property string ethernetLinkSpeed: _ethernetLinkSpeed
@@ -26,13 +20,12 @@ QtObject {
     readonly property bool disconnectPending: _disconnectPending
     readonly property bool forgetPending: _forgetPending
     readonly property bool dnsSwitchPending: _dnsPendingProfile !== ""
-    readonly property string dnsSelection: _dnsPendingProfile !== ""
+    readonly property string dnsSelection: dnsSwitchPending
         ? _dnsPendingProfile
         : ((_diagDnsServer === _diagGateway || _diagDnsServer === "--") ? "auto" : _diagDnsServer)
 
     // Network models
     readonly property var networksModel: netModel
-    readonly property var knownNetworksModel: knownModel
 
     // Target network state
     readonly property string targetSsid: _targetSsid
@@ -182,7 +175,6 @@ QtObject {
     property var _disconnectRollbackState: ({})
     property var _forgetRollbackState: ({})
     property var _dnsRollbackState: ({})
-    property bool _wifiTargetEnabled: false
 
     // Models
     property ListModel netModel: ListModel {}
@@ -352,7 +344,6 @@ QtObject {
             return;
         if (_wifiRadioReady && _wifiEnabled === enabled)
             return;
-        _wifiTargetEnabled = enabled;
         _wifiRadioPending = true;
         _wifiPendingValue = enabled;
         _wifiRadioReady = true;
@@ -417,7 +408,7 @@ QtObject {
     function submitEnterprise(identity, password) {
         enterpriseProc.command = [
             "bash", "-c",
-            'iface=$(nmcli -t -f DEVICE,TYPE dev | grep ":wifi$" | head -1 | cut -d: -f1); ' +
+            _wifiIfaceScript +
             'if [ -n "$4" ]; then nmcli connection delete uuid "$4" 2>/dev/null; ' +
             'elif [ -n "$5" ]; then nmcli connection delete id "$5" 2>/dev/null; fi; ' +
             'nmcli connection add type wifi ifname "$iface" con-name "$1" ssid "$1" ' +
@@ -528,7 +519,7 @@ QtObject {
     function switchDns(server) {
         if (_connectedConnectionUuid === "") return;
         _dnsRollbackState = { diagDnsServer: _diagDnsServer, pendingProfile: _dnsPendingProfile };
-        _dnsPendingProfile = server === "auto" ? "auto" : server;
+        _dnsPendingProfile = server;
         _diagDnsServer = server === "auto" ? (_diagGateway || "--") : server;
         if (server === "auto") {
             dnsSwitchProc.command = ["nmcli", "con", "mod", "uuid", _connectedConnectionUuid, "ipv4.dns", "", "ipv4.ignore-auto-dns", "no"];
@@ -549,6 +540,9 @@ QtObject {
             if (isLower) return v <= goodThresh ? "\uD83D\uDFE2" : (v <= warnThresh ? "\uD83D\uDFE1" : "\uD83D\uDD34");
             return v >= goodThresh ? "\uD83D\uDFE2" : (v >= warnThresh ? "\uD83D\uDFE1" : "\uD83D\uDD34");
         };
+        let fmt = function(val, unit) {
+            return val !== "" && val !== "--" ? val + unit : "--";
+        };
 
         let report = "NETWORK DIAGNOSTIC REPORT\n";
         report += "Generated: " + Qt.formatDateTime(new Date(), "yyyy-MM-dd hh:mm:ss") + "\n\n";
@@ -567,9 +561,9 @@ QtObject {
             report += "  Channel: " + (_currentChannel || "--") + "\n\n";
 
             report += "SIGNAL\n";
-            report += "  " + colorLabel(_diagSignal, -50, -70, false) + " Signal: " + (_diagSignal !== "" && _diagSignal !== "--" ? _diagSignal + " dBm" : "--") + "\n";
-            report += "  Noise: " + (_diagNoise !== "" && _diagNoise !== "--" ? _diagNoise + " dBm" : "--") + "\n";
-            report += "  Link Rate: " + (_diagLinkRate !== "" && _diagLinkRate !== "--" ? _diagLinkRate + " Mbps" : "--") + "\n\n";
+            report += "  " + colorLabel(_diagSignal, -50, -70, false) + " Signal: " + fmt(_diagSignal, " dBm") + "\n";
+            report += "  Noise: " + fmt(_diagNoise, " dBm") + "\n";
+            report += "  Link Rate: " + fmt(_diagLinkRate, " Mbps") + "\n\n";
         } else if (_primaryConnectionType === "ethernet") {
             report += "  Link Speed: " + (_ethernetLinkSpeed !== "" ? _ethernetLinkSpeed + " Mbps" : "--") + "\n";
             report += "  Duplex: " + (_ethernetDuplex || "--") + "\n";
@@ -579,17 +573,17 @@ QtObject {
         }
 
         report += "ROUTER \u00B7 " + (_diagGateway || "--") + "\n";
-        report += "  " + colorLabel(_diagGwPing, 10, 50, true) + " Ping: " + (_diagGwPing !== "" && _diagGwPing !== "--" ? _diagGwPing + " ms" : "--") + "\n";
-        report += "  " + colorLabel(_diagGwJitter, 5, 20, true) + " Jitter: " + (_diagGwJitter !== "" && _diagGwJitter !== "--" ? _diagGwJitter + " ms" : "--") + "\n";
-        report += "  " + colorLabel(_diagGwLoss, 0, 2, true) + " Loss: " + (_diagGwLoss !== "" && _diagGwLoss !== "--" ? _diagGwLoss + "%" : "--") + "\n\n";
+        report += "  " + colorLabel(_diagGwPing, 10, 50, true) + " Ping: " + fmt(_diagGwPing, " ms") + "\n";
+        report += "  " + colorLabel(_diagGwJitter, 5, 20, true) + " Jitter: " + fmt(_diagGwJitter, " ms") + "\n";
+        report += "  " + colorLabel(_diagGwLoss, 0, 2, true) + " Loss: " + fmt(_diagGwLoss, "%") + "\n\n";
 
         report += "INTERNET \u00B7 1.1.1.1\n";
-        report += "  " + colorLabel(_diagNetPing, 20, 50, true) + " Ping: " + (_diagNetPing !== "" && _diagNetPing !== "--" ? _diagNetPing + " ms" : "--") + "\n";
-        report += "  " + colorLabel(_diagNetJitter, 10, 30, true) + " Jitter: " + (_diagNetJitter !== "" && _diagNetJitter !== "--" ? _diagNetJitter + " ms" : "--") + "\n";
-        report += "  " + colorLabel(_diagNetLoss, 0, 2, true) + " Loss: " + (_diagNetLoss !== "" && _diagNetLoss !== "--" ? _diagNetLoss + "%" : "--") + "\n\n";
+        report += "  " + colorLabel(_diagNetPing, 20, 50, true) + " Ping: " + fmt(_diagNetPing, " ms") + "\n";
+        report += "  " + colorLabel(_diagNetJitter, 10, 30, true) + " Jitter: " + fmt(_diagNetJitter, " ms") + "\n";
+        report += "  " + colorLabel(_diagNetLoss, 0, 2, true) + " Loss: " + fmt(_diagNetLoss, "%") + "\n\n";
 
         report += "DNS \u00B7 " + (_diagDnsServer || "--") + "\n";
-        report += "  " + colorLabel(_diagDnsTime, 30, 100, true) + " Lookup: " + (_diagDnsTime !== "" && _diagDnsTime !== "--" ? _diagDnsTime + " ms" : "--") + "\n\n";
+        report += "  " + colorLabel(_diagDnsTime, 30, 100, true) + " Lookup: " + fmt(_diagDnsTime, " ms") + "\n\n";
 
         if (_diagDownload !== "") {
             report += "SPEED TEST\n";
@@ -603,7 +597,7 @@ QtObject {
 
         report += "Paste this into ChatGPT or Claude for help diagnosing issues.";
 
-        exportProc.command = ["bash", "-c", "printf '%s' \"$1\" | wl-copy", "--", report];
+        exportProc.command = ["wl-copy", report];
         exportProc.running = true;
     }
 
@@ -694,11 +688,44 @@ QtObject {
 
     function isEnterprise(sec) { return sec.indexOf("802.1X") >= 0; }
 
-    function signalIcon(sig) {
-        if (sig > 75) return "../icons/wifi.svg";
-        if (sig > 50) return "../icons/wifi-good.svg";
-        if (sig > 25) return "../icons/wifi-fair.svg";
-        return "../icons/wifi-poor.svg";
+    function _pushHist(arr, val) {
+        let a = arr.slice();
+        a.push(parseFloat(val));
+        if (a.length > 30) a.shift();
+        return a;
+    }
+
+    function _kv(line) {
+        let idx = line.indexOf("=");
+        if (idx < 0) return null;
+        return [line.substring(0, idx), line.substring(idx + 1).trim()];
+    }
+
+    function _connectExited(code, failMsg) {
+        if (code === 0) {
+            resetTarget();
+            scan();
+            loadKnown();
+            connectSucceeded();
+        } else {
+            _connectError = failMsg + " (exit " + code + ")";
+            connectFailed();
+        }
+    }
+
+    function _applyPingStats(line, kind) {
+        let kv = _kv(line);
+        if (!kv) return;
+        let key = kv[0], val = kv[1];
+        if (key === "GW") {
+            _diagGateway = val;
+            return;
+        }
+        let metric = ({ PING: "Ping", JITTER: "Jitter", LOSS: "Loss" })[key.split("_")[1]];
+        if (!metric) return;
+        root["_diag" + kind + metric] = val;
+        if (val !== "--")
+            root["_hist" + kind + metric] = _pushHist(root["_hist" + kind + metric], val);
     }
 
     function knownConnection(ssid) {
@@ -741,85 +768,22 @@ QtObject {
         return entry ? (entry.uuid || "") : "";
     }
 
-    function signalColor(dbm) {
-        let v = parseInt(dbm);
-        if (isNaN(v)) return Root.Theme.fg4;
-        if (v >= -50) return Root.Theme.greenBright;
-        if (v >= -70) return Root.Theme.yellowBright;
-        return Root.Theme.redBright;
-    }
+    // Shared script fragments
 
-    function pingColor(ms) {
-        let v = parseFloat(ms);
-        if (isNaN(v)) return Root.Theme.fg4;
-        if (v < 20) return Root.Theme.greenBright;
-        if (v < 50) return Root.Theme.yellowBright;
-        return Root.Theme.redBright;
-    }
+    readonly property string _wifiIfaceScript:
+        "iface=$(nmcli -t -f DEVICE,TYPE dev | grep ':wifi$' | head -1 | cut -d: -f1); "
 
-    function lossColor(pct) {
-        let v = parseFloat(pct);
-        if (isNaN(v)) return Root.Theme.fg4;
-        if (v === 0) return Root.Theme.greenBright;
-        if (v <= 2) return Root.Theme.yellowBright;
-        return Root.Theme.redBright;
-    }
-
-    function qualityScore() {
-        let score = 100;
-        let hasData = false;
-
-        let sig = parseInt(_diagSignal);
-        if (!isNaN(sig)) {
-            hasData = true;
-            let sigScore = Math.max(0, Math.min(100, ((sig + 90) / 60) * 100));
-            score = Math.min(score, sigScore);
-        }
-
-        let gwP = parseFloat(_diagGwPing);
-        if (!isNaN(gwP)) {
-            hasData = true;
-            let pingScore = Math.max(0, Math.min(100, 100 - gwP));
-            score = Math.min(score, pingScore);
-        }
-
-        let netP = parseFloat(_diagNetPing);
-        if (!isNaN(netP)) {
-            hasData = true;
-            let netScore = Math.max(0, Math.min(100, 100 - (netP / 2)));
-            score = Math.min(score, netScore);
-        }
-
-        let gwL = parseFloat(_diagGwLoss);
-        if (!isNaN(gwL) && gwL > 0) {
-            hasData = true;
-            score = Math.min(score, Math.max(0, 100 - gwL * 20));
-        }
-        let netL = parseFloat(_diagNetLoss);
-        if (!isNaN(netL) && netL > 0) {
-            hasData = true;
-            score = Math.min(score, Math.max(0, 100 - netL * 15));
-        }
-
-        return hasData ? Math.round(score) : -1;
-    }
-
-    function qualityLabel(score) {
-        if (score < 0) return "";
-        if (score >= 80) return "Excellent";
-        if (score >= 60) return "Good";
-        if (score >= 40) return "Fair";
-        if (score >= 20) return "Poor";
-        return "Very Poor";
-    }
-
-    function qualityColor(score) {
-        if (score < 0) return Root.Theme.fg4;
-        if (score >= 80) return Root.Theme.greenBright;
-        if (score >= 60) return Root.Theme.aquaBright;
-        if (score >= 40) return Root.Theme.yellowBright;
-        return Root.Theme.redBright;
-    }
+    // ping_stats <target> <prefix>: emits <prefix>_PING/_JITTER/_LOSS lines.
+    readonly property string _pingStatsScript:
+        "ping_stats() { " +
+        "out=$(ping -c 5 -i 0.2 -W 1 \"$1\" 2>/dev/null); " +
+        "loss=$(echo \"$out\" | grep -oP '\\d+(?=% packet loss)'); " +
+        "rtt=$(echo \"$out\" | grep -E 'rtt|round-trip'); " +
+        "avg=$(echo \"$rtt\" | grep -oP '[\\d.]+' | sed -n '2p'); " +
+        "jitter=$(echo \"$rtt\" | grep -oP '[\\d.]+' | sed -n '4p'); " +
+        "echo \"$2_PING=${avg:---}\"; " +
+        "echo \"$2_JITTER=${jitter:---}\"; " +
+        "echo \"$2_LOSS=${loss:---}\"; }; "
 
     // Radio processes
 
@@ -871,7 +835,7 @@ QtObject {
             if (!root._wifiEnabled)
                 root.clearLiveWifiState();
         } }
-        onExited: (code, status) => {
+        onExited: (code) => {
             if (root._scanAfterRadioRefresh) {
                 root._scanAfterRadioRefresh = false;
                 if (root._wifiEnabled) {
@@ -888,11 +852,11 @@ QtObject {
 
     property Process wifiRadioToggleProc: Process {
         running: false
-        onExited: (code, status) => {
+        onExited: (code) => {
             if (code === 0) {
                 root._wifiEnabled = root._wifiPendingValue;
                 root._wifiRadioPending = false;
-                if (root._wifiTargetEnabled) {
+                if (root._wifiPendingValue) {
                     root.scan();
                     root.loadKnown();
                 } else {
@@ -911,7 +875,7 @@ QtObject {
     property Process scanProc: Process {
         command: [
             "bash", "-c",
-            "iface=$(nmcli -t -f DEVICE,TYPE dev | grep ':wifi$' | head -1 | cut -d: -f1); " +
+            root._wifiIfaceScript +
             "nmcli -t -f SSID,SIGNAL,SECURITY,IN-USE dev wifi list ifname \"$iface\" --rescan yes"
         ]
         running: false
@@ -930,7 +894,7 @@ QtObject {
             }
             root.netModel.append({ ssid: p[0], signal: sig, security: p[2] || "", active: isActive });
         } }
-        onExited: (code, status) => { root.refreshConnection(); }
+        onExited: (code) => { root.refreshConnection(); }
     }
 
     property Process knownProc: Process {
@@ -1022,7 +986,6 @@ QtObject {
 
     property Process activeWifiSsidProc: Process {
         id: activeWifiSsidProc
-        command: ["nmcli", "-t", "-f", "ACTIVE,SSID", "dev", "wifi"]
         running: false
         property string pendingWifiSsid: ""
         onRunningChanged: {
@@ -1046,37 +1009,17 @@ QtObject {
 
     property Process connectProc: Process {
         running: false
-        onExited: (code, status) => {
-            if (code === 0) {
-                root.resetTarget();
-                root.scan();
-                root.loadKnown();
-                root.connectSucceeded();
-            } else {
-                root._connectError = "Connection failed (exit " + code + ")";
-                root.connectFailed();
-            }
-        }
+        onExited: (code) => root._connectExited(code, "Connection failed")
     }
 
     property Process enterpriseProc: Process {
         running: false
-        onExited: (code, status) => {
-            if (code === 0) {
-                root.resetTarget();
-                root.scan();
-                root.loadKnown();
-                root.connectSucceeded();
-            } else {
-                root._connectError = "Enterprise auth failed (exit " + code + ")";
-                root.connectFailed();
-            }
-        }
+        onExited: (code) => root._connectExited(code, "Enterprise auth failed")
     }
 
     property Process disconnectProc: Process {
         running: false
-        onExited: (code, status) => {
+        onExited: (code) => {
             if (code === 0) {
                 root._disconnectPending = false;
                 root.clearActiveConnectionState();
@@ -1096,7 +1039,7 @@ QtObject {
 
     property Process forgetProc: Process {
         running: false
-        onExited: (code, status) => {
+        onExited: (code) => {
             if (code === 0) {
                 root._forgetPending = false;
                 root.resetTarget();
@@ -1124,11 +1067,10 @@ QtObject {
     property Process ethernetInfoProc: Process {
         running: false
         stdout: SplitParser { onRead: (line) => {
-            let idx = line.indexOf("=");
-            if (idx < 0)
+            let kv = root._kv(line);
+            if (!kv)
                 return;
-            let key = line.substring(0, idx);
-            let val = line.substring(idx + 1).trim();
+            let key = kv[0], val = kv[1];
             if (key === "ETH_SPEED")
                 root._ethernetLinkSpeed = val === "--" ? "" : val;
             else if (key === "ETH_DUPLEX")
@@ -1191,23 +1133,23 @@ QtObject {
             "--", root._activeInterface
         ]
         stdout: SplitParser { onRead: (line) => {
-            let idx = line.indexOf("=");
-            if (idx < 0) return;
-            let key = line.substring(0, idx), val = line.substring(idx + 1).trim();
+            let kv = root._kv(line);
+            if (!kv) return;
+            let key = kv[0], val = kv[1];
             if (key === "SIGNAL") {
                 root._diagSignal = val;
-                if (val !== "--") { let a = root._histSignal.slice(); a.push(parseFloat(val)); if (a.length > 30) a.shift(); root._histSignal = a; }
+                if (val !== "--") root._histSignal = root._pushHist(root._histSignal, val);
             }
             else if (key === "NOISE") {
                 root._diagNoise = val;
-                if (val !== "--") { let a = root._histNoise.slice(); a.push(parseFloat(val)); if (a.length > 30) a.shift(); root._histNoise = a; }
+                if (val !== "--") root._histNoise = root._pushHist(root._histNoise, val);
             }
             else if (key === "RATE") root._diagLinkRate = val;
             else if (key === "BAND") root._diagBand = val;
             else if (key === "WIFI_STD") root._diagWifiStandard = val;
         }}
         stderr: SplitParser { onRead: (line) => { console.log("[wifi-info stderr]", line); } }
-        onExited: (code, status) => {
+        onExited: (code) => {
             root._diagLoading = false;
             if (code !== 0) console.log("[wifi-info] exit", code);
         }
@@ -1216,68 +1158,20 @@ QtObject {
     property Process gwPingProc: Process {
         running: false
         command: ["bash", "-c",
+            root._pingStatsScript +
             "gw=$(ip route | awk '/default/{print $3; exit}'); " +
             "[ -z \"$gw\" ] && echo 'GW=--' && exit 0; " +
             "echo \"GW=$gw\"; " +
-            "out=$(ping -c 5 -i 0.2 -W 1 \"$gw\" 2>/dev/null); " +
-            "loss=$(echo \"$out\" | grep -oP '\\d+(?=% packet loss)'); " +
-            "rtt=$(echo \"$out\" | grep -E 'rtt|round-trip'); " +
-            "avg=$(echo \"$rtt\" | grep -oP '[\\d.]+' | sed -n '2p'); " +
-            "jitter=$(echo \"$rtt\" | grep -oP '[\\d.]+' | sed -n '4p'); " +
-            "echo \"GW_PING=${avg:---}\"; " +
-            "echo \"GW_JITTER=${jitter:---}\"; " +
-            "echo \"GW_LOSS=${loss:---}\""
+            "ping_stats \"$gw\" GW"
         ]
-        stdout: SplitParser { onRead: (line) => {
-            let idx = line.indexOf("=");
-            if (idx < 0) return;
-            let key = line.substring(0, idx), val = line.substring(idx + 1).trim();
-            if (key === "GW") root._diagGateway = val;
-            else if (key === "GW_PING") {
-                root._diagGwPing = val;
-                if (val !== "--") { let a = root._histGwPing.slice(); a.push(parseFloat(val)); if (a.length > 30) a.shift(); root._histGwPing = a; }
-            }
-            else if (key === "GW_JITTER") {
-                root._diagGwJitter = val;
-                if (val !== "--") { let a = root._histGwJitter.slice(); a.push(parseFloat(val)); if (a.length > 30) a.shift(); root._histGwJitter = a; }
-            }
-            else if (key === "GW_LOSS") {
-                root._diagGwLoss = val;
-                if (val !== "--") { let a = root._histGwLoss.slice(); a.push(parseFloat(val)); if (a.length > 30) a.shift(); root._histGwLoss = a; }
-            }
-        }}
+        stdout: SplitParser { onRead: (line) => root._applyPingStats(line, "Gw") }
         stderr: SplitParser { onRead: (line) => { console.log("[gw-ping stderr]", line); } }
     }
 
     property Process netPingProc: Process {
         running: false
-        command: ["bash", "-c",
-            "out=$(ping -c 5 -i 0.2 -W 1 1.1.1.1 2>/dev/null); " +
-            "loss=$(echo \"$out\" | grep -oP '\\d+(?=% packet loss)'); " +
-            "rtt=$(echo \"$out\" | grep -E 'rtt|round-trip'); " +
-            "avg=$(echo \"$rtt\" | grep -oP '[\\d.]+' | sed -n '2p'); " +
-            "jitter=$(echo \"$rtt\" | grep -oP '[\\d.]+' | sed -n '4p'); " +
-            "echo \"NET_PING=${avg:---}\"; " +
-            "echo \"NET_JITTER=${jitter:---}\"; " +
-            "echo \"NET_LOSS=${loss:---}\""
-        ]
-        stdout: SplitParser { onRead: (line) => {
-            let idx = line.indexOf("=");
-            if (idx < 0) return;
-            let key = line.substring(0, idx), val = line.substring(idx + 1).trim();
-            if (key === "NET_PING") {
-                root._diagNetPing = val;
-                if (val !== "--") { let a = root._histNetPing.slice(); a.push(parseFloat(val)); if (a.length > 30) a.shift(); root._histNetPing = a; }
-            }
-            else if (key === "NET_JITTER") {
-                root._diagNetJitter = val;
-                if (val !== "--") { let a = root._histNetJitter.slice(); a.push(parseFloat(val)); if (a.length > 30) a.shift(); root._histNetJitter = a; }
-            }
-            else if (key === "NET_LOSS") {
-                root._diagNetLoss = val;
-                if (val !== "--") { let a = root._histNetLoss.slice(); a.push(parseFloat(val)); if (a.length > 30) a.shift(); root._histNetLoss = a; }
-            }
-        }}
+        command: ["bash", "-c", root._pingStatsScript + "ping_stats 1.1.1.1 NET"]
+        stdout: SplitParser { onRead: (line) => root._applyPingStats(line, "Net") }
         stderr: SplitParser { onRead: (line) => { console.log("[net-ping stderr]", line); } }
     }
 
@@ -1300,13 +1194,13 @@ QtObject {
             "--", root._activeInterface
         ]
         stdout: SplitParser { onRead: (line) => {
-            let idx = line.indexOf("=");
-            if (idx < 0) return;
-            let key = line.substring(0, idx), val = line.substring(idx + 1).trim();
+            let kv = root._kv(line);
+            if (!kv) return;
+            let key = kv[0], val = kv[1];
             if (key === "DNS_SERVER") root._diagDnsServer = val;
             else if (key === "DNS_TIME") {
                 root._diagDnsTime = val;
-                if (val !== "--") { let a = root._histDnsTime.slice(); a.push(parseFloat(val)); if (a.length > 30) a.shift(); root._histDnsTime = a; }
+                if (val !== "--") root._histDnsTime = root._pushHist(root._histDnsTime, val);
             }
         }}
         stderr: SplitParser { onRead: (line) => { console.log("[dns stderr]", line); } }
@@ -1357,9 +1251,9 @@ QtObject {
             "fi"
         ]
         stdout: SplitParser { onRead: (line) => {
-            let idx = line.indexOf("=");
-            if (idx < 0) return;
-            let key = line.substring(0, idx), val = line.substring(idx + 1).trim();
+            let kv = root._kv(line);
+            if (!kv) return;
+            let key = kv[0], val = kv[1];
             if (key === "DOWN") root._diagDownload = val;
             else if (key === "UP") root._diagUpload = val;
             else if (key === "BLOAT_BASE") root._bloatBase = val;
@@ -1411,7 +1305,7 @@ QtObject {
     property Process channelScanProc: Process {
         running: false
         command: ["bash", "-c",
-            "iface=$(nmcli -t -f DEVICE,TYPE dev | grep ':wifi' | head -1 | cut -d: -f1); " +
+            root._wifiIfaceScript +
             "nmcli -t -f SSID,CHAN,FREQ,SIGNAL,IN-USE dev wifi list ifname \"$iface\" --rescan yes"
         ]
         stdout: SplitParser { onRead: (line) => {
@@ -1454,7 +1348,7 @@ QtObject {
 
     property Process dnsSwitchProc: Process {
         running: false
-        onExited: (code, status) => {
+        onExited: (code) => {
             if (code === 0) {
                 root.dnsReconnectProc.command = ["nmcli", "con", "up", "uuid", root._connectedConnectionUuid];
                 root.dnsReconnectProc.running = true;
@@ -1483,7 +1377,7 @@ QtObject {
 
     property Process exportProc: Process {
         running: false
-        onExited: (code, status) => {
+        onExited: (code) => {
             if (code === 0) {
                 root._exportCopied = true;
                 root.exportResetTimer.start();

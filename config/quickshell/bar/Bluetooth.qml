@@ -7,8 +7,8 @@ RowLayout {
     id: btRoot; spacing: 4; signal clicked()
     readonly property string deviceName: BluetoothService.connectedName
     readonly property bool powered: BluetoothService.powered
-    property bool connected: deviceName !== ""
-    property string tooltipText: {
+    readonly property bool connected: deviceName !== ""
+    readonly property string tooltipText: {
         if (connected) return deviceName;
         if (powered) return "Bluetooth on";
         return "Bluetooth off";
@@ -22,17 +22,8 @@ RowLayout {
         Behavior on color { Components.CAnim { duration: Theme.animHover } }
     }
 
-    MouseArea {
-        id: btArea; anchors.fill: parent
-        cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+    Components.BarTooltipArea {
+        id: btArea; tip: btRoot.tooltipText
         onClicked: btRoot.clicked()
-        onContainsMouseChanged: {
-            if (containsMouse) {
-                let p = btRoot.mapToGlobal(Qt.point(btRoot.width / 2, btRoot.height));
-                TooltipService.show(btRoot.tooltipText, p.x, p.y);
-            } else {
-                TooltipService.hide();
-            }
-        }
     }
 }

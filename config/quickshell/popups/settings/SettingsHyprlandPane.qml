@@ -28,6 +28,7 @@ Item {
     property bool _animationsLoaded: false
     property bool _keybindsLoaded: false
     property int editingBindIndex: -1
+    readonly property var editingBind: editingBindIndex >= 0 ? HyprlandConfigService.keybinds[editingBindIndex] : null
     readonly property bool captureActive: HyprlandConfigService.captureSessionActive
     property var capturedMods: []
     property string capturedKey: ""
@@ -246,29 +247,34 @@ Item {
         return HyprlandConfigService.childrenInCategory(name, category).length > 0;
     }
 
+    component HyprBoolRow: RowLayout {
+        id: boolRow
+
+        required property string option
+
+        Layout.fillWidth: true
+        spacing: 8
+
+        Text { text: root.hyprOptionMeta(boolRow.option).label; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.fillWidth: true; Layout.alignment: Qt.AlignVCenter }
+        Text { text: root.hyprBoolValue(boolRow.option) ? "On" : "Off"; color: root.hyprBoolValue(boolRow.option) ? Theme.fg3 : Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+        Components.ToggleSwitch { checked: root.hyprBoolValue(boolRow.option); onToggled: root.hyprOptionToggled(boolRow.option) }
+    }
+
     Component {
         id: hyprIntOptionDelegate
 
-        RowLayout {
+        Components.ValueStepper {
             required property string modelData
             property var meta: root.hyprOptionMeta(modelData)
 
             Layout.fillWidth: true
-            spacing: 8
-
-            Components.ValueStepper {
-                Layout.fillWidth: true
-                label: meta.label
-                labelColor: Theme.fg
-                labelFontFamily: Theme.fontFamily
-                valueFontFamily: Theme.fontFamily
-                buttonFontFamily: Theme.fontFamily
-                valueText: String(root.hyprIntValue(modelData))
-                valueWidth: 36
-                decreaseEnabled: meta.minimum === undefined || root.hyprIntValue(modelData) > meta.minimum
-                onDecrement: root.hyprOptionAdjusted(modelData, -1)
-                onIncrement: root.hyprOptionAdjusted(modelData, 1)
-            }
+            label: meta.label
+            labelColor: Theme.fg
+            valueText: String(root.hyprIntValue(modelData))
+            valueWidth: 36
+            decreaseEnabled: meta.minimum === undefined || root.hyprIntValue(modelData) > meta.minimum
+            onDecrement: root.hyprOptionAdjusted(modelData, -1)
+            onIncrement: root.hyprOptionAdjusted(modelData, 1)
         }
     }
 
@@ -406,12 +412,7 @@ Item {
                     // BLUR
                     Components.SectionLabel { text: "BLUR" }
 
-                    RowLayout {
-                        Layout.fillWidth: true; spacing: 8
-                        Text { text: root.hyprOptionMeta("decoration:blur:enabled").label; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.fillWidth: true; Layout.alignment: Qt.AlignVCenter }
-                        Text { text: root.hyprBoolValue("decoration:blur:enabled") ? "On" : "Off"; color: root.hyprBoolValue("decoration:blur:enabled") ? Theme.fg3 : Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-                        Components.ToggleSwitch { checked: root.hyprBoolValue("decoration:blur:enabled"); onToggled: root.hyprOptionToggled("decoration:blur:enabled") }
-                    }
+                    HyprBoolRow { option: "decoration:blur:enabled" }
 
                     Repeater {
                         model: root.hyprBlurOptions
@@ -425,12 +426,7 @@ Item {
                     // ANIMATIONS master toggle
                     Components.SectionLabel { text: "ANIMATIONS" }
 
-                    RowLayout {
-                        Layout.fillWidth: true; spacing: 8
-                        Text { text: root.hyprOptionMeta("animations:enabled").label; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.fillWidth: true; Layout.alignment: Qt.AlignVCenter }
-                        Text { text: root.hyprBoolValue("animations:enabled") ? "On" : "Off"; color: root.hyprBoolValue("animations:enabled") ? Theme.fg3 : Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-                        Components.ToggleSwitch { checked: root.hyprBoolValue("animations:enabled"); onToggled: root.hyprOptionToggled("animations:enabled") }
-                    }
+                    HyprBoolRow { option: "animations:enabled" }
                 }
             }
 
@@ -545,15 +541,10 @@ Item {
                                         }
 
                                         // Override button
-                                        Rectangle {
+                                        Components.ActionButton {
                                             visible: !animRow.isOverridden
-                                            width: overrideLabel.implicitWidth + Theme.btnPaddingH * 2
-                                            height: Theme.btnHeight; radius: Theme.btnRadius
-                                            color: overrideArea.containsMouse ? Theme.bg2 : Theme.bg1
-                                            border.width: 1; border.color: Theme.bg3
-                                            Behavior on color { Components.CAnim { duration: Theme.animHover } }
-                                            Text { id: overrideLabel; anchors.centerIn: parent; text: "Override"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
-                                            Components.HoverLayer { id: overrideArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0; onClicked: HyprlandConfigService.overrideAnimation(animRow.animName) }
+                                            text: "Override"
+                                            onClicked: HyprlandConfigService.overrideAnimation(animRow.animName)
                                         }
 
                                         // Overridden controls
@@ -566,17 +557,13 @@ Item {
                                         }
 
                                         // Speed -
-                                        Rectangle {
+                                        Components.StepperButton {
                                             visible: animRow.isOverridden
-                                            width: 22; height: Theme.btnHeight; radius: Theme.btnRadius
-                                            color: spdDecArea.containsMouse ? Theme.bg2 : Theme.bg1
-                                            opacity: animRow.effective.speed > 0.5 ? 1 : 0.45
-                                            border.width: 1; border.color: Theme.bg3
-                                            Behavior on color { Components.CAnim { duration: Theme.animHover } }
-                                            Text { anchors.centerIn: parent; text: "\u2212"; color: Theme.fg; font.pixelSize: Theme.fontSizeSmall }
-                                            Components.HoverLayer { id: spdDecArea; enabled: animRow.effective.speed > 0.5; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
-                                                onClicked: { let s = Math.max(0.5, Math.round((animRow.effective.speed - 0.5) * 10) / 10); HyprlandConfigService.setAnimationField(animRow.animName, "speed", s); }
-                                            }
+                                            buttonWidth: 22
+                                            fontPixelSize: Theme.fontSizeSmall
+                                            interactive: animRow.effective.speed > 0.5
+                                            text: "\u2212"
+                                            onClicked: { let s = Math.max(0.5, Math.round((animRow.effective.speed - 0.5) * 10) / 10); HyprlandConfigService.setAnimationField(animRow.animName, "speed", s); }
                                         }
 
                                         // Speed value
@@ -588,16 +575,12 @@ Item {
                                         }
 
                                         // Speed +
-                                        Rectangle {
+                                        Components.StepperButton {
                                             visible: animRow.isOverridden
-                                            width: 22; height: Theme.btnHeight; radius: Theme.btnRadius
-                                            color: spdIncArea.containsMouse ? Theme.bg2 : Theme.bg1
-                                            border.width: 1; border.color: Theme.bg3
-                                            Behavior on color { Components.CAnim { duration: Theme.animHover } }
-                                            Text { anchors.centerIn: parent; text: "+"; color: Theme.fg; font.pixelSize: Theme.fontSizeSmall }
-                                            Components.HoverLayer { id: spdIncArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
-                                                onClicked: { let s = Math.round((animRow.effective.speed + 0.5) * 10) / 10; HyprlandConfigService.setAnimationField(animRow.animName, "speed", s); }
-                                            }
+                                            buttonWidth: 22
+                                            fontPixelSize: Theme.fontSizeSmall
+                                            text: "+"
+                                            onClicked: { let s = Math.round((animRow.effective.speed + 0.5) * 10) / 10; HyprlandConfigService.setAnimationField(animRow.animName, "speed", s); }
                                         }
 
                                         // Curve dropdown
@@ -635,7 +618,7 @@ Item {
                                             border.width: 1; border.color: Theme.bg3
                                             Behavior on color { Components.CAnim { duration: Theme.animHover } }
                                             Text { anchors.centerIn: parent; text: "\u00d7"; color: Theme.fg4; font.pixelSize: Theme.fontSizeSmall }
-                                            Components.HoverLayer { id: resetArea; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0; onClicked: HyprlandConfigService.resetAnimation(animRow.animName) }
+                                            Components.HoverLayer { id: resetArea; flat: true; onClicked: HyprlandConfigService.resetAnimation(animRow.animName) }
                                         }
                                     }
                                 }
@@ -850,32 +833,16 @@ Item {
                                             }
 
                                             // Edit button
-                                            Rectangle {
+                                            Components.ActionButton {
                                                 visible: !bindRowRect.modelData.bind.mouse
-                                                width: editBtnText.implicitWidth + Theme.btnPaddingH * 2
-                                                height: Theme.btnHeight; radius: Theme.btnRadius
-                                                color: editBtnHover.containsMouse ? Theme.bg2 : Theme.bg1
-                                                border.width: 1; border.color: Theme.bg3
-                                                Behavior on color { Components.CAnim { duration: Theme.animHover } }
-                                                Text {
-                                                    id: editBtnText
-                                                    anchors.centerIn: parent
-                                                    text: "Edit"
-                                                    color: Theme.fg
-                                                    font.family: Theme.fontFamily
-                                                    font.pixelSize: Theme.fontSizeSmall
-                                                }
-                                                Components.HoverLayer {
-                                                    id: editBtnHover
-                                                    hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
-                                                    onClicked: root.startEditBind(bindRowRect.modelData.index)
-                                                }
+                                                text: "Edit"
+                                                onClicked: root.startEditBind(bindRowRect.modelData.index)
                                             }
                                         }
 
                                         Components.HoverLayer {
                                             id: bindRowHover
-                                            hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
+                                            flat: true
                                             onClicked: {
                                                 if (!bindRowRect.modelData.bind.mouse)
                                                     root.startEditBind(bindRowRect.modelData.index);
@@ -912,8 +879,7 @@ Item {
 
                         Text {
                             text: {
-                                let b = root.editingBindIndex >= 0
-                                    ? HyprlandConfigService.keybinds[root.editingBindIndex] : null;
+                                let b = root.editingBind;
                                 if (!b) return "";
                                 return (b.description || (b.dispatcher + " " + (b.arg || "")).trim());
                             }
@@ -927,11 +893,7 @@ Item {
                         }
 
                         Text {
-                            text: {
-                                let b = root.editingBindIndex >= 0
-                                    ? HyprlandConfigService.keybinds[root.editingBindIndex] : null;
-                                return b ? "Current: " + root.formatBindCombo(b) : "";
-                            }
+                            text: root.editingBind ? "Current: " + root.formatBindCombo(root.editingBind) : ""
                             color: Theme.fg4
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.fontSizeSmall
@@ -998,73 +960,30 @@ Item {
                             spacing: 8
 
                             // Record / Cancel capture
-                            Rectangle {
-                                width: recLabel.implicitWidth + Theme.btnPaddingH * 2
-                                height: Theme.btnHeight; radius: Theme.btnRadius
-                                color: root.captureActive
-                                    ? (recHover.containsMouse ? Qt.darker(Theme.redBright, 1.1) : Theme.redBright)
-                                    : (recHover.containsMouse ? Theme.accent : Theme.bg2)
-                                border.width: 1
-                                border.color: root.captureActive ? Theme.redBright : Theme.accent
-                                Behavior on color { Components.CAnim { duration: Theme.animHover } }
-                                Text {
-                                    id: recLabel
-                                    anchors.centerIn: parent
-                                    text: root.captureActive ? "Cancel" : "Record"
-                                    color: Theme.bg
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.fontSizeSmall
-                                }
-                                Components.HoverLayer {
-                                    id: recHover
-                                    hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
-                                    onClicked: root.captureActive ? root.stopCapture() : root.startCapture()
-                                }
+                            Components.ActionButton {
+                                text: root.captureActive ? "Cancel" : "Record"
+                                baseColor: root.captureActive ? Theme.redBright : Theme.bg2
+                                hoverColor: root.captureActive ? Qt.darker(Theme.redBright, 1.1) : Theme.accent
+                                borderColor: root.captureActive ? Theme.redBright : Theme.accent
+                                textColor: Theme.bg
+                                onClicked: root.captureActive ? root.stopCapture() : root.startCapture()
                             }
 
                             // Apply
-                            Rectangle {
+                            Components.ActionButton {
                                 visible: root.capturedKey !== ""
-                                width: applyBtnLabel.implicitWidth + Theme.btnPaddingH * 2
-                                height: Theme.btnHeight; radius: Theme.btnRadius
-                                color: applyBtnHover.containsMouse ? Theme.accent : Theme.bg2
-                                border.width: 1; border.color: Theme.accent
-                                Behavior on color { Components.CAnim { duration: Theme.animHover } }
-                                Text {
-                                    id: applyBtnLabel
-                                    anchors.centerIn: parent
-                                    text: "Apply"
-                                    color: Theme.bg
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.fontSizeSmall
-                                }
-                                Components.HoverLayer {
-                                    id: applyBtnHover
-                                    hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
-                                    onClicked: root.applyBindEdit()
-                                }
+                                text: "Apply"
+                                baseColor: Theme.bg2
+                                hoverColor: Theme.accent
+                                borderColor: Theme.accent
+                                textColor: Theme.bg
+                                onClicked: root.applyBindEdit()
                             }
 
                             // Close
-                            Rectangle {
-                                width: closeBtnLabel.implicitWidth + Theme.btnPaddingH * 2
-                                height: Theme.btnHeight; radius: Theme.btnRadius
-                                color: closeBtnHover.containsMouse ? Theme.bg2 : Theme.bg1
-                                border.width: 1; border.color: Theme.bg3
-                                Behavior on color { Components.CAnim { duration: Theme.animHover } }
-                                Text {
-                                    id: closeBtnLabel
-                                    anchors.centerIn: parent
-                                    text: "Close"
-                                    color: Theme.fg
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.fontSizeSmall
-                                }
-                                Components.HoverLayer {
-                                    id: closeBtnHover
-                                    hoverOpacity: 0; pressedOpacity: 0; pressedScale: 1.0
-                                    onClicked: root.cancelBindEdit()
-                                }
+                            Components.ActionButton {
+                                text: "Close"
+                                onClicked: root.cancelBindEdit()
                             }
                         }
                     }

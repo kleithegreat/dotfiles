@@ -1,7 +1,6 @@
 import qs
 import Quickshell
 import QtQuick
-import QtQuick.Layouts
 import Quickshell.Services.SystemTray
 import "../components" as Components
 
@@ -118,15 +117,13 @@ FocusScope {
                 model: SystemTray.items
                 Item {
                     id: trayItem; required property var modelData; required property int index
+                    readonly property string fallbackId: (modelData.id ?? modelData.title ?? "").toLowerCase()
                     width: Theme.iconSize + 4; height: Theme.iconSize + 4
 
                     // Staggered entrance animation
                     opacity: 0
                     scale: Theme.popupStartScale
-                    Component.onCompleted: {
-                        staggerAnim.delay = index * Theme.animStagger;
-                        staggerAnim.start();
-                    }
+                    Component.onCompleted: staggerAnim.start()
                     // Items created while the popup is hidden finish their stagger
                     // invisibly, so replay it on every real open.
                     Connections {
@@ -135,14 +132,13 @@ FocusScope {
                             if (trayPop.active) {
                                 trayItem.opacity = 0;
                                 trayItem.scale = Theme.popupStartScale;
-                                staggerAnim.delay = trayItem.index * Theme.animStagger;
                                 staggerAnim.restart();
                             }
                         }
                     }
                     SequentialAnimation {
                         id: staggerAnim
-                        property int delay: 0
+                        property int delay: trayItem.index * Theme.animStagger
                         PauseAnimation { duration: staggerAnim.delay }
                         ParallelAnimation {
                             Components.Anim {
@@ -199,17 +195,14 @@ FocusScope {
 
                         Components.Icon {
                             anchors.centerIn: parent
-                            visible: !trayImg.visible && (trayItem.modelData.id ?? trayItem.modelData.title ?? "").toLowerCase().includes("spotify")
+                            visible: !trayImg.visible && trayItem.fallbackId.includes("spotify")
                             source: "../icons/brand-spotify.svg"
                             color: Theme.fg3
                         }
                         Text {
                             anchors.centerIn: parent
-                            visible: !trayImg.visible && !(trayItem.modelData.id ?? trayItem.modelData.title ?? "").toLowerCase().includes("spotify")
-                            text: {
-                                let id = (trayItem.modelData.id ?? trayItem.modelData.title ?? "").toLowerCase();
-                                return id.length > 0 ? id.charAt(0).toUpperCase() : "?";
-                            }
+                            visible: !trayImg.visible && !trayItem.fallbackId.includes("spotify")
+                            text: trayItem.fallbackId.length > 0 ? trayItem.fallbackId.charAt(0).toUpperCase() : "?"
                             color: Theme.fg3
                             font.family: Theme.monoFamily; font.pixelSize: Theme.iconSize; font.bold: true
                         }

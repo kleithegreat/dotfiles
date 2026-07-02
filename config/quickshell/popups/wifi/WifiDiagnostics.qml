@@ -50,6 +50,13 @@ Item {
     signal exportRequested()
     signal rerunRequested()
 
+    readonly property int metricLabelWidth: 50
+    readonly property int metricValueWidth: 65
+    readonly property int ethernetValueWidth: 80
+
+    // Recomputes reactively: qualityScore() only reads root properties.
+    readonly property int quality: qualityScore()
+
     function signalColor(dbm) {
         let v = parseInt(dbm);
         if (isNaN(v)) return Theme.fg4;
@@ -140,7 +147,6 @@ Item {
     Component {
         id: sparklineComponent
         Canvas {
-            id: sparkCanvas
             property var dataPoints: []
             property color lineColor: Theme.greenBright
             property real minVal: NaN
@@ -179,6 +185,45 @@ Item {
                 }
                 ctx.stroke();
             }
+        }
+    }
+
+    // Metric row: label, optional sparkline of hist, colored value.
+    component DiagMetricRow: RowLayout {
+        id: metricRow
+
+        required property string label
+        required property string value
+        required property var hist
+        property string unit: ""
+        property var colorFor: null
+        property real minVal: NaN
+        property real maxVal: NaN
+
+        readonly property bool hasValue: metricRow.value !== "" && metricRow.value !== "--"
+        readonly property color valueColor: metricRow.colorFor ? metricRow.colorFor(metricRow.value) : Theme.greenBright
+
+        Layout.fillWidth: true; spacing: 6
+
+        Text { text: metricRow.label; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+            Layout.preferredWidth: root.metricLabelWidth }
+        Loader {
+            Layout.fillWidth: true; Layout.preferredHeight: 20
+            active: metricRow.hist.length >= 2
+            sourceComponent: sparklineComponent
+            onLoaded: {
+                item.dataPoints = Qt.binding(() => metricRow.hist);
+                item.lineColor = Qt.binding(() => metricRow.valueColor);
+                item.minVal = metricRow.minVal;
+                item.maxVal = metricRow.maxVal;
+            }
+        }
+        Item { visible: metricRow.hist.length < 2; Layout.fillWidth: true }
+        Text {
+            text: metricRow.hasValue ? metricRow.value + metricRow.unit : "--"
+            color: metricRow.hasValue ? metricRow.valueColor : Theme.fg4
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+            Layout.preferredWidth: root.metricValueWidth; horizontalAlignment: Text.AlignRight
         }
     }
 
@@ -233,18 +278,18 @@ Item {
 
             // Quality score
             RowLayout {
-                visible: !root.diagLoading && root.qualityScore() >= 0
+                visible: root.quality >= 0
                 Layout.fillWidth: true; spacing: 8; Layout.bottomMargin: 4
 
                 Text {
-                    text: root.qualityScore().toString()
-                    color: root.qualityColor(root.qualityScore())
+                    text: root.quality.toString()
+                    color: root.qualityColor(root.quality)
                     font.family: Theme.fontFamily; font.pixelSize: 28; font.bold: true
                 }
                 ColumnLayout { spacing: 1; Layout.fillWidth: true
                     Text {
-                        text: root.qualityLabel(root.qualityScore())
-                        color: root.qualityColor(root.qualityScore())
+                        text: root.qualityLabel(root.quality)
+                        color: root.qualityColor(root.quality)
                         font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true
                     }
                     Text { text: "Connection Quality"; color: Theme.fg4
@@ -290,35 +335,18 @@ Item {
 
             // Link Rate
             RowLayout { visible: root.connectionType === "wifi"; Layout.fillWidth: true
-                Text { text: "Link Rate"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 50; Layout.fillWidth: true }
+                Text { text: "Link Rate"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.fillWidth: true }
                 Text { text: (root.diagLinkRate && root.diagLinkRate !== "--") ? root.diagLinkRate + " Mbps" : "--"
                     color: (root.diagLinkRate && root.diagLinkRate !== "--") ? Theme.greenBright : Theme.fg4
                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                    Layout.preferredWidth: 65; horizontalAlignment: Text.AlignRight }
+                    Layout.preferredWidth: root.metricValueWidth; horizontalAlignment: Text.AlignRight }
             }
 
-            // Signal
-            RowLayout { visible: root.connectionType === "wifi"; Layout.fillWidth: true; spacing: 6
-                Text { text: "Signal"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                    Layout.preferredWidth: 50 }
-                Loader {
-                    Layout.fillWidth: true; Layout.preferredHeight: 20
-                    active: root.histSignal.length >= 2
-                    sourceComponent: sparklineComponent
-                    onLoaded: {
-                        item.dataPoints = Qt.binding(function() { return root.histSignal; });
-                        item.lineColor = Qt.binding(function() { return root.signalColor(root.diagSignal); });
-                        item.minVal = -90;
-                        item.maxVal = -30;
-                    }
-                }
-                Item { visible: root.histSignal.length < 2; Layout.fillWidth: true }
-                Text {
-                    text: (root.diagSignal && root.diagSignal !== "--") ? root.diagSignal + " dBm" : "--"
-                    color: (root.diagSignal && root.diagSignal !== "--") ? root.signalColor(root.diagSignal) : Theme.fg4
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                    Layout.preferredWidth: 65; horizontalAlignment: Text.AlignRight
-                }
+            DiagMetricRow {
+                visible: root.connectionType === "wifi"
+                label: "Signal"; value: root.diagSignal; unit: " dBm"; hist: root.histSignal
+                colorFor: (v) => root.signalColor(v)
+                minVal: -90; maxVal: -30
             }
             Text {
                 visible: {
@@ -338,50 +366,32 @@ Item {
                 opacity: 0.8
             }
 
-            // Noise
-            RowLayout { visible: root.connectionType === "wifi"; Layout.fillWidth: true; spacing: 6
-                Text { text: "Noise"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                    Layout.preferredWidth: 50 }
-                Loader {
-                    Layout.fillWidth: true; Layout.preferredHeight: 20
-                    active: root.histNoise.length >= 2
-                    sourceComponent: sparklineComponent
-                    onLoaded: {
-                        item.dataPoints = Qt.binding(function() { return root.histNoise; });
-                        item.lineColor = Theme.greenBright;
-                        item.minVal = -100;
-                        item.maxVal = -60;
-                    }
-                }
-                Item { visible: root.histNoise.length < 2; Layout.fillWidth: true }
-                Text {
-                    text: (root.diagNoise && root.diagNoise !== "--") ? root.diagNoise + " dBm" : "--"
-                    color: (root.diagNoise && root.diagNoise !== "--") ? Theme.greenBright : Theme.fg4
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                    Layout.preferredWidth: 65; horizontalAlignment: Text.AlignRight
-                }
+            DiagMetricRow {
+                visible: root.connectionType === "wifi"
+                label: "Noise"; value: root.diagNoise; unit: " dBm"; hist: root.histNoise
+                minVal: -100; maxVal: -60
             }
 
             RowLayout { visible: root.connectionType === "ethernet"; Layout.fillWidth: true
-                Text { text: "Link Speed"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 50; Layout.fillWidth: true }
+                Text { text: "Link Speed"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.fillWidth: true }
                 Text { text: root.ethernetLinkSpeed !== "" ? root.ethernetLinkSpeed + " Mbps" : "--"
                     color: root.ethernetLinkSpeed !== "" ? Theme.greenBright : Theme.fg4
                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                    Layout.preferredWidth: 80; horizontalAlignment: Text.AlignRight }
+                    Layout.preferredWidth: root.ethernetValueWidth; horizontalAlignment: Text.AlignRight }
             }
             RowLayout { visible: root.connectionType === "ethernet"; Layout.fillWidth: true
-                Text { text: "Duplex"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 50; Layout.fillWidth: true }
+                Text { text: "Duplex"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.fillWidth: true }
                 Text { text: root.ethernetDuplex || "--"
                     color: root.ethernetDuplex !== "" ? Theme.greenBright : Theme.fg4
                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                    Layout.preferredWidth: 80; horizontalAlignment: Text.AlignRight }
+                    Layout.preferredWidth: root.ethernetValueWidth; horizontalAlignment: Text.AlignRight }
             }
             RowLayout { visible: root.connectionType === "ethernet"; Layout.fillWidth: true
-                Text { text: "Carrier"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 50; Layout.fillWidth: true }
+                Text { text: "Carrier"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.fillWidth: true }
                 Text { text: root.ethernetCarrierDetected ? "Detected" : "Not detected"
                     color: root.ethernetCarrierDetected ? Theme.greenBright : Theme.redBright
                     font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                    Layout.preferredWidth: 80; horizontalAlignment: Text.AlignRight }
+                    Layout.preferredWidth: root.ethernetValueWidth; horizontalAlignment: Text.AlignRight }
             }
 
             // Router section
@@ -391,33 +401,9 @@ Item {
                 Text { text: "Router" + (root.diagGateway && root.diagGateway !== "--" ? " \u00b7 " + root.diagGateway : ""); color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
             }
 
-            RowLayout { Layout.fillWidth: true; spacing: 6
-                Text { text: "Ping"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 50 }
-                Loader { Layout.fillWidth: true; Layout.preferredHeight: 20; active: root.histGwPing.length >= 2; sourceComponent: sparklineComponent
-                    onLoaded: { item.dataPoints = Qt.binding(function() { return root.histGwPing; }); item.lineColor = Qt.binding(function() { return root.pingColor(root.diagGwPing); }); } }
-                Item { visible: root.histGwPing.length < 2; Layout.fillWidth: true }
-                Text { text: (root.diagGwPing && root.diagGwPing !== "--") ? root.diagGwPing + " ms" : "--"
-                    color: (root.diagGwPing && root.diagGwPing !== "--") ? root.pingColor(root.diagGwPing) : Theme.fg4
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 65; horizontalAlignment: Text.AlignRight }
-            }
-            RowLayout { Layout.fillWidth: true; spacing: 6
-                Text { text: "Jitter"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 50 }
-                Loader { Layout.fillWidth: true; Layout.preferredHeight: 20; active: root.histGwJitter.length >= 2; sourceComponent: sparklineComponent
-                    onLoaded: { item.dataPoints = Qt.binding(function() { return root.histGwJitter; }); item.lineColor = Qt.binding(function() { return root.pingColor(root.diagGwJitter); }); } }
-                Item { visible: root.histGwJitter.length < 2; Layout.fillWidth: true }
-                Text { text: (root.diagGwJitter && root.diagGwJitter !== "--") ? root.diagGwJitter + " ms" : "--"
-                    color: (root.diagGwJitter && root.diagGwJitter !== "--") ? root.pingColor(root.diagGwJitter) : Theme.fg4
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 65; horizontalAlignment: Text.AlignRight }
-            }
-            RowLayout { Layout.fillWidth: true; spacing: 6
-                Text { text: "Loss"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 50 }
-                Loader { Layout.fillWidth: true; Layout.preferredHeight: 20; active: root.histGwLoss.length >= 2; sourceComponent: sparklineComponent
-                    onLoaded: { item.dataPoints = Qt.binding(function() { return root.histGwLoss; }); item.lineColor = Qt.binding(function() { return root.lossColor(root.diagGwLoss); }); } }
-                Item { visible: root.histGwLoss.length < 2; Layout.fillWidth: true }
-                Text { text: (root.diagGwLoss && root.diagGwLoss !== "--") ? root.diagGwLoss + "%" : "--"
-                    color: (root.diagGwLoss && root.diagGwLoss !== "--") ? root.lossColor(root.diagGwLoss) : Theme.fg4
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 65; horizontalAlignment: Text.AlignRight }
-            }
+            DiagMetricRow { label: "Ping"; value: root.diagGwPing; unit: " ms"; hist: root.histGwPing; colorFor: (v) => root.pingColor(v) }
+            DiagMetricRow { label: "Jitter"; value: root.diagGwJitter; unit: " ms"; hist: root.histGwJitter; colorFor: (v) => root.pingColor(v) }
+            DiagMetricRow { label: "Loss"; value: root.diagGwLoss; unit: "%"; hist: root.histGwLoss; colorFor: (v) => root.lossColor(v) }
 
             // Internet section
             Components.Divider { Layout.topMargin: 4 }
@@ -426,33 +412,9 @@ Item {
                 Text { text: "Internet \u00b7 1.1.1.1"; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
             }
 
-            RowLayout { Layout.fillWidth: true; spacing: 6
-                Text { text: "Ping"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 50 }
-                Loader { Layout.fillWidth: true; Layout.preferredHeight: 20; active: root.histNetPing.length >= 2; sourceComponent: sparklineComponent
-                    onLoaded: { item.dataPoints = Qt.binding(function() { return root.histNetPing; }); item.lineColor = Qt.binding(function() { return root.pingColor(root.diagNetPing); }); } }
-                Item { visible: root.histNetPing.length < 2; Layout.fillWidth: true }
-                Text { text: (root.diagNetPing && root.diagNetPing !== "--") ? root.diagNetPing + " ms" : "--"
-                    color: (root.diagNetPing && root.diagNetPing !== "--") ? root.pingColor(root.diagNetPing) : Theme.fg4
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 65; horizontalAlignment: Text.AlignRight }
-            }
-            RowLayout { Layout.fillWidth: true; spacing: 6
-                Text { text: "Jitter"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 50 }
-                Loader { Layout.fillWidth: true; Layout.preferredHeight: 20; active: root.histNetJitter.length >= 2; sourceComponent: sparklineComponent
-                    onLoaded: { item.dataPoints = Qt.binding(function() { return root.histNetJitter; }); item.lineColor = Qt.binding(function() { return root.pingColor(root.diagNetJitter); }); } }
-                Item { visible: root.histNetJitter.length < 2; Layout.fillWidth: true }
-                Text { text: (root.diagNetJitter && root.diagNetJitter !== "--") ? root.diagNetJitter + " ms" : "--"
-                    color: (root.diagNetJitter && root.diagNetJitter !== "--") ? root.pingColor(root.diagNetJitter) : Theme.fg4
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 65; horizontalAlignment: Text.AlignRight }
-            }
-            RowLayout { Layout.fillWidth: true; spacing: 6
-                Text { text: "Loss"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 50 }
-                Loader { Layout.fillWidth: true; Layout.preferredHeight: 20; active: root.histNetLoss.length >= 2; sourceComponent: sparklineComponent
-                    onLoaded: { item.dataPoints = Qt.binding(function() { return root.histNetLoss; }); item.lineColor = Qt.binding(function() { return root.lossColor(root.diagNetLoss); }); } }
-                Item { visible: root.histNetLoss.length < 2; Layout.fillWidth: true }
-                Text { text: (root.diagNetLoss && root.diagNetLoss !== "--") ? root.diagNetLoss + "%" : "--"
-                    color: (root.diagNetLoss && root.diagNetLoss !== "--") ? root.lossColor(root.diagNetLoss) : Theme.fg4
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 65; horizontalAlignment: Text.AlignRight }
-            }
+            DiagMetricRow { label: "Ping"; value: root.diagNetPing; unit: " ms"; hist: root.histNetPing; colorFor: (v) => root.pingColor(v) }
+            DiagMetricRow { label: "Jitter"; value: root.diagNetJitter; unit: " ms"; hist: root.histNetJitter; colorFor: (v) => root.pingColor(v) }
+            DiagMetricRow { label: "Loss"; value: root.diagNetLoss; unit: "%"; hist: root.histNetLoss; colorFor: (v) => root.lossColor(v) }
 
             // DNS section
             Components.Divider { Layout.topMargin: 4 }
@@ -461,20 +423,12 @@ Item {
                 Text { text: "DNS" + (root.diagDnsServer && root.diagDnsServer !== "--" ? " \u00b7 " + root.diagDnsServer : ""); color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; font.bold: true }
             }
 
-            RowLayout { Layout.fillWidth: true; spacing: 6
-                Text { text: "Lookup"; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 50 }
-                Loader { Layout.fillWidth: true; Layout.preferredHeight: 20; active: root.histDnsTime.length >= 2; sourceComponent: sparklineComponent
-                    onLoaded: { item.dataPoints = Qt.binding(function() { return root.histDnsTime; }); item.lineColor = Qt.binding(function() { return root.dnsColor(root.diagDnsTime); }); } }
-                Item { visible: root.histDnsTime.length < 2; Layout.fillWidth: true }
-                Text { text: (root.diagDnsTime && root.diagDnsTime !== "--") ? root.diagDnsTime + " ms" : "--"
-                    color: (root.diagDnsTime && root.diagDnsTime !== "--") ? root.dnsColor(root.diagDnsTime) : Theme.fg4
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; Layout.preferredWidth: 65; horizontalAlignment: Text.AlignRight }
-            }
+            DiagMetricRow { label: "Lookup"; value: root.diagDnsTime; unit: " ms"; hist: root.histDnsTime; colorFor: (v) => root.dnsColor(v) }
 
             // DNS quick-switch buttons
             RowLayout {
                 Layout.fillWidth: true; spacing: 6; Layout.topMargin: 4
-                opacity: NetworkService.dnsSwitchPending ? 0.72 : 1
+                opacity: NetworkService.dnsSwitchPending ? Theme.pendingOpacity : 1
                 Behavior on opacity { Components.Anim { duration: Theme.animHover } }
 
                 Text { text: "Switch:"; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeMini }
@@ -497,24 +451,12 @@ Item {
                             visible: !dnsBtn.isCurrent
                             anchors.fill: parent; radius: parent.radius; color: Theme.bg2
                             opacity: dnsBtnA.pressed ? 0.9 : (dnsBtnA.containsMouse ? 0.6 : 0.3)
-                            Behavior on opacity {
-                                Components.Anim {
-                                    duration: Theme.animHover
-                                    easing.type: Easing.BezierSpline
-                                    easing.bezierCurve: Theme.animCurveStandard
-                                }
-                            }
+                            Behavior on opacity { Components.StdAnim { duration: Theme.animHover } }
                         }
                         Text { id: dnsBtnLabel; anchors.centerIn: parent; text: dnsBtn.modelData.label
                             color: dnsBtn.isCurrent ? Theme.bg : (dnsBtnA.containsMouse ? Theme.fg : Theme.fg4); font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeMini
-                            Behavior on color {
-                                Components.CAnim {
-                                    duration: Theme.animHover
-                                    easing.type: Easing.BezierSpline
-                                    easing.bezierCurve: Theme.animCurveStandard
-                                }
-                            } }
-                        Components.HoverLayer { id: dnsBtnA; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 0.98
+                            Behavior on color { Components.StdCAnim { duration: Theme.animHover } } }
+                        Components.HoverLayer { id: dnsBtnA; hoverOpacity: 0; pressedOpacity: 0
                             disabled: NetworkService.dnsSwitchPending
                             onClicked: root.dnsChanged(dnsBtn.modelData.value) }
                     }
@@ -527,40 +469,21 @@ Item {
                 visible: root.connectionType === "wifi"
                 Layout.fillWidth: true; height: Theme.btnHeight; radius: Theme.btnRadius
                 color: "transparent"
-                Rectangle {
-                    anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                    opacity: chanScanA.pressed ? 0.9 : (chanScanA.containsMouse ? 0.6 : 0.3)
-                    Behavior on opacity {
-                        Components.Anim {
-                            duration: Theme.animHover
-                            easing.type: Easing.BezierSpline
-                            easing.bezierCurve: Theme.animCurveStandard
+                Components.HoverLayer {
+                    id: chanScanA
+                    idleOpacity: 0.3
+                    onClicked: root.channelScanRequested()
+
+                    Row { anchors.centerIn: parent; spacing: 6
+                        Components.Icon { source: "../icons/radar.svg"; color: chanScanA.containsMouse ? Theme.blueBright : Theme.fg4; anchors.verticalCenter: parent.verticalCenter
+                            Behavior on color { Components.StdCAnim { duration: Theme.animHover } }
+                        }
+                        Text { text: "Scan Channels"; color: chanScanA.containsMouse ? Theme.blueBright : Theme.fg4; anchors.verticalCenter: parent.verticalCenter
+                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                            Behavior on color { Components.StdCAnim { duration: Theme.animHover } }
                         }
                     }
                 }
-                Row { anchors.centerIn: parent; spacing: 6
-                    Components.Icon { source: "../icons/radar.svg"; color: chanScanA.containsMouse ? Theme.blueBright : Theme.fg4; anchors.verticalCenter: parent.verticalCenter
-                        Behavior on color {
-                            Components.CAnim {
-                                duration: Theme.animHover
-                                easing.type: Easing.BezierSpline
-                                easing.bezierCurve: Theme.animCurveStandard
-                            }
-                        }
-                    }
-                    Text { text: "Scan Channels"; color: chanScanA.containsMouse ? Theme.blueBright : Theme.fg4; anchors.verticalCenter: parent.verticalCenter
-                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                        Behavior on color {
-                            Components.CAnim {
-                                duration: Theme.animHover
-                                easing.type: Easing.BezierSpline
-                                easing.bezierCurve: Theme.animCurveStandard
-                            }
-                        }
-                    }
-                }
-                Components.HoverLayer { id: chanScanA; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 0.98
-                    onClicked: root.channelScanRequested() }
             }
 
             // Speed Test section
@@ -585,28 +508,14 @@ Item {
                 Rectangle {
                     width: retestLabel.implicitWidth + Theme.btnPaddingH * 2; height: Theme.btnHeight; radius: Theme.btnRadius
                     color: "transparent"
-                    Rectangle {
-                        anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                        opacity: retestA.pressed ? 0.9 : (retestA.containsMouse ? 0.6 : 0)
-                        Behavior on opacity {
-                            Components.Anim {
-                                duration: Theme.animHover
-                                easing.type: Easing.BezierSpline
-                                easing.bezierCurve: Theme.animCurveStandard
-                            }
-                        }
+                    Components.HoverLayer {
+                        id: retestA
+                        onClicked: root.speedTestRequested()
+
+                        Text { id: retestLabel; anchors.centerIn: parent; text: "Retest"; color: retestA.containsMouse ? Theme.blueBright : Theme.fg4
+                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                            Behavior on color { Components.StdCAnim { duration: Theme.animHover } } }
                     }
-                    Text { id: retestLabel; anchors.centerIn: parent; text: "Retest"; color: retestA.containsMouse ? Theme.blueBright : Theme.fg4
-                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                        Behavior on color {
-                            Components.CAnim {
-                                duration: Theme.animHover
-                                easing.type: Easing.BezierSpline
-                                easing.bezierCurve: Theme.animCurveStandard
-                            }
-                        } }
-                    Components.HoverLayer { id: retestA; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 0.98
-                        onClicked: root.speedTestRequested() }
                 }
             }
 
@@ -688,37 +597,25 @@ Item {
                 visible: root.diagDownload === "" || root.speedTestRunning
                 Layout.fillWidth: true; height: Theme.btnHeight; radius: Theme.btnRadius
                 color: "transparent"
-                Rectangle {
-                    anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                    opacity: speedBtnA.pressed ? 0.9 : (speedBtnA.containsMouse ? 0.6 : 0.3)
-                    Behavior on opacity {
-                        Components.Anim {
-                            duration: Theme.animHover
-                            easing.type: Easing.BezierSpline
-                            easing.bezierCurve: Theme.animCurveStandard
+                Components.HoverLayer {
+                    id: speedBtnA
+                    idleOpacity: 0.3
+                    disabled: root.speedTestRunning
+                    onClicked: root.speedTestRequested()
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: root.speedTestRunning ? "Running Speed Test\u2026" : "Run Speed Test"
+                        color: speedBtnA.containsMouse ? Theme.blueBright : Theme.fg4
+                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                        Behavior on color { Components.StdCAnim { duration: Theme.animHover } }
+                        SequentialAnimation on opacity {
+                            running: root.speedTestRunning; loops: Animation.Infinite
+                            NumberAnimation { from: 1; to: 0.4; duration: 600 }
+                            NumberAnimation { from: 0.4; to: 1; duration: 600 }
                         }
                     }
                 }
-                Text {
-                    id: speedBtnText; anchors.centerIn: parent
-                    text: root.speedTestRunning ? "Running Speed Test\u2026" : "Run Speed Test"
-                    color: speedBtnA.containsMouse ? Theme.blueBright : Theme.fg4
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                    Behavior on color {
-                        Components.CAnim {
-                            duration: Theme.animHover
-                            easing.type: Easing.BezierSpline
-                            easing.bezierCurve: Theme.animCurveStandard
-                        }
-                    }
-                    SequentialAnimation on opacity {
-                        running: root.speedTestRunning; loops: Animation.Infinite
-                        NumberAnimation { from: 1; to: 0.4; duration: 600 }
-                        NumberAnimation { from: 0.4; to: 1; duration: 600 }
-                    }
-                }
-                Components.HoverLayer { id: speedBtnA; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 0.98; disabled: root.speedTestRunning
-                    onClicked: root.speedTestRequested() }
             }
 
             // Bottom actions
@@ -729,69 +626,35 @@ Item {
                 Rectangle {
                     Layout.fillWidth: true; height: Theme.btnHeight; radius: Theme.btnRadius
                     color: "transparent"
-                    Rectangle {
-                        anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                        opacity: exportA.pressed ? 0.9 : (exportA.containsMouse ? 0.6 : 0)
-                        Behavior on opacity {
-                            Components.Anim {
-                                duration: Theme.animHover
-                                easing.type: Easing.BezierSpline
-                                easing.bezierCurve: Theme.animCurveStandard
+                    Components.HoverLayer {
+                        id: exportA
+                        onClicked: root.exportRequested()
+
+                        Row { anchors.centerIn: parent; spacing: 6
+                            Components.Icon { source: root.exportCopied ? "../icons/circle-check.svg" : "../icons/info-circle.svg"; anchors.verticalCenter: parent.verticalCenter
+                                color: root.exportCopied ? Theme.greenBright : (exportA.containsMouse ? Theme.blueBright : Theme.fg4)
+                                Behavior on color { Components.StdCAnim { duration: Theme.animHover } }
+                            }
+                            Text { text: root.exportCopied ? "Copied" : "Export Report"; anchors.verticalCenter: parent.verticalCenter
+                                color: root.exportCopied ? Theme.greenBright : (exportA.containsMouse ? Theme.blueBright : Theme.fg4)
+                                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                                Behavior on color { Components.StdCAnim { duration: Theme.animHover } }
                             }
                         }
                     }
-                    Row { anchors.centerIn: parent; spacing: 6
-                        Components.Icon { source: root.exportCopied ? "../icons/circle-check.svg" : "../icons/info-circle.svg"; anchors.verticalCenter: parent.verticalCenter
-                            color: root.exportCopied ? Theme.greenBright : (exportA.containsMouse ? Theme.blueBright : Theme.fg4)
-                            Behavior on color {
-                                Components.CAnim {
-                                    duration: Theme.animHover
-                                    easing.type: Easing.BezierSpline
-                                    easing.bezierCurve: Theme.animCurveStandard
-                                }
-                            }
-                        }
-                        Text { text: root.exportCopied ? "Copied" : "Export Report"; anchors.verticalCenter: parent.verticalCenter
-                            color: root.exportCopied ? Theme.greenBright : (exportA.containsMouse ? Theme.blueBright : Theme.fg4)
-                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                            Behavior on color {
-                                Components.CAnim {
-                                    duration: Theme.animHover
-                                    easing.type: Easing.BezierSpline
-                                    easing.bezierCurve: Theme.animCurveStandard
-                                }
-                            }
-                        }
-                    }
-                    Components.HoverLayer { id: exportA; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 0.98
-                        onClicked: root.exportRequested() }
                 }
 
                 Rectangle {
                     Layout.fillWidth: true; height: Theme.btnHeight; radius: Theme.btnRadius
                     color: "transparent"
-                    Rectangle {
-                        anchors.fill: parent; radius: parent.radius; color: Theme.bg2
-                        opacity: rerunA.pressed ? 0.9 : (rerunA.containsMouse ? 0.6 : 0)
-                        Behavior on opacity {
-                            Components.Anim {
-                                duration: Theme.animHover
-                                easing.type: Easing.BezierSpline
-                                easing.bezierCurve: Theme.animCurveStandard
-                            }
-                        }
+                    Components.HoverLayer {
+                        id: rerunA
+                        onClicked: root.rerunRequested()
+
+                        Text { anchors.centerIn: parent; text: "\u21bb Rerun"; color: rerunA.containsMouse ? Theme.blueBright : Theme.fg4
+                            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                            Behavior on color { Components.StdCAnim { duration: Theme.animHover } } }
                     }
-                    Text { anchors.centerIn: parent; text: "\u21bb Rerun"; color: rerunA.containsMouse ? Theme.blueBright : Theme.fg4
-                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                        Behavior on color {
-                            Components.CAnim {
-                                duration: Theme.animHover
-                                easing.type: Easing.BezierSpline
-                                easing.bezierCurve: Theme.animCurveStandard
-                            }
-                        } }
-                    Components.HoverLayer { id: rerunA; hoverOpacity: 0; pressedOpacity: 0; pressedScale: 0.98
-                        onClicked: root.rerunRequested() }
                 }
             }
         }

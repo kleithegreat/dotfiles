@@ -9,16 +9,8 @@ Item {
         id: expoIcon; anchors.centerIn: parent; source: "../icons/layout.svg"
         color: expoArea.containsMouse ? Theme.blueBright : Theme.fg4
     }
-    MouseArea {
-        id: expoArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+    Components.BarTooltipArea {
+        id: expoArea; tip: "Workspace Overview"
         onClicked: Hyprland.dispatch("hyprexpo:expo toggle")
-        onContainsMouseChanged: {
-            if (containsMouse) {
-                let p = expoRoot.mapToGlobal(Qt.point(expoRoot.width / 2, expoRoot.height));
-                TooltipService.show("Workspace Overview", p.x, p.y);
-            } else {
-                TooltipService.hide();
-            }
-        }
     }
 }

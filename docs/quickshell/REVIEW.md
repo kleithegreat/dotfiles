@@ -1,21 +1,28 @@
 # Quickshell Review
 
-Reviewed on 2026-06-10.
+Reviewed on 2026-06-10; deslop follow-up pass applied on 2026-07-01.
 
 ## Verdict
 
 The shared-service and settings-host split is in much better shape than earlier
 iterations. Most earlier shell/theme wiring gaps are now closed. Runtime
 validation still needs a live shell smoke test on the revised popup animation
-path.
+path and on the 2026-07-01 deslop pass surfaces.
 
 ## Findings
 
 | Severity | Finding | Why it matters |
 | --- | --- | --- |
-| Low | Live shell smoke testing is still needed for popup animation behavior and for the shared `SliderTrack`/`Divider`/`SectionLabel` extraction and the `SettingsPaneHeader` pane-header migration. | Static QML review cannot prove output-churn, loader-prewarm, or rapid-toggle behavior under the live Quickshell/Hyprland runtime. The slider rewrite in particular unifies a set-on-press, commit-on-release input contract across the audio, brightness, and night-light sliders that has only been validated by inspection and `qmllint` parsing, not by interaction. |
-| Low | `bar/Volume.qml`'s tooltip text is evaluated once at `TooltipService.show()` time and does not live-update while hovered. | The agreed fix is caller-side: re-show from `onTooltipTextChanged` in `bar/Volume.qml` while `hoverA.containsMouse`; no `TooltipService.qml` change is needed because `show()` while warm updates the text immediately. Not yet applied. |
-| Low | `SettingsNetworkPane.qml` does not reset `NetworkService` target/diagnostics state when the pane is hidden or destroyed. | The agreed fix is pane-side: `Component.onDestruction: NetworkService.resetTarget()` plus `onVisibleChanged: if (!visible) resetState()` in `config/quickshell/popups/settings/SettingsNetworkPane.qml`. The singleton cannot observe pane visibility itself. Not yet applied. |
+| Low | Live shell smoke testing is still needed for popup animation behavior, the shared `SliderTrack`/`Divider`/`SectionLabel` extraction, the `SettingsPaneHeader` pane-header migration, and the 2026-07-01 deslop-pass surfaces (bar tooltips via `BarTooltipArea`, the rebuilt preset-editor field components, the shared Wi-Fi form fields, and the `ActionButton`/`StepperButton` button migrations across the settings panes). | Static QML review cannot prove output-churn, loader-prewarm, or rapid-toggle behavior under the live Quickshell/Hyprland runtime. The slider rewrite in particular unifies a set-on-press, commit-on-release input contract across the audio, brightness, and night-light sliders that has only been validated by inspection and `qmllint` parsing, not by interaction. |
+
+Resolved on 2026-07-01:
+
+- `bar/Volume.qml` stale tooltip text: fixed for all bar modules by the shared
+  `components/BarTooltipArea.qml`, which re-shows the tooltip from
+  `onTipChanged` while hovered.
+- `SettingsNetworkPane.qml` now resets `NetworkService` target/diagnostics
+  state via `onVisibleChanged: if (!visible) resetState()` plus
+  `Component.onDestruction: NetworkService.resetTarget()`.
 
 ## Checkpoint Notes
 
@@ -29,6 +36,14 @@ path.
   temperature slider, confirming the OSD-suppression and night-light
   commit-on-release behavior still hold. Also confirm the migrated
   `SettingsPaneHeader` panes render their header and divider correctly.
+- The 2026-07-01 deslop pass additionally wants a smoke test of: bar tooltips
+  (hover each module; change volume/battery/network state while hovered and
+  confirm the text live-updates), the preset editor's rebuilt field editors,
+  the Wi-Fi password/enterprise forms (focus, reveal, Enter/Escape), the
+  Display pane header undo/redo buttons, and the Mullvad location browser.
+  Two accepted visual deltas from that pass: the calendar weather refresh
+  button's hover highlight now uses the shared chevron styling, and hover-fade
+  easing on migrated ghost buttons unifies to `HoverLayer`'s internal curve.
 - `qmllint` was present in the environment, but without the Quickshell/Qt
   import setup it only produced generic missing-import warnings, so it did not
   provide a useful semantic validation pass for these files.

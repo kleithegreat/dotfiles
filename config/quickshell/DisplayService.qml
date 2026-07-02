@@ -110,9 +110,6 @@ QtObject {
     }
 
     function toggleNightLight(enabled) {
-        if (nightLightCommandProc.running)
-            return;
-
         requestNightLightMode(enabled ? "on" : "off", enabled ? nightLightTargetTemperature : undefined);
     }
 
@@ -138,7 +135,7 @@ QtObject {
 
         let command = ["desktopctl", "night-light", mode];
         if (mode === "on" && temperature !== undefined && temperature !== null)
-            command = command.concat(["--temp", temperature.toString()]);
+            command = command.concat(["--temp", nightLightTargetTemperature.toString()]);
 
         nightLightCommandProc.command = command;
         nightLightCommandProc.running = true;
@@ -151,7 +148,7 @@ QtObject {
 
         _nightLightRollbackState = snapshotNightLightState();
         nightLightTargetTemperature = clampNightLightTemperature(temperature);
-        nightLightCommandProc.command = ["desktopctl", "night-light", nightLightMode || "auto", "--temp", temperature.toString()];
+        nightLightCommandProc.command = ["desktopctl", "night-light", nightLightMode || "auto", "--temp", nightLightTargetTemperature.toString()];
         nightLightCommandProc.running = true;
         return true;
     }
@@ -167,21 +164,7 @@ QtObject {
             monitorsFetchProc.running = true;
     }
 
-    function applyMonitorMode(name, width, height, rate, scale) {
-        if (monitorApplyProc.running)
-            return false;
-
-        monitorApplyStatus = "applying";
-        monitorApplyStatusTimer.stop();
-        monitorApplyProc.command = ["hyprctl", "keyword", "monitor", monitorSpec(name, width, height, rate, "auto", 0, scale, 0, null)];
-        monitorApplyProc.running = true;
-        return true;
-    }
-
     function monitorSpec(name, width, height, rate, x, y, scale, transform, extras) {
-        if (x === "auto")
-            return name + "," + width + "x" + height + "@" + rate.toFixed(2) + ",auto," + scale;
-
         let cmd = name + "," + width + "x" + height + "@" + rate.toFixed(2)
                 + "," + x + "x" + y + "," + scale;
         if (transform !== undefined && transform !== null && transform !== 0)
@@ -198,17 +181,21 @@ QtObject {
         return cmd;
     }
 
+    function _startMonitorApply(command) {
+        monitorApplyStatus = "applying";
+        monitorApplyStatusTimer.stop();
+        monitorApplyProc.command = command;
+        monitorApplyProc.running = true;
+        return true;
+    }
+
     // Full monitor config: position, transform, and inline extras (vrr, bitdepth, mirror).
     // extras is an object, e.g. { vrr: 1, bitdepth: 10, mirror: "DP-1" }
     function applyMonitorConfig(name, width, height, rate, x, y, scale, transform, extras) {
         if (monitorApplyProc.running)
             return false;
 
-        monitorApplyStatus = "applying";
-        monitorApplyStatusTimer.stop();
-        monitorApplyProc.command = ["hyprctl", "keyword", "monitor", monitorSpec(name, width, height, rate, x, y, scale, transform, extras)];
-        monitorApplyProc.running = true;
-        return true;
+        return _startMonitorApply(["hyprctl", "keyword", "monitor", monitorSpec(name, width, height, rate, x, y, scale, transform, extras)]);
     }
 
     function applyMonitorBatch(states) {
@@ -226,11 +213,7 @@ QtObject {
             commands.push("keyword monitor " + monitorSpec(state.name, state.width, state.height, state.refreshRate, state.x, state.y, state.scale, state.transform, extras));
         }
 
-        monitorApplyStatus = "applying";
-        monitorApplyStatusTimer.stop();
-        monitorApplyProc.command = ["hyprctl", "--batch", commands.join(" ; ")];
-        monitorApplyProc.running = true;
-        return true;
+        return _startMonitorApply(["hyprctl", "--batch", commands.join(" ; ")]);
     }
 
     property Process monitorsFetchProc: Process {

@@ -42,9 +42,7 @@ Components.WheelFlickable {
     ]
 
     function familyDisplayName(name) {
-        if (name === "tokyonight")
-            return "Tokyo Night";
-        return name.charAt(0).toUpperCase() + name.slice(1);
+        return name === "tokyonight" ? "Tokyo Night" : capitalizeWord(name);
     }
 
     function cloneMap(source) {
@@ -252,41 +250,15 @@ Components.WheelFlickable {
                 wrapMode: Text.WordWrap
             }
 
-            Rectangle {
-                width: createLabel.implicitWidth + 20
-                height: Theme.btnHeight
-                radius: Theme.btnRadius
-                color: createArea.containsMouse ? Theme.greenBright : Theme.accent
-                border.width: 1
-                border.color: Theme.accent
-                Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                scale: createArea.pressed ? 0.95 : 1.0
-                Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                transformOrigin: Item.Center
-
-                Text {
-                    id: createLabel
-                    anchors.centerIn: parent
-                    text: "Save Current State"
-                    color: Theme.bg
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                    font.bold: true
-                }
-
-                Components.HoverLayer {
-                    id: createArea
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    hoverEnabled: true
-
-                    hoverOpacity: 0
-
-                    pressedOpacity: 0
-
-                    pressedScale: 1.0
-                    onClicked: root.openCreateEditor()
-                }
+            Components.ActionButton {
+                text: "Save Current State"
+                baseColor: Theme.accent
+                hoverColor: Theme.greenBright
+                borderColor: Theme.accent
+                textColor: Theme.bg
+                fontBold: true
+                paddingH: 10
+                onClicked: root.openCreateEditor()
             }
         }
 
@@ -340,7 +312,6 @@ Components.WheelFlickable {
                 required property int index
                 property var preset: root.presets[index] || ({})
                 property string presetName: preset.name || ""
-                property int presetFieldCount: root.presetFieldCount(preset)
                 property string presetFieldCountText: root.presetFieldCountLabel(preset)
                 property string presetSummaryText: root.presetSummary(preset)
 
@@ -348,25 +319,17 @@ Components.WheelFlickable {
                 Layout.preferredHeight: presetContent.implicitHeight + 24
                 radius: Theme.btnRadius + 2
                 color: presetCardArea.containsMouse ? Theme.bg2 : Theme.bg1
-                Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                Behavior on color { Components.StdCAnim { duration: Theme.animHover } }
                 border.width: 1
                 border.color: presetCardArea.containsMouse ? Theme.accent : Theme.bg3
-                Behavior on border.color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                Behavior on border.color { Components.StdCAnim { duration: Theme.animHover } }
                 scale: presetCardArea.pressed ? 0.98 : 1.0
-                Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
+                Behavior on scale { Components.StdAnim { duration: Theme.animMicro } }
                 transformOrigin: Item.Center
 
                 Components.HoverLayer {
                     id: presetCardArea
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    hoverEnabled: true
-
-                    hoverOpacity: 0
-
-                    pressedOpacity: 0
-
-                    pressedScale: 1.0
+                    flat: true
                     onClicked: root.presetActivated(presetCard.presetName)
                 }
 
@@ -409,93 +372,32 @@ Components.WheelFlickable {
                             }
                         }
 
-                        Rectangle {
-                            width: editLabel.implicitWidth + 18
-                            height: Theme.btnHeight
-                            radius: Theme.btnRadius
-                            color: editArea.containsMouse ? Theme.bg3 : Theme.bg
-                            border.width: 1
-                            border.color: Theme.bg3
-                            Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                            scale: editArea.pressed ? 0.95 : 1.0
-                            Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                            transformOrigin: Item.Center
-
-                            Text {
-                                id: editLabel
-                                anchors.centerIn: parent
-                                text: "Edit"
-                                color: Theme.fg
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.fontSizeSmall
-                            }
-
-                            Components.HoverLayer {
-                                id: editArea
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                hoverEnabled: true
-
-                                hoverOpacity: 0
-
-                                pressedOpacity: 0
-
-                                pressedScale: 1.0
-                                onClicked: root.openEditEditor(presetCard.preset)
-                            }
+                        Components.ActionButton {
+                            text: "Edit"
+                            baseColor: Theme.bg
+                            hoverColor: Theme.bg3
+                            paddingH: 9
+                            onClicked: root.openEditEditor(presetCard.preset)
                         }
 
-                        Rectangle {
-                            width: deleteLabel.implicitWidth + 18
-                            height: Theme.btnHeight
-                            radius: Theme.btnRadius
-                            color: {
-                                if (root.presetCommandRunning && root.presetCommandAction === "delete" && root.presetCommandTargetName === presetCard.presetName)
-                                    return Theme.redBright;
-                                if (root.pendingDeleteName === presetCard.presetName)
-                                    return Theme.redBright;
-                                return deleteArea.containsMouse ? Theme.bg2 : Theme.bg;
-                            }
-                            border.width: 1
-                            border.color: root.pendingDeleteName === presetCard.presetName ? Theme.redBright : Theme.bg3
-                            Behavior on color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                            Behavior on border.color { Components.CAnim { duration: Theme.animHover; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                            scale: deleteArea.pressed ? 0.95 : 1.0
-                            Behavior on scale { Components.Anim { duration: Theme.animMicro; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard } }
-                            transformOrigin: Item.Center
+                        Components.ActionButton {
+                            readonly property bool deleting: root.presetCommandRunning && root.presetCommandAction === "delete" && root.presetCommandTargetName === presetCard.presetName
+                            readonly property bool confirmPending: root.pendingDeleteName === presetCard.presetName
 
-                            Text {
-                                id: deleteLabel
-                                anchors.centerIn: parent
-                                text: {
-                                    if (root.presetCommandRunning && root.presetCommandAction === "delete" && root.presetCommandTargetName === presetCard.presetName)
-                                        return "Deleting...";
-                                    return root.pendingDeleteName === presetCard.presetName ? "Confirm" : "Delete";
-                                }
-                                color: root.pendingDeleteName === presetCard.presetName ? Theme.bg : Theme.fg4
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.fontSizeSmall
-                                font.bold: root.pendingDeleteName === presetCard.presetName
-                            }
-
-                            Components.HoverLayer {
-                                id: deleteArea
-                                anchors.fill: parent
-                                enabled: !root.presetCommandRunning
-                                cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                                hoverEnabled: true
-
-                                hoverOpacity: 0
-
-                                pressedOpacity: 0
-
-                                pressedScale: 1.0
-                                onClicked: {
-                                    if (root.pendingDeleteName === presetCard.presetName)
-                                        root.presetDeleteRequested(presetCard.presetName);
-                                    else
-                                        root.pendingDeleteName = presetCard.presetName;
-                                }
+                            text: deleting ? "Deleting..." : (confirmPending ? "Confirm" : "Delete")
+                            baseColor: deleting || confirmPending ? Theme.redBright : Theme.bg
+                            hoverColor: confirmPending ? Theme.redBright : Theme.bg2
+                            borderColor: confirmPending ? Theme.redBright : Theme.bg3
+                            textColor: confirmPending ? Theme.bg : Theme.fg4
+                            fontBold: confirmPending
+                            paddingH: 9
+                            enabled: !root.presetCommandRunning
+                            disabledOpacity: 1
+                            onClicked: {
+                                if (confirmPending)
+                                    root.presetDeleteRequested(presetCard.presetName);
+                                else
+                                    root.pendingDeleteName = presetCard.presetName;
                             }
                         }
                     }

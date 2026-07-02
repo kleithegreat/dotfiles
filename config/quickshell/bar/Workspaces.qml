@@ -15,7 +15,7 @@ RowLayout {
             property var ws: Hyprland.workspaces.values.find(w => w.id === wsId)
             property bool isActive: Hyprland.focusedWorkspace?.id === wsId
             property bool hasWindows: {
-                if (ws === undefined || ws === null) return false;
+                if (!ws) return false;
                 let tl = ws.toplevels;
                 return tl ? tl.values.length > 0 : true;
             }

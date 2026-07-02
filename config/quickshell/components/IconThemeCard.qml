@@ -202,7 +202,6 @@ Item {
     }
 
     StyledRect {
-        id: cardBackground
         anchors.fill: parent
         radius: Root.Theme.btnRadius + 4
         color: cardArea.containsMouse ? Root.Theme.bg2 : Root.Theme.bg1
@@ -214,19 +213,11 @@ Item {
         transformOrigin: Item.Center
 
         Behavior on border.color {
-            CAnim {
-                duration: Root.Theme.animSpring
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: Root.Theme.animCurveStandard
-            }
+            StdCAnim { duration: Root.Theme.animSpring }
         }
 
         Behavior on scale {
-            Anim {
-                duration: Root.Theme.animMicro
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: Root.Theme.animCurveStandard
-            }
+            StdAnim { duration: Root.Theme.animMicro }
         }
 
         ColumnLayout {
@@ -329,12 +320,8 @@ Item {
 
         HoverLayer {
             id: cardArea
-            anchors.fill: parent
             disabled: !root.interactive
-            hoverEnabled: true
-            hoverOpacity: 0
-            pressedOpacity: 0
-            pressedScale: 1.0
+            flat: true
             onClicked: root.clicked()
         }
     }

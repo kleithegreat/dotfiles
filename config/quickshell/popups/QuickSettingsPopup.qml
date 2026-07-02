@@ -27,8 +27,7 @@ FocusScope {
     signal dndExpandRequested()
     signal powerProfileExpandRequested()
 
-    property bool wifiConnected: NetworkService.connectedSsid !== ""
-    property string wifiSsid: NetworkService.connectedSsid
+    readonly property bool wifiConnected: NetworkService.connectedSsid !== ""
     property real panelHeightHint: 360
     readonly property int metricLabelWidth: Theme.metricValueWidth
     readonly property var brightnessDevices: BrightnessService.devicesForMonitors(DisplayService.monitors, BrightnessService.brightnessDevices)
@@ -171,6 +170,26 @@ FocusScope {
 
     Keys.onEscapePressed: qsPop.close()
 
+    // Foreground hover tint keyed to a press-scale-owning MouseArea (the tile
+    // press contract differs from HoverLayer, so this stays a plain overlay).
+    component TintOverlay: Rectangle {
+        required property MouseArea area
+        anchors.fill: parent
+        radius: parent.radius
+        color: Theme.fg
+        opacity: area.containsMouse ? (area.pressed ? 0.08 : 0.04) : 0
+        Behavior on opacity { Components.Anim { duration: Theme.animHover } }
+    }
+
+    component Chevron: Text {
+        property bool hovered: false
+        text: ">"
+        color: hovered ? Theme.fg : Theme.fg4
+        font.family: Theme.monoFamily
+        font.pixelSize: 10
+        Behavior on color { Components.CAnim { duration: Theme.animHover } }
+    }
+
     Rectangle {
         anchors.right: parent.right
         anchors.top: parent.top
@@ -179,7 +198,6 @@ FocusScope {
         width: qsContentLoader.width
         height: qsContentLoader.height
         visible: qsPop.overlayVisible && !qsPop.closing && height > 0 && !qsContentLoader.item
-        opacity: 1
         radius: Theme.popupRadius
         color: Theme.bg1
         border.width: 1
@@ -202,17 +220,12 @@ FocusScope {
         sourceComponent: qsPanelComponent
         Behavior on height {
             enabled: !qsPop.suppressHeightAnimation
-            Components.Anim {
-                duration: Theme.animHeightResize
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: Theme.animCurveStandard
-            }
+            Components.StdAnim { duration: Theme.animHeightResize }
         }
 
         onLoaded: {
             qsPop.panelHeightHint = item.implicitHeight;
-            item.opacity = 0;
-            item.scale = Theme.popupStartScale;
+            qsPop.preparePanelForOpen();
             if (qsPop.active)
                 qsOpenAnim.start();
         }
@@ -335,7 +348,7 @@ FocusScope {
                                             return NetworkService.wifiEnabled ? "Turning on…" : "Turning off…";
                                         if (!NetworkService.wifiRadioReady) return "Checking…";
                                         if (!NetworkService.wifiEnabled) return "Off";
-                                        return qsPop.wifiConnected ? qsPop.wifiSsid : "Not connected";
+                                        return qsPop.wifiConnected ? NetworkService.connectedSsid : "Not connected";
                                     case "bluetooth":
                                         if (BluetoothService.powerBusy)
                                             return BluetoothService.powered ? "Turning on…" : "Turning off…";
@@ -400,34 +413,15 @@ FocusScope {
 
                                 // Tile visuals
 
-                                opacity: tile.isPending ? 0.72 : 1
+                                opacity: tile.isPending ? Theme.pendingOpacity : 1
                                 Behavior on opacity { Components.Anim { duration: Theme.animHover } }
 
                                 Rectangle {
                                     anchors.fill: parent; radius: parent.radius
-                                    visible: !tile.isSplit
-                                    color: tile.isActive
-                                        ? Qt.rgba(tile.tileActiveColor.r, tile.tileActiveColor.g, tile.tileActiveColor.b, 0.15)
+                                    color: !tile.isSplit && tile.isActive
+                                        ? Qt.alpha(tile.tileActiveColor, 0.15)
                                         : Theme.bg2
-                                    Behavior on color {
-                                        Components.CAnim {
-                                            duration: Theme.animSpring
-                                            easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
-                                        }
-                                    }
-                                }
-
-                                Rectangle {
-                                    anchors.fill: parent
-                                    radius: parent.radius
-                                    visible: tile.isSplit
-                                    color: Theme.bg2
-                                    Behavior on color {
-                                        Components.CAnim {
-                                            duration: Theme.animSpring
-                                            easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
-                                        }
-                                    }
+                                    Behavior on color { Components.StdCAnim { duration: Theme.animSpring } }
                                 }
 
                                 Rectangle {
@@ -447,22 +441,12 @@ FocusScope {
                                     color: "transparent"
                                     border.width: tile.isActive ? 1 : 0; border.color: tile.tileActiveColor
                                     opacity: tile.isActive ? 0.5 : 0
-                                    Behavior on opacity {
-                                        Components.Anim {
-                                            duration: Theme.animSpring
-                                            easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
-                                        }
-                                    }
+                                    Behavior on opacity { Components.StdAnim { duration: Theme.animSpring } }
                                 }
 
-                                Rectangle {
-                                    anchors.fill: parent; radius: parent.radius
-                                    color: Theme.fg
-                                    opacity: tileMainArea.containsMouse
-                                        && !tile.isSplit
-                                        ? (tileMainArea.pressed ? 0.08 : 0.04)
-                                        : 0
-                                    Behavior on opacity { Components.Anim { duration: Theme.animHover } }
+                                TintOverlay {
+                                    area: tileMainArea
+                                    visible: !tile.isSplit
                                 }
 
                                 scale: !tile.isSplit && tileMainArea.pressed ? 0.97 : 1.0
@@ -501,26 +485,17 @@ FocusScope {
                                             readonly property color partActiveColor: modelData.key === "idle" ? Theme.yellowBright : Theme.blueBright
 
                                             color: partActive
-                                                ? Qt.rgba(partActiveColor.r, partActiveColor.g, partActiveColor.b, 0.15)
+                                                ? Qt.alpha(partActiveColor, 0.15)
                                                 : "transparent"
                                             border.width: partActive ? 1 : 0
                                             border.color: partActiveColor
 
                                             Behavior on color {
-                                                Components.CAnim {
-                                                    duration: Theme.animSpring
-                                                    easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveStandard
-                                                }
+                                                Components.StdCAnim { duration: Theme.animSpring }
                                             }
 
-                                            Rectangle {
-                                                anchors.fill: parent
-                                                radius: parent.radius
-                                                color: Theme.fg
-                                                opacity: splitPartArea.containsMouse
-                                                    ? (splitPartArea.pressed ? 0.08 : 0.04)
-                                                    : 0
-                                                Behavior on opacity { Components.Anim { duration: Theme.animHover } }
+                                            TintOverlay {
+                                                area: splitPartArea
                                             }
 
                                             scale: splitPartArea.pressed ? 0.96 : 1.0
@@ -610,15 +585,13 @@ FocusScope {
                                         width: Theme.qsTileExpandSize; height: Theme.qsTileExpandSize; radius: Theme.qsTileExpandSize / 2
                                         visible: tile.canExpand
                                         color: expandBtnArea.containsMouse
-                                            ? (expandBtnArea.pressed ? Theme.bg3 : Qt.rgba(Theme.fg.r, Theme.fg.g, Theme.fg.b, 0.08))
+                                            ? (expandBtnArea.pressed ? Theme.bg3 : Qt.alpha(Theme.fg, 0.08))
                                             : "transparent"
                                         Behavior on color { Components.CAnim { duration: Theme.animHover } }
 
-                                        Text {
-                                            anchors.centerIn: parent; text: ">"
-                                            color: expandBtnArea.containsMouse ? Theme.fg : Theme.fg4
-                                            font.family: Theme.monoFamily; font.pixelSize: 10
-                                            Behavior on color { Components.CAnim { duration: Theme.animHover } }
+                                        Chevron {
+                                            anchors.centerIn: parent
+                                            hovered: expandBtnArea.containsMouse
                                         }
 
                                         MouseArea {
@@ -732,10 +705,7 @@ FocusScope {
                                     Layout.fillWidth: true
                                     Behavior on color { Components.CAnim { duration: Theme.animHover } }
                                 }
-                                Text {
-                                    text: ">"
-                                    color: Theme.fg4; font.family: Theme.monoFamily; font.pixelSize: 10
-                                }
+                                Chevron {}
                             }
                         }
                     }

@@ -18,6 +18,8 @@ Components.WheelFlickable {
         "flat"
     ]
 
+    readonly property int rowLabelWidth: Math.max(Theme.fontSize * 8, 104)
+
     signal themeSetRequested(string key, string value)
     signal mouseSetRequested(string key, string value)
 
@@ -92,7 +94,7 @@ Components.WheelFlickable {
                 color: Theme.fg3
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontSizeSmall
-                Layout.preferredWidth: Math.max(Theme.fontSize * 8, 104)
+                Layout.preferredWidth: root.rowLabelWidth
             }
 
             Components.InlineSelect {
@@ -160,7 +162,7 @@ Components.WheelFlickable {
                 color: Theme.fg3
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontSizeSmall
-                Layout.preferredWidth: Math.max(Theme.fontSize * 8, 104)
+                Layout.preferredWidth: root.rowLabelWidth
             }
 
             Components.InlineSelect {

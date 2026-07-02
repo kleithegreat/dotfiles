@@ -14,7 +14,6 @@ QtObject {
     property alias historyModel: historyEntriesModel
 
     property int nextEntryId: 1
-    property var rules: ({})
     property var dismissTimers: ({})
     property var trackedNotifications: ({})
     property var closeWatchers: ({})
@@ -45,19 +44,7 @@ QtObject {
         scheduleRelativeTimeRefresh();
     }
 
-    function matchRule(appName) {
-        if (!rules || typeof rules !== "object")
-            return null;
-
-        return Object.prototype.hasOwnProperty.call(rules, appName) ? rules[appName] : null;
-    }
-
     function handleNotification(notification) {
-        let appName = notification.appName || "Notification";
-        let rule = matchRule(appName);
-        if (rule && rule.historyOnly)
-            return;
-
         let entry = entryDataFor(notification);
         historyEntriesModel.insert(0, entry);
         // Bound the drawer model: trim oldest so chatty apps cannot grow
@@ -65,16 +52,10 @@ QtObject {
         while (historyEntriesModel.count > historyLimit)
             historyEntriesModel.remove(historyEntriesModel.count - 1);
 
-        let suppressPopup = doNotDisturb || (rule && rule.suppress);
-        if (!suppressPopup) {
+        if (!doNotDisturb) {
             popupEntriesModel.insert(0, entry);
             storeTrackedNotification(entry.entryId, notification);
-
-            let timeoutMs = notificationTimeoutMs(notification);
-            if (rule && typeof rule.timeout === "number" && isFinite(rule.timeout))
-                timeoutMs = Math.max(0, Math.round(rule.timeout));
-
-            createDismissTimer(entry.entryId, timeoutMs);
+            createDismissTimer(entry.entryId, notificationTimeoutMs(notification));
         }
 
         scheduleRelativeTimeRefresh();

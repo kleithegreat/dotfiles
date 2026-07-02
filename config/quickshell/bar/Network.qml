@@ -11,7 +11,7 @@ RowLayout {
         ? "Ethernet"
         : (networkName || "Wi-Fi")
     readonly property bool connected: connectionType !== ""
-    property string tooltipText: {
+    readonly property string tooltipText: {
         if (!connected) return "Not connected";
         return displayName;
     }
@@ -24,17 +24,8 @@ RowLayout {
         Behavior on color { Components.CAnim { duration: Theme.animHover } }
     }
 
-    MouseArea {
-        id: netArea; anchors.fill: parent
-        cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+    Components.BarTooltipArea {
+        id: netArea; tip: netRoot.tooltipText
         onClicked: netRoot.clicked()
-        onContainsMouseChanged: {
-            if (containsMouse) {
-                let p = netRoot.mapToGlobal(Qt.point(netRoot.width / 2, netRoot.height));
-                TooltipService.show(netRoot.tooltipText, p.x, p.y);
-            } else {
-                TooltipService.hide();
-            }
-        }
     }
 }
