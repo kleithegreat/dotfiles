@@ -237,6 +237,11 @@ in {
   # power-profile popup doesn't trigger an auth dialog on every open. The
   # laptop-only power-profile helper also runs through pkexec so the shell can
   # switch the P-core mask without prompting.
+  #
+  # nixpkgs stopped installing the setuid pkexec wrapper by default; without it
+  # every pkexec call above fails with "pkexec must be setuid root".
+  security.polkit.enablePkexecWrapper = true;
+
   security.polkit.extraConfig = ''
     polkit.addRule(function(action, subject) {
       if (action.id === "net.reactivated.fprint.device.enroll" &&
