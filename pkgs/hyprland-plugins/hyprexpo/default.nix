@@ -7,14 +7,14 @@
 
 hyprlandPlugins.mkHyprlandPlugin {
   pluginName = "hyprexpo";
-  version = "0.1-unstable-2026-05-12";
+  version = "0.55.4-unstable-2026-07-01";
 
-  src = "${fetchFromGitHub {
-    owner = "hyprwm";
-    repo = "hyprland-plugins";
-    rev = "eaf18d55d51cef00818c5a4fdd4170f8cc2de4dc";
-    hash = "sha256-d2wOUZlOqGAW9mwlpq7c/YlneW2ZDJt9d/2bq7mnKdM=";
-  }}/hyprexpo";
+  src = fetchFromGitHub {
+    owner = "sandwichfarm";
+    repo = "hyprexpo";
+    rev = "e76761b268a0ee1747d41e21355fa315797a9bfd";
+    hash = "sha256-sERoTu9NcGD0RA3jAdHc4GOPkRbgqMrgDT8f7+Jv9fc=";
+  };
 
   patches = [
     ../../../patches/hyprland-plugins/hyprexpo-hyprland-0.55.patch
@@ -23,8 +23,8 @@ hyprlandPlugins.mkHyprlandPlugin {
   inherit (hyprland) nativeBuildInputs;
 
   meta = {
-    homepage = "https://github.com/hyprwm/hyprland-plugins/tree/eaf18d55d51cef00818c5a4fdd4170f8cc2de4dc/hyprexpo";
-    description = "Repo-local Hyprexpo package for the removed Hyprland overview plugin";
+    homepage = "https://github.com/sandwichfarm/hyprexpo";
+    description = "Maintained Hyprexpo fork with keyboard selection, labels, and gaps";
     license = lib.licenses.bsd3;
     platforms = lib.platforms.linux;
   };

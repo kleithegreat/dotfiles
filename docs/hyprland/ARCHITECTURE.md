@@ -128,39 +128,33 @@ keeps affected Hyprland render-data initializers on assignment-based setup so
 the local rounded-corner field does not trip designated-initializer ordering on
 the current compiler.
 
-Upstream has since absorbed most Hyprland 0.54 API porting in the plugin tree,
-so the remaining active local plugin patches carry behavior deltas plus current
-compatibility workarounds. `system/configuration.nix` still takes `hyprbars`
-from `inputs.hyprland-plugins.packages.${system}.hyprbars`, but `hyprexpo` is
-now supplied by the repo-local package in
-`pkgs/hyprland-plugins/hyprexpo/default.nix` because the official plugin flake
-no longer exposes that package. That local package extracts the last known
-Hyprexpo source from upstream revision
-`eaf18d55d51cef00818c5a4fdd4170f8cc2de4dc` and applies the existing local patch
-against the patched Hyprland headers.
+`system/configuration.nix` takes `hyprbars` unpatched from
+`inputs.hyprland-plugins.packages.${system}.hyprbars`, rebuilt against the
+patched Hyprland headers. The former
+`patches/hyprland-plugins/hyprbars-hyprland-0.55.patch` was dropped in July
+2026 along with its behavior deltas — legacy-config registration, top-only bar
+rounding integrated with `shouldSquareTopCorners()`, the pass-simplification
+opt-out, and the non-animated bar-color warp; recover it from git history if
+bar rendering regresses on floating windows.
 
-`patches/hyprland-plugins/hyprbars-hyprland-0.55.patch`
-keeps `hyprbars` on the legacy `HyprlandAPI::addConfigValue(...)` plus
-`HyprlandAPI::getConfigValue(...)` path, carries upstream `bar_text_weight`
-through a string-backed legacy helper, renders the bar background with top-only
-rounded corners, and opts the custom bar pass out of render-pass simplification.
-The locked upstream `hyprbars` source already uses
-`State::monitorState()->monitors()` for plugin unload monitor iteration. The
-local patch also replaces the animated bar color update
-(`*m_cRealBarColor = DEST_COLOR`) with
-`m_cRealBarColor->setValueAndWarp(DEST_COLOR)` and renders the destination
-color directly, so hyprbars bar color changes are intentionally not animated on
-this stack.
-`patches/hyprland-plugins/hyprexpo-hyprland-0.55.patch` carries the local
-overview behavior: it debounces accidental select events immediately after
-opening the overview, guards stale `startedOn` workspace checks with
-`valid(startedOn)`, and lets `Config::Actions::changeWorkspace(...)` own the
-workspace transition without duplicating desktop-animation calls. It also keeps
-the removed Hyprexpo source compiling against Hyprland 0.55's
-`Monitor::CMonitor` / `output/Monitor.hpp` API, rewrites removed compositor
-workspace/frame APIs to `State::workspaceState()->query().id(...).run()` and
-`CMonitor::scheduleFrame()`, and uses a namespace-agnostic damage-hook symbol
-lookup.
+`hyprexpo` is supplied by the repo-local package in
+`pkgs/hyprland-plugins/hyprexpo/default.nix`, which builds the maintained
+`sandwichfarm/hyprexpo` fork (pinned by revision) because the official plugin
+flake removed the plugin.
+`patches/hyprland-plugins/hyprexpo-hyprland-0.55.patch` is a pure
+compatibility port of that fork (written against Hyprland 0.55.x releases) to
+this repo's rolling Hyprland master lock: `output/Monitor.hpp` /
+`Monitor::CMonitor`, `State::workspaceState()` workspace lookup and creation,
+`State::monitorState()->query().vec(...)` cursor-monitor resolution,
+`Desktop::windowState()` window enumeration, `Desktop::viewState()` selector
+lookup, `Desktop::globalWindowController()->moveWindowToWorkspace(...)`,
+`Pointer::pointerController()->warpTo(...)`,
+`Pointer::Cursor::overrideController`, per-monitor `scheduleFrame()`, relocated
+`pointer/` includes, and a namespace-agnostic damage-hook symbol lookup. The
+old local overview behavior deltas (the 200 ms select debounce,
+`valid(startedOn)` guard, and `changeWorkspace` transition ownership) were
+dropped; the fork ships its own accidental-select protection and reworked
+selection, keyboard-focus, and window-drag logic.
 
 Monitor behavior follows the same host split as inputs:
 

@@ -216,16 +216,17 @@ through `Config::Values::*Value::commence()` during
 `hyprbars` plugin-config registration path rather than PAM, SDDM, or the
 GPU-routing env.
 
-**Impact / workaround:** `patches/hyprland-plugins/hyprbars-hyprland-0.55.patch`
-now refreshes the current rendering hunks and also moves `hyprbars` back to the
-legacy plugin-config path used by the other working plugins on this stack:
-`hyprbars/main.cpp` registers defaults through
-`HyprlandAPI::addConfigValue(...)`, while `hyprbars/globals.hpp` and the render
-code read live values through `HyprlandAPI::getConfigValue(...)` instead of the
-crashing `addConfigValueV2(...)` / `Config::Values::*Value` path. New upstream
-plugin settings such as `bar_text_weight` still need matching legacy defaults and
-`HyprbarsConfig` helpers when this patch is refreshed. Re-test `hyprbars` against
-future input bumps before dropping that local workaround.
+**Impact / workaround:** Resolved upstream. The workaround was
+`patches/hyprland-plugins/hyprbars-hyprland-0.55.patch`, which moved `hyprbars`
+onto the legacy `HyprlandAPI::addConfigValue(...)` /
+`HyprlandAPI::getConfigValue(...)` config path. That patch was dropped in July
+2026: the `addConfigValueV2(...)` / `Config::Values::*Value` registration path
+has been loading fine at runtime for months via the hyprexpo plugin on the same
+stack, and unpatched upstream `hyprbars` builds against the current lock. The
+patch (including its rendering deltas: top-only bar rounding integrated with
+`shouldSquareTopCorners()`, the pass-simplification opt-out, and the bar-color
+warp) is recoverable from git history if a future input bump reintroduces the
+plugin-config crash or the bar rendering regresses on floating windows.
 
 ## Rolling Hyprland inputs can make local patches fail during build
 
@@ -249,14 +250,17 @@ no-newline hunk. The companion
 `patches/hyprland/hyprland-gcc15-designated-initializer-fix-0.55.patch` must
 preserve newer texture fields such as `wrapX`, `wrapY`, `forceBlurBlend`,
 `blurAlphaMatte`, and `motionBlur` when rewriting designated initializers to
-assignment-based setup; the matching `hyprbars` plugin refresh also had to carry
-upstream `bar_text_weight` through the legacy config helper stack. The current
-June 2026 Hyprland 0.55 lock also required dropping a stale `hyprbars`
-plugin-exit monitor-iteration hunk that the locked upstream plugin source already
-absorbed, and refreshing the repo-local `hyprexpo` patch for the
-`Monitor::CMonitor` namespace, `output/Monitor.hpp`, the renamed monitor damage
-hook symbol, `State::workspaceState()->query().id(...).run()` workspace lookup,
-and `CMonitor::scheduleFrame()` monitor frame scheduling.
+assignment-based setup. As of July 2026 the plugin patch stack is down to one
+file: `hyprbars` builds unpatched from the rolling plugin input, and
+`patches/hyprland-plugins/hyprexpo-hyprland-0.55.patch` ports the pinned
+`sandwichfarm/hyprexpo` fork (written against Hyprland 0.55.x releases) to the
+rolling master lock — `output/Monitor.hpp` / `Monitor::CMonitor`,
+`State::workspaceState()` lookup/creation, `State::monitorState()` cursor-monitor
+queries, `Desktop::windowState()` / `Desktop::viewState()` window access,
+`Desktop::globalWindowController()` workspace moves,
+`Pointer::pointerController()->warpTo`, `Pointer::Cursor::overrideController`,
+per-monitor `scheduleFrame()`, relocated `pointer/` includes, and a
+namespace-agnostic damage-hook symbol lookup.
 Rebuild the patched Hyprland package and plugin stack before running a full
 system rebuild, because the full desktop closure may also rebuild the system
 kernel/NVIDIA stack.
@@ -312,11 +316,13 @@ its package set. The repo previously built the overview plugin from
 `inputs.hyprland-plugins.packages.${system}.hyprexpo`, so a lockfile update can
 break evaluation before Nix reaches the build phase.
 
-**Status:** Workaround in place. `system/configuration.nix` now wires
-`hyprexpo` from `pkgs/hyprland-plugins/hyprexpo/default.nix`, a repo-local
-package that extracts the removed plugin source from upstream revision
-`eaf18d55d51cef00818c5a4fdd4170f8cc2de4dc` and applies
-`patches/hyprland-plugins/hyprexpo-hyprland-0.55.patch`. The main
-`hyprland-plugins` flake input can keep rolling for still-shipped plugins such
-as `hyprbars`; Hyprexpo maintenance now means refreshing the local package or
-patch when Hyprland headers change.
+**Status:** Workaround in place. `system/configuration.nix` wires `hyprexpo`
+from `pkgs/hyprland-plugins/hyprexpo/default.nix`, a repo-local package that
+now builds the maintained `sandwichfarm/hyprexpo` fork (pinned by revision)
+instead of the source removed from the official flake, and applies
+`patches/hyprland-plugins/hyprexpo-hyprland-0.55.patch` to port it to the
+rolling Hyprland master lock. The fork renamed `gap_size` to `gaps_in` /
+`gaps_out` (`config/hypr/plugins.conf` was updated to match). The main
+`hyprland-plugins` flake input keeps rolling for still-shipped plugins such as
+`hyprbars`; Hyprexpo maintenance now means bumping the fork pin and refreshing
+the compat patch when Hyprland headers change.
