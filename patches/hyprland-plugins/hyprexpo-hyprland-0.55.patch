@@ -121,11 +121,15 @@
  #include <hyprland/src/event/EventBus.hpp>
  #define private   public
  #define protected public
-@@ -19,11 +22,11 @@
+@@ -17,13 +20,13 @@
+ #include <hyprland/src/desktop/view/Window.hpp>
+ #include <hyprland/src/layout/LayoutManager.hpp>
  #include <hyprland/src/layout/space/Space.hpp>
- #include <hyprland/src/managers/animation/AnimationManager.hpp>
- #include <hyprland/src/managers/animation/DesktopAnimationManager.hpp>
+-#include <hyprland/src/managers/animation/AnimationManager.hpp>
+-#include <hyprland/src/managers/animation/DesktopAnimationManager.hpp>
 -#include <hyprland/src/managers/cursor/CursorShapeOverrideController.hpp>
++#include <hyprland/src/animation/AnimationManager.hpp>
++#include <hyprland/src/animation/WorkspaceAnimationController.hpp>
 +#include <hyprland/src/pointer/cursor/CursorShapeOverrideController.hpp>
  #include <hyprland/src/managers/eventLoop/EventLoopManager.hpp>
  #include <hyprland/src/managers/eventLoop/EventLoopTimer.hpp>
@@ -153,7 +157,14 @@
          const auto workspace = workspaceRef.lock();
          if (!workspace || workspace->m_monitor != monitor || workspace->m_isSpecialWorkspace)
              continue;
-@@ -437,7 +440,7 @@
+@@ -431,13 +434,13 @@
+ 
+         if (active) {
+             workspace->m_visible = true;
+-            g_pDesktopAnimationManager->startAnimation(workspace, CDesktopAnimationManager::ANIMATION_TYPE_IN, true, true);
++            Animation::Workspace::startAnimation(workspace, Animation::Workspace::ANIMATION_TYPE_IN, true, true);
+         } else if (!workspace->m_alpha->isBeingAnimated() && !workspace->m_renderOffset->isBeingAnimated()) {
+             workspace->m_visible = false;
          }
      }
  
@@ -243,6 +254,23 @@
  
          if (PWORKSPACE == startedOn)
              currentid = i;
+@@ -863,13 +866,13 @@
+     PMONITOR->m_activeSpecialWorkspace = openSpecial;
+     PMONITOR->m_activeWorkspace        = startedOn;
+     startedOn->m_visible               = true;
+-    g_pDesktopAnimationManager->startAnimation(startedOn, CDesktopAnimationManager::ANIMATION_TYPE_IN, true, true);
++    Animation::Workspace::startAnimation(startedOn, Animation::Workspace::ANIMATION_TYPE_IN, true, true);
+ 
+     // zoom on the current workspace.
+     // const auto& TILE = images[std::clamp(currentid, 0, SIDE_LENGTH * SIDE_LENGTH)];
+ 
+-    g_pAnimationManager->createAnimation(pMonitor->m_size * pMonitor->m_size / tileSize, size, Config::animationTree()->getAnimationPropertyConfig("windowsMove"), AVARDAMAGE_NONE);
+-    g_pAnimationManager->createAnimation((-((pMonitor->m_size / (double)SIDE_LENGTH) * Vector2D{currentid % SIDE_LENGTH, currentid / SIDE_LENGTH}) * pMonitor->m_scale) *
++    Animation::mgr()->createAnimation(pMonitor->m_size * pMonitor->m_size / tileSize, size, Config::animationTree()->getAnimationPropertyConfig("windowsMove"), AVARDAMAGE_NONE);
++    Animation::mgr()->createAnimation((-((pMonitor->m_size / (double)SIDE_LENGTH) * Vector2D{currentid % SIDE_LENGTH, currentid / SIDE_LENGTH}) * pMonitor->m_scale) *
+                                              (pMonitor->m_size / tileSize),
+                                          pos, Config::animationTree()->getAnimationPropertyConfig("windowsMove"), AVARDAMAGE_NONE);
+ 
 --- a/OverviewInteraction.cpp
 +++ b/OverviewInteraction.cpp
 @@ -2,10 +2,13 @@
@@ -360,7 +388,7 @@
  void COverview::resetSwipe() {
 --- a/OverviewRender.cpp
 +++ b/OverviewRender.cpp
-@@ -5,6 +5,7 @@
+@@ -5,11 +5,12 @@
  #include "OverviewPassElement.hpp"
  #define private   public
  #define protected public
@@ -368,6 +396,12 @@
  #include <hyprland/src/Compositor.hpp>
  #include <hyprland/src/config/ConfigValue.hpp>
  #include <hyprland/src/config/shared/actions/ConfigActions.hpp>
+ #include <hyprland/src/config/shared/complex/ComplexDataTypes.hpp>
+-#include <hyprland/src/managers/animation/DesktopAnimationManager.hpp>
++#include <hyprland/src/animation/WorkspaceAnimationController.hpp>
+ #include <hyprland/src/render/OpenGL.hpp>
+ #include <hyprland/src/render/Renderer.hpp>
+ #include <hyprland/src/helpers/time/Time.hpp>
 @@ -70,7 +71,7 @@
  
      clearWithColor(CHyprColor{0, 0, 0, 1.0});
@@ -377,6 +411,15 @@
      image.pWorkspace      = PWORKSPACE;
  
      const auto   restoreWorkspace = MON->m_activeWorkspace;
+@@ -123,7 +124,7 @@
+     if (activeWorkspace) {
+         activeWorkspace->m_visible = true;
+         if (activeWorkspace == startedOn)
+-            g_pDesktopAnimationManager->startAnimation(activeWorkspace, CDesktopAnimationManager::ANIMATION_TYPE_IN, true, true);
++            Animation::Workspace::startAnimation(activeWorkspace, Animation::Workspace::ANIMATION_TYPE_IN, true, true);
+     }
+ 
+     blockOverviewRendering = false;
 @@ -173,7 +174,7 @@
      blockDamageReporting = true;
      g_pHyprRenderer->damageBox(texbox);
@@ -394,6 +437,26 @@
 +        const auto NEWIDWS = State::workspaceState()->query().id(NEWID).run();
  
          const auto OLDWS = MON->m_activeWorkspace;
+ 
+@@ -223,8 +224,8 @@
+         if (!CHANGE)
+             Log::logger->log(Log::ERR, "[hyprexpo] failed to change workspace: {}", CHANGE.error().message);
+ 
+-        g_pDesktopAnimationManager->startAnimation(MON->m_activeWorkspace, CDesktopAnimationManager::ANIMATION_TYPE_IN, true, true);
+-        g_pDesktopAnimationManager->startAnimation(OLDWS, CDesktopAnimationManager::ANIMATION_TYPE_OUT, false, true);
++        Animation::Workspace::startAnimation(MON->m_activeWorkspace, Animation::Workspace::ANIMATION_TYPE_IN, true, true);
++        Animation::Workspace::startAnimation(OLDWS, Animation::Workspace::ANIMATION_TYPE_OUT, false, true);
+ 
+         startedOn = MON->m_activeWorkspace;
+     }
+@@ -245,7 +246,7 @@
+         return;
+ 
+     if (valid(startedOn))
+-        g_pDesktopAnimationManager->startAnimation(startedOn, CDesktopAnimationManager::ANIMATION_TYPE_OUT, false, true);
++        Animation::Workspace::startAnimation(startedOn, Animation::Workspace::ANIMATION_TYPE_OUT, false, true);
+     else
+         startedOn = MON->m_activeWorkspace;
  
 --- a/main.cpp
 +++ b/main.cpp
