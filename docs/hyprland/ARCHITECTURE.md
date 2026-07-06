@@ -128,14 +128,18 @@ keeps affected Hyprland render-data initializers on assignment-based setup so
 the local rounded-corner field does not trip designated-initializer ordering on
 the current compiler.
 
-`system/configuration.nix` takes `hyprbars` unpatched from
+`system/configuration.nix` takes `hyprbars` from
 `inputs.hyprland-plugins.packages.${system}.hyprbars`, rebuilt against the
-patched Hyprland headers. The former
-`patches/hyprland-plugins/hyprbars-hyprland-0.55.patch` was dropped in July
-2026 along with its behavior deltas — legacy-config registration, top-only bar
+patched Hyprland headers. The behavior-carrying hyprbars patch was dropped in
+July 2026 along with its deltas — legacy-config registration, top-only bar
 rounding integrated with `shouldSquareTopCorners()`, the pass-simplification
 opt-out, and the non-animated bar-color warp; recover it from git history if
-bar rendering regresses on floating windows.
+bar rendering regresses on floating windows. The current
+`patches/hyprland-plugins/hyprbars-hyprland-0.55.patch` is a minimal
+compatibility shim for the rolling Hyprland lock outpacing the plugin repo:
+the relocated `animation/AnimationManager.hpp` include and the
+`g_pAnimationManager` → `Animation::mgr()` rename. Drop it once upstream
+`hyprland-plugins` absorbs those renames.
 
 `hyprexpo` is supplied by the repo-local package in
 `pkgs/hyprland-plugins/hyprexpo/default.nix`, which builds the maintained
@@ -149,8 +153,10 @@ this repo's rolling Hyprland master lock: `output/Monitor.hpp` /
 `Desktop::windowState()` window enumeration, `Desktop::viewState()` selector
 lookup, `Desktop::globalWindowController()->moveWindowToWorkspace(...)`,
 `Pointer::pointerController()->warpTo(...)`,
-`Pointer::Cursor::overrideController`, per-monitor `scheduleFrame()`, relocated
-`pointer/` includes, and a namespace-agnostic damage-hook symbol lookup. The
+`Pointer::Cursor::overrideController`, per-monitor `scheduleFrame()`,
+`Animation::mgr()` / `Animation::Workspace::startAnimation(...)` for the
+renamed animation managers, relocated `pointer/` and `animation/` includes,
+and a namespace-agnostic damage-hook symbol lookup. The
 old local overview behavior deltas (the 200 ms select debounce,
 `valid(startedOn)` guard, and `changeWorkspace` transition ownership) were
 dropped; the fork ships its own accidental-select protection and reworked

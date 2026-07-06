@@ -250,8 +250,11 @@ no-newline hunk. The companion
 `patches/hyprland/hyprland-gcc15-designated-initializer-fix-0.55.patch` must
 preserve newer texture fields such as `wrapX`, `wrapY`, `forceBlurBlend`,
 `blurAlphaMatte`, and `motionBlur` when rewriting designated initializers to
-assignment-based setup. As of July 2026 the plugin patch stack is down to one
-file: `hyprbars` builds unpatched from the rolling plugin input, and
+assignment-based setup. As of July 2026 the plugin patch stack carries no
+behavior deltas: `patches/hyprland-plugins/hyprbars-hyprland-0.55.patch` is a
+minimal shim for the July 2026 Hyprland lock (relocated
+`animation/AnimationManager.hpp` include, `g_pAnimationManager` →
+`Animation::mgr()`) that should be dropped once upstream plugins catch up, and
 `patches/hyprland-plugins/hyprexpo-hyprland-0.55.patch` ports the pinned
 `sandwichfarm/hyprexpo` fork (written against Hyprland 0.55.x releases) to the
 rolling master lock — `output/Monitor.hpp` / `Monitor::CMonitor`,
@@ -259,8 +262,10 @@ rolling master lock — `output/Monitor.hpp` / `Monitor::CMonitor`,
 queries, `Desktop::windowState()` / `Desktop::viewState()` window access,
 `Desktop::globalWindowController()` workspace moves,
 `Pointer::pointerController()->warpTo`, `Pointer::Cursor::overrideController`,
-per-monitor `scheduleFrame()`, relocated `pointer/` includes, and a
-namespace-agnostic damage-hook symbol lookup.
+per-monitor `scheduleFrame()`, `Animation::mgr()` /
+`Animation::Workspace::startAnimation(...)` animation-manager renames,
+relocated `pointer/` and `animation/` includes, and a namespace-agnostic
+damage-hook symbol lookup.
 Rebuild the patched Hyprland package and plugin stack before running a full
 system rebuild, because the full desktop closure may also rebuild the system
 kernel/NVIDIA stack.
