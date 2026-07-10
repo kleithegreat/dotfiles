@@ -70,9 +70,7 @@ let
     in
     upstreamHyprPluginPkgs
     // {
-      hyprbars = mkPatchedHyprPlugin upstreamHyprPluginPkgs.hyprbars [
-        ../patches/hyprland-plugins/hyprbars-hyprland-0.55.patch
-      ];
+      hyprbars = mkPatchedHyprPlugin upstreamHyprPluginPkgs.hyprbars [];
 
       hyprexpo = nativeOptimizations.optimizeCCPackage localHyprexpo;
     };
