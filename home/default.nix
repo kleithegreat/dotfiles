@@ -13,7 +13,20 @@ let
     ripgrep
     ;
   lspPlugins = optimizedPkgs.lsp-plugins;
-  opencodePkg = pkgs.opencode;
+  # nixpkgs is still on a pre-GPT-5.6 release; drop this override once it
+  # catches up to >= 1.17.16.
+  opencodePkg = pkgs.opencode.overrideAttrs (finalAttrs: prev: {
+    version = "1.17.18";
+    src = pkgs.fetchFromGitHub {
+      owner = "anomalyco";
+      repo = "opencode";
+      tag = "v${finalAttrs.version}";
+      hash = "sha256-Y0rcO6r9yqhYux8IS5oAtgzcMXfJE8I1Lre4HdJ5nBg=";
+    };
+    node_modules = prev.node_modules.overrideAttrs {
+      outputHash = "sha256-kXdXw264JQdlNoZPv5GUyWZvb/A8h2CTRdiX79jyvys=";
+    };
+  });
   # Haruna needs to stay on the session Qt/KDE stack so the global
   # hyprqt6engine platform theme plugin is ABI-compatible.
   harunaPkg = pkgs.haruna;
