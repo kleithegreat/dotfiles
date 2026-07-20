@@ -172,8 +172,10 @@ in
       nixpkgs.config.allowUnfreePredicate = pkg:
         builtins.elem (lib.getName pkg) allowedUnfreePackageNames;
       nixpkgs.config.permittedInsecurePackages = [
-        # Required by nixpkgs' bitwarden-desktop 2026.5.0 package on this input.
+        # Required by nixpkgs' bitwarden-desktop 2026.6.1 package on this input.
         "electron-39.8.10"
+        # Required by nixpkgs' winboat 0.9.0 package on this input.
+        "electron-40.10.5"
       ];
       nixpkgs.overlays = [ localPackagesOverlay claudeCodeOverlay ];
 
