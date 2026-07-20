@@ -132,6 +132,12 @@
 **Status:** Temporary insecure exception in place
 **Resolution:** `system/configuration.nix` permits only the exact `electron-39.8.10` package needed by the current `bitwarden-desktop` expression. Remove that exception when nixpkgs moves Bitwarden to a supported Electron release or when Bitwarden is replaced by a package that does not depend on Electron 39.
 
+## WinBoat currently permits nixpkgs' Electron 40 package
+**Symptom:** After updating the flake's `nixpkgs` input, `nixos-rebuild` can fail during evaluation with `Refusing to evaluate package 'electron-40.10.5' ... Electron version 40.10.5 is EOL`.
+**Cause:** `home/packages.nix` installs `pkgs.winboat`. On the current nixpkgs input, WinBoat 0.9.0 depends on `electron_40`.
+**Status:** Temporary insecure exception in place
+**Resolution:** `system/configuration.nix` permits only the exact `electron-40.10.5` package needed by the current WinBoat expression. Remove that exception when nixpkgs moves WinBoat to a supported Electron release or when WinBoat is replaced by a package that does not depend on Electron 40.
+
 ## Apple rotates `SF-Pro.dmg` behind a stable URL
 **Symptom:** `nixos-rebuild` fails while building `sf-pro` with a fixed-output derivation hash mismatch on `SF-Pro.dmg`.
 **Cause:** The Apple download URL in `overlays/local-packages.nix` stays the same while the bytes behind it change, so the repo-local `fetchurl` pin eventually stops matching upstream.
