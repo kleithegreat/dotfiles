@@ -144,23 +144,11 @@ the relocated `animation/AnimationManager.hpp` include and the
 `hyprexpo` is supplied by the repo-local package in
 `pkgs/hyprland-plugins/hyprexpo/default.nix`, which builds the maintained
 `sandwichfarm/hyprexpo` fork (pinned by revision) because the official plugin
-flake removed the plugin.
-`patches/hyprland-plugins/hyprexpo-hyprland-0.55.patch` is a pure
-compatibility port of that fork (written against Hyprland 0.55.x releases) to
-this repo's rolling Hyprland master lock: `output/Monitor.hpp` /
-`Monitor::CMonitor`, `State::workspaceState()` workspace lookup and creation,
-`State::monitorState()->query().vec(...)` cursor-monitor resolution,
-`Desktop::windowState()` window enumeration, `Desktop::viewState()` selector
-lookup, `Desktop::globalWindowController()->moveWindowToWorkspace(...)`,
-`Pointer::pointerController()->warpTo(...)`,
-`Pointer::Cursor::overrideController`, per-monitor `scheduleFrame()`,
-`Animation::mgr()` / `Animation::Workspace::startAnimation(...)` for the
-renamed animation managers, relocated `pointer/` and `animation/` includes,
-and a namespace-agnostic damage-hook symbol lookup. The
-old local overview behavior deltas (the 200 ms select debounce,
-`valid(startedOn)` guard, and `changeWorkspace` transition ownership) were
-dropped; the fork ships its own accidental-select protection and reworked
-selection, keyboard-focus, and window-drag logic.
+flake removed the plugin. The package now tracks the fork's unpatched v0.56.0
+release, whose upstream Hyprland 0.56 API port builds directly against this
+repo's locked patched Hyprland derivation. The old local compatibility patch is
+gone; the fork itself owns accidental-select protection plus selection,
+keyboard-focus, and window-drag behavior.
 
 Monitor behavior follows the same host split as inputs:
 

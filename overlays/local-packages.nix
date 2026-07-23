@@ -11,10 +11,10 @@ final: prev: {
   lmstudio =
     let
       pname = "lmstudio";
-      version = "0.4.15-2";
+      version = "0.4.20-1";
       src = final.fetchurl {
         url = "https://installers.lmstudio.ai/linux/x64/${version}/LM-Studio-${version}-x64.AppImage";
-        hash = "sha256-M7doFWVEyzcDJF4M+h4WKR+Q45yn3FZc2vZbzjYWBPE=";
+        hash = "sha256-bhyeeXOuiS7vk01wZhLJIMBLJBZYYRCNWIMliAHGSu0=";
       };
       appimageContents = final.appimageTools.extract {
         inherit pname version src;
@@ -62,7 +62,7 @@ final: prev: {
   bambu-studio =
     let
       pname = "bambu-studio";
-      version = "02.06.00.51";
+      version = "02.07.01.62";
       caBundle = "${final.cacert}/etc/ssl/certs/ca-bundle.crt";
       fontsConf = final.makeFontsConf { fontDirectories = [ final.nanum ]; };
       appimageContents = final.appimageTools.extract {
@@ -70,8 +70,8 @@ final: prev: {
         src = bambuStudioAppImage;
       };
       bambuStudioAppImage = final.fetchurl {
-        url = "https://github.com/bambulab/BambuStudio/releases/download/v${version}/BambuStudio_ubuntu-24.04-v${version}-20260417160415.AppImage";
-        hash = "sha256-CYePefJ7FXcAK+OXsIaNRHkml18BA7um4W2+f6l49zQ=";
+        url = "https://github.com/bambulab/BambuStudio/releases/download/v${version}/BambuStudio_ubuntu24.04-v${version}-20260616195227.AppImage";
+        hash = "sha256-+pi2CFMt+7uysJMUg6rEHlf7GcF1osx719Uo1eD7soc=";
       };
     in
       final.appimageTools.wrapType2 {

@@ -2,18 +2,14 @@
 
 stdenv.mkDerivation {
   pname = "snappy-switcher";
-  version = "3.2.0";
+  version = "4.0.0";
 
   src = fetchFromGitHub {
     owner = "OpalAayan";
     repo = "snappy-switcher";
-    rev = "v3.2.0";
-    hash = "sha256-wOEABDqmvguuP4iunIWhRlQIB53lAz0Z7yGOJHF14c4=";
+    rev = "v4.0.0";
+    hash = "sha256-TadQupTY8uu46KAyrcsEWSgOija5Qgt4x9zXK7rJzUE=";
   };
-
-  patches = [
-    ../../patches/snappy-switcher/workspace-scope-filter.patch
-  ];
 
   nativeBuildInputs = [
     pkg-config

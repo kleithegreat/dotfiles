@@ -14,7 +14,7 @@
 rustPlatform.buildRustPackage {
   pname = "openchamber-desktop";
   # Keep in sync with Cargo.toml and tauri.conf.json (three version sites).
-  version = "1.11.4";
+  version = "1.16.3";
   src = ./.;
 
   cargoLock.lockFile = ./Cargo.lock;
@@ -53,8 +53,6 @@ rustPlatform.buildRustPackage {
       keywords = [ "OpenCode" "OpenChamber" "AI" "Assistant" ];
     })
   ];
-
-  doCheck = false;
 
   preFixup = ''
     gappsWrapperArgs+=(

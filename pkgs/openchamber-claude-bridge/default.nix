@@ -12,9 +12,21 @@ stdenvNoCC.mkDerivation {
 
   src = ./.;
 
-  nativeBuildInputs = [ makeWrapper ];
+  nativeBuildInputs = [
+    makeWrapper
+    nodejs
+  ];
 
   dontBuild = true;
+  doCheck = true;
+
+  checkPhase = ''
+    runHook preCheck
+
+    ${lib.getExe nodejs} --test index.test.mjs
+
+    runHook postCheck
+  '';
 
   installPhase = ''
     runHook preInstall

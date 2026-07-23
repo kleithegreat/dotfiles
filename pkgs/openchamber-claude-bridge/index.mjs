@@ -8,6 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import readline from 'node:readline';
+import { pathToFileURL } from 'node:url';
 
 const BRIDGE_VERSION = '0.1.0';
 const SERVER_VERSION = `${BRIDGE_VERSION}+claude-code`;
@@ -358,6 +359,10 @@ function safeJsonParse(value, fallback) {
   }
 }
 
+function isMetadataRecord(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
 class BridgeState {
   constructor(dataDir) {
     this.dataDir = dataDir;
@@ -433,7 +438,7 @@ class BridgeState {
     this.saveTimer.unref();
   }
 
-  createSession({ directory, title, parentID, permission }) {
+  createSession({ directory, title, parentID, permission, metadata }) {
     const now = Date.now();
     const id = crypto.randomUUID();
     const info = {
@@ -449,6 +454,7 @@ class BridgeState {
         updated: now,
       },
       ...(permission ? { permission } : {}),
+      ...(metadata ? { metadata } : {}),
     };
     const session = {
       info,
@@ -1521,14 +1527,18 @@ function createServer({ host, port, dataDir }) {
 
       if (req.method === 'POST' && pathname === '/session') {
         const body = await readJsonBody(req).catch(() => null);
-        if (body === null) {
+        if (body === null || typeof body !== 'object' || Array.isArray(body)) {
           return sendBadRequest(res, 'Invalid JSON body');
+        }
+        if ('metadata' in body && !isMetadataRecord(body.metadata)) {
+          return sendBadRequest(res, 'Session metadata must be an object');
         }
         const session = state.createSession({
           directory,
           title: typeof body?.title === 'string' ? body.title : undefined,
           parentID: typeof body?.parentID === 'string' ? body.parentID : undefined,
           permission: body?.permission,
+          metadata: body?.metadata,
         });
         events.publish(session.info.directory, {
           type: 'session.created',
@@ -1566,8 +1576,11 @@ function createServer({ host, port, dataDir }) {
         }
         if (req.method === 'PATCH' || req.method === 'POST') {
           const body = await readJsonBody(req).catch(() => null);
-          if (body === null) {
+          if (body === null || typeof body !== 'object' || Array.isArray(body)) {
             return sendBadRequest(res, 'Invalid JSON body');
+          }
+          if ('metadata' in body && !isMetadataRecord(body.metadata)) {
+            return sendBadRequest(res, 'Session metadata must be an object');
           }
           const updated = state.updateSession(session.info.id, (mutableSession) => {
             if (typeof body?.title === 'string') {
@@ -1575,6 +1588,9 @@ function createServer({ host, port, dataDir }) {
             }
             if (body?.permission) {
               mutableSession.info.permission = body.permission;
+            }
+            if (body?.metadata) {
+              mutableSession.info.metadata = body.metadata;
             }
             if (body?.time && 'archived' in body.time) {
               if (body.time.archived) {
@@ -1856,4 +1872,14 @@ function main() {
   });
 }
 
-main();
+const isDirectExecution = typeof process.argv[1] === 'string'
+  && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url;
+
+if (isDirectExecution) {
+  main();
+}
+
+export {
+  BridgeState,
+  createServer,
+};

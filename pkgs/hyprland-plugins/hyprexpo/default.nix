@@ -7,18 +7,14 @@
 
 hyprlandPlugins.mkHyprlandPlugin {
   pluginName = "hyprexpo";
-  version = "0.55.4-unstable-2026-07-01";
+  version = "0.56.0";
 
   src = fetchFromGitHub {
     owner = "sandwichfarm";
     repo = "hyprexpo";
-    rev = "e76761b268a0ee1747d41e21355fa315797a9bfd";
-    hash = "sha256-sERoTu9NcGD0RA3jAdHc4GOPkRbgqMrgDT8f7+Jv9fc=";
+    rev = "6caa38e4a19c44faf0312356c110f6c21d8ca627";
+    hash = "sha256-DVAU2SPebRtbi4qyC492MZt1RZtFCT9IN6du1Pck79A=";
   };
-
-  patches = [
-    ../../../patches/hyprland-plugins/hyprexpo-hyprland-0.55.patch
-  ];
 
   inherit (hyprland) nativeBuildInputs;
 

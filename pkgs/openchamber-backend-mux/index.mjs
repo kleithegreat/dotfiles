@@ -774,13 +774,21 @@ class BackendMux {
     }
     const backendKind = this.chooseBackendFromModel(body);
     const backend = this.getBackend(backendKind);
+    const requestedModel = body?.model && typeof body.model === 'object' ? body.model : {};
+    const hasModelRouting = typeof requestedModel.id === 'string' && requestedModel.id.trim().length > 0
+      && typeof requestedModel.providerID === 'string' && requestedModel.providerID.trim().length > 0;
     const payload = {
       parentID: body?.parentID,
       title: body?.title,
+      metadata: body?.metadata,
       permission: body?.permission,
       workspaceID: body?.workspaceID,
-      model: body?.model,
-      variant: body?.variant,
+      ...(backendKind === BACKEND_CLAUDE
+        ? { model: { providerID: requestedModel.providerID, modelID: requestedModel.id } }
+        : hasModelRouting ? { model: requestedModel } : {}),
+      ...(backendKind === BACKEND_CLAUDE && requestedModel.variant
+        ? { variant: requestedModel.variant }
+        : {}),
       agent: body?.agent,
     };
     const { response, data } = await fetchJson(new URL(`/session${requestUrl.search}`, backend.origin).toString(), {
