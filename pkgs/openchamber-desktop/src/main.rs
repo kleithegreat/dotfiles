@@ -1,11 +1,12 @@
 use anyhow::{anyhow, Context, Result};
 use reqwest::blocking::Client;
+use reqwest::header::{HeaderMap, COOKIE, SET_COOKIE};
 use serde_json::{json, Value};
 use std::env;
 use std::fs;
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -47,8 +48,19 @@ fn main() {
         .expect("failed to build Tauri application");
 
     app.run(|app_handle, event| match event {
-        tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit => {
-            stop_local_server(app_handle);
+        tauri::RunEvent::ExitRequested { api, .. } => {
+            if let Some(state) = app_handle.try_state::<ServerState>() {
+                if !state.stopping.swap(true, Ordering::SeqCst) {
+                    if let Some(port) = state.port.lock().expect("server state mutex").take() {
+                        api.prevent_exit();
+                        let app_handle = app_handle.clone();
+                        std::thread::spawn(move || {
+                            let _ = shutdown_desktop_server(port);
+                            app_handle.exit(0);
+                        });
+                    }
+                }
+            }
         }
         _ => {}
     });
@@ -118,33 +130,35 @@ fn ensure_server_on_port(openchamber: &Path, port: u16) -> Result<String> {
             ));
         }
 
-        return Err(anyhow!("port {port} is already used by OpenChamber {runtime} runtime"));
+        return Err(anyhow!(
+            "port {port} is already used by OpenChamber {runtime} runtime"
+        ));
     }
 
     start_server(openchamber, port)?;
 
     if !wait_for_health(port, STARTUP_TIMEOUT) {
-        let _ = stop_server(openchamber, port);
+        let _ = shutdown_desktop_server(port);
         return Err(anyhow!("OpenChamber did not become healthy on port {port}"));
     }
 
     match fetch_runtime(port)? {
         Some(runtime) if runtime == "desktop" => Ok(url),
-        Some(runtime) => {
-            let _ = stop_server(openchamber, port);
-            Err(anyhow!(
-                "OpenChamber on port {port} reported runtime '{runtime}' instead of desktop"
-            ))
-        }
+        Some(runtime) => Err(anyhow!(
+            "OpenChamber on port {port} reported runtime '{runtime}' instead of desktop"
+        )),
         None => {
-            let _ = stop_server(openchamber, port);
-            Err(anyhow!("OpenChamber on port {port} never exposed system info"))
+            let _ = shutdown_desktop_server(port);
+            Err(anyhow!(
+                "OpenChamber on port {port} never exposed system info"
+            ))
         }
     }
 }
 
 fn start_server(openchamber: &Path, port: u16) -> Result<()> {
-    let output = Command::new(openchamber)
+    let mut command = Command::new(openchamber);
+    command
         .args([
             "serve",
             "--port",
@@ -153,7 +167,12 @@ fn start_server(openchamber: &Path, port: u16) -> Result<()> {
             "127.0.0.1",
             "--quiet",
         ])
-        .env("OPENCHAMBER_RUNTIME", "desktop")
+        .env("OPENCHAMBER_RUNTIME", "desktop");
+    if let Some(password) = read_desktop_ui_password() {
+        command.env("OPENCHAMBER_UI_PASSWORD", password);
+    }
+
+    let output = command
         .output()
         .with_context(|| format!("failed to launch {}", openchamber.display()))?;
 
@@ -170,55 +189,63 @@ fn start_server(openchamber: &Path, port: u16) -> Result<()> {
         (true, true) => "no output".to_string(),
     };
 
-    Err(anyhow!("OpenChamber failed to start on port {port}: {detail}"))
+    Err(anyhow!(
+        "OpenChamber failed to start on port {port}: {detail}"
+    ))
 }
 
-fn stop_local_server(app: &tauri::AppHandle) {
-    let Some(state) = app.try_state::<ServerState>() else {
-        return;
+fn shutdown_desktop_server(port: u16) -> Result<()> {
+    if fetch_runtime(port)?.as_deref() != Some("desktop") {
+        return Err(anyhow!(
+            "refusing to shut down a non-desktop runtime on port {port}"
+        ));
+    }
+
+    let client = http_client()?;
+    let cookie: Option<String> = if let Some(password) = read_desktop_ui_password() {
+        let response = client
+            .post(auth_session_url(port))
+            .json(&json!({ "password": password }))
+            .send()
+            .context("failed to authenticate desktop shutdown")?;
+        if !response.status().is_success() {
+            return Err(anyhow!(
+                "desktop shutdown authentication failed with status {}",
+                response.status()
+            ));
+        }
+        Some(
+            extract_ui_session_cookie(response.headers()).ok_or_else(|| {
+                anyhow!("desktop shutdown authentication returned no session cookie")
+            })?,
+        )
+    } else {
+        None
     };
 
-    if state.stopping.swap(true, Ordering::SeqCst) {
-        return;
+    let mut request = client.post(shutdown_url(port));
+    if let Some(cookie) = cookie {
+        request = request.header(COOKIE, cookie);
     }
-
-    let port = state.port.lock().expect("server state mutex").take();
-    if let Some(port) = port {
-        if let Ok(openchamber) = resolve_openchamber_binary() {
-            let _ = request_stop_server(&openchamber, port);
-        }
+    let response = request
+        .send()
+        .context("failed to request desktop shutdown")?;
+    if !response.status().is_success() {
+        return Err(anyhow!(
+            "desktop shutdown failed with status {}",
+            response.status()
+        ));
     }
-}
-
-fn request_stop_server(openchamber: &Path, port: u16) -> Result<()> {
-    // Let the window close immediately while the CLI drains its own shutdown path.
-    Command::new(openchamber)
-        .args(["stop", "--port", &port.to_string(), "--quiet"])
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()
-        .with_context(|| format!("failed to request stop for {} on port {port}", openchamber.display()))?;
-
     Ok(())
 }
 
-fn stop_server(openchamber: &Path, port: u16) -> Result<()> {
-    let output = Command::new(openchamber)
-        .args(["stop", "--port", &port.to_string(), "--quiet"])
-        .output()
-        .with_context(|| format!("failed to stop {} on port {port}", openchamber.display()))?;
-
-    if output.status.success() {
-        return Ok(());
-    }
-
-    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-    if stderr.is_empty() {
-        Err(anyhow!("OpenChamber stop failed on port {port}"))
-    } else {
-        Err(anyhow!("OpenChamber stop failed on port {port}: {stderr}"))
-    }
+fn extract_ui_session_cookie(headers: &HeaderMap) -> Option<String> {
+    headers.get_all(SET_COOKIE).iter().find_map(|value| {
+        let cookie = value.to_str().ok()?.split(';').next()?.trim();
+        cookie
+            .starts_with("oc_ui_session=")
+            .then(|| cookie.to_string())
+    })
 }
 
 fn wait_for_health(port: u16, timeout: Duration) -> bool {
@@ -255,7 +282,9 @@ fn fetch_runtime(port: u16) -> Result<Option<String>> {
         return Ok(None);
     }
 
-    let payload: Value = response.json().context("failed to decode /api/system/info response")?;
+    let payload: Value = response
+        .json()
+        .context("failed to decode /api/system/info response")?;
     Ok(payload
         .get("runtime")
         .and_then(Value::as_str)
@@ -293,7 +322,8 @@ fn resolve_openchamber_binary() -> Result<PathBuf> {
 }
 
 fn pick_unused_port() -> Result<u16> {
-    let listener = TcpListener::bind(("127.0.0.1", 0)).context("failed to allocate a local port")?;
+    let listener =
+        TcpListener::bind(("127.0.0.1", 0)).context("failed to allocate a local port")?;
     listener
         .local_addr()
         .map(|address| address.port())
@@ -310,6 +340,14 @@ fn health_url(port: u16) -> String {
 
 fn system_info_url(port: u16) -> String {
     format!("{}/api/system/info", build_local_url(port))
+}
+
+fn auth_session_url(port: u16) -> String {
+    format!("{}/auth/session", build_local_url(port))
+}
+
+fn shutdown_url(port: u16) -> String {
+    format!("{}/api/system/shutdown", build_local_url(port))
 }
 
 fn settings_file_path() -> PathBuf {
@@ -337,6 +375,34 @@ fn read_desktop_local_port() -> Option<u16> {
         .and_then(Value::as_u64)
         .and_then(|value| u16::try_from(value).ok())
         .filter(|value| *value > 0)
+}
+
+fn read_desktop_ui_password() -> Option<String> {
+    let env_password = env::var("OPENCHAMBER_UI_PASSWORD").ok();
+    if let Some(password) = resolve_desktop_ui_password(env_password.as_deref(), None) {
+        return Some(password);
+    }
+
+    let raw = fs::read_to_string(settings_file_path()).ok()?;
+    let parsed: Value = serde_json::from_str(&raw).ok()?;
+    resolve_desktop_ui_password(None, Some(&parsed))
+}
+
+fn resolve_desktop_ui_password(
+    env_password: Option<&str>,
+    settings: Option<&Value>,
+) -> Option<String> {
+    env_password
+        .map(str::trim)
+        .filter(|password| !password.is_empty())
+        .or_else(|| {
+            settings?
+                .get("desktopUiPassword")?
+                .as_str()
+                .map(str::trim)
+                .filter(|password| !password.is_empty())
+        })
+        .map(ToOwned::to_owned)
 }
 
 fn write_desktop_local_port(port: u16) -> Result<()> {
@@ -367,6 +433,41 @@ fn write_desktop_local_port(port: u16) -> Result<()> {
     let tmp = path.with_extension("json.openchamber-desktop.tmp");
     fs::write(&tmp, serde_json::to_string_pretty(&root)?)
         .with_context(|| format!("failed to write {}", tmp.display()))?;
-    fs::rename(&tmp, &path)
-        .with_context(|| format!("failed to replace {}", path.display()))
+    fs::rename(&tmp, &path).with_context(|| format!("failed to replace {}", path.display()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use reqwest::header::HeaderValue;
+
+    #[test]
+    fn extracts_openchamber_session_cookie() {
+        let mut headers = HeaderMap::new();
+        headers.append(SET_COOKIE, HeaderValue::from_static("other=value; Path=/"));
+        headers.append(
+            SET_COOKIE,
+            HeaderValue::from_static("oc_ui_session=session-token; HttpOnly; SameSite=Strict"),
+        );
+
+        assert_eq!(
+            extract_ui_session_cookie(&headers).as_deref(),
+            Some("oc_ui_session=session-token")
+        );
+    }
+
+    #[test]
+    fn resolves_trimmed_ui_password_with_environment_precedence() {
+        let settings = json!({ "desktopUiPassword": " settings-secret " });
+
+        assert_eq!(
+            resolve_desktop_ui_password(Some(" env-secret "), Some(&settings)).as_deref(),
+            Some("env-secret")
+        );
+        assert_eq!(
+            resolve_desktop_ui_password(Some("  "), Some(&settings)).as_deref(),
+            Some("settings-secret")
+        );
+        assert_eq!(resolve_desktop_ui_password(None, Some(&json!({}))), None);
+    }
 }

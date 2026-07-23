@@ -1,0 +1,1020 @@
+diff --git a/packages/ui/src/components/sections/openchamber/OpenCodeCliSettings.tsx b/packages/ui/src/components/sections/openchamber/OpenCodeCliSettings.tsx
+index a4aac793..c112c1c0 100644
+--- a/packages/ui/src/components/sections/openchamber/OpenCodeCliSettings.tsx
++++ b/packages/ui/src/components/sections/openchamber/OpenCodeCliSettings.tsx
+@@ -1,6 +1,7 @@
+ import * as React from 'react';
+ import { Button } from '@/components/ui/button';
+ import { Input } from '@/components/ui/input';
++import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+ import { Icon } from "@/components/icon/Icon";
+ import {
+   SettingsSection,
+@@ -19,6 +20,7 @@ import { runtimeFetch } from '@/lib/runtime-fetch';
+
+ export const OpenCodeCliSettings: React.FC = () => {
+   const { t } = useI18n();
++  const [backend, setBackend] = React.useState<'opencode' | 'claude-code' | 'mixed'>('opencode');
+   const [value, setValue] = React.useState('');
+   const [isLoading, setIsLoading] = React.useState(true);
+   const [isSaving, setIsSaving] = React.useState(false);
+@@ -36,11 +38,13 @@ export const OpenCodeCliSettings: React.FC = () => {
+         if (!response.ok) {
+           return;
+         }
+-        const data = (await response.json().catch(() => null)) as null | { opencodeBinary?: unknown };
++        const data = (await response.json().catch(() => null)) as null | { opencodeBinary?: unknown; backend?: unknown };
+         if (cancelled || !data) {
+           return;
+         }
+         const next = typeof data.opencodeBinary === 'string' ? data.opencodeBinary.trim() : '';
++        const nextBackend = data.backend === 'claude-code' || data.backend === 'mixed' ? data.backend : 'opencode';
++        setBackend(nextBackend);
+         setValue(next);
+       } catch {
+         // ignore
+@@ -85,16 +89,21 @@ export const OpenCodeCliSettings: React.FC = () => {
+           || (trimmed.startsWith("'") && trimmed.endsWith("'")))
+         ? trimmed.slice(1, -1).trim()
+         : trimmed;
+-      await updateDesktopSettings({ opencodeBinary: unquoted });
++      await updateDesktopSettings({ backend, opencodeBinary: unquoted });
++      const message = backend === 'claude-code'
++        ? 'Switching to Claude Code...'
++        : backend === 'mixed'
++          ? 'Starting OpenCode + Claude Code...'
++          : t('settings.openchamber.opencodeCli.actions.restartingOpenCode');
+       await reloadOpenCodeConfiguration({
+-        message: t('settings.openchamber.opencodeCli.actions.restartingOpenCode'),
++        message,
+         mode: 'projects',
+         scopes: ['all'],
+       });
+     } finally {
+       setIsSaving(false);
+     }
+-  }, [t, value]);
++  }, [backend, t, value]);
+
+   const handleShowUpdateNotificationsChange = React.useCallback((enabled: boolean) => {
+     setShowOpenCodeUpdateNotifications(enabled);
+@@ -105,44 +114,71 @@ export const OpenCodeCliSettings: React.FC = () => {
+     <SettingsSection title={t('settings.openchamber.opencodeCli.title')}>
+       <div className="space-y-0.5">
+         <SettingsFieldRow
+-          settingsItem="sessions.opencode-binary"
+-          label={t('settings.openchamber.opencodeCli.field.binaryPath')}
+-          info={(
+-            <>
+-              {t('settings.openchamber.opencodeCli.tipPrefix')}
+-              {' '}
+-              <span className="font-mono">OPENCODE_BINARY</span>
+-              {' '}
+-              {t('settings.openchamber.opencodeCli.tipMiddle')}
+-              {' '}
+-              <span className="font-mono">~/.config/openchamber/settings.json</span>
+-              {'.'}
+-            </>
+-          )}
+-          alignEnd={false}
++          settingsItem="sessions.runtime-backend"
++          label="Runtime Backend"
++          info="Choose OpenCode, Claude Code, or a mixed runtime that binds each chat to its selected provider."
+           controlClassName="@xl:w-[20rem]"
+         >
+-          <Input
+-            value={value}
+-            onChange={(e) => setValue(e.target.value)}
+-            placeholder={t('settings.openchamber.opencodeCli.field.binaryPathPlaceholder')}
+-            disabled={isLoading || isSaving}
+-            className="h-8 min-w-0 flex-1 font-mono text-xs"
+-          />
+-          <Button
+-            type="button"
+-            variant="outline"
+-            size="xs"
+-            onClick={handleBrowse}
+-            disabled={isLoading || isSaving || !isDesktopShell()}
+-            className={SETTINGS_ICON_BUTTON_CLASS}
+-            aria-label={t('settings.openchamber.opencodeCli.actions.browseAria')}
+-            title={t('settings.openchamber.opencodeCli.actions.browse')}
+-          >
+-            <Icon name="folder" className="h-4 w-4" />
+-          </Button>
++          <Select value={backend} onValueChange={(next) => setBackend(next === 'claude-code' || next === 'mixed' ? next : 'opencode')}>
++            <SelectTrigger className="h-8 min-w-0 flex-1 text-xs">
++              <SelectValue />
++            </SelectTrigger>
++            <SelectContent>
++              <SelectItem value="mixed">OpenCode + Claude Code</SelectItem>
++              <SelectItem value="opencode">OpenCode</SelectItem>
++              <SelectItem value="claude-code">Claude Code</SelectItem>
++            </SelectContent>
++          </Select>
+         </SettingsFieldRow>
+
++        {backend !== 'claude-code' ? (
++          <SettingsFieldRow
++            settingsItem="sessions.opencode-binary"
++            label={t('settings.openchamber.opencodeCli.field.binaryPath')}
++            info={(
++              <>
++                {t('settings.openchamber.opencodeCli.tipPrefix')}
++                {' '}
++                <span className="font-mono">OPENCODE_BINARY</span>
++                {' '}
++                {t('settings.openchamber.opencodeCli.tipMiddle')}
++                {' '}
++                <span className="font-mono">~/.config/openchamber/settings.json</span>
++                {'.'}
++                {backend === 'mixed' ? ' New chats use the backend selected by their provider.' : null}
++              </>
++            )}
++            alignEnd={false}
++            controlClassName="@xl:w-[20rem]"
++          >
++            <Input
++              value={value}
++              onChange={(e) => setValue(e.target.value)}
++              placeholder={t('settings.openchamber.opencodeCli.field.binaryPathPlaceholder')}
++              disabled={isLoading || isSaving}
++              className="h-8 min-w-0 flex-1 font-mono text-xs"
++            />
++            <Button
++              type="button"
++              variant="outline"
++              size="xs"
++              onClick={handleBrowse}
++              disabled={isLoading || isSaving || !isDesktopShell()}
++              className={SETTINGS_ICON_BUTTON_CLASS}
++              aria-label={t('settings.openchamber.opencodeCli.actions.browseAria')}
++              title={t('settings.openchamber.opencodeCli.actions.browse')}
++            >
++              <Icon name="folder" className="h-4 w-4" />
++            </Button>
++          </SettingsFieldRow>
++        ) : (
++          <SettingsInset>
++            <p className="typography-micro text-muted-foreground/70">
++              OpenChamber manages the Claude Code bridge automatically; Claude Code must already be installed and authenticated.
++            </p>
++          </SettingsInset>
++        )}
++
+         <SettingsInset className={SETTINGS_OPTION_STACK_CLASS}>
+           <SettingsCheckboxRow
+             settingsItem="sessions.opencode-update-notifications"
+diff --git a/packages/ui/src/lib/desktop.ts b/packages/ui/src/lib/desktop.ts
+index 2379463c..7b8b108d 100644
+--- a/packages/ui/src/lib/desktop.ts
++++ b/packages/ui/src/lib/desktop.ts
+@@ -53,6 +53,7 @@ export type DesktopSettings = {
+   splashFgDark?: string;
+   lastDirectory?: string;
+   homeDirectory?: string;
++  backend?: 'opencode' | 'claude-code' | 'mixed';
+   // Optional absolute path to `opencode` binary.
+   opencodeBinary?: string;
+   desktopLanAccessEnabled?: boolean;
+diff --git a/packages/ui/src/lib/opencode/client.test.ts b/packages/ui/src/lib/opencode/client.test.ts
+index 4bd0d712..154a5441 100644
+--- a/packages/ui/src/lib/opencode/client.test.ts
++++ b/packages/ui/src/lib/opencode/client.test.ts
+@@ -8,6 +8,7 @@ const configResolvers: Array<(response: ConfigResponse) => void> = [];
+ let configCalls = 0;
+ const promptAsyncCalls: unknown[][] = [];
+ const promptAsyncResults: Array<unknown> = [];
++const runtimeFetchCalls: Array<{ input: string; init?: RequestInit }> = [];
+
+ const promptAsyncMock = mock(async (...args: unknown[]) => {
+   promptAsyncCalls.push(args);
+@@ -48,9 +49,13 @@ mock.module('@/lib/runtime-switch', () => ({
+ }));
+
+ mock.module('@/lib/runtime-fetch', () => ({
+-  runtimeFetch: mock(async () => new Response(JSON.stringify([]), {
+-    headers: { 'Content-Type': 'application/json' },
+-  })),
++  runtimeFetch: mock(async (input: string | URL | Request, init?: RequestInit) => {
++    const url = String(input);
++    runtimeFetchCalls.push({ input: url, init });
++    return new Response(JSON.stringify(url.includes('/session') ? { id: 'session-routed' } : []), {
++      headers: { 'Content-Type': 'application/json' },
++    });
++  }),
+ }));
+
+ mock.module('@/lib/startupTrace', () => ({
+@@ -62,6 +67,35 @@ const { opencodeClient } = await import(`./client?cache-test=${Date.now()}`);
+ beforeEach(() => {
+   promptAsyncCalls.length = 0;
+   promptAsyncResults.length = 0;
++  runtimeFetchCalls.length = 0;
++});
++
++describe('opencodeClient session creation', () => {
++  test('uses the OpenCode session-create model wire shape', async () => {
++    await opencodeClient.createSession({
++      title: 'Routed session',
++      metadata: { openchamber: { review: true } },
++      routing: {
++        providerID: 'claude-code',
++        modelID: 'sonnet',
++        variant: 'max',
++        agent: 'review',
++      },
++    }, '/repo');
++
++    expect(runtimeFetchCalls).toHaveLength(1);
++    expect(runtimeFetchCalls[0].input).toContain('/session?directory=%2Frepo');
++    expect(JSON.parse(String(runtimeFetchCalls[0].init?.body))).toEqual({
++      title: 'Routed session',
++      metadata: { openchamber: { review: true } },
++      model: {
++        id: 'sonnet',
++        providerID: 'claude-code',
++        variant: 'max',
++      },
++      agent: 'review',
++    });
++  });
+ });
+
+ describe('opencodeClient getConfig cache', () => {
+diff --git a/packages/ui/src/lib/opencode/client.ts b/packages/ui/src/lib/opencode/client.ts
+index 80fba7d6..124dd669 100644
+--- a/packages/ui/src/lib/opencode/client.ts
++++ b/packages/ui/src/lib/opencode/client.ts
+@@ -15,6 +15,13 @@ import type {
+ import type { PermissionRequest } from "@/types/permission";
+ import type { QuestionRequest } from "@/types/question";
+
++export type SessionCreateRouting = {
++  providerID: string;
++  modelID: string;
++  variant?: string;
++  agent?: string;
++};
++
+ /**
+  * Tagged result of `OpencodeService.fetchPermission()`. The caller can
+  * distinguish a server-confirmed "no longer pending" permission (HTTP
+@@ -520,15 +527,50 @@ class OpencodeService {
+     return Array.isArray(response.data) ? response.data : [];
+   }
+
+-  async createSession(params?: { parentID?: string; title?: string; metadata?: Record<string, unknown> }, directory?: string | null): Promise<Session> {
++  async createSession(
++    params?: {
++      parentID?: string;
++      title?: string;
++      metadata?: Record<string, unknown>;
++      routing?: SessionCreateRouting;
++    },
++    directory?: string | null,
++  ): Promise<Session> {
+     const requestDirectory = this.normalizeCandidatePath(directory) ?? this.currentDirectory;
+-    const response = await this.client.session.create({
+-      ...(requestDirectory ? { directory: requestDirectory } : {}),
++    const query = requestDirectory ? `?${new URLSearchParams({ directory: requestDirectory })}` : '';
++    const response = await runtimeFetch(`${this.baseUrl.replace(/\/+$/, '')}/session${query}`, {
++      method: 'POST',
++      headers: {
++        Accept: 'application/json',
++        'Content-Type': 'application/json',
++      },
++      body: JSON.stringify({
+       parentID: params?.parentID,
+       title: params?.title,
+       metadata: params?.metadata,
++        ...(params?.routing
++          ? {
++              model: {
++                providerID: params.routing.providerID,
++                id: params.routing.modelID,
++                ...(params.routing.variant ? { variant: params.routing.variant } : {}),
++              },
++              agent: params.routing.agent,
++            }
++          : {}),
++      }),
+     });
+-    return unwrapSdkData(response, 'session.create');
++    const payload = await response.json().catch(() => null) as Session | { error?: unknown } | null;
++    if (!response.ok) {
++      const detail = payload && 'error' in payload
++        ? (typeof payload.error === 'string' ? payload.error : JSON.stringify(payload.error))
++        : response.statusText;
++      throw new Error(`Failed to create session (${response.status}): ${detail || 'Unknown error'}`);
++    }
++    if (!payload || typeof payload !== 'object' || !('id' in payload)) {
++      throw new Error('Failed to create session: server returned an invalid response');
++    }
++    return payload as Session;
+   }
+
+   async getSession(id: string, directory?: string | null): Promise<Session> {
+diff --git a/packages/ui/src/lib/persistence.ts b/packages/ui/src/lib/persistence.ts
+index 621d584a..98c4148b 100644
+--- a/packages/ui/src/lib/persistence.ts
++++ b/packages/ui/src/lib/persistence.ts
+@@ -980,6 +980,9 @@ const sanitizeWebSettings = (payload: unknown): DesktopSettings | null => {
+     result.homeDirectory = candidate.homeDirectory;
+   }
+
++  if (candidate.backend === 'opencode' || candidate.backend === 'claude-code' || candidate.backend === 'mixed') {
++    result.backend = candidate.backend;
++  }
+   if (typeof candidate.opencodeBinary === 'string') {
+     const trimmed = candidate.opencodeBinary.trim();
+     result.opencodeBinary = trimmed.length > 0 ? trimmed : undefined;
+diff --git a/packages/ui/src/lib/reviewFlow.ts b/packages/ui/src/lib/reviewFlow.ts
+index 26915e57..4bfdf7fc 100644
+--- a/packages/ui/src/lib/reviewFlow.ts
++++ b/packages/ui/src/lib/reviewFlow.ts
+@@ -455,9 +455,11 @@ const createOrReuseReviewSession = async (originalSessionID: string, directory:
+   }
+
+   assertAutoReviewRuntimeStillCurrent(expectedRuntimeKey);
++  const routing = resolveModelContext(originalSessionID) ?? undefined;
+   const review = await opencodeClient.createSession({
+     title: getReviewSessionTitle(original),
+     metadata: withReviewSessionMarker({}, originalSessionID),
++    routing,
+   }, directory);
+   assertAutoReviewRuntimeStillCurrent(expectedRuntimeKey);
+   registerSessionDirectory(review.id, directory);
+diff --git a/packages/ui/src/stores/useConfigStore.test.ts b/packages/ui/src/stores/useConfigStore.test.ts
+index 0b2b18c6..3aa13798 100644
+--- a/packages/ui/src/stores/useConfigStore.test.ts
++++ b/packages/ui/src/stores/useConfigStore.test.ts
+@@ -230,7 +230,7 @@ mock.module('@/lib/configSync', () => ({
+   }),
+ }));
+
+-const { useConfigStore } = await import('./useConfigStore');
++const { toConfigDirectoryKey, useConfigStore } = await import('./useConfigStore');
+ const { emitSyncConfigChanged, setSyncRefs } = await import('@/sync/sync-refs');
+ const { useSelectionStore } = await import('@/sync/selection-store');
+ const { useSessionUIStore } = await import('@/sync/session-ui-store');
+@@ -644,6 +644,13 @@ describe('useConfigStore provider persistence', () => {
+     expect(state.currentAgentName).toBe('review');
+   });
+
++  test('config directory keys normalize persisted worktrees to their owning project', () => {
++    const worktree = '/workspace/project-worktree';
++    storage.set('oc.worktreeProjectMap', JSON.stringify({ [worktree]: DIRECTORY }));
++
++    expect(toConfigDirectoryKey(worktree)).toBe(DIRECTORY);
++  });
++
+   test('sync config defaults do not close the add-provider settings flow', () => {
+     useConfigStore.setState({
+       activeDirectoryKey: DIRECTORY,
+diff --git a/packages/ui/src/stores/useConfigStore.ts b/packages/ui/src/stores/useConfigStore.ts
+index a8c1d3f4..284ec607 100644
+--- a/packages/ui/src/stores/useConfigStore.ts
++++ b/packages/ui/src/stores/useConfigStore.ts
+@@ -822,7 +822,7 @@ const getFallbackProjectDirectory = (): string | null => {
+  * per-worktree snapshot. Returns the owning project's path when the directory is
+  * a known worktree, else the directory unchanged.
+  */
+-const resolveConfigDirectory = (directory: string | null | undefined): string | null => {
++export const resolveConfigDirectory = (directory: string | null | undefined): string | null => {
+     const dir = normalizeConfigPath(directory);
+     const projects = getKnownProjectDirectories();
+     if (!dir) return null;
+@@ -850,7 +850,7 @@ const resolveConfigDirectory = (directory: string | null | undefined): string |
+     return null;
+ };
+
+-const toConfigDirectoryKey = (directory: string | null | undefined): string =>
++export const toConfigDirectoryKey = (directory: string | null | undefined): string =>
+     toDirectoryKey(resolveConfigDirectory(directory));
+
+ // Runtime freshness tracking (NOT persisted) for the stale-while-revalidate
+diff --git a/packages/ui/src/stores/useMultiRunStore.ts b/packages/ui/src/stores/useMultiRunStore.ts
+index c06d9605..06316046 100644
+--- a/packages/ui/src/stores/useMultiRunStore.ts
++++ b/packages/ui/src/stores/useMultiRunStore.ts
+@@ -212,7 +212,10 @@ export const useMultiRunStore = create<MultiRunStore>()(
+                 if (!shouldIsolateRuns) {
+                   const session = await opencodeClient.withDirectory(
+                     directory,
+-                    () => opencodeClient.createSession({ title: sessionTitle }),
++                    () => opencodeClient.createSession({
++                      title: sessionTitle,
++                      routing: model,
++                    }),
+                   );
+                   registerCreatedSession(session, directory);
+
+@@ -251,7 +254,10 @@ export const useMultiRunStore = create<MultiRunStore>()(
+
+                 const session = await opencodeClient.withDirectory(
+                   worktreeMetadata.path,
+-                  () => opencodeClient.createSession({ title: sessionTitle }),
++                  () => opencodeClient.createSession({
++                    title: sessionTitle,
++                    routing: model,
++                  }),
+                 );
+                 registerCreatedSession(session, worktreeMetadata.path);
+
+diff --git a/packages/ui/src/sync/__tests__/issue-1637-2270.test.ts b/packages/ui/src/sync/__tests__/issue-1637-2270.test.ts
+index 5773f57e..24e78984 100644
+--- a/packages/ui/src/sync/__tests__/issue-1637-2270.test.ts
++++ b/packages/ui/src/sync/__tests__/issue-1637-2270.test.ts
+@@ -16,6 +16,14 @@ let nextCreateSessionCalls: Array<{ params: unknown; directory: string | null |
+
+ // Configurable current directory (used as fallback when no directoryOverride is set)
+ let currentDirectory: string | null = null
++let configDirectoryKeys = new Map<string, string>()
++let configState: Record<string, unknown> = {
++  currentProviderId: "",
++  currentModelId: "",
++  currentVariant: undefined,
++  currentAgentName: undefined,
++  directoryScoped: {},
++}
+
+ mock.module("@/lib/opencode/client", () => ({
+   opencodeClient: {
+@@ -61,11 +69,11 @@ mock.module("@/stores/useGlobalSessionsStore", () => ({
+ }))
+
+ mock.module("@/stores/useConfigStore", () => ({
++  toConfigDirectoryKey: (directory: string | null | undefined) => (
++    configDirectoryKeys.get(directory ?? "") ?? directory ?? "__global__"
++  ),
+   useConfigStore: {
+-    getState: () => ({
+-      isConnected: true,
+-      hasEverConnected: true,
+-    }),
++    getState: () => configState,
+   },
+ }))
+
+@@ -88,6 +96,16 @@ beforeEach(() => {
+   nextCreateSessionCalls = []
+   nextCreateSessionResponse = { id: "ses_default", time: { created: 1 } } as Session
+   currentDirectory = null
++  configDirectoryKeys = new Map()
++  configState = {
++    isConnected: true,
++    hasEverConnected: true,
++    currentProviderId: "",
++    currentModelId: "",
++    currentVariant: undefined,
++    currentAgentName: undefined,
++    directoryScoped: {},
++  }
+
+   // Initialize action refs. The first two args (sdk, childStores) are not
+   // exercised by `createSession` itself, only the directory getter is.
+@@ -98,6 +116,77 @@ beforeEach(() => {
+   )
+ })
+
++describe("mixed backend session routing", () => {
++  test("forwards the selected model and metadata without changing directory routing", async () => {
++    configState = {
++      currentProviderId: "openai",
++      currentModelId: "gpt-5",
++      currentVariant: "high",
++      currentAgentName: "build",
++      directoryScoped: {
++        "/projects/alpha": {
++          currentProviderId: "claude-code",
++          currentModelId: "sonnet",
++          currentVariant: "max",
++          currentAgentName: "review",
++        },
++      },
++    }
++    const metadata = { openchamber: { review: true } }
++
++    await createSession("routed", "/projects/alpha", null, metadata)
++
++    expect(nextCreateSessionCalls).toHaveLength(1)
++    expect(nextCreateSessionCalls[0]).toEqual({
++      directory: "/projects/alpha",
++      params: {
++        title: "routed",
++        parentID: undefined,
++        metadata,
++        routing: {
++          providerID: "claude-code",
++          modelID: "sonnet",
++          variant: "max",
++          agent: "review",
++        },
++      },
++    })
++  })
++
++  test("uses the owning project's scoped selection for a worktree session", async () => {
++    configDirectoryKeys.set("/worktrees/alpha", "/projects/alpha")
++    configState = {
++      currentProviderId: "openai",
++      currentModelId: "global-model",
++      directoryScoped: {
++        "/projects/alpha": {
++          currentProviderId: "claude-code",
++          currentModelId: "project-sonnet",
++          currentVariant: "max",
++          currentAgentName: "review",
++        },
++      },
++    }
++
++    await createSession("worktree", "/worktrees/alpha", null)
++
++    expect(nextCreateSessionCalls[0]).toEqual({
++      directory: "/worktrees/alpha",
++      params: {
++        title: "worktree",
++        parentID: undefined,
++        metadata: undefined,
++        routing: {
++          providerID: "claude-code",
++          modelID: "project-sonnet",
++          variant: "max",
++          agent: "review",
++        },
++      },
++    })
++  })
++})
++
+ describe("issue #1637 — server omits directory, falls back to directoryOverride", () => {
+   test("when server response omits directory and directoryOverride is set, setCurrentSession receives the directoryOverride (not null)", async () => {
+     nextCreateSessionResponse = { id: "ses_1637_a", time: { created: 1 } } as Session
+diff --git a/packages/ui/src/sync/session-actions.ts b/packages/ui/src/sync/session-actions.ts
+index 1826a1d9..838d5f12 100644
+--- a/packages/ui/src/sync/session-actions.ts
++++ b/packages/ui/src/sync/session-actions.ts
+@@ -9,9 +9,9 @@ import { useSessionUIStore } from "./session-ui-store"
+ import { useInputStore } from "./input-store"
+ import type { ChildStoreManager } from "./child-store"
+ import { computeSubtreeIds } from "./scoped-blocking-requests"
+-import { opencodeClient } from "@/lib/opencode/client"
++import { opencodeClient, type SessionCreateRouting } from "@/lib/opencode/client"
+ import { mergeSessionDirectoryMetadata, resolveGlobalSessionDirectory, useGlobalSessionsStore } from "@/stores/useGlobalSessionsStore"
+-import { useConfigStore } from "@/stores/useConfigStore"
++import { toConfigDirectoryKey, useConfigStore } from "@/stores/useConfigStore"
+ import { registerSessionDirectory } from "./sync-refs"
+ import { isSyntheticPart } from "@/lib/messages/synthetic"
+ import { materializeSessionSnapshots } from "./materialization"
+@@ -574,6 +574,7 @@ export async function createSession(
+   directoryOverride?: string | null,
+   parentID?: string | null,
+   metadata?: Record<string, unknown>,
++  routing?: SessionCreateRouting,
+ ): Promise<Session | null> {
+   try {
+     // Capture the effective directory used for session creation so we can fall
+@@ -582,10 +583,24 @@ export async function createSession(
+     // opencodeClient.getDirectory() value and group the session under the
+     // wrong project (closes #1637, #2270).
+     const effectiveDirectory = directoryOverride ?? dir()
++    const configState = useConfigStore.getState()
++    const scopedDirectoryKey = toConfigDirectoryKey(effectiveDirectory)
++    const scopedConfig = configState.directoryScoped?.[scopedDirectoryKey]
++    const providerID = scopedConfig?.currentProviderId || configState.currentProviderId
++    const modelID = scopedConfig?.currentModelId || configState.currentModelId
++    const resolvedRouting = routing ?? (providerID && modelID
++      ? {
++          providerID,
++          modelID,
++          variant: scopedConfig?.currentVariant || configState.currentVariant,
++          agent: scopedConfig?.currentAgentName || configState.currentAgentName,
++        }
++      : undefined)
+     const session = await opencodeClient.createSession({
+       title,
+       parentID: parentID ?? undefined,
+       metadata,
++      routing: resolvedRouting,
+     }, effectiveDirectory)
+
+     const sessionDirectory = (session as { directory?: string | null }).directory ?? effectiveDirectory ?? null
+diff --git a/packages/ui/src/sync/session-ui-store.ts b/packages/ui/src/sync/session-ui-store.ts
+index 1e3d47b2..6af59ace 100644
+--- a/packages/ui/src/sync/session-ui-store.ts
++++ b/packages/ui/src/sync/session-ui-store.ts
+@@ -16,7 +16,7 @@ import { create } from "zustand"
+ import type { Session, Part, Message, TextPart } from "@opencode-ai/sdk/v2/client"
+ import type { AttachedFile, SessionContextUsage, SessionWorktreeAttachment } from "@/stores/types/sessionTypes"
+ import type { WorktreeMetadata } from "@/types/worktree"
+-import { opencodeClient } from "@/lib/opencode/client"
++import { opencodeClient, type SessionCreateRouting } from "@/lib/opencode/client"
+ import { runtimeFetch } from "@/lib/runtime-fetch"
+ import { useConfigStore } from "@/stores/useConfigStore"
+ import { useProjectsStore } from "@/stores/useProjectsStore"
+@@ -290,7 +290,7 @@ export type SessionUIState = {
+     options?: SendMessageOptions,
+   ) => Promise<void>
+
+-  createSession: (title?: string, directoryOverride?: string | null, parentID?: string | null, metadata?: Record<string, unknown>) => Promise<Session | null>
++  createSession: (title?: string, directoryOverride?: string | null, parentID?: string | null, metadata?: Record<string, unknown>, routing?: SessionCreateRouting) => Promise<Session | null>
+   deleteSession: (id: string, options?: Record<string, unknown>) => Promise<boolean>
+   deleteSessions: (ids: string[], options?: Record<string, unknown>) => Promise<{ deletedIds: string[]; failedIds: string[] }>
+   archiveSession: (id: string) => Promise<boolean>
+@@ -467,7 +467,7 @@ export async function materializeOpenDraftSession(selection: {
+
+   await waitForWorktreeBootstrapIfConfigured(draftDirectoryOverride, draftProjectId)
+
+-  const created = await store.createSession(draft.title, draftDirectoryOverride, draft.parentID ?? null)
++  const created = await store.createSession(draft.title, draftDirectoryOverride, draft.parentID ?? null, undefined, selection)
+   if (!created?.id) throw new Error("Failed to create session")
+
+   persistDraftTarget({
+@@ -1199,13 +1199,13 @@ export const useSessionUIStore = create<SessionUIState>()((set, get) => ({
+   // ---------------------------------------------------------------------------
+   // createSession
+   // ---------------------------------------------------------------------------
+-  createSession: async (title, directoryOverride, parentID, metadata) => {
++  createSession: async (title, directoryOverride, parentID, metadata, routing) => {
+     const draft = get().newSessionDraft
+     const targetFolderId = draft.targetFolderId
+
+     try {
+       const dir = directoryOverride ?? opencodeClient.getDirectory()
+-      const session = await createSessionAction(title, dir, parentID ?? null, metadata)
++      const session = await createSessionAction(title, dir, parentID ?? null, metadata, routing)
+       if (!session) return null
+
+       get().closeNewSessionDraft()
+diff --git a/packages/web/server/index.js b/packages/web/server/index.js
+index 1929a105..9881bb7f 100644
+--- a/packages/web/server/index.js
++++ b/packages/web/server/index.js
+@@ -516,6 +516,7 @@ const syncToHmrState = () => {
+     openCodeProcess,
+     openCodePort,
+     openCodeBaseUrl,
++    managedBackendKind,
+     isShuttingDown,
+     signalsAttached,
+     openCodeWorkingDirectory,
+@@ -533,6 +534,7 @@ const syncFromHmrState = () => {
+   openCodeProcess = restored.openCodeProcess;
+   openCodePort = restored.openCodePort;
+   openCodeBaseUrl = restored.openCodeBaseUrl;
++  managedBackendKind = restored.managedBackendKind;
+   isShuttingDown = restored.isShuttingDown;
+   signalsAttached = restored.signalsAttached;
+   openCodeWorkingDirectory = restored.openCodeWorkingDirectory;
+@@ -545,6 +547,7 @@ const syncFromHmrState = () => {
+ let openCodeProcess = hmrState.openCodeProcess;
+ let openCodePort = hmrState.openCodePort;
+ let openCodeBaseUrl = hmrState.openCodeBaseUrl ?? null;
++let managedBackendKind = hmrState.managedBackendKind ?? null;
+ let isShuttingDown = hmrState.isShuttingDown;
+ let signalsAttached = hmrState.signalsAttached;
+ let openCodeWorkingDirectory = hmrState.openCodeWorkingDirectory;
+@@ -1011,6 +1014,7 @@ Object.defineProperties(openCodeLifecycleState, {
+   isOpenCodeReady: { get: () => isOpenCodeReady, set: (value) => { isOpenCodeReady = value; } },
+   openCodeNotReadySince: { get: () => openCodeNotReadySince, set: (value) => { openCodeNotReadySince = value; } },
+   isExternalOpenCode: { get: () => isExternalOpenCode, set: (value) => { isExternalOpenCode = value; } },
++  managedBackendKind: { get: () => managedBackendKind, set: (value) => { managedBackendKind = value; } },
+   isShuttingDown: { get: () => isShuttingDown, set: (value) => { isShuttingDown = value; } },
+   healthCheckInterval: { get: () => healthCheckInterval, set: (value) => { healthCheckInterval = value; } },
+   expressApp: { get: () => expressApp, set: (value) => { expressApp = value; } },
+@@ -1029,6 +1033,7 @@ const openCodeLifecycleRuntime = createOpenCodeLifecycleRuntime({
+     ENV_CONFIGURED_OPENCODE_HOSTNAME,
+     ENV_SKIP_OPENCODE_START,
+   },
++  readSettingsFromDiskMigrated,
+   syncToHmrState,
+   syncFromHmrState,
+   getOpenCodeAuthHeaders,
+@@ -1370,6 +1375,7 @@ async function main(options = {}) {
+       return {
+         openCodePort,
+         openCodeRunning: Boolean(openCodePort && isOpenCodeReady && !isRestartingOpenCode),
++        backend: managedBackendKind || (isExternalOpenCode ? 'external' : 'opencode'),
+         openCodeSecureConnection: isOpenCodeConnectionSecure(),
+         openCodeAuthSource: openCodeAuthSource || null,
+         openCodeApiPrefix: '',
+diff --git a/packages/web/server/lib/opencode/hmr-state-runtime.js b/packages/web/server/lib/opencode/hmr-state-runtime.js
+index f98c4c19..83113db3 100644
+--- a/packages/web/server/lib/opencode/hmr-state-runtime.js
++++ b/packages/web/server/lib/opencode/hmr-state-runtime.js
+@@ -18,6 +18,7 @@ export const createHmrStateRuntime = (dependencies) => {
+       globalThisLike[stateKey] = {
+         openCodeProcess: null,
+         openCodePort: null,
++        managedBackendKind: null,
+         openCodeWorkingDirectory: getInitialOpenCodeWorkingDirectory(),
+         isShuttingDown: false,
+         signalsAttached: false,
+@@ -60,6 +61,7 @@ export const createHmrStateRuntime = (dependencies) => {
+     hmrState.openCodeProcess = runtime.openCodeProcess;
+     hmrState.openCodePort = runtime.openCodePort;
+     hmrState.openCodeBaseUrl = runtime.openCodeBaseUrl;
++    hmrState.managedBackendKind = runtime.managedBackendKind;
+     hmrState.isShuttingDown = runtime.isShuttingDown;
+     hmrState.signalsAttached = runtime.signalsAttached;
+     hmrState.openCodeWorkingDirectory = runtime.openCodeWorkingDirectory;
+@@ -73,6 +75,7 @@ export const createHmrStateRuntime = (dependencies) => {
+       openCodeProcess: hmrState.openCodeProcess,
+       openCodePort: hmrState.openCodePort,
+       openCodeBaseUrl: hmrState.openCodeBaseUrl ?? null,
++      managedBackendKind: hmrState.managedBackendKind ?? null,
+       isShuttingDown: hmrState.isShuttingDown,
+       signalsAttached: hmrState.signalsAttached,
+       openCodeWorkingDirectory: hmrState.openCodeWorkingDirectory,
+diff --git a/packages/web/server/lib/opencode/hmr-state-runtime.test.js b/packages/web/server/lib/opencode/hmr-state-runtime.test.js
+index 12211a2e..274ad271 100644
+--- a/packages/web/server/lib/opencode/hmr-state-runtime.test.js
++++ b/packages/web/server/lib/opencode/hmr-state-runtime.test.js
+@@ -21,4 +21,26 @@ describe('hmr state runtime', () => {
+
+     expect(runtime.getOrCreateHmrState().openCodeWorkingDirectory).toBe('/Users/example');
+   });
++
++  it('persists the managed backend across HMR reloads', () => {
++    const runtime = createRuntime();
++    const state = runtime.getOrCreateHmrState();
++
++    runtime.syncStateFromRuntime(state, {
++      openCodeProcess: null,
++      openCodePort: 4096,
++      openCodeBaseUrl: null,
++      managedBackendKind: 'mixed',
++      isShuttingDown: false,
++      signalsAttached: false,
++      openCodeWorkingDirectory: '/tmp/project',
++      openCodeAuthPassword: null,
++      openCodeAuthSource: null,
++    });
++
++    expect(runtime.restoreRuntimeFromState({
++      hmrState: state,
++      userProvidedOpenCodePassword: null,
++    }).managedBackendKind).toBe('mixed');
++  });
+ });
+diff --git a/packages/web/server/lib/opencode/lifecycle.js b/packages/web/server/lib/opencode/lifecycle.js
+index 69339b7a..0b47526c 100644
+--- a/packages/web/server/lib/opencode/lifecycle.js
++++ b/packages/web/server/lib/opencode/lifecycle.js
+@@ -20,6 +20,7 @@ export const createOpenCodeLifecycleRuntime = (deps) => {
+   const {
+     state,
+     env,
++    readSettingsFromDiskMigrated,
+     syncToHmrState,
+     syncFromHmrState,
+     getOpenCodeAuthHeaders,
+@@ -237,6 +238,18 @@ export const createOpenCodeLifecycleRuntime = (deps) => {
+     return parts.length > 0 ? parts.join('\n\n') : 'No stdout/stderr captured';
+   };
+
++  const normalizeManagedBackend = (value) => (
++    value === 'claude-code' || value === 'mixed' ? value : 'opencode'
++  );
++
++  const readManagedBackendFromSettings = async () => {
++    try {
++      return normalizeManagedBackend((await readSettingsFromDiskMigrated())?.backend);
++    } catch {
++      return 'opencode';
++    }
++  };
++
+   const createManagedOpenCodeServerProcess = async ({ hostname, port, timeout, cwd, env: processEnv, shellEnvKeysCount = 0 }) => {
+     let binary = (process.env.OPENCODE_BINARY || 'opencode').trim() || 'opencode';
+     let args = ['serve', '--hostname', hostname, '--port', String(port)];
+@@ -360,6 +373,81 @@ export const createOpenCodeLifecycleRuntime = (deps) => {
+     };
+   };
+
++  const createManagedAdapterProcess = async ({ kind, binary, port, timeout, cwd }) => {
++    const args = ['serve', '--host', '127.0.0.1', '--port', String(port)];
++    state.lastOpenCodeLaunchDiagnostics = {
++      launchedAt: new Date().toISOString(),
++      binary,
++      args,
++      cwd,
++      hostname: '127.0.0.1',
++      port,
++      backend: kind,
++    };
++    console.log(`[${kind}] Launching managed backend`, state.lastOpenCodeLaunchDiagnostics);
++
++    const child = spawn(binary, args, {
++      cwd,
++      env: process.env,
++      detached: process.platform !== 'win32',
++      windowsHide: true,
++      stdio: ['ignore', 'pipe', 'pipe'],
++    });
++    let stdout = '';
++    let stderr = '';
++    const onStdout = (chunk) => { stdout += chunk.toString(); };
++    const onStderr = (chunk) => { stderr += chunk.toString(); };
++    child.stdout?.on('data', onStdout);
++    child.stderr?.on('data', onStderr);
++
++    const url = `http://127.0.0.1:${port}`;
++    let onExit;
++    let onError;
++    try {
++      const healthy = await Promise.race([
++        waitForReady(url, timeout),
++        new Promise((_, reject) => {
++          onExit = (code, signal) => {
++            const reason = signal ? `signal ${signal}` : `code ${code}`;
++            reject(new Error(`${kind} exited before serving with ${reason}. ${formatCapturedOutput({ stdout, stderr })}`));
++          };
++          onError = reject;
++          child.once('exit', onExit);
++          child.once('error', onError);
++        }),
++      ]);
++      if (!healthy) {
++        throw new Error(`Timeout waiting for ${kind} to become ready after ${timeout}ms. ${formatCapturedOutput({ stdout, stderr })}`);
++      }
++    } catch (error) {
++      await closeManagedOpenCodeChild(child).catch(() => undefined);
++      throw error;
++    } finally {
++      if (onExit) child.off('exit', onExit);
++      if (onError) child.off('error', onError);
++      child.stdout?.off('data', onStdout);
++      child.stderr?.off('data', onStderr);
++      child.stdout?.resume();
++      child.stderr?.resume();
++    }
++
++    registerManagedProcess({
++      pid: child.pid,
++      ownerPid: process.pid,
++      port,
++      binary,
++      runtime: process.env.OPENCHAMBER_RUNTIME || 'web',
++    });
++
++    return {
++      url,
++      pid: child.pid || null,
++      async close() {
++        await closeManagedOpenCodeChild(child);
++      },
++    };
++  };
++
+   const resolveManagedOpenCodePort = async (requestedPort, hostname = '127.0.0.1') => {
+     if (typeof requestedPort === 'number' && Number.isFinite(requestedPort) && requestedPort > 0) {
+       return requestedPort;
+@@ -463,8 +551,48 @@ export const createOpenCodeLifecycleRuntime = (deps) => {
+   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+   const startOpenCodeOnce = async () => {
++    const backend = await readManagedBackendFromSettings();
+     const desiredPort = env.ENV_CONFIGURED_OPENCODE_PORT ?? 0;
+     const spawnPort = await resolveManagedOpenCodePort(desiredPort, env.ENV_CONFIGURED_OPENCODE_HOSTNAME);
++    state.managedBackendKind = backend;
++    state.isExternalOpenCode = false;
++    state.openCodeBaseUrl = null;
++
++    if (backend !== 'opencode') {
++      const binary = backend === 'mixed'
++        ? (process.env.OPENCHAMBER_BACKEND_MUX_BINARY || 'openchamber-backend-mux').trim() || 'openchamber-backend-mux'
++        : (process.env.OPENCHAMBER_CLAUDE_BRIDGE_BINARY || 'openchamber-claude-bridge').trim() || 'openchamber-claude-bridge';
++      const label = backend === 'mixed' ? 'mixed backend mux' : 'Claude Code bridge';
++      console.log(
++        desiredPort > 0
++          ? `Starting ${label} on requested port ${desiredPort}...`
++          : `Starting ${label} on allocated port ${spawnPort}...`
++      );
++
++      try {
++        const serverInstance = await createManagedAdapterProcess({
++          kind: backend,
++          binary,
++          port: spawnPort,
++          timeout: 30000,
++          cwd: state.openCodeWorkingDirectory,
++        });
++        setOpenCodePort(spawnPort);
++        setDetectedOpenCodeApiPrefix('');
++        state.isOpenCodeReady = true;
++        state.lastOpenCodeError = null;
++        state.openCodeNotReadySince = 0;
++        return serverInstance;
++      } catch (error) {
++        const message = error instanceof Error ? error.message : String(error);
++        state.lastOpenCodeError = message;
++        state.openCodePort = null;
++        syncToHmrState();
++        console.error(`Failed to start ${label}: ${message}`);
++        throw error;
++      }
++    }
++
+     console.log(
+       desiredPort > 0
+         ? `Starting OpenCode on requested port ${desiredPort}...`
+@@ -580,6 +708,7 @@ export const createOpenCodeLifecycleRuntime = (deps) => {
+         if (healthy) {
+           console.log(`External OpenCode server on port ${probePort} is healthy`);
+           setOpenCodePort(probePort);
++          state.managedBackendKind = null;
+           state.isOpenCodeReady = true;
+           state.lastOpenCodeError = null;
+           state.openCodeNotReadySince = 0;
+@@ -600,7 +729,7 @@ export const createOpenCodeLifecycleRuntime = (deps) => {
+       const portToKill = state.openCodePort;
+
+       if (state.openCodeProcess) {
+-        console.log('Stopping existing OpenCode process...');
++        console.log('Stopping existing managed backend...');
+         try {
+           await state.openCodeProcess.close();
+         } catch (error) {
+@@ -797,29 +926,44 @@ export const createOpenCodeLifecycleRuntime = (deps) => {
+       }
+
+       syncFromHmrState();
++      const configuredBackend = await readManagedBackendFromSettings();
++      let reusedHealthyProcess = false;
+       if (await isOpenCodeProcessHealthy()) {
+-        console.log(`[HMR] Reusing existing OpenCode process on port ${state.openCodePort}`);
+-      } else if (env.ENV_SKIP_OPENCODE_START && env.ENV_EFFECTIVE_PORT) {
++        if (!state.isExternalOpenCode && state.managedBackendKind !== configuredBackend) {
++          console.log(`Managed backend changed from ${state.managedBackendKind || 'opencode'} to ${configuredBackend}; restarting...`);
++          await state.openCodeProcess?.close().catch(() => undefined);
++          state.openCodeProcess = null;
++          state.openCodePort = null;
++          syncToHmrState();
++        } else {
++          console.log(`[HMR] Reusing existing managed backend on port ${state.openCodePort}`);
++          reusedHealthyProcess = true;
++        }
++      }
++
++      if (!reusedHealthyProcess && env.ENV_SKIP_OPENCODE_START && env.ENV_EFFECTIVE_PORT) {
+         const label = env.ENV_CONFIGURED_OPENCODE_HOST ? env.ENV_CONFIGURED_OPENCODE_HOST.origin : `http://localhost:${env.ENV_EFFECTIVE_PORT}`;
+         console.log(`Using external OpenCode server at ${label} (skip-start mode)`);
+         state.openCodeBaseUrl = env.ENV_CONFIGURED_OPENCODE_HOST?.origin ?? null;
++        state.managedBackendKind = null;
+         setOpenCodePort(env.ENV_EFFECTIVE_PORT);
+         state.isOpenCodeReady = true;
+         state.isExternalOpenCode = true;
+         state.lastOpenCodeError = null;
+         state.openCodeNotReadySince = 0;
+         syncToHmrState();
+-      } else if (env.ENV_EFFECTIVE_PORT && await probeExternalOpenCode(env.ENV_EFFECTIVE_PORT, env.ENV_CONFIGURED_OPENCODE_HOST?.origin)) {
++      } else if (!reusedHealthyProcess && env.ENV_EFFECTIVE_PORT && await probeExternalOpenCode(env.ENV_EFFECTIVE_PORT, env.ENV_CONFIGURED_OPENCODE_HOST?.origin)) {
+         const label = env.ENV_CONFIGURED_OPENCODE_HOST ? env.ENV_CONFIGURED_OPENCODE_HOST.origin : `http://localhost:${env.ENV_EFFECTIVE_PORT}`;
+         console.log(`Auto-detected existing OpenCode server at ${label}`);
+         state.openCodeBaseUrl = env.ENV_CONFIGURED_OPENCODE_HOST?.origin ?? null;
++        state.managedBackendKind = null;
+         setOpenCodePort(env.ENV_EFFECTIVE_PORT);
+         state.isOpenCodeReady = true;
+         state.isExternalOpenCode = true;
+         state.lastOpenCodeError = null;
+         state.openCodeNotReadySince = 0;
+         syncToHmrState();
+-      } else {
++      } else if (!reusedHealthyProcess) {
+         // We never auto-attach to an arbitrary pre-existing OpenCode instance.
+         // Attaching to an external server requires explicit opt-in via env
+         // (OPENCODE_HOST / OPENCODE_PORT / OPENCODE_SKIP_START), handled by the
+diff --git a/packages/web/server/lib/opencode/settings-helpers.js b/packages/web/server/lib/opencode/settings-helpers.js
+index 2964e56a..0cc6149f 100644
+--- a/packages/web/server/lib/opencode/settings-helpers.js
++++ b/packages/web/server/lib/opencode/settings-helpers.js
+@@ -176,6 +176,9 @@ export const createSettingsHelpers = (dependencies) => {
+       const normalized = normalizeDirectoryPath(candidate.opencodeBinary).trim();
+       result.opencodeBinary = normalized;
+     }
++    if (candidate.backend === 'opencode' || candidate.backend === 'claude-code' || candidate.backend === 'mixed') {
++      result.backend = candidate.backend;
++    }
+     if (typeof candidate.desktopLanAccessEnabled === 'boolean') {
+       result.desktopLanAccessEnabled = candidate.desktopLanAccessEnabled;
+     }
+diff --git a/packages/web/server/lib/opencode/settings-helpers.test.js b/packages/web/server/lib/opencode/settings-helpers.test.js
+index 3336c902..9d792ea0 100644
+--- a/packages/web/server/lib/opencode/settings-helpers.test.js
++++ b/packages/web/server/lib/opencode/settings-helpers.test.js
+@@ -164,5 +164,13 @@ describe('settings helpers', () => {
+     });
+   });
+
++  it('accepts only supported managed backend modes', () => {
++    const helpers = createTestHelpers();
++
++    expect(helpers.sanitizeSettingsUpdate({ backend: 'mixed' })).toEqual({ backend: 'mixed' });
++    expect(helpers.sanitizeSettingsUpdate({ backend: 'claude-code' })).toEqual({ backend: 'claude-code' });
++    expect(helpers.sanitizeSettingsUpdate({ backend: 'other' })).toEqual({});
++  });
++
+   it('accepts mobileKeyboardMode as a persisted shared setting', () => {
+     const helpers = createTestHelpers();

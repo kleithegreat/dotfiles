@@ -12,12 +12,12 @@
 
 let
   pname = "openchamber";
-  version = "1.11.4";
+  version = "1.16.3";
   src = fetchFromGitHub {
     owner = "openchamber";
     repo = "openchamber";
     tag = "v${version}";
-    hash = "sha256-F70V+U9OQ2/qyH8UcpIG2wHW6v8FI08s6UzT056dp1U=";
+    hash = "sha256-+hk+Tj2T1Xt7XASAfoLLnHoA03XuZ/brakwj7GXaFhY=";
   };
   postPatch = ''
     cp ${./package.json} package.json
@@ -28,12 +28,11 @@ buildNpmPackage {
   inherit pname version src postPatch;
 
   patches = [
-    ../../patches/openchamber/claude-backend-selector.patch
-    ../../patches/openchamber/mixed-backend-mux.patch
+    ../../patches/openchamber/backend-integration.patch
     ../../patches/openchamber/desktop-popup-performance.patch
   ];
 
-  npmDepsHash = "sha256-VTKQo3803qHYeipuT1DuVInVGeptHGicGScOGb8MBm0=";
+  npmDepsHash = "sha256-vB0/p0i097KkJO+u9K0gv6dalsT5gPZ0NgaOnjHj578=";
   npmDepsFetcherVersion = 2;
   npmWorkspace = "packages/web";
   npmFlags = [ "--install-links" ];
@@ -46,6 +45,11 @@ buildNpmPackage {
   buildInputs = [
     vips
   ];
+
+  preBuild = ''
+    patch -d node_modules/@tanstack/virtual-core -p1 \
+      < bun-patches/@tanstack+virtual-core+3.17.3.patch
+  '';
 
   installPhase = ''
     runHook preInstall

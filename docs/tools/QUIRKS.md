@@ -129,7 +129,9 @@ with GTK, Qt, and Snappy Switcher.
 Home Manager deploys `snappy-switcher/themes` from the snappy-switcher
 package, not from the repo. The repo's `config/snappy-switcher/base.ini`
 provides only the non-theming settings (layout, icon preferences) and is
-consumed by the theme pipeline, not symlinked by Home Manager.
+consumed by the theme pipeline, not symlinked by Home Manager. Workspace scope
+is invocation behavior in Snappy Switcher 4.0, so the Hyprland bindings pass
+`--workspace --mod alt` instead of storing a `scope` key in this base file.
 
 ## Neovim lazy-lock.json Is a Writable Out-of-Store Symlink
 

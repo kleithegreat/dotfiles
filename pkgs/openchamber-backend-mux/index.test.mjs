@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { Readable } from 'node:stream';
 import test from 'node:test';
 
 import { BackendMux } from './index.mjs';
@@ -164,4 +165,101 @@ test('merged GET /session re-applies the limit after merging', async (t) => {
 
   assert.equal(res.statusCode, 200);
   assert.deepEqual(JSON.parse(res.body).map((session) => session.id), ['open-1', 'claude-1']);
+});
+
+test('Claude session creation translates the OpenCode model wire shape for the bridge', async (t) => {
+  const mux = createMux(t);
+  let forwarded = null;
+  withMockedFetch(t, async (url, options) => {
+    assert.equal(url, 'http://claude.test/session?directory=%2Frepo');
+    forwarded = JSON.parse(options.body);
+    return createJsonResponse({ id: 'claude-session', directory: '/repo' });
+  });
+
+  const body = {
+    title: 'Review',
+    metadata: { openchamber: { reviewOf: 'original-session' } },
+    model: { id: 'sonnet', providerID: 'claude-code', variant: 'max' },
+    agent: 'review',
+  };
+  const req = Readable.from([Buffer.from(JSON.stringify(body))]);
+  req.headers = { 'content-type': 'application/json' };
+  const res = {
+    statusCode: null,
+    body: null,
+    writeHead(statusCode) {
+      this.statusCode = statusCode;
+    },
+    end(responseBody) {
+      this.body = responseBody;
+    },
+  };
+
+  await mux.handleSessionCreate(req, res, new URL('http://mux.test/session?directory=%2Frepo'));
+
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(forwarded, {
+    title: 'Review',
+    metadata: { openchamber: { reviewOf: 'original-session' } },
+    model: { providerID: 'claude-code', modelID: 'sonnet' },
+    variant: 'max',
+    agent: 'review',
+  });
+  assert.equal(mux.bindingStore.getSessionBackend('claude-session'), 'claude-code');
+});
+
+test('OpenCode session creation preserves its native model wire shape', async (t) => {
+  const mux = createMux(t);
+  let forwarded = null;
+  withMockedFetch(t, async (url, options) => {
+    assert.equal(url, 'http://opencode.test/session?directory=%2Frepo');
+    forwarded = JSON.parse(options.body);
+    return createJsonResponse({ id: 'opencode-session', directory: '/repo' });
+  });
+
+  const body = {
+    title: 'Build',
+    metadata: { source: 'draft' },
+    model: { id: 'gpt-5', providerID: 'openai', variant: 'high' },
+    agent: 'build',
+  };
+  const req = Readable.from([Buffer.from(JSON.stringify(body))]);
+  req.headers = { 'content-type': 'application/json' };
+  const res = {
+    writeHead() {},
+    end() {},
+  };
+
+  await mux.handleSessionCreate(req, res, new URL('http://mux.test/session?directory=%2Frepo'));
+
+  assert.deepEqual(forwarded, body);
+  assert.equal(Object.hasOwn(forwarded, 'variant'), false);
+  assert.equal(mux.bindingStore.getSessionBackend('opencode-session'), 'opencode');
+});
+
+test('OpenCode session creation omits model when routing is absent', async (t) => {
+  const mux = createMux(t);
+  let forwarded = null;
+  withMockedFetch(t, async (url, options) => {
+    assert.equal(url, 'http://opencode.test/session?directory=%2Frepo');
+    forwarded = JSON.parse(options.body);
+    return createJsonResponse({ id: 'default-session', directory: '/repo' });
+  });
+
+  const body = {
+    title: 'Default model',
+    metadata: { source: 'new-session' },
+  };
+  const req = Readable.from([Buffer.from(JSON.stringify(body))]);
+  req.headers = { 'content-type': 'application/json' };
+  const res = {
+    writeHead() {},
+    end() {},
+  };
+
+  await mux.handleSessionCreate(req, res, new URL('http://mux.test/session?directory=%2Frepo'));
+
+  assert.deepEqual(forwarded, body);
+  assert.equal(Object.hasOwn(forwarded, 'model'), false);
+  assert.equal(mux.bindingStore.getSessionBackend('default-session'), 'opencode');
 });

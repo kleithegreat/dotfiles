@@ -1,7 +1,8 @@
 diff --git a/packages/ui/src/components/ui/OverlayScrollbar.tsx b/packages/ui/src/components/ui/OverlayScrollbar.tsx
+index d1026abb..df868a84 100644
 --- a/packages/ui/src/components/ui/OverlayScrollbar.tsx
 +++ b/packages/ui/src/components/ui/OverlayScrollbar.tsx
-@@ -50,7 +50,6 @@
+@@ -51,7 +51,6 @@ const OverlayScrollbarComponent: React.FC<OverlayScrollbarProps> = ({
      scrollLeft: number;
    }>({ pointerX: 0, pointerY: 0, scrollTop: 0, scrollLeft: 0 });
    const dragAxisRef = React.useRef<"vertical" | "horizontal" | null>(null);
@@ -9,7 +10,7 @@ diff --git a/packages/ui/src/components/ui/OverlayScrollbar.tsx b/packages/ui/sr
  
    const updateMetrics = React.useCallback(() => {
      const container = containerRef.current;
-@@ -92,33 +91,6 @@
+@@ -93,33 +92,6 @@ const OverlayScrollbarComponent: React.FC<OverlayScrollbarProps> = ({
      });
    }, [updateMetrics]);
  
@@ -43,7 +44,7 @@ diff --git a/packages/ui/src/components/ui/OverlayScrollbar.tsx b/packages/ui/sr
    const scheduleHide = React.useCallback(() => {
      if (hideTimeoutRef.current) {
        clearTimeout(hideTimeoutRef.current);
-@@ -188,14 +160,11 @@
+@@ -193,14 +165,11 @@ const OverlayScrollbarComponent: React.FC<OverlayScrollbarProps> = ({
              scheduleMetricsUpdate();
            })
          : null;
@@ -60,7 +61,7 @@ diff --git a/packages/ui/src/components/ui/OverlayScrollbar.tsx b/packages/ui/sr
          : null;
      mutationObserver?.observe(container, { childList: true });
  
-@@ -216,12 +185,11 @@
+@@ -221,12 +190,11 @@ const OverlayScrollbarComponent: React.FC<OverlayScrollbarProps> = ({
        }
        resizeObserver?.disconnect();
        mutationObserver?.disconnect();
@@ -75,9 +76,11 @@ diff --git a/packages/ui/src/components/ui/OverlayScrollbar.tsx b/packages/ui/sr
    React.useEffect(() => {
      if (!suppressVisibility) {
 diff --git a/packages/ui/src/components/ui/select.tsx b/packages/ui/src/components/ui/select.tsx
+index e3ea6220..4032c927 100644
 --- a/packages/ui/src/components/ui/select.tsx
 +++ b/packages/ui/src/components/ui/select.tsx
-@@ -143,6 +143,7 @@
+@@ -205,6 +205,7 @@ function SelectContent({
+           {...props}
          >
            <ScrollableOverlay
 +            observeMutations={false}

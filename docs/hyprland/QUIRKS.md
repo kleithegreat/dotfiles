@@ -235,7 +235,7 @@ messages such as `Hunk #... FAILED`, `Reversed (or previously applied) patch
 detected` during `patchPhase`, or compile errors in a locally patched plugin.
 
 **Cause:** `system/configuration.nix` intentionally appends repo-local patches
-to Hyprland, `hyprbars`, and `hyprexpo`. Upstream Hyprland and plugin inputs are
+to Hyprland and `hyprbars`. Upstream Hyprland and plugin inputs are
 rolling flake inputs, so upstream may reformat touched code, remove fields, or
 absorb parts of a local patch before the local patch stack is refreshed.
 
@@ -254,18 +254,9 @@ assignment-based setup. As of July 2026 the plugin patch stack carries no
 behavior deltas: `patches/hyprland-plugins/hyprbars-hyprland-0.55.patch` is a
 minimal shim for the July 2026 Hyprland lock (relocated
 `animation/AnimationManager.hpp` include, `g_pAnimationManager` →
-`Animation::mgr()`) that should be dropped once upstream plugins catch up, and
-`patches/hyprland-plugins/hyprexpo-hyprland-0.55.patch` ports the pinned
-`sandwichfarm/hyprexpo` fork (written against Hyprland 0.55.x releases) to the
-rolling master lock — `output/Monitor.hpp` / `Monitor::CMonitor`,
-`State::workspaceState()` lookup/creation, `State::monitorState()` cursor-monitor
-queries, `Desktop::windowState()` / `Desktop::viewState()` window access,
-`Desktop::globalWindowController()` workspace moves,
-`Pointer::pointerController()->warpTo`, `Pointer::Cursor::overrideController`,
-per-monitor `scheduleFrame()`, `Animation::mgr()` /
-`Animation::Workspace::startAnimation(...)` animation-manager renames,
-relocated `pointer/` and `animation/` includes, and a namespace-agnostic
-damage-hook symbol lookup.
+`Animation::mgr()`) that should be dropped once upstream plugins catch up.
+Hyprexpo v0.56.0 includes its Hyprland 0.56 API port upstream and carries no
+local patch.
 Rebuild the patched Hyprland package and plugin stack before running a full
 system rebuild, because the full desktop closure may also rebuild the system
 kernel/NVIDIA stack.
@@ -324,10 +315,10 @@ break evaluation before Nix reaches the build phase.
 **Status:** Workaround in place. `system/configuration.nix` wires `hyprexpo`
 from `pkgs/hyprland-plugins/hyprexpo/default.nix`, a repo-local package that
 now builds the maintained `sandwichfarm/hyprexpo` fork (pinned by revision)
-instead of the source removed from the official flake, and applies
-`patches/hyprland-plugins/hyprexpo-hyprland-0.55.patch` to port it to the
-rolling Hyprland master lock. The fork renamed `gap_size` to `gaps_in` /
-`gaps_out` (`config/hypr/plugins.conf` was updated to match). The main
+instead of the source removed from the official flake. The pinned v0.56.0
+release builds directly against the rolling Hyprland lock. The fork renamed
+`gap_size` to `gaps_in` / `gaps_out` (`config/hypr/plugins.conf` was updated to
+match). The main
 `hyprland-plugins` flake input keeps rolling for still-shipped plugins such as
-`hyprbars`; Hyprexpo maintenance now means bumping the fork pin and refreshing
-the compat patch when Hyprland headers change.
+`hyprbars`; Hyprexpo maintenance means advancing the fork only when its release
+supports the locked Hyprland headers.
