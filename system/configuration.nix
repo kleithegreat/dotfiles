@@ -1,17 +1,9 @@
-{ config, lib, pkgs, hyprland, host, inputs, enableNativeOptimizations, ... }:
+{ config, lib, pkgs, hyprland, host, inputs, claudeCodeOverlay, enableNativeOptimizations, ... }:
 
 let
   system = pkgs.stdenv.hostPlatform.system;
   hostName = host.name;
   localPackagesOverlay = import ../overlays/local-packages.nix;
-  claudePkgs = import inputs.nixpkgs-claude {
-    inherit system;
-    config.allowUnfreePredicate = pkg:
-      builtins.elem (lib.getName pkg) [ "claude-code" ];
-  };
-  claudeCodeOverlay = final: prev: {
-    claude-code = claudePkgs.claude-code;
-  };
   nativeOptimizations = import ./native-optimizations.nix {
     inherit lib host enableNativeOptimizations;
   };

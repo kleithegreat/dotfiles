@@ -15,15 +15,6 @@ path and on the 2026-07-01 deslop pass surfaces.
 | --- | --- | --- |
 | Low | Live shell smoke testing is still needed for popup animation behavior, the shared `SliderTrack`/`Divider`/`SectionLabel` extraction, the `SettingsPaneHeader` pane-header migration, and the 2026-07-01 deslop-pass surfaces (bar tooltips via `BarTooltipArea`, the rebuilt preset-editor field components, the shared Wi-Fi form fields, and the `ActionButton`/`StepperButton` button migrations across the settings panes). | Static QML review cannot prove output-churn, loader-prewarm, or rapid-toggle behavior under the live Quickshell/Hyprland runtime. The slider rewrite in particular unifies a set-on-press, commit-on-release input contract across the audio, brightness, and night-light sliders that has only been validated by inspection and `qmllint` parsing, not by interaction. |
 
-Resolved on 2026-07-01:
-
-- `bar/Volume.qml` stale tooltip text: fixed for all bar modules by the shared
-  `components/BarTooltipArea.qml`, which re-shows the tooltip from
-  `onTipChanged` while hovered.
-- `SettingsNetworkPane.qml` now resets `NetworkService` target/diagnostics
-  state via `onVisibleChanged: if (!visible) resetState()` plus
-  `Component.onDestruction: NetworkService.resetTarget()`.
-
 ## Checkpoint Notes
 
 - Popup animation and first-paint behavior still need a live shell smoke test:

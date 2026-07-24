@@ -172,7 +172,7 @@
 **Symptom:** A GUI app installed only through `home.packages` starts, but its root helper never appears on the system bus and no polkit prompt is triggered.
 **Cause:** Home Manager installs packages into the user profile, outside the NixOS system path and `services.dbus.packages` set that expose `share/dbus-1/system-services` files and link `share/polkit-1/actions` for system-wide activation.
 **Status:** Workaround in place
-**Resolution:** Install those apps through NixOS modules or `environment.systemPackages`. `system/configuration.nix` now enables `programs.partition-manager` so `kpmcore` is registered for both D-Bus activation and polkit, and `bitwarden-desktop` stays in `environment.systemPackages` for the same reason.
+**Resolution:** Install those apps through NixOS modules or `environment.systemPackages`. `system/services.nix` enables `programs.partition-manager` so `kpmcore` is registered for both D-Bus activation and polkit, and `bitwarden-desktop` stays in `environment.systemPackages` for the same reason.
 
 ## Bambu Studio stays on the stable AppImage release
 **Symptom:** The locked nixpkgs package is newer than the latest stable Bambu Studio release, but selects a public beta and requires a large local C++ build; its desktop metadata also does not match the `BambuStudio` class observed by Hyprland.
@@ -214,7 +214,7 @@
 **Symptom:** `nixos-rebuild` failed while building the repo-local `claude-code-2.1.91` overlay with `install: omitting directory ...-source` during `installPhase`.
 **Cause:** The repo-local overlay pinned an older npm tarball and lockfile against a newer nixpkgs `claude-code` builder shape. Upstream nixpkgs has since moved on to a newer package revision and its maintained recipe no longer matches the local override's assumptions.
 **Status:** Workaround removed in favor of nixpkgs package
-**Resolution:** `system/configuration.nix` still consumes `pkgs.claude-code`; the repo no longer carries a package-specific npm override. Because Anthropic model-support releases can land in nixpkgs master before the `nixos-unstable` channel advances, `flake.nix` now adds a narrow `nixpkgs-claude` input, and the Claude overlays in `flake.nix` and `system/configuration.nix` replace only `claude-code` with that nixpkgs package. Keep this as a nixpkgs-sourced package rather than reintroducing a local npm pin.
+**Resolution:** `system/configuration.nix` still consumes `pkgs.claude-code`; the repo no longer carries a package-specific npm override. Because Anthropic model-support releases can land in nixpkgs master before the `nixos-unstable` channel advances, `flake.nix` adds a narrow `nixpkgs-claude` input and defines the single `claudeCodeOverlay` passed into the NixOS module graph. Keep this as a nixpkgs-sourced package rather than reintroducing a local npm pin.
 
 ## Haruna must match the session Qt/KDE stack
 **Symptom:** A stable Haruna build can abort at startup, even with no media loaded, while the same file decodes cleanly in `ffplay`.

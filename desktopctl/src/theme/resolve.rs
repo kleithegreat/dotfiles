@@ -453,8 +453,8 @@ mod tests {
     use super::*;
     use crate::test_support::{ScopedEnvVar, env_lock};
     use crate::theme::schema::{
-        DEFAULT_CHROMIUM_FONT_SIZE_OFFSET, DEFAULT_GTK_FONT_SIZE_OFFSET,
-        DEFAULT_QT_FONT_SIZE_OFFSET, DEFAULT_QUICKSHELL_FONT_SIZE_OFFSET,
+        DEFAULT_GTK_FONT_SIZE_OFFSET, DEFAULT_QT_FONT_SIZE_OFFSET,
+        DEFAULT_QUICKSHELL_FONT_SIZE_OFFSET,
     };
     use std::error::Error;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -529,7 +529,6 @@ mod tests {
                 "  \"quickshell_font_size_offset\": 0,\n",
                 "  \"gtk_font_size_offset\": 0,\n",
                 "  \"qt_font_size_offset\": 0,\n",
-                "  \"chromium_font_size_offset\": 0,\n",
                 "  \"mono_font_size\": 11,\n",
                 "  \"alacritty_mono_font_size_offset\": 0,\n",
                 "  \"ghostty_mono_font_size_offset\": 0,\n",
@@ -634,7 +633,6 @@ mod tests {
         partial.remove("quickshell_font_size_offset");
         partial.remove("gtk_font_size_offset");
         partial.remove("qt_font_size_offset");
-        partial.remove("chromium_font_size_offset");
         partial.insert(
             "future_key".to_owned(),
             Value::String("still here".to_owned()),
@@ -649,10 +647,6 @@ mod tests {
         assert_eq!(state.gtk_font_size_offset, DEFAULT_GTK_FONT_SIZE_OFFSET);
         assert_eq!(state.qt_font_size_offset, DEFAULT_QT_FONT_SIZE_OFFSET);
         assert_eq!(
-            state.chromium_font_size_offset,
-            DEFAULT_CHROMIUM_FONT_SIZE_OFFSET
-        );
-        assert_eq!(
             state.extra.get("future_key"),
             Some(&Value::String("still here".to_owned()))
         );
@@ -662,7 +656,6 @@ mod tests {
             "quickshell_font_size_offset",
             "gtk_font_size_offset",
             "qt_font_size_offset",
-            "chromium_font_size_offset",
         ] {
             assert!(keys.contains(&key.to_owned()));
         }

@@ -191,11 +191,6 @@ QtObject {
         return _animsByCategory[category] || [];
     }
 
-    function hasChildren(name) {
-        let children = _animChildren[name];
-        return children !== undefined && children.length > 0;
-    }
-
     function childrenInCategory(name, category) {
         let children = _animChildren[name] || [];
         let result = [];
@@ -286,15 +281,6 @@ QtObject {
     function deleteUserCurve(name) {
         let next = _cloneObj(userCurves);
         delete next[name];
-        userCurves = next;
-        _persistUserCurves();
-    }
-
-    function renameUserCurve(oldName, newName) {
-        if (!userCurves[oldName]) return;
-        let next = _cloneObj(userCurves);
-        next[newName] = next[oldName];
-        delete next[oldName];
         userCurves = next;
         _persistUserCurves();
     }

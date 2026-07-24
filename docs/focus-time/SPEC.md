@@ -10,7 +10,7 @@ intentionally descriptive: when the code is ambiguous or weak at a boundary,
 | Surface | Current contract |
 | --- | --- |
 | Focus daemon | Tracks the active Hyprland window class, writes per-second aggregates into SQLite, and rewrites a JSON summary for Quickshell |
-| SQLite store | Persistent per-day, per-hour, and per-minute counters keyed by window class inside the shared `desktopctl.db` database |
+| SQLite store | Persistent per-day counters keyed by window class inside the shared `desktopctl.db` database |
 | Runtime JSON | Single summary document at `${XDG_RUNTIME_DIR:-/run/user/$UID}/focustime_state.json` |
 | Quickshell consumer | `SettingsFocusTimePane.qml` polls and renders that JSON; it does not touch SQLite |
 
@@ -22,7 +22,7 @@ intentionally descriptive: when the code is ambiguous or weak at a boundary,
 | `~/.config/hypr/autostart.conf` | Repo-managed Hyprland config | Starts the daemon with `exec-once` |
 | `$XDG_DATA_HOME/desktopctl/desktopctl.db` | Focus daemon | Shared persistent SQLite database for focus tracking and theme state |
 | `~/.local/share/desktopctl/desktopctl.db` | Focus daemon | Database fallback when `XDG_DATA_HOME` is unset |
-| `$XDG_DATA_HOME/focustime/focustime.db` | Focus daemon | Legacy focus database imported on first access when the shared focus tables are empty |
+| `$XDG_DATA_HOME/focustime/focustime.db` | Focus daemon | Legacy focus database imported on first access when the shared `daily_totals` table is empty |
 | `$XDG_RUNTIME_DIR/focustime_state.json` | Focus daemon | Current JSON summary consumed by Quickshell |
 | `/run/user/$UID/focustime_state.json` | Focus daemon | State-file fallback when `XDG_RUNTIME_DIR` is unset |
 | `$XDG_RUNTIME_DIR/focustime_state.tmp` | Focus daemon | Sibling temp file used for atomic JSON replacement |
@@ -47,7 +47,7 @@ Additional read-only runtime inputs:
 | --- | --- | --- |
 | Session installation | Home Manager (`home/packages.nix` plus `home/default.nix` activation) plus Hyprland autostart | Hyprland session startup |
 | Hyprland socket | Hyprland | Focus daemon listener thread |
-| SQLite tables | Focus daemon only | No repo consumer reads them directly today |
+| SQLite `daily_totals` table | Focus daemon only | No repo consumer reads it directly today |
 | JSON summary file | Focus daemon only | `SettingsFocusTimePane.qml` |
 | QML pane state | Quickshell pane instance | The pane itself only |
 
@@ -67,8 +67,7 @@ Connection behavior:
 | Connection mode | `rusqlite::Connection::open(...)`, with explicit transactions around accumulation and legacy-data import |
 | Journal mode | `PRAGMA journal_mode=WAL` |
 | Migrations | `CREATE TABLE IF NOT EXISTS` only |
-| Legacy import | Copy rows from `$XDG_DATA_HOME/focustime/focustime.db` when the shared focus tables are empty |
-| Retention | At each local day rollover, delete `minute_totals` rows with `date < today - 90 days`; `daily_totals` and `hourly_totals` are kept indefinitely |
+| Legacy import | Copy `daily_totals` rows from `$XDG_DATA_HOME/focustime/focustime.db` when the shared table is empty |
 
 Schema:
 
@@ -82,41 +81,19 @@ Schema:
 
 Primary key: `(date, app_class)`
 
-### `hourly_totals`
-
-| Column | Type | Meaning |
-| --- | --- | --- |
-| `date` | `TEXT NOT NULL` | Local calendar date formatted as `YYYY-MM-DD` |
-| `hour` | `INTEGER NOT NULL` | Local hour in `0..23` |
-| `app_class` | `TEXT NOT NULL` | Hyprland window class or sentinel `__locked__` |
-| `seconds` | `INTEGER NOT NULL DEFAULT 0` | Accumulated whole seconds |
-
-Primary key: `(date, hour, app_class)`
-
-### `minute_totals`
-
-| Column | Type | Meaning |
-| --- | --- | --- |
-| `date` | `TEXT NOT NULL` | Local calendar date formatted as `YYYY-MM-DD` |
-| `minute_index` | `INTEGER NOT NULL` | `hour * 60 + minute`, so `0..1439` |
-| `app_class` | `TEXT NOT NULL` | Hyprland window class or sentinel `__locked__` |
-| `seconds` | `INTEGER NOT NULL DEFAULT 0` | Accumulated whole seconds |
-
-Primary key: `(date, minute_index, app_class)`
-
 Write rules:
 
 - The main loop targets one write cycle per second using a monotonic timer.
-- If `pgrep -x hyprlock` succeeds, the daemon increments `__locked__` in all
-  three tables for the current local time bucket.
+- If `pgrep -x hyprlock` succeeds, the daemon increments `__locked__` in
+  `daily_totals` for the current local date.
 - If the screen is unlocked and the current class is a non-empty string, the
-  daemon increments that class in all three tables.
+  daemon increments that class in `daily_totals`.
 - If the screen is unlocked and the current class is empty, the daemon makes one
   fresh `hyprctl activewindow -j` reseed attempt for that tick before deciding
   whether to skip the SQLite write.
-- Each tick uses a single explicit transaction: `BEGIN`, three UPSERTs, then
+- Each tick uses a single explicit transaction: `BEGIN`, one UPSERT, then
   `COMMIT`.
-- Only the focus tables move; the runtime JSON path and payload stay unchanged.
+- The runtime JSON path remains unchanged.
 
 ## JSON Summary Contract
 
@@ -128,7 +105,6 @@ Root object:
 
 | Key | Type | Current meaning |
 | --- | --- | --- |
-| `selected_date` | string | Today's local date as `YYYY-MM-DD` |
 | `last_updated` | integer | Unix epoch seconds from `chrono::Local::now().timestamp()` for the summary rewrite that produced this file |
 | `total` | integer | Sum of today's `daily_totals.seconds`, excluding `__locked__`, `Desktop`, `Quickshell`, and empty-string classes |
 | `average` | integer | Rounded average of non-zero daily totals in the current Monday-Sunday week, excluding `__locked__`, `Desktop`, `Quickshell`, and empty-string classes |
@@ -151,7 +127,7 @@ Root object:
 
 `apps` constraints:
 
-- Entries come from `daily_totals` for `selected_date`.
+- Entries come from `daily_totals` for the current local date.
 - `__locked__`, `""`, `Desktop`, and `Quickshell` are omitted.
 - Rows are sorted by descending total seconds.
 
@@ -222,6 +198,5 @@ This resolution affects `apps[*].name`, `apps[*].icon`, and the unlocked
 - The pane renders from `total`, `yesterday`, `average`, `current`, `apps`,
   `week`, `month`, and `week_range`, and it uses `last_updated` only for the
   freshness check.
-- `selected_date` is currently parsed but not rendered.
 - `month` must permit `null` entries because the heatmap grid uses them as blank
   leading cells.

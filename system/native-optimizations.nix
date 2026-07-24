@@ -85,8 +85,4 @@ in
     includeRustFlags = true;
   };
 
-  optimizeNativePackage = optimizePackage {
-    includeCFlags = true;
-    includeRustFlags = true;
-  };
 }

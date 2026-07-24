@@ -37,7 +37,6 @@
     sharedInputs = {
       inherit
         nixpkgs
-        nixpkgs-claude
         home-manager
         hyprland
         hyprland-plugins
@@ -82,7 +81,7 @@
       nixpkgs.lib.nixosSystem {
         inherit system;
         specialArgs = {
-          inherit hyprland host;
+          inherit hyprland host claudeCodeOverlay;
           enableNativeOptimizations = enableHostNativeOptimizations;
           inputs = sharedInputs;
         };

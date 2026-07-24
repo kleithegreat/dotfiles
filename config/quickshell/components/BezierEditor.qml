@@ -8,7 +8,6 @@ ColumnLayout {
     property string currentCurveName: ""
     property var basePoints: null
     property bool showSaveInput: false
-    property string saveInputText: ""
 
     readonly property bool isModified: {
         if (!basePoints) return false;
@@ -55,7 +54,6 @@ ColumnLayout {
         selectCurve(allNames.length > 0 ? allNames[0] : "ease");
     }
 
-    // Preset dropdown
     InlineDropdown {
         Layout.fillWidth: true
         model: Root.HyprlandConfigService.getAllCurveNames()
@@ -66,7 +64,6 @@ ColumnLayout {
         onActivated: (value) => root.selectCurve(value)
     }
 
-    // Canvas
     BezierCanvas {
         id: canvas
         Layout.fillWidth: true
@@ -79,13 +76,11 @@ ColumnLayout {
         }
     }
 
-    // Preview
     AnimPreviewDot {
         id: preview
         Layout.fillWidth: true
     }
 
-    // Values display
     RowLayout {
         Layout.fillWidth: true
         spacing: 12
@@ -108,7 +103,6 @@ ColumnLayout {
         }
     }
 
-    // Save input (inline, shown when Save As clicked)
     RowLayout {
         Layout.fillWidth: true
         visible: root.showSaveInput
@@ -159,20 +153,17 @@ ColumnLayout {
         }
     }
 
-    // Action buttons
     RowLayout {
         Layout.fillWidth: true
         visible: !root.showSaveInput
         spacing: 4
 
-        // Revert
         ActionButton {
             visible: root.isModified
             text: "Revert"
             onClicked: root.revert()
         }
 
-        // Save (update existing custom curve)
         ActionButton {
             visible: root.isModified && root.isCustom
             text: "Save"
@@ -182,7 +173,6 @@ ColumnLayout {
             onClicked: root.doSave(root.currentCurveName)
         }
 
-        // Save As
         ActionButton {
             visible: root.isModified
             text: "Save as\u2026"
@@ -199,7 +189,6 @@ ColumnLayout {
 
         Item { Layout.fillWidth: true }
 
-        // Delete
         ActionButton {
             visible: root.isCustom && !root.isModified
             text: "Delete"

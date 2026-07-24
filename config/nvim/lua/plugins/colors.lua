@@ -38,12 +38,7 @@ return {
         vim.o.background = background
       end
 
-      local colorscheme = "gruvbox"
-      if state and state.colorscheme == "gruvbox" then
-        colorscheme = state.colorscheme
-      end
-
-      vim.cmd.colorscheme(colorscheme)
+      vim.cmd.colorscheme("gruvbox")
     end,
   },
 }

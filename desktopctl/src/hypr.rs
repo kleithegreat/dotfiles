@@ -42,7 +42,7 @@ impl LidSwitchState {
     pub(crate) fn parse(value: &str) -> Result<Self> {
         match value.trim().to_ascii_lowercase().as_str() {
             "open" => Ok(Self::Open),
-            "closed" | "close" => Ok(Self::Closed),
+            "closed" => Ok(Self::Closed),
             "sync" => Ok(Self::Sync),
             _ => Err(io::Error::new(
                 io::ErrorKind::InvalidInput,

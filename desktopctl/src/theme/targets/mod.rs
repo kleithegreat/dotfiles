@@ -518,7 +518,6 @@ pub(crate) mod testsupport {
             quickshell_font_size_offset: 0,
             gtk_font_size_offset: 0,
             qt_font_size_offset: 0,
-            chromium_font_size_offset: 0,
             mono_font_size: 11,
             alacritty_mono_font_size_offset: 0,
             ghostty_mono_font_size_offset: 0,
@@ -726,10 +725,10 @@ mod tests {
     #[test]
     fn neovim_output_matches_python_format() {
         let output = text(neovim::generate(&dummy_colors(), &dummy_state()));
-        assert_eq!(
-            output,
-            "{\n  \"colorscheme\": \"gruvbox\",\n  \"background\": \"dark\"\n}\n"
-        );
+        assert_eq!(output, "{\n  \"background\": \"dark\"\n}\n");
+
+        let output = text(neovim::generate(&rose_pine_dawn_colors(), &dummy_state()));
+        assert_eq!(output, "{\n  \"background\": \"light\"\n}\n");
     }
 
     #[test]

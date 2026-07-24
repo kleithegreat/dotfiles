@@ -431,7 +431,6 @@ mod tests {
         let path = temp_path("chromium-clear-font-sizes");
         let mut state = dummy_state();
         state.font_size = 12;
-        state.chromium_font_size_offset = 1;
         state.mono_font_size = 10;
         fs::write(
             &path,

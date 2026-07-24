@@ -87,11 +87,6 @@ function sendJson(res, statusCode, payload, extraHeaders = {}) {
   res.end(body);
 }
 
-function sendNoContent(res) {
-  res.writeHead(204);
-  res.end();
-}
-
 function readJsonBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];

@@ -21,7 +21,6 @@ let
   inherit (nativeOptimizations)
     cFlags
     optimizeCCPackage
-    optimizeNativePackage
     optimizeRustPackage
     requireNativeBuildHost
     ;
@@ -39,7 +38,7 @@ let
       value;
 in
 {
-  inherit optimizeCCPackage optimizeNativePackage optimizeRustPackage;
+  inherit optimizeCCPackage optimizeRustPackage;
 
   overlay =
     final: prev:

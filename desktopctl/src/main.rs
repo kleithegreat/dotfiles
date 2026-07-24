@@ -402,27 +402,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn theme_set_accepts_negative_values_without_double_dash() {
-        let cli = Cli::try_parse_from([
-            "desktopctl",
-            "theme",
-            "set",
-            "chromium_font_size_offset",
-            "-1",
-        ])
-        .expect("cli should parse");
-
-        let TopLevelCommand::Theme(theme_args) = cli.command else {
-            panic!("expected theme command");
-        };
-        let ThemeCommand::Set(set_args) = theme_args.command else {
-            panic!("expected theme set command");
-        };
-        assert_eq!(set_args.key, "chromium_font_size_offset");
-        assert_eq!(set_args.value, "-1");
-    }
-
-    #[test]
     fn hypr_input_set_accepts_negative_values_without_double_dash() {
         let cli =
             Cli::try_parse_from(["desktopctl", "hypr", "input", "set", "sensitivity", "-0.1"])
