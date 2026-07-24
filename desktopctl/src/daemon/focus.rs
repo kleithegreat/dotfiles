@@ -1,5 +1,5 @@
 use crate::{hypr, paths, theme};
-use chrono::{Datelike, Duration, Local, NaiveDate, Timelike};
+use chrono::{Datelike, Duration, Local, NaiveDate};
 use rusqlite::{Connection, Transaction, params};
 use serde::{Serialize, Serializer};
 use std::{
@@ -30,7 +30,6 @@ pub fn run(shutdown: Arc<AtomicBool>) -> crate::Result<()> {
     let resolver = DesktopResolver::load();
     let mut connection = init_db()?;
     let mut next_tick = Instant::now() + StdDuration::from_secs(1);
-    let mut cleanup_date = Local::now().format("%Y-%m-%d").to_string();
 
     while !shutdown.load(Ordering::SeqCst) {
         let sleep_for = next_tick.saturating_duration_since(Instant::now());
@@ -42,12 +41,6 @@ pub fn run(shutdown: Arc<AtomicBool>) -> crate::Result<()> {
         }
 
         let now = Local::now();
-        let today = now.format("%Y-%m-%d").to_string();
-        if today != cleanup_date {
-            prune_minute_totals(&connection, now.date_naive())?;
-            cleanup_date = today;
-        }
-
         let mut class_name = current_class
             .lock()
             .map(|class_name| class_name.clone())
@@ -94,20 +87,6 @@ fn init_db() -> crate::Result<Connection> {
             seconds   INTEGER NOT NULL DEFAULT 0,
             PRIMARY KEY (date, app_class)
         );
-        CREATE TABLE IF NOT EXISTS hourly_totals (
-            date      TEXT NOT NULL,
-            hour      INTEGER NOT NULL,
-            app_class TEXT NOT NULL,
-            seconds   INTEGER NOT NULL DEFAULT 0,
-            PRIMARY KEY (date, hour, app_class)
-        );
-        CREATE TABLE IF NOT EXISTS minute_totals (
-            date         TEXT NOT NULL,
-            minute_index INTEGER NOT NULL,
-            app_class    TEXT NOT NULL,
-            seconds      INTEGER NOT NULL DEFAULT 0,
-            PRIMARY KEY (date, minute_index, app_class)
-        );
         ",
     )?;
 
@@ -125,10 +104,7 @@ fn legacy_db_path() -> io::Result<PathBuf> {
 fn focus_tables_are_empty(connection: &Connection) -> crate::Result<bool> {
     let row_count = connection.query_row(
         "
-        SELECT
-            (SELECT COUNT(*) FROM daily_totals) +
-            (SELECT COUNT(*) FROM hourly_totals) +
-            (SELECT COUNT(*) FROM minute_totals)
+        SELECT COUNT(*) FROM daily_totals
         ",
         [],
         |row| row.get::<_, i64>(0),
@@ -149,8 +125,6 @@ fn migrate_legacy_focus_data(connection: &mut Connection, db_path: &Path) -> cra
 
     let transaction = connection.transaction()?;
     copy_daily_totals(&legacy, &transaction)?;
-    copy_hourly_totals(&legacy, &transaction)?;
-    copy_minute_totals(&legacy, &transaction)?;
     transaction.commit()?;
 
     let legacy_dir = legacy_db_path
@@ -173,12 +147,12 @@ fn legacy_focus_has_rows(connection: &Connection) -> crate::Result<bool> {
         "
         SELECT COUNT(*)
         FROM sqlite_master
-        WHERE type = 'table' AND name IN ('daily_totals', 'hourly_totals', 'minute_totals')
+        WHERE type = 'table' AND name = 'daily_totals'
         ",
         [],
         |row| row.get::<_, i64>(0),
     )?;
-    if table_count != 3 {
+    if table_count != 1 {
         return Ok(false);
     }
 
@@ -205,75 +179,18 @@ fn copy_daily_totals(legacy: &Connection, transaction: &Transaction<'_>) -> crat
     Ok(())
 }
 
-fn copy_hourly_totals(legacy: &Connection, transaction: &Transaction<'_>) -> crate::Result<()> {
-    let mut select = legacy.prepare("SELECT date, hour, app_class, seconds FROM hourly_totals")?;
-    let rows = select.query_map([], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, i64>(1)?,
-            row.get::<_, String>(2)?,
-            row.get::<_, i64>(3)?,
-        ))
-    })?;
-
-    let mut insert = transaction.prepare(
-        "INSERT INTO hourly_totals (date, hour, app_class, seconds) VALUES (?, ?, ?, ?)",
-    )?;
-    for row in rows {
-        let (date, hour, app_class, seconds) = row?;
-        insert.execute(params![date, hour, app_class, seconds])?;
-    }
-
-    Ok(())
-}
-
-fn copy_minute_totals(legacy: &Connection, transaction: &Transaction<'_>) -> crate::Result<()> {
-    let mut select =
-        legacy.prepare("SELECT date, minute_index, app_class, seconds FROM minute_totals")?;
-    let rows = select.query_map([], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, i64>(1)?,
-            row.get::<_, String>(2)?,
-            row.get::<_, i64>(3)?,
-        ))
-    })?;
-
-    let mut insert = transaction.prepare(
-        "INSERT INTO minute_totals (date, minute_index, app_class, seconds) VALUES (?, ?, ?, ?)",
-    )?;
-    for row in rows {
-        let (date, minute_index, app_class, seconds) = row?;
-        insert.execute(params![date, minute_index, app_class, seconds])?;
-    }
-
-    Ok(())
-}
-
 fn accumulate(
     connection: &mut Connection,
     app_class: &str,
     now: &chrono::DateTime<Local>,
 ) -> crate::Result<()> {
     let date = now.format("%Y-%m-%d").to_string();
-    let hour = i64::from(now.hour());
-    let minute_index = i64::from(now.hour() * 60 + now.minute());
     let transaction = connection.transaction()?;
 
     transaction.execute(
         "INSERT INTO daily_totals (date, app_class, seconds) VALUES (?, ?, 1)
          ON CONFLICT(date, app_class) DO UPDATE SET seconds = seconds + 1",
         params![date, app_class],
-    )?;
-    transaction.execute(
-        "INSERT INTO hourly_totals (date, hour, app_class, seconds) VALUES (?, ?, ?, 1)
-         ON CONFLICT(date, hour, app_class) DO UPDATE SET seconds = seconds + 1",
-        params![date, hour, app_class],
-    )?;
-    transaction.execute(
-        "INSERT INTO minute_totals (date, minute_index, app_class, seconds) VALUES (?, ?, ?, 1)
-         ON CONFLICT(date, minute_index, app_class) DO UPDATE SET seconds = seconds + 1",
-        params![date, minute_index, app_class],
     )?;
     transaction.commit()?;
 
@@ -359,7 +276,6 @@ fn build_summary(
     let month = load_month(connection, today)?;
 
     Ok(Summary {
-        selected_date: today_string,
         last_updated: now.timestamp(),
         total,
         average,
@@ -512,12 +428,6 @@ fn is_screen_locked() -> bool {
         .unwrap_or(false)
 }
 
-fn prune_minute_totals(connection: &Connection, today: NaiveDate) -> crate::Result<()> {
-    let cutoff = (today - Duration::days(90)).format("%Y-%m-%d").to_string();
-    connection.execute("DELETE FROM minute_totals WHERE date < ?", params![cutoff])?;
-    Ok(())
-}
-
 fn get_active_class() -> String {
     hypr::active_window()
         .map(|window| {
@@ -648,7 +558,6 @@ mod tests {
         // The summary JSON is a byte-level contract with the Quickshell
         // consumer; keep this in lockstep with theme::json::to_python_string.
         let summary = Summary {
-            selected_date: "2026-06-10".to_owned(),
             last_updated: 1_765_000_000,
             total: 3600,
             average: 1800,
@@ -692,7 +601,7 @@ mod tests {
 
         assert_eq!(
             rendered,
-            "{\"selected_date\": \"2026-06-10\", \"last_updated\": 1765000000, \"total\": 3600, \
+            "{\"last_updated\": 1765000000, \"total\": 3600, \
              \"average\": 1800, \"week_range\": \"Jun 8 - Jun 14\", \"yesterday\": 1200, \
              \"current\": \"Caf\\u00e9\", \"apps\": [{\"class\": \"kitty\", \"name\": \"kitty\", \
              \"icon\": \"kitty-icon\", \"seconds\": 3000, \"percent\": 83.3}, \
@@ -854,7 +763,6 @@ fn parse_desktop_file(path: &Path, entries: &mut HashMap<String, (String, String
 
 #[derive(Serialize)]
 struct Summary {
-    selected_date: String,
     last_updated: i64,
     total: i64,
     average: i64,

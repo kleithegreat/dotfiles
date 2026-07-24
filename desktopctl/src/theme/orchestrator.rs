@@ -566,7 +566,6 @@ mod tests {
             quickshell_font_size_offset: 0,
             gtk_font_size_offset: 0,
             qt_font_size_offset: 0,
-            chromium_font_size_offset: 0,
             mono_font_size: 11,
             alacritty_mono_font_size_offset: 0,
             ghostty_mono_font_size_offset: 0,
@@ -672,15 +671,6 @@ mod tests {
             .into_iter()
             .collect::<Vec<_>>();
         assert_eq!(targets, vec!["qt".to_owned()]);
-    }
-
-    #[test]
-    fn chromium_font_size_offset_has_no_targets() {
-        let registry = registry();
-        let targets = targets_for_key(&registry, "chromium_font_size_offset", None)
-            .into_iter()
-            .collect::<Vec<_>>();
-        assert!(targets.is_empty());
     }
 
     #[test]

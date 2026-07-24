@@ -5,7 +5,7 @@ use std::{
 
 /// Return the repo root from the environment or the default dotfiles checkout.
 pub(crate) fn repo_root() -> io::Result<PathBuf> {
-    if let Some(path) = env_path("DESKTOPCTL_REPO").or_else(|| env_path("desktopctl_REPO")) {
+    if let Some(path) = env_path("DESKTOPCTL_REPO") {
         return Ok(path);
     }
 
@@ -88,11 +88,10 @@ mod tests {
     use crate::test_support::{ScopedEnvVar, TempDir, env_lock};
 
     #[test]
-    fn repo_root_prefers_uppercase_env_then_legacy_then_home_fallback() {
+    fn repo_root_uses_uppercase_env_then_home_fallback() {
         let _lock = env_lock();
         let temp_dir = TempDir::new("desktopctl-paths-home").expect("temp dir");
         let _clear_upper = ScopedEnvVar::unset("DESKTOPCTL_REPO");
-        let _clear_legacy = ScopedEnvVar::unset("desktopctl_REPO");
         let _home = ScopedEnvVar::set("HOME", temp_dir.path().as_os_str());
         assert_eq!(
             repo_root().expect("fallback repo root"),
@@ -100,12 +99,6 @@ mod tests {
         );
 
         {
-            let _legacy = ScopedEnvVar::set("desktopctl_REPO", "/legacy/repo");
-            assert_eq!(
-                repo_root().expect("legacy repo root"),
-                PathBuf::from("/legacy/repo")
-            );
-
             let _repo = ScopedEnvVar::set("DESKTOPCTL_REPO", "/preferred/repo");
             assert_eq!(
                 repo_root().expect("repo root"),

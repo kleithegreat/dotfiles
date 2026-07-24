@@ -6,7 +6,6 @@ QtObject {
     id: root
 
     // Mullvad state
-    readonly property string mullvadPendingAction: _mullvadPendingAction
     readonly property bool mullvadBusy: mullvadConnectProc.running || mullvadDisconnectProc.running || _mullvadPendingAction !== ""
     readonly property string mullvadState: {
         if (_mullvadPendingAction === "connect")

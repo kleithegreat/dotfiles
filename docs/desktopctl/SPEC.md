@@ -36,8 +36,8 @@ describing an intended future migration.
 
 Additional path rules:
 
-- `paths::repo_root()` first honors `DESKTOPCTL_REPO`, then the legacy
-  lowercase `desktopctl_REPO`, then falls back to `~/repos/dotfiles`.
+- `paths::repo_root()` first honors `DESKTOPCTL_REPO`, then falls back to
+  `~/repos/dotfiles`.
 - `desktopctl hypr input status` layers `~/.config/hypr/input.conf` defaults
   with any managed overrides found in `~/.config/hypr/input-runtime.conf`.
 - `desktopctl theme list-wallpapers --json` caches scaled preview images under
@@ -164,7 +164,7 @@ Brightness rules:
 
 - Device auto-detection for step/dim/set without `--device` prefers the first backlight name in sorted `/sys/class/backlight` order, then falls back to DDC/CI VCP code `0x10` through `ddcutil`.
 - JSON status lists all readable backlights plus DDC/CI displays discovered through `ddcutil detect --brief`; DDC entries include connector metadata when `ddcutil` reports a DRM connector.
-- `--device <name>` still selects a backlight device; `--device ddc` selects the default DDC display, and `--device ddc:<display>` passes an explicit `ddcutil --display` value. `ddc-<display>` is accepted as a compatibility alias of `ddc:<display>`.
+- `--device <name>` still selects a backlight device; `--device ddc` selects the default DDC display, and `--device ddc:<display>` passes an explicit `ddcutil --display` value.
 - If neither a backlight nor DDC/CI brightness is reachable, mutating commands and non-JSON `status` fail; JSON `status` reports `available: false` with an empty `devices` array.
 - `set`, `up`, and `down` emit the Quickshell OSD IPC call today.
 - The old `/tmp/quickshell-brightness` file contract no longer exists.
@@ -174,7 +174,7 @@ Brightness rules:
 | Command | Current behavior |
 | --- | --- |
 | `hypr toggle-float` | If the active window is tiled, toggles floating, resizes it to `75% 75%`, and centers it; if already floating, toggles floating off |
-| `hypr lid-switch <open/closed/sync> [--internal <monitor>] [--open-spec <spec>]` | Applies the laptop lid monitor policy. `closed` disables the internal monitor only when another output is active (`close` is accepted as a compatibility alias), `open` restores the internal monitor with the provided Hyprland monitor spec, and `sync` reads `/proc/acpi/button/lid/*/state` and applies only the closed-lid action when needed. |
+| `hypr lid-switch <open/closed/sync> [--internal <monitor>] [--open-spec <spec>]` | Applies the laptop lid monitor policy. `closed` disables the internal monitor only when another output is active, `open` restores the internal monitor with the provided Hyprland monitor spec, and `sync` reads `/proc/acpi/button/lid/*/state` and applies only the closed-lid action when needed. |
 | `hypr input status [--json]` | Prints the effective managed shared input state by layering `~/.config/hypr/input.conf` defaults with `~/.config/hypr/input-runtime.conf` overrides |
 | `hypr input set <key> <value>` | Validates one managed shared input key (`sensitivity`, `accel_profile`, or `scroll_factor`), atomically rewrites `input-runtime.conf`, applies the same value live through `hyprctl keyword`, and restores the previous file if that live apply fails |
 | `hypr animations save <json>` | Validates one JSON payload, rewrites `animations-override.conf`, and reloads Hyprland so the generated overrides apply on top of `appearance.conf` |

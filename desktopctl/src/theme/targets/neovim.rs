@@ -1,7 +1,7 @@
 use super::{Assembly, GeneratedContent, TargetMetadata};
 use crate::theme::{
     json,
-    schema::{ColorScheme, ThemeState},
+    schema::{ColorScheme, ColorSchemeAppearance, ThemeState},
 };
 use serde_json::{Map, Value};
 
@@ -12,12 +12,14 @@ pub const METADATA: TargetMetadata =
 pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<GeneratedContent> {
     let mut value = Map::new();
     value.insert(
-        "colorscheme".to_owned(),
-        Value::String(colors.family.clone()),
-    );
-    value.insert(
         "background".to_owned(),
-        Value::String(colors.variant.clone()),
+        Value::String(
+            match colors.appearance {
+                ColorSchemeAppearance::Dark => "dark",
+                ColorSchemeAppearance::Light => "light",
+            }
+            .to_owned(),
+        ),
     );
 
     Ok(GeneratedContent::text(format!(

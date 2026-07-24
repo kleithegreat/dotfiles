@@ -6,8 +6,7 @@ Reviewed on 2026-06-10.
 
 The subsystem is small and understandable, and the earlier reliability audit
 items around liveness, aggregate alignment, reconnect re-seeding, startup empty
-class handling, empty-state messaging, and minute-table retention are now
-addressed.
+class handling, and empty-state messaging are now addressed.
 
 ## Findings
 

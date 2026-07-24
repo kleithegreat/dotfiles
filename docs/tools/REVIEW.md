@@ -13,7 +13,6 @@ implementation is narrower than the upstream tool surface.
 | Severity | Tool | Finding |
 | --- | --- | --- |
 | Medium | Neovim | The Neovim 0.12 Treesitter path is much thinner than the 0.11 path and would change behavior materially if activated. |
-| Low | Neovim | The editor remains intentionally single-scheme: non-`gruvbox` theme state now falls back silently to `gruvbox` instead of trying to load arbitrary scheme names. |
 | Low | Neovim | The pinned `pocco81/auto-save.nvim` upstream is archived (last commit 2022-11-01) and internally uses the deprecated `nvim_buf_get_option` API (works on 0.12, on the removal track). Kept knowingly (TOOLSCONFIGS-11); the maintained drop-in fork is `okuuva/auto-save.nvim` if the pin ever breaks (opts need a small translation: `trigger_events` becomes `immediate_save`/`defer_save` lists). |
 | Medium | Zsh | `compinit -C` trades startup speed for skipping the new-functions and security checks once the dump exists. |
 | Low | Zathura | Recolor is always enabled, which is coherent for dark-mode PDF reading but stronger than upstream defaults. |

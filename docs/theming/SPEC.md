@@ -163,7 +163,6 @@ Constraints:
 | Palette and assets | `color_scheme`, `wallpaper`, `filter_wallpaper`, `icon_theme`, `cursor_theme`, `cursor_size`, `dark_hint` |
 | Fonts | `system_font`, `mono_font`, `font_size`, `mono_font_size` |
 | Per-target font offsets | `quickshell_font_size_offset`, `gtk_font_size_offset`, `qt_font_size_offset` |
-| Legacy tolerated state | `chromium_font_size_offset` |
 | Per-target mono offsets | `alacritty_*`, `ghostty_*`, `gtk_*`, `neovide_*`, `qt_*`, `vscode_*`, `zed_*` mono-font offset keys |
 | Hyprland appearance | `hypr_gaps_in`, `hypr_gaps_out`, `hypr_border_size`, `hypr_rounding`, `hypr_blur_enabled`, `hypr_blur_size`, `hypr_blur_passes`, `hypr_animations_enabled` |
 
@@ -172,9 +171,6 @@ Constraints:
 - Color JSON must satisfy the full `ColorScheme` field set, including explicit
   `appearance`, and a 16-entry palette.
 - `ThemeState` is the only mutable theme selection schema.
-- `chromium_font_size_offset` remains in persisted state for backward
-  compatibility, but current targets ignore it and Chromium page sizes stay at
-  Chromium-managed defaults.
 - Persisted `theme_state` rows and legacy `themes/state.json` imports that are
   missing newly added required keys must be normalized with compiled defaults
   before validation, target apply, and any rewrite back to SQLite.
@@ -242,7 +238,6 @@ State changes fan out by ownership, not by CLI convenience.
 | `quickshell_font_size_offset` | `quickshell` |
 | `gtk_font_size_offset` | `gtk` |
 | `qt_font_size_offset` | `qt` |
-| `chromium_font_size_offset` | none (legacy tolerated state key) |
 | `mono_font_size` | `alacritty`, `ghostty`, `gtk`, `neovide`, `qt`, `vscode`, `zed` |
 | Per-target `*_mono_font_size_offset` | The named target only |
 | `dark_hint` | `chromium`, `gtk`, `helium`, `qt` |
@@ -266,7 +261,7 @@ the documented wallpaper filter exception above.
 | Helium | Reads the active profile `Preferences` prefs patched by the `helium` target under `~/.config/net.imput.helium/`; it shares the Chromium-family font and browser chrome preference contract while keeping Helium's extension bootstrap in Home Manager |
 | Gedit / GtkSourceView | Reads generated styles from `~/.local/share/libgedit-gtksourceview-300/styles/`; gedit's light/dark source-style selection is theme-owned |
 | Hyprland | Reads `colors.conf` and `appearance-theme.conf` |
-| Neovim / Neovide | Read generated theme state files rather than embedding palette logic in Home Manager |
+| Neovim / Neovide | Read generated theme state files rather than embedding palette logic in Home Manager. Neovim receives only `background`, normalized from `ColorScheme.appearance`, and always loads its installed Gruvbox scheme. |
 | OpenChamber | Reads desktop-managed `themeId` / `themeVariant` keys from `~/.config/openchamber/settings.json` and the generated `~/.config/openchamber/themes/desktopctl.json`; the target patches only those theme-owned settings keys so OpenChamber keeps owning the rest of `settings.json`. When the existing settings file is unreadable, invalid JSON, or has a non-object root, the target fails loudly and leaves the file untouched (matching `chromium`) instead of replacing it with a theme-only file |
 | OpenCode | Reads the generated global `tui.json` theme selection and the generated `themes/desktopctl.json` palette under `~/.config/opencode/`; the target is intentionally color-only because upstream TUI theming exposes a `theme` selector plus theme-color JSON keys, while later project-local OpenCode config layers can still override the global theme by upstream precedence |
 | Zed | The `zed` target concats `config/zed/base.json` with theme-managed `theme`, `buffer_font_family`, `buffer_font_size`, `ui_font_family`, and `ui_font_size` keys to produce `~/.config/zed/settings.json`. Home Manager does not deploy `zed/settings.json`; the user-owned base lives in the repo at `config/zed/base.json`. Themes whose Zed name comes from an extension (Catppuccin, Tokyo Night, Nord, Rosé Pine, Solarized) require the extension to be installed in Zed once; `nord-light` intentionally maps to the built-in `One Light` so it needs no extension. |

@@ -49,11 +49,6 @@ Canvas {
         return { x: m.xOff + bx * m.scale, y: m.yOff + (m.yHi - by) * m.scale };
     }
 
-    function _fromCanvas(cx, cy) {
-        let m = _gridMetrics();
-        return { x: (cx - m.xOff) / m.scale, y: m.yHi - (cy - m.yOff) / m.scale };
-    }
-
     function _hitTest(cx, cy) {
         let p1 = _toCanvas(x1, y1);
         let p2 = _toCanvas(x2, y2);
@@ -81,7 +76,6 @@ Canvas {
         let gW = g1.x - g0.x;
         let gH = g0.y - g1.y;
 
-        // Grid (10x10)
         ctx.strokeStyle = Qt.alpha(fg, 0.08);
         ctx.lineWidth = 0.5;
         for (let i = 0; i <= 10; i++) {
@@ -90,24 +84,20 @@ Canvas {
             ctx.beginPath(); ctx.moveTo(g0.x, g1.y + f * gH); ctx.lineTo(g1.x, g1.y + f * gH); ctx.stroke();
         }
 
-        // Border
         ctx.strokeStyle = Qt.alpha(fg, 0.25); ctx.lineWidth = 1;
         ctx.strokeRect(g0.x, g1.y, gW, gH);
 
-        // Diagonal reference (dashed)
         ctx.setLineDash([4, 4]);
         ctx.strokeStyle = Qt.alpha(fg, 0.15); ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(g0.x, g0.y); ctx.lineTo(g1.x, g1.y); ctx.stroke();
         ctx.setLineDash([]);
 
-        // Control handles (lines from endpoints to control points)
         let cp1 = _toCanvas(x1, y1);
         let cp2 = _toCanvas(x2, y2);
         ctx.strokeStyle = Qt.alpha(fg, 0.35); ctx.lineWidth = 1.5;
         ctx.beginPath(); ctx.moveTo(g0.x, g0.y); ctx.lineTo(cp1.x, cp1.y); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(g1.x, g1.y); ctx.lineTo(cp2.x, cp2.y); ctx.stroke();
 
-        // Bezier curve
         ctx.strokeStyle = Qt.alpha(accent, 1.0); ctx.lineWidth = 2.5;
         ctx.beginPath(); ctx.moveTo(g0.x, g0.y);
         let steps = 80;
@@ -118,7 +108,6 @@ Canvas {
         }
         ctx.stroke();
 
-        // Control points
         let pts = [{ id: "p1", cx: cp1.x, cy: cp1.y }, { id: "p2", cx: cp2.x, cy: cp2.y }];
         for (let i = 0; i < pts.length; i++) {
             let p = pts[i];

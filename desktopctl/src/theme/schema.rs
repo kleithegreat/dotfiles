@@ -30,7 +30,7 @@ pub const COLOR_FIELD_NAMES: [&str; 24] = [
     "orange_bright",
 ];
 
-pub const THEME_STATE_FIELD_ORDER: [&str; 30] = [
+pub const THEME_STATE_FIELD_ORDER: [&str; 29] = [
     "color_scheme",
     "wallpaper",
     "filter_wallpaper",
@@ -43,7 +43,6 @@ pub const THEME_STATE_FIELD_ORDER: [&str; 30] = [
     "quickshell_font_size_offset",
     "gtk_font_size_offset",
     "qt_font_size_offset",
-    "chromium_font_size_offset",
     "mono_font_size",
     "alacritty_mono_font_size_offset",
     "ghostty_mono_font_size_offset",
@@ -72,13 +71,12 @@ pub const THEME_STATE_STRING_FIELDS: [&str; 6] = [
     "cursor_theme",
 ];
 
-pub const THEME_STATE_INT_FIELDS: [&str; 20] = [
+pub const THEME_STATE_INT_FIELDS: [&str; 19] = [
     "cursor_size",
     "font_size",
     "quickshell_font_size_offset",
     "gtk_font_size_offset",
     "qt_font_size_offset",
-    "chromium_font_size_offset",
     "mono_font_size",
     "alacritty_mono_font_size_offset",
     "ghostty_mono_font_size_offset",
@@ -114,7 +112,6 @@ pub const DEFAULT_FONT_SIZE: i64 = 11;
 pub const DEFAULT_QUICKSHELL_FONT_SIZE_OFFSET: i64 = 0;
 pub const DEFAULT_GTK_FONT_SIZE_OFFSET: i64 = 0;
 pub const DEFAULT_QT_FONT_SIZE_OFFSET: i64 = 0;
-pub const DEFAULT_CHROMIUM_FONT_SIZE_OFFSET: i64 = 0;
 pub const DEFAULT_MONO_FONT_SIZE: i64 = 11;
 pub const DEFAULT_ALACRITTY_MONO_FONT_SIZE_OFFSET: i64 = 0;
 pub const DEFAULT_GHOSTTY_MONO_FONT_SIZE_OFFSET: i64 = 0;
@@ -444,7 +441,6 @@ pub struct ThemeState {
     pub quickshell_font_size_offset: i64,
     pub gtk_font_size_offset: i64,
     pub qt_font_size_offset: i64,
-    pub chromium_font_size_offset: i64,
     pub mono_font_size: i64,
     pub alacritty_mono_font_size_offset: i64,
     pub ghostty_mono_font_size_offset: i64,
@@ -494,7 +490,6 @@ impl ThemeState {
             quickshell_font_size_offset: DEFAULT_QUICKSHELL_FONT_SIZE_OFFSET,
             gtk_font_size_offset: DEFAULT_GTK_FONT_SIZE_OFFSET,
             qt_font_size_offset: DEFAULT_QT_FONT_SIZE_OFFSET,
-            chromium_font_size_offset: DEFAULT_CHROMIUM_FONT_SIZE_OFFSET,
             mono_font_size: DEFAULT_MONO_FONT_SIZE,
             alacritty_mono_font_size_offset: DEFAULT_ALACRITTY_MONO_FONT_SIZE_OFFSET,
             ghostty_mono_font_size_offset: DEFAULT_GHOSTTY_MONO_FONT_SIZE_OFFSET,

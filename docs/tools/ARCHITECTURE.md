@@ -13,7 +13,7 @@ Manager deploys.
 
 | Tool | Repo-authored source | Live theme-owned output | Assembly | Notes |
 | --- | --- | --- | --- | --- |
-| Neovim | `config/nvim/**/*` | `~/.config/nvim/lua/theme-state.json`, `~/.config/nvim/lua/neovide-theme.lua` | `standalone` | Home Manager symlinks the full tree; theming writes only state files; the runtime config sanitizes `background` to `dark`/`light` and otherwise falls back silently to the installed `gruvbox` scheme |
+| Neovim | `config/nvim/**/*` | `~/.config/nvim/lua/theme-state.json`, `~/.config/nvim/lua/neovide-theme.lua` | `standalone` | Home Manager symlinks the full tree; the Neovim target writes `background` from canonical scheme appearance, and the runtime config always loads the installed Gruvbox scheme |
 | Alacritty | `config/alacritty/alacritty.toml` | `~/.config/alacritty/theme.toml` | `import` | Base config imports the generated fragment |
 | Ghostty | `config/ghostty/config` | `~/.config/ghostty/theme.conf` | `import` | Home Manager deploys the base config at `~/.config/ghostty/config`, and that base file uses Ghostty's native `config-file` directive to load the generated fragment |
 | OpenCode | `config/opencode/base.json` | `~/.config/opencode/tui.json` plus `~/.config/opencode/themes/desktopctl.json` | `concat` | Base config is schema-only; the generated concat block sets the managed global theme name, and `persist()` writes the actual OpenCode palette JSON under `themes/` |

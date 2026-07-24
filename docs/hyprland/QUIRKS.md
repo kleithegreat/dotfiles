@@ -203,46 +203,21 @@ static-base constraint ("Static files must not contain host-specific hardware
 assumptions unless guarded by a documented fallback"). A host config split is
 deliberately not done; treat the desktop's fprintd D-Bus error as noise.
 
-## Rolling Hyprland input bumps can break the patched plugin stack at login
-
-**Symptom:** SDDM accepts the password, then immediately returns to the greeter
-because Hyprland aborts during session startup.
-
-**Cause:** On the 2026-04-29 Hyprland input bump (`45ffaee...`) the compositor
-started aborting while loading `libhyprbars.so`, before the session became
-interactive. The journal showed repeated `pluginInit (libhyprbars.so)` crashes
-through `Config::Values::*Value::commence()` during
-`HyprlandAPI::addConfigValueV2(...)`, so the failure was in the local
-`hyprbars` plugin-config registration path rather than PAM, SDDM, or the
-GPU-routing env.
-
-**Impact / workaround:** Resolved upstream. The workaround was
-`patches/hyprland-plugins/hyprbars-hyprland-0.55.patch`, which moved `hyprbars`
-onto the legacy `HyprlandAPI::addConfigValue(...)` /
-`HyprlandAPI::getConfigValue(...)` config path. That patch was dropped in July
-2026: the `addConfigValueV2(...)` / `Config::Values::*Value` registration path
-has been loading fine at runtime for months via the hyprexpo plugin on the same
-stack, and unpatched upstream `hyprbars` builds against the current lock. The
-patch (including its rendering deltas: top-only bar rounding integrated with
-`shouldSquareTopCorners()`, the pass-simplification opt-out, and the bar-color
-warp) is recoverable from git history if a future input bump reintroduces the
-plugin-config crash or the bar rendering regresses on floating windows.
-
 ## Rolling Hyprland inputs can make local patches fail during build
 
 **Symptom:** `nrs` fails while building `hyprland` or a Hyprland plugin with
-messages such as `Hunk #... FAILED`, `Reversed (or previously applied) patch
-detected` during `patchPhase`, or compile errors in a locally patched plugin.
+messages such as `Hunk #... FAILED` or `Reversed (or previously applied) patch
+detected` during `patchPhase`.
 
 **Cause:** `system/configuration.nix` intentionally appends repo-local patches
-to Hyprland and `hyprbars`. Upstream Hyprland and plugin inputs are
-rolling flake inputs, so upstream may reformat touched code, remove fields, or
-absorb parts of a local patch before the local patch stack is refreshed.
+to Hyprland. The rolling Hyprland input can reformat touched code, remove
+fields, or absorb parts of a local patch before the local patch stack is
+refreshed.
 
-**Impact / workaround:** Refresh the relevant file under `patches/hyprland/` or
-`patches/hyprland-plugins/` against the locked source revision, and prefer
-dropping hunks that upstream has already absorbed instead of preserving stale API
-porting context. The current Hyprland 0.55 lock required refreshing
+**Impact / workaround:** Refresh the relevant file under `patches/hyprland/`
+against the locked source revision, and prefer dropping hunks that upstream has
+already absorbed instead of preserving stale API porting context. The current
+Hyprland 0.55 lock required refreshing
 `patches/hyprland/hyprland-floating-top-decoration-rounding-0.55.patch` for the
 relocated `Window.hpp` method block, the reformatted shader-feature enum, and
 surface rounding calls now guarded by `!USE_MOTION_BLUR`, while dropping a stale
@@ -250,16 +225,10 @@ no-newline hunk. The companion
 `patches/hyprland/hyprland-gcc15-designated-initializer-fix-0.55.patch` must
 preserve newer texture fields such as `wrapX`, `wrapY`, `forceBlurBlend`,
 `blurAlphaMatte`, and `motionBlur` when rewriting designated initializers to
-assignment-based setup. As of July 2026 the plugin patch stack carries no
-behavior deltas: `patches/hyprland-plugins/hyprbars-hyprland-0.55.patch` is a
-minimal shim for the July 2026 Hyprland lock (relocated
-`animation/AnimationManager.hpp` include, `g_pAnimationManager` →
-`Animation::mgr()`) that should be dropped once upstream plugins catch up.
-Hyprexpo v0.56.0 includes its Hyprland 0.56 API port upstream and carries no
-local patch.
-Rebuild the patched Hyprland package and plugin stack before running a full
-system rebuild, because the full desktop closure may also rebuild the system
-kernel/NVIDIA stack.
+assignment-based setup. Rebuild the patched Hyprland package before running a
+full system rebuild, because the full desktop closure may also rebuild the
+system kernel/NVIDIA stack. `hyprbars` is rebuilt unpatched against those
+headers through `mkPatchedHyprPlugin upstreamHyprPluginPkgs.hyprbars []`.
 
 ## `hyprland-guiutils` needs explicit Pango cflags on this input lock
 
@@ -281,26 +250,6 @@ passes that package into the patched Hyprland derivation through the
 either `hyprgraphics` or `hyprland-guiutils` so the required Pango include flags
 are provided upstream. Re-test `nix build .#nixosConfigurations.laptop.config.programs.hyprland.package`
 before removing it.
-
-## Hyprbars color parsing follows Hyprland parser utils on 0.55
-
-**Symptom:** `nrs` fails while building `hyprbars` with
-`error: 'configStringToInt' was not declared in this scope` from
-`hyprbars/main.cpp` or `hyprbars/barDeco.cpp`.
-
-**Cause:** Hyprland 0.55 removed the old unqualified color parsing helper that
-the upstream `hyprbars` source still references. The current Hyprland headers
-expose color parsing through `Config::ParserUtils::parseColor(...)` instead.
-
-**Status:** Absorbed upstream. The locked `hyprland-plugins` input (rev
-`8c3d2be`) already includes the ParserUtils include and uses
-`Config::ParserUtils::parseColor`, and the local
-`patches/hyprland-plugins/hyprbars-hyprland-0.55.patch` no longer carries any
-parseColor hunks (removed in commit `b74af9e`).
-
-**Impact / workaround:** Nothing to maintain locally; re-check only when the
-`hyprland-plugins` input is bumped, in case upstream and the Hyprland parser
-API diverge again.
 
 ## Official hyprland-plugins no longer ships Hyprexpo
 

@@ -292,7 +292,6 @@ fn parse_ddc_device(device: &str) -> Option<Option<String>> {
 
     device
         .strip_prefix("ddc:")
-        .or_else(|| device.strip_prefix("ddc-"))
         .map(|display| Some(display.to_owned()))
 }
 

@@ -130,16 +130,8 @@ the current compiler.
 
 `system/configuration.nix` takes `hyprbars` from
 `inputs.hyprland-plugins.packages.${system}.hyprbars`, rebuilt against the
-patched Hyprland headers. The behavior-carrying hyprbars patch was dropped in
-July 2026 along with its deltas — legacy-config registration, top-only bar
-rounding integrated with `shouldSquareTopCorners()`, the pass-simplification
-opt-out, and the non-animated bar-color warp; recover it from git history if
-bar rendering regresses on floating windows. The current
-`patches/hyprland-plugins/hyprbars-hyprland-0.55.patch` is a minimal
-compatibility shim for the rolling Hyprland lock outpacing the plugin repo:
-the relocated `animation/AnimationManager.hpp` include and the
-`g_pAnimationManager` → `Animation::mgr()` rename. Drop it once upstream
-`hyprland-plugins` absorbs those renames.
+patched Hyprland headers through `mkPatchedHyprPlugin upstreamHyprPluginPkgs.hyprbars []`.
+The plugin builds unpatched against the current locked input.
 
 `hyprexpo` is supplied by the repo-local package in
 `pkgs/hyprland-plugins/hyprexpo/default.nix`, which builds the maintained

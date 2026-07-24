@@ -243,7 +243,6 @@ Item {
             height: es.h * root._layoutScale
 
             property bool isSelected: index === root.selectedIndex
-            property bool isFocused: modelData.focused
             property bool isDragging: index === root._draggingIdx
 
             // Background fill
