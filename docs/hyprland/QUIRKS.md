@@ -203,33 +203,6 @@ static-base constraint ("Static files must not contain host-specific hardware
 assumptions unless guarded by a documented fallback"). A host config split is
 deliberately not done; treat the desktop's fprintd D-Bus error as noise.
 
-## Rolling Hyprland inputs can make local patches fail during build
-
-**Symptom:** `nrs` fails while building `hyprland` or a Hyprland plugin with
-messages such as `Hunk #... FAILED` or `Reversed (or previously applied) patch
-detected` during `patchPhase`.
-
-**Cause:** `system/configuration.nix` intentionally appends repo-local patches
-to Hyprland. The rolling Hyprland input can reformat touched code, remove
-fields, or absorb parts of a local patch before the local patch stack is
-refreshed.
-
-**Impact / workaround:** Refresh the relevant file under `patches/hyprland/`
-against the locked source revision, and prefer dropping hunks that upstream has
-already absorbed instead of preserving stale API porting context. The current
-Hyprland 0.55 lock required refreshing
-`patches/hyprland/hyprland-floating-top-decoration-rounding-0.55.patch` for the
-relocated `Window.hpp` method block, the reformatted shader-feature enum, and
-surface rounding calls now guarded by `!USE_MOTION_BLUR`, while dropping a stale
-no-newline hunk. The companion
-`patches/hyprland/hyprland-gcc15-designated-initializer-fix-0.55.patch` must
-preserve newer texture fields such as `wrapX`, `wrapY`, `forceBlurBlend`,
-`blurAlphaMatte`, and `motionBlur` when rewriting designated initializers to
-assignment-based setup. Rebuild the patched Hyprland package before running a
-full system rebuild, because the full desktop closure may also rebuild the
-system kernel/NVIDIA stack. `hyprbars` is rebuilt unpatched against those
-headers through `mkPatchedHyprPlugin upstreamHyprPluginPkgs.hyprbars []`.
-
 ## `hyprland-guiutils` needs explicit Pango cflags on this input lock
 
 **Symptom:** `nrs` fails while building `hyprland-guiutils` with
@@ -265,9 +238,10 @@ break evaluation before Nix reaches the build phase.
 from `pkgs/hyprland-plugins/hyprexpo/default.nix`, a repo-local package that
 now builds the maintained `sandwichfarm/hyprexpo` fork (pinned by revision)
 instead of the source removed from the official flake. The pinned v0.56.0
-release builds directly against the rolling Hyprland lock. The fork renamed
+release builds directly against the release-pinned Hyprland package. The fork renamed
 `gap_size` to `gaps_in` / `gaps_out` (`config/hypr/plugins.conf` was updated to
 match). The main
-`hyprland-plugins` flake input keeps rolling for still-shipped plugins such as
-`hyprbars`; Hyprexpo maintenance means advancing the fork only when its release
-supports the locked Hyprland headers.
+`hyprland-plugins` is pinned to the same v0.56.0 release as Hyprland for
+still-shipped plugins such as `hyprbars`; Hyprexpo maintenance means advancing
+all three versions together only when the fork release supports the selected
+Hyprland release.
