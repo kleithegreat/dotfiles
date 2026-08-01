@@ -297,3 +297,51 @@
 **Cause:** Helium's user-data-dir on Linux is `~/.config/net.imput.helium/`, not `~/.config/helium/`. Home Manager's `programs.chromium` module has no Helium variant, so the path has to be wired by hand.
 **Status:** Workaround in place
 **Resolution:** `home/default.nix` defines `browserExtensions` as the shared extension-id list and feeds it both to `programs.chromium.extensions` and to `heliumExtensionFiles`, which generates `home.file."./.config/net.imput.helium/External Extensions/<id>.json"` entries with the same `external_update_url` payload Home Manager writes for Chromium.
+
+## ComfyUI's PyTorch must come from the `-bin` wheels under `cudaPackages_13_3`
+**Symptom:** Building `pkgs.comfyui` against the default nixpkgs PyTorch schedules a full `pytorch` plus `triton-llvm` source compile — 79 derivations and hours of CPU — because `config.cudaSupport` builds everything from scratch. Switching to `python3Packages.torch-bin` instead fails evaluation outright with `unsupported-cuda-version (kind "broken"): cudaPackages is too old (12.9)`.
+**Cause:** Cached nixpkgs PyTorch is CPU-only, and Hydra does not build the `cudaSupport` variants. The prebuilt `torch-bin` wheel already ships CUDA, but PyTorch 2.12 requires `cuda-bindings >= 13.0.3` while the nixpkgs default `cudaPackages` is the 12 series, so nixpkgs marks the package broken. The fix is the one nixpkgs' own error message recommends, not an override of the brokenness check.
+**Status:** Workaround in place
+**Resolution:** `pkgs/comfyui/python-packages.nix` overrides `cudaPackages` to `cudaPackages_13_3` on `torch-bin`, `torchvision-bin`, `torchaudio-bin`, and `cuda-bindings`, then aliases the plain `torch`/`torchvision`/`torchaudio` attributes to those `-bin` packages so every downstream consumer (`kornia`, `transformers`, `spandrel`) shares one PyTorch. The resulting build is CUDA redistributable unpacking plus a few small Rust/Cython builds — no PyTorch or LLVM compile. Do not add `torch.unsupported-cuda-version = "ignore"` to `nixpkgs.config`; that silences the check without satisfying the dependency.
+
+## nixpkgs pairs a cu130 torch with a cu128 torchaudio
+**Symptom:** With `torch-bin`/`torchvision-bin` on `cudaPackages_13_3`, `torchaudio-bin` fails auto-patchelf with `could not satisfy dependency libcudart.so.12`.
+**Cause:** On this pin `torch-bin` and `torchvision-bin` fetch `cu130` wheels from `download.pytorch.org`, but `torchaudio-bin` fetches the `cu128` wheel of the same 2.11.0 version. Its ELFs want the CUDA 12 runtime, which no CUDA 13 package set can provide. Nothing upstream notices because none of these are built by Hydra.
+**Status:** Workaround in place
+**Resolution:** `pkgs/comfyui/python-packages.nix` overrides only `src` on `torchaudio-bin`, pointing at upstream's `cu130` build of the same 2.11.0 version, and keeps the rest of the nixpkgs packaging. Do not paper over this by giving `torchaudio-bin` a CUDA 12 package set — that loads two libcudart majors into one process. Re-check the URL on nixpkgs bumps; once upstream aligns the variants, delete the override.
+
+## The torch wheel's `setuptools<82` cap has to be relaxed
+**Symptom:** `torch-bin` fails `pythonRuntimeDepsCheck` with `setuptools<82 not satisfied by version 83.0.0`.
+**Cause:** PyTorch 2.12's wheel metadata caps setuptools, and both `python313Packages` and `python3Packages` are on 83.0.0 here, so no in-tree interpreter satisfies it.
+**Status:** Workaround in place
+**Resolution:** `pkgs/comfyui/python-packages.nix` sets `pythonRelaxDeps = [ "setuptools" ]` on `torch-bin`. The cap only guards `torch.utils.cpp_extension`, which the ComfyUI import path never touches; a custom node that JIT-compiles C++ extensions is the one thing that could notice.
+
+## ComfyUI's `--base-directory` does not cover the database or seed the tree
+**Symptom:** With the app in the store and state under `$XDG_DATA_HOME`, startup dies with `FileNotFoundError: .../custom_nodes`, and once past that, logs `Failed to initialize database ... unable to open database file`.
+**Cause:** Two separate upstream gaps. `main.py` lists `custom_nodes/` during prestartup and the model loaders never create their folders, so the base directory has to arrive pre-populated. Separately, `--database-url` defaults to a path derived from the location of `comfy/cli_args.py` — inside the read-only store — and `--base-directory` does not override it.
+**Status:** Workaround in place
+**Resolution:** `pkgs/comfyui/comfyui.sh` creates the directory skeleton before exec and passes an explicit `--database-url` under the state tree. The skeleton list is generated in `installPhase` by walking `models`, `input`, `output`, and `custom_nodes` in the upstream tree, so new model categories are picked up on version bumps without editing the launcher. Both defaults precede `"$@"`, so a caller can still override either.
+
+## ComfyUI is pinned to Python 3.13, not the nixpkgs default
+**Symptom:** Nothing fails at build time on `python3` (3.14 on this pin), which makes the explicit `python313` in `pkgs/comfyui/default.nix` look like removable cruft.
+**Cause:** Upstream's README states that 3.13 is "very well supported" while on 3.14 "some custom nodes may have issues", and several node packs still publish no cp314 wheels. Both interpreter versions are equally cached here, so there is no build-cost reason to prefer the default.
+**Status:** Intentional pin
+**Resolution:** Keep `python313` until upstream promotes 3.14, then move the pin deliberately rather than letting it drift to whatever `python3` happens to be.
+
+## `comfyui-workflow-templates` is a metapackage over seven distributions
+**Symptom:** Packaging the `comfyui-workflow-templates` wheel alone fails the build in `pythonRuntimeDepsCheckHook` with seven `... not installed` lines, and the wheel itself is suspiciously close to 0 bytes.
+**Cause:** Upstream split the templates into a thin loader plus `-core`, `-json`, and five `-media-*` distributions. The metapackage carries only dependency metadata; the roughly 400 MB of workflow JSON and preview media lives in the sub-distributions. ComfyUI's `app/frontend_management.py` catches the `ImportError`, so a partial install degrades silently to an empty template browser instead of failing loudly.
+**Status:** Workaround in place
+**Resolution:** `pkgs/comfyui/python-packages.nix` packages all seven sub-distributions and lists them as `dependencies` of the metapackage. When bumping ComfyUI, re-read the metapackage's `requires_dist` — the sub-distributions carry independent version numbers that do not track the parent's.
+
+## ComfyUI's first build compiles NCCL and NVSHMEM from source
+**Symptom:** An otherwise download-and-unpack ComfyUI build parks for a long stretch on `cuda13.3-nccl> Compiling ...` and then on `cuda13.3-libnvshmem> Building CUDA object ...` (784 objects).
+**Cause:** `torch-bin` pulls `nccl` and `libnvshmem` through `cudaPackages_13_3` so autopatchelf can resolve them. nixpkgs builds both from source rather than from an NVIDIA redistributable, and Hydra does not cache the CUDA 13.3 variants. Neither is used by single-GPU inference; they are unavoidable link-time dependencies of the wheel.
+**Status:** Accepted one-time cost
+**Resolution:** Let it run; it is cached afterwards and does not recur on ComfyUI version bumps that leave `cudaPackages_13_3` alone. Each host pays it once, since the two machines do not share a store.
+
+## ComfyUI custom nodes cannot pip-install their own dependencies
+**Symptom:** ComfyUI-Manager's "install missing dependencies" button fails, and custom node packs that ship a `requirements.txt` load with import errors.
+**Cause:** The interpreter lives in the Nix store and is read-only, which is the tradeoff of declaring ComfyUI rather than running it from a writable virtualenv. Pure-Python node packs dropped into `custom_nodes/` work fine; only ones needing extra distributions are affected.
+**Status:** Intentional design
+**Resolution:** `pkgs/comfyui/default.nix` takes an `extraPythonPackages` function, so `home/packages.nix` can request the missing distributions declaratively — `comfyui.override { extraPythonPackages = ps: [ ps.opencv4 ]; }`. If a node pack needs something nixpkgs lacks, add it as a wheel in `pkgs/comfyui/python-packages.nix` alongside the existing seven.

@@ -112,6 +112,7 @@ let
     vscode
     zed-editor
     lmstudio
+    comfyui
     helium
     imv
     nautilus
