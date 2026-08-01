@@ -4,9 +4,7 @@ use rusqlite::{Connection, Transaction, params};
 use serde::{Serialize, Serializer};
 use std::{
     collections::{HashMap, HashSet},
-    fs,
-    io::{self, Read},
-    os::unix::net::UnixStream,
+    fs, io,
     path::{Path, PathBuf},
     sync::{
         Arc, Mutex,
@@ -454,60 +452,20 @@ fn refresh_unlocked_class_name(current_class: String, seed: impl FnOnce() -> Str
 }
 
 fn listen_for_focus(current_class: Arc<Mutex<String>>, shutdown: Arc<AtomicBool>) {
-    while !shutdown.load(Ordering::SeqCst) {
-        let socket_path = match hypr::socket2_path() {
-            Ok(path) => path,
-            Err(_) => {
-                if !shutdown.load(Ordering::SeqCst) {
-                    thread::sleep(StdDuration::from_secs(2));
-                }
-                continue;
-            }
-        };
-
-        if let Ok(mut socket) = UnixStream::connect(&socket_path) {
-            set_current_class(&current_class, get_active_class());
-            let _ = socket.set_read_timeout(Some(StdDuration::from_secs(5)));
-            let mut buffer = Vec::new();
-            let mut chunk = [0_u8; 4096];
-
-            while !shutdown.load(Ordering::SeqCst) {
-                match socket.read(&mut chunk) {
-                    Ok(0) => break,
-                    Ok(bytes_read) => {
-                        buffer.extend_from_slice(&chunk[..bytes_read]);
-                        consume_socket_lines(&mut buffer, &current_class);
-                    }
-                    Err(error)
-                        if error.kind() == io::ErrorKind::WouldBlock
-                            || error.kind() == io::ErrorKind::TimedOut =>
-                    {
-                        continue;
-                    }
-                    Err(_) => break,
-                }
-            }
-        }
-
-        if !shutdown.load(Ordering::SeqCst) {
-            thread::sleep(StdDuration::from_secs(2));
-        }
-    }
-}
-
-fn consume_socket_lines(buffer: &mut Vec<u8>, current_class: &Arc<Mutex<String>>) {
-    while let Some(newline_index) = buffer.iter().position(|byte| *byte == b'\n') {
-        let line = buffer[..newline_index].to_vec();
-        buffer.drain(..=newline_index);
-        let text = String::from_utf8_lossy(&line);
-        if let Some(rest) = text.strip_prefix("activewindow>>") {
+    hypr::watch_event_socket(
+        &shutdown,
+        || set_current_class(&current_class, get_active_class()),
+        |line| {
+            let Some(rest) = line.strip_prefix("activewindow>>") else {
+                return;
+            };
             let class_name = rest
                 .split_once(',')
                 .map(|(class_name, _)| class_name)
                 .unwrap_or(rest);
-            set_current_class(current_class, class_name.to_owned());
-        }
-    }
+            set_current_class(&current_class, class_name.to_owned());
+        },
+    );
 }
 
 fn set_current_class(current_class: &Arc<Mutex<String>>, class_name: String) {

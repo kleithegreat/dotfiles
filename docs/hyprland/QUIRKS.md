@@ -18,6 +18,45 @@ any workspace Hyprland parks there is outside the normal numbered workspace set.
 When the lid closes while another output is active, `hosts/laptop/input-devices.conf`
 switch binds call `desktopctl hypr lid-switch closed --internal eDP-1`, which
 disables the hidden panel so it no longer exists as a pointer-crossable area.
+Those pins also apply while the external monitor is absent; see the next entry.
+
+## Workspace pins exclude IDs even when the pinned monitor is absent
+
+**Symptom:** On a laptop-only login the Quickshell bar shows no selected
+workspace, and a window opened before touching a workspace keybind becomes
+unreachable: switching to workspace 2 and back to workspace 1 leaves it behind
+on a workspace nothing can focus.
+
+**Cause:** `CMonitor::findAvailableDefaultWS` in `src/output/Monitor.cpp` skips
+every workspace ID that a `workspace = N, monitor:...` rule binds to a selector
+the connecting output does not match, whether or not that monitor exists:
+
+```cpp
+if (const auto BOUND = Config::workspaceRuleMgr()->getBoundMonitorStringForWS(std::to_string(i));
+    !BOUND.empty() && !matchesStaticSelector(BOUND))
+    continue;
+```
+
+With `hosts/laptop/monitors.conf` pinning 1-10 to the BenQ, an undocked `eDP-1`
+therefore starts on workspace 11. `config/hypr/keybinds.conf` only binds
+workspaces 1-10, so nothing can return to it, and the first window of the session
+is stranded there. Once the user switches away the empty workspace 11 is
+destroyed, which erases the evidence from `hyprctl workspaces`. This is
+deterministic for every laptop login without the external monitor attached; the
+desktop host pins nothing and is unaffected. Reproduce it on a live session with
+`hyprctl output create headless`, which takes the same code path and lands on 11
+rather than the lowest free ID.
+
+**Status:** Fixed in `desktopctl`.
+
+**Impact / workaround:** The `desktopctl daemon` monitor watcher runs
+`hypr::reclaim_workspaces` when it connects to the event socket and after every
+`monitoradded` / `monitorremoved` event. When the focused output sits past the
+highest orphaned pin on an empty workspace, it dispatches the lowest orphaned
+pinned workspace, and Hyprland destroys the vacated one. The policy reads the
+live `hyprctl workspacerules` output rather than any hardcoded monitor, so it is
+a no-op on hosts that pin nothing. `desktopctl hypr reclaim-workspaces` applies
+the same policy by hand if a session ever needs it.
 
 ## MX Master 2S smart-shift is capped at 50 in Solaar CLI
 
