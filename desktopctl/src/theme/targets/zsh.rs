@@ -8,25 +8,17 @@ pub const METADATA: TargetMetadata =
 
 const MIN_HINT_CONTRAST: f64 = 3.0;
 
+/// The dimmest ramp step that still clears [`MIN_HINT_CONTRAST`]. The ramp
+/// dims monotonically on every scheme, so one walk serves light and dark alike.
 fn autosuggest_color(colors: &ColorScheme) -> &str {
-    // Light schemes keep hints muted through fg2; on dark schemes fg2 is often
-    // brighter than the main foreground, so fall back straight to fg there.
-    if colors.is_light() {
-        for candidate in [
-            colors.fg4.as_str(),
-            colors.fg3.as_str(),
-            colors.fg2.as_str(),
-            colors.fg.as_str(),
-        ] {
-            if contrast_ratio(candidate, &colors.bg) >= MIN_HINT_CONTRAST {
-                return candidate;
-            }
-        }
-    } else {
-        for candidate in [colors.fg4.as_str(), colors.fg3.as_str(), colors.fg.as_str()] {
-            if contrast_ratio(candidate, &colors.bg) >= MIN_HINT_CONTRAST {
-                return candidate;
-            }
+    for candidate in [
+        colors.fg_faint.as_str(),
+        colors.fg4.as_str(),
+        colors.fg3.as_str(),
+        colors.fg2.as_str(),
+    ] {
+        if contrast_ratio(candidate, &colors.bg) >= MIN_HINT_CONTRAST {
+            return candidate;
         }
     }
 
@@ -43,45 +35,28 @@ pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<Gene
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::theme::targets::testsupport::load_repo_colors;
-
-    fn expected_color<'a>(colors: &'a ColorScheme, field: &str) -> &'a str {
-        match field {
-            "fg" => colors.fg.as_str(),
-            "fg2" => colors.fg2.as_str(),
-            "fg3" => colors.fg3.as_str(),
-            "fg4" => colors.fg4.as_str(),
-            _ => panic!("unknown color field: {field}"),
-        }
-    }
+    use crate::theme::targets::testsupport::{REPO_SCHEMES, load_repo_colors};
 
     #[test]
     fn repo_schemes_choose_expected_hint_color() {
-        let cases = [
-            ("catppuccin-frappe", "fg4"),
-            ("catppuccin-latte", "fg4"),
-            ("catppuccin-macchiato", "fg4"),
-            ("catppuccin-mocha", "fg4"),
-            ("gruvbox-dark", "fg4"),
-            ("gruvbox-light", "fg4"),
-            ("nord", "fg3"),
-            ("nord-light", "fg4"),
-            ("rose-pine", "fg3"),
-            ("rose-pine-dawn", "fg2"),
-            ("solarized-dark", "fg3"),
-            ("solarized-light", "fg2"),
-            ("tokyo-night", "fg3"),
-            ("tokyo-night-light", "fg2"),
-        ];
-
-        for (scheme_name, field) in cases {
+        // Which step wins still varies, because schemes differ in how much
+        // contrast exists between fg and bg at all. The contract is the
+        // property, not the slot: take the dimmest step that clears the floor.
+        for scheme_name in REPO_SCHEMES {
             let colors = load_repo_colors(scheme_name);
             let selected = autosuggest_color(&colors);
-            assert_eq!(selected, expected_color(&colors, field), "{scheme_name}");
             assert!(
                 contrast_ratio(selected, &colors.bg) >= MIN_HINT_CONTRAST,
-                "{scheme_name}: selected {field} did not meet minimum contrast"
+                "{scheme_name}: hint color did not meet minimum contrast"
             );
+
+            let dimmer_steps = [colors.fg_faint.as_str(), colors.fg4.as_str()];
+            for dimmer in dimmer_steps.iter().take_while(|step| **step != selected) {
+                assert!(
+                    contrast_ratio(dimmer, &colors.bg) < MIN_HINT_CONTRAST,
+                    "{scheme_name}: {dimmer} was dim enough and should have won"
+                );
+            }
         }
     }
 }

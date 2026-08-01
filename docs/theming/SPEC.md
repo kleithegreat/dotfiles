@@ -151,7 +151,7 @@ Constraints:
 | Dark pairing | Optional `dark_scheme`: the same-family scheme to use when a dark appearance is requested. Set on all six light schemes (`catppuccin-latte`→`catppuccin-mocha`, `gruvbox-light`→`gruvbox-dark`, `nord-light`→`nord`, `rose-pine-dawn`→`rose-pine`, `solarized-light`→`solarized-dark`, `tokyo-night-light`→`tokyo-night`); dark schemes omit it |
 | App metadata | `app_themes` entries for targets that need app-specific theme names or identifiers |
 | Backgrounds | `bg`, `bg_dim`, `bg1`, `bg2`, `bg3` |
-| Foregrounds | `fg`, `fg2`, `fg3`, `fg4` |
+| Foregrounds | `fg` only. The dimmed ramp (`fg2`, `fg3`, `fg4`, `fg_faint`) is derived from `fg` and `bg` by `dim_ramp()` so prominence always decreases; scheme files must not author it. See `docs/theming/QUIRKS.md`. |
 | Semantic colors | `red`, `green`, `yellow`, `blue`, `purple`, `cyan`, `orange`, `accent` |
 | Bright colors | `red_bright`, `green_bright`, `yellow_bright`, `blue_bright`, `purple_bright`, `cyan_bright`, `orange_bright` |
 | Terminal palette | `palette` with exactly 16 entries |
@@ -216,7 +216,7 @@ Constraints:
 | `starship` | `concat` | `~/.config/starship.toml` |
 | `tmux` | `import` | `~/.config/tmux/colors.conf` |
 | `vicinae` | `import` | `~/.config/vicinae/settings.theme.json` with Vicinae theme names, icon theme, and font, plus generated custom themes under `~/.local/share/vicinae/themes/` |
-| `vscode` | `concat` | `~/.config/Code/User/settings.json` plus state DB adjustments |
+| `vscode` | `concat` | `~/.config/Code/User/settings.json` plus state DB adjustments. Writes `workbench.iconTheme` alongside `workbench.colorTheme`: the scheme's `app_themes.vscode.icon_theme` when it declares one, otherwise `material-icon-theme` with `material-icon-theme.folders.color` set to the scheme accent so the neutral icon set still tracks the theme. |
 | `wallpaper` | `command` | `awww` apply and optional filtered wallpaper cache |
 | `where_is_my_sddm_theme` | `command` | Staged `/tmp/desktopctl-where-is-my-sddm-theme/background` wallpaper bridge for the root-owned SDDM background sync. `system/services.nix` pre-creates the staging directory at boot via systemd-tmpfiles as `0700 kevin:kevin`, so no other local user can pre-create it or symlink-swap the staged image the root-run sync copies |
 | `zathura` | `import` | `~/.config/zathura/colors` |

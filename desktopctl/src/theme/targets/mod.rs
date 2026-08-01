@@ -444,6 +444,25 @@ pub(crate) mod testsupport {
             .to_path_buf()
     }
 
+    /// Every scheme shipped in `themes/colors`, for tests that assert a
+    /// property must hold across all of them rather than for a chosen few.
+    pub const REPO_SCHEMES: [&str; 14] = [
+        "catppuccin-frappe",
+        "catppuccin-latte",
+        "catppuccin-macchiato",
+        "catppuccin-mocha",
+        "gruvbox-dark",
+        "gruvbox-light",
+        "nord",
+        "nord-light",
+        "rose-pine",
+        "rose-pine-dawn",
+        "solarized-dark",
+        "solarized-light",
+        "tokyo-night",
+        "tokyo-night-light",
+    ];
+
     pub fn load_repo_colors(scheme_name: &str) -> ColorScheme {
         crate::theme::resolve::load_colors(scheme_name, &repo_root().join("themes/colors"))
             .expect("repo color scheme should deserialize")
@@ -475,9 +494,6 @@ pub(crate) mod testsupport {
                 "bg2": "#030303",
                 "bg3": "#040404",
                 "fg": "#f0f0f0",
-                "fg2": "#e0e0e0",
-                "fg3": "#d0d0d0",
-                "fg4": "#c0c0c0",
                 "red": "#ff0000",
                 "green": "#00ff00",
                 "yellow": "#ffff00",
@@ -706,7 +722,7 @@ mod tests {
         let output = text(quickshell::generate(&dummy_colors(), &dummy_state()));
         assert_eq!(
             output,
-            "{\n  \"colors\": {\n    \"bg\": \"#000000\",\n    \"bg0_h\": \"#010101\",\n    \"bg1\": \"#020202\",\n    \"bg2\": \"#030303\",\n    \"bg3\": \"#040404\",\n    \"fg\": \"#f0f0f0\",\n    \"fg2\": \"#e0e0e0\",\n    \"fg3\": \"#d0d0d0\",\n    \"fg4\": \"#c0c0c0\",\n    \"red\": \"#ff0000\",\n    \"green\": \"#00ff00\",\n    \"yellow\": \"#ffff00\",\n    \"blue\": \"#0000ff\",\n    \"purple\": \"#ff00ff\",\n    \"aqua\": \"#00ffff\",\n    \"orange\": \"#ff8800\",\n    \"redBright\": \"#ff1111\",\n    \"greenBright\": \"#11ff11\",\n    \"yellowBright\": \"#ffff11\",\n    \"blueBright\": \"#1111ff\",\n    \"purpleBright\": \"#ff11ff\",\n    \"aquaBright\": \"#11ffff\",\n    \"orangeBright\": \"#ff9911\",\n    \"accent\": \"#3366ff\"\n  },\n  \"fonts\": {\n    \"family\": \"JetBrains Mono Nerd Font\",\n    \"systemFamily\": \"Overpass\",\n    \"size\": 11,\n    \"sizeSmall\": 9,\n    \"sizeLarge\": 13\n  }\n}\n"
+            "{\n  \"colors\": {\n    \"bg\": \"#000000\",\n    \"bg0_h\": \"#010101\",\n    \"bg1\": \"#020202\",\n    \"bg2\": \"#030303\",\n    \"bg3\": \"#040404\",\n    \"fg\": \"#f0f0f0\",\n    \"fg2\": \"#cccccc\",\n    \"fg3\": \"#a8a8a8\",\n    \"fg4\": \"#8b8b8b\",\n    \"fgFaint\": \"#484848\",\n    \"red\": \"#ff0000\",\n    \"green\": \"#00ff00\",\n    \"yellow\": \"#ffff00\",\n    \"blue\": \"#0000ff\",\n    \"purple\": \"#ff00ff\",\n    \"aqua\": \"#00ffff\",\n    \"orange\": \"#ff8800\",\n    \"redBright\": \"#ff1111\",\n    \"greenBright\": \"#11ff11\",\n    \"yellowBright\": \"#ffff11\",\n    \"blueBright\": \"#1111ff\",\n    \"purpleBright\": \"#ff11ff\",\n    \"aquaBright\": \"#11ffff\",\n    \"orangeBright\": \"#ff9911\",\n    \"accent\": \"#3366ff\"\n  },\n  \"fonts\": {\n    \"family\": \"JetBrains Mono Nerd Font\",\n    \"systemFamily\": \"Overpass\",\n    \"size\": 11,\n    \"sizeSmall\": 9,\n    \"sizeLarge\": 13\n  }\n}\n"
         );
     }
 
@@ -755,7 +771,7 @@ mod tests {
     #[test]
     fn zsh_output_sets_autosuggest_highlight_style() {
         let output = text(zsh::generate(&dummy_colors(), &dummy_state()));
-        assert_eq!(output, "ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=#c0c0c0'\n");
+        assert_eq!(output, "ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=#8b8b8b'\n");
     }
 
     #[test]
@@ -795,7 +811,7 @@ mod tests {
         let output = text(qt::generate(&dummy_colors(), &state));
         assert_eq!(
             output,
-            "[ColorScheme]\nactive_colors=#fff0f0f0, #ff020202, #ff040404, #ff030303, #ff010101, #ff040404, #fff0f0f0, #fff0f0f0, #fff0f0f0, #ff000000, #ff020202, #ff010101, #ff3366ff, #fff0f0f0, #ff0000ff, #ffff00ff, #ff000000, #ff020202, #fff0f0f0, #80c0c0c0, #ff3366ff\ndisabled_colors=#ffc0c0c0, #ff020202, #ff040404, #ff030303, #ff010101, #ff040404, #ffc0c0c0, #fff0f0f0, #ffc0c0c0, #ff000000, #ff020202, #ff010101, #ff3366ff, #ffc0c0c0, #ff0000ff, #ffff00ff, #ff000000, #ff020202, #fff0f0f0, #80c0c0c0, #ff3366ff\ninactive_colors=#fff0f0f0, #ff020202, #ff040404, #ff030303, #ff010101, #ff040404, #fff0f0f0, #fff0f0f0, #fff0f0f0, #ff000000, #ff020202, #ff010101, #ff3366ff, #fff0f0f0, #ff0000ff, #ffff00ff, #ff000000, #ff020202, #fff0f0f0, #80c0c0c0, #ff3366ff\n"
+            "[ColorScheme]\nactive_colors=#fff0f0f0, #ff020202, #ff040404, #ff030303, #ff010101, #ff040404, #fff0f0f0, #fff0f0f0, #fff0f0f0, #ff000000, #ff020202, #ff010101, #ff3366ff, #fff0f0f0, #ff0000ff, #ffff00ff, #ff000000, #ff020202, #fff0f0f0, #808b8b8b, #ff3366ff\ndisabled_colors=#ff8b8b8b, #ff020202, #ff040404, #ff030303, #ff010101, #ff040404, #ff8b8b8b, #fff0f0f0, #ff8b8b8b, #ff000000, #ff020202, #ff010101, #ff3366ff, #ff8b8b8b, #ff0000ff, #ffff00ff, #ff000000, #ff020202, #fff0f0f0, #808b8b8b, #ff3366ff\ninactive_colors=#fff0f0f0, #ff020202, #ff040404, #ff030303, #ff010101, #ff040404, #fff0f0f0, #fff0f0f0, #fff0f0f0, #ff000000, #ff020202, #ff010101, #ff3366ff, #fff0f0f0, #ff0000ff, #ffff00ff, #ff000000, #ff020202, #fff0f0f0, #808b8b8b, #ff3366ff\n"
         );
     }
 

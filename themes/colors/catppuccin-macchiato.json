@@ -12,7 +12,8 @@
     },
     "vscode": {
       "name": "Catppuccin Macchiato",
-      "extension_id": "catppuccin.catppuccin-vsc"
+      "extension_id": "catppuccin.catppuccin-vsc",
+      "icon_theme": "catppuccin-macchiato"
     },
     "zed": "Catppuccin Macchiato"
   },
@@ -23,9 +24,6 @@
     "bg2":          "#494d64",
     "bg3":          "#5b6078",
     "fg":           "#cad3f5",
-    "fg2":          "#b8c0e0",
-    "fg3":          "#a5adcb",
-    "fg4":          "#939ab7",
     "red":          "#ed8796",
     "green":        "#a6da95",
     "yellow":       "#eed49f",

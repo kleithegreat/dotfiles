@@ -12,7 +12,8 @@
     },
     "vscode": {
       "name": "Gruvbox Dark Medium",
-      "extension_id": "jdinhlife.gruvbox"
+      "extension_id": "jdinhlife.gruvbox",
+      "icon_theme": "gruvbox-material-icon-theme"
     },
     "zed": "Gruvbox Dark"
   },
@@ -23,9 +24,6 @@
     "bg2":          "#504945",
     "bg3":          "#665c54",
     "fg":           "#ebdbb2",
-    "fg2":          "#d5c4a1",
-    "fg3":          "#bdae93",
-    "fg4":          "#a89984",
     "red":          "#cc241d",
     "green":        "#98971a",
     "yellow":       "#d79921",

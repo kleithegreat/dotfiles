@@ -13,7 +13,8 @@
     },
     "vscode": {
       "name": "Gruvbox Light Medium",
-      "extension_id": "jdinhlife.gruvbox"
+      "extension_id": "jdinhlife.gruvbox",
+      "icon_theme": "gruvbox-material-icon-theme"
     },
     "zed": "Gruvbox Light"
   },
@@ -24,9 +25,6 @@
     "bg2":          "#d5c4a1",
     "bg3":          "#bdae93",
     "fg":           "#3c3836",
-    "fg2":          "#504945",
-    "fg3":          "#665c54",
-    "fg4":          "#7c6f64",
     "red":          "#cc241d",
     "green":        "#98971a",
     "yellow":       "#d79921",

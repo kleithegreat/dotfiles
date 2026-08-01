@@ -1,18 +1,17 @@
 use crate::paths;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use serde_json::{Map, Value};
 use std::{borrow::Cow, io, path::Path};
 
-pub const COLOR_FIELD_NAMES: [&str; 24] = [
+/// Colors a scheme file must author. The dimmed foreground ramp is absent on
+/// purpose: it is derived by [`dim_ramp`], not transcribed.
+pub const COLOR_FIELD_NAMES: [&str; 21] = [
     "bg",
     "bg_dim",
     "bg1",
     "bg2",
     "bg3",
     "fg",
-    "fg2",
-    "fg3",
-    "fg4",
     "red",
     "green",
     "yellow",
@@ -186,6 +185,70 @@ pub struct VscodeThemeNames {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub extension_id: Option<String>,
+    /// File icon theme id contributed by an extension — note this is the icon
+    /// theme's own id (`catppuccin-mocha`), not the extension id. Schemes that
+    /// have no matching icon set leave it unset and get the neutral fallback
+    /// tinted with the scheme accent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon_theme: Option<String>,
+}
+
+/// Fractions of the way from `fg` toward `bg` for each dimmed step. Fitted to
+/// the schemes whose hand-transcribed ramps were already ordered correctly, so
+/// those barely move; the ordering itself is guaranteed by the fractions being
+/// strictly increasing.
+const DIM_RAMP_STEPS: [f64; 4] = [0.15, 0.30, 0.42, 0.70];
+
+pub struct DimRamp {
+    pub fg2: String,
+    pub fg3: String,
+    pub fg4: String,
+    pub fg_faint: String,
+}
+
+/// Derive the dimmed foreground ramp by blending `fg` toward `bg`.
+///
+/// Upstream palettes disagree about what their secondary foreground slots mean
+/// — Solarized's `base1` is *emphasized* text and Nord's `nord5` is brighter
+/// than `nord4` — so transcribing them left four schemes rendering secondary
+/// text more prominent than primary. Blending removes the question: prominence
+/// falls monotonically because the blend fraction rises monotonically.
+pub fn dim_ramp(fg: &str, bg: &str) -> Result<DimRamp, String> {
+    let fg = parse_hex(fg)?;
+    let bg = parse_hex(bg)?;
+    let mut steps = DIM_RAMP_STEPS
+        .iter()
+        .map(|fraction| blend(fg, bg, *fraction));
+
+    Ok(DimRamp {
+        fg2: steps.next().expect("ramp step"),
+        fg3: steps.next().expect("ramp step"),
+        fg4: steps.next().expect("ramp step"),
+        fg_faint: steps.next().expect("ramp step"),
+    })
+}
+
+fn parse_hex(value: &str) -> Result<[u8; 3], String> {
+    let digits = value.strip_prefix('#').unwrap_or(value);
+    if digits.len() != 6 {
+        return Err(format!("expected a #rrggbb color, got '{value}'"));
+    }
+
+    let mut channels = [0_u8; 3];
+    for (index, channel) in channels.iter_mut().enumerate() {
+        let start = index * 2;
+        *channel = u8::from_str_radix(&digits[start..start + 2], 16)
+            .map_err(|_| format!("expected a #rrggbb color, got '{value}'"))?;
+    }
+    Ok(channels)
+}
+
+fn blend(from: [u8; 3], to: [u8; 3], fraction: f64) -> String {
+    let channel = |index: usize| {
+        let from = f64::from(from[index]);
+        (from + (f64::from(to[index]) - from) * fraction).round() as u8
+    };
+    format!("#{:02x}{:02x}{:02x}", channel(0), channel(1), channel(2))
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -203,9 +266,13 @@ pub struct ColorScheme {
     pub bg2: String,
     pub bg3: String,
     pub fg: String,
+    /// Dimmed foreground ramp, derived from `fg` and `bg` by [`dim_ramp`] rather
+    /// than transcribed per scheme, so prominence always decreases fg > fg2 >
+    /// fg3 > fg4 > fg_faint no matter what an upstream palette calls its slots.
     pub fg2: String,
     pub fg3: String,
     pub fg4: String,
+    pub fg_faint: String,
     pub red: String,
     pub green: String,
     pub yellow: String,
@@ -232,9 +299,6 @@ struct NamedColors {
     bg2: String,
     bg3: String,
     fg: String,
-    fg2: String,
-    fg3: String,
-    fg4: String,
     red: String,
     green: String,
     yellow: String,
@@ -328,6 +392,18 @@ impl ColorScheme {
             .unwrap_or_else(|| format!("{}-{}", self.family, self.variant))
     }
 
+    /// Neutral icon set used by every scheme that ships no matching one. It
+    /// takes a folder color, so the fallback still tracks the active scheme.
+    pub const FALLBACK_VSCODE_ICON_THEME: &'static str = "material-icon-theme";
+
+    pub fn vscode_icon_theme(&self) -> &str {
+        self.app_themes
+            .vscode
+            .as_ref()
+            .and_then(|themes| themes.icon_theme.as_deref())
+            .unwrap_or(Self::FALLBACK_VSCODE_ICON_THEME)
+    }
+
     pub fn vscode_extension_id(&self) -> Option<&str> {
         self.app_themes
             .vscode
@@ -361,9 +437,6 @@ impl Serialize for ColorScheme {
                 bg2: self.bg2.clone(),
                 bg3: self.bg3.clone(),
                 fg: self.fg.clone(),
-                fg2: self.fg2.clone(),
-                fg3: self.fg3.clone(),
-                fg4: self.fg4.clone(),
                 red: self.red.clone(),
                 green: self.green.clone(),
                 yellow: self.yellow.clone(),
@@ -392,6 +465,7 @@ impl<'de> Deserialize<'de> for ColorScheme {
         D: Deserializer<'de>,
     {
         let wire = ColorSchemeWire::deserialize(deserializer)?;
+        let ramp = dim_ramp(&wire.colors.fg, &wire.colors.bg).map_err(de::Error::custom)?;
         Ok(Self {
             family: wire.family,
             variant: wire.variant,
@@ -403,10 +477,11 @@ impl<'de> Deserialize<'de> for ColorScheme {
             bg1: wire.colors.bg1,
             bg2: wire.colors.bg2,
             bg3: wire.colors.bg3,
+            fg2: ramp.fg2,
+            fg3: ramp.fg3,
+            fg4: ramp.fg4,
+            fg_faint: ramp.fg_faint,
             fg: wire.colors.fg,
-            fg2: wire.colors.fg2,
-            fg3: wire.colors.fg3,
-            fg4: wire.colors.fg4,
             red: wire.colors.red,
             green: wire.colors.green,
             yellow: wire.colors.yellow,
@@ -580,5 +655,97 @@ impl ThemeState {
             Ok(Value::Object(map)) => map,
             _ => unreachable!("ThemeState serializes to a JSON object"),
         }
+    }
+}
+
+#[cfg(test)]
+mod dim_ramp_tests {
+    use super::{ColorScheme, dim_ramp};
+    use std::{fs, path::PathBuf};
+
+    fn relative_luminance(hex: &str) -> f64 {
+        let digits = hex.trim_start_matches('#');
+        let channel = |start: usize| {
+            let value =
+                f64::from(u8::from_str_radix(&digits[start..start + 2], 16).unwrap()) / 255.0;
+            if value <= 0.03928 {
+                value / 12.92
+            } else {
+                ((value + 0.055) / 1.055).powf(2.4)
+            }
+        };
+        0.2126 * channel(0) + 0.7152 * channel(2) + 0.0722 * channel(4)
+    }
+
+    fn contrast(a: &str, b: &str) -> f64 {
+        let (a, b) = (relative_luminance(a), relative_luminance(b));
+        (a.max(b) + 0.05) / (a.min(b) + 0.05)
+    }
+
+    fn every_scheme() -> Vec<(String, ColorScheme)> {
+        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../themes/colors");
+        let mut schemes = Vec::new();
+        for entry in fs::read_dir(dir).expect("themes/colors is readable") {
+            let path = entry.expect("readable entry").path();
+            if path.extension().is_none_or(|ext| ext != "json") {
+                continue;
+            }
+            let name = path.file_stem().unwrap().to_string_lossy().into_owned();
+            let text = fs::read_to_string(&path).expect("scheme is readable");
+            schemes.push((name, serde_json::from_str(&text).expect("scheme parses")));
+        }
+        assert!(!schemes.is_empty(), "expected scheme files on disk");
+        schemes
+    }
+
+    #[test]
+    fn every_scheme_dims_monotonically_from_fg() {
+        for (name, scheme) in every_scheme() {
+            let ramp = [
+                &scheme.fg,
+                &scheme.fg2,
+                &scheme.fg3,
+                &scheme.fg4,
+                &scheme.fg_faint,
+            ];
+            for pair in ramp.windows(2) {
+                let (brighter, dimmer) = (relative_luminance(pair[0]), relative_luminance(pair[1]));
+                let ordered = if scheme.is_dark() {
+                    brighter > dimmer
+                } else {
+                    brighter < dimmer
+                };
+                assert!(
+                    ordered,
+                    "{name}: {} then {} breaks the prominence ramp",
+                    pair[0], pair[1]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn workspace_pill_states_stay_distinguishable_in_every_scheme() {
+        // Workspaces.qml paints occupied pills fg2 and empty pills fg_faint.
+        // Both ride the derived ramp precisely so this gap cannot collapse the
+        // way fg4-against-bg3 did in nord, solarized, and tokyo-night.
+        for (name, scheme) in every_scheme() {
+            let separation = contrast(&scheme.fg2, &scheme.fg_faint);
+            assert!(
+                separation >= 2.0,
+                "{name}: occupied/empty pill contrast {separation:.2} is too low"
+            );
+            let visibility = contrast(&scheme.fg_faint, &scheme.bg);
+            assert!(
+                visibility >= 1.35,
+                "{name}: empty pill contrast against the bar {visibility:.2} is too low"
+            );
+        }
+    }
+
+    #[test]
+    fn dim_ramp_rejects_malformed_colors() {
+        assert!(dim_ramp("#zzzzzz", "#000000").is_err());
+        assert!(dim_ramp("#fff", "#000000").is_err());
     }
 }

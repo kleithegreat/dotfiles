@@ -35,6 +35,7 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Gener
     color_map.insert("fg2".to_owned(), Value::String(colors.fg2.clone()));
     color_map.insert("fg3".to_owned(), Value::String(colors.fg3.clone()));
     color_map.insert("fg4".to_owned(), Value::String(colors.fg4.clone()));
+    color_map.insert("fgFaint".to_owned(), Value::String(colors.fg_faint.clone()));
     color_map.insert("red".to_owned(), Value::String(colors.red.clone()));
     color_map.insert("green".to_owned(), Value::String(colors.green.clone()));
     color_map.insert("yellow".to_owned(), Value::String(colors.yellow.clone()));

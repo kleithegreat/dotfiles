@@ -12,7 +12,8 @@
     },
     "vscode": {
       "name": "Catppuccin Mocha",
-      "extension_id": "catppuccin.catppuccin-vsc"
+      "extension_id": "catppuccin.catppuccin-vsc",
+      "icon_theme": "catppuccin-mocha"
     },
     "zed": "Catppuccin Mocha"
   },
@@ -23,9 +24,6 @@
     "bg2":          "#45475a",
     "bg3":          "#585b70",
     "fg":           "#cdd6f4",
-    "fg2":          "#bac2de",
-    "fg3":          "#a6adc8",
-    "fg4":          "#9399b2",
     "red":          "#f38ba8",
     "green":        "#a6e3a1",
     "yellow":       "#f9e2af",

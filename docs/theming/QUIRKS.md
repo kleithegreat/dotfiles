@@ -66,11 +66,11 @@
 **Status:** Current behavior
 **Resolution:** Only declare `ktexteditor` names that the installed KDE frameworks actually bundle. (Related catalog fix: catppuccin-frappe's `snappy_switcher` mapping now points at the real `catppuccin-frappe.ini` shipped by snappy-switcher.)
 
-## Palette data follows upstream semantics, not monotonic muting
-**Symptom:** Consumers that assume `fg > fg2 > fg3 > fg4` brightness ordering or distinct `fg4`/`bg3` values misrender on some schemes.
-**Cause:** `fg4 == bg3` in nord, solarized-dark, and solarized-light is intentional upstream comment-tier semantics (fg4-on-bg3 text is invisible by design), and on nord/solarized-dark `fg2` is brighter than `fg` ("emphasized" semantics). Past data bugs in this area are fixed: the solarized bright-magenta/bright-cyan palette transposition, nord's unusably dark `fg3` (now `#7b88a1`, ~3.5:1 on bg, which zsh autosuggestions use), nord-light's `palette[8]`, and tokyo-night-light's ANSI palette alignment.
-**Status:** Current behavior
-**Resolution:** Targets must select tiers by contrast against `bg` (as `zsh.rs` does) instead of assuming monotonic muting or unique tier values.
+## The dimmed foreground ramp is derived, not transcribed
+**Symptom (historical):** Secondary text rendered *more* prominent than primary text on nord, solarized-dark, and solarized-light — visible in Quickshell's top-right Quick Settings popup, whose inactive labels use `fg2`. Workspace pills could not distinguish occupied from empty on nord, solarized (both), tokyo-night, and rose-pine.
+**Cause:** `fg2`/`fg3`/`fg4` were transcribed per scheme from upstream palettes that disagree about what those slots mean. Solarized's `base1` is *emphasized* text and nord's `nord5` is brighter than `nord4`, so on those schemes `fg2` was brighter than `fg` — while the UI assumed `fg > fg2 > fg3 > fg4` in prominence. Separately, `fg4 == bg3` in nord and both solarized variants, which collapsed the occupied/empty pill distinction.
+**Status:** Fixed. `schema.rs` derives the ramp with `dim_ramp()`, blending `fg` toward `bg` at `0.15 / 0.30 / 0.42 / 0.70` (`fg2`, `fg3`, `fg4`, `fg_faint`). The fractions rise monotonically, so prominence falls monotonically and the inversion is unrepresentable. Scheme files no longer author these keys, and `COLOR_FIELD_NAMES` no longer requires them.
+**Resolution:** Consumers may now rely on the ramp ordering. Two tests in `schema.rs` enforce it across every scheme in `themes/colors`, plus a floor on occupied-vs-empty pill contrast (worst case 2.24, formerly 1.00). Foreground tiers must still not be paired against *background* tiers when a guaranteed gap is needed — the two ramps are independent and solarized-light's `bg3` lies directly on its `fg`→`bg` line, which is why `bar/Workspaces.qml` puts both pill states on the derived ramp instead of using `bg3`.
 
 ## Chromium-family prefs are profile-local and not live-reloaded
 **Symptom:** Chromium or Helium font and browser chrome changes can appear to do nothing until the browser restarts, and inactive profiles keep their old settings.

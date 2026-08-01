@@ -29,7 +29,14 @@ Bar widget notes:
 - Workspace pill occupancy in `bar/Workspaces.qml` derives from
   `HyprlandWorkspace.toplevels` (the live-tracked toplevel model) rather than
   any IPC snapshot field, so empty-but-existing workspaces on secondary
-  monitors render with the empty pill styling.
+  monitors render with the empty pill styling. The pill count covers
+  workspaces 1-10 to match the range `config/hypr/keybinds.conf` binds; a
+  workspace outside that range renders no selected pill at all, which is what
+  made the pinned-workspace quirk in `docs/hyprland/QUIRKS.md` look like a bar
+  bug. Pill state is colored from the derived foreground ramp — occupied `fg2`,
+  empty `fgFaint` — rather than pairing `fg4` against `bg3`, because foreground
+  and background ramps are independent and collided on nord, solarized, and
+  tokyo-night. `Theme.qml` exposes `fgFaint` from the generated theme JSON.
 
 Managed popups mounted by the overlay host remain:
 
