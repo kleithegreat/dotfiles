@@ -1,10 +1,14 @@
 use crate::{paths, theme};
 use serde::{Deserialize, Serialize};
 use std::{
-    env, fs, io,
+    env, fs,
+    io::{self, Read},
+    os::unix::net::UnixStream,
     path::{Path, PathBuf},
     process::{Command, Output},
-    time::{SystemTime, UNIX_EPOCH},
+    sync::atomic::{AtomicBool, Ordering},
+    thread,
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
@@ -58,7 +62,70 @@ struct MonitorInfo {
     #[serde(default)]
     name: String,
     #[serde(default)]
+    description: String,
+    #[serde(default)]
+    make: String,
+    #[serde(default)]
+    model: String,
+    #[serde(default)]
+    serial: String,
+    #[serde(default)]
     disabled: bool,
+    #[serde(default)]
+    focused: bool,
+    #[serde(rename = "activeWorkspace", default)]
+    active_workspace: WorkspaceRef,
+}
+
+impl MonitorInfo {
+    /// Mirror of Hyprland's `CMonitor::matchesStaticSelector`: `desc:` selectors
+    /// prefix-match either description form, anything else is a connector name.
+    fn matches_selector(&self, selector: &str) -> bool {
+        let Some(description) = selector.strip_prefix("desc:") else {
+            return self.name == selector;
+        };
+
+        // Hyprland strips commas from descriptions so that monitor rules can
+        // address displays whose EDID description contains one.
+        let description = strip_commas(description.trim());
+        !description.is_empty()
+            && (strip_commas(&self.description).starts_with(&description)
+                || strip_commas(&self.short_description()).starts_with(&description))
+    }
+
+    /// Hyprland's `m_shortDescription`: make, model, and serial joined by spaces.
+    fn short_description(&self) -> String {
+        [
+            self.make.as_str(),
+            self.model.as_str(),
+            self.serial.as_str(),
+        ]
+        .join(" ")
+        .trim()
+        .to_owned()
+    }
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct WorkspaceRef {
+    #[serde(default)]
+    id: i64,
+}
+
+#[derive(Debug, Deserialize)]
+struct WorkspaceInfo {
+    #[serde(default)]
+    id: i64,
+    #[serde(default)]
+    windows: u32,
+}
+
+#[derive(Debug, Deserialize)]
+struct WorkspaceRuleInfo {
+    #[serde(rename = "workspaceString", default)]
+    workspace_string: String,
+    #[serde(default)]
+    monitor: Option<String>,
 }
 
 impl InputSetting {
@@ -261,11 +328,109 @@ fn close_lid_monitor(internal_monitor: &str) -> Result<()> {
 }
 
 fn active_external_monitor_exists(internal_monitor: &str) -> Result<bool> {
-    let output = hyprctl_output(&["monitors", "-j"])?;
-    let monitors: Vec<MonitorInfo> = serde_json::from_slice(&output.stdout)?;
-    Ok(monitors
+    Ok(query_monitors()?
         .iter()
         .any(|monitor| !monitor.disabled && monitor.name != internal_monitor))
+}
+
+/// Pull the focused output back onto the numbered workspace set when every
+/// numbered workspace is pinned to a monitor that is not connected.
+///
+/// Hyprland's `CMonitor::findAvailableDefaultWS` skips any workspace ID bound to
+/// a monitor the new output does not match, so a laptop-only login under the
+/// `workspace = 1..10, monitor:desc:<external>` pins in
+/// `hosts/laptop/monitors.conf` parks the internal panel on workspace 11: no
+/// pill in the bar, and no keybind that can reach it again.
+pub(crate) fn reclaim_workspaces() -> Result<()> {
+    let target = reclaim_target(
+        &query_monitors()?,
+        &query_workspace_rules()?,
+        &query_workspaces()?,
+    );
+
+    match target {
+        Some(target) => dispatch(&["workspace", &target.to_string()]),
+        None => Ok(()),
+    }
+}
+
+/// The workspace the focused output should be pulled onto, if any.
+fn reclaim_target(
+    monitors: &[MonitorInfo],
+    rules: &[WorkspaceRuleInfo],
+    workspaces: &[WorkspaceInfo],
+) -> Option<i64> {
+    let orphaned = orphaned_pinned_workspaces(monitors, rules);
+    let (&target, &highest) = (orphaned.first()?, orphaned.last()?);
+
+    let focused = monitors
+        .iter()
+        .find(|monitor| monitor.focused && !monitor.disabled)?;
+
+    // Only act on an output parked past the pinned block. Anything inside it is
+    // a workspace the user can already see and reach.
+    let parked = focused.active_workspace.id;
+    if parked <= highest {
+        return None;
+    }
+
+    // Never yank focus away from windows that are already open, and never steal
+    // a workspace some other output is displaying.
+    let parked_has_windows = workspaces
+        .iter()
+        .any(|workspace| workspace.id == parked && workspace.windows > 0);
+    let target_is_shown = monitors
+        .iter()
+        .any(|monitor| !monitor.disabled && monitor.active_workspace.id == target);
+
+    (!parked_has_windows && !target_is_shown).then_some(target)
+}
+
+/// Numbered workspaces pinned to a monitor selector that nothing connected
+/// matches, lowest first.
+fn orphaned_pinned_workspaces(monitors: &[MonitorInfo], rules: &[WorkspaceRuleInfo]) -> Vec<i64> {
+    let mut ids: Vec<i64> = rules
+        .iter()
+        .filter_map(|rule| {
+            let id = rule.workspace_string.trim().parse::<i64>().ok()?;
+            if id <= 0 {
+                return None;
+            }
+
+            let selector = rule.monitor.as_deref()?.trim();
+            if selector.is_empty() {
+                return None;
+            }
+
+            let connected = monitors
+                .iter()
+                .any(|monitor| !monitor.disabled && monitor.matches_selector(selector));
+            (!connected).then_some(id)
+        })
+        .collect();
+
+    ids.sort_unstable();
+    ids.dedup();
+    ids
+}
+
+fn query_monitors() -> Result<Vec<MonitorInfo>> {
+    let output = hyprctl_output(&["monitors", "-j"])?;
+    Ok(serde_json::from_slice(&output.stdout)?)
+}
+
+fn query_workspaces() -> Result<Vec<WorkspaceInfo>> {
+    let output = hyprctl_output(&["workspaces", "-j"])?;
+    Ok(serde_json::from_slice(&output.stdout)?)
+}
+
+fn query_workspace_rules() -> Result<Vec<WorkspaceRuleInfo>> {
+    let output = hyprctl_output(&["workspacerules", "-j"])?;
+    Ok(serde_json::from_slice(&output.stdout)?)
+}
+
+fn strip_commas(value: &str) -> String {
+    value.replace(',', "")
 }
 
 fn read_lid_state() -> Result<Option<LidSwitchState>> {
@@ -296,7 +461,66 @@ fn read_lid_state() -> Result<Option<LidSwitchState>> {
     Ok(saw_open.then_some(LidSwitchState::Open))
 }
 
-/// Return the Hyprland event-socket path used by the focus daemon.
+/// How long to wait for an unavailable event socket before retrying.
+const EVENT_SOCKET_RETRY_DELAY: Duration = Duration::from_secs(2);
+/// Read timeout, so a quiet socket still lets the loop observe `shutdown`.
+const EVENT_SOCKET_READ_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// Stream Hyprland event-socket lines to `handler` until `shutdown` is set,
+/// reconnecting whenever the compositor goes away. `on_connect` runs after every
+/// successful connection so consumers can reseed state they may have missed.
+pub(crate) fn watch_event_socket<C, H>(shutdown: &AtomicBool, mut on_connect: C, mut handler: H)
+where
+    C: FnMut(),
+    H: FnMut(&str),
+{
+    while !shutdown.load(Ordering::SeqCst) {
+        let Ok(socket_path) = socket2_path() else {
+            if !shutdown.load(Ordering::SeqCst) {
+                thread::sleep(EVENT_SOCKET_RETRY_DELAY);
+            }
+            continue;
+        };
+
+        if let Ok(mut socket) = UnixStream::connect(&socket_path) {
+            on_connect();
+            let _ = socket.set_read_timeout(Some(EVENT_SOCKET_READ_TIMEOUT));
+            let mut buffer = Vec::new();
+            let mut chunk = [0_u8; 4096];
+
+            while !shutdown.load(Ordering::SeqCst) {
+                match socket.read(&mut chunk) {
+                    Ok(0) => break,
+                    Ok(bytes_read) => {
+                        buffer.extend_from_slice(&chunk[..bytes_read]);
+                        consume_socket_lines(&mut buffer, &mut handler);
+                    }
+                    Err(error)
+                        if error.kind() == io::ErrorKind::WouldBlock
+                            || error.kind() == io::ErrorKind::TimedOut =>
+                    {
+                        continue;
+                    }
+                    Err(_) => break,
+                }
+            }
+        }
+
+        if !shutdown.load(Ordering::SeqCst) {
+            thread::sleep(EVENT_SOCKET_RETRY_DELAY);
+        }
+    }
+}
+
+fn consume_socket_lines<H: FnMut(&str)>(buffer: &mut Vec<u8>, handler: &mut H) {
+    while let Some(newline_index) = buffer.iter().position(|byte| *byte == b'\n') {
+        let line = String::from_utf8_lossy(&buffer[..newline_index]).into_owned();
+        buffer.drain(..=newline_index);
+        handler(&line);
+    }
+}
+
+/// Return the Hyprland event-socket path used by the daemon watchers.
 pub(crate) fn socket2_path() -> Result<PathBuf> {
     let signature = hyprland_signature();
     if let Some(signature) = signature.as_deref() {
@@ -839,10 +1063,134 @@ fn hyprctl_output(args: &[&str]) -> Result<Output> {
 mod tests {
     use super::{
         AccelProfile, AnimationsPayload, InputSetting, InputState, KeybindsPayload, LidSwitchState,
-        format_decimal, parse_input_state_from_str, parse_scroll_factor, parse_sensitivity,
+        MonitorInfo, WorkspaceInfo, WorkspaceRuleInfo, format_decimal, orphaned_pinned_workspaces,
+        parse_input_state_from_str, parse_scroll_factor, parse_sensitivity, reclaim_target,
         render_animations_override, render_input_runtime_state, render_keybinds_override,
         validate_animations_payload, validate_keybinds_payload,
     };
+
+    const EXTERNAL_SELECTOR: &str = "desc:BNQ ZOWIE XL LCD EB12M01465SL0";
+
+    fn laptop_panel(active_workspace: i64) -> Vec<MonitorInfo> {
+        vec![
+            serde_json::from_value(serde_json::json!({
+                "name": "eDP-1",
+                "description": "LG Display 0x06B3",
+                "make": "LG Display",
+                "model": "0x06B3",
+                "serial": "",
+                "focused": true,
+                "activeWorkspace": { "id": active_workspace, "name": active_workspace.to_string() },
+            }))
+            .expect("monitor fixture"),
+        ]
+    }
+
+    fn external_pins() -> Vec<WorkspaceRuleInfo> {
+        (1..=10)
+            .map(|id| {
+                serde_json::from_value(serde_json::json!({
+                    "workspaceString": id.to_string(),
+                    "monitor": EXTERNAL_SELECTOR,
+                }))
+                .expect("rule fixture")
+            })
+            .collect()
+    }
+
+    fn workspace(id: i64, windows: u32) -> WorkspaceInfo {
+        serde_json::from_value(serde_json::json!({ "id": id, "windows": windows }))
+            .expect("workspace fixture")
+    }
+
+    #[test]
+    fn desc_selectors_prefix_match_either_description_form() {
+        let monitor: MonitorInfo = serde_json::from_value(serde_json::json!({
+            "name": "DP-2",
+            "description": "BNQ ZOWIE XL LCD EB12M01465SL0",
+            "make": "BNQ",
+            "model": "ZOWIE XL LCD",
+            "serial": "EB12M01465SL0",
+        }))
+        .expect("monitor fixture");
+
+        assert!(monitor.matches_selector(EXTERNAL_SELECTOR));
+        assert!(monitor.matches_selector("desc:BNQ ZOWIE"));
+        assert!(monitor.matches_selector("DP-2"));
+        assert!(!monitor.matches_selector("desc:LG Display"));
+        assert!(!monitor.matches_selector("eDP-1"));
+    }
+
+    #[test]
+    fn orphaned_pins_cover_only_numbered_rules_whose_monitor_is_absent() {
+        let mut rules = external_pins();
+        rules.push(
+            serde_json::from_value(serde_json::json!({
+                "workspaceString": "3",
+                "monitor": "eDP-1",
+            }))
+            .expect("rule fixture"),
+        );
+        rules.push(
+            serde_json::from_value(serde_json::json!({
+                "workspaceString": "name:scratch",
+                "monitor": EXTERNAL_SELECTOR,
+            }))
+            .expect("rule fixture"),
+        );
+        rules.push(
+            serde_json::from_value(serde_json::json!({ "workspaceString": "11" }))
+                .expect("rule fixture"),
+        );
+
+        // Workspace 3 is pinned to the connected panel too, so it stays reachable.
+        assert_eq!(
+            orphaned_pinned_workspaces(&laptop_panel(11), &rules),
+            vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        );
+    }
+
+    #[test]
+    fn a_panel_parked_past_the_pinned_block_is_pulled_back_to_the_first_pin() {
+        assert_eq!(
+            reclaim_target(&laptop_panel(11), &external_pins(), &[workspace(11, 0)]),
+            Some(1),
+        );
+    }
+
+    #[test]
+    fn reclaim_leaves_reachable_and_occupied_workspaces_alone() {
+        // Inside the pinned block: the user can already see and reach it.
+        assert_eq!(
+            reclaim_target(&laptop_panel(2), &external_pins(), &[workspace(2, 1)]),
+            None,
+        );
+        // Parked past the block but holding windows: moving away would strand them.
+        assert_eq!(
+            reclaim_target(&laptop_panel(11), &external_pins(), &[workspace(11, 2)]),
+            None,
+        );
+        // No orphaned pins at all, which is every host without monitor-pinned rules.
+        assert_eq!(reclaim_target(&laptop_panel(11), &[], &[]), None);
+    }
+
+    #[test]
+    fn reclaim_does_not_steal_a_workspace_another_output_is_showing() {
+        let mut monitors = laptop_panel(11);
+        monitors.push(
+            serde_json::from_value(serde_json::json!({
+                "name": "HDMI-A-1",
+                "description": "Some Other Display",
+                "activeWorkspace": { "id": 1, "name": "1" },
+            }))
+            .expect("monitor fixture"),
+        );
+
+        assert_eq!(
+            reclaim_target(&monitors, &external_pins(), &[workspace(11, 0)]),
+            None,
+        );
+    }
 
     #[test]
     fn parse_input_state_only_reads_top_level_input_keys() {

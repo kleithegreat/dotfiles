@@ -9,10 +9,10 @@ describing an intended future migration.
 
 | Surface | Current contract |
 | --- | --- |
-| `desktopctl daemon` | Long-lived foreground process that starts the focus tracker, solar scheduler, and Unix-socket server |
+| `desktopctl daemon` | Long-lived foreground process that starts the focus tracker, monitor watcher, solar scheduler, and Unix-socket server |
 | `desktopctl theme ...` | Theming CLI that reads and writes the shared theme state, applies generated outputs, and manages presets |
 | `desktopctl brightness ...` | Short-lived helpers for multi-device brightness status, perceptual stepping, dimming, restoring, and Quickshell brightness OSD notification |
-| `desktopctl hypr ...` | Hyprland helper surface for `toggle-float`, laptop lid-switch output policy, managed shared input settings, and generated animation/keybind override files |
+| `desktopctl hypr ...` | Hyprland helper surface for `toggle-float`, laptop lid-switch output policy, workspace-pin reclaim, managed shared input settings, and generated animation/keybind override files |
 | `desktopctl launch-quickshell` | Reads cursor env overrides from `~/.config/hypr/cursor.conf`, then launches Quickshell against the repo checkout |
 | `desktopctl night-light ...` | CLI client for daemon-owned `hyprsunset` override state and fallback status reporting |
 | `desktopctl sun status` | Read-only solar-status inspection surface |
@@ -84,8 +84,9 @@ Important current behavior:
 ### `desktopctl daemon`
 
 - Runs in the foreground.
-- Starts three subsystems together:
+- Starts four subsystems together:
   - focus tracker
+  - monitor watcher
   - solar scheduler
   - Unix-socket server
 - Shuts down on `SIGTERM` or `SIGINT`, exiting with status 0 on clean
@@ -175,6 +176,7 @@ Brightness rules:
 | --- | --- |
 | `hypr toggle-float` | If the active window is tiled, toggles floating, resizes it to `75% 75%`, and centers it; if already floating, toggles floating off |
 | `hypr lid-switch <open/closed/sync> [--internal <monitor>] [--open-spec <spec>]` | Applies the laptop lid monitor policy. `closed` disables the internal monitor only when another output is active, `open` restores the internal monitor with the provided Hyprland monitor spec, and `sync` reads `/proc/acpi/button/lid/*/state` and applies only the closed-lid action when needed. |
+| `hypr reclaim-workspaces` | Reads `hyprctl monitors`, `workspacerules`, and `workspaces`, and dispatches the lowest numbered workspace whose `monitor:` pin matches no connected output when the focused output is parked past the highest such pin on an empty workspace. No-ops when nothing is pinned, when the focused output is already inside the pinned block, when the parked workspace holds windows, or when another output already shows the target. |
 | `hypr input status [--json]` | Prints the effective managed shared input state by layering `~/.config/hypr/input.conf` defaults with `~/.config/hypr/input-runtime.conf` overrides |
 | `hypr input set <key> <value>` | Validates one managed shared input key (`sensitivity`, `accel_profile`, or `scroll_factor`), atomically rewrites `input-runtime.conf`, applies the same value live through `hyprctl keyword`, and restores the previous file if that live apply fails |
 | `hypr animations save <json>` | Validates one JSON payload, rewrites `animations-override.conf`, and reloads Hyprland so the generated overrides apply on top of `appearance.conf` |

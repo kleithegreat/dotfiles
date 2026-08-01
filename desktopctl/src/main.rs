@@ -185,6 +185,8 @@ enum HyprCommand {
     ToggleFloat,
     /// Apply the laptop lid-switch monitor policy.
     LidSwitch(HyprLidSwitchArgs),
+    /// Focus the numbered workspace set when its pins target an absent monitor.
+    ReclaimWorkspaces,
     /// Inspect and update managed Hyprland input settings.
     Input(HyprInputArgs),
     /// Persist or clear animation override state.
@@ -361,6 +363,7 @@ fn run_hypr(args: HyprArgs) -> Result<()> {
             let state = hypr::LidSwitchState::parse(&args.state)?;
             hypr::handle_lid_switch(state, &args.internal, &args.open_spec)
         }
+        HyprCommand::ReclaimWorkspaces => hypr::reclaim_workspaces(),
         HyprCommand::Input(args) => run_hypr_input(args),
         HyprCommand::Animations(args) => run_hypr_animations(args),
         HyprCommand::Keybinds(args) => run_hypr_keybinds(args),

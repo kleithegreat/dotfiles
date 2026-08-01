@@ -1,4 +1,5 @@
 pub mod focus;
+pub mod monitors;
 pub mod night_light;
 pub mod server;
 pub mod solar;
@@ -33,6 +34,10 @@ async fn run_async() -> crate::Result<()> {
     {
         let shutdown = Arc::clone(&shutdown);
         tasks.spawn_blocking(move || ("focus tracker", focus::run(shutdown)));
+    }
+    {
+        let shutdown = Arc::clone(&shutdown);
+        tasks.spawn_blocking(move || ("monitor watcher", monitors::run(shutdown)));
     }
     tasks.spawn({
         let night_light = night_light.clone();
