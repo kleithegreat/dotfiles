@@ -12,7 +12,8 @@
     },
     "vscode": {
       "name": "Catppuccin Frappé",
-      "extension_id": "catppuccin.catppuccin-vsc"
+      "extension_id": "catppuccin.catppuccin-vsc",
+      "icon_theme": "catppuccin-frappe"
     },
     "zed": "Catppuccin Frappé"
   },
@@ -23,9 +24,6 @@
     "bg2":          "#51576d",
     "bg3":          "#626880",
     "fg":           "#c6d0f5",
-    "fg2":          "#b5bfe2",
-    "fg3":          "#a5adce",
-    "fg4":          "#949cbb",
     "red":          "#e78284",
     "green":        "#a6d189",
     "yellow":       "#e5c890",

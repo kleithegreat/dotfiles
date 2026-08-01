@@ -44,6 +44,7 @@ QtObject {
     readonly property color fg2:           _colors.fg2           || "#d5c4a1"
     readonly property color fg3:           _colors.fg3           || "#bdae93"
     readonly property color fg4:           _colors.fg4           || "#a89984"
+    readonly property color fgFaint:       _colors.fgFaint       || "#7c6f64"
     readonly property color red:           _colors.red           || "#cc241d"
     readonly property color green:         _colors.green         || "#98971a"
     readonly property color yellow:        _colors.yellow        || "#d79921"

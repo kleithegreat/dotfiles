@@ -47,6 +47,16 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Gener
         Value::String(colors.vscode_theme_name()),
     );
     root.insert(
+        "workbench.iconTheme".to_owned(),
+        Value::String(colors.vscode_icon_theme().to_owned()),
+    );
+    if colors.vscode_icon_theme() == ColorScheme::FALLBACK_VSCODE_ICON_THEME {
+        root.insert(
+            "material-icon-theme.folders.color".to_owned(),
+            Value::String(colors.accent.clone()),
+        );
+    }
+    root.insert(
         "editor.fontFamily".to_owned(),
         Value::String(state.mono_font.clone()),
     );
@@ -118,4 +128,57 @@ pub fn persist(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
     )?;
     eprintln!("  vscode: enabled extension {extension_id}");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::generate;
+    use crate::theme::{
+        schema::ColorScheme,
+        targets::testsupport::{REPO_SCHEMES, dummy_state, load_repo_colors},
+    };
+
+    fn settings(scheme_name: &str) -> serde_json::Value {
+        let colors = load_repo_colors(scheme_name);
+        let crate::theme::targets::GeneratedContent::Text(text) =
+            generate(&colors, &dummy_state()).expect("vscode settings generate")
+        else {
+            panic!("vscode target generates text");
+        };
+        serde_json::from_str(&text).expect("generated settings are JSON")
+    }
+
+    #[test]
+    fn every_scheme_sets_an_icon_theme_alongside_its_color_theme() {
+        for scheme_name in REPO_SCHEMES {
+            let written = settings(scheme_name);
+            let icon_theme = written["workbench.iconTheme"]
+                .as_str()
+                .unwrap_or_else(|| panic!("{scheme_name}: no icon theme written"));
+            assert!(
+                !icon_theme.is_empty(),
+                "{scheme_name}: icon theme must not be blank"
+            );
+            assert!(written["workbench.colorTheme"].is_string());
+        }
+    }
+
+    #[test]
+    fn the_neutral_icon_set_is_tinted_but_a_matched_one_is_left_alone() {
+        // Catppuccin ships its own icons, so nothing should recolor them.
+        let matched = settings("catppuccin-mocha");
+        assert_eq!(matched["workbench.iconTheme"], "catppuccin-mocha");
+        assert!(matched.get("material-icon-theme.folders.color").is_none());
+
+        // Nord has none, so it falls back and picks up the scheme accent.
+        let fallback = settings("nord");
+        assert_eq!(
+            fallback["workbench.iconTheme"],
+            ColorScheme::FALLBACK_VSCODE_ICON_THEME
+        );
+        assert_eq!(
+            fallback["material-icon-theme.folders.color"],
+            load_repo_colors("nord").accent
+        );
+    }
 }

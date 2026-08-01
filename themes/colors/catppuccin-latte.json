@@ -13,7 +13,8 @@
     },
     "vscode": {
       "name": "Catppuccin Latte",
-      "extension_id": "catppuccin.catppuccin-vsc"
+      "extension_id": "catppuccin.catppuccin-vsc",
+      "icon_theme": "catppuccin-latte"
     },
     "zed": "Catppuccin Latte"
   },
@@ -24,9 +25,6 @@
     "bg2":          "#bcc0cc",
     "bg3":          "#acb0be",
     "fg":           "#4c4f69",
-    "fg2":          "#5c5f77",
-    "fg3":          "#6c6f85",
-    "fg4":          "#7c7f93",
     "red":          "#d20f39",
     "green":        "#40a02b",
     "yellow":       "#df8e1d",

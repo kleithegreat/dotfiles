@@ -7,7 +7,7 @@ import "../components" as Components
 RowLayout {
     spacing: 4
     Repeater {
-        model: 9
+        model: 10
         Item {
             id: wsItem
             required property int index
@@ -29,8 +29,8 @@ RowLayout {
                 color: {
                     if (wsItem.isActive) return Theme.blueBright;
                     if (wsArea.containsMouse) return Theme.fg3;
-                    if (wsItem.hasWindows) return Theme.fg4;
-                    return Theme.bg3;
+                    if (wsItem.hasWindows) return Theme.fg2;
+                    return Theme.fgFaint;
                 }
                 Behavior on width { Components.Anim { duration: Theme.animContentSwap; easing.type: Easing.OutQuad } }
             }
