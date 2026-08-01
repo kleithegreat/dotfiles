@@ -118,6 +118,7 @@ final: prev: {
         };
       };
 
+  comfyui = final.callPackage ../pkgs/comfyui { };
   desktopctl = final.callPackage ../desktopctl { };
   helium = final.callPackage ../pkgs/helium { };
   snappy-switcher = final.callPackage ../pkgs/snappy-switcher { };

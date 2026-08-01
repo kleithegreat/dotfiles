@@ -205,9 +205,11 @@ in
     enable = true;
     extraSetFlags = [ "--operator=kevin" ];
   };
+  # `package` is the daemon (`pkgs.mullvad`) and stays at its default; the
+  # desktop app is now a separate opt-in rather than something bundled into it.
   services.mullvad-vpn = {
     enable = true;
-    package = pkgs.mullvad-vpn;
+    gui.enable = true;
   };
 
   services.gnome.gnome-keyring.enable = true;
