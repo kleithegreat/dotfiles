@@ -34,13 +34,32 @@ FocusScope {
             trayPanel.scale = Theme.popupStartScale;
             trayOpenAnim.restart();
         }
-        else if (!closing) { trayOpenAnim.stop(); closing = true; TooltipService.hide(); trayCloseAnim.restart(); }
+        else if (!closing) { trayOpenAnim.stop(); closing = true; TooltipService.hide(); trayMenu.closeNow(); trayCloseAnim.restart(); }
     }
     onHasItemsChanged: {
         if (!hasItems && active)
             close();
     }
-    Keys.onEscapePressed: trayPop.close()
+    // Escape peels off the context menu first, then the popup itself.
+    Keys.onEscapePressed: {
+        if (trayMenu.open)
+            trayMenu.close();
+        else
+            trayPop.close();
+    }
+
+    // Opens the item's DBus menu anchored under its icon, aligned to the bottom
+    // of the tray panel so the menu never covers the icons it belongs to.
+    function openItemMenu(item, iconItem) {
+        if (!item.hasMenu)
+            return false;
+
+        TooltipService.hide();
+        let icon = iconItem.mapToItem(trayPop, 0, 0);
+        let panel = trayPanel.mapToItem(trayPop, 0, 0);
+        trayMenu.openMenu(item.menu, Qt.rect(icon.x, panel.y, iconItem.width, trayPanel.height));
+        return true;
+    }
 
     SequentialAnimation {
         id: trayOpenAnim
@@ -168,8 +187,18 @@ FocusScope {
                         pressedOpacity: 0.9
                         pressedScale: 0.9
                         onClicked: (mouse) => {
-                            if (mouse.button === Qt.LeftButton) trayItem.modelData.activate();
-                            else trayItem.modelData.secondaryActivate();
+                            let item = trayItem.modelData;
+                            // Right-click, or left-click on a menu-only item,
+                            // opens the context menu the way any desktop does.
+                            if (mouse.button === Qt.RightButton || item.onlyMenu) {
+                                if (trayPop.openItemMenu(item, trayItem))
+                                    return;
+                                if (mouse.button === Qt.RightButton)
+                                    item.secondaryActivate();
+                                return;
+                            }
+
+                            item.activate();
                         }
                         onContainsMouseChanged: {
                             if (containsMouse) {
@@ -210,5 +239,12 @@ FocusScope {
                 }
             }
         }
+    }
+
+    // Declared after the panel so menus stack above the icons they came from.
+    Components.MenuChain {
+        id: trayMenu
+        anchors.fill: parent
+        onActivated: trayPop.close()
     }
 }

@@ -190,4 +190,17 @@ QtObject {
     // Quick Settings toggle tiles
     readonly property int qsTileHeight: 56
     readonly property int qsTileExpandSize: 22
+
+    // Cascading context menus (tray / DBus menus)
+    readonly property int menuRowHeight: 28
+    readonly property int menuPadding: 6         // panel inset around the row column
+    readonly property int menuItemPadding: 10    // row left/right inset
+    readonly property int menuMinWidth: 150
+    readonly property int menuMaxWidth: 360
+    readonly property int menuGutter: 20         // check mark / icon column
+    readonly property int menuGap: 4             // panel offset from its anchor
+    readonly property int menuEdgeMargin: 6      // keep panels off the screen edge
+    readonly property int menuSubmenuOverlap: 4  // flyout tuck into its parent panel
+    readonly property int menuSeparatorHeight: 9
+    readonly property int menuHoverDelay: 160    // hover dwell before a flyout opens
 }
