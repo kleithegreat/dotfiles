@@ -67,9 +67,9 @@ in
 
   comfyui-frontend-package = fetchWheel {
     pname = "comfyui_frontend_package";
-    version = "1.47.10";
-    url = "https://files.pythonhosted.org/packages/cd/72/3c87f0fb5a0c122b4e9891b4a2b354d9d3dc618ea46569c79a1f0499204b/comfyui_frontend_package-1.47.10-py3-none-any.whl";
-    hash = "sha256-mleeHNQEBqNk8iB8i0gKSpq1t250eOFuknrLmhXY0b8=";
+    version = "1.47.11";
+    url = "https://files.pythonhosted.org/packages/ae/22/7cb3390fa402fe7e69626a297767fcffc86b013b1176a28d54b84589f381/comfyui_frontend_package-1.47.11-py3-none-any.whl";
+    hash = "sha256-JHQfPoJM7m/vRERxgR7XL349yjLstTS+ZGodIXwFUlQ=";
     pythonImportsCheck = [ "comfyui_frontend_package" ];
     meta = {
       description = "Prebuilt ComfyUI web frontend";
@@ -84,17 +84,17 @@ in
   # template browser without them, so all of them are packaged.
   comfyui-workflow-templates-core = fetchWheel {
     pname = "comfyui_workflow_templates_core";
-    version = "0.3.284";
-    url = "https://files.pythonhosted.org/packages/11/da/69892c57fcb7b869779d018082f5221ec27b5148adb927f5e613bf213c61/comfyui_workflow_templates_core-0.3.284-py3-none-any.whl";
-    hash = "sha256-G077OP8gMrqXBopamkHa73MKJSdaRlbSTcBQ0hqyHH4=";
+    version = "0.3.292";
+    url = "https://files.pythonhosted.org/packages/c5/6a/2444f03fd6997beb18f8ceaaab23478ca12b9e2a8fe0d7a501eec06480f3/comfyui_workflow_templates_core-0.3.292-py3-none-any.whl";
+    hash = "sha256-81SRG/9rJHjSO9zonN6YkSm6Z/ruWJUjRCDzGVMbnfQ=";
     meta = comfyuiWorkflowTemplatesMeta;
   };
 
   comfyui-workflow-templates-json = fetchWheel {
     pname = "comfyui_workflow_templates_json";
-    version = "0.1.18";
-    url = "https://files.pythonhosted.org/packages/70/a0/f9a22385b154bea6cbda51a9c6c96f562ed30889cdde534bed3f176c3803/comfyui_workflow_templates_json-0.1.18-py3-none-any.whl";
-    hash = "sha256-i8A0Vjd7TtiqzIIMC2aKze1nxoB+v+/EXBszDzpPPKk=";
+    version = "0.1.27";
+    url = "https://files.pythonhosted.org/packages/5e/a0/d77f2a921312244c49428efbbb5c9d7c1f5a377d702976cb4b0cb676bd0f/comfyui_workflow_templates_json-0.1.27-py3-none-any.whl";
+    hash = "sha256-o51+msF1nvDCQbd4SECcBAAJjw9huHX2Mvac/F954yY=";
     meta = comfyuiWorkflowTemplatesMeta;
   };
 
@@ -132,17 +132,17 @@ in
 
   comfyui-workflow-templates-media-assets-01 = fetchWheel {
     pname = "comfyui_workflow_templates_media_assets_01";
-    version = "0.1.12";
-    url = "https://files.pythonhosted.org/packages/16/d2/449cdd2dd1d90b307fdb66a8c64123c3d468ed749d86ea2d8bcf8c9bbf09/comfyui_workflow_templates_media_assets_01-0.1.12-py3-none-any.whl";
-    hash = "sha256-2SSkqr17KeIwR/KVEiTtO5Do3xwnfZWuqOjUghGU8a0=";
+    version = "0.1.17";
+    url = "https://files.pythonhosted.org/packages/e2/88/831c5a736ddf0e8fc464868807b41b2d8e0c74967628e075864213ea7741/comfyui_workflow_templates_media_assets_01-0.1.17-py3-none-any.whl";
+    hash = "sha256-cQ7Fz90gTrngZzw3UWKjXLfWfur+NmgRBuMXcmLP/hM=";
     meta = comfyuiWorkflowTemplatesMeta;
   };
 
   comfyui-workflow-templates = fetchWheel {
     pname = "comfyui_workflow_templates";
-    version = "0.11.19";
-    url = "https://files.pythonhosted.org/packages/3e/87/497aac557459ae7995b03616343ca97f2a401bf713e23b4041020e06bec3/comfyui_workflow_templates-0.11.19-py3-none-any.whl";
-    hash = "sha256-2TbbsqnH32+qpHAuYL2TTu7rQ9KNkBTZOq6MoVXQOew=";
+    version = "0.11.27";
+    url = "https://files.pythonhosted.org/packages/cc/9f/8087b2185e35eed5b33c69b5505bfe2363761b396926a157f199d2ea4521/comfyui_workflow_templates-0.11.27-py3-none-any.whl";
+    hash = "sha256-xvqYphWQzgtAdVVwBABLoqQ5Noiwm0Dt7oBLsJ3fIas=";
     dependencies = with final; [
       comfyui-workflow-templates-core
       comfyui-workflow-templates-json
@@ -194,9 +194,9 @@ in
   # dlopen the CUDA/ROCm driver rather than linking it.
   comfy-aimdo = fetchWheel {
     pname = "comfy_aimdo";
-    version = "0.4.10";
-    url = "https://files.pythonhosted.org/packages/3e/63/29035f15a32c1e31723585c452c7416d6c3c00f92469e2a923a35500df49/comfy_aimdo-0.4.10-cp39-abi3-manylinux2010_x86_64.manylinux2014_x86_64.manylinux_2_12_x86_64.manylinux_2_17_x86_64.whl";
-    hash = "sha256-/64FGajDd1HhCX6CdaNFCluL7prrF5tdoMAPy1eizF8=";
+    version = "0.4.11";
+    url = "https://files.pythonhosted.org/packages/fb/e8/3838f3735423dd25930375210f818528c9efa6928ae92123e82a9dcbf3a0/comfy_aimdo-0.4.11-cp39-abi3-manylinux2010_x86_64.manylinux2014_x86_64.manylinux_2_12_x86_64.manylinux_2_17_x86_64.whl";
+    hash = "sha256-Zuj+eDOFsWsAEouGsA8fn+WHJprgGW3rhHw4L522nE8=";
     nativeBuildInputs = with prev.pkgs; [
       autoPatchelfHook
       autoAddDriverRunpath
@@ -214,14 +214,18 @@ in
   # Optional: ComfyUI degrades to "no fp8/fp4 support" without it.
   comfy-kitchen = fetchWheel {
     pname = "comfy_kitchen";
-    version = "0.2.22";
-    url = "https://files.pythonhosted.org/packages/79/df/234ec19cb8c74352c1e66317305f4e6161e316c845144515523ee1bcfad7/comfy_kitchen-0.2.22-cp312-abi3-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl";
-    hash = "sha256-J2Jy2o0p3HWLRONePHjOF17OUKpkJmM8C2topeoegrg=";
+    version = "0.2.26";
+    url = "https://files.pythonhosted.org/packages/60/46/812a577d85dd0c8a182e924b66d9253fe8fb9e3b33f18d7623c096e034c9/comfy_kitchen-0.2.26-cp312-abi3-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl";
+    hash = "sha256-AoyR6Qn+olPijQ4esjQNWoZSvDlUbN7FPjiAmzwIyZg=";
     nativeBuildInputs = with prev.pkgs; [
       autoPatchelfHook
       autoAddDriverRunpath
     ];
     buildInputs = [ prev.pkgs.stdenv.cc.cc.lib ];
+    # The wheel carries one shared object per compute backend. Only the backend
+    # actually selected at runtime is loaded, so the ROCm one may keep its
+    # unresolved HIP runtime on this CUDA-only package set.
+    autoPatchelfIgnoreMissingDeps = [ "libamdhip64.so.7" ];
     dependencies = [ final.torch ];
     pythonImportsCheck = [ "comfy_kitchen" ];
     meta = {

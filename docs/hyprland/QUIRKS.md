@@ -276,11 +276,12 @@ break evaluation before Nix reaches the build phase.
 **Status:** Workaround in place. `system/configuration.nix` wires `hyprexpo`
 from `pkgs/hyprland-plugins/hyprexpo/default.nix`, a repo-local package that
 now builds the maintained `sandwichfarm/hyprexpo` fork (pinned by revision)
-instead of the source removed from the official flake. The pinned v0.56.0
+instead of the source removed from the official flake. The pinned v0.56.1
 release builds directly against the release-pinned Hyprland package. The fork renamed
 `gap_size` to `gaps_in` / `gaps_out` (`config/hypr/plugins.conf` was updated to
 match). The main
-`hyprland-plugins` is pinned to the same v0.56.0 release as Hyprland for
-still-shipped plugins such as `hyprbars`; Hyprexpo maintenance means advancing
-all three versions together only when the fork release supports the selected
-Hyprland release.
+`hyprland-plugins` is pinned to v0.56.0 for still-shipped plugins such as
+`hyprbars`, the newest tag that repository has; it is rebuilt against whatever
+Hyprland release is pinned. Advance Hyprland only when the Hyprexpo fork has a
+release supporting it, and re-pin `hyprland-plugins` whenever it does publish a
+matching tag.
