@@ -111,17 +111,12 @@
       let
         pkgs = import nixpkgs {
           inherit system;
-          config.allowUnfreePredicate = pkg:
-            builtins.elem (nixpkgs.lib.getName pkg) [ "claude-code" ];
           overlays = [ self.overlays.default ];
         };
       in {
         inherit (pkgs)
           desktopctl
           helium
-          openchamber
-          openchamber-backend-mux
-          openchamber-claude-bridge
           snappy-switcher
           ;
       };

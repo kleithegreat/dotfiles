@@ -65,7 +65,6 @@ let
   });
 
   basePackages = with pkgs; [
-    openchamber
     bat
     eza
     fzf

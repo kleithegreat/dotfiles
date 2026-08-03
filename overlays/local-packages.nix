@@ -122,21 +122,6 @@ final: prev: {
   desktopctl = final.callPackage ../desktopctl { };
   helium = final.callPackage ../pkgs/helium { };
   snappy-switcher = final.callPackage ../pkgs/snappy-switcher { };
-  openchamber-backend-mux = final.callPackage ../pkgs/openchamber-backend-mux {
-    openchamberClaudeBridge = final.openchamber-claude-bridge;
-  };
-  openchamber-claude-bridge = final.callPackage ../pkgs/openchamber-claude-bridge { };
-  openchamber-cli = final.callPackage ../pkgs/openchamber/cli.nix {
-    openchamberBackendMux = final.openchamber-backend-mux;
-    openchamberClaudeBridge = final.openchamber-claude-bridge;
-  };
-  openchamber-desktop = final.callPackage ../pkgs/openchamber-desktop {
-    openchamberCli = final.openchamber-cli;
-  };
-  openchamber = final.callPackage ../pkgs/openchamber {
-    openchamberCli = final.openchamber-cli;
-    openchamberDesktop = final.openchamber-desktop;
-  };
   sf-pro = final.stdenvNoCC.mkDerivation {
     pname = "sf-pro";
     version = "2026-06-13";
