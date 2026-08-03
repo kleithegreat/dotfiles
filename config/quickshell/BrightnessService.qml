@@ -7,15 +7,25 @@ QtObject {
 
     property var brightnessDevices: []
     property var _pendingBrightnessFractions: ({})
-    property string _activeSetDevice: ""
+
+    // A status read samples the hardware over ~1s. Any brightness the user sets
+    // while one is in flight makes its payload describe a pre-write world, so
+    // `_writeEpoch` bumps on intent (not on dispatch, which a queued write
+    // defers) and a status finishing on a stale epoch is discarded rather than
+    // allowed to overwrite what the user just set.
+    property int _writeEpoch: 0
+    property int _statusEpoch: 0
 
     function clamp01(value) {
         return Math.max(0, Math.min(1, value));
     }
 
     function refresh() {
-        if (!statusProc.running)
-            statusProc.running = true;
+        if (statusProc.running)
+            return;
+
+        _statusEpoch = _writeEpoch;
+        statusProc.running = true;
     }
 
     function syncFromStatus(payload) {
@@ -47,8 +57,7 @@ QtObject {
         if (deviceId === "" || max <= 0)
             return null;
 
-        let pending = pendingFractionForDevice(deviceId);
-        let fraction = pending >= 0 ? pending : clamp01(Number(payload.fraction || 0));
+        let fraction = clamp01(Number(payload.fraction || 0));
         return {
             available: true,
             kind: payload.kind || "",
@@ -65,7 +74,6 @@ QtObject {
     function clearState() {
         brightnessDevices = [];
         _pendingBrightnessFractions = ({});
-        _activeSetDevice = "";
     }
 
     function isInternalMonitorName(name) {
@@ -108,11 +116,6 @@ QtObject {
         return visible.length > 0 ? visible[0] : null;
     }
 
-    function pendingFractionForDevice(deviceId) {
-        let pending = _pendingBrightnessFractions[deviceId];
-        return pending === undefined ? -1 : pending;
-    }
-
     function setPendingFraction(deviceId, value) {
         let next = Object.assign({}, _pendingBrightnessFractions);
         next[deviceId] = value;
@@ -152,6 +155,7 @@ QtObject {
             return;
 
         let clamped = clamp01(value);
+        _writeEpoch += 1;
         setPendingFraction(deviceId, clamped);
         updateDeviceFraction(deviceId, clamped);
         if (!brightnessSetProc.running)
@@ -163,7 +167,6 @@ QtObject {
         if (!pending)
             return;
 
-        _activeSetDevice = pending.device;
         let percent = Math.round(clamp01(pending.fraction) * 100);
         brightnessSetProc.command = ["desktopctl", "brightness", "set", percent.toString(), "--device", pending.device];
         brightnessSetProc.running = true;
@@ -172,10 +175,10 @@ QtObject {
     Component.onCompleted: refresh()
 
     property Timer statusTimer: Timer {
-        // Cheap safety net only: each status call probes the DDC/I2C bus
-        // (~0.7s). Event-driven refreshes (monitor hotplug, set completions,
-        // brightness OSD IPC) already cover everything but external changes
-        // such as monitor OSD buttons.
+        // Safety net only: a status call enumerates the DDC/I2C buses and takes
+        // ~1.2s. Popup opens, monitor hotplug, and the brightness OSD IPC
+        // already refresh on demand, so this exists purely to notice changes
+        // made from the monitor's own OSD buttons.
         interval: 30000
         running: true
         repeat: true
@@ -194,6 +197,9 @@ QtObject {
             }
         }
         onExited: (code) => {
+            if (root._statusEpoch !== root._writeEpoch)
+                return;
+
             if (code !== 0) {
                 root.clearState();
                 return;
@@ -210,16 +216,15 @@ QtObject {
     property Process brightnessSetProc: Process {
         running: false
         onExited: (code) => {
-            root._activeSetDevice = "";
+            // A successful write needs no read-back: the value we sent is the
+            // truth, and the status timer still catches changes made from the
+            // monitor's own OSD buttons.
             if (code !== 0) {
                 root.refresh();
                 return;
             }
 
-            if (Object.keys(root._pendingBrightnessFractions).length > 0)
-                root.applyPendingBrightness();
-            else
-                root.refresh();
+            root.applyPendingBrightness();
         }
     }
 }

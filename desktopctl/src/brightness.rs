@@ -29,11 +29,14 @@ const SIG_ERR: usize = usize::MAX;
 
 static DIM_ABORTED: AtomicBool = AtomicBool::new(false);
 
+/// DDC/CI displays are addressed by I2C bus rather than by `ddcutil` display
+/// number: `--display` makes `ddcutil` re-enumerate every bus on each
+/// invocation (~1s here), while `--bus` talks to the monitor directly (~0.1s).
 #[derive(Clone, Debug)]
 enum BrightnessDevice {
     Backlight(String),
     Ddc {
-        display: Option<String>,
+        bus: Option<u32>,
         connector: Option<String>,
         label: Option<String>,
     },
@@ -69,7 +72,7 @@ struct BrightnessStatus {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct DdcDisplay {
-    display: String,
+    bus: u32,
     connector: Option<String>,
     label: Option<String>,
 }
@@ -113,7 +116,6 @@ pub fn set(device: Option<&str>, percent: u16) -> Result<()> {
     };
 
     set_raw(&state.device, raw)?;
-    notify_quickshell_osd(display_fraction_for_raw(&state.device, raw, state.max));
     Ok(())
 }
 
@@ -181,11 +183,11 @@ pub fn restore(device: Option<&str>) -> Result<()> {
         BrightnessDevice::Backlight(device) => {
             brightnessctl(&device, &["-r"])?;
         }
-        BrightnessDevice::Ddc { display, .. } => {
-            let raw = read_ddc_dim_state(&display)?;
+        BrightnessDevice::Ddc { bus, .. } => {
+            let raw = read_ddc_dim_state(bus)?;
             set_raw(
                 &BrightnessDevice::Ddc {
-                    display,
+                    bus,
                     connector: None,
                     label: None,
                 },
@@ -227,9 +229,9 @@ fn resolve_state(device: Option<&str>) -> Result<BrightnessState> {
 
 fn resolve_device(device: Option<&str>) -> Result<BrightnessDevice> {
     if let Some(device) = device {
-        if let Some(display) = parse_ddc_device(device) {
+        if let Some(bus) = parse_ddc_device(device) {
             return Ok(BrightnessDevice::Ddc {
-                display,
+                bus,
                 connector: None,
                 label: None,
             });
@@ -243,7 +245,7 @@ fn resolve_device(device: Option<&str>) -> Result<BrightnessDevice> {
     }
 
     let ddc = BrightnessDevice::Ddc {
-        display: None,
+        bus: None,
         connector: None,
         label: None,
     };
@@ -285,14 +287,12 @@ fn backlight_devices() -> Result<Vec<String>> {
     Ok(devices)
 }
 
-fn parse_ddc_device(device: &str) -> Option<Option<String>> {
+fn parse_ddc_device(device: &str) -> Option<Option<u32>> {
     if device == "ddc" {
         return Some(None);
     }
 
-    device
-        .strip_prefix("ddc:")
-        .map(|display| Some(display.to_owned()))
+    device.strip_prefix("ddc:")?.parse().ok().map(Some)
 }
 
 fn read_state(device: BrightnessDevice) -> Result<BrightnessState> {
@@ -307,8 +307,8 @@ fn read_state(device: BrightnessDevice) -> Result<BrightnessState> {
                 max,
             })
         }
-        BrightnessDevice::Ddc { display, .. } => {
-            let (current, max) = ddc_brightness_value(display.as_deref())?;
+        BrightnessDevice::Ddc { bus, .. } => {
+            let (current, max) = ddc_brightness_value(*bus)?;
             ensure_nonzero_max(max)?;
             Ok(BrightnessState {
                 device,
@@ -348,7 +348,7 @@ fn available_ddc_states() -> Vec<BrightnessState> {
 
     if states.is_empty() {
         let fallback = BrightnessDevice::Ddc {
-            display: None,
+            bus: None,
             connector: None,
             label: None,
         };
@@ -390,13 +390,12 @@ fn status_payload(state: &BrightnessState) -> Result<BrightnessDeviceStatus> {
             None,
         ),
         BrightnessDevice::Ddc {
-            display,
+            bus,
             connector,
             label,
         } => {
-            let device = display
-                .as_ref()
-                .map(|display| format!("ddc:{display}"))
+            let device = bus
+                .map(|bus| format!("ddc:{bus}"))
                 .unwrap_or_else(|| "ddc".to_owned());
             (
                 "ddc",
@@ -456,19 +455,16 @@ fn set_raw(device: &BrightnessDevice, raw: u64) -> Result<()> {
         BrightnessDevice::Backlight(name) => {
             brightnessctl(name, &["s", &raw.to_string()])?;
         }
-        BrightnessDevice::Ddc { display, .. } => {
-            ddcutil(
-                display.as_deref(),
-                &["setvcp", DDC_BRIGHTNESS_VCP, &raw.to_string()],
-            )?;
+        BrightnessDevice::Ddc { bus, .. } => {
+            ddcutil(*bus, &["setvcp", DDC_BRIGHTNESS_VCP, &raw.to_string()])?;
         }
     }
 
     Ok(())
 }
 
-fn ddc_brightness_value(display: Option<&str>) -> Result<(u64, u64)> {
-    let output = ddcutil(display, &["getvcp", DDC_BRIGHTNESS_VCP])?;
+fn ddc_brightness_value(bus: Option<u32>) -> Result<(u64, u64)> {
+    let output = ddcutil(bus, &["getvcp", DDC_BRIGHTNESS_VCP])?;
     let stdout = String::from_utf8(output.stdout)?;
     parse_ddc_brightness(&stdout).ok_or_else(|| {
         io::Error::new(
@@ -482,11 +478,22 @@ fn ddc_brightness_value(display: Option<&str>) -> Result<(u64, u64)> {
     })
 }
 
-fn ddcutil(display: Option<&str>, args: &[&str]) -> Result<Output> {
-    let mut command_args = Vec::with_capacity(args.len() + 2);
-    if let Some(display) = display {
-        command_args.extend(["--display", display]);
+/// Per-bus reads and writes skip the initial DDC handshake: the bus came from a
+/// `detect` that already proved DDC works there, and re-proving it costs more
+/// than the operation itself (a `setvcp` drops from ~0.15s to ~0.08s). Only
+/// `detect` itself still runs the checks, since classifying which buses are
+/// usable is exactly the job they do.
+///
+/// Values written are left verified. `--noverify` saves ~15ms, far below
+/// perception, and verification failure is what surfaces a monitor silently
+/// clamping a value back to the shell.
+fn ddcutil(bus: Option<u32>, args: &[&str]) -> Result<Output> {
+    let bus = bus.map(|bus| bus.to_string());
+    let mut command_args = Vec::with_capacity(args.len() + 3);
+    if let Some(bus) = &bus {
+        command_args.extend(["--bus", bus]);
     }
+    command_args.push("--skip-ddc-checks");
     command_args.extend(args.iter().copied());
 
     let output = Command::new("ddcutil").args(&command_args).output()?;
@@ -509,60 +516,74 @@ fn detected_ddc_devices() -> Result<Vec<BrightnessDevice>> {
     Ok(parse_ddc_detect_brief(&stdout)
         .into_iter()
         .map(|display| BrightnessDevice::Ddc {
-            display: Some(display.display),
+            bus: Some(display.bus),
             connector: display.connector,
             label: display.label,
         })
         .collect())
 }
 
+/// Split `ddcutil detect --brief` into its unindented blocks and keep only the
+/// ones headed by `Display <n>`. Blocks headed by `Invalid display` describe
+/// buses that fail DDC checks (a laptop eDP panel, typically); they are dropped
+/// wholesale so their bus and connector cannot leak into a usable display.
 fn parse_ddc_detect_brief(output: &str) -> Vec<DdcDisplay> {
     let mut displays = Vec::new();
-    let mut current: Option<DdcDisplay> = None;
+    let mut block: Vec<&str> = Vec::new();
+    let mut usable = false;
 
-    for raw_line in output.lines() {
-        let line = raw_line.trim();
-        if let Some(rest) = line.strip_prefix("Display ") {
-            if let Some(display) = current.take() {
-                displays.push(display);
-            }
-
-            let display = rest
-                .split_whitespace()
-                .next()
-                .unwrap_or("")
-                .trim_end_matches(':')
-                .to_owned();
-            if !display.is_empty() {
-                current = Some(DdcDisplay {
-                    display,
-                    connector: None,
-                    label: None,
-                });
-            }
+    for line in output.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
             continue;
         }
 
-        let Some(display) = current.as_mut() else {
+        if line.starts_with([' ', '\t']) {
+            block.push(trimmed);
             continue;
-        };
-
-        if let Some(connector) = field_value(line, "DRM connector:") {
-            display.connector = normalize_drm_connector(connector);
-        } else if let Some(label) = field_value(line, "Monitor:") {
-            display.label = nonempty_string(label);
-        } else if display.label.is_none()
-            && let Some(label) = field_value(line, "Model:")
-        {
-            display.label = nonempty_string(label);
         }
+
+        if usable {
+            displays.extend(ddc_display_from_block(&block));
+        }
+        block.clear();
+        usable = trimmed.starts_with("Display ");
     }
 
-    if let Some(display) = current {
-        displays.push(display);
+    if usable {
+        displays.extend(ddc_display_from_block(&block));
     }
 
     displays
+}
+
+fn ddc_display_from_block(lines: &[&str]) -> Option<DdcDisplay> {
+    let mut bus = None;
+    let mut connector = None;
+    let mut monitor = None;
+    let mut model = None;
+
+    for line in lines {
+        if let Some(value) = field_value(line, "I2C bus:") {
+            bus = parse_i2c_bus(value);
+        } else if let Some(value) = field_value(line, "DRM connector:") {
+            connector = normalize_drm_connector(value);
+        } else if let Some(value) = field_value(line, "Monitor:") {
+            monitor = nonempty_string(value);
+        } else if let Some(value) = field_value(line, "Model:") {
+            model = nonempty_string(value);
+        }
+    }
+
+    Some(DdcDisplay {
+        bus: bus?,
+        connector,
+        label: monitor.or(model),
+    })
+}
+
+fn parse_i2c_bus(value: &str) -> Option<u32> {
+    value.trim().rsplit_once("i2c-")?.1.trim().parse().ok()
 }
 
 fn field_value<'a>(line: &'a str, field: &str) -> Option<&'a str> {
@@ -627,36 +648,39 @@ fn number_after(text: &str, marker: &str) -> Option<u64> {
 }
 
 fn save_ddc_dim_state(state: &BrightnessState) -> Result<()> {
-    let BrightnessDevice::Ddc { display, .. } = &state.device else {
+    let BrightnessDevice::Ddc { bus, .. } = &state.device else {
         return Ok(());
     };
-    let display = display.as_deref().unwrap_or("");
     let path = ddc_dim_state_path()?;
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    fs::write(path, format!("{display}\n{}\n", state.current))?;
+    fs::write(path, format!("{}\n{}\n", format_ddc_bus(*bus), state.current))?;
     Ok(())
 }
 
-fn read_ddc_dim_state(display: &Option<String>) -> Result<u64> {
+fn read_ddc_dim_state(bus: Option<u32>) -> Result<u64> {
     let contents = fs::read_to_string(ddc_dim_state_path()?)?;
     let mut lines = contents.lines();
-    let saved_display = lines.next().unwrap_or("");
+    let saved_bus = lines.next().unwrap_or("");
     let raw = lines
         .next()
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing saved DDC brightness"))?
         .parse()?;
 
-    if saved_display != display.as_deref().unwrap_or("") {
+    if saved_bus != format_ddc_bus(bus) {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
-            "saved DDC display does not match",
+            "saved DDC bus does not match",
         )
         .into());
     }
 
     Ok(raw)
+}
+
+fn format_ddc_bus(bus: Option<u32>) -> String {
+    bus.map(|bus| bus.to_string()).unwrap_or_default()
 }
 
 fn ddc_dim_state_path() -> Result<PathBuf> {
@@ -665,6 +689,9 @@ fn ddc_dim_state_path() -> Result<PathBuf> {
         .join(DDC_DIM_STATE_FILE))
 }
 
+/// Fire the on-screen display for keybind-driven changes. Spawned without
+/// waiting: the OSD is cosmetic and blocking on it would add its whole startup
+/// cost to every brightness step.
 fn notify_quickshell_osd(perceived_fraction: f64) {
     let percent = (perceived_fraction * 100.0).round() as i32;
     let qs_path = match paths::repo_root() {
@@ -676,7 +703,9 @@ fn notify_quickshell_osd(perceived_fraction: f64) {
         .args(["-p"])
         .arg(qs_path)
         .args(["ipc", "call", "brightness", "osd", &percent.to_string()])
-        .output();
+        .stdout(process::Stdio::null())
+        .stderr(process::Stdio::null())
+        .spawn();
 }
 
 fn ensure_nonzero_max(max: u64) -> Result<()> {
@@ -736,11 +765,8 @@ impl fmt::Display for BrightnessDevice {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             BrightnessDevice::Backlight(device) => write!(formatter, "{device}"),
-            BrightnessDevice::Ddc {
-                display: Some(display),
-                ..
-            } => write!(formatter, "ddc:{display}"),
-            BrightnessDevice::Ddc { display: None, .. } => write!(formatter, "ddc"),
+            BrightnessDevice::Ddc { bus: Some(bus), .. } => write!(formatter, "ddc:{bus}"),
+            BrightnessDevice::Ddc { bus: None, .. } => write!(formatter, "ddc"),
         }
     }
 }
@@ -817,14 +843,15 @@ mod tests {
     }
 
     #[test]
-    fn parse_ddc_device_accepts_display_override() {
+    fn parse_ddc_device_accepts_bus_override() {
         assert_eq!(parse_ddc_device("ddc"), Some(None));
-        assert_eq!(parse_ddc_device("ddc:2"), Some(Some("2".to_owned())));
+        assert_eq!(parse_ddc_device("ddc:15"), Some(Some(15)));
         assert_eq!(parse_ddc_device("intel_backlight"), None);
+        assert_eq!(parse_ddc_device("ddc:not-a-bus"), None);
     }
 
     #[test]
-    fn parse_ddc_detect_brief_extracts_display_metadata() {
+    fn parse_ddc_detect_brief_extracts_bus_and_metadata() {
         let output = r#"
 Display 1
    I2C bus:             /dev/i2c-9
@@ -842,17 +869,48 @@ Display 2
             parse_ddc_detect_brief(output),
             vec![
                 DdcDisplay {
-                    display: "1".to_owned(),
+                    bus: 9,
                     connector: Some("HDMI-A-1".to_owned()),
                     label: Some("BNQ ZOWIE XL LCD".to_owned()),
                 },
                 DdcDisplay {
-                    display: "2".to_owned(),
+                    bus: 10,
                     connector: Some("DP-3".to_owned()),
                     label: Some("UltraFine".to_owned()),
                 },
             ]
         );
+    }
+
+    #[test]
+    fn parse_ddc_detect_brief_drops_invalid_display_blocks() {
+        let output = r#"
+Display 1
+   I2C bus:             /dev/i2c-15
+   DRM connector:       card1-DP-3
+   Monitor:             BNQ ZOWIE XL LCD
+
+Invalid display
+   I2C bus:             /dev/i2c-12
+   DRM connector:       card1-eDP-1
+   Monitor:             LGD::
+"#;
+
+        assert_eq!(
+            parse_ddc_detect_brief(output),
+            vec![DdcDisplay {
+                bus: 15,
+                connector: Some("DP-3".to_owned()),
+                label: Some("BNQ ZOWIE XL LCD".to_owned()),
+            }]
+        );
+    }
+
+    #[test]
+    fn parse_i2c_bus_reads_the_device_node_suffix() {
+        assert_eq!(parse_i2c_bus("/dev/i2c-15"), Some(15));
+        assert_eq!(parse_i2c_bus("  /dev/i2c-9  "), Some(9));
+        assert_eq!(parse_i2c_bus("/dev/i2c-none"), None);
     }
 
     #[test]
@@ -878,7 +936,7 @@ Display 2
     #[test]
     fn ddc_dim_ramp_descends_monotonically_to_the_raw_target() {
         let device = BrightnessDevice::Ddc {
-            display: None,
+            bus: None,
             connector: None,
             label: None,
         };
