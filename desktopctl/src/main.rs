@@ -158,7 +158,7 @@ enum BrightnessCommand {
 
 #[derive(Debug, Args)]
 struct BrightnessDeviceArgs {
-    /// Override the auto-detected device. Use a backlight name, `ddc`, or `ddc:<display>`.
+    /// Override the auto-detected device. Use a backlight name, `ddc`, or `ddc:<i2c-bus>`.
     #[arg(long, value_name = "DEVICE")]
     device: Option<String>,
 }
@@ -167,7 +167,7 @@ struct BrightnessDeviceArgs {
 struct BrightnessSetArgs {
     /// Brightness percent, clamped to 0-100.
     percent: u16,
-    /// Override the auto-detected device. Use a backlight name, `ddc`, or `ddc:<display>`.
+    /// Override the auto-detected device. Use a backlight name, `ddc`, or `ddc:<i2c-bus>`.
     #[arg(long, value_name = "DEVICE")]
     device: Option<String>,
 }

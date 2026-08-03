@@ -72,7 +72,7 @@ Managed popups mounted by the overlay host remain:
 | --- | --- | --- |
 | `AudioService.qml` | Volume, mute, sink summary, shared OSD state | Bar volume, audio pane, shell OSD, IPC |
 | `BluetoothService.qml` | Powered state, summary device data, full device/pairing flows | Bar Bluetooth, quick settings, Bluetooth pane |
-| `BrightnessService.qml` | Multi-device brightness status polling and per-device writes through `desktopctl brightness`, covering laptop backlights and DDC/CI external monitors | Bar brightness, Quick Settings, Display pane, and any brightness slider UI |
+| `BrightnessService.qml` | Multi-device brightness status polling and per-device writes through `desktopctl brightness`, covering laptop backlights and DDC/CI external monitors. Writes update the device model optimistically and are never read back; `_writeEpoch`/`_statusEpoch` discard any status payload sampled before a write it cannot reflect | Bar brightness, Quick Settings, Display pane, and any brightness slider UI |
 | `DisplayService.qml` | Monitor refresh/apply and daemon-backed night-light status / override requests | Display pane |
 | `HostCapabilities.qml` | Detects laptop-chassis, Wi-Fi, battery, power-profile, and fingerprint-reader capabilities, while only surfacing interactive power-profile support on laptop-like hosts | Settings host category visibility plus power/fingerprint pane availability |
 | `HyprlandConfigService.qml` | Shared monitor-layout undo/redo state plus Hyprland animation/keybind override editing, save, and clear flows; see the Hyprland pane paragraph under Settings System for the dirty-tracking, keybind-identity, and key-capture session details | Display pane, Hyprland pane, Settings host refresh path |
@@ -110,7 +110,8 @@ brightness changes, and `desktopctl/src/brightness.rs` drives it with
 `qs -p <repo>/config/quickshell ipc call brightness osd ...`.
 - Brightness controls are now device-list based: `desktopctl brightness status
   --json` returns a `devices` array, `config/quickshell/BrightnessService.qml`
-  stages pending writes per device ID, `components/BrightnessSlider.qml` renders
+  stages pending writes per device ID and coalesces them to one in-flight write
+  per device, `components/BrightnessSlider.qml` renders
   shared slider chrome, and the bar / Quick Settings / Display pane filter the
   internal backlight out unless `DisplayService.monitors` contains an enabled
   internal connector such as `eDP-*`, `LVDS-*`, or `DSI-*`. DDC/CI sliders remain
@@ -137,8 +138,9 @@ status read, which avoids transient `hyprsunset` restart gaps from flipping the
 toggle off mid-adjustment; that night-light status poll runs at a 5s baseline
 with a short three-tick 2s confirmation burst after each successful
 night-light command. `BrightnessService.qml` polls at a flat 30s safety-net
-cadence, with event-driven refreshes (monitor hotplug, set completions,
-brightness OSD IPC) covering the common cases. The Display pane's temperature
+cadence, with event-driven refreshes (popup opens, monitor hotplug, brightness
+OSD IPC) covering the common cases; a successful write deliberately does not
+refresh, since the value it sent is already authoritative. The Display pane's temperature
 slider stages the value locally while dragging and commits one
 `desktopctl night-light ... --temp` request on release so `hyprsunset` is not
 restarted on every pointer move.

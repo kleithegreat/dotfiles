@@ -155,7 +155,7 @@ Theming invariants:
 | Command | Current behavior |
 | --- | --- |
 | `brightness status [--json]` | Auto-detects the primary brightness backend and prints the current value; JSON output includes the primary availability/kind/label/raw/fraction/percent fields plus a `devices` array for every readable backlight and DDC/CI brightness device Quickshell can render |
-| `brightness set <percent> [--device <name>]` | Sets an absolute perceived brightness percent through the selected backend and best-effort notifies Quickshell by calling `qs -p <repo>/config/quickshell ipc call brightness osd <percent>` with the actual applied display percentage |
+| `brightness set <percent> [--device <name>]` | Sets an absolute perceived brightness percent through the selected backend. It does not raise the OSD: its only caller is the Quickshell slider, which already shows the value it is setting |
 | `brightness up [--device <name>]` | Applies one perceptual +5% step through the selected backend, then best-effort notifies Quickshell with the actual applied display percentage |
 | `brightness down [--device <name>]` | Same, but one perceptual -5% step |
 | `brightness dim [--device <name>]` | Saves state for the selected backend, dims toward 30% of the current raw brightness over 20 steps, and writes `/tmp/dim-screen.pid` while running. DDC/CI restore state is kept under `$XDG_RUNTIME_DIR/desktopctl/` rather than a shared `/tmp` file |
@@ -164,10 +164,10 @@ Theming invariants:
 Brightness rules:
 
 - Device auto-detection for step/dim/set without `--device` prefers the first backlight name in sorted `/sys/class/backlight` order, then falls back to DDC/CI VCP code `0x10` through `ddcutil`.
-- JSON status lists all readable backlights plus DDC/CI displays discovered through `ddcutil detect --brief`; DDC entries include connector metadata when `ddcutil` reports a DRM connector.
-- `--device <name>` still selects a backlight device; `--device ddc` selects the default DDC display, and `--device ddc:<display>` passes an explicit `ddcutil --display` value.
+- JSON status lists all readable backlights plus DDC/CI displays discovered through `ddcutil detect --brief`; DDC entries include connector metadata when `ddcutil` reports a DRM connector. Blocks headed by `Invalid display` are discarded whole, so a bus that fails DDC checks never contributes a device.
+- `--device <name>` still selects a backlight device; `--device ddc` leaves the DDC display unspecified, and `--device ddc:<bus>` addresses one I2C bus. Every DDC read and write passes `ddcutil --bus --skip-ddc-checks`, never `--display`: display numbers force a full bus enumeration per invocation, and the DDC handshake is redundant on a bus that `detect` already validated. Written values stay verified, so a monitor that rejects or clamps a value still fails the command.
 - If neither a backlight nor DDC/CI brightness is reachable, mutating commands and non-JSON `status` fail; JSON `status` reports `available: false` with an empty `devices` array.
-- `set`, `up`, and `down` emit the Quickshell OSD IPC call today.
+- `up` and `down` emit the Quickshell OSD IPC call, spawned without waiting on it.
 - The old `/tmp/quickshell-brightness` file contract no longer exists.
 
 ### `desktopctl hypr`
