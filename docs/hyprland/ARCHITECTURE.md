@@ -111,9 +111,10 @@ Current host input fragments differ materially:
 | `plugins.conf` | Loading `hyprbars` and `hyprexpo` from `HYPR_PLUGIN_DIR` plus their theme-facing settings |
 | `hypridle.conf` and `hyprlock.conf` | Idle, lock, DPMS, suspend, and lock-screen presentation. `config/hypr/hypridle.conf` explicitly keeps `ignore_systemd_inhibit = false`, so `config/quickshell/IdleInhibitService.qml` can suppress the hypridle timers by holding `systemd-inhibit --what=idle`, and can separately block logind lid-switch handling with `systemd-inhibit --what=handle-lid-switch --mode=block`, but it does not edit these files. |
 
-`flake.nix` pins Hyprland and the official plugin set to their matching v0.56.0
-release tags. This preserves the sourced `.conf` configuration contract and
-prevents a general flake update from advancing Hyprland across an incompatible
+`flake.nix` pins Hyprland to the v0.56.1 release tag and the official plugin
+set to v0.56.0, the newest tag that repository publishes. This preserves the
+sourced `.conf` configuration contract and prevents a general flake update from
+advancing Hyprland across an incompatible
 plugin or configuration API change. `system/configuration.nix` also wires the
 repo-local Hyprland patch stack into the installed compositor and plugin
 packages. The `patchedHyprlandGuiutils` binding
@@ -132,15 +133,16 @@ keeps affected Hyprland render-data initializers on assignment-based setup so
 the local rounded-corner field does not trip designated-initializer ordering on
 the current compiler.
 
-`system/configuration.nix` takes `hyprbars` from the matching v0.56.0
+`system/configuration.nix` takes `hyprbars` from the v0.56.0
 `inputs.hyprland-plugins.packages.${system}.hyprbars`, rebuilt against the
 patched Hyprland headers through `mkPatchedHyprPlugin upstreamHyprPluginPkgs.hyprbars []`.
-The plugin builds unpatched against the release-pinned input.
+The plugin builds unpatched against the release-pinned input; v0.56.0 is the
+latest official plugin tag and still compiles against the 0.56.1 compositor.
 
 `hyprexpo` is supplied by the repo-local package in
 `pkgs/hyprland-plugins/hyprexpo/default.nix`, which builds the maintained
 `sandwichfarm/hyprexpo` fork (pinned by revision) because the official plugin
-flake removed the plugin. The package now tracks the fork's unpatched v0.56.0
+flake removed the plugin. The package now tracks the fork's unpatched v0.56.1
 release, whose upstream Hyprland 0.56 API port builds directly against this
 repo's locked patched Hyprland derivation. The old local compatibility patch is
 gone; the fork itself owns accidental-select protection plus selection,
