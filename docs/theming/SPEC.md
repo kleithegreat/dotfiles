@@ -207,7 +207,6 @@ Constraints:
 | `hyprland` | `standalone` | `~/.config/hypr/colors.conf` |
 | `neovide` | `standalone` | `~/.config/nvim/lua/neovide-theme.lua` |
 | `neovim` | `standalone` | `~/.config/nvim/lua/theme-state.json` |
-| `openchamber` | `command` | `~/.config/openchamber/settings.json` theme selection keys plus `~/.config/openchamber/themes/desktopctl.json` |
 | `opencode` | `concat` | `~/.config/opencode/tui.json` plus `~/.config/opencode/themes/desktopctl.json` |
 | `qt` | `standalone` | qtct, KDE, Kvantum, and editor theme files, with GUI polarity selected by `dark_hint` |
 | `quickshell` | `standalone` | `~/.config/quickshell/GeneratedTheme.json` |
@@ -229,10 +228,10 @@ State changes fan out by ownership, not by CLI convenience.
 
 | State key(s) | Affected targets |
 | --- | --- |
-| `color_scheme` | `alacritty`, `bat`, `ghostty`, `gtksourceview`, `hyprland`, `neovim`, `openchamber`, `opencode`, `qt`, `quickshell`, `snappy_switcher`, `spicetify`, `starship`, `tmux`, `vicinae`, `vscode`, `wallpaper`\*, `where_is_my_sddm_theme`, `zathura`, `zed`, `zsh` |
+| `color_scheme` | `alacritty`, `bat`, `ghostty`, `gtksourceview`, `hyprland`, `neovim`, `opencode`, `qt`, `quickshell`, `snappy_switcher`, `spicetify`, `starship`, `tmux`, `vicinae`, `vscode`, `wallpaper`\*, `where_is_my_sddm_theme`, `zathura`, `zed`, `zsh` |
 | `wallpaper`, `filter_wallpaper` | `wallpaper`, `where_is_my_sddm_theme` |
-| `system_font` | `chromium`, `gtk`, `helium`, `hyprland`, `openchamber`, `qt`, `quickshell`, `snappy_switcher`, `vicinae`, `zed` |
-| `mono_font` | `alacritty`, `chromium`, `ghostty`, `gtk`, `helium`, `hyprland`, `neovide`, `openchamber`, `qt`, `quickshell`, `vscode`, `zed` |
+| `system_font` | `chromium`, `gtk`, `helium`, `hyprland`, `qt`, `quickshell`, `snappy_switcher`, `vicinae`, `zed` |
+| `mono_font` | `alacritty`, `chromium`, `ghostty`, `gtk`, `helium`, `hyprland`, `neovide`, `qt`, `quickshell`, `vscode`, `zed` |
 | `icon_theme` | `gtk`, `qt`, `snappy_switcher`, `vicinae` |
 | `font_size` | `gtk`, `qt`, `quickshell`, `snappy_switcher`, `zed` |
 | `quickshell_font_size_offset` | `quickshell` |
@@ -262,7 +261,6 @@ the documented wallpaper filter exception above.
 | Gedit / GtkSourceView | Reads generated styles from `~/.local/share/libgedit-gtksourceview-300/styles/`; gedit's light/dark source-style selection is theme-owned |
 | Hyprland | Reads `colors.conf` and `appearance-theme.conf` |
 | Neovim / Neovide | Read generated theme state files rather than embedding palette logic in Home Manager. Neovim receives only `background`, normalized from `ColorScheme.appearance`, and always loads its installed Gruvbox scheme. |
-| OpenChamber | Reads desktop-managed `themeId` / `themeVariant` keys from `~/.config/openchamber/settings.json` and the generated `~/.config/openchamber/themes/desktopctl.json`; the target patches only those theme-owned settings keys so OpenChamber keeps owning the rest of `settings.json`. When the existing settings file is unreadable, invalid JSON, or has a non-object root, the target fails loudly and leaves the file untouched (matching `chromium`) instead of replacing it with a theme-only file |
 | OpenCode | Reads the generated global `tui.json` theme selection and the generated `themes/desktopctl.json` palette under `~/.config/opencode/`; the target is intentionally color-only because upstream TUI theming exposes a `theme` selector plus theme-color JSON keys, while later project-local OpenCode config layers can still override the global theme by upstream precedence |
 | Zed | The `zed` target concats `config/zed/base.json` with theme-managed `theme`, `buffer_font_family`, `buffer_font_size`, `ui_font_family`, and `ui_font_size` keys to produce `~/.config/zed/settings.json`. Home Manager does not deploy `zed/settings.json`; the user-owned base lives in the repo at `config/zed/base.json`. Themes whose Zed name comes from an extension (Catppuccin, Tokyo Night, Nord, Rosé Pine, Solarized) require the extension to be installed in Zed once; `nord-light` intentionally maps to the built-in `One Light` so it needs no extension. |
 | Zsh | `home/shell.nix` `programs.zsh.initContent` sources `~/.config/zsh/theme-colors`; the generated fragment only sets `ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE` |
