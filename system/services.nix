@@ -95,6 +95,13 @@ in
   services.displayManager.sddm = {
     enable = true;
     wayland.enable = true;
+    # SDDM opens one greeter window per connected output. Weston's kiosk shell
+    # assigns every toplevel to a single output (whichever holds the pointer),
+    # so both greeter windows pile onto the laptop panel and the external
+    # monitor is left showing nothing but kiosk-shell's black background
+    # surface. KWin honours the per-output placement, so each display gets its
+    # own correctly-sized greeter.
+    wayland.compositor = "kwin";
     theme = "where_is_my_sddm_theme";
     extraPackages = [
       sddmTheme
