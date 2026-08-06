@@ -55,6 +55,15 @@ in
           exit 0
         fi
 
+        # Consume the handoff. `PathExists` re-arms the moment this unit
+        # finishes and fires again while the file is still there, so leaving
+        # the staging file in place spins the service until systemd's start
+        # limiter trips and fails both units -- which is what made every
+        # `nixos-rebuild switch` exit non-zero. The trap runs on failure too:
+        # a stuck file would loop forever, and desktopctl re-stages on every
+        # theme apply, so a dropped sync corrects itself on the next one.
+        trap 'rm -f "${sddmThemeStagingPath}"' EXIT
+
         install -Dm0644 "${sddmThemeStagingPath}" "${sddmThemeBackgroundPath}"
       '';
     };
