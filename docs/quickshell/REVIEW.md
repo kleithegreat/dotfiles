@@ -13,7 +13,7 @@ path and on the 2026-07-01 deslop pass surfaces.
 
 | Severity | Finding | Why it matters |
 | --- | --- | --- |
-| Low | Live shell smoke testing is still needed for popup animation behavior, the shared `SliderTrack`/`Divider`/`SectionLabel` extraction, the `SettingsPaneHeader` pane-header migration, and the 2026-07-01 deslop-pass surfaces (bar tooltips via `BarTooltipArea`, the rebuilt preset-editor field components, the shared Wi-Fi form fields, and the `ActionButton`/`StepperButton` button migrations across the settings panes). | Static QML review cannot prove output-churn, loader-prewarm, or rapid-toggle behavior under the live Quickshell/Hyprland runtime. The shared `SliderTrack` input contract differs per consumer — the audio sliders gate OSD suppression on `pressStarted`/`pressEnded`, the night-light slider commits on release, and the brightness sliders write continuously while dragging — and has only been validated by inspection and `qmllint` parsing, not by interaction. |
+| Low | Live shell smoke testing is still needed for popup animation behavior, the per-consumer `SliderTrack` side effects, the `Divider`/`SectionLabel`/`SettingsPaneHeader` migrations, and the 2026-07-01 deslop-pass surfaces (bar tooltips via `BarTooltipArea`, the rebuilt preset-editor field components, the shared Wi-Fi form fields, and the `ActionButton`/`StepperButton` button migrations across the settings panes). | Static QML review cannot prove output-churn, loader-prewarm, or rapid-toggle behavior under the live Quickshell/Hyprland runtime. This risk has now paid out twice on one control: the brightness sliders could not be dragged at all, first because the Repeater reset on every write destroyed the delegate mid-gesture, and behind that because the enclosing `WheelFlickable` would have stolen the grab anyway (both fixed, see `QUIRKS.md`). Neither is visible in the slider's own QML or to `qmllint`. The per-consumer side effects are still unexercised — the audio sliders gate OSD suppression on `pressStarted`/`pressEnded` and the night-light slider commits on release. |
 | Low | The `BrightnessService` write path no longer reads brightness back after a successful write, trusting the value it sent and the 30s safety-net poll. | If a monitor silently clamps or rejects a `setvcp` (a value below its own minimum, say), the slider will keep showing the requested value for up to 30s before the poll corrects it. Not observed on the BenQ, which accepts and reports back every value tested. |
 
 ## Checkpoint Notes
@@ -22,11 +22,17 @@ path and on the 2026-07-01 deslop pass surfaces.
   rapidly toggle each bar popup, switch Quick Settings into Settings, open the
   Calendar weather page, and verify the notification drawer on both low-refresh
   and high-refresh displays.
-- The shared `SliderTrack` extraction needs an interaction pass: click-to-seek
-  and drag the Quick Settings volume slider, the Audio pane output/input/app
-  sliders, the per-device brightness sliders, and the Display pane night-light
-  temperature slider, confirming the OSD-suppression and night-light
-  commit-on-release behavior still hold. Also confirm the migrated
+- The shared `SliderTrack` interaction pass is partly done. Brightness dragging
+  was broken outright — the Repeater reset destroyed the delegate on the first
+  move — so anything previously "verified" by dragging a brightness slider was
+  never actually exercised. Still to confirm by hand, now that drag works: that
+  the Audio pane and Quick Settings volume sliders suppress the OSD across a
+  whole drag rather than per-step, that the Display pane night-light slider
+  still commits only on release, and that the per-device brightness sliders
+  write continuously while dragging without the 30s status poll clobbering the
+  knob mid-gesture. The knob's `Behavior on x` spring (`sliderSpring: 4`,
+  `sliderDamping: 0.4`) has also never been seen during a real drag and may need
+  retuning or disabling while pressed. Also confirm the migrated
   `SettingsPaneHeader` panes render their header and divider correctly.
 - The 2026-07-01 deslop pass additionally wants a smoke test of: bar tooltips
   (hover each module; change volume/battery/network state while hovered and

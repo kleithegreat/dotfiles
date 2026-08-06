@@ -57,6 +57,13 @@ Rectangle {
         id: area
         disabled: track.disabled
         flat: true
+        // Every slider sits inside a WheelFlickable, and a Flickable filters
+        // its children's mouse events: once a drag passes the platform drag
+        // threshold it takes the grab to scroll, so `positionChanged` stops
+        // arriving here and the knob freezes wherever the press landed. That
+        // left the sliders click-to-set only. Keep the grab -- a drag that
+        // starts on a slider is always meant for the slider, never the scroll.
+        preventStealing: true
         onPressed: (mouse) => { track.pressStarted(); track._emit(mouse.x); }
         onPositionChanged: (mouse) => { if (pressed) track._emit(mouse.x); }
         onReleased: track.pressEnded()
