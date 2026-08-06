@@ -636,13 +636,21 @@ FocusScope {
                     }
 
                     // Brightness
+                    // Keyed on the device *count*, not the device list.
+                    // `BrightnessService` rebuilds `brightnessDevices` into a
+                    // fresh array of fresh objects on every write, and a `var`
+                    // array model cannot be diffed, so binding the model to the
+                    // list resets the Repeater on each write -- destroying this
+                    // delegate, and with it the MouseArea holding the pointer
+                    // grab, on the first move of a drag. Devices are looked up
+                    // by index instead so value writes rebind in place.
                     Repeater {
-                        model: qsPop.brightnessDevices
+                        model: qsPop.brightnessDevices.length
 
                         delegate: Components.BrightnessSlider {
-                            required property var modelData
+                            required property int index
 
-                            brightnessDevice: modelData
+                            brightnessDevice: qsPop.brightnessDevices[index] ?? null
                             valueWidth: qsPop.metricLabelWidth
                         }
                     }

@@ -732,11 +732,18 @@ Components.WheelFlickable {
 
         Components.SectionLabel { visible: root.brightnessDevices.length > 0; text: "BRIGHTNESS" }
 
+        // Keyed on the device count rather than the device list -- see the
+        // matching Repeater in QuickSettingsPopup.qml. Binding the model to
+        // `brightnessDevices` resets this Repeater on every brightness write,
+        // which destroys the delegate mid-drag and drops the slider's pointer
+        // grab, leaving the sliders click-only.
         Repeater {
-            model: root.brightnessDevices
+            model: root.brightnessDevices.length
 
             delegate: ColumnLayout {
-                required property var modelData
+                required property int index
+
+                readonly property var modelData: root.brightnessDevices[index] ?? ({})
 
                 Layout.fillWidth: true
                 spacing: 6
@@ -772,7 +779,7 @@ Components.WheelFlickable {
                 }
 
                 Components.BrightnessSlider {
-                    brightnessDevice: modelData
+                    brightnessDevice: root.brightnessDevices[index] ?? null
                     valueWidth: root.sliderValueWidth
                 }
             }
