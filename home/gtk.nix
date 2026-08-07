@@ -1,22 +1,20 @@
 { lib, pkgs, ... }:
 
 let
+  # Upstream (github.com/RusticBard/Neuwaita) was deleted along with its owner's
+  # account, so rev 112525b2 is unfetchable and unarchived. The tarball vendored
+  # here is recovered from the last local build of that rev and is now the only
+  # copy of this theme; its index.theme already carries the comma-only Inherits
+  # separators KDE's icon loader needs, so no normalization step is left to run.
   neuwaita = pkgs.stdenvNoCC.mkDerivation {
     pname = "neuwaita";
     version = "unstable-2026-03-18";
-    src = pkgs.fetchFromGitHub {
-      owner = "RusticBard";
-      repo = "Neuwaita";
-      rev = "112525b2a97226bb3e8ef4433c039bc514bc2973";
-      sha256 = "sha256-A4yfcB+L1IwHGKhg32gq/E9qMoBF84zsnfl8fvWhYag=";
-    };
+    src = ./neuwaita/neuwaita-112525b2.tar.xz;
     installPhase = ''
       runHook preInstall
 
       mkdir -p $out/share/icons/Neuwaita
       cp -r index.theme scalable Extras $out/share/icons/Neuwaita/
-      substituteInPlace $out/share/icons/Neuwaita/index.theme \
-        --replace-fail 'Inherits=Adwaita, hicolor, breeze' 'Inherits=Adwaita,hicolor,breeze'
       cp -r $out/share/icons/Neuwaita $out/share/icons/Neuwaita-KDE
       substituteInPlace $out/share/icons/Neuwaita-KDE/index.theme \
         --replace-fail 'Name=Neuwaita' 'Name=Neuwaita KDE' \
