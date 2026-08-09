@@ -26,77 +26,55 @@ Prose rots the same way: every AGENTS.md, MEMORY.txt and wiki article tends to o
 
 # Agent Guidelines
 
-Read this file before starting any task in this repository.
+## Documentation
 
-## Before Making Changes
+Each domain has exactly one doc: `docs/<domain>.md`, for the domains `nix`,
+`nvidia`, `grub`, `hyprland`, `tools`, `theming`, `quickshell`, `desktopctl`,
+`sun-schedule`, and `focus-time`. Read the relevant one(s) before working;
+`[[name]]` links between docs point at `docs/<name>.md`.
 
-Study the relevant documentation before writing or modifying code. The documentation
-lives under `docs/` and is organized by domain. Each domain may have up to four
-documents:
+Each doc has two sections and nothing else:
 
-- `SPEC.md` describes design intent, contracts, and expected behavior. Treat it as
-  the authoritative source for what the system should do.
-- `ARCHITECTURE.md` describes the current implementation state — what the code
-  actually does, how data flows, and where things live. Treat it as the map of the
-  codebase.
-- `REVIEW.md` documents known issues, divergences from the spec, and areas for
-  improvement.
-- `QUIRKS.md` documents non-obvious issues, workarounds, and gotchas discovered
-  through debugging. Treat it as operational knowledge for things that are easy to
-  break or misread from the code alone.
+- **Intent** — invariants and design decisions the code cannot express: what
+  must stay true, and why, in the owner's voice. This is the review anchor.
+  When the implementation and Intent conflict, that is a wall in the sense of
+  the header above: stop and surface it, don't patch around it.
+- **Quirks** — non-obvious operational knowledge. Admission test: an entry
+  must name the wrong conclusion a competent agent would reach from the code
+  alone, or the debugging time it would burn. If you cannot state the trap,
+  the entry does not belong.
 
-Start with the spec if one exists, then read the architecture doc, then check the
-review and quirks docs for known issues related to your task. If the task touches
-multiple domains, read all relevant docs.
+The docs never describe the implementation. No file maps, no data-flow
+narratives, no restated command surfaces, no "current state as of <date>" —
+the code is its own map and agents can read it. A doc that drifts into
+describing code is a second source of truth and must be cut back.
 
-The current domains are `nix`, `nvidia`, `grub`, `hyprland`, `tools`,
-`theming`, `quickshell`, `desktopctl`, `sun-schedule`, and `focus-time`.
+After making changes:
 
-## Other Documents
+- Delete or fix any doc statement your change made false. Pruning outranks
+  adding.
+- Add a quirk only if it passes the trap test and came out of real debugging.
+- If your change intentionally diverges from Intent, update Intent (and say
+  so); otherwise fix the implementation, not the doc.
+- If you resolved a `TODO.md` entry, delete the entry.
 
-- `docs/review-audit.md` tracks still-open cross-domain findings. When you
-  resolve one, remove its row rather than leaving a historical status entry.
-- Domains may carry extra topic docs and runbooks (e.g. `docs/nix/fan-control.md`,
-  `docs/nix/bitwarden.md`) and retained historical records (e.g.
-  `docs/nix/ableton-live.md`). Setup runbooks belong under `docs/<domain>/`,
-  not the repo root.
-- `docs/archive/` holds intentionally inert retired modules and runbooks (see
-  `docs/archive/vms/README.md`); nothing there is imported by the live flake.
+Other documents:
 
-For quickshell work, also read `docs/theming/SPEC.md` — the shell is tightly
-coupled to the theming pipeline.
+- `TODO.md` (repo root) — open issues, pending validations, and owner
+  questions. Working near one of these areas? Check it first.
+- `docs/bitwarden.md` — Bitwarden desktop/browser/biometric setup runbook.
+- `docs/ableton-live.md` — retained historical investigation; inert, not
+  active work.
 
-For focus-time work, read `docs/focus-time/SPEC.md` first, then check the other
-documents in that domain. The daemon, SQLite store, runtime JSON, and
-Quickshell pane share one contract.
+## Comments
 
-## After Making Changes
-
-Update any documentation affected by your changes. This is not optional.
-
-- If you changed behavior that a `SPEC.md` describes, verify the spec still matches.
-  If your change intentionally diverges from the spec, update the spec. If it does
-  not, update your implementation.
-- If you changed code that an `ARCHITECTURE.md` describes, update the architecture
-  doc to reflect the new state. Include file paths plus stable references to
-  named constructs, options, attribute sets, sections, or quoted snippets when
-  needed.
-- If you resolved an issue documented in a `REVIEW.md`, remove or update that
-  section.
-- If you changed a workaround or gotcha documented in a `QUIRKS.md`, update that
-  file so it still matches reality.
-- If you introduced a new issue or discovered one during your work, add it to the
-  relevant review doc. If it is a non-obvious debugging-derived workaround or
-  gotcha, add it to the relevant quirks doc too.
-- If your changes affect the documentation structure itself — new domains, renamed
-  docs, changed conventions — update this file.
-
-Do not leave documentation in a state where it contradicts the code.
+A one-line comment stating a local invariant belongs at the code it protects
+— the flag an agent would otherwise remove, the ordering that must not change.
+Anything longer belongs in the domain doc, with the comment reduced to a
+pointer if needed. No narration, no history.
 
 ## File References
 
-Architecture and review docs should cite file paths and stable in-file context
-such as function names, option names, attribute sets, sections, or short quoted
-snippets. Never reference source code by line number or line range. Line
-numbers go stale immediately and cause agents to spend time maintaining brittle
-citations instead of improving the code and docs.
+Docs cite file paths plus stable in-file anchors: function names, option
+names, section headings, short quoted snippets. Never line numbers — they go
+stale immediately.

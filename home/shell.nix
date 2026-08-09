@@ -146,7 +146,7 @@ in
       # one at a time, and each swap trips Hyprland's config watcher, so the
       # watcher is muted for the duration and its prior value restored even on
       # Ctrl-C. The Hyprland-owned Vicinae server caches desktop entries across
-      # generations (docs/nix/QUIRKS.md), so a successful activation replaces it.
+      # generations (docs/nix.md), so a successful activation replaces it.
       # A non-empty $watcher means "activating, and Hyprland is reachable".
       nrs() {
           local action=switch

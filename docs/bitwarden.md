@@ -10,7 +10,7 @@ fingerprint-backed biometric unlock.
   policy at `share/polkit-1/actions/com.bitwarden.Bitwarden.policy`, and only
   system-level packages get polkit policies linked into the system-wide
   actions directory (see nixpkgs#344073 and the "Home Manager packages do not
-  register system-scoped helpers" quirk in `docs/nix/QUIRKS.md`). The package
+  register system-scoped helpers" rule in `docs/nix.md`). The package
   also includes the `desktop_proxy` native messaging binary required for
   browser integration. The package currently needs the narrow
   `electron-39.8.10` insecure-package exception in `system/configuration.nix`.
