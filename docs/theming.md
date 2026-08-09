@@ -66,7 +66,8 @@ KIconThemes only recolors SVGs when the icon theme declares
 `FollowsColorScheme=true`, and upstream Neuwaita inherits fixed-color
 Adwaita/hicolor before Breeze, so KDE action icons stay black on dark schemes.
 Patching Neuwaita itself would leak Breeze's thinner symbolic icons into GTK
-apps. `home/gtk.nix` installs the untouched `Neuwaita` for GTK plus a derived
+apps. the repo-local `pkgs/neuwaita` package ships the untouched `Neuwaita` for
+GTK plus a derived
 `Neuwaita-KDE` wrapper (`FollowsColorScheme=true`,
 `Inherits=Neuwaita,breeze,Adwaita,hicolor`), both with aliases for KDE folder
 names upstream lacks (`folder-blue` etc.); the `qt` target maps the shared

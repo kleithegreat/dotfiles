@@ -10,7 +10,7 @@ rustPlatform.buildRustPackage {
   nativeBuildInputs = [ makeWrapper ];
 
   postUnpack = ''
-    cp -r ${../themes} $sourceRoot/../themes
+    cp -r ${../styling} $sourceRoot/../styling
   '';
 
   postInstall = ''

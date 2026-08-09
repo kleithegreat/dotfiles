@@ -67,10 +67,9 @@ the default build works.
 
 ### Apple rotates `SF-Pro.dmg` behind a stable URL
 The fixed-output hash eventually stops matching upstream bytes — refresh the
-version date and `src.hash` in the repo-local `sf-pro` derivation in
-`overlays/local-packages.nix`. The current DMG's `Payload~` is a plain cpio
-archive (no second gzip unpack); the derivation tries `cpio` and falls back to
-`7z` for older layouts.
+version date and `src.hash` in `pkgs/sf-pro/default.nix`. The current DMG's
+`Payload~` is a plain cpio archive (no second gzip unpack); the derivation
+tries `cpio` and falls back to `7z` for older layouts.
 
 ## Quirks — native optimizations
 
@@ -104,13 +103,14 @@ The `RusticBard` GitHub account was deleted outright; the pinned rev is
 unreachable from every remote, no fork carries it, Software Heritage never
 archived it, and the fixed-output path is not on cache.nixos.org. The theme
 was recovered from a surviving local build and vendored as
-`home/neuwaita/neuwaita-112525b2.tar.xz`. Treat that tarball as irreplaceable;
+`pkgs/neuwaita/neuwaita-112525b2.tar.xz`. Treat that tarball as irreplaceable;
 there is nowhere to re-fetch from. (KDE recoloring wrapper: see [[theming]].)
 
 ### AppImage apps need shell-parent launchers for Vicinae
 Vicinae's detached launcher can treat an AppImage/FHS wrapper handoff as a
-successful launch and lose the real app. The `lmstudio` and `bambu-studio`
-overlays wrap the upstream AppImages and rewrite their desktop files to
+successful launch and lose the real app. The `pkgs/lmstudio` and
+`pkgs/bambu-studio` packages wrap the upstream AppImages and rewrite their
+desktop files to
 absolute `$out/bin/<app>-desktop` launchers that invoke the binary *without*
 `exec`, and normalize `StartupWMClass` to the class Hyprland actually reports.
 After switching, refresh the long-lived Vicinae server (`nrs` does this via
