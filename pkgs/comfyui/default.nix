@@ -66,13 +66,13 @@ let
 in
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "comfyui";
-  version = "0.30.0";
+  version = "0.31.0";
 
   src = fetchFromGitHub {
     owner = "comfyanonymous";
     repo = "ComfyUI";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-+ft9IAthonij5EymzWoAxy9WAlZhXN3AOhodm9Awq5Q=";
+    hash = "sha256-X4i9sSX6veYmWrcfBxu7OX9fR55qcFbSaEr5jdpwTV4=";
   };
 
   dontConfigure = true;

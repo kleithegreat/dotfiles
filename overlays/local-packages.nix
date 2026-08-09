@@ -124,11 +124,11 @@ final: prev: {
   snappy-switcher = final.callPackage ../pkgs/snappy-switcher { };
   sf-pro = final.stdenvNoCC.mkDerivation {
     pname = "sf-pro";
-    version = "2026-06-13";
+    version = "2026-08-08";
 
     src = final.fetchurl {
       url = "https://devimages-cdn.apple.com/design/resources/download/SF-Pro.dmg";
-      hash = "sha256-YxGk8IQ6TS5hagsFx3US0x0uqVBFnPUmzbW5CZageU8=";
+      hash = "sha256-qQlPDem3idc1RO5Q/FKgiE1Kn3/PYt5Sl04yBPOnSmI=";
     };
 
     nativeBuildInputs = [
