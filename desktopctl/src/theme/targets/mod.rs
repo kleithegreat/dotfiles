@@ -442,7 +442,7 @@ pub(crate) mod testsupport {
             .to_path_buf()
     }
 
-    /// Every scheme shipped in `themes/colors`, for tests that assert a
+    /// Every scheme shipped in `styling/colors`, for tests that assert a
     /// property must hold across all of them rather than for a chosen few.
     pub const REPO_SCHEMES: [&str; 14] = [
         "catppuccin-frappe",
@@ -462,7 +462,7 @@ pub(crate) mod testsupport {
     ];
 
     pub fn load_repo_colors(scheme_name: &str) -> ColorScheme {
-        crate::theme::resolve::load_colors(scheme_name, &repo_root().join("themes/colors"))
+        crate::theme::resolve::load_colors(scheme_name, &repo_root().join("styling/colors"))
             .expect("repo color scheme should deserialize")
     }
 

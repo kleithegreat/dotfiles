@@ -1026,7 +1026,7 @@ mod tests {
     }
 
     fn load_repo_colors(scheme_name: &str) -> ColorScheme {
-        resolve::load_colors(scheme_name, &repo_root().join("themes/colors"))
+        resolve::load_colors(scheme_name, &repo_root().join("styling/colors"))
             .expect("repo color scheme should deserialize")
     }
 

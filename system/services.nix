@@ -39,7 +39,7 @@ in
     text = ''
       mkdir -p "${sddmThemeBackgroundDir}"
       if [ ! -e "${sddmThemeBackgroundPath}" ]; then
-        install -Dm0644 ${../wallpapers/lmao.png} "${sddmThemeBackgroundPath}"
+        install -Dm0644 ${../styling/wallpapers/lmao.png} "${sddmThemeBackgroundPath}"
       fi
     '';
   };

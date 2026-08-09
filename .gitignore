@@ -18,16 +18,8 @@ id_*
 
 *.pyc
 
-# Theming generated files
-themes/state.json
-config/alacritty/theme.toml
-config/bat/config
-config/hypr/colors.conf
-config/nvim/lua/theme-state.json
-config/opencode/themes/desktopctl.json
-config/opencode/tui.json
-config/quickshell/GeneratedTheme.json
-config/tmux/colors.conf
-config/zathura/colors
+# Wallpapers are local-only except the SDDM seed the flake embeds
+styling/wallpapers/*
+!styling/wallpapers/lmao.png
 
 .codex

@@ -71,7 +71,7 @@ pub fn persist(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
     let light_theme_name = colors.vicinae_light_theme_name();
     if light_theme_name != theme_name {
         let light_colors =
-            resolve::load_colors(&light_theme_name, &paths::repo_path("themes/colors")?)?;
+            resolve::load_colors(&light_theme_name, &paths::repo_path("styling/colors")?)?;
         write_theme_file(&light_theme_name, &light_colors)?;
     }
 

@@ -16,7 +16,7 @@ const THEME_STATE_TABLE_SCHEMA: &str = "
 ";
 
 pub fn colors_dir() -> io::Result<PathBuf> {
-    Ok(paths::repo_root()?.join("themes/colors"))
+    Ok(paths::repo_root()?.join("styling/colors"))
 }
 
 pub fn legacy_state_path() -> io::Result<PathBuf> {
@@ -548,7 +548,7 @@ mod tests {
                 "  \"hypr_animations_enabled\": true\n",
                 "}}\n"
             ),
-            repo_root().join("wallpapers/lmao.png").display()
+            repo_root().join("styling/wallpapers/lmao.png").display()
         )
     }
 
@@ -568,7 +568,7 @@ mod tests {
 
     #[test]
     fn current_color_scheme_json_deserializes() -> TestResult {
-        let scheme = load_colors("gruvbox-dark", &repo_root().join("themes/colors"))?;
+        let scheme = load_colors("gruvbox-dark", &repo_root().join("styling/colors"))?;
         assert_eq!(scheme.family, "gruvbox");
         assert_eq!(scheme.variant, "dark");
         assert_eq!(scheme.palette.len(), 16);
@@ -773,7 +773,7 @@ mod tests {
 
     #[test]
     fn color_scheme_struct_uses_nested_wire_format() -> TestResult {
-        let text = fs::read_to_string(repo_root().join("themes/colors/gruvbox-dark.json"))?;
+        let text = fs::read_to_string(repo_root().join("styling/colors/gruvbox-dark.json"))?;
         let scheme: ColorScheme = serde_json::from_str(&text)?;
         let value = serde_json::to_value(&scheme)?;
         assert!(value.get("colors").is_some());

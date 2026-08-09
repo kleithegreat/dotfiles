@@ -100,7 +100,7 @@ pub const THEME_STATE_BOOL_FIELDS: [&str; 4] = [
 ];
 
 pub const DEFAULT_COLOR_SCHEME: &str = "gruvbox-dark";
-pub const DEFAULT_WALLPAPER_RELATIVE_PATH: &str = "wallpapers/lmao.png";
+pub const DEFAULT_WALLPAPER_RELATIVE_PATH: &str = "styling/wallpapers/lmao.png";
 pub const DEFAULT_FILTER_WALLPAPER: bool = false;
 pub const DEFAULT_SYSTEM_FONT: &str = "Overpass";
 pub const DEFAULT_MONO_FONT: &str = "JetBrainsMono Nerd Font";
@@ -545,7 +545,7 @@ impl ThemeState {
     pub fn default_state_for_repo_root(repo_root: &Path) -> Self {
         let default_dark_hint = crate::theme::resolve::load_colors(
             DEFAULT_COLOR_SCHEME,
-            &repo_root.join("themes/colors"),
+            &repo_root.join("styling/colors"),
         )
         .map(|colors| colors.is_dark())
         .unwrap_or(DEFAULT_DARK_HINT);
@@ -683,9 +683,9 @@ mod dim_ramp_tests {
     }
 
     fn every_scheme() -> Vec<(String, ColorScheme)> {
-        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../themes/colors");
+        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../styling/colors");
         let mut schemes = Vec::new();
-        for entry in fs::read_dir(dir).expect("themes/colors is readable") {
+        for entry in fs::read_dir(dir).expect("styling/colors is readable") {
             let path = entry.expect("readable entry").path();
             if path.extension().is_none_or(|ext| ext != "json") {
                 continue;

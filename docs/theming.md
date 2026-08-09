@@ -3,8 +3,8 @@
 ## Intent
 
 - One mutable theme state (the `theme_state` table in `desktopctl.db`), a
-  version-controlled scheme catalog (`themes/colors/*.json`) and preset
-  patches (`themes/presets/*.json`), and bounded write surfaces. Generated
+  version-controlled scheme catalog (`styling/colors/*.json`) and preset
+  patches (`styling/presets/*.json`), and bounded write surfaces. Generated
   outputs contain only theming data; base config is never overwritten.
 - Every target declares one assembly strategy — `import`, `concat`,
   `standalone`, or `command` — plus the `ThemeState` keys it consumes.

@@ -605,7 +605,7 @@ fn cmd_list_wallpapers(args: crate::ListWallpapersArgs) -> CliResult<()> {
         current
             .parent()
             .map(Path::to_path_buf)
-            .unwrap_or(map_user_err(paths::repo_path("wallpapers"))?)
+            .unwrap_or(map_user_err(paths::repo_path("styling/wallpapers"))?)
     };
 
     let items = map_user_err(wallpaper_browser::list_wallpapers(&directory))?;
@@ -863,7 +863,7 @@ fn coerce_theme_value(key: &str, value: Value) -> crate::Result<Value> {
 }
 
 fn presets_dir() -> io::Result<PathBuf> {
-    Ok(paths::repo_root()?.join("themes/presets"))
+    Ok(paths::repo_root()?.join("styling/presets"))
 }
 
 fn preset_path(name: &str) -> crate::Result<(String, PathBuf)> {
@@ -1080,7 +1080,7 @@ mod tests {
     }
 
     fn repo_scheme_is_dark(scheme_name: &str) -> crate::Result<bool> {
-        Ok(resolve::load_colors(scheme_name, &repo_root().join("themes/colors"))?.is_dark())
+        Ok(resolve::load_colors(scheme_name, &repo_root().join("styling/colors"))?.is_dark())
     }
 
     #[test]
