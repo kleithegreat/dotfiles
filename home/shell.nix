@@ -11,11 +11,10 @@ let
     "kvm"
     "nixos-test"
   ] ++ lib.optionals enableNativeOptimizations [ "native-optimized-${host.name}" ];
-  nixosRebuildCommand =
-    "sudo nixos-rebuild switch"
-    + lib.optionalString enableNativeOptimizations
-      " --option system-features ${lib.escapeShellArg (lib.concatStringsSep " " rebuildSystemFeatures)}"
-    + " --flake ~/repos/dotfiles#${host.name}";
+  rebuildFlags =
+    lib.optionalString enableNativeOptimizations
+      "--option system-features ${lib.escapeShellArg (lib.concatStringsSep " " rebuildSystemFeatures)} "
+    + "--flake ~/repos/dotfiles#${host.name}";
 in
 
 {
@@ -60,7 +59,6 @@ in
       cat = "bat --paging=never --style=plain";
       catn = "/run/current-system/sw/bin/cat";
       grep = "grep --color=auto";
-      nrs = "hyprctl keyword misc:disable_autoreload true && ${nixosRebuildCommand}; rc=$?; hyprctl keyword misc:disable_autoreload false; if [ $rc -eq 0 ]; then hyprctl dispatch exec 'vicinae server --replace' >/dev/null; fi; (exit $rc)";
     };
 
     plugins = [
@@ -142,6 +140,40 @@ in
 
       mkcd() {
           mkdir -p "$1" && cd "$1"
+      }
+
+      # nixos-rebuild wrapper. Activating actions swap the ~/.config/hypr symlinks
+      # one at a time, and each swap trips Hyprland's config watcher, so the
+      # watcher is muted for the duration and its prior value restored even on
+      # Ctrl-C. The Hyprland-owned Vicinae server caches desktop entries across
+      # generations (docs/nix/QUIRKS.md), so a successful activation replaces it.
+      # A non-empty $watcher means "activating, and Hyprland is reachable".
+      nrs() {
+          local action=switch
+          case "$1" in
+              switch|boot|test|build|dry-build|dry-activate) action=$1; shift ;;
+          esac
+
+          local watcher
+          if [[ $action == switch || $action == test ]]; then
+              watcher=$(hyprctl getoption misc:disable_autoreload 2>/dev/null | awk '/^int:/ { print $2 }')
+          fi
+
+          if [[ -n $watcher ]]; then
+              hyprctl keyword misc:disable_autoreload true >/dev/null
+              trap "hyprctl keyword misc:disable_autoreload $watcher >/dev/null 2>&1" EXIT INT TERM
+          fi
+
+          sudo nixos-rebuild "$action" ${rebuildFlags} "$@"
+          local rc=$?
+
+          if [[ -n $watcher ]]; then
+              trap - EXIT INT TERM
+              hyprctl keyword misc:disable_autoreload "$watcher" >/dev/null
+              (( rc == 0 )) && hyprctl dispatch exec 'vicinae server --replace' >/dev/null
+          fi
+
+          return $rc
       }
 
       # ── bat as manpager ──────────────────────────────────────

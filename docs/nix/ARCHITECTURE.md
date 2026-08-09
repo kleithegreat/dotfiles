@@ -43,7 +43,7 @@ Home Manager layer as of 2026-06-10.
 | `home/default.nix` | Shared Home Manager root module | Shared optimized package derivations, the shared XDG user-dir policy, small activation/git glue, the `browserExtensions` list shared between `programs.chromium.extensions` and the generated `~/.config/net.imput.helium/External Extensions/<id>.json` files in `heliumExtensionFiles`, and imports of the concern-specific Home Manager modules |
 | `home/packages.nix` | Shared package module | The shared `home.packages` selection for CLI tools, desktop apps, editors including Zed, and media tooling, including `brightnessctl` plus `ddcutil` for the unified brightness path, a Discord package override that patches and deploys the native Krisp module through `pkgs/discord-krisp/`, Vicinae as an installed launcher without the Home Manager service enabled, `mission-center` as the GTK system monitor, Nautilus plus the explicit GLib/GDK Pixbuf helpers used for `gsettings` and image thumbnail generation, `lmstudio` and `bambu-studio` through AppImage desktop-entry fixes described in `docs/nix/QUIRKS.md`, KDE's `kimageformats` plugin package so Gwenview can decode HEIC/HEIF images, and the repo-local `comfyui` package, which both hosts get from this shared list because each has an NVIDIA GPU |
 | `home/xdg.nix` | Shared XDG module | Data-driven `xdg.configFile` source maps including the Home Manager-owned Ghostty/Vicinae base configs, host-specific Hyprland file selection through `host.hyprland.*`, a user-level portal config kept aligned with the NixOS Hyprland/GTK portal selection so stale user config cannot force KDE file pickers, user-level desktop-entry shadows for hidden duplicate launchers plus the canonical packaged Bambu Studio desktop file, the VS Code desktop-entry override, and MIME defaults including Gwenview for HEIC/HEIF images |
-| `home/shell.nix` | Shell submodule | Zsh, shell tools, Git, aliases, shell helpers, the `nrs` rebuild wrapper that re-enables Hyprland autoreload and replaces the Hyprland-owned Vicinae server after a successful switch, and sourcing the generated `~/.config/zsh/theme-colors` fragment from `programs.zsh.initContent` |
+| `home/shell.nix` | Shell submodule | Zsh, shell tools, Git, aliases, shell helpers, the `nrs` rebuild function that restores Hyprland autoreload and replaces the Hyprland-owned Vicinae server after a successful activation, and sourcing the generated `~/.config/zsh/theme-colors` fragment from `programs.zsh.initContent` |
 | `home/gtk.nix` | GTK submodule | GTK packages, the upstream-shaped Neuwaita icon theme built from the vendored `home/neuwaita/` tarball (upstream is deleted; see QUIRKS) plus a derived `Neuwaita-KDE` wrapper for Qt/KDE recoloring and Breeze fallback ordering, Neuwaita folder-name aliases for GTK/KDE lookup, and small dconf defaults including Nautilus thumbnail preferences |
 | `desktopctl/default.nix` | Repo Rust package | Builds the `desktopctl` binary and wraps it with `coreutils` plus GeoClue's demo helper directory on `PATH` so solar location lookup can invoke `timeout where-am-i` without relying on ambient session paths |
 | `pkgs/helium/default.nix` | Prebuilt browser package | Fetches the upstream Helium release tarball, auto-patches the bundled ELFs, wraps the upstream launcher with the Chromium-family GTK file-dialog runtime libraries/data plus media/GL library paths, and installs desktop assets using the pin in `pkgs/helium/source.nix` |
@@ -127,11 +127,19 @@ GUI package:
    `~/.config/hypr/keybinds-override-data.lua`, and runs `desktopctl theme sync`.
 4. `sync` materializes only `sync_safe` targets and skips runtime reload hooks.
 
-The `nrs` alias in `home/shell.nix` remains the preferred wrapper for this
-flow. It disables Hyprland config autoreload during the switch, restores it
-afterward, and on successful activation asks Hyprland to run `vicinae server
---replace` so the app launcher refreshes its desktop-entry view of the new
-profile. When native optimizations are enabled, that wrapper also passes the
-target `system-features` list to `nixos-rebuild` so the current daemon can
-schedule host-tagged `requiredSystemFeatures` derivations before the new
-`/etc/nix/nix.conf` is active.
+The `nrs` shell function in `home/shell.nix` remains the preferred wrapper for
+this flow. It takes an optional `nixos-rebuild` action as its first word
+(defaulting to `switch`) and forwards any remaining arguments, so
+`nrs boot` and `nrs --show-trace` both work. For the actions that activate
+(`switch` and `test`) it reads the current `misc:disable_autoreload` value,
+mutes Hyprland's config watcher for the duration, and restores the value it
+found through a `trap ... EXIT INT TERM`, so an interrupted rebuild cannot
+strand the watcher. On a successful activation it asks Hyprland to run
+`vicinae server --replace` so the app launcher refreshes its desktop-entry
+view of the new profile, and it propagates `nixos-rebuild`'s exit status. The
+guard and the Vicinae refresh are both skipped when Hyprland is unreachable,
+so the function still rebuilds from a TTY or over SSH. When native
+optimizations are enabled, it also passes the target `system-features` list to
+`nixos-rebuild` so the current daemon can schedule host-tagged
+`requiredSystemFeatures` derivations before the new `/etc/nix/nix.conf` is
+active.
