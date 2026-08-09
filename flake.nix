@@ -17,10 +17,9 @@
       url = "github:hyprwm/hyprqt6engine";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    vicinae.url = "github:vicinaehq/vicinae";
   };
 
-  outputs = { self, nixpkgs, nixpkgs-claude, home-manager, hyprland, hyprland-plugins, hyprqt6engine, vicinae, ... }:
+  outputs = { self, nixpkgs, nixpkgs-claude, home-manager, hyprland, hyprland-plugins, hyprqt6engine, ... }:
   let
     system = "x86_64-linux";
     localPackagesOverlay = import ./overlays/local-packages.nix;
@@ -41,7 +40,6 @@
         hyprland
         hyprland-plugins
         hyprqt6engine
-        vicinae
         ;
     };
     hosts = {
@@ -96,7 +94,7 @@
             home-manager.users.kevin = import ./home;
             home-manager.extraSpecialArgs = {
               dotfilesPath = self;
-              inherit host vicinae;
+              inherit host;
               inputs = sharedInputs;
               enableNativeOptimizations = enableHostNativeOptimizations;
             };

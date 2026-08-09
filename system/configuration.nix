@@ -151,11 +151,9 @@ in
         system-features = lib.mkIf enableNativeOptimizations (lib.mkAfter [ nativeOptimizations.hostFeature ]);
         substituters = [
           "https://cache.nixos.org"
-          "https://vicinae.cachix.org"
         ];
         trusted-public-keys = [
           "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
-          "vicinae.cachix.org-1:1kDrfienkGHPYbkpNj1mWTr7Fm1+zcenzgTizIcI3oc="
         ];
         auto-optimise-store = true;
       };
@@ -167,7 +165,6 @@ in
       nix.registry = {
         nixpkgs.flake = inputs.nixpkgs;
         hyprland.flake = inputs.hyprland;
-        vicinae.flake = inputs.vicinae;
       };
       # Home Manager reuses the system package set in this flake, so keep the
       # unfree allowlist on the shared `pkgs` instance rather than duplicating it

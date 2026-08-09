@@ -1,4 +1,4 @@
-{ config, pkgs, lib, dotfilesPath, host, vicinae, inputs, enableNativeOptimizations, ... }:
+{ config, pkgs, lib, dotfilesPath, host, inputs, enableNativeOptimizations, ... }:
 
 let
   optimizedPackages = import ../overlays/native-optimized.nix {
@@ -51,7 +51,6 @@ in
     ./shell.nix
     ./gtk.nix
     ./fastfetch.nix
-    vicinae.homeManagerModules.default
     (import ./packages.nix {
       inherit pkgs desktopctl fd p7zip quickshell ripgrep opencodePkg harunaPkg vicinaePkg texlive;
       inherit lspPlugins;

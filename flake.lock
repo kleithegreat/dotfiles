@@ -530,22 +530,6 @@
         "type": "github"
       }
     },
-    "nixpkgs-libxml2": {
-      "locked": {
-        "lastModified": 1751274312,
-        "narHash": "sha256-/bVBlRpECLVzjV19t5KMdMFWSwKLtb5RyXdjz3LJT+g=",
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "50ab793786d9de88ee30ec4e4c24fb4236fc2674",
-        "type": "github"
-      },
-      "original": {
-        "owner": "NixOS",
-        "ref": "nixos-24.11",
-        "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
     "nixpkgs_2": {
       "locked": {
         "lastModified": 1786106723,
@@ -553,38 +537,6 @@
         "owner": "NixOS",
         "repo": "nixpkgs",
         "rev": "f13ff45afd1bb73e640eaa08a7066dbed07e3238",
-        "type": "github"
-      },
-      "original": {
-        "owner": "NixOS",
-        "ref": "nixos-unstable",
-        "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
-    "nixpkgs_3": {
-      "locked": {
-        "lastModified": 1772542754,
-        "narHash": "sha256-WGV2hy+VIeQsYXpsLjdr4GvHv5eECMISX1zKLTedhdg=",
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "8c809a146a140c5c8806f13399592dbcb1bb5dc4",
-        "type": "github"
-      },
-      "original": {
-        "owner": "NixOS",
-        "ref": "nixos-unstable",
-        "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
-    "nixpkgs_4": {
-      "locked": {
-        "lastModified": 1778869304,
-        "narHash": "sha256-30sZNZoA1cqF5JNO9fVX+wgiQYjB7HJqqJ4ztCDeBZE=",
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "d233902339c02a9c334e7e593de68855ad26c4cb",
         "type": "github"
       },
       "original": {
@@ -623,27 +575,7 @@
         "hyprland-plugins": "hyprland-plugins",
         "hyprqt6engine": "hyprqt6engine",
         "nixpkgs": "nixpkgs_2",
-        "nixpkgs-claude": "nixpkgs-claude",
-        "vicinae": "vicinae"
-      }
-    },
-    "soulver-cpp": {
-      "inputs": {
-        "nixpkgs": "nixpkgs_4",
-        "nixpkgs-libxml2": "nixpkgs-libxml2"
-      },
-      "locked": {
-        "lastModified": 1783621734,
-        "narHash": "sha256-YBFO+aurlz2y2hTRN1Kl0RjX6JzHn0mYBmt4zb436Yg=",
-        "owner": "vicinaehq",
-        "repo": "soulver-cpp",
-        "rev": "00e926e2bd03118638c88981f6a67bfa107210c2",
-        "type": "github"
-      },
-      "original": {
-        "owner": "vicinaehq",
-        "repo": "soulver-cpp",
-        "type": "github"
+        "nixpkgs-claude": "nixpkgs-claude"
       }
     },
     "systems": {
@@ -673,41 +605,6 @@
       "original": {
         "owner": "nix-systems",
         "repo": "default-linux",
-        "type": "github"
-      }
-    },
-    "systems_3": {
-      "locked": {
-        "lastModified": 1681028828,
-        "narHash": "sha256-Vy1rq5AaRuLzOxct8nz4T6wlgyUR7zLU309k9mBC768=",
-        "owner": "nix-systems",
-        "repo": "default",
-        "rev": "da67096a3b9bf56a91d16901293e51ba5b49a27e",
-        "type": "github"
-      },
-      "original": {
-        "owner": "nix-systems",
-        "repo": "default",
-        "type": "github"
-      }
-    },
-    "vicinae": {
-      "inputs": {
-        "nixpkgs": "nixpkgs_3",
-        "soulver-cpp": "soulver-cpp",
-        "systems": "systems_3"
-      },
-      "locked": {
-        "lastModified": 1786246339,
-        "narHash": "sha256-1eFnzNyD0cv5q1TTTxJU4SZZB4or9anLGdhByRSHEJc=",
-        "owner": "vicinaehq",
-        "repo": "vicinae",
-        "rev": "6d7d275fb5dcb370b28da86809af14e92a31c70a",
-        "type": "github"
-      },
-      "original": {
-        "owner": "vicinaehq",
-        "repo": "vicinae",
         "type": "github"
       }
     },
