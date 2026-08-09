@@ -248,6 +248,33 @@ in
   # ── bat ──────────────────────────────────────────────────────
   programs.bat.enable = true;
 
+  # ── fastfetch ────────────────────────────────────────────────
+  programs.fastfetch = {
+    enable = true;
+    settings = {
+      logo = {
+        type = "small";
+      };
+      display = {
+        separator = "  ";
+      };
+      modules = [
+        "os"
+        "host"
+        "kernel"
+        "uptime"
+        "packages"
+        "shell"
+        "wm"
+        "terminal"
+        "cpu"
+        "gpu"
+        "memory"
+        "disk"
+      ];
+    };
+  };
+
   # ── Git ──────────────────────────────────────────────────────
   programs.git = {
     enable = true;

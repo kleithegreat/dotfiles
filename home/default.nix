@@ -50,7 +50,6 @@ in
   imports = [
     ./shell.nix
     ./gtk.nix
-    ./fastfetch.nix
     (import ./packages.nix {
       inherit pkgs desktopctl fd p7zip quickshell ripgrep opencodePkg harunaPkg vicinaePkg texlive;
       inherit lspPlugins;
