@@ -19,10 +19,6 @@ pub fn colors_dir() -> io::Result<PathBuf> {
     Ok(paths::repo_root()?.join("styling/colors"))
 }
 
-pub fn legacy_state_path() -> io::Result<PathBuf> {
-    Ok(paths::repo_root()?.join("themes/state.json"))
-}
-
 pub fn load_colors(scheme_name: &str, colors_dir: &Path) -> crate::Result<ColorScheme> {
     let path = colors_dir.join(format!("{scheme_name}.json"));
     if !path.is_file() {
@@ -55,9 +51,7 @@ pub fn load_colors(scheme_name: &str, colors_dir: &Path) -> crate::Result<ColorS
 }
 
 pub fn load_state() -> crate::Result<ThemeState> {
-    let db_path = paths::db_path()?;
-    let legacy_path = legacy_state_path()?;
-    load_state_from_paths(&db_path, &legacy_path)
+    load_state_from_db_path(&paths::db_path()?)
 }
 
 /// Upsert only the given keys so concurrent writers (CLI invocations, the
@@ -77,9 +71,9 @@ pub fn serialize_state(state: &ThemeState) -> crate::Result<String> {
     ))
 }
 
-fn load_state_from_paths(db_path: &Path, legacy_state_path: &Path) -> crate::Result<ThemeState> {
+fn load_state_from_db_path(db_path: &Path) -> crate::Result<ThemeState> {
     let mut connection = open_state_db(db_path)?;
-    initialize_state_storage(&mut connection, db_path, legacy_state_path)?;
+    initialize_state_storage(&mut connection)?;
     load_state_from_connection(&mut connection, db_path)
 }
 
@@ -99,24 +93,8 @@ fn open_state_db(db_path: &Path) -> crate::Result<Connection> {
     Ok(connection)
 }
 
-fn initialize_state_storage(
-    connection: &mut Connection,
-    db_path: &Path,
-    legacy_state_path: &Path,
-) -> crate::Result<()> {
+fn initialize_state_storage(connection: &mut Connection) -> crate::Result<()> {
     if !theme_state_is_empty(connection)? {
-        return Ok(());
-    }
-
-    if legacy_state_path.is_file() {
-        let state = load_state_from_json_path(legacy_state_path)?;
-        save_state_to_connection(&state, connection)?;
-        eprintln!(
-            "Imported theme state from {} into {}. You can delete {}.",
-            legacy_state_path.display(),
-            db_path.display(),
-            legacy_state_path.display()
-        );
         return Ok(());
     }
 
@@ -196,19 +174,6 @@ fn save_state_keys_to_db_path(pairs: &[(&str, &Value)], db_path: &Path) -> crate
     drop(upsert);
     transaction.commit()?;
     Ok(())
-}
-
-fn load_state_from_json_path(state_path: &Path) -> crate::Result<ThemeState> {
-    let value = parse_json_file(state_path)?;
-    let label = state_path.display().to_string();
-    let (value, _) = normalize_theme_state_value(value, &label)?;
-    let state = serde_json::from_value(value).map_err(|error| {
-        invalid_data(format!(
-            "Invalid theme state in {}: {error}",
-            state_path.display()
-        ))
-    })?;
-    Ok(state)
 }
 
 fn normalize_theme_state_value(value: Value, label: &str) -> crate::Result<(Value, Vec<String>)> {
@@ -557,9 +522,8 @@ mod tests {
         let _lock = env_lock();
         let _repo = ScopedEnvVar::set("DESKTOPCTL_REPO", repo_root().as_os_str());
         let db_path = temp_path("state-defaults", "db");
-        let legacy_state_path = temp_path("missing-state", "json");
 
-        let state = load_state_from_paths(&db_path, &legacy_state_path)?;
+        let state = load_state_from_db_path(&db_path)?;
         assert_eq!(state, ThemeState::default_state()?);
 
         remove_file_if_exists(&db_path)?;
@@ -598,19 +562,17 @@ mod tests {
             serde_json::json!({ "alpha": 1, "beta": true }),
         );
 
-        let legacy_path = temp_path("state-source", "json");
         let db_path = temp_path("state-saved", "db");
-        fs::write(
-            &legacy_path,
-            format!("{}\n", serde_json::to_string_pretty(&value)?),
-        )?;
+        let rows = value
+            .as_object()
+            .expect("state fixture should remain a JSON object")
+            .clone();
+        write_state_rows_to_db(&db_path, &rows)?;
 
-        let state = load_state_from_paths(&db_path, &legacy_path)?;
+        let state = load_state_from_db_path(&db_path)?;
         save_state_to_db_path(&state, &db_path)?;
-        let saved: Value = serde_json::from_str(&serialize_state(&load_state_from_paths(
-            &db_path,
-            &temp_path("missing-state", "json"),
-        )?)?)?;
+        let saved: Value =
+            serde_json::from_str(&serialize_state(&load_state_from_db_path(&db_path)?)?)?;
 
         assert_eq!(saved["future_key"], Value::String("still here".to_owned()));
         assert_eq!(
@@ -618,7 +580,6 @@ mod tests {
             serde_json::json!({ "alpha": 1, "beta": true })
         );
 
-        remove_file_if_exists(&legacy_path)?;
         remove_file_if_exists(&db_path)?;
         Ok(())
     }
@@ -626,7 +587,6 @@ mod tests {
     #[test]
     fn partial_theme_state_db_backfills_missing_keys_and_persists_upgrade() -> TestResult {
         let db_path = temp_path("state-partial-db", "db");
-        let legacy_state_path = temp_path("missing-state", "json");
 
         let mut partial =
             ThemeState::default_state_for_repo_root(&repo_root()).to_ordered_json_map();
@@ -639,7 +599,7 @@ mod tests {
         );
         write_state_rows_to_db(&db_path, &partial)?;
 
-        let state = load_state_from_paths(&db_path, &legacy_state_path)?;
+        let state = load_state_from_db_path(&db_path)?;
         assert_eq!(
             state.quickshell_font_size_offset,
             DEFAULT_QUICKSHELL_FONT_SIZE_OFFSET
@@ -660,53 +620,6 @@ mod tests {
             assert!(keys.contains(&key.to_owned()));
         }
 
-        remove_file_if_exists(&db_path)?;
-        remove_file_if_exists(&legacy_state_path)?;
-        Ok(())
-    }
-
-    #[test]
-    fn legacy_theme_state_import_backfills_missing_keys() -> TestResult {
-        let db_path = temp_path("state-import-db", "db");
-        let legacy_path = temp_path("state-import-legacy", "json");
-
-        let mut legacy =
-            ThemeState::default_state_for_repo_root(&repo_root()).to_ordered_json_map();
-        legacy.insert(
-            "color_scheme".to_owned(),
-            Value::String("gruvbox-light".to_owned()),
-        );
-        legacy.remove("dark_hint");
-        legacy.remove("quickshell_font_size_offset");
-        legacy.insert(
-            "future_key".to_owned(),
-            Value::String("still here".to_owned()),
-        );
-        fs::write(
-            &legacy_path,
-            format!(
-                "{}\n",
-                serde_json::to_string_pretty(&Value::Object(legacy))?
-            ),
-        )?;
-
-        let state = load_state_from_paths(&db_path, &legacy_path)?;
-        assert_eq!(state.color_scheme, "gruvbox-light");
-        assert!(!state.dark_hint);
-        assert_eq!(
-            state.quickshell_font_size_offset,
-            DEFAULT_QUICKSHELL_FONT_SIZE_OFFSET
-        );
-        assert_eq!(
-            state.extra.get("future_key"),
-            Some(&Value::String("still here".to_owned()))
-        );
-
-        let keys = state_db_keys(&db_path)?;
-        assert!(keys.contains(&"dark_hint".to_owned()));
-        assert!(keys.contains(&"quickshell_font_size_offset".to_owned()));
-
-        remove_file_if_exists(&legacy_path)?;
         remove_file_if_exists(&db_path)?;
         Ok(())
     }
@@ -746,7 +659,6 @@ mod tests {
     #[test]
     fn theme_state_load_canonicalizes_legacy_mono_font_aliases() -> TestResult {
         let db_path = temp_path("state-alias-db", "db");
-        let legacy_state_path = temp_path("missing-state", "json");
 
         let mut rows = ThemeState::default_state_for_repo_root(&repo_root()).to_ordered_json_map();
         rows.insert(
@@ -755,7 +667,7 @@ mod tests {
         );
         write_state_rows_to_db(&db_path, &rows)?;
 
-        let state = load_state_from_paths(&db_path, &legacy_state_path)?;
+        let state = load_state_from_db_path(&db_path)?;
         assert_eq!(state.mono_font, "JetBrainsMono Nerd Font");
 
         let connection = open_state_db(&db_path)?;
@@ -767,7 +679,6 @@ mod tests {
         assert_eq!(stored, "\"JetBrainsMono Nerd Font\"");
 
         remove_file_if_exists(&db_path)?;
-        remove_file_if_exists(&legacy_state_path)?;
         Ok(())
     }
 
