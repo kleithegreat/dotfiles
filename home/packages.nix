@@ -165,6 +165,7 @@ let
     man-pages-posix
     claude-code
     codex
+    t3code
   ];
 
   kdePackages = with pkgs.kdePackages; [
