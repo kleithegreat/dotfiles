@@ -10,8 +10,8 @@
   (Mesa-only on the laptop, dual NVIDIA+Mesa on the desktop). The shared
   baseline must never set an EGL vendor policy — it would break the other host.
 - Home Manager's only GPU role is selecting which Hyprland env file reaches the
-  session (`config/hypr/env.lua` on the laptop, `hosts/desktop/env.lua` on the
-  desktop) via the `host.hyprland.env` fact.
+  session (`hosts/laptop/env.lua` or `hosts/desktop/env.lua`, deployed as the
+  session's `env-host.lua`) via the `host.hyprland.env` fact.
 - Desktop-only suspend/resume workarounds stay in `hosts/desktop/system.nix`
   until they are proven unnecessary.
 
@@ -33,7 +33,7 @@ Aquamarine parses `AQ_DRM_DEVICES` as a colon-separated list, and by-path
 symlinks (`pci-0000:...`) contain literal colons, so the list splits into
 garbage, no GPU backend is found, and Hyprland exits — the visible symptom is
 SDDM accepting the password and bouncing straight back to the greeter.
-`config/hypr/env.lua` therefore hardcodes `/dev/dri/card2:/dev/dri/card1` on
+`hosts/laptop/env.lua` therefore hardcodes `/dev/dri/card2:/dev/dri/card1` on
 the laptop. Card numbering is not stable across kernel/driver changes; if the
 laptop session dies at login after an update, re-check the card numbers before
 anything else. Revisit by-path only when Aquamarine can represent embedded

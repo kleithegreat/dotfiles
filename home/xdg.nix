@@ -18,6 +18,7 @@ let
     # hypridle/hyprlock are separate apps and still take hyprlang .conf.
     "hypr/hyprland.lua" = dotfilesSource "config/hypr/hyprland.lua";
     "hypr/appearance.lua" = dotfilesSource "config/hypr/appearance.lua";
+    "hypr/env.lua" = dotfilesSource "config/hypr/env.lua";
     "hypr/autostart.lua" = dotfilesSource "config/hypr/autostart.lua";
     "hypr/cursor.lua" = dotfilesSource "config/hypr/cursor.lua";
     "hypr/input.lua" = dotfilesSource "config/hypr/input.lua";
@@ -111,7 +112,7 @@ in
     "hypr/monitors.lua" =
       mkHostConfigFile "monitors"
         "hl.monitor({ output = \"\", mode = \"preferred\", position = \"auto\", scale = \"auto\" })\n";
-    "hypr/env.lua" = mkHostConfigFile "env" "";
+    "hypr/env-host.lua" = mkHostConfigFile "env" "";
 
     # Keep the user-level portal config aligned with the NixOS portal selection;
     # this prevents stale user config from forcing Chromium-family file pickers

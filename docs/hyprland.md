@@ -18,9 +18,11 @@
     `cursor-theme.lua` (plus a hyprlang `colors.conf` kept only for hyprlock);
   - `desktopctl hypr` writes `input-runtime.lua`,
     `animations-override-data.lua`, `keybinds-override-data.lua`;
-  - Home Manager selects `monitors.lua`, `env.lua`, `input-devices.lua`,
-    `autostart-host.lua` per host via the `host.hyprland.*` facts, with
-    fallbacks that must boot on any future host.
+  - Home Manager selects `monitors.lua`, `env-host.lua`, `input-devices.lua`,
+    and `autostart-host.lua` from `hosts/<host>/` via the `host.hyprland.*`
+    facts, with fallbacks that must boot on any future host. Shared session
+    env lives in the static `env.lua`; host files carry only GPU env and
+    host-only settings.
 - Ownership: the theming pipeline and desktopctl never edit base config;
   Quickshell talks to Hyprland only through `hyprctl`/IPC and transient
   `systemd-inhibit` holds, never config writes; the daemon owns `hyprsunset`

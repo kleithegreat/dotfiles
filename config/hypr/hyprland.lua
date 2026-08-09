@@ -3,6 +3,7 @@
 
 require("./monitors")
 require("./env")
+require("./env-host")
 require("./cursor")
 require("./input")
 require("./input-devices")

@@ -50,7 +50,7 @@
           autostartHost = "hosts/laptop/autostart.lua";
           inputDevices = "hosts/laptop/input-devices.lua";
           monitors = "hosts/laptop/monitors.lua";
-          env = "config/hypr/env.lua";
+          env = "hosts/laptop/env.lua";
         };
       };
       desktop = {
