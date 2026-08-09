@@ -88,9 +88,12 @@ in
   home.activation.applyTheme = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     PATH="${lib.makeBinPath [ desktopctl ]}:$PATH"
     mkdir -p "$HOME/.config/hypr"
-    touch "$HOME/.config/hypr/input-runtime.conf"
-    touch "$HOME/.config/hypr/animations-override.conf"
-    touch "$HOME/.config/hypr/keybinds-override.conf"
+    # Seed the desktopctl-managed data tables. An empty file is the "no
+    # overrides" state: the Lua appliers guard their require, and `desktopctl
+    # hypr {animations,keybinds} clear` truncates back to empty.
+    touch "$HOME/.config/hypr/input-runtime.lua"
+    touch "$HOME/.config/hypr/animations-override-data.lua"
+    touch "$HOME/.config/hypr/keybinds-override-data.lua"
     desktopctl theme sync
   '';
 

@@ -11,7 +11,7 @@ There is no current repo-committed generated-file exception.
 | --- | --- | --- |
 | `~/.config/hypr/colors.conf` | `desktopctl` target `hyprland` | `config/hypr/hyprland.conf` `source = ~/.config/hypr/colors.conf` |
 | `~/.config/hypr/appearance-theme.conf` | `desktopctl` target `hypr_appearance` | `config/hypr/appearance.conf` `source = ~/.config/hypr/appearance-theme.conf` |
-| `~/.config/hypr/cursor.conf` | `desktopctl` target `cursor` (via `persist()`) | `config/hypr/hyprland.conf` `source = ~/.config/hypr/cursor.conf` |
+| `~/.config/hypr/cursor-theme.lua` | `desktopctl` target `cursor` (via `persist()`) | `config/hypr/hyprland.conf` `source = ~/.config/hypr/cursor-theme.lua` |
 | `~/.config/nvim/lua/theme-state.json` | `desktopctl` target `neovim` | `config/nvim/lua/plugins/colors.lua` |
 | `~/.config/nvim/lua/neovide-theme.lua` | `desktopctl` target `neovide` | Neovide reads it on startup |
 | `~/.config/quickshell/GeneratedTheme.json` | `desktopctl` target `quickshell` | `config/quickshell/Theme.qml` |
@@ -33,8 +33,8 @@ Home Manager with host-specific content:
 | Sourced path | Origin |
 | --- | --- |
 | `~/.config/hypr/colors.conf` | Theme target `hyprland` |
-| `~/.config/hypr/cursor.conf` | Theme target `cursor` |
-| `~/.config/hypr/appearance-theme.conf` | Theme target `hypr_appearance` (sourced via `appearance.conf`) |
+| `~/.config/hypr/cursor-theme.lua` | Theme target `cursor` |
+| `~/.config/hypr/appearance-theme.conf` | Theme target `hypr_appearance` (sourced via `appearance.lua`) |
 | `~/.config/hypr/input-devices.conf` | Home Manager, host-specific (laptop vs desktop) |
 
 These are not missing — they are intentionally generated at activation or

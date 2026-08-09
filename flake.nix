@@ -8,7 +8,7 @@
       url = "github:nix-community/home-manager/master";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    hyprland.url = "github:hyprwm/Hyprland/v0.56.1";
+    hyprland.url = "github:hyprwm/Hyprland/v0.56.2";
     hyprland-plugins = {
       url = "github:hyprwm/hyprland-plugins/v0.56.0";
       inputs.hyprland.follows = "hyprland";
@@ -49,20 +49,20 @@
         name = "laptop";
         isPhysical = true;
         hyprland = {
-          autostartHost = "hosts/laptop/autostart.conf";
-          inputDevices = "hosts/laptop/input-devices.conf";
-          monitors = "hosts/laptop/monitors.conf";
-          env = "config/hypr/env.conf";
+          autostartHost = "hosts/laptop/autostart.lua";
+          inputDevices = "hosts/laptop/input-devices.lua";
+          monitors = "hosts/laptop/monitors.lua";
+          env = "config/hypr/env.lua";
         };
       };
       desktop = {
         name = "desktop";
         isPhysical = true;
         hyprland = {
-          autostartHost = "hosts/desktop/autostart.conf";
-          inputDevices = "hosts/desktop/input-devices.conf";
-          monitors = "hosts/desktop/monitors.conf";
-          env = "hosts/desktop/env.conf";
+          autostartHost = "hosts/desktop/autostart.lua";
+          inputDevices = "hosts/desktop/input-devices.lua";
+          monitors = "hosts/desktop/monitors.lua";
+          env = "hosts/desktop/env.lua";
         };
       };
     };

@@ -11,7 +11,7 @@ disabled, but it cannot remain enabled with no workspace at all.
 
 **Status:** By design, with laptop-host workarounds.
 
-**Impact / workaround:** `hosts/laptop/monitors.conf` pins workspaces 1-10 to the
+**Impact / workaround:** `hosts/laptop/monitors.lua` pins workspaces 1-10 to the
 BenQ ZOWIE external monitor by EDID description when it is attached. The internal
 `eDP-1` output remains enabled and spatially adjacent while the lid is open, but
 any workspace Hyprland parks there is outside the normal numbered workspace set.
@@ -37,7 +37,7 @@ if (const auto BOUND = Config::workspaceRuleMgr()->getBoundMonitorStringForWS(st
     continue;
 ```
 
-With `hosts/laptop/monitors.conf` pinning 1-10 to the BenQ, an undocked `eDP-1`
+With `hosts/laptop/monitors.lua` pinning 1-10 to the BenQ, an undocked `eDP-1`
 therefore starts on workspace 11. `config/hypr/keybinds.conf` only binds
 workspaces 1-10, so nothing can return to it, and the first window of the session
 is stranded there. Once the user switches away the empty workspace 11 is
@@ -87,7 +87,7 @@ long-lived autostart daemon such as an app launcher keeps that token in its own
 environment, future windows launched through that helper inherit the startup
 workspace token and Hyprland places them on that workspace.
 
-**Status:** Fixed in `config/hypr/autostart.conf`.
+**Status:** Fixed in `config/hypr/autostart.lua`.
 
 **Impact / workaround:** Keep `HL_INITIAL_WORKSPACE_TOKEN`,
 `XDG_ACTIVATION_TOKEN`, and `DESKTOP_STARTUP_ID` out of the D-Bus/systemd
@@ -102,7 +102,7 @@ and back in after rebuilding the config.
 
 **Cause:** XDG portal backends are user services that need the Hyprland session environment, especially `WAYLAND_DISPLAY`, `XDG_CURRENT_DESKTOP`, and the profile paths exported by the NixOS/Home Manager session. If they are activated before that environment is imported into D-Bus and the user manager, the first portal instance can start with incomplete context. Leaving `graphical-session.target` inactive also makes activation timing depend on whichever app touches the portal first.
 
-**Status:** Fixed in `config/hypr/autostart.conf`.
+**Status:** Fixed in `config/hypr/autostart.lua`.
 
 **Impact / workaround:** Keep the environment import, token scrub, `graphical-session.target` start, and explicit XDG portal service start in the first shared `exec-once` command. `exec-shutdown` stops `graphical-session.target` so PartOf-bound user services do not outlive the compositor session.
 
@@ -137,7 +137,7 @@ active user is in the `i2c` group after a rebuild and fresh login.
 ## Hyprland theme fragments are generated, not committed
 
 **Symptom:** After a fresh clone or before the theming pipeline has run,
-`hyprland.conf` and `appearance.conf` source generated theme fragments that do
+`hyprland.conf` and `appearance.lua` source generated theme fragments that do
 not exist yet.
 
 **Cause:** `cursor.conf`, `colors.conf`, and `appearance-theme.conf` are
@@ -173,8 +173,8 @@ Manager again after tracking the file.
 specific mouse still keeps its old per-device feel.
 
 **Cause:** `desktopctl hypr input set ...` writes
-`~/.config/hypr/input-runtime.conf`, which is sourced after
-`input-devices.conf` in `config/hypr/hyprland.conf`. That updates the
+`~/.config/hypr/input-runtime.lua`, which is sourced after
+`input-devices.lua` in `config/hypr/hyprland.conf`. That updates the
 shared `input { ... }` defaults, but device-specific `device { ... }`
 overrides such as the host-specific Logitech sensitivity blocks still apply
 separately in `hosts/*/input-devices.conf`.
@@ -216,7 +216,7 @@ empty class in `hyprctl clients`.
 Wayland class is empty. The window title comes from Qt
 `setApplicationName("Hyprland Polkit Agent")`.
 
-**Status:** Fixed in `config/hypr/rules.conf`.
+**Status:** Fixed in `config/hypr/rules.lua`.
 
 **Impact / workaround:** The rule is now `windowrule = match:title Hyprland
 Polkit Agent, float on, center on`. The title may drift with upstream
@@ -276,8 +276,10 @@ break evaluation before Nix reaches the build phase.
 **Status:** Workaround in place. `system/configuration.nix` wires `hyprexpo`
 from `pkgs/hyprland-plugins/hyprexpo/default.nix`, a repo-local package that
 now builds the maintained `sandwichfarm/hyprexpo` fork (pinned by revision)
-instead of the source removed from the official flake. The pinned v0.56.1
-release builds directly against the release-pinned Hyprland package. The fork renamed
+instead of the source removed from the official flake. The pinned v0.56.1+3
+release builds directly against the release-pinned Hyprland package. The fork's
+`+N` suffixes are its own patch releases on top of a Hyprland minor, so they can
+advance without the compositor pin moving. The fork renamed
 `gap_size` to `gaps_in` / `gaps_out` (`config/hypr/plugins.conf` was updated to
 match). The main
 `hyprland-plugins` is pinned to v0.56.0 for still-shipped plugins such as

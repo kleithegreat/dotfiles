@@ -568,7 +568,7 @@ The most useful next steps, in order, are:
 - Ableton had to stay floating in Hyprland. The repo carried explicit rules
   for class `ableton live 12 lite.exe` and the virtual desktop host window
   `explorer.exe` titled `Ableton - Wine Desktop`; those rules were removed
-  from `config/hypr/rules.conf` along with the rest of the live wiring and
+  from `config/hypr/rules.lua` along with the rest of the live wiring and
   would need to be re-added if the investigation resumes.
 
 ## Useful Checks (removed with the live wiring)

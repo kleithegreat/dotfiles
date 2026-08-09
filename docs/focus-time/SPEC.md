@@ -19,7 +19,7 @@ intentionally descriptive: when the code is ambiguous or weak at a boundary,
 | Path | Owner | Purpose |
 | --- | --- | --- |
 | `desktopctl daemon` | Hyprland session autostart | Foreground entry point that owns focus tracking alongside the solar scheduler |
-| `~/.config/hypr/autostart.conf` | Repo-managed Hyprland config | Starts the daemon with `exec-once` |
+| `~/.config/hypr/autostart.lua` | Repo-managed Hyprland config | Starts the daemon with `exec-once` |
 | `$XDG_DATA_HOME/desktopctl/desktopctl.db` | Focus daemon | Shared persistent SQLite database for focus tracking and theme state |
 | `~/.local/share/desktopctl/desktopctl.db` | Focus daemon | Database fallback when `XDG_DATA_HOME` is unset |
 | `$XDG_DATA_HOME/focustime/focustime.db` | Focus daemon | Legacy focus database imported on first access when the shared `daily_totals` table is empty |

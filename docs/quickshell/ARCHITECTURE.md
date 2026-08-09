@@ -300,7 +300,7 @@ behaviors:
   successful save), because base-config animation lines in
   `config/hypr/appearance.conf` report `overridden=true` from `hyprctl`. The
   Clear button is additionally visible when the persisted override files
-  (`~/.config/hypr/animations-override.conf` or `keybinds-override.conf`) are
+  (`~/.config/hypr/animations-override-data.lua` or `keybinds-override-data.lua`) are
   non-empty, via `hasPersistedOverrides` probed on every `refresh()`. Saving
   still persists the full overridden snapshot (base lines included) — that
   payload model is intentional.
@@ -310,7 +310,7 @@ behaviors:
   After a successful keybinds save, the service refetches binds (desktopctl
   runs `hyprctl reload`, which reorders the list) and `keybindOriginals`
   accumulate across saves within a session, since each save rewrites
-  `keybinds-override.conf` wholesale.
+  `keybinds-override-data.lua` wholesale.
 - The key-capture submap session is owned by the `HyprlandConfigService`
   singleton (`beginCaptureSession` / `endCaptureSession` plus a 10s safety
   timer), so submap teardown survives settings-pane destruction; teardown also

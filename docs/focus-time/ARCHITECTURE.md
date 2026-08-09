@@ -11,7 +11,7 @@ For package installation and Hyprland session startup ownership, see
 
 | Path | Current role | Evidence |
 | --- | --- | --- |
-| `config/hypr/autostart.conf` | Starts `desktopctl daemon` during session startup | The `exec-once = $cleanSessionEnv desktopctl daemon` entry |
+| `config/hypr/autostart.lua` | Starts `desktopctl daemon` during session startup | The `exec-once = $cleanSessionEnv desktopctl daemon` entry |
 | `desktopctl/src/daemon/mod.rs` | Builds the tokio runtime and starts focus, solar, and socket subsystems together | The daemon `run()` / `run_async()` bootstrap |
 | `desktopctl/src/daemon/focus.rs` | Implements the full focus producer: shared-DB initialization, legacy focus-data migration, per-second accumulation, empty-class reseeding, reconnect seeding, socket re-resolution, desktop-file cache, summary building, and atomic JSON replacement | The focus tracker implementation and JSON summary writer in `desktopctl/src/daemon/focus.rs` |
 | `config/quickshell/popups/SettingsPopup.qml` | Mounts the focus-time pane as the "Screen Time" settings category, after the Notifications pane | The `categoryNames` list and settings-detail loader wiring in `config/quickshell/popups/SettingsPopup.qml` |

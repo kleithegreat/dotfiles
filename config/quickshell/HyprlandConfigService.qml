@@ -842,7 +842,7 @@ QtObject {
 
     property Process _persistedProbeProc: Process {
         command: ["bash", "-c",
-            "test -s ~/.config/hypr/animations-override.conf -o -s ~/.config/hypr/keybinds-override.conf"]
+            "test -s ~/.config/hypr/animations-override-data.lua -o -s ~/.config/hypr/keybinds-override-data.lua"]
         running: false
         onExited: (code) => { root.hasPersistedOverrides = code === 0; }
     }

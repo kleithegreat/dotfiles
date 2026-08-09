@@ -48,8 +48,8 @@ Home Manager layer as of 2026-06-10.
 | `desktopctl/default.nix` | Repo Rust package | Builds the `desktopctl` binary and wraps it with `coreutils` plus GeoClue's demo helper directory on `PATH` so solar location lookup can invoke `timeout where-am-i` without relying on ambient session paths |
 | `pkgs/helium/default.nix` | Prebuilt browser package | Fetches the upstream Helium release tarball, auto-patches the bundled ELFs, wraps the upstream launcher with the Chromium-family GTK file-dialog runtime libraries/data plus media/GL library paths, and installs desktop assets using the pin in `pkgs/helium/source.nix` |
 | `pkgs/discord-krisp/` | Discord Krisp package helpers | Contains the local Linux-only backport of the upstream nixpkgs Krisp patcher: `patch-linux.py` bypasses the native module signature check and guards repeated initialization, `patch-voice.py` points `discord_voice` at the user-deployed Krisp module, and `deploy.py` copies the patched module into Discord's writable per-user module directory when the `Discord` launcher starts |
-| `pkgs/comfyui/default.nix`, `pkgs/comfyui/python-packages.nix`, and `pkgs/comfyui/comfyui.sh` | Local ComfyUI package | `default.nix` fetches ComfyUI v0.30.0, builds a `python313` environment carrying the full `requirements.txt` set, and installs the source tree under `$out/share/comfyui` behind the `comfyui.sh` launcher. `python-packages.nix` is the interpreter's `packageOverrides`: it repoints `torch`/`torchvision`/`torchaudio` at the upstream `-bin` wheels under `cudaPackages_13_3`, and adds the seven runtime dependencies nixpkgs does not carry (`comfyui-frontend-package`, `comfyui-workflow-templates`, `comfyui-embedded-docs`, `spandrel`, `comfy-aimdo`, `comfy-kitchen`, `comfy-angle`), all as prebuilt wheels. The `extraPythonPackages` argument is the supported way to satisfy custom node packs that need Python dependencies of their own |
-| `pkgs/hyprland-plugins/hyprexpo/default.nix` | Local Hyprland plugin package | Builds the maintained `sandwichfarm/hyprexpo` fork at v0.56.1 (pinned by revision because the official plugin flake removed Hyprexpo) directly against the patched Hyprland package; upstream now carries the required Hyprland 0.56 API port, so the old local compatibility patch is gone |
+| `pkgs/comfyui/default.nix`, `pkgs/comfyui/python-packages.nix`, and `pkgs/comfyui/comfyui.sh` | Local ComfyUI package | `default.nix` fetches ComfyUI v0.31.0, builds a `python313` environment carrying the full `requirements.txt` set, and installs the source tree under `$out/share/comfyui` behind the `comfyui.sh` launcher. `python-packages.nix` is the interpreter's `packageOverrides`: it repoints `torch`/`torchvision`/`torchaudio` at the upstream `-bin` wheels under `cudaPackages_13_3`, and adds the seven runtime dependencies nixpkgs does not carry (`comfyui-frontend-package`, `comfyui-workflow-templates`, `comfyui-embedded-docs`, `spandrel`, `comfy-aimdo`, `comfy-kitchen`, `comfy-angle`), all as prebuilt wheels. The `extraPythonPackages` argument is the supported way to satisfy custom node packs that need Python dependencies of their own |
+| `pkgs/hyprland-plugins/hyprexpo/default.nix` | Local Hyprland plugin package | Builds the maintained `sandwichfarm/hyprexpo` fork at v0.56.1+3 (pinned by revision because the official plugin flake removed Hyprexpo) directly against the patched Hyprland package; upstream now carries the required Hyprland 0.56 API port, so the old local compatibility patch is gone |
 | `overlays/local-packages.nix` and `flake.nix` `claudeCodeOverlay` | Local package overlays | See the Overlay Usage table below for the full description |
 
 ## Overlay Usage
@@ -122,9 +122,9 @@ GUI package:
 2. The embedded Home Manager module writes managed user files.
 3. The `home.activation.applyTheme` hook in `home/default.nix` prepends
    `pkgs.desktopctl` to `PATH`, bootstraps empty
-   `~/.config/hypr/input-runtime.conf`,
-   `~/.config/hypr/animations-override.conf`, and
-   `~/.config/hypr/keybinds-override.conf`, and runs `desktopctl theme sync`.
+   `~/.config/hypr/input-runtime.lua`,
+   `~/.config/hypr/animations-override-data.lua`, and
+   `~/.config/hypr/keybinds-override-data.lua`, and runs `desktopctl theme sync`.
 4. `sync` materializes only `sync_safe` targets and skips runtime reload hooks.
 
 The `nrs` alias in `home/shell.nix` remains the preferred wrapper for this

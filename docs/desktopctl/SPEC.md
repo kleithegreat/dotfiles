@@ -13,7 +13,7 @@ describing an intended future migration.
 | `desktopctl theme ...` | Theming CLI that reads and writes the shared theme state, applies generated outputs, and manages presets |
 | `desktopctl brightness ...` | Short-lived helpers for multi-device brightness status, perceptual stepping, dimming, restoring, and Quickshell brightness OSD notification |
 | `desktopctl hypr ...` | Hyprland helper surface for `toggle-float`, laptop lid-switch output policy, workspace-pin reclaim, managed shared input settings, and generated animation/keybind override files |
-| `desktopctl launch-quickshell` | Reads cursor env overrides from `~/.config/hypr/cursor.conf`, then launches Quickshell against the repo checkout |
+| `desktopctl launch-quickshell` | Reads cursor env overrides from `~/.config/hypr/cursor-theme.lua`, then launches Quickshell against the repo checkout |
 | `desktopctl night-light ...` | CLI client for daemon-owned `hyprsunset` override state and fallback status reporting |
 | `desktopctl sun status` | Read-only solar-status inspection surface |
 
@@ -29,17 +29,17 @@ describing an intended future migration.
 | `$XDG_RUNTIME_DIR/desktopctl/dim-screen-ddc-state` | `desktopctl brightness` | Per-user DDC/CI dim/restore state |
 | `$XDG_CACHE_HOME/sun-schedule/location.json` | `desktopctl sun` / daemon | Cached latitude/longitude for solar scheduling |
 | `$XDG_CACHE_HOME/desktopctl/wallpaper-previews/*.png` | `desktopctl theme list-wallpapers` | Cache-backed wallpaper preview images consumed by Quickshell |
-| `~/.config/hypr/input-runtime.conf` | `desktopctl hypr input` | Persisted shared Hyprland mouse defaults layered after `input.conf` and `input-devices.conf` |
-| `~/.config/hypr/animations-override.conf` | `desktopctl hypr animations` | Persisted animation overrides layered after `appearance.conf` |
-| `~/.config/hypr/keybinds-override.conf` | `desktopctl hypr keybinds` | Persisted keybind overrides layered after `keybinds.conf` |
+| `~/.config/hypr/input-runtime.lua` | `desktopctl hypr input` | Persisted shared Hyprland mouse defaults layered after `input-defaults.lua` and `input-devices.lua` |
+| `~/.config/hypr/animations-override-data.lua` | `desktopctl hypr animations` | Persisted animation overrides layered after `appearance.lua` |
+| `~/.config/hypr/keybinds-override-data.lua` | `desktopctl hypr keybinds` | Persisted keybind overrides layered after `keybinds.lua` |
 | `~/repos/dotfiles` | `desktopctl` helpers | Default repo-root fallback for Quickshell launch and repo-relative helper paths |
 
 Additional path rules:
 
 - `paths::repo_root()` first honors `DESKTOPCTL_REPO`, then falls back to
   `~/repos/dotfiles`.
-- `desktopctl hypr input status` layers `~/.config/hypr/input.conf` defaults
-  with any managed overrides found in `~/.config/hypr/input-runtime.conf`.
+- `desktopctl hypr input status` layers `~/.config/hypr/input-defaults.lua` defaults
+  with any managed overrides found in `~/.config/hypr/input-runtime.lua`.
 - `desktopctl theme list-wallpapers --json` caches scaled preview images under
   `$XDG_CACHE_HOME/desktopctl/wallpaper-previews/`, keyed by wallpaper path,
   file metadata, and the fixed preview bounds used for Quickshell cards. Each
@@ -60,9 +60,9 @@ Additional path rules:
 | Live `hyprsunset` process lifecycle | `desktopctl daemon` night-light controller | Quickshell and Hyprland request mode changes through `desktopctl night-light ...`; they do not spawn `hyprsunset` directly |
 | Persisted theme state | `desktopctl theme` | Stored in the `theme_state` table inside `desktopctl.db` |
 | Scheduled `dark_hint` reconciliation plus edges at 23:00 and 06:00 local time | `desktopctl daemon` via `theme::set_dark_hint()` | See `docs/sun-schedule/SPEC.md` (Ownership Boundaries) for the canonical `dark_hint` schedule contract; manual `theme set dark_hint` / preset writes remain a separate supported path |
-| Persisted Hyprland mouse defaults | `desktopctl hypr input` | Stored in `~/.config/hypr/input-runtime.conf`, applied live through `hyprctl keyword`, and rolled back if the live apply fails |
-| Persisted Hyprland animation overrides | `desktopctl hypr animations` | Stored in `~/.config/hypr/animations-override.conf` and reloaded through `hyprctl reload` |
-| Persisted Hyprland keybind overrides | `desktopctl hypr keybinds` | Stored in `~/.config/hypr/keybinds-override.conf` and reloaded through `hyprctl reload` |
+| Persisted Hyprland mouse defaults | `desktopctl hypr input` | Stored in `~/.config/hypr/input-runtime.lua`, applied live through `hyprctl keyword`, and rolled back if the live apply fails |
+| Persisted Hyprland animation overrides | `desktopctl hypr animations` | Stored in `~/.config/hypr/animations-override-data.lua` and reloaded through `hyprctl reload` |
+| Persisted Hyprland keybind overrides | `desktopctl hypr keybinds` | Stored in `~/.config/hypr/keybinds-override-data.lua` and reloaded through `hyprctl reload` |
 | Focus-time SQLite writes and JSON summaries | `desktopctl daemon` focus tracker | Quickshell is read-only for this data |
 | Generated theme outputs and runtime side effects | `desktopctl theme` targets | Includes files under `~/.config`, dconf writes, cursor updates, wallpaper apply, and editor/shell state files |
 | Quickshell requests | Quickshell | Quickshell services and the settings host are only requesters; they call `desktopctl` and do not mutate theme state themselves |
@@ -177,18 +177,18 @@ Brightness rules:
 | `hypr toggle-float` | If the active window is tiled, toggles floating, resizes it to `75% 75%`, and centers it; if already floating, toggles floating off |
 | `hypr lid-switch <open/closed/sync> [--internal <monitor>] [--open-spec <spec>]` | Applies the laptop lid monitor policy. `closed` disables the internal monitor only when another output is active, `open` restores the internal monitor with the provided Hyprland monitor spec, and `sync` reads `/proc/acpi/button/lid/*/state` and applies only the closed-lid action when needed. |
 | `hypr reclaim-workspaces` | Reads `hyprctl monitors`, `workspacerules`, and `workspaces`, and dispatches the lowest numbered workspace whose `monitor:` pin matches no connected output when the focused output is parked past the highest such pin on an empty workspace. No-ops when nothing is pinned, when the focused output is already inside the pinned block, when the parked workspace holds windows, or when another output already shows the target. |
-| `hypr input status [--json]` | Prints the effective managed shared input state by layering `~/.config/hypr/input.conf` defaults with `~/.config/hypr/input-runtime.conf` overrides |
-| `hypr input set <key> <value>` | Validates one managed shared input key (`sensitivity`, `accel_profile`, or `scroll_factor`), atomically rewrites `input-runtime.conf`, applies the same value live through `hyprctl keyword`, and restores the previous file if that live apply fails |
-| `hypr animations save <json>` | Validates one JSON payload, rewrites `animations-override.conf`, and reloads Hyprland so the generated overrides apply on top of `appearance.conf` |
-| `hypr animations clear` | Clears all managed animation overrides, rewrites `animations-override.conf` to an empty managed file, and reloads Hyprland |
-| `hypr keybinds save <json>` | Validates one JSON payload (entries whose flags contain `d` must carry a non-empty description, since `bindd` renders the description as its own field), rewrites `keybinds-override.conf`, and reloads Hyprland so the generated remaps apply on top of `keybinds.conf` |
-| `hypr keybinds clear` | Clears all managed keybind overrides, rewrites `keybinds-override.conf` to an empty managed file, and reloads Hyprland |
+| `hypr input status [--json]` | Prints the effective managed shared input state by layering `~/.config/hypr/input-defaults.lua` defaults with `~/.config/hypr/input-runtime.lua` overrides |
+| `hypr input set <key> <value>` | Validates one managed shared input key (`sensitivity`, `accel_profile`, or `scroll_factor`), atomically rewrites `input-runtime.lua`, applies the same value live through `hyprctl keyword`, and restores the previous file if that live apply fails |
+| `hypr animations save <json>` | Validates one JSON payload, rewrites `animations-override-data.lua`, and reloads Hyprland so the generated overrides apply on top of `appearance.lua` |
+| `hypr animations clear` | Clears all managed animation overrides, rewrites `animations-override-data.lua` to an empty managed file, and reloads Hyprland |
+| `hypr keybinds save <json>` | Validates one JSON payload (entries whose flags contain `d` must carry a non-empty description, since `bindd` renders the description as its own field), rewrites `keybinds-override-data.lua`, and reloads Hyprland so the generated remaps apply on top of `keybinds.lua` |
+| `hypr keybinds clear` | Clears all managed keybind overrides, rewrites `keybinds-override-data.lua` to an empty managed file, and reloads Hyprland |
 
 ### `desktopctl launch-quickshell`
 
 | Command | Current behavior |
 | --- | --- |
-| `launch-quickshell` | Reads cursor env overrides from `~/.config/hypr/cursor.conf`, resolves the repo-root Quickshell path, and `exec()`s `quickshell -p <repo>/config/quickshell` |
+| `launch-quickshell` | Reads cursor env overrides from `~/.config/hypr/cursor-theme.lua`, resolves the repo-root Quickshell path, and `exec()`s `quickshell -p <repo>/config/quickshell` |
 | `launch-quickshell --print-env` | Prints `XCURSOR_THEME` \| `HYPRCURSOR_THEME` \| `XCURSOR_SIZE` and exits. Manual debugging aid only — it has no automated consumers |
 
 ### `desktopctl night-light`
@@ -240,7 +240,7 @@ Response shape:
 
 | Surface | Current contract |
 | --- | --- |
-| Home Manager | Installs `desktopctl` into `home.packages`, bootstraps `~/.config/hypr/input-runtime.conf`, `animations-override.conf`, and `keybinds-override.conf`, and runs `desktopctl theme sync` in `home.activation.applyTheme` |
+| Home Manager | Installs `desktopctl` into `home.packages`, bootstraps `~/.config/hypr/input-runtime.lua`, `animations-override-data.lua`, and `keybinds-override-data.lua`, and runs `desktopctl theme sync` in `home.activation.applyTheme` |
 | Hyprland autostart | Starts `desktopctl daemon` and `desktopctl launch-quickshell`, then re-applies wallpaper with `desktopctl theme wallpaper` |
 | Hyprland keybinds | Use `desktopctl brightness`, `desktopctl hypr toggle-float`, laptop-host `desktopctl hypr lid-switch ...` switch binds, and `desktopctl night-light ...` |
 | Hypridle | Uses `desktopctl brightness dim` and `desktopctl brightness restore` |

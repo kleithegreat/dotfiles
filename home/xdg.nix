@@ -14,15 +14,22 @@ let
     filter = path: _type: baseNameOf path != "lazy-lock.json";
   };
   staticConfigSources = lib.mapAttrs (_: source: { inherit source; }) {
-    "hypr/hyprland.conf" = dotfilesSource "config/hypr/hyprland.conf";
-    "hypr/appearance.conf" = dotfilesSource "config/hypr/appearance.conf";
-    "hypr/autostart.conf" = dotfilesSource "config/hypr/autostart.conf";
-    "hypr/input.conf" = dotfilesSource "config/hypr/input.conf";
-    "hypr/keybinds.conf" = dotfilesSource "config/hypr/keybinds.conf";
-    "hypr/rules.conf" = dotfilesSource "config/hypr/rules.conf";
+    # Hyprland itself is configured in Lua (hyprlang was deprecated in 0.55).
+    # hypridle/hyprlock are separate apps and still take hyprlang .conf.
+    "hypr/hyprland.lua" = dotfilesSource "config/hypr/hyprland.lua";
+    "hypr/appearance.lua" = dotfilesSource "config/hypr/appearance.lua";
+    "hypr/autostart.lua" = dotfilesSource "config/hypr/autostart.lua";
+    "hypr/cursor.lua" = dotfilesSource "config/hypr/cursor.lua";
+    "hypr/input.lua" = dotfilesSource "config/hypr/input.lua";
+    "hypr/input-defaults.lua" = dotfilesSource "config/hypr/input-defaults.lua";
+    "hypr/keybinds.lua" = dotfilesSource "config/hypr/keybinds.lua";
+    "hypr/keybinds-override.lua" = dotfilesSource "config/hypr/keybinds-override.lua";
+    "hypr/animations-override.lua" = dotfilesSource "config/hypr/animations-override.lua";
+    "hypr/rules.lua" = dotfilesSource "config/hypr/rules.lua";
+    "hypr/plugins.lua" = dotfilesSource "config/hypr/plugins.lua";
+    "hypr/session.lua" = dotfilesSource "config/hypr/session.lua";
     "hypr/hypridle.conf" = dotfilesSource "config/hypr/hypridle.conf";
     "hypr/hyprlock.conf" = dotfilesSource "config/hypr/hyprlock.conf";
-    "hypr/plugins.conf" = dotfilesSource "config/hypr/plugins.conf";
     "alacritty/alacritty.toml" = dotfilesSource "config/alacritty/alacritty.toml";
     "ghostty/config" = dotfilesSource "config/ghostty/config";
     "tmux/tmux.conf" = dotfilesSource "config/tmux/tmux.conf";
@@ -99,10 +106,12 @@ in
     "nvim/lazy-lock.json".source =
       config.lib.file.mkOutOfStoreSymlink "/home/kevin/repos/dotfiles/config/nvim/lazy-lock.json";
 
-    "hypr/autostart-host.conf" = mkHostConfigFile "autostartHost" "";
-    "hypr/input-devices.conf" = mkHostConfigFile "inputDevices" "";
-    "hypr/monitors.conf" = mkHostConfigFile "monitors" "monitor = ,preferred,auto,1\n";
-    "hypr/env.conf" = mkHostConfigFile "env" "";
+    "hypr/autostart-host.lua" = mkHostConfigFile "autostartHost" "";
+    "hypr/input-devices.lua" = mkHostConfigFile "inputDevices" "";
+    "hypr/monitors.lua" =
+      mkHostConfigFile "monitors"
+        "hl.monitor({ output = \"\", mode = \"preferred\", position = \"auto\", scale = \"auto\" })\n";
+    "hypr/env.lua" = mkHostConfigFile "env" "";
 
     # Keep the user-level portal config aligned with the NixOS portal selection;
     # this prevents stale user config from forcing Chromium-family file pickers

@@ -22,7 +22,7 @@
 **Symptom:** SDDM accepts a correct password, then immediately returns to the greeter because Hyprland aborts during session startup.
 **Cause:** Current Hyprland/Aquamarine parses `AQ_DRM_DEVICES` as a colon-separated list of DRM device paths. Laptop `/dev/dri/by-path/pci-0000:...` symlinks contain literal colons, so the parser splits them into invalid fragments, finds no usable GPU backend, and the compositor exits.
 **Status:** Workaround in place
-**Resolution:** `config/hypr/env.conf` keeps the laptop on `/dev/dri/card2:/dev/dri/card1` for now. Revisit the by-path approach only after Aquamarine supports embedded colons or exposes another stable device selector.
+**Resolution:** `config/hypr/env.lua` keeps the laptop on `/dev/dri/card2:/dev/dri/card1` for now. Revisit the by-path approach only after Aquamarine supports embedded colons or exposes another stable device selector.
 
 ## EGL vendor policy must stay host-specific
 **Symptom:** EGL clients on the desktop can miss the NVIDIA EGL ICD.

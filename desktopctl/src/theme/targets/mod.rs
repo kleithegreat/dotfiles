@@ -401,7 +401,7 @@ const TARGET_REGISTRATIONS: &[TargetRegistration] = &[
     target_registration!(gtksourceview, persist, on_apply),
     target_registration!(helium, persist),
     target_registration!(hypr_appearance),
-    target_registration!(hyprland),
+    target_registration!(hyprland, persist),
     target_registration!(neovide),
     target_registration!(neovim),
     target_registration!(opencode, persist),
@@ -686,20 +686,20 @@ mod tests {
     }
 
     #[test]
-    fn hyprland_output_matches_python_format() {
+    fn hyprland_output_is_a_lua_data_table() {
         let output = text(hyprland::generate(&dummy_colors(), &dummy_state()));
         assert_eq!(
             output,
-            "$theme_bg       = rgb(000000)\n$theme_bg_rgba  = rgba(000000ff)\n$theme_bg_dim   = rgb(010101)\n$theme_bg_dim_rgba = rgba(010101ff)\n$theme_bg1      = rgb(020202)\n$theme_bg1_rgba = rgba(020202ff)\n$theme_bg2      = rgb(030303)\n$theme_bg2_rgba = rgba(030303ff)\n$theme_bg3      = rgb(040404)\n$theme_bg3_rgba = rgba(040404ff)\n$theme_fg       = rgb(f0f0f0)\n$theme_fg_rgba  = rgba(f0f0f0ff)\n$theme_accent   = rgb(3366ff)\n$theme_accent_rgba = rgba(3366ffff)\n$theme_red      = rgb(ff0000)\n$theme_red_rgba = rgba(ff0000ff)\n$theme_green    = rgb(00ff00)\n$theme_green_rgba = rgba(00ff00ff)\n$theme_yellow   = rgb(ffff00)\n$theme_yellow_rgba = rgba(ffff00ff)\n$theme_blue     = rgb(0000ff)\n$theme_blue_rgba = rgba(0000ffff)\n$theme_purple   = rgb(ff00ff)\n$theme_purple_rgba = rgba(ff00ffff)\n$theme_cyan     = rgb(00ffff)\n$theme_cyan_rgba = rgba(00ffffff)\n$theme_orange   = rgb(ff8800)\n$theme_orange_rgba = rgba(ff8800ff)\n$theme_font     = JetBrains Mono Nerd Font\n$theme_sys_font = Overpass\n"
+            "return {\n    bg             = \"rgb(000000)\",\n    bg_rgba        = \"rgba(000000ff)\",\n    bg_dim         = \"rgb(010101)\",\n    bg_dim_rgba    = \"rgba(010101ff)\",\n    bg1            = \"rgb(020202)\",\n    bg1_rgba       = \"rgba(020202ff)\",\n    bg2            = \"rgb(030303)\",\n    bg2_rgba       = \"rgba(030303ff)\",\n    bg3            = \"rgb(040404)\",\n    bg3_rgba       = \"rgba(040404ff)\",\n    fg             = \"rgb(f0f0f0)\",\n    fg_rgba        = \"rgba(f0f0f0ff)\",\n    accent         = \"rgb(3366ff)\",\n    accent_rgba    = \"rgba(3366ffff)\",\n    red            = \"rgb(ff0000)\",\n    red_rgba       = \"rgba(ff0000ff)\",\n    green          = \"rgb(00ff00)\",\n    green_rgba     = \"rgba(00ff00ff)\",\n    yellow         = \"rgb(ffff00)\",\n    yellow_rgba    = \"rgba(ffff00ff)\",\n    blue           = \"rgb(0000ff)\",\n    blue_rgba      = \"rgba(0000ffff)\",\n    purple         = \"rgb(ff00ff)\",\n    purple_rgba    = \"rgba(ff00ffff)\",\n    cyan           = \"rgb(00ffff)\",\n    cyan_rgba      = \"rgba(00ffffff)\",\n    orange         = \"rgb(ff8800)\",\n    orange_rgba    = \"rgba(ff8800ff)\",\n    font           = \"JetBrains Mono Nerd Font\",\n    sys_font       = \"Overpass\",\n}\n"
         );
     }
 
     #[test]
-    fn hypr_appearance_output_matches_python_format() {
+    fn hypr_appearance_output_is_a_lua_data_table() {
         let output = text(hypr_appearance::generate(&dummy_colors(), &dummy_state()));
         assert_eq!(
             output,
-            "general {\n    gaps_in = 4\n    gaps_out = 6\n    border_size = 2\n}\n\ndecoration {\n    rounding = 8\n\n    blur {\n        enabled = true\n        size = 8\n        passes = 2\n    }\n}\n\nanimations {\n    enabled = yes\n}\n"
+            "return {\n    gaps_in            = 4,\n    gaps_out           = 6,\n    border_size        = 2,\n    rounding           = 8,\n    blur_enabled       = true,\n    blur_size          = 8,\n    blur_passes        = 2,\n    animations_enabled = true,\n}\n"
         );
     }
 

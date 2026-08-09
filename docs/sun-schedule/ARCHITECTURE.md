@@ -12,7 +12,7 @@ For package installation and Hyprland session startup ownership, see
 
 | Path | Current role | Evidence |
 | --- | --- | --- |
-| `config/hypr/autostart.conf` | Starts `desktopctl daemon` as part of the Hyprland session | The `exec-once = $cleanSessionEnv desktopctl daemon` entry |
+| `config/hypr/autostart.lua` | Starts `desktopctl daemon` as part of the Hyprland session | The `exec-once = $cleanSessionEnv desktopctl daemon` entry |
 | `desktopctl/src/daemon/mod.rs` | Starts the solar scheduler and socket server with one shared night-light controller alongside the focus tracker | The daemon `run()` / `run_async()` bootstrap |
 | `desktopctl/src/daemon/night_light.rs` | Stores the live `auto` / `on` / `off` mode, remembers the manual temperature, derives the effective state from solar status, tracks pending scheduled `dark_hint` startup reconciliation and edge transitions, and is the only live writer of `hyprsunset` | `Controller`, `update_solar_status()`, `dark_hint_transition()`, `desired_state()`, and `apply_desired_state()` in `desktopctl/src/daemon/night_light.rs` |
 | `desktopctl/src/daemon/solar.rs` | Recomputes solar status at startup, on every solar event, on `SIGUSR1`, and on the 2-hour repair tick (via `spawn_blocking`), then hands the result to the night-light controller for reconciliation; reconcile failures are logged and retried at the next event or repair tick instead of killing the daemon | The scheduler loop and `solar_tick` helper in `desktopctl/src/daemon/solar.rs` |
@@ -38,7 +38,7 @@ For package installation and Hyprland session startup ownership, see
 
 1. Hyprland starts `desktopctl daemon` through the
    `exec-once = $cleanSessionEnv desktopctl daemon` entry in
-   `config/hypr/autostart.conf`.
+   `config/hypr/autostart.lua`.
 2. The daemon bootstrap in `desktopctl/src/daemon/mod.rs` starts the solar scheduler and socket
    server with one shared night-light controller under the shared daemon
    runtime.

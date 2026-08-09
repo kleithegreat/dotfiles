@@ -13,19 +13,19 @@ order:
 | Order | Source | Role |
 | --- | --- | --- |
 | 1 | `~/.config/hypr/monitors.conf` | Output layout |
-| 2 | `~/.config/hypr/env.conf` | Session environment and host-specific env fragments |
-| 3 | `~/.config/hypr/cursor.conf` | Generated cursor environment |
-| 4 | `~/.config/hypr/input.conf` | Shared input defaults |
+| 2 | `~/.config/hypr/env.lua` | Session environment and host-specific env fragments |
+| 3 | `~/.config/hypr/cursor-theme.lua` | Generated cursor environment |
+| 4 | `~/.config/hypr/input-defaults.lua` | Shared input defaults |
 | 5 | `~/.config/hypr/input-devices.conf` | Host-specific device overrides |
-| 6 | `~/.config/hypr/input-runtime.conf` | `desktopctl`-managed shared pointer overrides |
+| 6 | `~/.config/hypr/input-runtime.lua` | `desktopctl`-managed shared pointer overrides |
 | 7 | `~/.config/hypr/colors.conf` | Generated `$theme_*` variables |
 | 8 | `~/.config/hypr/appearance.conf` | Stable appearance defaults plus generated appearance overrides |
-| 9 | `~/.config/hypr/animations-override.conf` | `desktopctl`-managed animation and bezier overrides |
+| 9 | `~/.config/hypr/animations-override-data.lua` | `desktopctl`-managed animation and bezier overrides |
 | 10 | `~/.config/hypr/plugins.conf` | Plugin loading and plugin theming |
 | 11 | `~/.config/hypr/keybinds.conf` | Keybinds and external dispatcher integration |
-| 12 | `~/.config/hypr/keybinds-override.conf` | `desktopctl`-managed keybind overrides |
-| 13 | `~/.config/hypr/rules.conf` | Window and layer rules |
-| 14 | `~/.config/hypr/autostart.conf` | Session bootstrap plus `autostart-host.conf` include |
+| 12 | `~/.config/hypr/keybinds-override-data.lua` | `desktopctl`-managed keybind overrides |
+| 13 | `~/.config/hypr/rules.lua` | Window and layer rules |
+| 14 | `~/.config/hypr/autostart.lua` | Session bootstrap plus `autostart-host.conf` include |
 
 ## Host Selection
 
@@ -41,17 +41,17 @@ Hyprland fragments.
 | --- | --- | --- | --- |
 | `~/.config/hypr/autostart-host.conf` | `hosts/laptop/autostart.conf` | `hosts/desktop/autostart.conf` | Empty file |
 | `~/.config/hypr/input-devices.conf` | `hosts/laptop/input-devices.conf` | `hosts/desktop/input-devices.conf` | Empty file |
-| `~/.config/hypr/monitors.conf` | `hosts/laptop/monitors.conf` | `hosts/desktop/monitors.conf` | `monitor = ,preferred,auto,1` |
-| `~/.config/hypr/env.conf` | `config/hypr/env.conf` | `hosts/desktop/env.conf` | Empty file |
+| `~/.config/hypr/monitors.conf` | `hosts/laptop/monitors.lua` | `hosts/desktop/monitors.conf` | `monitor = ,preferred,auto,1` |
+| `~/.config/hypr/env.lua` | `config/hypr/env.lua` | `hosts/desktop/env.conf` | Empty file |
 
-The remaining source-graph files — `hyprland.conf`, `appearance.conf`,
-`input.conf`, `keybinds.conf`, `rules.conf`, `plugins.conf`, `autostart.conf`,
+The remaining source-graph files — `hyprland.conf`, `appearance.lua`,
+`input-defaults.lua`, `keybinds.lua`, `rules.lua`, `plugins.conf`, `autostart.conf`,
 `hypridle.conf`, and `hyprlock.conf` — are deployed identically on all hosts
 from `config/hypr/` via the shared `xdg.configFile` mappings in `home/xdg.nix`.
 
-Home Manager now also bootstraps empty `~/.config/hypr/input-runtime.conf`,
-`~/.config/hypr/animations-override.conf`, and
-`~/.config/hypr/keybinds-override.conf`
+Home Manager now also bootstraps empty `~/.config/hypr/input-runtime.lua`,
+`~/.config/hypr/animations-override-data.lua`, and
+`~/.config/hypr/keybinds-override-data.lua`
 on every host before running `desktopctl theme sync`
 through the `home.activation.applyTheme` hook in `home/default.nix`.
 `desktopctl hypr input set ...` rewrites that
@@ -90,10 +90,10 @@ Current host input fragments differ materially:
 | --- | --- |
 | `colors.conf` | Generated palette, font, and semantic `$theme_*` variables |
 | `appearance-theme.conf` | Generated runtime appearance values such as gaps, borders, rounding, blur, and animation toggles |
-| `input-runtime.conf` | Generated runtime pointer overrides written by `desktopctl hypr input` |
-| `animations-override.conf` | Generated bezier curves and per-animation overrides written by `desktopctl hypr animations` |
-| `keybinds-override.conf` | Generated unbind + rebind pairs written by `desktopctl hypr keybinds` |
-| `appearance.conf` | Stable compositor defaults that source `appearance-theme.conf`; the static `dwindle` block keeps `preserve_split`, while pseudotiling is controlled at runtime through the `pseudo` dispatcher binding in `keybinds.conf` |
+| `input-runtime.lua` | Generated runtime pointer overrides written by `desktopctl hypr input` |
+| `animations-override-data.lua` | Generated bezier curves and per-animation overrides written by `desktopctl hypr animations` |
+| `keybinds-override-data.lua` | Generated unbind + rebind pairs written by `desktopctl hypr keybinds` |
+| `appearance.lua` | Stable compositor defaults that source `appearance-theme.conf`; the static `dwindle` block keeps `preserve_split`, while pseudotiling is controlled at runtime through the `pseudo` dispatcher binding in `keybinds.lua` |
 | `hyprlock.conf` | Sources `colors.conf` so the lock screen shares the compositor palette |
 | `plugins.conf` | Consumes the same theme variables for `hyprbars` and `hyprexpo` |
 
@@ -101,17 +101,17 @@ Current host input fragments differ materially:
 
 | File | Owns |
 | --- | --- |
-| `input.conf` | Shared keyboard, pointer, and cursor defaults that remain the fallback when no runtime override exists; gestures live only in `hosts/laptop/input-devices.conf` |
-| `input-runtime.conf` | Shared mouse defaults written by `desktopctl hypr input`; the file is sourced after `input-devices.conf` in `config/hypr/hyprland.conf`, so it layers on top of the shared base config without editing static or host fragments. The rewrite logic lives in `desktopctl/src/hypr.rs`. |
-| `animations-override.conf` | Bezier curve definitions and per-animation overrides written by `desktopctl hypr animations`; sourced after `appearance.conf` so GUI-modified animations layer on top of hand-edited base animations. Only overridden animations are written; untouched animations keep their `appearance.conf` values. |
-| `keybinds-override.conf` | Unbind + rebind pairs written by `desktopctl hypr keybinds`; sourced after `keybinds.conf` so GUI-remapped keybinds replace their original combos. Uses concrete resolved values rather than `$mainMod` variables. |
-| `autostart.conf` and `autostart-host.conf` | Shared session bootstrap lives in `config/hypr/autostart.conf`, which defines the `$cleanSessionEnv` token scrubber, exports `SSH_AUTH_SOCK` to the gcr-ssh-agent socket path `$XDG_RUNTIME_DIR/gcr/ssh` (matching the `home/shell.nix` fallback) inside the first `exec-once` so `dbus-update-activation-environment --systemd --all` pushes it into the D-Bus/systemd activation environments, clears one-shot launch/workspace tokens before syncing the session environment into D-Bus/systemd activation, starts `graphical-session.target`, the XDG portal services, and `hyprpolkitagent`, stops `graphical-session.target` on Hyprland shutdown, starts `desktopctl daemon`, Quickshell, Vicinae server, wallpaper bootstrap, `hypridle`, and Snappy Switcher through `$cleanSessionEnv`, then sources `~/.config/hypr/autostart-host.conf` for host-only additions such as Logitech mouse tuning. This export does not change Hyprland's own environment for later `exec`/`exec-once` children — the compositor env is fixed at launch. Easy Effects and Bitwarden remain installed but are no longer session autostarts. Wallpaper selection itself remains owned by the theming pipeline's `wallpaper` target (`docs/theming/SPEC.md`). |
-| `keybinds.conf` | Primary modifier scheme, descriptive `bindd` / `bindde` bindings, directional focus on `SUPER+Arrow`, workspace cycling on `SUPER+ALT+Left/Right`, media/brightness repeat binds, Quickshell IPC binds that resolve the shell path through `${DESKTOPCTL_REPO:-$HOME/repos/dotfiles}`, and external launcher/switcher actions |
-| `rules.conf` | Floating/dialog rules, app-specific geometry, layer rules (blur on `vicinae` with `ignore_alpha 0`, blur on `quickshell:.*` with `ignore_alpha 0.79` so near-opaque shell panels blur without halos on transparent margins), a `fullscreen_state 2 2` override for the old XWayland `Minecraft 1.10.2` client so it covers Quickshell's reserved top bar space, and plugin rule glue including `hyprbars:no_bar` exclusions for client-side-decorated apps and Discord's `Discord Updater` loading window |
+| `input-defaults.lua` | Shared keyboard, pointer, and cursor defaults that remain the fallback when no runtime override exists; gestures live only in `hosts/laptop/input-devices.conf` |
+| `input-runtime.lua` | Shared mouse defaults written by `desktopctl hypr input`; the file is sourced after `input-devices.lua` in `config/hypr/hyprland.conf`, so it layers on top of the shared base config without editing static or host fragments. The rewrite logic lives in `desktopctl/src/hypr.rs`. |
+| `animations-override-data.lua` | Bezier curve definitions and per-animation overrides written by `desktopctl hypr animations`; sourced after `appearance.lua` so GUI-modified animations layer on top of hand-edited base animations. Only overridden animations are written; untouched animations keep their `appearance.lua` values. |
+| `keybinds-override-data.lua` | Unbind + rebind pairs written by `desktopctl hypr keybinds`; sourced after `keybinds.lua` so GUI-remapped keybinds replace their original combos. Uses concrete resolved values rather than `$mainMod` variables. |
+| `autostart.conf` and `autostart-host.conf` | Shared session bootstrap lives in `config/hypr/autostart.lua`, which defines the `$cleanSessionEnv` token scrubber, exports `SSH_AUTH_SOCK` to the gcr-ssh-agent socket path `$XDG_RUNTIME_DIR/gcr/ssh` (matching the `home/shell.nix` fallback) inside the first `exec-once` so `dbus-update-activation-environment --systemd --all` pushes it into the D-Bus/systemd activation environments, clears one-shot launch/workspace tokens before syncing the session environment into D-Bus/systemd activation, starts `graphical-session.target`, the XDG portal services, and `hyprpolkitagent`, stops `graphical-session.target` on Hyprland shutdown, starts `desktopctl daemon`, Quickshell, Vicinae server, wallpaper bootstrap, `hypridle`, and Snappy Switcher through `$cleanSessionEnv`, then sources `~/.config/hypr/autostart-host.conf` for host-only additions such as Logitech mouse tuning. This export does not change Hyprland's own environment for later `exec`/`exec-once` children — the compositor env is fixed at launch. Easy Effects and Bitwarden remain installed but are no longer session autostarts. Wallpaper selection itself remains owned by the theming pipeline's `wallpaper` target (`docs/theming/SPEC.md`). |
+| `keybinds.lua` | Primary modifier scheme, descriptive `bindd` / `bindde` bindings, directional focus on `SUPER+Arrow`, workspace cycling on `SUPER+ALT+Left/Right`, media/brightness repeat binds, Quickshell IPC binds that resolve the shell path through `${DESKTOPCTL_REPO:-$HOME/repos/dotfiles}`, and external launcher/switcher actions |
+| `rules.lua` | Floating/dialog rules, app-specific geometry, layer rules (blur on `vicinae` with `ignore_alpha 0`, blur on `quickshell:.*` with `ignore_alpha 0.79` so near-opaque shell panels blur without halos on transparent margins), a `fullscreen_state 2 2` override for the old XWayland `Minecraft 1.10.2` client so it covers Quickshell's reserved top bar space, and plugin rule glue including `hyprbars:no_bar` exclusions for client-side-decorated apps and Discord's `Discord Updater` loading window |
 | `plugins.conf` | Loading `hyprbars` and `hyprexpo` from `HYPR_PLUGIN_DIR` plus their theme-facing settings |
 | `hypridle.conf` and `hyprlock.conf` | Idle, lock, DPMS, suspend, and lock-screen presentation. `config/hypr/hypridle.conf` explicitly keeps `ignore_systemd_inhibit = false`, so `config/quickshell/IdleInhibitService.qml` can suppress the hypridle timers by holding `systemd-inhibit --what=idle`, and can separately block logind lid-switch handling with `systemd-inhibit --what=handle-lid-switch --mode=block`, but it does not edit these files. |
 
-`flake.nix` pins Hyprland to the v0.56.1 release tag and the official plugin
+`flake.nix` pins Hyprland to the v0.56.2 release tag and the official plugin
 set to v0.56.0, the newest tag that repository publishes. This preserves the
 sourced `.conf` configuration contract and prevents a general flake update from
 advancing Hyprland across an incompatible
@@ -137,12 +137,12 @@ the current compiler.
 `inputs.hyprland-plugins.packages.${system}.hyprbars`, rebuilt against the
 patched Hyprland headers through `mkPatchedHyprPlugin upstreamHyprPluginPkgs.hyprbars []`.
 The plugin builds unpatched against the release-pinned input; v0.56.0 is the
-latest official plugin tag and still compiles against the 0.56.1 compositor.
+latest official plugin tag and still compiles against the 0.56.2 compositor.
 
 `hyprexpo` is supplied by the repo-local package in
 `pkgs/hyprland-plugins/hyprexpo/default.nix`, which builds the maintained
 `sandwichfarm/hyprexpo` fork (pinned by revision) because the official plugin
-flake removed the plugin. The package now tracks the fork's unpatched v0.56.1
+flake removed the plugin. The package now tracks the fork's unpatched v0.56.1+3
 release, whose upstream Hyprland 0.56 API port builds directly against this
 repo's locked patched Hyprland derivation. The old local compatibility patch is
 gone; the fork itself owns accidental-select protection plus selection,
@@ -154,7 +154,7 @@ Monitor behavior follows the same host split as inputs:
   `1920x1080@120.00` on `0x0`, leaves `eDP-1` on `auto` placement so it becomes
   secondary when that external display is present and falls back to the origin
   when it is not, and keeps a fallback `monitor = , preferred, auto, 1` rule for
-  everything else. `hosts/laptop/monitors.conf` also pins workspaces 1-10 to
+  everything else. `hosts/laptop/monitors.lua` also pins workspaces 1-10 to
   `desc:BNQ ZOWIE XL LCD EB12M01465SL0` when that monitor exists; Hyprland still
   gives every enabled output an active workspace, but the numbered workspace set
   stays on the external display instead of being assigned to the laptop panel.
