@@ -8,7 +8,7 @@ let
     inherit lib host enableNativeOptimizations;
   };
   optimizedPackages = import ../overlays/native-optimized.nix {
-    inherit lib inputs host enableNativeOptimizations;
+    inherit lib host enableNativeOptimizations;
   };
   optimizedPkgs = pkgs.appendOverlays [ optimizedPackages.overlay ];
   appendPatches = patches: drv:

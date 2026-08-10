@@ -1,8 +1,8 @@
-{ config, pkgs, lib, dotfilesPath, host, inputs, enableNativeOptimizations, ... }:
+{ config, pkgs, lib, dotfilesPath, host, enableNativeOptimizations, ... }:
 
 let
   optimizedPackages = import ../overlays/native-optimized.nix {
-    inherit lib inputs host enableNativeOptimizations;
+    inherit lib host enableNativeOptimizations;
   };
   optimizedPkgs = pkgs.appendOverlays [ optimizedPackages.overlay ];
   inherit (optimizedPkgs)
@@ -20,7 +20,7 @@ let
   snappySwitcherPkg = pkgs.snappy-switcher;
   bambuStudioPkg = pkgs.bambu-studio;
   vicinaePkg = pkgs.vicinae;
-  texlive = optimizedPkgs.texlive.withPackages (ps: with ps; [
+  texlive = pkgs.texlive.withPackages (ps: with ps; [
     scheme-small
     latexmk
     tikz-cd

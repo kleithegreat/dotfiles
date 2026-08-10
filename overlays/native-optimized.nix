@@ -11,7 +11,7 @@
   flake, so `system/configuration.nix` and `home/default.nix` apply the same
   helper directly to those derivations.
 */
-{ lib, inputs, host, enableNativeOptimizations ? false }:
+{ lib, host, enableNativeOptimizations ? false }:
 
 let
   nativeOptimizations = import ../system/native-optimizations.nix {
@@ -19,23 +19,9 @@ let
   };
 
   inherit (nativeOptimizations)
-    cFlags
     optimizeCCPackage
     optimizeRustPackage
-    requireNativeBuildHost
     ;
-
-  mapNativeDerivations =
-    value:
-    if lib.isDerivation value then
-      requireNativeBuildHost value
-    else if builtins.isAttrs value then
-      let
-        mapped = lib.mapAttrs (_: mapNativeDerivations) (lib.removeAttrs value [ "recurseForDerivations" ]);
-      in
-      if value.recurseForDerivations or false then lib.recurseIntoAttrs mapped else mapped
-    else
-      value;
 in
 {
   inherit optimizeCCPackage optimizeRustPackage;
@@ -58,6 +44,16 @@ in
         #   pulling in nix (via nix-manual -> rsync -> lz4) and essentially
         #   every NixOS package that depends on systemd. Same cascade class as
         #   zstd.
+        # - texlive: the custom stdenv and the host `requiredSystemFeatures`
+        #   tag were applied across the whole package set, so all ~1500 texlive
+        #   packages lost cache hits -- including the pure-data font and style
+        #   packages that contain no compiled code. Rebuilding them from source
+        #   means refetching every upstream tarball over `mirror://texhistoric`,
+        #   whose first mirror is frequently unreachable, and neither
+        #   cache.nixos.org nor tarballs.nixos.org carries the `.source`
+        #   outputs. Plain nixpkgs needs 7 trivial derivations and 45 MiB of
+        #   substitutes where the optimized set needed 1599 builds, and TeX is
+        #   bound by file I/O and macro expansion rather than codegen.
         pipewire = optimizeCCPackage prev.pipewire;
         wireplumber = optimizeCCPackage prev.wireplumber;
         lsp-plugins = optimizeCCPackage prev.lsp-plugins;
@@ -67,18 +63,5 @@ in
         ripgrep = optimizeRustPackage prev.ripgrep;
         fd = optimizeRustPackage prev.fd;
         desktopctl = optimizeRustPackage prev.desktopctl;
-
-        texlive =
-          let
-            optimizedTexlive = final.callPackage (inputs.nixpkgs.outPath + "/pkgs/tools/typesetting/tex/texlive") {
-              stdenv = prev.withCFlags cFlags prev.stdenv;
-            };
-            taggedTexlive = mapNativeDerivations optimizedTexlive;
-          in
-          taggedTexlive
-          // {
-            combine = pkgList: requireNativeBuildHost (optimizedTexlive.combine pkgList);
-            withPackages = f: requireNativeBuildHost (optimizedTexlive.withPackages f);
-          };
       };
 }
