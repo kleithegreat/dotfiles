@@ -31,12 +31,33 @@ let
       '';
     });
 
+  # Hyprland 0.56.2 asks for `find_package(glaze 7...<8)` while nixpkgs has
+  # moved on to glaze 8, so CMake falls back to fetching glaze v7.2.0 over the
+  # network and dies in the sandbox. Keep a 7.x around for Hyprland only,
+  # mirroring the SSL/interop toggles from the flake's own glaze-hyprland
+  # overlay. Drop once the Hyprland input carries upstream's unbounded
+  # find_package.
+  glazeForHyprland =
+    (pkgs.glaze.override {
+      enableSSL = false;
+      enableInterop = false;
+    }).overrideAttrs (_: rec {
+      version = "7.9.1";
+      src = pkgs.fetchFromGitHub {
+        owner = "stephenberry";
+        repo = "glaze";
+        tag = "v${version}";
+        hash = "sha256-NRRq5MGF2f5PW0teYnq58ELzson+U6KHVPaY6r30KLA=";
+      };
+    });
+
   patchedHyprland = nativeOptimizations.optimizeCCPackage (
     appendPatches [
       ../patches/hyprland/hyprland-floating-top-decoration-rounding-0.55.patch
       ../patches/hyprland/hyprland-gcc15-designated-initializer-fix-0.55.patch
     ] (hyprland.packages.${system}.hyprland.override {
       hyprland-guiutils = patchedHyprlandGuiutils;
+      glaze-hyprland = glazeForHyprland;
     })
   );
 
