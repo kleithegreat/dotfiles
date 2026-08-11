@@ -484,6 +484,7 @@ mod tests {
                 "{{\n",
                 "  \"color_scheme\": \"gruvbox-dark\",\n",
                 "  \"wallpaper\": \"{}\",\n",
+                "  \"wallpaper_dir\": \"{}\",\n",
                 "  \"filter_wallpaper\": false,\n",
                 "  \"system_font\": \"Overpass\",\n",
                 "  \"mono_font\": \"JetBrainsMono Nerd Font\",\n",
@@ -513,7 +514,8 @@ mod tests {
                 "  \"hypr_animations_enabled\": true\n",
                 "}}\n"
             ),
-            repo_root().join("styling/wallpapers/lmao.png").display()
+            repo_root().join("styling/wallpapers/lmao.png").display(),
+            repo_root().join("styling/wallpapers").display()
         )
     }
 

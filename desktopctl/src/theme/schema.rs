@@ -29,9 +29,10 @@ pub const COLOR_FIELD_NAMES: [&str; 21] = [
     "orange_bright",
 ];
 
-pub const THEME_STATE_FIELD_ORDER: [&str; 29] = [
+pub const THEME_STATE_FIELD_ORDER: [&str; 30] = [
     "color_scheme",
     "wallpaper",
+    "wallpaper_dir",
     "filter_wallpaper",
     "system_font",
     "mono_font",
@@ -61,9 +62,10 @@ pub const THEME_STATE_FIELD_ORDER: [&str; 29] = [
     "hypr_animations_enabled",
 ];
 
-pub const THEME_STATE_STRING_FIELDS: [&str; 6] = [
+pub const THEME_STATE_STRING_FIELDS: [&str; 7] = [
     "color_scheme",
     "wallpaper",
+    "wallpaper_dir",
     "system_font",
     "mono_font",
     "icon_theme",
@@ -101,6 +103,11 @@ pub const THEME_STATE_BOOL_FIELDS: [&str; 4] = [
 
 pub const DEFAULT_COLOR_SCHEME: &str = "gruvbox-dark";
 pub const DEFAULT_WALLPAPER_RELATIVE_PATH: &str = "styling/wallpapers/lmao.png";
+/// Directory the wallpaper picker browses. Held separately from `wallpaper` so
+/// that browsing to a directory survives without also selecting a wallpaper
+/// from it — deriving it from the current wallpaper's parent loses the choice
+/// as soon as the picker closes. No target consumes it.
+pub const DEFAULT_WALLPAPER_DIR_RELATIVE_PATH: &str = "styling/wallpapers";
 pub const DEFAULT_FILTER_WALLPAPER: bool = false;
 pub const DEFAULT_SYSTEM_FONT: &str = "Overpass";
 pub const DEFAULT_MONO_FONT: &str = "JetBrainsMono Nerd Font";
@@ -506,6 +513,7 @@ impl<'de> Deserialize<'de> for ColorScheme {
 pub struct ThemeState {
     pub color_scheme: String,
     pub wallpaper: String,
+    pub wallpaper_dir: String,
     pub filter_wallpaper: bool,
     pub system_font: String,
     pub mono_font: String,
@@ -553,6 +561,10 @@ impl ThemeState {
             color_scheme: DEFAULT_COLOR_SCHEME.to_owned(),
             wallpaper: repo_root
                 .join(DEFAULT_WALLPAPER_RELATIVE_PATH)
+                .display()
+                .to_string(),
+            wallpaper_dir: repo_root
+                .join(DEFAULT_WALLPAPER_DIR_RELATIVE_PATH)
                 .display()
                 .to_string(),
             filter_wallpaper: DEFAULT_FILTER_WALLPAPER,

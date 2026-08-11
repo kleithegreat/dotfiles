@@ -850,6 +850,12 @@ FocusScope {
     }
 
     function wallpaperDirectoryFromThemeState() {
+        let storedDir = String(settingsPop.themeState.wallpaper_dir || "").trim();
+        if (storedDir !== "")
+            return storedDir;
+
+        // Theme states written before `wallpaper_dir` existed have no browse
+        // directory of their own, so keep browsing next to the wallpaper.
         let wallpaperPath = String(settingsPop.themeState.wallpaper || "").trim();
         if (wallpaperPath === "")
             return "";
@@ -908,10 +914,15 @@ FocusScope {
     }
 
     function confirmDirectoryBrowser() {
-        settingsPop.wallpaperDir = settingsPop.directoryBrowserPath;
+        let chosenDir = settingsPop.directoryBrowserPath;
+        settingsPop.wallpaperDir = chosenDir;
         settingsPop.directoryBrowserOpen = false;
         settingsPop.directoryBrowserEntries = [];
         refreshWallpapers();
+        // Persist the choice: the popup drops `wallpaperDir` on every open, so
+        // without this the directory reverts unless a wallpaper inside it was
+        // also selected.
+        settingsPop.runSet("wallpaper_dir", chosenDir);
     }
 
     function cloneMap(source) {

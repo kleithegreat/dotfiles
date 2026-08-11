@@ -522,6 +522,7 @@ pub(crate) mod testsupport {
         ThemeState {
             color_scheme: "gruvbox-dark".to_owned(),
             wallpaper: "/tmp/wallpaper.png".to_owned(),
+            wallpaper_dir: "/tmp".to_owned(),
             filter_wallpaper: false,
             system_font: "Overpass".to_owned(),
             mono_font: "JetBrains Mono Nerd Font".to_owned(),
