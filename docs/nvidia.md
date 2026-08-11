@@ -39,6 +39,27 @@ laptop session dies at login after an update, re-check the card numbers before
 anything else. Revisit by-path only when Aquamarine can represent embedded
 colons (tracked in `TODO.md`).
 
+### CUDA capabilities are pinned shared, not per host
+`cudaCapabilities` is the one piece of GPU policy in the shared baseline rather
+than in a host module, because both hosts happen to be sm_86 (laptop RTX 3050
+Mobile, desktop RTX 3080). It is pinned because CUDA is unfree, so
+cache.nixos.org carries no substitutes and every CUDA package is built locally;
+at the nixpkgs default the pin spans nine architectures and source-built
+packages compile each device translation unit once per architecture.
+`libnvshmem` is the derivation that makes this hurt — a full CMake/nvcc build
+pulled in only as a comfyui -> torch dependency, whose nine-architecture form
+OOMs the 16 GB laptop. `pkgs/comfyui/default.nix` additionally turns off its
+perftest and example device binaries, which nixpkgs hardcodes on. If a host
+ever gets a GPU that is not sm_86, this pin has to grow a capability or move
+into the host modules.
+
+### Nix builds must stay off the tmpfs `/tmp`
+Same root cause as the preserve-VRAM quirk above: the shared baseline makes
+`/tmp` tmpfs, and nix-daemon builds in `TMPDIR`, so build trees are charged
+against RAM alongside the compilers filling it. `system/physical-host.nix`
+points the daemon at `/var/tmp/nix-daemon`. Without it, large CUDA/CMake build
+trees reach OOM well before they run out of tmpfs.
+
 ### The desktop resume stack is untested since the PR #996 overlay was removed
 Upstream's open driver now contains the `drm_mode_config_reset` fix the old
 local overlay carried, so the overlay is gone — but no real suspend/resume

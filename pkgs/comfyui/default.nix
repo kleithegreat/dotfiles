@@ -12,13 +12,31 @@
 }:
 
 let
+  # nixpkgs hardcodes NVSHMEM_BUILD_TESTS/EXAMPLES on, so libnvshmem — a full
+  # nvcc build we reach only as a torch dependency — also compiles its perftest
+  # and example device binaries. Nothing here runs them, and dropping them takes
+  # a large slice off a build that is otherwise heavy enough to OOM the laptop.
+  # NVSHMEM itself is only used for multi-GPU symmetric memory, which no host
+  # here has, but torch links it, so it cannot be dropped outright.
+  disableCmakeBool =
+    flag: lib.replaceStrings [ "-D${flag}:BOOL=TRUE" ] [ "-D${flag}:BOOL=FALSE" ];
+
+  cudaPackages = cudaPackages_13_3.overrideScope (
+    _final: prev: {
+      libnvshmem = prev.libnvshmem.overrideAttrs (old: {
+        cmakeFlags = map (disableCmakeBool "NVSHMEM_BUILD_EXAMPLES") (
+          map (disableCmakeBool "NVSHMEM_BUILD_TESTS") old.cmakeFlags
+        );
+      });
+    }
+  );
+
   # 3.14 is the nixpkgs default, but upstream only calls 3.13 "very well
   # supported" and warns that custom nodes break on 3.14.
   python = python313.override {
     self = python;
     packageOverrides = import ./python-packages.nix {
-      inherit lib;
-      cudaPackages = cudaPackages_13_3;
+      inherit lib cudaPackages;
     };
   };
 

@@ -192,6 +192,16 @@ in
       # in multiple module layers.
       nixpkgs.config.allowUnfreePredicate = pkg:
         builtins.elem (lib.getName pkg) allowedUnfreePackageNames;
+      # Both hosts are sm_86 (laptop RTX 3050 Mobile, desktop RTX 3080), and
+      # nothing here is unfree-cached, so every CUDA package is built locally.
+      # Left at the nixpkgs default, `cudaCapabilities` spans nine architectures
+      # (75 through 121), and source-built CUDA packages compile every device
+      # translation unit once per architecture. `libnvshmem` is the one that
+      # hurts: it is a full CMake/nvcc build reached through comfyui -> torch,
+      # and nine architectures' worth of parallel nvcc exhausts this machine's
+      # RAM. Pinning to the capability both hosts actually have cuts that work
+      # by ~9x. Add a capability here if a host ever gets a different GPU.
+      nixpkgs.config.cudaCapabilities = [ "8.6" ];
       nixpkgs.config.permittedInsecurePackages = [
         # Required by nixpkgs' bitwarden-desktop 2026.6.1 package on this input.
         "electron-39.8.10"

@@ -115,6 +115,17 @@ in
     };
 
     nix.settings.max-jobs = 2;
+
+    # `boot.tmp.useTmpfs` makes /tmp RAM-backed, and nix-daemon builds in TMPDIR,
+    # so without this every build tree is charged against RAM alongside the
+    # compilers filling it. Large CUDA/CMake build trees then push the machine
+    # into OOM well before they run out of tmpfs. Keep the tmpfs /tmp for the
+    # session and put builds on disk.
+    # No age on the tmpfiles rule: nix removes its own build directories, and
+    # the ones that survive are `--keep-failed` trees somebody wants to inspect.
+    systemd.services.nix-daemon.environment.TMPDIR = "/var/tmp/nix-daemon";
+    systemd.tmpfiles.rules = [ "d /var/tmp/nix-daemon 0755 root root -" ];
+
     networking.useDHCP = lib.mkDefault true;
     zramSwap = {
       enable = true;
