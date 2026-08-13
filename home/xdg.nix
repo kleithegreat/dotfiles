@@ -7,7 +7,7 @@ let
   # writable out-of-store symlink into the repo checkout below so
   # `:Lazy update` writes the committed lock directly (review + commit the
   # diff afterward). Assumes the checkout lives at ~/repos/dotfiles, same as
-  # the DESKTOPCTL_REPO fallback in config/hypr/keybinds.conf.
+  # the DESKTOPCTL_REPO fallback in config/hypr/keybinds.lua.
   nvimSource = lib.cleanSourceWith {
     name = "nvim-config";
     src = "${dotfilesPath}/config/nvim";
@@ -24,7 +24,6 @@ let
     "hypr/input.lua" = dotfilesSource "config/hypr/input.lua";
     "hypr/input-defaults.lua" = dotfilesSource "config/hypr/input-defaults.lua";
     "hypr/keybinds.lua" = dotfilesSource "config/hypr/keybinds.lua";
-    "hypr/keybinds-override.lua" = dotfilesSource "config/hypr/keybinds-override.lua";
     "hypr/animations-override.lua" = dotfilesSource "config/hypr/animations-override.lua";
     "hypr/rules.lua" = dotfilesSource "config/hypr/rules.lua";
     "hypr/plugins.lua" = dotfilesSource "config/hypr/plugins.lua";
@@ -151,7 +150,8 @@ in
     comment = "Code Editing. Redefined.";
     genericName = "Text Editor";
     icon = "vscode";
-    exec = "hyprctl dispatch exec code %F";
+    # Lua long string: keeps the Exec line free of nested double quotes.
+    exec = ''hyprctl dispatch "hl.dsp.exec_cmd([[code %F]])"'';
     categories = [ "Utility" "TextEditor" "Development" "IDE" ];
     startupNotify = true;
     settings = {
@@ -163,7 +163,7 @@ in
       new-empty-window = {
         name = "New Empty Window";
         icon = "vscode";
-        exec = "hyprctl dispatch exec -- code --new-window %F";
+        exec = ''hyprctl dispatch "hl.dsp.exec_cmd([[code --new-window %F]])"'';
       };
     };
   };

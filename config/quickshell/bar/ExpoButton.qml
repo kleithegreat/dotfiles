@@ -11,6 +11,7 @@ Item {
     }
     Components.BarTooltipArea {
         id: expoArea; tip: "Workspace Overview"
-        onClicked: Hyprland.dispatch("hyprexpo:expo toggle")
+        // expo() returns nil, so hand the IPC a real dispatcher back.
+        onClicked: Hyprland.dispatch('(function() hl.plugin.hyprexpo.expo("toggle") return hl.dsp.no_op() end)()')
     }
 }

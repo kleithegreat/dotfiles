@@ -164,21 +164,27 @@ QtObject {
             monitorsFetchProc.running = true;
     }
 
-    function monitorSpec(name, width, height, rate, x, y, scale, transform, extras) {
-        let cmd = name + "," + width + "x" + height + "@" + rate.toFixed(2)
-                + "," + x + "x" + y + "," + scale;
+    function _luaString(value) {
+        return '"' + String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"';
+    }
+
+    function monitorExpr(name, width, height, rate, x, y, scale, transform, extras) {
+        let fields = ["output = " + _luaString(name),
+                      "mode = " + _luaString(width + "x" + height + "@" + rate.toFixed(2)),
+                      "position = " + _luaString(x + "x" + y),
+                      "scale = " + scale,
+                      "disabled = false"];
         if (transform !== undefined && transform !== null && transform !== 0)
-            cmd += ",transform," + transform;
+            fields.push("transform = " + transform);
         if (extras) {
             let keys = Object.keys(extras);
             for (let i = 0; i < keys.length; i++) {
-                let k = keys[i];
-                let v = extras[k];
+                let v = extras[keys[i]];
                 if (v !== undefined && v !== null && v !== "")
-                    cmd += "," + k + "," + v;
+                    fields.push(keys[i] + " = " + (typeof v === "number" ? v : _luaString(v)));
             }
         }
-        return cmd;
+        return "hl.monitor({ " + fields.join(", ") + " })";
     }
 
     function _startMonitorApply(command) {
@@ -195,7 +201,7 @@ QtObject {
         if (monitorApplyProc.running)
             return false;
 
-        return _startMonitorApply(["hyprctl", "keyword", "monitor", monitorSpec(name, width, height, rate, x, y, scale, transform, extras)]);
+        return _startMonitorApply(["hyprctl", "eval", monitorExpr(name, width, height, rate, x, y, scale, transform, extras)]);
     }
 
     function applyMonitorBatch(states) {
@@ -210,10 +216,10 @@ QtObject {
                 extras.vrr = typeof state.vrr === "boolean" ? (state.vrr ? 1 : 0) : state.vrr;
             if (state.mirrorOf && state.mirrorOf !== "none")
                 extras.mirror = state.mirrorOf;
-            commands.push("keyword monitor " + monitorSpec(state.name, state.width, state.height, state.refreshRate, state.x, state.y, state.scale, state.transform, extras));
+            commands.push(monitorExpr(state.name, state.width, state.height, state.refreshRate, state.x, state.y, state.scale, state.transform, extras));
         }
 
-        return _startMonitorApply(["hyprctl", "--batch", commands.join(" ; ")]);
+        return _startMonitorApply(["hyprctl", "eval", "do " + commands.join(" ") + " end"]);
     }
 
     property Process monitorsFetchProc: Process {

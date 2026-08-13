@@ -36,6 +36,48 @@
 
 ## Quirks
 
+### hyprctl takes Lua now, and reports failure with exit code 0
+`hyprctl dispatch X` evaluates `X` as `return hl.dispatch(X)`, so every
+hyprlang-era dispatcher string is a syntax error (`workspace 3`) or a nil lookup
+(`killactive`). `hyprctl keyword` is worse: it does nothing at all, answering
+`keyword can't work with non-legacy parsers. Use eval.` Runtime config goes
+through `hyprctl eval` with `hl.config` / `hl.monitor`.
+
+Both **exit 0** on failure, printing `error: ...` on stdout. A caller checking
+only the exit status sees a silent no-op, which is how a float toggle, the
+titlebar buttons, hypridle's DPMS listeners and the lid-close monitor disable
+all died without one failing command. Anything shelling out must scan stdout.
+
+- `hl.dsp.exec_raw("<raw dispatcher>")` returns `ok` and does nothing. It reads
+  like the escape hatch for plugin dispatchers and is not one.
+- `hl.dsp.window.resize` takes pixels and rejects `"75%"`; percentage sizing has
+  to be resolved against the focused monitor by the caller.
+- `hl.dsp.window.fullscreen` ignores its `window` key and hits the active
+  window. `fullscreen_state({ internal, client, action, window })` honours it,
+  and `client = -1` leaves the client's own fullscreen alone.
+- `hl.monitor` needs `disabled = false` spelled out to re-enable an output;
+  re-declaring mode/position/scale leaves a disabled one disabled. A config
+  reload also re-enables the laptop panel with the lid shut, which is why
+  `hosts/laptop/autostart.lua` runs `desktopctl hypr lid-switch sync`.
+
+### Plugin features live on `hl.plugin.*`, not in config keys
+Titlebar buttons come from `hl.plugin.hyprbars.add_button({ bg_color, fg_color,
+size, icon, action })`. A `hyprbars-button` entry under `hl.config` parses fine
+and yields no buttons at all. Reloading clears the registered set, so config
+calls do not accumulate — but `hl.define_submap` *does* append, so defining a
+submap per session stacks duplicate binds. Bars only render on floating windows
+here, so a tiled window without one is not a bug.
+
+`hl.plugin.hyprexpo.expo("toggle")` runs on call and returns nil, so it is not a
+dispatcher: bind it as a closure (`hl.bind` takes "a dispatcher or a lua
+function"). Over IPC, where a dispatcher must come back, wrap it and return
+`hl.dsp.no_op()`.
+
+Every bind is reported by `hyprctl binds` as dispatcher `__lua` plus a callback
+index. Nothing outside the defining file can reconstruct a bind, so a keybind
+override can only remap the combo where the bind is declared — reconstructing
+one from `hyprctl binds` output is not possible.
+
 ### The config verifier lies about plugin keys
 Static config verification reports false errors on plugin-owned keys. The only
 trustworthy check for config changes is a nested Hyprland session.
@@ -69,12 +111,10 @@ the env, scrubs tokens, starts `graphical-session.target` and the portal
 services explicitly; `exec-shutdown` stops the target. See [[nix]] for the
 portal backend selection itself.
 
-### Files required before `plugins.lua` cannot use plugin keywords
-The graph loads linearly and `input-devices.lua` comes before `plugins.lua`,
-so plugin-owned gesture/dispatcher keywords there fail as unknown. The laptop
-touchpad overview gesture therefore uses the core `gesture` keyword with a
-`dispatcher` action calling `hyprexpo:expo toggle`; `keybinds.lua` loads after
-plugins and can bind the plugin dispatcher directly.
+### Files required before `plugins.lua` cannot name `hl.plugin.*` at parse time
+The graph loads linearly and `input-devices.lua` comes before `plugins.lua`, so
+the laptop overview gesture reaches `hl.plugin.hyprexpo` from inside its action
+callback, which runs long after the plugin has loaded.
 
 ### Host-selected fragments must be git-tracked before rebuilding
 The flake source only materializes files Git knows about. A new untracked file

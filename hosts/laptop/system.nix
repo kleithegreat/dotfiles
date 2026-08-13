@@ -180,7 +180,7 @@ in {
   hardware.graphics = {
     enable = true;
     # Mesa does not ship iHD_drv_video.so; intel-media-driver backs the
-    # LIBVA_DRIVER_NAME=iHD selection in config/hypr/env.conf.
+    # LIBVA_DRIVER_NAME=iHD selection in hosts/laptop/env.lua.
     extraPackages = [ pkgs.intel-media-driver ];
   };
   hardware.nvidia = {

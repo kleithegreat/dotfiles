@@ -164,7 +164,7 @@ pub(crate) fn ensure_hyprsunset_running(target_temperature: i32) -> crate::Resul
     }
 
     let command = format!("hyprsunset -t {normalized}");
-    hypr::dispatch(&["exec", &command])
+    hypr::dispatch(&hypr::exec_dispatcher(&command))
 }
 
 pub(crate) fn stop_hyprsunset() -> crate::Result<()> {

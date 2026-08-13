@@ -45,11 +45,11 @@ the same flag — and plain buttons must *not* set it, since dragging across a
 button is a legitimate scroll gesture.
 
 ### Risky display changes are staged and batch-applied, never live
-Monitor drags edit a local cloned layout normalized to a `0x0` origin and
-apply once on release via `hyprctl --batch`; resolution/transform/VRR/mirror
-changes capture a snapshot and revert as one batch if the confirm countdown
-expires. Do not reintroduce per-pointer-move `hyprctl keyword monitor` calls —
-they could strand the session on an unreachable layout.
+Monitor drags edit a local cloned layout normalized to a `0x0` origin and apply
+once on release as a single `hyprctl eval` chunk; resolution/transform/VRR/mirror
+changes capture a snapshot and revert as one chunk if the confirm countdown
+expires. Do not reintroduce per-pointer-move `hl.monitor` calls — they could
+strand the session on an unreachable layout.
 
 ### Bar lifetime follows Hyprland's monitor model, not `Quickshell.screens`
 Output churn (suspend, DPMS, hotplug) tears down the layer-shell surface while

@@ -8,6 +8,14 @@ local pluginDir = os.getenv("HYPR_PLUGIN_DIR")
 hl.plugin.load(pluginDir .. "/lib/libhyprbars.so")
 hl.plugin.load(pluginDir .. "/lib/libhyprexpo.so")
 
+local function dispatch(expression)
+    return "hyprctl dispatch '" .. expression .. "'"
+end
+
+-- client = -1 leaves the client's own fullscreen state alone.
+local maximize = dispatch(
+    'hl.dsp.window.fullscreen_state({ internal = 1; client = -1; action = "toggle" })')
+
 hl.config({
     plugin = {
         hyprbars = {
@@ -18,13 +26,7 @@ hl.config({
             bar_text_size = 10,
             bar_buttons_alignment = "left",
             bar_button_padding = 8,
-            on_double_click = "hyprctl dispatch fullscreen 1",
-
-            ["hyprbars-button"] = {
-                colors.red_rgba .. ", 14, , hyprctl dispatch killactive",
-                colors.yellow_rgba .. ", 14, , hyprctl dispatch fullscreen 1",
-                colors.green_rgba .. ", 14, , hyprctl dispatch movetoworkspacesilent special",
-            },
+            on_double_click = maximize,
         },
 
         hyprexpo = {
@@ -35,3 +37,18 @@ hl.config({
         },
     },
 })
+
+local function button(color, icon, action)
+    hl.plugin.hyprbars.add_button({
+        bg_color = color,
+        fg_color = colors.fg_rgba,
+        size = 14,
+        icon = icon,
+        action = action,
+    })
+end
+
+button(colors.red_rgba, "", dispatch("hl.dsp.window.close()"))
+button(colors.yellow_rgba, "", maximize)
+button(colors.green_rgba, "",
+    dispatch('hl.dsp.window.move({ workspace = "special"; silent = true })'))

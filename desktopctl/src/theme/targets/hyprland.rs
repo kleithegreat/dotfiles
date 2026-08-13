@@ -1,4 +1,5 @@
 use super::{Assembly, GeneratedContent, TargetMetadata};
+use crate::hypr::lua_str;
 use crate::theme::{
     atomic_write, expand_user_path,
     schema::{ColorScheme, ThemeState},
@@ -31,15 +32,6 @@ fn rgba(hex_color: &str, alpha: &str) -> String {
 
 /// Quote a value as a Lua string literal. Colors are generated from a fixed
 /// palette, but font names come from user config and can contain anything.
-fn lua_str(value: &str) -> String {
-    let escaped = value
-        .replace('\\', "\\\\")
-        .replace('"', "\\\"")
-        .replace('\n', "\\n")
-        .replace('\r', "\\r");
-    format!("\"{escaped}\"")
-}
-
 pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<GeneratedContent> {
     Ok(GeneratedContent::text(format!(
         concat!(

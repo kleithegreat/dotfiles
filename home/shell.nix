@@ -156,12 +156,13 @@ in
 
           local watcher
           if [[ $action == switch || $action == test ]]; then
-              watcher=$(hyprctl getoption misc:disable_autoreload 2>/dev/null | awk '/^int:/ { print $2 }')
+              # Reported as `bool:`, not `int:`; the wrong prefix leaves it empty.
+              watcher=$(hyprctl getoption misc:disable_autoreload 2>/dev/null | awk '/^bool:/ { print $2 }')
           fi
 
           if [[ -n $watcher ]]; then
-              hyprctl keyword misc:disable_autoreload true >/dev/null
-              trap "hyprctl keyword misc:disable_autoreload $watcher >/dev/null 2>&1" EXIT INT TERM
+              hyprctl eval 'hl.config({ misc = { disable_autoreload = true } })' >/dev/null
+              trap "hyprctl eval 'hl.config({ misc = { disable_autoreload = $watcher } })' >/dev/null 2>&1" EXIT INT TERM
           fi
 
           sudo nixos-rebuild "$action" ${rebuildFlags} "$@"
@@ -169,8 +170,8 @@ in
 
           if [[ -n $watcher ]]; then
               trap - EXIT INT TERM
-              hyprctl keyword misc:disable_autoreload "$watcher" >/dev/null
-              (( rc == 0 )) && hyprctl dispatch exec 'vicinae server --replace' >/dev/null
+              hyprctl eval "hl.config({ misc = { disable_autoreload = $watcher } })" >/dev/null
+              (( rc == 0 )) && hyprctl dispatch 'hl.dsp.exec_cmd("vicinae server --replace")' >/dev/null
           fi
 
           return $rc

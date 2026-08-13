@@ -153,8 +153,12 @@ QtObject {
     readonly property bool canUndo: _undoStack.length > 0
     readonly property bool canRedo: _redoStack.length > 0
 
-    // Command queue
+    // Command queue: each entry is one Lua chunk for `hyprctl eval`.
     property var _commandQueue: []
+
+    function luaString(value) {
+        return '"' + String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"';
+    }
 
     // User curves path
     readonly property string _userCurvesPath: {
@@ -390,11 +394,7 @@ QtObject {
                 original_mods: _modmaskToString(orig.modmask),
                 original_key: orig.key,
                 new_mods: _modmaskToString(bind.modmask),
-                new_key: bind.key,
-                flags: _buildBindFlags(bind),
-                description: bind.description || "",
-                dispatcher: bind.dispatcher,
-                arg: bind.arg !== undefined ? bind.arg : ""
+                new_key: bind.key
             });
         }
 
@@ -458,7 +458,7 @@ QtObject {
     function beginCaptureSession() {
         captureSessionActive = true;
         _captureSafetyTimer.restart();
-        _captureSetupProc.running = true;
+        _captureEnterProc.running = true;
     }
 
     function endCaptureSession() {
@@ -503,8 +503,6 @@ QtObject {
         updated.key = newKey;
         binds[bindIndex] = updated;
         keybinds = binds;
-
-        _queueCommand(_buildBindBatch(bind, oldModmask, oldKey, newModmask, newKey));
     }
 
     function _applyBindSwitch(bindIndex, fromState, toState) {
@@ -517,22 +515,6 @@ QtObject {
         updated.key = toState.key;
         binds[bindIndex] = updated;
         keybinds = binds;
-
-        _queueCommand(_buildBindBatch(updated, fromState.modmask, fromState.key,
-                                       toState.modmask, toState.key));
-    }
-
-    function _buildBindBatch(bind, oldModmask, oldKey, newModmask, newKey) {
-        let oldModStr = _modmaskToString(oldModmask);
-        let newModStr = _modmaskToString(newModmask);
-        let batch = ["keyword unbind " + oldModStr + ", " + oldKey];
-        let flags = _buildBindFlags(bind);
-        let parts = [newModStr, newKey];
-        if (bind.has_description) parts.push(bind.description || "");
-        parts.push(bind.dispatcher);
-        parts.push(bind.arg !== undefined ? bind.arg : "");
-        batch.push("keyword bind" + flags + " " + parts.join(", "));
-        return batch;
     }
 
     function _modmaskToString(mask) {
@@ -566,8 +548,8 @@ QtObject {
         return f;
     }
 
-    // Stable bind identity: dispatcher/arg/description/flags plus the current
-    // combo (the combo disambiguates duplicate-identity binds).
+    // Stable bind identity. Every bind reports dispatcher `__lua` now, so the
+    // description, submap, flags and combo carry the discrimination.
     function _bindIdentityMatches(a, b) {
         return a.dispatcher === b.dispatcher
             && (a.arg !== undefined ? a.arg : "") === (b.arg !== undefined ? b.arg : "")
@@ -579,9 +561,8 @@ QtObject {
     }
 
     // Re-key keybindOriginals from the previous local list onto a freshly
-    // fetched list: overrides reorder the bind list (unbind + append), so
-    // index-keyed tracking goes stale on every refetch. Index-keyed bind
-    // undo/redo entries cannot be trusted across a refetch either; drop them.
+    // fetched list, and drop index-keyed undo/redo entries: a save reloads the
+    // config, and nothing guarantees the refetched list keeps its indices.
     function _remapKeybindState(newBinds) {
         let oldBinds = keybinds;
         let originals = keybindOriginals;
@@ -646,40 +627,45 @@ QtObject {
         _queueCommand(_animationBatch(name, state));
     }
 
-    function _animationBatch(name, state) {
-        let parts = [name];
-        parts.push(state.enabled ? "1" : "0");
-        parts.push(String(state.speed));
-        parts.push(state.curve || "default");
-        if (state.style) parts.push(state.style);
-        let animCmd = "keyword animation " + parts.join(", ");
-
+    function _animationExpr(name, state) {
         let curve = state.curve || "default";
-        let curvePoints = getCurvePoints(curve);
-        let batch = [];
-        if (curve !== "default" && curve !== "linear" && curvePoints)
-            batch.push("keyword bezier " + curve + ", " + curvePoints.join(", "));
-        batch.push(animCmd);
-        return batch;
+        let fields = ["leaf = " + luaString(name),
+                      "enabled = " + (state.enabled ? "true" : "false"),
+                      "speed = " + Number(state.speed),
+                      "bezier = " + luaString(curve)];
+        if (state.style)
+            fields.push("style = " + luaString(state.style));
+        let anim = "hl.animation({ " + fields.join(", ") + " })";
+
+        let points = getCurvePoints(curve);
+        if (curve === "default" || curve === "linear" || !points)
+            return anim;
+        return "do " + _curveExpr(curve, points) + " " + anim + " end";
     }
 
-    function _queueCommand(batch) {
+    function _curveExpr(name, points) {
+        let pairs = [];
+        for (let i = 0; i + 1 < points.length; i += 2)
+            pairs.push("{ " + points[i] + ", " + points[i + 1] + " }");
+        return "hl.curve(" + luaString(name)
+             + ', { type = "bezier", points = { ' + pairs.join(", ") + " } })";
+    }
+
+    function _queueCommand(expr) {
         let q = _commandQueue.slice();
-        q.push(batch);
+        q.push(expr);
         _commandQueue = q;
         _drainQueue();
     }
 
     function _drainQueue() {
-        if (_keywordProc.running || _commandQueue.length === 0)
+        if (_evalProc.running || _commandQueue.length === 0)
             return;
         let q = _commandQueue.slice();
-        let batch = q.shift();
+        let expr = q.shift();
         _commandQueue = q;
-        _keywordProc.command = batch.length === 1
-            ? ["hyprctl", batch[0]]
-            : ["hyprctl", "--batch", batch.join(" ; ")];
-        _keywordProc.running = true;
+        _evalProc.command = ["hyprctl", "eval", expr];
+        _evalProc.running = true;
     }
 
     function _parseAnimationsResponse(buf) {
@@ -740,14 +726,20 @@ QtObject {
         }
     }
 
-    property Process _keywordProc: Process {
+    // hyprctl exits 0 on a failed eval; the `error:` line is the only signal.
+    property Process _evalProc: Process {
         running: false
+        property bool failed: false
+        stdout: SplitParser {
+            onRead: (line) => { if (line.trim().startsWith("error")) _evalProc.failed = true; }
+        }
         stderr: SplitParser {
             onRead: (line) => { console.log("[HyprlandConfigService] hyprctl stderr:", line); }
         }
         onExited: (code) => {
-            if (code !== 0)
+            if (code !== 0 || failed)
                 root.error = "Failed to apply Hyprland setting";
+            failed = false;
             root._drainQueue();
         }
     }
@@ -775,18 +767,9 @@ QtObject {
         }
     }
 
-    property Process _captureSetupProc: Process {
-        command: ["hyprctl", "--batch",
-            "keyword submap hyprmod_capture ; keyword bind , catchall, pass, ; keyword submap reset"]
-        running: false
-        onExited: (code) => {
-            if (code === 0 && root.captureSessionActive)
-                _captureEnterProc.running = true;
-        }
-    }
-
+    // Declared in `keybinds.lua`; defining it per session stacks catchalls.
     property Process _captureEnterProc: Process {
-        command: ["hyprctl", "dispatch", "submap", "hyprmod_capture"]
+        command: ["hyprctl", "dispatch", 'hl.dsp.submap("hyprmod_capture")']
         running: false
         onExited: (code) => {
             if (code === 0 && root.captureSessionActive)
@@ -794,11 +777,8 @@ QtObject {
         }
     }
 
-    // Leaves the live submap, then unbinds the capture catchall so it does
-    // not accumulate in `hyprctl binds` across capture sessions.
     property Process _captureResetProc: Process {
-        command: ["hyprctl", "--batch",
-            "dispatch submap reset ; keyword submap hyprmod_capture ; keyword unbind , catchall ; keyword submap reset"]
+        command: ["hyprctl", "dispatch", 'hl.dsp.submap("reset")']
         running: false
     }
 

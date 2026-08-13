@@ -10,13 +10,13 @@ hl.config({
 })
 
 hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
--- hyprexpo's dispatcher is only registered once the plugin loads, so go
--- through a callback rather than naming it at config-parse time.
+-- `hl.plugin.hyprexpo` only exists once `plugins.lua` has loaded, which is after
+-- this file; the callback body runs at gesture time, so it resolves by then.
 hl.gesture({
     fingers = 3,
     direction = "up",
     action = function()
-        hl.dispatch(hl.dsp.exec_raw("hyprexpo:expo toggle"))
+        hl.plugin.hyprexpo.expo("toggle")
     end,
 })
 

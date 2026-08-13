@@ -73,6 +73,12 @@ struct MonitorInfo {
     disabled: bool,
     #[serde(default)]
     focused: bool,
+    #[serde(default)]
+    width: f64,
+    #[serde(default)]
+    height: f64,
+    #[serde(default)]
+    scale: f64,
     #[serde(rename = "activeWorkspace", default)]
     active_workspace: WorkspaceRef,
 }
@@ -224,7 +230,7 @@ pub(crate) fn set_input_value(setting: InputSetting, value: &str) -> Result<()> 
 
     persist_input_runtime_state(&next)?;
 
-    if let Err(error) = keyword(setting.keyword(), &input_setting_value(&next, setting)) {
+    if let Err(error) = set_config(setting.keyword(), &input_setting_lua_value(&next, setting)) {
         let runtime_path = input_runtime_path()?;
         if let Err(revert_error) = persist_input_runtime_state(&current) {
             return Err(io::Error::other(format!(
@@ -246,46 +252,129 @@ pub(crate) fn active_window() -> Result<WindowInfo> {
     Ok(serde_json::from_slice(&output.stdout)?)
 }
 
-/// Run `hyprctl dispatch ...`.
-pub(crate) fn dispatch(args: &[&str]) -> Result<()> {
-    let mut command_args = Vec::with_capacity(args.len() + 1);
-    command_args.push("dispatch");
-    command_args.extend(args.iter().copied());
-    hyprctl_output(&command_args)?;
-    Ok(())
+/// Run `hyprctl dispatch <lua>`, where `lua` is an `hl.dsp.*` expression.
+pub(crate) fn dispatch(lua: &str) -> Result<()> {
+    let output = hyprctl_output(&["dispatch", lua])?;
+    check_lua_output(&output.stdout, &format!("hyprctl dispatch {lua}"))
 }
 
-/// Run `hyprctl keyword ...`.
-pub(crate) fn keyword(key: &str, value: &str) -> Result<()> {
-    hyprctl_output(&["keyword", key, value])?;
-    Ok(())
+/// Run `hyprctl eval <lua>`. Replaces `hyprctl keyword`, which is inert.
+fn eval(lua: &str) -> Result<()> {
+    let output = hyprctl_output(&["eval", lua])?;
+    check_lua_output(&output.stdout, &format!("hyprctl eval {lua}"))
 }
 
-/// Run `hyprctl --batch ...`.
-fn batch(commands: &[&str]) -> Result<()> {
+/// Set one runtime config value by its `:`-separated option path, e.g.
+/// `("input:sensitivity", "0.75")`. `lua_value` is inserted verbatim, so string
+/// values must arrive already quoted (see [`lua_str`]).
+pub(crate) fn set_config(path: &str, lua_value: &str) -> Result<()> {
+    let segments: Vec<&str> = path.split(':').filter(|s| !s.is_empty()).collect();
+    if segments.is_empty() {
+        return Err(
+            io::Error::new(io::ErrorKind::InvalidInput, "config path must not be empty").into(),
+        );
+    }
+
+    eval(&config_expression(&segments, lua_value))
+}
+
+/// Nest `lua_value` inside one table per path segment.
+fn config_expression(segments: &[&str], lua_value: &str) -> String {
+    let mut expression = String::from("hl.config(");
+    for segment in segments {
+        expression.push_str("{ ");
+        expression.push_str(segment);
+        expression.push_str(" = ");
+    }
+    expression.push_str(lua_value);
+    for _ in segments {
+        expression.push_str(" }");
+    }
+    expression.push(')');
+    expression
+}
+
+/// Apply several dispatchers in one frame, rather than animating through each.
+fn dispatch_batch(commands: &[String]) -> Result<()> {
     if commands.is_empty() {
         return Ok(());
     }
 
-    let batch = commands.join(" ; ");
-    hyprctl_output(&["--batch", batch.as_str()])?;
-    Ok(())
+    let batch = commands
+        .iter()
+        .map(|command| format!("dispatch {command}"))
+        .collect::<Vec<_>>()
+        .join(" ; ");
+    let output = hyprctl_output(&["--batch", batch.as_str()])?;
+    check_lua_output(&output.stdout, &format!("hyprctl --batch {batch}"))
 }
+
+/// Fail on a Lua error hyprctl reported on stdout: it exits 0 either way.
+fn check_lua_output(stdout: &[u8], context: &str) -> Result<()> {
+    let stdout = String::from_utf8_lossy(stdout);
+    if !stdout
+        .lines()
+        .any(|line| line.trim_start().starts_with("error"))
+    {
+        return Ok(());
+    }
+
+    Err(io::Error::other(format!("{context} failed: {}", stdout.trim())).into())
+}
+
+/// A dispatcher expression running `command` through Hyprland's `exec`.
+pub(crate) fn exec_dispatcher(command: &str) -> String {
+    format!("hl.dsp.exec_cmd({})", lua_str(command))
+}
+
+/// A dispatcher expression focusing workspace `id`.
+fn focus_workspace_dispatcher(id: i64) -> String {
+    format!("hl.dsp.focus({{ workspace = {id} }})")
+}
+
+/// Share of the focused monitor a window takes when it is promoted to floating.
+const FLOAT_SIZE_RATIO: f64 = 0.75;
 
 /// Toggle floating and resize/center windows when promoting from tiled mode.
 pub(crate) fn toggle_float() -> Result<()> {
     let window = active_window()?;
     if window.floating {
-        dispatch(&["togglefloating"])?;
-    } else {
-        batch(&[
-            "dispatch togglefloating",
-            "dispatch resizeactive exact 75% 75%",
-            "dispatch centerwindow 1",
-        ])?;
+        return dispatch("hl.dsp.window.float()");
     }
 
-    Ok(())
+    let mut commands = vec!["hl.dsp.window.float()".to_owned()];
+
+    if let Some((width, height)) = float_size()? {
+        commands.push(format!(
+            "hl.dsp.window.resize({{ x = {width}, y = {height}, relative = false }})"
+        ));
+    }
+
+    commands.push("hl.dsp.window.center()".to_owned());
+
+    dispatch_batch(&commands)
+}
+
+/// The pixel size a promoted window should take on the focused monitor.
+fn float_size() -> Result<Option<(i64, i64)>> {
+    let monitors = query_monitors()?;
+    let Some(monitor) = monitors
+        .iter()
+        .find(|monitor| monitor.focused && !monitor.disabled)
+    else {
+        return Ok(None);
+    };
+
+    // Window geometry is logical; `hyprctl monitors` reports the physical mode.
+    let scale = if monitor.scale > 0.0 {
+        monitor.scale
+    } else {
+        1.0
+    };
+    let width = (monitor.width / scale * FLOAT_SIZE_RATIO).round() as i64;
+    let height = (monitor.height / scale * FLOAT_SIZE_RATIO).round() as i64;
+
+    Ok((width > 0 && height > 0).then_some((width, height)))
 }
 
 /// Apply the laptop lid-switch monitor policy.
@@ -308,7 +397,7 @@ pub(crate) fn handle_lid_switch(
     validate_non_empty_field("open monitor spec", open_spec)?;
 
     match state {
-        LidSwitchState::Open => keyword("monitor", &format!("{internal_monitor},{open_spec}")),
+        LidSwitchState::Open => eval(&monitor_enable_expression(internal_monitor, open_spec)?),
         LidSwitchState::Closed => close_lid_monitor(internal_monitor),
         LidSwitchState::Sync => {
             if read_lid_state()?.is_some_and(|state| state == LidSwitchState::Closed) {
@@ -321,10 +410,43 @@ pub(crate) fn handle_lid_switch(
 
 fn close_lid_monitor(internal_monitor: &str) -> Result<()> {
     if active_external_monitor_exists(internal_monitor)? {
-        keyword("monitor", &format!("{internal_monitor},disable"))?;
+        eval(&format!(
+            "hl.monitor({{ output = {}, disabled = true }})",
+            lua_str(internal_monitor)
+        ))?;
     }
 
     Ok(())
+}
+
+/// Build the `hl.monitor(...)` call re-enabling `output` from a
+/// `<mode>,<position>,<scale>` spec.
+fn monitor_enable_expression(output: &str, open_spec: &str) -> Result<String> {
+    let fields: Vec<&str> = open_spec.split(',').map(str::trim).collect();
+    let [mode, position, scale] = fields.as_slice() else {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("open monitor spec must be '<mode>,<position>,<scale>', got '{open_spec}'"),
+        )
+        .into());
+    };
+
+    let scale: f64 = scale.parse().map_err(|_| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("monitor scale must be a number, got '{scale}'"),
+        )
+    })?;
+
+    // `disabled = false` is required, not implied: re-declaring a disabled
+    // monitor leaves it disabled.
+    Ok(format!(
+        "hl.monitor({{ output = {}, mode = {}, position = {}, scale = {}, disabled = false }})",
+        lua_str(output),
+        lua_str(mode),
+        lua_str(position),
+        format_decimal(scale),
+    ))
 }
 
 fn active_external_monitor_exists(internal_monitor: &str) -> Result<bool> {
@@ -349,7 +471,7 @@ pub(crate) fn reclaim_workspaces() -> Result<()> {
     );
 
     match target {
-        Some(target) => dispatch(&["workspace", &target.to_string()]),
+        Some(target) => dispatch(&focus_workspace_dispatcher(target)),
         None => Ok(()),
     }
 }
@@ -709,6 +831,16 @@ fn input_setting_value(state: &InputState, setting: InputSetting) -> String {
     }
 }
 
+/// The same value as a Lua literal: numbers bare, the accel profile quoted.
+fn input_setting_lua_value(state: &InputState, setting: InputSetting) -> String {
+    match setting {
+        InputSetting::Sensitivity | InputSetting::ScrollFactor => {
+            input_setting_value(state, setting)
+        }
+        InputSetting::AccelProfile => lua_str(state.accel_profile.as_str()),
+    }
+}
+
 fn parse_sensitivity(value: &str) -> Result<f64> {
     let parsed = parse_finite_decimal(value, "sensitivity")?;
     if !(-1.0..=1.0).contains(&parsed) {
@@ -863,7 +995,7 @@ fn validate_animations_payload(payload: &AnimationsPayload) -> Result<()> {
 }
 
 /// Quote a value as a Lua string literal for the generated data tables.
-fn lua_str(value: &str) -> String {
+pub(crate) fn lua_str(value: &str) -> String {
     let escaped = value
         .replace('\\', "\\\\")
         .replace('"', "\\\"")
@@ -873,7 +1005,8 @@ fn lua_str(value: &str) -> String {
 }
 
 fn render_animations_override(payload: &AnimationsPayload) -> String {
-    let mut out = String::from("-- Managed by desktopctl — do not edit\nreturn {\n    beziers = {\n");
+    let mut out =
+        String::from("-- Managed by desktopctl — do not edit\nreturn {\n    beziers = {\n");
 
     for (name, points) in &payload.beziers {
         out.push_str(&format!(
@@ -933,40 +1066,19 @@ struct KeybindsPayload {
     overrides: Vec<KeybindOverride>,
 }
 
+/// A pure remap of the combo a bind answers to. `hyprctl binds` reports every
+/// bind as `__lua` plus a callback index, so there is nothing to rebuild one
+/// from; `keybinds.lua` applies the remap where the bind is defined.
 #[derive(Debug, Deserialize)]
 struct KeybindOverride {
     original_mods: String,
     original_key: String,
     new_mods: String,
     new_key: String,
-    flags: String,
-    #[serde(default)]
-    description: String,
-    dispatcher: String,
-    #[serde(default)]
-    arg: String,
 }
 
 fn keybinds_override_path() -> Result<PathBuf> {
     Ok(paths::xdg_config_home()?.join(KEYBINDS_OVERRIDE_RELATIVE_PATH))
-}
-
-fn validate_keybind_flags(flags: &str) -> Result<()> {
-    validate_rendered_field("keybind flags", flags)?;
-    for flag in flags.chars() {
-        if !matches!(
-            flag,
-            'd' | 'e' | 'i' | 'l' | 'm' | 'n' | 'p' | 'r' | 's' | 't'
-        ) {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                format!("unsupported Hyprland keybind flag '{flag}'"),
-            )
-            .into());
-        }
-    }
-
-    Ok(())
 }
 
 fn validate_keybinds_payload(payload: &KeybindsPayload) -> Result<()> {
@@ -975,16 +1087,6 @@ fn validate_keybinds_payload(payload: &KeybindsPayload) -> Result<()> {
         validate_non_empty_field("original key", &keybind.original_key)?;
         validate_rendered_field("new modifiers", &keybind.new_mods)?;
         validate_non_empty_field("new key", &keybind.new_key)?;
-        validate_keybind_flags(&keybind.flags)?;
-        if keybind.flags.contains('d') {
-            // bindd renders the description as its own field; an empty one
-            // would produce a malformed `bindd = MODS, key, , dispatcher, arg`.
-            validate_non_empty_field("keybind description", &keybind.description)?;
-        } else {
-            validate_rendered_field("keybind description", &keybind.description)?;
-        }
-        validate_non_empty_field("keybind dispatcher", &keybind.dispatcher)?;
-        validate_rendered_field("keybind argument", &keybind.arg)?;
     }
 
     Ok(())
@@ -1004,16 +1106,6 @@ fn render_keybinds_override(payload: &KeybindsPayload) -> String {
             "        new_mods = {}, new_key = {},\n",
             lua_str(&ovr.new_mods),
             lua_str(&ovr.new_key),
-        ));
-        out.push_str(&format!(
-            "        flags = {}, description = {},\n",
-            lua_str(&ovr.flags),
-            lua_str(&ovr.description),
-        ));
-        out.push_str(&format!(
-            "        dispatcher = {}, arg = {},\n",
-            lua_str(&ovr.dispatcher),
-            lua_str(&ovr.arg),
         ));
         out.push_str("    },\n");
     }
@@ -1070,13 +1162,70 @@ fn hyprctl_output(args: &[&str]) -> Result<Output> {
 mod tests {
     use super::{
         AccelProfile, AnimationsPayload, InputSetting, InputState, KeybindsPayload, LidSwitchState,
-        MonitorInfo, WorkspaceInfo, WorkspaceRuleInfo, format_decimal, orphaned_pinned_workspaces,
-        parse_input_state_from_str, parse_scroll_factor, parse_sensitivity, reclaim_target,
-        render_animations_override, render_input_runtime_state, render_keybinds_override,
-        validate_animations_payload, validate_keybinds_payload,
+        MonitorInfo, WorkspaceInfo, WorkspaceRuleInfo, check_lua_output, config_expression,
+        exec_dispatcher, focus_workspace_dispatcher, format_decimal, lua_str,
+        monitor_enable_expression, orphaned_pinned_workspaces, parse_input_state_from_str,
+        parse_scroll_factor, parse_sensitivity, reclaim_target, render_animations_override,
+        render_input_runtime_state, render_keybinds_override, validate_animations_payload,
+        validate_keybinds_payload,
     };
 
     const EXTERNAL_SELECTOR: &str = "desc:BNQ ZOWIE XL LCD EB12M01465SL0";
+
+    #[test]
+    fn dispatchers_render_as_lua_expressions() {
+        assert_eq!(
+            focus_workspace_dispatcher(7),
+            "hl.dsp.focus({ workspace = 7 })"
+        );
+        assert_eq!(
+            exec_dispatcher("hyprsunset -t 4000"),
+            r#"hl.dsp.exec_cmd("hyprsunset -t 4000")"#
+        );
+    }
+
+    #[test]
+    fn lua_str_escapes_quotes_and_backslashes() {
+        assert_eq!(lua_str(r#"say "hi""#), r#""say \"hi\"""#);
+        assert_eq!(lua_str(r"C:\path"), r#""C:\\path""#);
+        assert_eq!(lua_str("one\ntwo"), r#""one\ntwo""#);
+    }
+
+    #[test]
+    fn dispatch_errors_are_read_off_stdout() {
+        // hyprctl still exits 0 when the dispatched Lua fails, so the `error:`
+        // line is the only thing separating success from silent breakage.
+        assert!(check_lua_output(b"ok\n", "cmd").is_ok());
+        assert!(check_lua_output(b"ok\n\nok\n", "cmd").is_ok());
+        assert!(check_lua_output(b"error: ')' expected near '2'\n", "cmd").is_err());
+        assert!(check_lua_output(b"ok\n\nerror: boom\n", "cmd").is_err());
+    }
+
+    #[test]
+    fn config_paths_nest_one_table_per_segment() {
+        assert_eq!(
+            config_expression(&["input", "sensitivity"], "0.75"),
+            "hl.config({ input = { sensitivity = 0.75 } })"
+        );
+        assert_eq!(
+            config_expression(&["misc", "disable_autoreload"], "true"),
+            "hl.config({ misc = { disable_autoreload = true } })"
+        );
+    }
+
+    #[test]
+    fn monitor_enable_expression_splits_the_open_spec() {
+        assert_eq!(
+            monitor_enable_expression("eDP-1", "preferred,auto,1").expect("valid spec"),
+            r#"hl.monitor({ output = "eDP-1", mode = "preferred", position = "auto", scale = 1.0, disabled = false })"#
+        );
+        assert_eq!(
+            monitor_enable_expression("eDP-1", "1920x1200@59.95, auto, 1.5").expect("valid spec"),
+            r#"hl.monitor({ output = "eDP-1", mode = "1920x1200@59.95", position = "auto", scale = 1.5, disabled = false })"#
+        );
+        assert!(monitor_enable_expression("eDP-1", "preferred,auto").is_err());
+        assert!(monitor_enable_expression("eDP-1", "preferred,auto,huge").is_err());
+    }
 
     fn laptop_panel(active_workspace: i64) -> Vec<MonitorInfo> {
         vec![
@@ -1360,18 +1509,14 @@ return {
     }
 
     #[test]
-    fn render_keybinds_override_produces_unbind_rebind_pairs() {
+    fn render_keybinds_override_emits_remap_pairs_only() {
         let payload: KeybindsPayload = serde_json::from_str(
             r#"{
                 "overrides": [{
                     "original_mods": "SUPER",
                     "original_key": "Q",
                     "new_mods": "SUPER SHIFT",
-                    "new_key": "Q",
-                    "flags": "d",
-                    "description": "Open terminal",
-                    "dispatcher": "exec",
-                    "arg": "alacritty"
+                    "new_key": "Q"
                 }]
             }"#,
         )
@@ -1381,8 +1526,9 @@ return {
         assert!(rendered.starts_with("-- Managed by desktopctl"));
         assert!(rendered.contains(r#"original_mods = "SUPER", original_key = "Q","#));
         assert!(rendered.contains(r#"new_mods = "SUPER SHIFT", new_key = "Q","#));
-        assert!(rendered.contains(r#"flags = "d", description = "Open terminal","#));
-        assert!(rendered.contains(r#"dispatcher = "exec", arg = "alacritty","#));
+        // The dispatcher lives with the bind definition; an override is a remap.
+        assert!(!rendered.contains("dispatcher"));
+        assert!(!rendered.contains("flags"));
     }
 
     #[test]
@@ -1393,10 +1539,7 @@ return {
                     "original_mods": "SUPER",
                     "original_key": "mouse:272",
                     "new_mods": "SUPER ALT",
-                    "new_key": "mouse:272",
-                    "flags": "m",
-                    "dispatcher": "movewindow",
-                    "arg": ""
+                    "new_key": "mouse:272"
                 }]
             }"#,
         )
@@ -1405,60 +1548,17 @@ return {
         let rendered = render_keybinds_override(&payload);
         assert!(rendered.contains(r#"original_mods = "SUPER", original_key = "mouse:272","#));
         assert!(rendered.contains(r#"new_mods = "SUPER ALT", new_key = "mouse:272","#));
-        assert!(rendered.contains(r#"flags = "m", description = "","#));
-        assert!(rendered.contains(r#"dispatcher = "movewindow", arg = "","#));
     }
 
     #[test]
-    fn validate_keybinds_rejects_injected_lines_and_unknown_flags() {
+    fn validate_keybinds_rejects_injected_lines() {
         let payload: KeybindsPayload = serde_json::from_str(
             r#"{
                 "overrides": [{
                     "original_mods": "SUPER",
                     "original_key": "Q\nunbind = SUPER, Return",
                     "new_mods": "SUPER",
-                    "new_key": "Q",
-                    "flags": "d",
-                    "description": "Open terminal",
-                    "dispatcher": "exec",
-                    "arg": "alacritty"
-                }]
-            }"#,
-        )
-        .expect("payload should parse");
-        assert!(validate_keybinds_payload(&payload).is_err());
-
-        let payload: KeybindsPayload = serde_json::from_str(
-            r#"{
-                "overrides": [{
-                    "original_mods": "SUPER",
-                    "original_key": "Q",
-                    "new_mods": "SUPER",
-                    "new_key": "Q",
-                    "flags": "=",
-                    "description": "Open terminal",
-                    "dispatcher": "exec",
-                    "arg": "alacritty"
-                }]
-            }"#,
-        )
-        .expect("payload should parse");
-        assert!(validate_keybinds_payload(&payload).is_err());
-    }
-
-    #[test]
-    fn validate_keybinds_requires_a_description_for_the_d_flag() {
-        let payload: KeybindsPayload = serde_json::from_str(
-            r#"{
-                "overrides": [{
-                    "original_mods": "SUPER",
-                    "original_key": "Q",
-                    "new_mods": "SUPER",
-                    "new_key": "Q",
-                    "flags": "d",
-                    "description": "",
-                    "dispatcher": "exec",
-                    "arg": "alacritty"
+                    "new_key": "Q"
                 }]
             }"#,
         )
