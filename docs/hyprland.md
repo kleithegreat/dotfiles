@@ -69,9 +69,14 @@ submap per session stacks duplicate binds. Bars only render on floating windows
 here, so a tiled window without one is not a bug.
 
 `hl.plugin.hyprexpo.expo("toggle")` runs on call and returns nil, so it is not a
-dispatcher: bind it as a closure (`hl.bind` takes "a dispatcher or a lua
-function"). Over IPC, where a dispatcher must come back, wrap it and return
-`hl.dsp.no_op()`.
+dispatcher. `hl.bind` claims to take "a dispatcher or a lua function" and
+accepts a bare closure without complaint, but such a bind registers and **never
+fires** — bind `hl.dsp.exec_cmd` running `hyprctl eval` instead. Over IPC, where
+a dispatcher must come back, wrap the call and return `hl.dsp.no_op()`.
+
+Nothing can trigger a bind synthetically to check this: `wtype`,
+`hl.dsp.send_shortcut` and `hl.dsp.send_key_state` all leave even a known-good
+bind unfired, so bind changes are only verifiable by hand.
 
 Every bind is reported by `hyprctl binds` as dispatcher `__lua` plus a callback
 index. Nothing outside the defining file can reconstruct a bind, so a keybind

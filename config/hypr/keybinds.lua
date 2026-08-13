@@ -125,6 +125,8 @@ hl.define_submap("hyprmod_capture", function()
     hl.bind("catchall", hl.dsp.pass({ window = "" }))
 end)
 
--- `expo()` runs on call and returns nil, so it has to be bound as a closure.
-bind(mainMod .. " + grave", function() hl.plugin.hyprexpo.expo("toggle") end,
+-- A closure bound here registers but never fires; route through `hyprctl eval`,
+-- where `expo()` does work.
+bind(mainMod .. " + grave",
+    hl.dsp.exec_cmd([[hyprctl eval 'hl.plugin.hyprexpo.expo("toggle")']]),
     { description = "Toggle workspace overview" })
