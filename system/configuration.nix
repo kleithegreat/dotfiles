@@ -118,6 +118,7 @@ let
     "cuda_sanitizer_api"
     "cudnn"
     "discord"
+    "discord-unwrapped"
     "libcublas"
     "libcufft"
     "libcufile"
@@ -207,6 +208,7 @@ in
         "electron-39.8.10"
         # Required by nixpkgs' winboat 0.9.0 package on this input.
         "electron-40.10.5"
+        "ladybird-0-unstable-2026-06-05"
       ];
       nixpkgs.overlays = [ localPackagesOverlay claudeCodeOverlay ];
 
