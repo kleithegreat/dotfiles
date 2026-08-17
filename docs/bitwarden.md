@@ -14,10 +14,6 @@ fingerprint-backed biometric unlock.
   also includes the `desktop_proxy` native messaging binary required for
   browser integration. The package currently needs the narrow
   `electron-39.8.10` insecure-package exception in `system/configuration.nix`.
-- **No autostart**: Bitwarden is not launched at session start. The old
-  `exec-once = bitwarden` line was removed from `config/hypr/autostart.lua`;
-  launch it manually or from the launcher. An owner question about restoring
-  autostart is pending.
 - **Window rule**: `config/hypr/rules.lua` keeps
   `windowrule = match:class Bitwarden, float on, center on`.
 - **Fingerprint path**: `hosts/laptop/system.nix` sets
@@ -54,6 +50,3 @@ fingerprint-backed biometric unlock.
   update the class in `config/hypr/rules.lua` if it differs from `Bitwarden`.
 - **No tray icon**: The Quickshell bar needs its system tray
   (StatusNotifierItem) widget for the icon to appear.
-
-The Bitwarden CLI (`bw`) is intentionally not installed; only the desktop app
-and its `desktop_proxy` are needed for browser integration.

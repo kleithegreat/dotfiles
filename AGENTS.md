@@ -28,10 +28,9 @@ Prose rots the same way: every AGENTS.md, MEMORY.txt and wiki article tends to o
 
 ## Documentation
 
-Each domain has exactly one doc: `docs/<domain>.md`, for the domains `nix`,
-`nvidia`, `grub`, `hyprland`, `tools`, `theming`, `quickshell`, `desktopctl`,
-`sun-schedule`, and `focus-time`. Read the relevant one(s) before working;
-`[[name]]` links between docs point at `docs/<name>.md`.
+Each domain has exactly one doc: `docs/<domain>.md`. Read the relevant ones —
+plus `TODO.md` for open issues near your area — before working; `[[name]]`
+links between docs point at `docs/<name>.md`.
 
 Each doc has two sections and nothing else:
 
@@ -57,14 +56,6 @@ After making changes:
 - If your change intentionally diverges from Intent, update Intent (and say
   so); otherwise fix the implementation, not the doc.
 - If you resolved a `TODO.md` entry, delete the entry.
-
-Other documents:
-
-- `TODO.md` (repo root) — open issues, pending validations, and owner
-  questions. Working near one of these areas? Check it first.
-- `docs/bitwarden.md` — Bitwarden desktop/browser/biometric setup runbook.
-- `docs/ableton-live.md` — retained historical investigation; inert, not
-  active work.
 
 ## Comments
 

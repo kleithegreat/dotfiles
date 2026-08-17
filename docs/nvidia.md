@@ -60,13 +60,11 @@ against RAM alongside the compilers filling it. `system/physical-host.nix`
 points the daemon at `/var/tmp/nix-daemon`. Without it, large CUDA/CMake build
 trees reach OOM well before they run out of tmpfs.
 
-### The desktop resume stack is untested since the PR #996 overlay was removed
-Upstream's open driver now contains the `drm_mode_config_reset` fix the old
-local overlay carried, so the overlay is gone — but no real suspend/resume
-cycle has validated the new state. The remaining desktop settings
-(`kernelSuspendNotifier = false`, the temp-path override, the sleep-freeze
-workaround) stay until that validation happens. Historical symptom to compare
-against: ~31s stall between `PM: suspend exit` and display recovery with
-`NVRM: _kgspRpcRecvPoll: GSP RM heartbeat timed out` in the journal.
+### The resume failure has a specific signature
+`kernelSuspendNotifier = false`, the temp-path override and the sleep-freeze
+workaround are held by the pending validation in `TODO.md`. What they guard
+against looks like a ~31s stall between `PM: suspend exit` and display
+recovery, with `NVRM: _kgspRpcRecvPoll: GSP RM heartbeat timed out` in the
+journal — compare against that before concluding a resume cycle passed.
 
 Related: [[nix]], [[hyprland]]

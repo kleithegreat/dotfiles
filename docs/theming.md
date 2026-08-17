@@ -96,7 +96,7 @@ The `chromium` and `helium` targets patch each *active* profile's
 `Default`): web-font families and `browser.theme.color_scheme2` from
 `dark_hint`. A live browser can rewrite the file on exit — rerun the target
 after closing the browser if changes vanished, and open an inactive profile
-once to get it patched. Page font *sizes* are deliberately not managed.
+once to get it patched.
 
 ### The SDDM wallpaper handoff is a hardened two-stage bridge
 SDDM cannot read the 0700 home directory, so the

@@ -48,5 +48,3 @@ Open issues and pending validations. Delete entries when resolved.
       uses and which hosts are live.
 - [ ] Solaar asymmetry: laptop autostart sets `scroll-ratchet Ratcheted` +
       `smart-shift 50`, desktop only `smart-shift 50` — intended?
-- [ ] Bitwarden session autostart was removed — restore it or keep
-      launcher-only?
