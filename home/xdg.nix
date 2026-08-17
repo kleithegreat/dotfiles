@@ -1,5 +1,5 @@
 { lib, dotfilesPath, host, snappySwitcherPkg, bambuStudioPkg }:
-{ config, ... }:
+{ config, pkgs, ... }:
 
 let
   dotfilesSource = path: "${dotfilesPath}/${path}";
@@ -43,6 +43,24 @@ let
   }) {
     quickshell = dotfilesSource "config/quickshell";
     nvim = nvimSource;
+  };
+  # VS Code is spawned through Hyprland rather than by the launcher so the new
+  # window is tracked on the active workspace. That indirection cannot carry a
+  # desktop-entry field code directly: `hl.dsp.exec_cmd` takes the whole command
+  # as one quoted string, and per the desktop-entry spec a field code inside a
+  # quoted argument is not expanded, so a literal `%F` reached `code` and opened
+  # an empty buffer named "%F" instead of the previous session. Take the files
+  # as real argv here and shell-quote them into the dispatch string, which
+  # Hyprland runs through /bin/sh.
+  codeLauncher = pkgs.writeShellApplication {
+    name = "code-hypr";
+    text = ''
+      cmd=code
+      for arg in "$@"; do
+        cmd="$cmd $(printf '%q' "$arg")"
+      done
+      hyprctl dispatch "hl.dsp.exec_cmd([==[$cmd]==])"
+    '';
   };
   mkHostConfigFile = key: fallback:
     let
@@ -150,8 +168,7 @@ in
     comment = "Code Editing. Redefined.";
     genericName = "Text Editor";
     icon = "vscode";
-    # Lua long string: keeps the Exec line free of nested double quotes.
-    exec = ''hyprctl dispatch "hl.dsp.exec_cmd([[code %F]])"'';
+    exec = "${codeLauncher}/bin/code-hypr %F";
     categories = [ "Utility" "TextEditor" "Development" "IDE" ];
     startupNotify = true;
     settings = {
@@ -163,7 +180,7 @@ in
       new-empty-window = {
         name = "New Empty Window";
         icon = "vscode";
-        exec = ''hyprctl dispatch "hl.dsp.exec_cmd([[code --new-window %F]])"'';
+        exec = "${codeLauncher}/bin/code-hypr --new-window %F";
       };
     };
   };
