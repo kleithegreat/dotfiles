@@ -7,7 +7,7 @@ import "../components" as Components
 RowLayout {
     spacing: 4
     Repeater {
-        model: 10
+        model: 9
         Item {
             id: wsItem
             required property int index

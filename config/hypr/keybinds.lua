@@ -46,12 +46,11 @@ bind(mainMod .. " + right", hl.dsp.focus({ direction = "right" }), { description
 bind(mainMod .. " + up",    hl.dsp.focus({ direction = "up" }),    { description = "Move focus up" })
 bind(mainMod .. " + down",  hl.dsp.focus({ direction = "down" }),  { description = "Move focus down" })
 
--- Workspaces (key 0 maps to workspace 10)
-for i = 1, 10 do
-    local key = i % 10
-    bind(mainMod .. " + " .. key, hl.dsp.focus({ workspace = i }),
+-- Workspaces (9 of them, to match the bar and the hyprexpo overview grid)
+for i = 1, 9 do
+    bind(mainMod .. " + " .. i, hl.dsp.focus({ workspace = i }),
         { description = "Switch to workspace " .. i })
-    bind(mainMod .. " + SHIFT + " .. key, hl.dsp.window.move({ workspace = i }),
+    bind(mainMod .. " + SHIFT + " .. i, hl.dsp.window.move({ workspace = i }),
         { description = "Move window to workspace " .. i })
 end
 
