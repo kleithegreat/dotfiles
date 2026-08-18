@@ -134,10 +134,10 @@ in
 
     hardware.enableRedistributableFirmware = true;
     hardware.i2c.enable = true;
-    hardware.logitech.wireless = {
-      enable = true;
-      enableGraphical = true;  # solaar
-    };
+    # Also turns on hardware.logitech.wireless (ltunify, logitech-udev-rules).
+    # The tray process itself is owned by Hyprland autostart, not
+    # programs.solaar.userService, so there is only ever one of it.
+    programs.solaar.enable = true;
     hardware.cpu.intel.updateMicrocode =
       lib.mkDefault config.hardware.enableRedistributableFirmware;
 
