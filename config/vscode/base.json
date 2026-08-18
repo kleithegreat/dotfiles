@@ -120,5 +120,9 @@
         "*.qrc": "qt-core.qrcEditor",
         "*.pdf": "pdf.view"
     },
-    "qt-qml.doNotAskForQmllsDownload": true
+    "qt-qml.doNotAskForQmllsDownload": true,
+    "qt-qml.qmlls.customExePath": "/etc/profiles/per-user/kevin/bin/qmlls",
+    "qt-qml.qmlls.additionalImportPaths": [
+        "/etc/profiles/per-user/kevin/lib/qt-6/qml"
+    ]
 }
