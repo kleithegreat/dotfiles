@@ -1,4 +1,4 @@
-{ config, pkgs, lib, host, enableNativeOptimizations, ... }:
+{ config, pkgs, lib, host, ... }:
 
 let
   zshShareOnly = pkgs.runCommand "zsh-share-only" {} ''
@@ -10,9 +10,9 @@ let
     "big-parallel"
     "kvm"
     "nixos-test"
-  ] ++ lib.optionals enableNativeOptimizations [ "native-optimized-${host.name}" ];
+  ] ++ lib.optional pkgs.optimize.enabled pkgs.optimize.hostFeature;
   rebuildFlags =
-    lib.optionalString enableNativeOptimizations
+    lib.optionalString pkgs.optimize.enabled
       "--option system-features ${lib.escapeShellArg (lib.concatStringsSep " " rebuildSystemFeatures)} "
     + "--flake ~/repos/dotfiles#${host.name}";
 in

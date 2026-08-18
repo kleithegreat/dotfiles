@@ -3,16 +3,20 @@
 ## Intent
 
 - One flake, one explicit `nixosConfigurations.<host>` output per machine.
-  `mkHost` is shared plumbing only — module stack, `host` fact record, Home
-  Manager embedding — and must not hide host policy, hardware choices, or
-  package selection.
+  `lib.systems.nixosHost` is shared plumbing only — module stack, `host` fact
+  record, Home Manager embedding — and must not hide host policy, hardware
+  choices, or package selection.
 - Modules gate behavior on explicit host facts (`host.isPhysical`,
   `host.hyprland.*`), not by string-matching host names.
 - Layer boundaries: `system/*.nix` owns shared privileged policy;
   `hosts/<name>/` owns hardware and host-only overrides; `home/*.nix` owns
   user packages, XDG deployment, and session glue; `config/` owns
-  repo-authored application config that Home Manager deploys. Installing a
+  repo-authored application config that Home Manager deploys; `lib/` owns
+  helpers that are merged into `lib` and reachable everywhere. Installing a
   tool (Nix) and configuring it (`config/`) are separate responsibilities.
+- Modules never receive packages or computed values as extra function
+  arguments. What a module needs reaches it through `pkgs` (via an overlay),
+  through `config`, or through a `specialArgs` entry that every module gets.
 - `xdg.configFile` deploys base files and static trees only — never generated
   theme outputs, which must stay writable outside the store ([[theming]]).
   The recursive `quickshell/` and `nvim/` trees coexist with writable
@@ -58,7 +62,7 @@ exists; move to the branch then, rather than disabling
 
 ### `texlive.combined.scheme-medium` recurses on this pin
 `scheme-medium` pulls `asymptote` through `collection-binextra` and evaluation
-blows up. `home/default.nix` builds `scheme-small` plus explicit extras.
+blows up. `home/packages.nix` builds `scheme-small` plus explicit extras.
 
 ### `cantarell-fonts` variable-OTF autohinting is broken on this pin
 The default build fails in `otfautohint`. The overlay passes Meson flags
@@ -73,25 +77,43 @@ tries `cpio` and falls back to `7z` for older layouts.
 
 ## Quirks — native optimizations
 
-### The native overlay is applied locally, never globally
+### The native overlay namespaces, it never shadows
 Rewriting the global `pkgs` set gives every transitive consumer a new
 derivation path and kills cache hits for packages that were never opted in.
-`system/configuration.nix` and `home/default.nix` build local
-`optimizedPkgs = pkgs.appendOverlays [...]` aliases for the intentionally
-rebuilt top-level packages only. `overlays/native-optimized.nix` also
-deliberately leaves `zstd`/`lz4` stock — optimizing low-level libraries pulls
-enormous rebuild cascades through `libarchive`/`llvm`/`systemd`.
+`overlays/native-optimized.nix` therefore publishes `pkgs.optimized.<name>`
+and leaves `pkgs.<name>` stock, which is also why it deliberately skips
+`zstd`/`lz4` — optimizing low-level libraries pulls enormous rebuild cascades
+through `libarchive`/`llvm`/`systemd`.
+
+The trap the namespacing creates: a package resolves its dependencies from the
+*unshadowed* set, so `wireplumber` and `quickshell` would each link stock
+`pipewire` and drag a second copy of it into the closure. Cross-dependencies
+inside `pkgs.optimized` are wired by hand with `.override`, and a new entry
+that depends on another optimized package must be too.
+
+### `pipe-operators` has to be bootstrapped by hand once
+The config is written with `|>`, so evaluating it needs the feature that the
+config itself turns on. A machine whose `/etc/nix/nix.conf` predates that
+cannot evaluate its way to the rebuild that would install it. Break the loop
+once, per machine:
+
+    nrs --option experimental-features "nix-command flakes pipe-operators"
+
+`nixos-rebuild` rejects `--extra-experimental-features` outright — it only
+forwards `--option` — while a bare `nix eval` takes either. The flake's own
+`nixConfig` block does not help: nix parses the file before reading it, and
+ignores the whole block anyway until the user is in `trusted-users`.
 
 ### Native builds are fenced by per-host `requiredSystemFeatures`
 `-march=native` output depends on the builder CPU, so identical flag strings
 are not a safe cache boundary across hosts. Native derivations carry
 `requiredSystemFeatures = [ "native-optimized-<host>" ]` and the host
 advertises that feature in `nix.settings.system-features` *only while*
-`enableNativeOptimizations` is on (unconditional advertisement changes
-scheduling/cacheability even when the overlay is off). Flake-input packages
-(Hyprland family, hyprqt6engine) share the same helper in
-`system/native-optimizations.nix` so they don't diverge from the overlay
-policy. Bootstrap wrinkle: the switch that first enables the feature runs
+`pkgs.optimize.enabled` (`host.nativeOptimizations`) is on — unconditional
+advertisement changes scheduling/cacheability even when the overlay is off.
+Flake-input packages (Hyprland family, hyprqt6engine) go through
+`pkgs.optimize.cc` from `lib/optimize.nix`, the same helper the overlay uses,
+so they cannot diverge from the overlay policy. Bootstrap wrinkle: the switch that first enables the feature runs
 through a daemon that doesn't advertise it yet, so the `nrs` wrapper passes
 the target `system-features` to `sudo nixos-rebuild` directly (plain user
 `--option system-features` is rejected as a restricted setting).
@@ -129,7 +151,7 @@ profile switches, hence the `--replace` refresh in `nrs`.
 ### Claude Code comes from a narrow `nixpkgs-claude` input
 Model-support releases land in nixpkgs master before `nixos-unstable`
 advances, so `flake.nix` carries a `nixpkgs-claude` input on master feeding
-`claudeCodeOverlay`. Keep it nixpkgs-sourced; a repo-local npm pin already
+`overlays/claude-code.nix`. Keep it nixpkgs-sourced; a repo-local npm pin already
 broke once against the moving upstream builder shape.
 
 ### Haruna must share the session Qt/KDE package set

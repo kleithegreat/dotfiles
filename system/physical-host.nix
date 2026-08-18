@@ -1,4 +1,4 @@
-{ config, lib, pkgs, host }:
+{ config, lib, pkgs, host, ... }:
 
 let
   kernelOomNotifier = pkgs.writeShellApplication {

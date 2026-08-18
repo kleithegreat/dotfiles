@@ -1,17 +1,29 @@
-{ pkgs, desktopctl, fd, p7zip, quickshell, ripgrep, lspPlugins, opencodePkg, harunaPkg, snappySwitcherPkg, vicinaePkg, texlive }:
+{ pkgs, ... }:
 
 let
+  texlive = pkgs.texlive.withPackages (ps: with ps; [
+    scheme-small
+    latexmk
+    tikz-cd
+    titlesec
+    tocloft
+    enumitem
+    mdframed
+    needspace
+    zref
+  ]);
+
   customPackages = [
-    opencodePkg
-    fd
-    ripgrep
-    desktopctl
-    p7zip
+    pkgs.opencode
+    pkgs.optimized.fd
+    pkgs.optimized.ripgrep
+    pkgs.optimized.desktopctl
+    pkgs.optimized.p7zip
     texlive
-    lspPlugins
-    quickshell
-    snappySwitcherPkg
-    vicinaePkg
+    pkgs.optimized.lsp-plugins
+    pkgs.optimized.quickshell
+    pkgs.snappy-switcher
+    pkgs.vicinae
   ];
 
   discordKrispSrc = pkgs.fetchurl {
@@ -119,7 +131,9 @@ let
     glib
     gdk-pixbuf
     gedit
-    harunaPkg
+    # Haruna needs to stay on the session Qt/KDE stack so the global
+    # hyprqt6engine platform theme plugin is ABI-compatible.
+    haruna
     ffmpeg
     zoom-us
     tor-browser

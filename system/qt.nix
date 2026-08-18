@@ -1,11 +1,8 @@
-{ lib, pkgs, inputs, host, enableNativeOptimizations }:
+{ pkgs, inputs, ... }:
 
 let
   system = pkgs.stdenv.hostPlatform.system;
-  nativeOptimizations = import ./native-optimizations.nix {
-    inherit lib host enableNativeOptimizations;
-  };
-  hyprqt6engine = nativeOptimizations.optimizeCCPackage (inputs.hyprqt6engine.packages.${system}.default.overrideAttrs (old: {
+  hyprqt6engine = pkgs.optimize.cc (inputs.hyprqt6engine.packages.${system}.default.overrideAttrs (old: {
     buildInputs = (old.buildInputs or []) ++ [
       pkgs.kdePackages.kcolorscheme
       pkgs.kdePackages.kconfig

@@ -1,6 +1,21 @@
 {
   description = "Kevin's NixOS configuration";
 
+  # Honoured only for trusted users; `nix.settings.trusted-users` in
+  # system/configuration.nix is what grants that. See docs/nix.md for what to
+  # pass before the first rebuild that applies either.
+  nixConfig = {
+    experimental-features = [
+      "flakes"
+      "nix-command"
+      "pipe-operators"
+    ];
+
+    http-connections = 50;
+    show-trace = true;
+    warn-dirty = false;
+  };
+
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     nixpkgs-claude.url = "github:NixOS/nixpkgs/master";
@@ -19,126 +34,93 @@
     };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-claude, home-manager, hyprland, hyprland-plugins, hyprqt6engine, ... }:
-  let
-    system = "x86_64-linux";
-    localPackagesOverlay = import ./overlays/local-packages.nix;
-    claudeCodeOverlay = final: prev:
-      let
-        claudePkgs = import nixpkgs-claude {
-          system = final.stdenv.hostPlatform.system;
-          config.allowUnfreePredicate = pkg:
-            builtins.elem (nixpkgs-claude.lib.getName pkg) [ "claude-code" ];
-        };
-      in {
-        claude-code = claudePkgs.claude-code;
-      };
-    sharedInputs = {
-      inherit
-        nixpkgs
-        home-manager
-        hyprland
-        hyprland-plugins
-        hyprqt6engine
-        ;
-    };
-    hosts = {
-      laptop = {
-        name = "laptop";
-        isPhysical = true;
-        hyprland = {
-          autostartHost = "hosts/laptop/autostart.lua";
-          inputDevices = "hosts/laptop/input-devices.lua";
-          monitors = "hosts/laptop/monitors.lua";
-          env = "hosts/laptop/env.lua";
-        };
-      };
-      desktop = {
-        name = "desktop";
-        isPhysical = true;
-        hyprland = {
-          autostartHost = "hosts/desktop/autostart.lua";
-          inputDevices = "hosts/desktop/input-devices.lua";
-          monitors = "hosts/desktop/monitors.lua";
-          env = "hosts/desktop/env.lua";
-        };
-      };
-    };
+  outputs =
+    inputs:
+    let
+      lib = import ./lib inputs.nixpkgs.lib;
 
-    # Set to true to rebuild the targeted native-code packages from source with
-    # `-O3 -march=native` / `target-cpu=native` instead of using stock cached
-    # nixpkgs builds.
-    enableNativeOptimizations = true;
+      inherit (lib.attrsets) mapAttrs;
 
-    mkHost =
-      {
-        host,
-        hostModule,
-        enableHostNativeOptimizations ? enableNativeOptimizations,
-      }:
-      nixpkgs.lib.nixosSystem {
-        inherit system;
-        specialArgs = {
-          inherit hyprland host claudeCodeOverlay;
-          enableNativeOptimizations = enableHostNativeOptimizations;
-          inputs = sharedInputs;
-        };
-        modules = [
-          ./system/configuration.nix
-          hostModule
-          home-manager.nixosModules.home-manager
-          {
-            home-manager.useGlobalPkgs = true;
-            home-manager.useUserPackages = true;
-            home-manager.backupFileExtension = "bak";
-            home-manager.users.kevin = import ./home;
-            home-manager.extraSpecialArgs = {
-              dotfilesPath = self;
-              inherit host;
-              inputs = sharedInputs;
-              enableNativeOptimizations = enableHostNativeOptimizations;
-            };
-          }
-        ];
-      };
-  in {
-    overlays.default = final: prev:
-      localPackagesOverlay final prev // claudeCodeOverlay final prev;
+      system = "x86_64-linux";
 
-    packages.${system} =
-      let
-        pkgs = import nixpkgs {
+      # `nativeOptimizations` rebuilds the targeted native-code packages from
+      # source with `-O3 -march=native` / `target-cpu=native` instead of using
+      # stock cached nixpkgs builds. See overlays/native-optimized.nix.
+      hosts = {
+        desktop = {
           inherit system;
-          overlays = [ self.overlays.default ];
+          isPhysical = true;
+          nativeOptimizations = true;
+          module = ./hosts/desktop/system.nix;
+          hyprland = {
+            autostartHost = "hosts/desktop/autostart.lua";
+            inputDevices = "hosts/desktop/input-devices.lua";
+            monitors = "hosts/desktop/monitors.lua";
+            env = "hosts/desktop/env.lua";
+          };
         };
-      in {
-        inherit (pkgs)
-          desktopctl
-          helium
-          snappy-switcher
-          ;
-      };
 
-    nixosConfigurations.laptop = mkHost {
-      host = hosts.laptop;
-      hostModule = ./hosts/laptop/system.nix;
+        laptop = {
+          inherit system;
+          isPhysical = true;
+          nativeOptimizations = true;
+          module = ./hosts/laptop/system.nix;
+          hyprland = {
+            autostartHost = "hosts/laptop/autostart.lua";
+            inputDevices = "hosts/laptop/input-devices.lua";
+            monitors = "hosts/laptop/monitors.lua";
+            env = "hosts/laptop/env.lua";
+          };
+        };
+      };
+    in
+    {
+      # Host-independent packages only; the native-optimized overlay is applied
+      # per host, inside lib/overlays.nix.
+      overlays.default =
+        final: prev:
+        import ./overlays/local-packages.nix final prev
+        // import ./overlays/claude-code.nix { inherit (inputs) nixpkgs-claude; } final prev;
+
+      nixosConfigurations =
+        hosts
+        |> mapAttrs (
+          name: host:
+          lib.systems.nixosHost {
+            inherit inputs;
+            flake = inputs.self;
+          } (host // { inherit name; })
+        );
+
+      packages.${system} =
+        let
+          pkgs = import inputs.nixpkgs {
+            inherit system;
+            overlays = [ inputs.self.overlays.default ];
+          };
+        in
+        {
+          inherit (pkgs)
+            desktopctl
+            helium
+            snappy-switcher
+            ;
+        };
+
+      devShells.${system}.default =
+        let
+          pkgs = import inputs.nixpkgs { inherit system; };
+        in
+        pkgs.mkShell {
+          nativeBuildInputs = with pkgs; [
+            cargo
+            rustc
+            rust-analyzer
+            clippy
+            rustfmt
+            pkg-config
+            sqlite
+          ];
+        };
     };
-    nixosConfigurations.desktop = mkHost {
-      host = hosts.desktop;
-      hostModule = ./hosts/desktop/system.nix;
-    };
-    devShells.${system}.default = let
-      pkgs = import nixpkgs { inherit system; };
-    in pkgs.mkShell {
-      nativeBuildInputs = with pkgs; [
-        cargo
-        rustc
-        rust-analyzer
-        clippy
-        rustfmt
-        pkg-config
-        sqlite
-      ];
-    };
-  };
 }

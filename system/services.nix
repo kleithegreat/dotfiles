@@ -1,4 +1,4 @@
-{ pkgs, optimizedPkgs, patchedHyprlandPortal }:
+{ config, pkgs, ... }:
 
 let
   sddmThemeBackgroundDir = "/var/lib/desktopctl/where-is-my-sddm-theme";
@@ -92,7 +92,7 @@ in
   xdg.portal = {
     enable = true;
     extraPortals = [
-      patchedHyprlandPortal
+      config.programs.hyprland.portalPackage
       pkgs.xdg-desktop-portal-gtk
     ];
     config.common = {
@@ -157,12 +157,12 @@ in
 
   services.pipewire = {
     enable = true;
-    package = optimizedPkgs.pipewire;
+    package = pkgs.optimized.pipewire;
     alsa.enable = true;
     pulse.enable = true;
     wireplumber = {
       enable = true;
-      package = optimizedPkgs.wireplumber;
+      package = pkgs.optimized.wireplumber;
     };
   };
   services.pulseaudio.enable = false;

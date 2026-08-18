@@ -69,3 +69,58 @@ pointer if needed. No narration, no history.
 Docs cite file paths plus stable in-file anchors: function names, option
 names, section headings, short quoted snippets. Never line numbers — they go
 stale immediately.
+
+## Nix
+
+Style rules. They are mechanical: either the code follows them or it doesn't.
+
+- Modules take the standard argument set and nothing else. A module never
+  becomes `{ someArg }: { config, pkgs, ... }:` and is never called as
+  `(import ./x.nix { ... })` from an `imports` list. Anything a module needs
+  arrives through `pkgs`, `config`, or a `specialArgs` entry that applies to
+  every module (`host`, `inputs`, `dotfilesPath`).
+- Never put a value in a `let` binding that duplicates a module option. If it
+  is set through `config.*`, read it back through `config.*`. `let` is for
+  computed derivations and local helpers.
+- Packages belong in an overlay, not in a `let`. `overlays/local-packages.nix`
+  for new derivations; `overlays/native-optimized.nix` for host-native builds.
+- `pkgs.optimized.<name>` is the natively-optimized build of a nixpkgs package;
+  `pkgs.optimize.cc` / `pkgs.optimize.rust` apply the same treatment to a
+  derivation that came from a flake input. Never re-derive either by hand.
+- Cross-dependencies inside `pkgs.optimized` are wired explicitly with
+  `.override`. A package that silently links the stock build of another
+  optimized package puts two copies of it in the closure.
+- Shared helpers go in `lib/<namespace>.nix`, which takes `{ self }` and
+  returns the attrset to merge into `lib`. `lib/default.nix` picks it up with
+  no registration step.
+- `let inherit (lib.lists) head;` with the full submodule path, never
+  `inherit (lib) head`. Exception: names that have no submodule path.
+- Never `rec`. Use a `let` binding or `lib.fixedPoints.fix`.
+- Prefer `lib.getExe pkgs.foo` over an interpolated `"${pkgs.foo}/bin/foo"`.
+- `/* lua */`, `/* bash */`, `/* qml */` before a multiline string holding code
+  in that language.
+- Section comments in a large module use the existing
+  `# ── Section ─────` rule, not bare `# Section`.
+- Long-form CLI flags in anything written to a file or a derivation. Short
+  flags are for interactive use only.
+- Pipe operators (`|>`) for multi-step list and attrset transforms rather than
+  nested calls. They are enabled through `nix.settings.experimental-features`.
+
+## Tooling
+
+Rules about how to run things here, mostly earned by wasting time.
+
+- Never `find /nix/store` or grep across it. Use `nix derivation show`,
+  `nix path-info`, or `nix eval` against a concrete attribute path.
+- Never `builtins.getFlake` on this repo. It copies the whole worktree into the
+  store, `desktopctl/target/` included, which is thousands of files.
+- Use `jq` rather than python to read JSON. It avoids a permission prompt.
+- A dirty flake only sees *tracked* files. `git add` new files before any
+  `nix eval`, or they are invisible and the error will not say so.
+- A refactor that is supposed to change nothing must not move
+  `nix eval .#nixosConfigurations.<host>.config.system.build.toplevel.drvPath`.
+  Capture it before, compare after; `nix derivation show -r` on both diffs the
+  closure when it does move. The flake's own source path is the one legitimate
+  difference, since editing any file changes it.
+- Never run `nixos-rebuild switch` or `boot` unprompted. These are live
+  machines. Evaluate and build; let the owner switch.

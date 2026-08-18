@@ -1,22 +1,13 @@
-{ config, lib, pkgs, hyprland, host, inputs, claudeCodeOverlay, enableNativeOptimizations, ... }:
+{ lib, pkgs, host, inputs, ... }:
 
 let
   system = pkgs.stdenv.hostPlatform.system;
-  hostName = host.name;
-  localPackagesOverlay = import ../overlays/local-packages.nix;
-  nativeOptimizations = import ./native-optimizations.nix {
-    inherit lib host enableNativeOptimizations;
-  };
-  optimizedPackages = import ../overlays/native-optimized.nix {
-    inherit lib host enableNativeOptimizations;
-  };
-  optimizedPkgs = pkgs.appendOverlays [ optimizedPackages.overlay ];
   appendPatches = patches: drv:
     drv.overrideAttrs (old: {
       patches = (old.patches or []) ++ patches;
     });
   mkPatchedHyprPlugin = plugin: patches:
-    nativeOptimizations.optimizeCCPackage (
+    pkgs.optimize.cc (
       appendPatches patches (plugin.override {
         hyprland = patchedHyprland;
         hyprlandPlugins = patchedHyprlandPluginHelpers;
@@ -24,7 +15,7 @@ let
     );
 
   patchedHyprlandGuiutils =
-    hyprland.inputs.hyprland-guiutils.packages.${system}.hyprland-guiutils.overrideAttrs (old: {
+    inputs.hyprland.inputs.hyprland-guiutils.packages.${system}.hyprland-guiutils.overrideAttrs (old: {
       buildInputs = (old.buildInputs or []) ++ [ pkgs.pango ];
       preConfigure = (old.preConfigure or "") + ''
         export NIX_CFLAGS_COMPILE="$NIX_CFLAGS_COMPILE $(pkg-config --cflags pango)"
@@ -51,18 +42,18 @@ let
       };
     });
 
-  patchedHyprland = nativeOptimizations.optimizeCCPackage (
+  patchedHyprland = pkgs.optimize.cc (
     appendPatches [
       ../patches/hyprland/hyprland-floating-top-decoration-rounding-0.55.patch
       ../patches/hyprland/hyprland-gcc15-designated-initializer-fix-0.55.patch
-    ] (hyprland.packages.${system}.hyprland.override {
+    ] (inputs.hyprland.packages.${system}.hyprland.override {
       hyprland-guiutils = patchedHyprlandGuiutils;
       glaze-hyprland = glazeForHyprland;
     })
   );
 
-  patchedHyprlandPortal = nativeOptimizations.optimizeCCPackage (
-    hyprland.packages.${system}.xdg-desktop-portal-hyprland.override {
+  patchedHyprlandPortal = pkgs.optimize.cc (
+    inputs.hyprland.packages.${system}.xdg-desktop-portal-hyprland.override {
       hyprland = patchedHyprland;
     }
   );
@@ -85,7 +76,7 @@ let
     // {
       hyprbars = mkPatchedHyprPlugin upstreamHyprPluginPkgs.hyprbars [];
 
-      hyprexpo = nativeOptimizations.optimizeCCPackage localHyprexpo;
+      hyprexpo = pkgs.optimize.cc localHyprexpo;
     };
   hyprPluginDir = pkgs.symlinkJoin {
     name = "hyprland-plugins";
@@ -150,18 +141,10 @@ let
 in
 {
   imports = [
-    (import ./physical-host.nix {
-      inherit config lib pkgs host;
-    })
-    (import ./qt.nix {
-      inherit lib pkgs inputs host enableNativeOptimizations;
-    })
-    (import ./users.nix {
-      inherit pkgs;
-    })
-    (import ./services.nix {
-      inherit pkgs optimizedPkgs patchedHyprlandPortal;
-    })
+    ./physical-host.nix
+    ./qt.nix
+    ./users.nix
+    ./services.nix
   ];
 
   config = lib.mkMerge [
@@ -169,8 +152,11 @@ in
       boot.tmp.useTmpfs = true;
 
       nix.settings = {
-        experimental-features = [ "nix-command" "flakes" ];
-        system-features = lib.mkIf enableNativeOptimizations (lib.mkAfter [ nativeOptimizations.hostFeature ]);
+        experimental-features = [ "nix-command" "flakes" "pipe-operators" ];
+        # Lets the flake's own `nixConfig` block apply; without it nix ignores
+        # every setting there as untrusted.
+        trusted-users = [ "root" "@wheel" ];
+        system-features = lib.mkIf pkgs.optimize.enabled (lib.mkAfter [ pkgs.optimize.hostFeature ]);
         substituters = [
           "https://cache.nixos.org"
         ];
@@ -210,10 +196,8 @@ in
         "electron-40.10.5"
         "ladybird-0-unstable-2026-06-05"
       ];
-      nixpkgs.overlays = [ localPackagesOverlay claudeCodeOverlay ];
-
       # ── Networking ───────────────────────────────────────────────
-      networking.hostName = hostName;
+      networking.hostName = host.name;
       networking.networkmanager.enable = true;
 
       # ── Hyprland ─────────────────────────────────────────────────
