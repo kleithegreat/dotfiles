@@ -1,4 +1,5 @@
 pub mod focus;
+pub mod hypr;
 pub mod monitors;
 pub mod night_light;
 pub mod server;
@@ -57,6 +58,7 @@ async fn run_async() -> crate::Result<()> {
         let context = server::ServerContext {
             night_light: night_light.clone(),
             theme: theme.clone(),
+            hypr: hypr::HyprController::new(events.clone()),
             events: events.clone(),
         };
         let shutdown_rx = shutdown_rx.clone();

@@ -39,6 +39,13 @@ pub(crate) mod methods {
     pub const THEME_PRESET_APPLY: &str = "theme.preset_apply";
     pub const THEME_PRESET_SAVE: &str = "theme.preset_save";
     pub const THEME_PRESET_DELETE: &str = "theme.preset_delete";
+
+    pub const HYPR_INPUT_STATUS: &str = "hypr.input_status";
+    pub const HYPR_INPUT_SET: &str = "hypr.input_set";
+    pub const HYPR_ANIMATIONS_SAVE: &str = "hypr.animations_save";
+    pub const HYPR_ANIMATIONS_CLEAR: &str = "hypr.animations_clear";
+    pub const HYPR_KEYBINDS_SAVE: &str = "hypr.keybinds_save";
+    pub const HYPR_KEYBINDS_CLEAR: &str = "hypr.keybinds_clear";
 }
 
 /// Topics a subscriber can select; each event name is `<topic>.<what>`.

@@ -390,7 +390,7 @@ fn run_hypr_input(args: HyprInputArgs) -> Result<()> {
         HyprInputCommand::Status(args) => hypr::print_input_status(args.json),
         HyprInputCommand::Set(args) => {
             let setting = hypr::InputSetting::parse(&args.key)?;
-            hypr::set_input_value(setting, &args.value)
+            hypr::set_input_value(setting, &args.value).map(|_state| ())
         }
     }
 }

@@ -1,5 +1,6 @@
 use crate::{
     daemon::{
+        hypr::HyprController,
         night_light::Controller,
         theme::{ThemeController, ThemeJob},
     },
@@ -61,7 +62,19 @@ impl Events {
 pub struct ServerContext {
     pub night_light: Controller,
     pub theme: ThemeController,
+    pub hypr: HyprController,
     pub events: Events,
+}
+
+#[derive(Debug, Deserialize)]
+struct KeyValueParams {
+    key: String,
+    value: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct PayloadParams {
+    payload: serde_json::Value,
 }
 
 #[derive(Debug, Deserialize)]
@@ -315,6 +328,60 @@ async fn handle_client(stream: UnixStream, context: ServerContext) -> io::Result
                     }
                 }
             }
+            methods::HYPR_INPUT_STATUS => {
+                let hypr = context.hypr.clone();
+                let result = tokio::task::spawn_blocking(move || hypr.input_status()).await;
+                write_join_result(&mut writer, result).await?;
+            }
+            methods::HYPR_INPUT_SET => {
+                match parse_params::<KeyValueParams>(request.params, methods::HYPR_INPUT_SET) {
+                    Err(message) => write_error(&mut writer, message).await?,
+                    Ok(params) => {
+                        let hypr = context.hypr.clone();
+                        let result = tokio::task::spawn_blocking(move || {
+                            hypr.input_set(&params.key, &params.value)
+                        })
+                        .await;
+                        write_join_result(&mut writer, result).await?;
+                    }
+                }
+            }
+            methods::HYPR_ANIMATIONS_SAVE => {
+                match parse_params::<PayloadParams>(request.params, methods::HYPR_ANIMATIONS_SAVE) {
+                    Err(message) => write_error(&mut writer, message).await?,
+                    Ok(params) => {
+                        let hypr = context.hypr.clone();
+                        let result = tokio::task::spawn_blocking(move || {
+                            hypr.animations_save(&params.payload)
+                        })
+                        .await;
+                        write_join_result(&mut writer, result).await?;
+                    }
+                }
+            }
+            methods::HYPR_ANIMATIONS_CLEAR => {
+                let hypr = context.hypr.clone();
+                let result = tokio::task::spawn_blocking(move || hypr.animations_clear()).await;
+                write_join_result(&mut writer, result).await?;
+            }
+            methods::HYPR_KEYBINDS_SAVE => {
+                match parse_params::<PayloadParams>(request.params, methods::HYPR_KEYBINDS_SAVE) {
+                    Err(message) => write_error(&mut writer, message).await?,
+                    Ok(params) => {
+                        let hypr = context.hypr.clone();
+                        let result = tokio::task::spawn_blocking(move || {
+                            hypr.keybinds_save(&params.payload)
+                        })
+                        .await;
+                        write_join_result(&mut writer, result).await?;
+                    }
+                }
+            }
+            methods::HYPR_KEYBINDS_CLEAR => {
+                let hypr = context.hypr.clone();
+                let result = tokio::task::spawn_blocking(move || hypr.keybinds_clear()).await;
+                write_join_result(&mut writer, result).await?;
+            }
             _ => {
                 write_error(
                     &mut writer,
@@ -326,6 +393,16 @@ async fn handle_client(stream: UnixStream, context: ServerContext) -> io::Result
     }
 
     Ok(())
+}
+
+async fn write_join_result<W: AsyncWrite + Unpin>(
+    writer: &mut W,
+    result: Result<crate::Result<serde_json::Value>, tokio::task::JoinError>,
+) -> io::Result<()> {
+    match result {
+        Ok(result) => write_result(writer, result).await,
+        Err(error) => write_error(writer, error.to_string()).await,
+    }
 }
 
 fn parse_params<T: serde::de::DeserializeOwned>(
@@ -433,9 +510,21 @@ async fn push_snapshots<W: AsyncWrite + Unpin>(
                     write_event(writer, &event).await?;
                 }
             }
-            // Snapshots for the remaining topics arrive with their
-            // controllers as state ownership moves into the daemon.
-            "brightness" | "hypr_input" => {}
+            "hypr_input" => {
+                let hypr = context.hypr.clone();
+                if let Ok(Ok(state)) =
+                    tokio::task::spawn_blocking(move || hypr.input_status()).await
+                {
+                    let event = EventEnvelope {
+                        event: "hypr_input.changed".to_owned(),
+                        data: state,
+                    };
+                    write_event(writer, &event).await?;
+                }
+            }
+            // The brightness snapshot arrives with its controller as state
+            // ownership moves into the daemon.
+            "brightness" => {}
             _ => {}
         }
     }
@@ -579,6 +668,7 @@ mod tests {
         ServerContext {
             night_light: Controller::new(),
             theme: ThemeController::spawn(events.clone()),
+            hypr: HyprController::new(events.clone()),
             events,
         }
     }
@@ -596,6 +686,7 @@ mod tests {
             crate::test_support::ScopedEnvVar::set("DESKTOPCTL_REPO", &repo_root),
             crate::test_support::ScopedEnvVar::set("XDG_DATA_HOME", temp.path().join("data")),
             crate::test_support::ScopedEnvVar::set("XDG_CACHE_HOME", temp.path().join("cache")),
+            crate::test_support::ScopedEnvVar::set("XDG_CONFIG_HOME", temp.path().join("config")),
         ]
     }
 

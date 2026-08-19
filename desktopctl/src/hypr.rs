@@ -213,8 +213,11 @@ pub(crate) fn print_input_status(json: bool) -> Result<()> {
     Ok(())
 }
 
-/// Persist and apply one managed Hyprland input setting.
-pub(crate) fn set_input_value(setting: InputSetting, value: &str) -> Result<()> {
+/// Apply and persist one managed Hyprland input setting. Apply-then-commit,
+/// matching the theme subsystem: the runtime file never claims a value the
+/// compositor rejected, so no revert path is needed. Returns the effective
+/// state after the write.
+pub(crate) fn set_input_value(setting: InputSetting, value: &str) -> Result<InputState> {
     let current = load_effective_input_state()?;
     let mut next = current.clone();
 
@@ -225,25 +228,13 @@ pub(crate) fn set_input_value(setting: InputSetting, value: &str) -> Result<()> 
     }
 
     if input_setting_value(&current, setting) == input_setting_value(&next, setting) {
-        return Ok(());
+        return Ok(current);
     }
 
+    set_config(setting.keyword(), &input_setting_lua_value(&next, setting))?;
     persist_input_runtime_state(&next)?;
 
-    if let Err(error) = set_config(setting.keyword(), &input_setting_lua_value(&next, setting)) {
-        let runtime_path = input_runtime_path()?;
-        if let Err(revert_error) = persist_input_runtime_state(&current) {
-            return Err(io::Error::other(format!(
-                "{error}; additionally failed to revert {}: {revert_error}",
-                runtime_path.display()
-            ))
-            .into());
-        }
-
-        return Err(error);
-    }
-
-    Ok(())
+    Ok(next)
 }
 
 /// Query Hyprland for the currently active window.
@@ -732,7 +723,7 @@ pub(crate) fn input_runtime_path() -> Result<PathBuf> {
     Ok(paths::xdg_config_home()?.join(INPUT_RUNTIME_RELATIVE_PATH))
 }
 
-fn load_effective_input_state() -> Result<InputState> {
+pub(crate) fn load_effective_input_state() -> Result<InputState> {
     let mut state = load_default_input_state()?;
     apply_optional_input_state_file(&input_runtime_path()?, &mut state)?;
     Ok(state)
