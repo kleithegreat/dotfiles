@@ -58,6 +58,47 @@ QtObject {
         _pump();
     }
 
+    // What each aspect of a preset covers. A preset is a partial patch, so
+    // saving one is choosing which aspects to capture — dumping the whole state
+    // would make every preset overwrite everything the next one meant to leave
+    // alone.
+    readonly property var aspects: [
+        { id: "scheme", label: "Colour scheme", keys: ["color_scheme"] },
+        { id: "wallpaper", label: "Wallpaper", keys: ["wallpaper", "filter_wallpaper"] },
+        { id: "icons", label: "Icons", keys: ["icon_theme"] },
+        { id: "pointer", label: "Pointer", keys: ["cursor_theme", "cursor_size"] },
+        { id: "fonts", label: "Fonts", keys: ["system_font", "mono_font", "font_size", "mono_font_size"] },
+        { id: "windows", label: "Window look", keys: ["hypr_gaps_in", "hypr_gaps_out", "hypr_border_size", "hypr_rounding", "hypr_blur_enabled", "hypr_blur_size", "hypr_blur_passes", "hypr_animations_enabled"] }
+    ]
+
+    function savePreset(name, aspectIds) {
+        const patch = {};
+        for (let i = 0; i < aspects.length; i++) {
+            if (aspectIds.indexOf(aspects[i].id) < 0)
+                continue;
+            const keys = aspects[i].keys;
+            for (let k = 0; k < keys.length; k++) {
+                const current = value(keys[k], undefined);
+                if (current !== undefined)
+                    patch[keys[k]] = current;
+            }
+        }
+
+        if (Object.keys(patch).length === 0) {
+            Toast.warning("Choose at least one thing to save");
+            return false;
+        }
+
+        _queue = _queue.concat([{ savePreset: name, payload: JSON.stringify(patch) }]);
+        _pump();
+        return true;
+    }
+
+    function deletePreset(name) {
+        _queue = _queue.concat([{ deletePreset: name }]);
+        _pump();
+    }
+
     function refresh() {
         if (!status.running)
             status.running = true;
@@ -74,7 +115,14 @@ QtObject {
             return;
 
         const job = _queue[0];
-        writer.command = job.preset !== undefined ? ["desktopctl", "theme", "preset", job.preset] : ["desktopctl", "theme", "set", job.key, job.value];
+        if (job.preset !== undefined)
+            writer.command = ["desktopctl", "theme", "preset", job.preset];
+        else if (job.savePreset !== undefined)
+            writer.command = ["desktopctl", "theme", "save-preset", job.savePreset, job.payload];
+        else if (job.deletePreset !== undefined)
+            writer.command = ["desktopctl", "theme", "delete-preset", job.deletePreset];
+        else
+            writer.command = ["desktopctl", "theme", "set", job.key, job.value];
         writer.running = true;
     }
 

@@ -21,11 +21,10 @@ Open issues and pending validations. Delete entries when resolved.
 
 ## Open issues
 
-- [ ] Quickshell (medium): three settings surfaces from the old shell are not
-      yet rebuilt — the Hyprland keybind capture/editor and animation bezier
-      editor, the theme preset editor, and the Wi-Fi diagnostics/channel
-      analyser. Everything they wrote is still reachable through
-      `desktopctl`; only the graphical editors are gone.
+- [ ] Quickshell (low): the Hyprland keybind capture/editor and the animation
+      bezier editor were not rebuilt, by decision rather than oversight — both
+      remain reachable through `desktopctl hypr keybinds` / `hypr animations`.
+      Revisit only if editing them by hand starts to hurt.
 
 - [ ] NVIDIA (high): laptop `AQ_DRM_DEVICES` depends on hardcoded
       `/dev/dri/cardN` ordering, which can shift across boots/updates.

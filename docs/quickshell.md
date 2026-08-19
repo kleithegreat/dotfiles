@@ -123,6 +123,18 @@ whatever qt6ct hands it. `TrayMenu` renders the same DBus model through
 `QsMenuOpener` with the shell's own rows instead, and drills into submenus in
 place rather than cascading.
 
+### A pane behind a Loader URL is outside the reload graph
+Hot reload re-reads the files it can see through imports. A settings pane is
+reached through `Loader.source`, so the engine keeps its cached component and
+edits to it appear to do nothing — the config reloads, cleanly, and the old pane
+comes back. Restart after editing a pane.
+
+### `ping` reports its summary on SIGINT, not on SIGKILL
+The bufferbloat measurement pings the gateway *during* a transfer and reads the
+rtt line afterwards. A plain `kill` gets no summary at all, so the loaded
+latency silently reads as unmeasured and the ratio never appears; the background
+ping has to be stopped with `kill -INT`.
+
 ### Popover content declares its own height
 `Popover.contentHeight` is set by each surface. Deriving it from the holder that
 the surface fills makes the holder's height depend on the panel that depends on
