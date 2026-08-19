@@ -1,128 +1,15 @@
-{ config, pkgs, lib, ... }:
+{ pkgs, lib, ... }:
 
 let
-  laptopPowerProfile = pkgs.writeShellApplication {
-    name = "laptop-power-profile";
-    runtimeInputs = with pkgs; [ coreutils gnugrep gnused config.services.power-profiles-daemon.package ];
-    text = ''
-      set -euo pipefail
-
-      profile_root=/sys/devices/system/cpu
-
-      cpu_numbers() {
-        for cpu_dir in "$profile_root"/cpu[0-9]*; do
-          cpu_name=''${cpu_dir##*/cpu}
-          printf '%s\n' "$cpu_name"
-        done | sort -n
-      }
-
-      # A CPU is a P-core thread iff it has SMT siblings, i.e. its sibling list
-      # is not just its own number. The kernel emits cpulist ranges ("0-1") for
-      # adjacent siblings, so token-counting on ',' would miss them.
-      p_core_cpus() {
-        for cpu in $(cpu_numbers); do
-          siblings="$profile_root/cpu$cpu/topology/thread_siblings_list"
-          [ -f "$siblings" ] || continue
-          if [ "$(cat "$siblings")" != "$cpu" ]; then
-            printf '%s\n' "$cpu"
-          fi
-        done
-      }
-
-      all_hotpluggable_cpus() {
-        for cpu in $(cpu_numbers); do
-          online_path="$profile_root/cpu$cpu/online"
-          [ -f "$online_path" ] && printf '%s\n' "$cpu"
-        done
-      }
-
-      # Offlined CPUs lose their topology/ sysfs group, so sibling-based
-      # detection cannot work after the fact. This helper is the only thing
-      # offlining CPUs on this host and every standard profile re-onlines
-      # everything first, so: e-core-only is active iff any hotpluggable CPU
-      # is offline.
-      is_efficiency_mode() {
-        local cpu
-        for cpu in $(all_hotpluggable_cpus); do
-          if [ "$(cat "$profile_root/cpu$cpu/online")" = "0" ]; then
-            return 0
-          fi
-        done
-        return 1
-      }
-
-      set_cpu_online() {
-        local cpu="$1"
-        local value="$2"
-        local online_path="$profile_root/cpu$cpu/online"
-
-        [ -f "$online_path" ] || return 0
-        printf '%s' "$value" > "$online_path"
-      }
-
-      enable_all_hotpluggable_cpus() {
-        local cpu
-        for cpu in $(all_hotpluggable_cpus); do
-          set_cpu_online "$cpu" 1
-        done
-      }
-
-      enable_standard_profile() {
-        local profile="$1"
-
-        enable_all_hotpluggable_cpus
-        powerprofilesctl set "$profile"
-      }
-
-      enable_efficiency_profile() {
-        local cpu
-
-        enable_all_hotpluggable_cpus
-        powerprofilesctl set power-saver
-
-        for cpu in $(p_core_cpus); do
-          set_cpu_online "$cpu" 0
-        done
-      }
-
-      get_profile() {
-        if is_efficiency_mode; then
-          printf 'e-core-only\n'
-        else
-          powerprofilesctl get
-        fi
-      }
-
-      usage() {
-        printf 'usage: laptop-power-profile get | set <performance|balanced|power-saver|e-core-only>\n' >&2
-        exit 2
-      }
-
-      case "''${1:-}" in
-        get)
-          [ "$#" -eq 1 ] || usage
-          get_profile
-          ;;
-        set)
-          [ "$#" -eq 2 ] || usage
-          case "$2" in
-            performance|balanced|power-saver)
-              enable_standard_profile "$2"
-              ;;
-            e-core-only)
-              enable_efficiency_profile
-              ;;
-            *)
-              usage
-              ;;
-          esac
-          ;;
-        *)
-          usage
-          ;;
-      esac
-    '';
-  };
+  # `desktopctl` implements the profile switch (desktopctl/src/bin/
+  # laptop-power-profile), but arrives through home-manager. Expose just that
+  # one binary system-wide: the polkit rule below grants passwordless pkexec by
+  # program path, so keeping the privileged entry point in its own binary is
+  # what stops that grant reaching every other desktopctl subcommand.
+  laptopPowerProfile = pkgs.runCommand "laptop-power-profile" { } ''
+    mkdir -p "$out/bin"
+    ln -s ${pkgs.optimized.desktopctl}/bin/laptop-power-profile "$out/bin/laptop-power-profile"
+  '';
 in {
   imports = [
     ./fan-control.nix

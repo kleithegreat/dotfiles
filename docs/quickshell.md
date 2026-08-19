@@ -87,6 +87,12 @@ and the cpufreq governor at once: a chained version stalls forever on the first
 backend that is not installed, and every later one is silently never tried —
 with no failing command to point at.
 
+`laptop-power-profile` ships on every host (it is part of `desktopctl`), so
+the `laptop-helper` backend is selected by the probe printing a profile, not
+by the binary existing. On non-hybrid CPUs it exits non-zero with empty
+stdout, leaving `_helperProfile` empty so the `ppctl` backend wins and the
+"Efficiency Cores" tile stays hidden.
+
 ### Monitor-button brightness changes have no event source
 The 30s DDC-enumerating brightness poll is gone; brightness state arrives as
 daemon events, and nothing watches the monitor's own OSD buttons. A change made

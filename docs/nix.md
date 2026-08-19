@@ -252,11 +252,26 @@ timeout. Physical hosts cap `TimeoutStopSec=15s` on tailscaled.
 `cpu0` exposes no `online` control on the XPS 15 9520, so the
 `laptop-power-profile` helper can only offline the hotpluggable P-core
 threads — treat the mode as E-core-*biased*. Detection details that matter:
-P-core threads are identified by `thread_siblings_list != own CPU` (the
-kernel may report ranges like `0-1`, which broke comma-counting), and
-efficiency mode is detected by any `cpu*/online` reading `0`, because an
-offlined CPU loses its whole `topology/` sysfs group. Real-hardware
-validation is still pending (`TODO.md`).
+P-core threads are identified by having more than one entry in
+`thread_siblings_list` (the kernel reports both ranges like `0-1` and lists
+like `0,6`, which broke comma-counting), and efficiency mode is detected by
+any `cpu*/online` reading `0`, because an offlined CPU loses its whole
+`topology/` sysfs group. Real-hardware validation is still pending
+(`TODO.md`).
+
+The helper lives in `desktopctl/src/bin/laptop-power-profile/` and is a
+second binary of the `desktopctl` crate rather than a subcommand: the polkit
+rule in `hosts/laptop/system.nix` grants passwordless pkexec by matching the
+program path, so a subcommand would extend that grant to all of `desktopctl`.
+`hosts/laptop/system.nix` symlinks just that binary into `systemPackages`;
+the package wraps it with `powerprofilesctl` on `PATH`, because pkexec resets
+the environment.
+
+Because `desktopctl` is installed on every host, the helper refuses to run
+unless the CPU is actually hybrid — some SMT threads and some without. On a
+uniform-SMT machine "offline every P-core thread" means the whole processor,
+so the topology check, not the packaging, is the safeguard. It exits non-zero
+there, which is what makes the Quickshell backend probe fall through.
 
 ### Generic `SF Pro` looks soft without fontconfig tuning
 Fontconfig could pick the variable catch-all face over the `SF Pro Text`
