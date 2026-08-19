@@ -25,6 +25,15 @@
 
 ## Quirks
 
+### `where-am-i` exits only on its own timeout
+The helper watches for location updates until its `--timeout` fires and then
+exits 0. Wrapping it in `timeout` and gating on the exit status therefore
+discards every fix it ever produces: the wrapper kills it first, the status is
+124, and the good coordinates in stdout are thrown away as a failure. `solar.rs`
+passes the helper its own deadline and parses stdout regardless; any outer bound
+must be the longer of the two. This is what pinned the whole desktop to the
+College Station fallback while GeoClue was working perfectly.
+
 ### Wrong sunrise/sunset times usually mean silent coordinate fallback
 If GeoClue fails and the cache is missing or invalid, the scheduler silently
 uses the College Station fallback; if the cache is stale but parseable, it

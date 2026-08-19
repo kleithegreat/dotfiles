@@ -253,15 +253,21 @@ fn write_cached_location(path: &std::path::Path, location: &CachedLocation) -> i
 }
 
 fn query_geoclue() -> Option<Coordinates> {
+    // `where-am-i` watches for location updates until its own `--timeout`
+    // fires, then exits 0. Wrapping it in `timeout` and reading the exit status
+    // instead means the wrapper kills it first, every time, and a perfectly
+    // good fix is thrown away as a failure. The outer bound is only a backstop
+    // for a helper that ignores its own deadline, so it has to be the longer of
+    // the two.
     let output = Command::new("timeout")
-        .args(["10", "where-am-i"])
+        .args(["20", "where-am-i", "--timeout", "10"])
         .output()
         .ok()?;
-    if !output.status.success() {
-        return None;
-    }
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    parse_where_am_i(&String::from_utf8_lossy(&output.stdout))
+}
+
+fn parse_where_am_i(stdout: &str) -> Option<Coordinates> {
     let mut latitude = None;
     let mut longitude = None;
 
@@ -324,6 +330,29 @@ fn duration_from_hours(hours: f64) -> Duration {
 mod tests {
     use super::*;
     use crate::test_support::{ScopedEnvVar, TempDir, env_lock};
+
+    #[test]
+    fn where_am_i_output_parses_through_its_startup_noise() {
+        let stdout = concat!(
+            "\n(where-am-i:218237): GLib-CRITICAL **: 22:07:31.424: ",
+            "g_atomic_ref_count_dec: assertion 'old_value > 0' failed\n",
+            "Client object: /org/freedesktop/GeoClue2/Client/22\n",
+            "\nNew location:\n",
+            "Latitude:    40.508100\u{00b0}\n",
+            "Longitude:   -74.637400\u{00b0}\n",
+            "Accuracy:    25000 meters\n",
+            "Description: ipf fallback (from WiFi data)\n",
+        );
+
+        let location = parse_where_am_i(stdout).expect("coordinates");
+        assert!((location.latitude - 40.5081).abs() < 1e-6);
+        assert!((location.longitude - -74.6374).abs() < 1e-6);
+    }
+
+    #[test]
+    fn where_am_i_output_without_a_fix_yields_nothing() {
+        assert!(parse_where_am_i("Client object: /org/freedesktop/GeoClue2/Client/3\n").is_none());
+    }
 
     fn sample_location(date: NaiveDate) -> Coordinates {
         // Keep solar noon roughly aligned with the builder's local noon so the

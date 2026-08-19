@@ -21,16 +21,6 @@ Open issues and pending validations. Delete entries when resolved.
 
 ## Open issues
 
-- [ ] Sun schedule (high): `where-am-i` is not installed, so `query_geoclue()`
-      in `solar.rs` always fails, `~/.cache/sun-schedule/location.json` is never
-      written, and every lookup falls through to the hardcoded College Station
-      constant. Sunrise/sunset and the Quickshell weather readout are therefore
-      computed for the wrong place whenever the laptop is not in College
-      Station. Needs an owner decision: ship geoclue's `where-am-i` and point
-      `geoProviderUrl` at a live backend (Mozilla's service is retired), or add
-      an IP-geolocation step — which reports the exit relay's city whenever
-      Mullvad is connected.
-
 - [ ] Quickshell (medium): three settings surfaces from the old shell are not
       yet rebuilt — the Hyprland keybind capture/editor and animation bezier
       editor, the theme preset editor, and the Wi-Fi diagnostics/channel
