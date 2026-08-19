@@ -206,29 +206,21 @@ Ui.Scroll {
                     interactive: false
                 }
 
-                Ui.Scroll {
+                Ui.Choice {
+                    id: modes
                     Layout.fillWidth: true
                     Layout.leftMargin: Metrics.rowInset
                     Layout.rightMargin: Metrics.rowInset
                     Layout.bottomMargin: Metrics.s2
-                    implicitHeight: Metrics.controlHeight
-                    contentWidth: modes.width
-                    contentHeight: Metrics.controlHeight
-                    flickableDirection: Flickable.HorizontalFlick
-                    indicator: false
-
-                    Ui.Choice {
-                        id: modes
-                        options: root.modesFor(screen.monitor)
-                        current: root.pendingFor(screen.monitor, "width") + "x" + root.pendingFor(screen.monitor, "height") + "@" + Math.round(root.pendingFor(screen.monitor, "refreshRate"))
-                        onPicked: value => {
-                            const chosen = root.modesFor(screen.monitor).find(mode => mode.value === value);
-                            if (!chosen)
-                                return;
-                            root.edit(screen.monitor.name, "width", chosen.width);
-                            root.edit(screen.monitor.name, "height", chosen.height);
-                            root.edit(screen.monitor.name, "refreshRate", chosen.rate);
-                        }
+                    options: root.modesFor(screen.monitor)
+                    current: root.pendingFor(screen.monitor, "width") + "x" + root.pendingFor(screen.monitor, "height") + "@" + Math.round(root.pendingFor(screen.monitor, "refreshRate"))
+                    onPicked: value => {
+                        const chosen = root.modesFor(screen.monitor).find(mode => mode.value === value);
+                        if (!chosen)
+                            return;
+                        root.edit(screen.monitor.name, "width", chosen.width);
+                        root.edit(screen.monitor.name, "height", chosen.height);
+                        root.edit(screen.monitor.name, "refreshRate", chosen.rate);
                     }
                 }
 

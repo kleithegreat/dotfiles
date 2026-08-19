@@ -92,11 +92,23 @@ Ui.Scroll {
                 Layout.preferredHeight: 92
                 spacing: Metrics.s2
 
+                // Keyed on the count, never on the array: the tracker rewrites
+                // its JSON every second, so binding the array itself destroys
+                // and rebuilds every bar once a second — which is visible as
+                // the whole chart replaying its grow animation on a heartbeat.
                 Repeater {
-                    model: Sys.FocusTime.week
+                    model: Sys.FocusTime.week.length
 
                     ColumnLayout {
-                        required property var modelData
+                        id: day
+
+                        required property int index
+                        readonly property var entry: Sys.FocusTime.week[day.index]
+
+                        // Equal shares: fillWidth distributes only the surplus,
+                        // so without a common base the columns inherit the
+                        // differing widths of "Wed" and "Fri".
+                        Layout.preferredWidth: 1
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         spacing: Metrics.s1
@@ -109,9 +121,9 @@ Ui.Scroll {
                                 anchors.bottom: parent.bottom
                                 anchors.left: parent.left
                                 anchors.right: parent.right
-                                height: Math.max(3, parent.height * (parent.parent.modelData.total / root.peak))
+                                height: Math.max(3, parent.height * ((day.entry?.total ?? 0) / root.peak))
                                 radius: Metrics.s1
-                                color: parent.parent.modelData.is_target ? Theme.accent : Theme.fillActive
+                                color: day.entry?.is_target ? Theme.accent : Theme.fillActive
                                 antialiasing: true
 
                                 Behavior on height {
@@ -124,9 +136,9 @@ Ui.Scroll {
 
                         Ui.Label {
                             Layout.alignment: Qt.AlignHCenter
-                            text: parent.modelData.day
+                            text: day.entry?.day ?? ""
                             role: "caption"
-                            color: parent.modelData.is_target ? Theme.text : Theme.textQuaternary
+                            color: day.entry?.is_target ? Theme.text : Theme.textQuaternary
                         }
                     }
                 }
@@ -137,16 +149,17 @@ Ui.Scroll {
             title: "Most used"
 
             Repeater {
-                model: Sys.FocusTime.apps
+                model: Sys.FocusTime.apps.length
 
                 Ui.ListRow {
                     id: app
 
-                    required property var modelData
+                    required property int index
+                    readonly property var modelData: Sys.FocusTime.apps[app.index]
 
                     Layout.fillWidth: true
-                    title: modelData.name
-                    subtitle: Sys.FocusTime.format(modelData.seconds)
+                    title: modelData?.name ?? ""
+                    subtitle: Sys.FocusTime.format(modelData?.seconds ?? 0)
                     interactive: false
 
                     RowLayout {
@@ -161,7 +174,7 @@ Ui.Scroll {
                             antialiasing: true
 
                             Rectangle {
-                                width: parent.width * Math.min(1, app.modelData.percent / 100)
+                                width: parent.width * Math.min(1, (app.modelData?.percent ?? 0) / 100)
                                 height: parent.height
                                 radius: parent.radius
                                 color: Theme.accent
@@ -170,7 +183,7 @@ Ui.Scroll {
                         }
 
                         Ui.Label {
-                            text: Math.round(app.modelData.percent) + "%"
+                            text: Math.round(app.modelData?.percent ?? 0) + "%"
                             role: "caption"
                             numeric: true
                             horizontalAlignment: Text.AlignRight
