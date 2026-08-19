@@ -29,7 +29,7 @@ fn awww_command(path: &str) -> Vec<String> {
         "--transition-type".to_owned(),
         "fade".to_owned(),
         "--transition-duration".to_owned(),
-        "1".to_owned(),
+        "0.3".to_owned(),
     ]
 }
 
