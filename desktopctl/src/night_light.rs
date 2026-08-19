@@ -178,14 +178,6 @@ pub(crate) fn current_dark_hint() -> crate::Result<bool> {
     Ok(theme::resolve::load_state()?.dark_hint)
 }
 
-pub(crate) fn apply_dark_hint_if_needed(enabled: bool) -> crate::Result<()> {
-    if current_dark_hint()? == enabled {
-        return Ok(());
-    }
-
-    theme::set_dark_hint(enabled, theme::DarkHintOrigin::Scheduled)
-}
-
 fn cmd_status(json_output: bool) -> crate::Result<()> {
     let status = request_status()?;
     if json_output {

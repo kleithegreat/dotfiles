@@ -29,7 +29,9 @@ pub fn run() -> crate::Result<()> {
 async fn run_async() -> crate::Result<()> {
     let shutdown = Arc::new(AtomicBool::new(false));
     let (shutdown_tx, shutdown_rx) = watch::channel(false);
-    let night_light = night_light::Controller::new();
+    let events = server::Events::new();
+    let theme = theme::ThemeController::spawn(events.clone());
+    let night_light = night_light::Controller::with_hooks(theme.clone(), events.clone());
     let mut tasks = JoinSet::new();
 
     {
@@ -42,16 +44,15 @@ async fn run_async() -> crate::Result<()> {
     }
     tasks.spawn({
         let night_light = night_light.clone();
+        let theme = theme.clone();
         let shutdown_rx = shutdown_rx.clone();
         async move {
             (
                 "solar scheduler",
-                solar::run(night_light, shutdown_rx).await,
+                solar::run(night_light, theme, shutdown_rx).await,
             )
         }
     });
-    let events = server::Events::new();
-    let theme = theme::ThemeController::spawn(events.clone());
     tasks.spawn({
         let context = server::ServerContext {
             night_light: night_light.clone(),

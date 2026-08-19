@@ -147,6 +147,23 @@ pub fn status_for_now(now: DateTime<Local>, location: Coordinates) -> SolarStatu
     }
 }
 
+/// Start of the schedule window `now` falls in. Windows switch at the
+/// dark-hint edges: 23:00 opens the dark window, 06:00 opens the light one.
+/// A manual dark_hint write recorded at or after this instant outranks the
+/// schedule until the next edge.
+pub fn dark_window_start(now: DateTime<Local>) -> DateTime<Local> {
+    use chrono::Timelike;
+
+    let today = now.date_naive();
+    if now.hour() >= DARK_ON_HOUR {
+        local_datetime(today, DARK_ON_HOUR, 0, 0)
+    } else if now.hour() < DARK_OFF_HOUR {
+        local_datetime(today, DARK_ON_HOUR, 0, 0) - Duration::days(1)
+    } else {
+        local_datetime(today, DARK_OFF_HOUR, 0, 0)
+    }
+}
+
 pub fn next_event(status: &SolarStatus) -> SolarEvent {
     let mut next = SolarEvent {
         when: status.next_sunrise,
@@ -472,5 +489,31 @@ mod tests {
         assert_eq!(parse_coordinate_line("Latitude: 30.6280°"), Some(30.628));
         assert_eq!(parse_coordinate_line("Longitude: -96.3344"), Some(-96.3344));
         assert_eq!(parse_coordinate_line("Latitude unavailable"), None);
+    }
+
+    #[test]
+    fn dark_window_start_covers_both_edges() {
+        let date = NaiveDate::from_ymd_opt(2026, 8, 17).expect("valid date");
+        let next_date = NaiveDate::from_ymd_opt(2026, 8, 18).expect("valid date");
+        let dark_on = local_datetime(date, DARK_ON_HOUR, 0, 0);
+        let dark_off = local_datetime(date, DARK_OFF_HOUR, 0, 0);
+
+        // 22:59 is still the day window that opened at 06:00.
+        assert_eq!(
+            dark_window_start(local_datetime(date, 22, 59, 0)),
+            dark_off
+        );
+        // 23:00 opens the dark window.
+        assert_eq!(dark_window_start(local_datetime(date, 23, 0, 0)), dark_on);
+        // 05:59 the next morning is still yesterday's dark window.
+        assert_eq!(
+            dark_window_start(local_datetime(next_date, 5, 59, 0)),
+            dark_on
+        );
+        // 06:00 opens the light window.
+        assert_eq!(
+            dark_window_start(local_datetime(next_date, 6, 0, 0)),
+            local_datetime(next_date, DARK_OFF_HOUR, 0, 0)
+        );
     }
 }

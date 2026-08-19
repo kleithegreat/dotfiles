@@ -1,10 +1,14 @@
 use crate::{
+    daemon::{
+        server::Events,
+        theme::{ThemeController, ThemeJob},
+    },
     night_light::{
-        NightLightMode, NightLightStatus, apply_dark_hint_if_needed, current_dark_hint,
-        ensure_hyprsunset_running, hyprsunset_process_state, normalize_temperature,
-        stop_hyprsunset,
+        NightLightMode, NightLightStatus, current_dark_hint, ensure_hyprsunset_running,
+        hyprsunset_process_state, normalize_temperature, stop_hyprsunset,
     },
     solar,
+    theme::DarkHintOrigin,
 };
 use std::{
     io,
@@ -14,6 +18,10 @@ use std::{
 #[derive(Clone)]
 pub struct Controller {
     state: Arc<Mutex<State>>,
+    /// Scheduled dark_hint edges route through the theme worker so the
+    /// daemon has exactly one writer for theme state. Absent only in tests.
+    theme: Option<ThemeController>,
+    events: Option<Events>,
 }
 
 struct State {
@@ -37,14 +45,26 @@ impl Controller {
                 solar_status: None,
                 pending_dark_hint_target: None,
             })),
+            theme: None,
+            events: None,
         }
     }
 
+    pub fn with_hooks(theme: ThemeController, events: Events) -> Self {
+        let mut controller = Self::new();
+        controller.theme = Some(theme);
+        controller.events = Some(events);
+        controller
+    }
+
+    /// Record the latest solar status. Only a dark-window *edge* queues a
+    /// scheduled dark_hint write: asserting on every tick (or on the first
+    /// tick after a daemon restart) would clobber manual values, which win
+    /// until the next edge. Reboot coverage is the solar task's separate
+    /// boot catch-up, gated on the recorded manual-write time.
     pub fn update_solar_status(&self, status: solar::SolarStatus) -> crate::Result<()> {
         let mut state = self.lock_state()?;
-        if state.solar_status.is_none() {
-            state.pending_dark_hint_target = Some(status.is_dark);
-        } else if let Some(enabled) = dark_hint_transition(state.solar_status.as_ref(), &status) {
+        if let Some(enabled) = dark_hint_transition(state.solar_status.as_ref(), &status) {
             state.pending_dark_hint_target = Some(enabled);
         }
         state.solar_status = Some(status);
@@ -52,8 +72,11 @@ impl Controller {
     }
 
     pub fn reconcile(&self) -> crate::Result<NightLightStatus> {
-        let mut state = self.lock_state()?;
-        self.reconcile_locked(&mut state)
+        let (status, pending_dark_hint) = {
+            let mut state = self.lock_state()?;
+            self.reconcile_locked(&mut state)?
+        };
+        self.finish_reconcile(status, pending_dark_hint)
     }
 
     pub fn set_mode(
@@ -66,13 +89,16 @@ impl Controller {
             None => None,
         };
 
-        let mut state = self.lock_state()?;
-        state.mode = mode;
-        if let Some(temperature) = normalized_temperature {
-            state.manual_temperature = temperature;
-        }
+        let (status, pending_dark_hint) = {
+            let mut state = self.lock_state()?;
+            state.mode = mode;
+            if let Some(temperature) = normalized_temperature {
+                state.manual_temperature = temperature;
+            }
 
-        self.reconcile_locked(&mut state)
+            self.reconcile_locked(&mut state)?
+        };
+        self.finish_reconcile(status, pending_dark_hint)
     }
 
     pub fn toggle(&self) -> crate::Result<NightLightStatus> {
@@ -99,28 +125,54 @@ impl Controller {
         })
     }
 
+    /// Hyprsunset concerns only; a pending scheduled dark_hint is handed
+    /// back so the caller can route it through the theme worker after the
+    /// mutex is released — never applied while holding it.
     fn reconcile_locked(
         &self,
         state: &mut MutexGuard<'_, State>,
-    ) -> crate::Result<NightLightStatus> {
+    ) -> crate::Result<(NightLightStatus, Option<bool>)> {
         let solar_status = current_solar_status(state)?;
         let desired = desired_state(state.mode, state.manual_temperature, &solar_status);
         apply_desired_state(&desired)?;
-        if let Some(enabled) = state.pending_dark_hint_target {
-            apply_dark_hint_if_needed(enabled)?;
-            state.pending_dark_hint_target = None;
-        }
+        let pending_dark_hint = state.pending_dark_hint_target.take();
 
         let process = hyprsunset_process_state();
-        Ok(NightLightStatus {
-            mode: state.mode,
-            running: process.running,
-            temperature: process.temperature,
-            target_temperature: target_temperature(state),
-            dark_hint: current_dark_hint()?,
-            scheduled_running: solar_status.is_night,
-            scheduled_dark_hint: solar_status.is_dark,
-        })
+        Ok((
+            NightLightStatus {
+                mode: state.mode,
+                running: process.running,
+                temperature: process.temperature,
+                target_temperature: target_temperature(state),
+                dark_hint: current_dark_hint()?,
+                scheduled_running: solar_status.is_night,
+                scheduled_dark_hint: solar_status.is_dark,
+            },
+            pending_dark_hint,
+        ))
+    }
+
+    fn finish_reconcile(
+        &self,
+        status: NightLightStatus,
+        pending_dark_hint: Option<bool>,
+    ) -> crate::Result<NightLightStatus> {
+        if let (Some(enabled), Some(theme)) = (pending_dark_hint, self.theme.as_ref()) {
+            theme.request_blocking(ThemeJob::Set {
+                key: "dark_hint".to_owned(),
+                value: serde_json::Value::Bool(enabled),
+                origin: DarkHintOrigin::Scheduled,
+            })?;
+        }
+
+        if let Some(events) = &self.events {
+            events.publish(
+                "night_light.changed",
+                serde_json::to_value(&status).unwrap_or(serde_json::Value::Null),
+            );
+        }
+
+        Ok(status)
     }
 
     fn lock_state(&self) -> crate::Result<MutexGuard<'_, State>> {
@@ -164,8 +216,10 @@ fn dark_hint_transition(
     previous: Option<&solar::SolarStatus>,
     current: &solar::SolarStatus,
 ) -> Option<bool> {
-    let previous_is_dark = previous.is_some_and(|status| status.is_dark);
-    (previous_is_dark != current.is_dark).then_some(current.is_dark)
+    // No previous status means daemon startup, not an edge — startup
+    // coverage belongs to the boot catch-up, which honors manual writes.
+    let previous = previous?;
+    (previous.is_dark != current.is_dark).then_some(current.is_dark)
 }
 
 fn target_temperature(state: &State) -> i32 {
@@ -244,14 +298,31 @@ mod tests {
     }
 
     #[test]
-    fn first_solar_status_reconciles_scheduled_dark_hint() {
+    fn first_solar_status_never_queues_a_dark_hint_write() {
+        // A daemon restart mid-window must not clobber a manual dark_hint;
+        // only a real edge queues a scheduled write. Reboot coverage is the
+        // solar task's boot catch-up, not this path.
         let controller = Controller::new();
         controller
-            .update_solar_status(sample_solar_status(true, false))
+            .update_solar_status(sample_solar_status(true, true))
             .expect("status update");
 
         let state = controller.lock_state().expect("state lock");
-        assert_eq!(state.pending_dark_hint_target, Some(false));
+        assert_eq!(state.pending_dark_hint_target, None);
+    }
+
+    #[test]
+    fn solar_edge_queues_a_scheduled_dark_hint_write() {
+        let controller = Controller::new();
+        controller
+            .update_solar_status(sample_solar_status(true, false))
+            .expect("first status");
+        controller
+            .update_solar_status(sample_solar_status(true, true))
+            .expect("edge status");
+
+        let state = controller.lock_state().expect("state lock");
+        assert_eq!(state.pending_dark_hint_target, Some(true));
     }
 
     #[test]
