@@ -131,9 +131,9 @@ pub const DEFAULT_HYPR_GAPS_IN: i64 = 4;
 pub const DEFAULT_HYPR_GAPS_OUT: i64 = 6;
 pub const DEFAULT_HYPR_BORDER_SIZE: i64 = 0;
 pub const DEFAULT_HYPR_ROUNDING: i64 = 8;
-pub const DEFAULT_HYPR_BLUR_ENABLED: bool = false;
-pub const DEFAULT_HYPR_BLUR_SIZE: i64 = 3;
-pub const DEFAULT_HYPR_BLUR_PASSES: i64 = 4;
+pub const DEFAULT_HYPR_BLUR_ENABLED: bool = true;
+pub const DEFAULT_HYPR_BLUR_SIZE: i64 = 8;
+pub const DEFAULT_HYPR_BLUR_PASSES: i64 = 3;
 pub const DEFAULT_HYPR_ANIMATIONS_ENABLED: bool = true;
 
 pub fn canonicalize_theme_string_value<'a>(key: &str, value: &'a str) -> Cow<'a, str> {

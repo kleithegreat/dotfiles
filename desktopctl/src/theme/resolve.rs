@@ -508,9 +508,9 @@ mod tests {
                 "  \"hypr_gaps_out\": 6,\n",
                 "  \"hypr_border_size\": 0,\n",
                 "  \"hypr_rounding\": 8,\n",
-                "  \"hypr_blur_enabled\": false,\n",
-                "  \"hypr_blur_size\": 3,\n",
-                "  \"hypr_blur_passes\": 4,\n",
+                "  \"hypr_blur_enabled\": true,\n",
+                "  \"hypr_blur_size\": 8,\n",
+                "  \"hypr_blur_passes\": 3,\n",
                 "  \"hypr_animations_enabled\": true\n",
                 "}}\n"
             ),
