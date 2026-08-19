@@ -798,20 +798,9 @@ mod tests {
     }
 
     #[test]
-    fn wallpaper_generate_matches_python_behavior() {
+    fn wallpaper_generate_returns_no_commands() {
         let state = dummy_state();
-        assert_eq!(
-            commands(wallpaper::generate(&dummy_colors(), &state)),
-            vec![vec![
-                "awww".to_owned(),
-                "img".to_owned(),
-                "/tmp/wallpaper.png".to_owned(),
-                "--transition-type".to_owned(),
-                "fade".to_owned(),
-                "--transition-duration".to_owned(),
-                "0.3".to_owned()
-            ]]
-        );
+        assert!(commands(wallpaper::generate(&dummy_colors(), &state)).is_empty());
 
         let mut filtered_state = state.clone();
         filtered_state.filter_wallpaper = true;

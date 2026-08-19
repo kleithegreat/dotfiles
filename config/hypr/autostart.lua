@@ -15,9 +15,10 @@ hl.on("hyprland.start", function()
 
     exec("vicinae server")
 
-    -- Wallpaper. The apply is daemon-routed and the daemon spawns just above,
-    -- so wait out that race rather than failing the first paint.
-    exec([[sh -c 'awww-daemon & sleep 0.5; desktopctl theme wallpaper --wait-daemon 15']])
+    -- Wallpaper. Both daemons spawn alongside this and the apply waits each of
+    -- them out on its own: --wait-daemon for desktopctl, an awww socket poll
+    -- inside the wallpaper target for awww-daemon.
+    exec([[sh -c 'awww-daemon & desktopctl theme wallpaper --wait-daemon 15']])
 
     -- Idle & lock
     exec("hypridle")

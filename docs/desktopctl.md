@@ -74,4 +74,15 @@ If a monitor's slider is missing or dead: check the monitor OSD has DDC/CI
 enabled, `ddcutil detect` sees the display, and the user is in the `i2c`
 group after a rebuild *and fresh login*.
 
+### `--wait-daemon` waits for desktopctl's daemon, not awww's
+Applying a wallpaper at login races two unrelated daemons. `--wait-daemon`
+covers the desktopctl socket only; awww-daemon binds its own socket at
+`$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY-awww-daemon.sock` roughly 0.8s after it
+spawns, and `awww img` exits immediately when that socket is missing instead
+of retrying. Reading `--wait-daemon` as covering both is the natural wrong
+conclusion, and it makes a wallpaper that silently fails to apply on login
+look unrelated to the flag. The wallpaper target polls that socket itself in
+`apply_wallpaper`; a `sleep` in the autostart line is not a substitute,
+because it guesses a delay that measurement already contradicts.
+
 Related: [[theming]], [[sun-schedule]], [[hyprland]], [[quickshell]], [[focus-time]]

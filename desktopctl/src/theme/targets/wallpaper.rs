@@ -1,13 +1,17 @@
 use super::{Assembly, GeneratedContent, TargetMetadata};
-use crate::theme::{
-    expand_user_path, find_command, fnv1a_fingerprint,
-    schema::{ColorScheme, ThemeState},
+use crate::{
+    paths,
+    theme::{
+        expand_user_path, find_command, fnv1a_fingerprint,
+        schema::{ColorScheme, ThemeState},
+    },
 };
 use std::{
-    fs, io,
+    env, fs, io,
     path::{Path, PathBuf},
     process::Command,
-    time::UNIX_EPOCH,
+    thread,
+    time::{Duration, Instant, UNIX_EPOCH},
 };
 
 pub const METADATA: TargetMetadata = TargetMetadata::new(
@@ -145,7 +149,34 @@ fn warn(message: &str) {
     eprintln!("  wallpaper warning: {message}");
 }
 
+/// awww's client exits immediately when the daemon socket is missing, and the
+/// daemon binds that socket a moment after it spawns. Logins race the two, so
+/// wait on the socket itself rather than assuming a fixed head start.
+fn wait_for_awww_socket() {
+    const TIMEOUT: Duration = Duration::from_secs(5);
+    const POLL_INTERVAL: Duration = Duration::from_millis(25);
+
+    let Some(socket) = awww_socket_path() else {
+        return;
+    };
+
+    let deadline = Instant::now() + TIMEOUT;
+    while !socket.exists() {
+        if Instant::now() >= deadline {
+            return;
+        }
+        thread::sleep(POLL_INTERVAL);
+    }
+}
+
+fn awww_socket_path() -> Option<PathBuf> {
+    let display = env::var_os("WAYLAND_DISPLAY")?;
+    let runtime_dir = paths::xdg_runtime_dir().ok()?;
+    Some(runtime_dir.join(format!("{}-awww-daemon.sock", display.to_string_lossy())))
+}
+
 fn apply_wallpaper(path: &Path) {
+    wait_for_awww_socket();
     let (ok, message) = run_command(&awww_command(&path.display().to_string()));
     if !ok {
         warn(&format!(
@@ -160,26 +191,22 @@ fn fallback_to_source(source: &Path, reason: &str) {
     apply_wallpaper(source);
 }
 
-pub fn generate(_colors: &ColorScheme, state: &ThemeState) -> crate::Result<GeneratedContent> {
-    let commands = if state.filter_wallpaper {
-        Vec::new()
-    } else {
-        vec![awww_command(&state.wallpaper)]
-    };
-    Ok(GeneratedContent::commands(commands))
+pub fn generate(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<GeneratedContent> {
+    Ok(GeneratedContent::commands(Vec::new()))
 }
 
 pub fn on_apply(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
-    if !state.filter_wallpaper {
-        return Ok(());
-    }
-
     let source = PathBuf::from(&state.wallpaper).expanduser()?;
     if !source.is_file() {
         warn(&format!(
             "source wallpaper does not exist: {}",
             source.display()
         ));
+        return Ok(());
+    }
+
+    if !state.filter_wallpaper {
+        apply_wallpaper(&source);
         return Ok(());
     }
 
@@ -251,5 +278,31 @@ impl ExpandUserPath for PathBuf {
     fn expanduser(self) -> crate::Result<PathBuf> {
         let text = self.to_string_lossy().to_string();
         expand_user_path(&text)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::awww_socket_path;
+    use crate::test_support::{ScopedEnvVar, env_lock};
+
+    #[test]
+    fn socket_path_follows_the_awww_daemon_naming_convention() {
+        let _env_guard = env_lock();
+        let _runtime = ScopedEnvVar::set("XDG_RUNTIME_DIR", "/run/user/1000");
+        let _display = ScopedEnvVar::set("WAYLAND_DISPLAY", "wayland-1");
+
+        assert_eq!(
+            awww_socket_path().expect("socket path resolves"),
+            std::path::PathBuf::from("/run/user/1000/wayland-1-awww-daemon.sock")
+        );
+    }
+
+    #[test]
+    fn socket_path_is_unavailable_outside_wayland() {
+        let _env_guard = env_lock();
+        let _display = ScopedEnvVar::unset("WAYLAND_DISPLAY");
+
+        assert!(awww_socket_path().is_none());
     }
 }
