@@ -1,7 +1,11 @@
 use crate::{
-    daemon::night_light::Controller,
+    daemon::{
+        night_light::Controller,
+        theme::{ThemeController, ThemeJob},
+    },
     ipc::{self, EventEnvelope, methods},
     night_light::NightLightSetParams,
+    theme::{ApplyScope, DarkHintOrigin},
 };
 use serde::Deserialize;
 use std::{io, os::unix::fs::FileTypeExt, path::Path, sync::Arc};
@@ -56,7 +60,32 @@ impl Events {
 #[derive(Clone)]
 pub struct ServerContext {
     pub night_light: Controller,
+    pub theme: ThemeController,
     pub events: Events,
+}
+
+#[derive(Debug, Deserialize)]
+struct ThemeSetParams {
+    key: String,
+    value: serde_json::Value,
+}
+
+#[derive(Debug, Deserialize)]
+struct ThemeApplyParams {
+    scope: String,
+    #[serde(default)]
+    target: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct NamedParams {
+    name: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct PresetSaveParams {
+    name: String,
+    payload: serde_json::Value,
 }
 
 pub async fn run(context: ServerContext, mut shutdown: watch::Receiver<bool>) -> crate::Result<()> {
@@ -217,6 +246,75 @@ async fn handle_client(stream: UnixStream, context: ServerContext) -> io::Result
                     Err(error) => write_error(&mut writer, error.to_string()).await?,
                 }
             }
+            methods::THEME_STATUS => {
+                let result = tokio::task::spawn_blocking(|| {
+                    crate::theme::resolve::load_state().map(|state| crate::theme::state_json(&state))
+                })
+                .await;
+                match result {
+                    Ok(Ok(state)) => write_ok(&mut writer, state).await?,
+                    Ok(Err(error)) => write_error(&mut writer, error.to_string()).await?,
+                    Err(error) => write_error(&mut writer, error.to_string()).await?,
+                }
+            }
+            methods::THEME_SET => {
+                match parse_params::<ThemeSetParams>(request.params, methods::THEME_SET) {
+                    Err(message) => write_error(&mut writer, message).await?,
+                    Ok(params) => {
+                        let job = ThemeJob::Set {
+                            key: params.key,
+                            value: params.value,
+                            // Every socket write is user-initiated; the
+                            // schedule mutates through the controller
+                            // directly, not through this method.
+                            origin: DarkHintOrigin::Manual,
+                        };
+                        write_result(&mut writer, context.theme.request(job).await).await?;
+                    }
+                }
+            }
+            methods::THEME_APPLY => {
+                match parse_params::<ThemeApplyParams>(request.params, methods::THEME_APPLY) {
+                    Err(message) => write_error(&mut writer, message).await?,
+                    Ok(params) => match ApplyScope::parse(&params.scope, params.target) {
+                        Err(error) => write_error(&mut writer, error.to_string()).await?,
+                        Ok(scope) => {
+                            let job = ThemeJob::Apply { scope };
+                            write_result(&mut writer, context.theme.request(job).await).await?;
+                        }
+                    },
+                }
+            }
+            methods::THEME_PRESET_APPLY => {
+                match parse_params::<NamedParams>(request.params, methods::THEME_PRESET_APPLY) {
+                    Err(message) => write_error(&mut writer, message).await?,
+                    Ok(params) => {
+                        let job = ThemeJob::PresetApply { name: params.name };
+                        write_result(&mut writer, context.theme.request(job).await).await?;
+                    }
+                }
+            }
+            methods::THEME_PRESET_SAVE => {
+                match parse_params::<PresetSaveParams>(request.params, methods::THEME_PRESET_SAVE) {
+                    Err(message) => write_error(&mut writer, message).await?,
+                    Ok(params) => {
+                        let job = ThemeJob::PresetSave {
+                            name: params.name,
+                            payload: params.payload,
+                        };
+                        write_result(&mut writer, context.theme.request(job).await).await?;
+                    }
+                }
+            }
+            methods::THEME_PRESET_DELETE => {
+                match parse_params::<NamedParams>(request.params, methods::THEME_PRESET_DELETE) {
+                    Err(message) => write_error(&mut writer, message).await?,
+                    Ok(params) => {
+                        let job = ThemeJob::PresetDelete { name: params.name };
+                        write_result(&mut writer, context.theme.request(job).await).await?;
+                    }
+                }
+            }
             _ => {
                 write_error(
                     &mut writer,
@@ -228,6 +326,23 @@ async fn handle_client(stream: UnixStream, context: ServerContext) -> io::Result
     }
 
     Ok(())
+}
+
+fn parse_params<T: serde::de::DeserializeOwned>(
+    params: serde_json::Value,
+    method: &str,
+) -> Result<T, String> {
+    serde_json::from_value(params).map_err(|error| format!("invalid params for {method}: {error}"))
+}
+
+async fn write_result<W: AsyncWrite + Unpin>(
+    writer: &mut W,
+    result: crate::Result<serde_json::Value>,
+) -> io::Result<()> {
+    match result {
+        Ok(data) => write_ok(writer, data).await,
+        Err(error) => write_error(writer, error.to_string()).await,
+    }
 }
 
 fn resolve_topics(requested: Vec<String>) -> Vec<String> {
@@ -305,9 +420,22 @@ async fn push_snapshots<W: AsyncWrite + Unpin>(
                     write_event(writer, &event).await?;
                 }
             }
+            "theme" => {
+                if let Ok(Ok(state)) = tokio::task::spawn_blocking(|| {
+                    crate::theme::resolve::load_state().map(|state| crate::theme::state_json(&state))
+                })
+                .await
+                {
+                    let event = EventEnvelope {
+                        event: "theme.changed".to_owned(),
+                        data: serde_json::json!({ "state": state, "changed_keys": [] }),
+                    };
+                    write_event(writer, &event).await?;
+                }
+            }
             // Snapshots for the remaining topics arrive with their
             // controllers as state ownership moves into the daemon.
-            "theme" | "brightness" | "hypr_input" => {}
+            "brightness" | "hypr_input" => {}
             _ => {}
         }
     }
@@ -447,14 +575,36 @@ mod tests {
     }
 
     fn test_context() -> ServerContext {
+        let events = Events::new();
         ServerContext {
             night_light: Controller::new(),
-            events: Events::new(),
+            theme: ThemeController::spawn(events.clone()),
+            events,
         }
+    }
+
+    /// Redirect every path the snapshot providers touch into a temp dir so
+    /// subscribe tests never read or seed the real machine's state.
+    fn scoped_test_env(
+        temp: &crate::test_support::TempDir,
+    ) -> Vec<crate::test_support::ScopedEnvVar> {
+        let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("crate lives inside the repo")
+            .to_path_buf();
+        vec![
+            crate::test_support::ScopedEnvVar::set("DESKTOPCTL_REPO", &repo_root),
+            crate::test_support::ScopedEnvVar::set("XDG_DATA_HOME", temp.path().join("data")),
+            crate::test_support::ScopedEnvVar::set("XDG_CACHE_HOME", temp.path().join("cache")),
+        ]
     }
 
     #[tokio::test]
     async fn subscribe_confirms_topics_and_forwards_matching_events() {
+        let _lock = crate::test_support::env_lock();
+        let temp = crate::test_support::TempDir::new("desktopctl-subscribe").expect("temp dir");
+        let _env = scoped_test_env(&temp);
+
         let (client, server) = UnixStream::pair().expect("socket pair");
         let context = test_context();
         let events = context.events.clone();
@@ -482,11 +632,23 @@ mod tests {
             serde_json::json!({ "ok": true, "data": { "subscribed": ["theme"] } })
         );
 
-        // No theme snapshot exists yet (no theme controller in Phase 1), so
-        // the next line is the first published event.
+        // First pushed line is the theme snapshot (freshly seeded defaults).
+        let snapshot: serde_json::Value = serde_json::from_str(
+            &lines
+                .next_line()
+                .await
+                .expect("read snapshot")
+                .expect("snapshot line"),
+        )
+        .expect("valid snapshot json");
+        assert_eq!(snapshot["event"], serde_json::json!("theme.changed"));
+        assert_eq!(snapshot["data"]["changed_keys"], serde_json::json!([]));
+        assert!(snapshot["data"]["state"].is_object());
+
         events.publish("night_light.changed", serde_json::json!({ "ignored": true }));
         events.publish("theme.changed", serde_json::json!({ "changed_keys": ["wallpaper"] }));
 
+        // The night_light event is filtered out; the theme event arrives.
         let event: serde_json::Value = serde_json::from_str(
             &lines
                 .next_line()
@@ -524,6 +686,10 @@ mod tests {
 
     #[tokio::test]
     async fn subscribe_with_no_topics_selects_every_topic() {
+        let _lock = crate::test_support::env_lock();
+        let temp = crate::test_support::TempDir::new("desktopctl-subscribe-all").expect("temp dir");
+        let _env = scoped_test_env(&temp);
+
         let (client, server) = UnixStream::pair().expect("socket pair");
         let context = test_context();
         let server_task = tokio::spawn(async move {

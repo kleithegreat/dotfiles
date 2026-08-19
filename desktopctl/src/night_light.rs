@@ -183,7 +183,7 @@ pub(crate) fn apply_dark_hint_if_needed(enabled: bool) -> crate::Result<()> {
         return Ok(());
     }
 
-    theme::set_dark_hint(enabled)
+    theme::set_dark_hint(enabled, theme::DarkHintOrigin::Scheduled)
 }
 
 fn cmd_status(json_output: bool) -> crate::Result<()> {

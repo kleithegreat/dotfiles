@@ -106,6 +106,78 @@ where
     ok
 }
 
+/// Per-target results of an apply pass, for callers that need data rather
+/// than terminal output (the daemon's socket methods).
+#[derive(Debug, Default)]
+pub struct ApplyReport {
+    pub applied: Vec<String>,
+    pub failed: Vec<(String, String)>,
+    pub skipped: Vec<String>,
+}
+
+impl ApplyReport {
+    pub fn ok(&self) -> bool {
+        self.failed.is_empty()
+    }
+
+    pub fn to_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "applied": self.applied,
+            "failed": self
+                .failed
+                .iter()
+                .map(|(target, error)| serde_json::json!({ "target": target, "error": error }))
+                .collect::<Vec<_>>(),
+            "skipped": self.skipped,
+        })
+    }
+}
+
+pub fn apply_targets_collect<I, S>(
+    registry: &TargetRegistry,
+    names: I,
+    colors: &ColorScheme,
+    state: &ThemeState,
+    runtime: bool,
+) -> ApplyReport
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    let mut report = ApplyReport::default();
+    let mut available = Vec::new();
+
+    for name in names {
+        let name = name.as_ref();
+        if registry.get(name).is_some() {
+            available.push(name.to_owned());
+        } else {
+            report.skipped.push(name.to_owned());
+        }
+    }
+    report.skipped.sort();
+
+    for name in sorted_targets(registry, available) {
+        match apply_target_quiet(registry, &name, colors, state, runtime) {
+            Ok(()) => report.applied.push(name),
+            Err(error) => report.failed.push((name, error.to_string())),
+        }
+    }
+
+    report
+}
+
+pub fn apply_all_collect(
+    registry: &TargetRegistry,
+    colors: &ColorScheme,
+    state: &ThemeState,
+    runtime: bool,
+    sync_safe: bool,
+) -> ApplyReport {
+    let names = all_target_names(registry, sync_safe);
+    apply_targets_collect(registry, names, colors, state, runtime)
+}
+
 pub fn apply_targets_quiet<I, S>(
     registry: &TargetRegistry,
     names: I,

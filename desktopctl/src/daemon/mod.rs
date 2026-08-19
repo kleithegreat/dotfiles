@@ -3,6 +3,7 @@ pub mod monitors;
 pub mod night_light;
 pub mod server;
 pub mod solar;
+pub mod theme;
 
 use std::{
     io,
@@ -50,9 +51,11 @@ async fn run_async() -> crate::Result<()> {
         }
     });
     let events = server::Events::new();
+    let theme = theme::ThemeController::spawn(events.clone());
     tasks.spawn({
         let context = server::ServerContext {
             night_light: night_light.clone(),
+            theme: theme.clone(),
             events: events.clone(),
         };
         let shutdown_rx = shutdown_rx.clone();

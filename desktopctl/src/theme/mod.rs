@@ -40,11 +40,24 @@ pub fn run(args: crate::ThemeArgs) -> crate::Result<()> {
     }
 }
 
-pub fn set_dark_hint(enabled: bool) -> crate::Result<()> {
-    set_dark_hint_internal(enabled).map(|_changed| ())
+/// Who initiated a dark_hint write. Manual writes win until the next
+/// 23:00/06:00 schedule edge; the daemon's boot catch-up skips the schedule
+/// value while the recorded manual write falls inside the current window.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DarkHintOrigin {
+    Manual,
+    Scheduled,
 }
 
-fn set_dark_hint_internal(enabled: bool) -> crate::Result<bool> {
+/// theme_state row recording when a manual dark_hint write last happened.
+/// Rides the schema's unknown-key passthrough (`ThemeState.extra`).
+pub(crate) const DARK_HINT_MANUAL_AT_KEY: &str = "dark_hint_manual_at";
+
+pub fn set_dark_hint(enabled: bool, origin: DarkHintOrigin) -> crate::Result<()> {
+    set_dark_hint_internal(enabled, origin).map(|_changed| ())
+}
+
+fn set_dark_hint_internal(enabled: bool, origin: DarkHintOrigin) -> crate::Result<bool> {
     let outcome = set_state_key_internal("dark_hint", Value::Bool(enabled))?;
     if !outcome.changed {
         return Ok(false);
@@ -64,8 +77,17 @@ fn set_dark_hint_internal(enabled: bool) -> crate::Result<bool> {
             "failed to apply affected theme targets for dark_hint: {error}"
         ))
     })?;
-    resolve::save_state_keys(&[("dark_hint", &outcome.value)])?;
+    let manual_at = Value::String(manual_write_timestamp());
+    let mut pairs = vec![("dark_hint", &outcome.value)];
+    if origin == DarkHintOrigin::Manual {
+        pairs.push((DARK_HINT_MANUAL_AT_KEY, &manual_at));
+    }
+    resolve::save_state_keys(&pairs)?;
     Ok(true)
+}
+
+fn manual_write_timestamp() -> String {
+    chrono::Local::now().to_rfc3339()
 }
 
 pub(crate) fn expand_user_path(path: &str) -> crate::Result<PathBuf> {
@@ -363,7 +385,7 @@ fn cmd_set(args: crate::SetArgs) -> CliResult<()> {
             Value::Bool(enabled) => enabled,
             _ => unreachable!("dark_hint is validated as a bool"),
         };
-        if !map_user_err(set_dark_hint_internal(enabled))? {
+        if !map_user_err(set_dark_hint_internal(enabled, DarkHintOrigin::Manual))? {
             println!(
                 "{} is already '{}', nothing to do.",
                 key,
@@ -436,7 +458,7 @@ fn cmd_preset(args: crate::NamedArg) -> CliResult<()> {
     }
 
     if let Some(enabled) = requested_dark_hint {
-        map_user_err(set_dark_hint(enabled))?;
+        map_user_err(set_dark_hint(enabled, DarkHintOrigin::Manual))?;
         if !has_theme_changes {
             println!("Loaded preset '{}'.", preset_name);
         }
@@ -641,6 +663,246 @@ fn cmd_status(json_output: bool) -> CliResult<()> {
         }
     }
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Quiet cores for the daemon's socket methods. These mirror the CLI commands
+// above but return data instead of printing, and follow the same
+// apply-then-commit ordering: state persists only after every required target
+// applied.
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone)]
+pub(crate) enum ApplyScope {
+    All,
+    Colors,
+    Wallpaper,
+    Cursor,
+    Fonts,
+    Target(String),
+}
+
+impl ApplyScope {
+    pub(crate) fn parse(scope: &str, target: Option<String>) -> crate::Result<Self> {
+        match scope {
+            "all" => Ok(Self::All),
+            "colors" => Ok(Self::Colors),
+            "wallpaper" => Ok(Self::Wallpaper),
+            "cursor" => Ok(Self::Cursor),
+            "fonts" => Ok(Self::Fonts),
+            "target" => target.map(Self::Target).ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "apply scope 'target' requires a target name",
+                )
+                .into()
+            }),
+            other => Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("unknown apply scope '{other}'"),
+            )
+            .into()),
+        }
+    }
+}
+
+pub(crate) struct SetKeyOutcome {
+    pub changed: bool,
+    pub state: schema::ThemeState,
+}
+
+pub(crate) struct PresetOutcome {
+    pub state: schema::ThemeState,
+    pub changed_keys: Vec<String>,
+}
+
+pub(crate) fn state_json(state: &schema::ThemeState) -> Value {
+    Value::Object(state.to_ordered_json_map())
+}
+
+pub(crate) fn set_theme_key_core(
+    key: &str,
+    raw_value: Value,
+    origin: DarkHintOrigin,
+) -> crate::Result<SetKeyOutcome> {
+    if key == "dark_hint" {
+        let enabled = match coerce_theme_value(key, raw_value)? {
+            Value::Bool(enabled) => enabled,
+            _ => unreachable!("dark_hint is validated as a bool"),
+        };
+        let changed = set_dark_hint_internal(enabled, origin)?;
+        return Ok(SetKeyOutcome {
+            changed,
+            state: resolve::load_state()?,
+        });
+    }
+
+    let outcome = set_state_key_internal(key, raw_value)?;
+    if !outcome.changed {
+        return Ok(SetKeyOutcome {
+            changed: false,
+            state: outcome.new_state,
+        });
+    }
+
+    let colors_dir = resolve::colors_dir()?;
+    let colors = resolve::load_colors(&outcome.new_state.color_scheme, &colors_dir)?;
+    orchestrator::apply_targets_quiet(
+        &outcome.registry,
+        outcome.affected_targets.iter(),
+        &colors,
+        &outcome.new_state,
+        true,
+    )?;
+    resolve::save_state_keys(&[(key, &outcome.value)])?;
+    Ok(SetKeyOutcome {
+        changed: true,
+        state: outcome.new_state,
+    })
+}
+
+pub(crate) fn apply_scope_core(scope: &ApplyScope) -> crate::Result<orchestrator::ApplyReport> {
+    let registry = targets::build_registry()?;
+    let colors_dir = resolve::colors_dir()?;
+    let state = resolve::load_state()?;
+    let colors = resolve::load_colors(&state.color_scheme, &colors_dir)?;
+
+    Ok(match scope {
+        ApplyScope::All => orchestrator::apply_all_collect(&registry, &colors, &state, true, false),
+        ApplyScope::Colors => orchestrator::apply_targets_collect(
+            &registry,
+            orchestrator::color_targets(&registry, &state),
+            &colors,
+            &state,
+            true,
+        ),
+        ApplyScope::Wallpaper => {
+            orchestrator::apply_targets_collect(&registry, ["wallpaper"], &colors, &state, true)
+        }
+        ApplyScope::Cursor => {
+            orchestrator::apply_targets_collect(&registry, ["cursor"], &colors, &state, true)
+        }
+        ApplyScope::Fonts => orchestrator::apply_targets_collect(
+            &registry,
+            orchestrator::font_targets(&registry),
+            &colors,
+            &state,
+            true,
+        ),
+        ApplyScope::Target(name) => {
+            orchestrator::apply_targets_collect(&registry, [name.as_str()], &colors, &state, true)
+        }
+    })
+}
+
+/// Apply a preset in a single pass: merge every preset key — dark_hint
+/// included — into one state snapshot, apply all targets once, then persist
+/// the preset's keys together. The old two-pass shape existed only to route
+/// dark_hint through its separate writer, which the daemon obsoletes.
+pub(crate) fn apply_preset_core(name: &str) -> crate::Result<PresetOutcome> {
+    let (preset_name, preset_path) = preset_path(name)?;
+    if !preset_path.is_file() {
+        let available = available_presets()?;
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!(
+                "preset '{}' not found. Available: {}",
+                preset_name,
+                if available.is_empty() {
+                    "(none)".to_owned()
+                } else {
+                    available.join(", ")
+                }
+            ),
+        )
+        .into());
+    }
+
+    let preset_value = read_json_file(&preset_path)?;
+    let preset = normalize_theme_patch(preset_value, &format!("preset '{}'", preset_name))?;
+    if preset.is_empty() {
+        return Ok(PresetOutcome {
+            state: resolve::load_state()?,
+            changed_keys: Vec::new(),
+        });
+    }
+
+    let state = resolve::load_state()?;
+    let mut state_map = state.to_ordered_json_map();
+    for (key, value) in &preset {
+        state_map.insert(key.clone(), value.clone());
+    }
+    let new_state = validated_theme_state(state_map, "theme state")?;
+
+    let colors_dir = resolve::colors_dir()?;
+    let colors = resolve::load_colors(&new_state.color_scheme, &colors_dir)?;
+    let registry = targets::build_registry()?;
+    let report = orchestrator::apply_all_collect(&registry, &colors, &new_state, true, false);
+    if !report.ok() {
+        let failures = report
+            .failed
+            .iter()
+            .map(|(target, error)| format!("{target}: {error}"))
+            .collect::<Vec<_>>();
+        return Err(io::Error::other(failures.join("; ")).into());
+    }
+
+    let manual_at = Value::String(manual_write_timestamp());
+    let mut pairs = preset
+        .iter()
+        .map(|(key, value)| (key.as_str(), value))
+        .collect::<Vec<_>>();
+    // A preset write is user-initiated: a dark_hint it carries is a manual
+    // value the schedule must not clobber before the next edge.
+    if preset.contains_key("dark_hint") {
+        pairs.push((DARK_HINT_MANUAL_AT_KEY, &manual_at));
+    }
+    resolve::save_state_keys(&pairs)?;
+
+    Ok(PresetOutcome {
+        state: new_state,
+        changed_keys: preset.keys().cloned().collect(),
+    })
+}
+
+pub(crate) fn save_preset_core(name: &str, payload: Value) -> crate::Result<usize> {
+    let (preset_name, preset_path) = preset_path(name)?;
+    let preset = normalize_theme_patch(payload, &format!("preset '{}'", preset_name))?;
+
+    if preset.is_empty() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "preset must include at least one field",
+        )
+        .into());
+    }
+
+    if let Some(parent) = preset_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+
+    let ordered = ordered_theme_mapping(&preset);
+    let rendered = format!("{}\n", json::format_pretty_value(&Value::Object(ordered)));
+    atomic_write(&preset_path, rendered.as_bytes())?;
+    Ok(preset.len())
+}
+
+pub(crate) fn delete_preset_core(name: &str) -> crate::Result<String> {
+    let (preset_name, preset_path) = preset_path(name)?;
+    if !preset_path.is_file() {
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!("preset '{}' not found", preset_name),
+        )
+        .into());
+    }
+
+    fs::remove_file(&preset_path)?;
+    Ok(preset_name)
+}
+
+pub(crate) fn preset_names() -> crate::Result<Vec<String>> {
+    available_presets()
 }
 
 fn load_state_and_colors() -> CliResult<(schema::ThemeState, schema::ColorScheme)> {

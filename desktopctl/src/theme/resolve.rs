@@ -89,6 +89,10 @@ fn open_state_db(db_path: &Path) -> crate::Result<Connection> {
     }
 
     let connection = Connection::open(db_path)?;
+    // The daemon worker, activation-time `theme sync`, and the focus tracker
+    // share this file across processes; wait out short write bursts instead
+    // of surfacing SQLITE_BUSY.
+    connection.busy_timeout(std::time::Duration::from_secs(5))?;
     connection.execute_batch(THEME_STATE_TABLE_SCHEMA)?;
     Ok(connection)
 }

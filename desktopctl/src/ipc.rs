@@ -32,6 +32,13 @@ pub(crate) mod methods {
     pub const NIGHT_LIGHT_STATUS: &str = "night_light.status";
     pub const NIGHT_LIGHT_SET: &str = "night_light.set";
     pub const NIGHT_LIGHT_TOGGLE: &str = "night_light.toggle";
+
+    pub const THEME_STATUS: &str = "theme.status";
+    pub const THEME_SET: &str = "theme.set";
+    pub const THEME_APPLY: &str = "theme.apply";
+    pub const THEME_PRESET_APPLY: &str = "theme.preset_apply";
+    pub const THEME_PRESET_SAVE: &str = "theme.preset_save";
+    pub const THEME_PRESET_DELETE: &str = "theme.preset_delete";
 }
 
 /// Topics a subscriber can select; each event name is `<topic>.<what>`.
