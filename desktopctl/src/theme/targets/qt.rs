@@ -1012,18 +1012,11 @@ impl IniFile {
 #[cfg(test)]
 mod tests {
     use super::{kde_icon_theme, ktexteditor_color_theme, kvantum_base_theme, ui_colors};
+    use crate::test_support::repo_root;
     use crate::theme::{
         resolve,
         schema::{ColorScheme, ColorSchemeAppearance},
     };
-    use std::path::{Path, PathBuf};
-
-    fn repo_root() -> PathBuf {
-        Path::new(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .expect("desktopctl lives under the repo root")
-            .to_path_buf()
-    }
 
     fn load_repo_colors(scheme_name: &str) -> ColorScheme {
         resolve::load_colors(scheme_name, &repo_root().join("styling/colors"))

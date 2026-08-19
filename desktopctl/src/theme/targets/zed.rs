@@ -18,7 +18,7 @@ pub const METADATA: TargetMetadata = TargetMetadata::new(
     ],
 )
 .output("~/.config/zed/settings.json")
-.base("config/zed/base.json");
+.base("bases/zed.json");
 
 pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<GeneratedContent> {
     let buffer_font_size = state.mono_font_size_for(METADATA.name)?;

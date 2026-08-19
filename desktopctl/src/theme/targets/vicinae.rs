@@ -71,7 +71,7 @@ pub fn persist(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
     let light_theme_name = colors.vicinae_light_theme_name();
     if light_theme_name != theme_name {
         let light_colors =
-            resolve::load_colors(&light_theme_name, &paths::repo_path("styling/colors")?)?;
+            resolve::load_colors(&light_theme_name, &paths::data_path("colors")?)?;
         write_theme_file(&light_theme_name, &light_colors)?;
     }
 
@@ -198,26 +198,16 @@ fn title_case_segment(segment: &str) -> String {
 mod tests {
     use super::*;
     use crate::{
-        test_support::{ScopedEnvVar, TempDir, env_lock},
+        test_support::{ScopedEnvVar, TempDir, env_lock, repo_root},
         theme::targets::testsupport::{dummy_colors, dummy_state, load_repo_colors},
     };
-    use std::{
-        fs,
-        path::{Path, PathBuf},
-    };
+    use std::fs;
 
     fn text(content: crate::Result<GeneratedContent>) -> String {
         match content.expect("target generation succeeds") {
             GeneratedContent::Text(text) => text,
             GeneratedContent::Commands(_) => panic!("expected text content"),
         }
-    }
-
-    fn repo_root() -> PathBuf {
-        Path::new(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .expect("desktopctl lives under the repo root")
-            .to_path_buf()
     }
 
     #[test]

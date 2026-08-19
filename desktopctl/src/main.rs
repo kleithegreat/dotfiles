@@ -85,6 +85,8 @@ enum ThemeCommand {
     ListPresets(JsonOutputArgs),
     /// Show the current theme state.
     Status(JsonOutputArgs),
+    /// Print the current state in `styling/state.json` seed format.
+    Export,
 }
 
 /// Shared by daemon-routed write subcommands, mainly for autostart call
@@ -209,8 +211,6 @@ enum HyprCommand {
     Input(HyprInputArgs),
     /// Persist or clear animation override state.
     Animations(HyprAnimationsArgs),
-    /// Persist or clear keybind override state.
-    Keybinds(HyprKeybindsArgs),
 }
 
 #[derive(Debug, Args)]
@@ -261,21 +261,6 @@ enum HyprAnimationsCommand {
     /// Write animation overrides from a JSON payload to the managed config file.
     Save(HyprJsonPayloadArgs),
     /// Clear all animation overrides and reload Hyprland.
-    Clear,
-}
-
-#[derive(Debug, Args)]
-#[command(arg_required_else_help = true, subcommand_required = true)]
-struct HyprKeybindsArgs {
-    #[command(subcommand)]
-    command: HyprKeybindsCommand,
-}
-
-#[derive(Debug, Subcommand)]
-enum HyprKeybindsCommand {
-    /// Write keybind overrides from a JSON payload to the managed config file.
-    Save(HyprJsonPayloadArgs),
-    /// Clear all keybind overrides and reload Hyprland.
     Clear,
 }
 
@@ -443,7 +428,6 @@ fn run_hypr(args: HyprArgs) -> Result<()> {
         HyprCommand::ReclaimWorkspaces => hypr::reclaim_workspaces(),
         HyprCommand::Input(args) => run_hypr_input(args),
         HyprCommand::Animations(args) => run_hypr_animations(args),
-        HyprCommand::Keybinds(args) => run_hypr_keybinds(args),
     }
 }
 
@@ -455,18 +439,6 @@ fn run_hypr_animations(args: HyprAnimationsArgs) -> Result<()> {
         ),
         HyprAnimationsCommand::Clear => {
             strict_request(ipc::methods::HYPR_ANIMATIONS_CLEAR, serde_json::json!({}))
-        }
-    }
-}
-
-fn run_hypr_keybinds(args: HyprKeybindsArgs) -> Result<()> {
-    match args.command {
-        HyprKeybindsCommand::Save(args) => strict_request(
-            ipc::methods::HYPR_KEYBINDS_SAVE,
-            serde_json::json!({ "payload": parse_payload_json(&args.payload)? }),
-        ),
-        HyprKeybindsCommand::Clear => {
-            strict_request(ipc::methods::HYPR_KEYBINDS_CLEAR, serde_json::json!({}))
         }
     }
 }

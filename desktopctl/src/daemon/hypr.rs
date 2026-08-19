@@ -1,7 +1,7 @@
-//! Serializes hypr override mutations (input runtime settings, animation and
-//! keybind override files) so two writers can never interleave a
-//! read-modify-write. The operations are sub-second, so a plain mutex held
-//! across each one is fine — unlike theme applies.
+//! Serializes hypr override mutations (input runtime settings, the animation
+//! override file) so two writers can never interleave a read-modify-write.
+//! The operations are sub-second, so a plain mutex held across each one is
+//! fine — unlike theme applies.
 
 use crate::{daemon::server::Events, hypr};
 use serde_json::Value;
@@ -41,8 +41,8 @@ impl HyprController {
         Ok(serde_json::json!({ "state": state }))
     }
 
-    // Animations/keybinds publish no events: the shell has no live
-    // subscriber for them (the editors were deliberately not rebuilt).
+    // Animations publish no events: the shell has no live subscriber for
+    // them (the editor was deliberately not rebuilt).
     pub fn animations_save(&self, payload: &Value) -> crate::Result<Value> {
         let _guard = self.lock_serialized()?;
         hypr::save_animations(&serde_json::to_string(payload)?)?;
@@ -52,18 +52,6 @@ impl HyprController {
     pub fn animations_clear(&self) -> crate::Result<Value> {
         let _guard = self.lock_serialized()?;
         hypr::clear_animations()?;
-        Ok(serde_json::json!({}))
-    }
-
-    pub fn keybinds_save(&self, payload: &Value) -> crate::Result<Value> {
-        let _guard = self.lock_serialized()?;
-        hypr::save_keybinds(&serde_json::to_string(payload)?)?;
-        Ok(serde_json::json!({}))
-    }
-
-    pub fn keybinds_clear(&self) -> crate::Result<Value> {
-        let _guard = self.lock_serialized()?;
-        hypr::clear_keybinds()?;
         Ok(serde_json::json!({}))
     }
 

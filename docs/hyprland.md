@@ -16,8 +16,8 @@
 - Three file classes are not in the repo and generated/selected at runtime:
   - theming targets write `colors.lua`, `appearance-theme.lua`,
     `cursor-theme.lua` (plus a hyprlang `colors.conf` kept only for hyprlock);
-  - `desktopctl hypr` writes `input-runtime.lua`,
-    `animations-override-data.lua`, `keybinds-override-data.lua`;
+  - `desktopctl hypr` writes `input-runtime.lua` and
+    `animations-override-data.lua`;
   - Home Manager selects `monitors.lua`, `env-host.lua`, `input-devices.lua`,
     and `autostart-host.lua` from `hosts/<host>/` via the `host.hyprland.*`
     facts, with fallbacks that must boot on any future host. Shared session
@@ -83,9 +83,8 @@ Nothing can trigger a bind synthetically to check this: `wtype`,
 bind unfired, so bind changes are only verifiable by hand.
 
 Every bind is reported by `hyprctl binds` as dispatcher `__lua` plus a callback
-index. Nothing outside the defining file can reconstruct a bind, so a keybind
-override can only remap the combo where the bind is declared — reconstructing
-one from `hyprctl binds` output is not possible.
+index, so `config/hypr/keybinds.lua` is the only place a bind exists: nothing
+external can read one back, edit it, or reconstruct it.
 
 ### The config verifier lies about plugin keys
 Static config verification reports false errors on plugin-owned keys. The only

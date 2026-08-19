@@ -1,7 +1,7 @@
 use crate::paths;
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use serde_json::{Map, Value};
-use std::{borrow::Cow, io, path::Path};
+use std::{borrow::Cow, fs, io, path::Path};
 
 /// Colors a scheme file must author. The dimmed foreground ramp is absent on
 /// purpose: it is derived by [`dim_ramp`], not transcribed.
@@ -101,40 +101,41 @@ pub const THEME_STATE_BOOL_FIELDS: [&str; 4] = [
     "hypr_animations_enabled",
 ];
 
-pub const DEFAULT_COLOR_SCHEME: &str = "gruvbox-dark";
+/// Committed default state, relative to the theming data directory. It is the
+/// only source of defaults — there is deliberately no compiled fallback, so
+/// the desktop a fresh checkout produces is the one under review in git.
+pub const STATE_SEED_RELATIVE_PATH: &str = "state.json";
+
+/// Keys the seed does not carry, because no committed value can be right for
+/// them: the wallpaper library is gitignored, so a seeded path would name a
+/// file that does not exist on a fresh machine. `theme export` drops them for
+/// the same reason.
+pub const MACHINE_LOCAL_FIELDS: [&str; 2] = ["wallpaper", "wallpaper_dir"];
+
 pub const DEFAULT_WALLPAPER_RELATIVE_PATH: &str = "styling/wallpapers/lmao.png";
 /// Directory the wallpaper picker browses. Held separately from `wallpaper` so
 /// that browsing to a directory survives without also selecting a wallpaper
 /// from it — deriving it from the current wallpaper's parent loses the choice
 /// as soon as the picker closes. No target consumes it.
 pub const DEFAULT_WALLPAPER_DIR_RELATIVE_PATH: &str = "styling/wallpapers";
-pub const DEFAULT_FILTER_WALLPAPER: bool = false;
-pub const DEFAULT_SYSTEM_FONT: &str = "Overpass";
-pub const DEFAULT_MONO_FONT: &str = "JetBrainsMono Nerd Font";
-pub const DEFAULT_ICON_THEME: &str = "Neuwaita";
-pub const DEFAULT_CURSOR_THEME: &str = "BreezeX-RosePine-Linux";
-pub const DEFAULT_CURSOR_SIZE: i64 = 24;
-pub const DEFAULT_FONT_SIZE: i64 = 11;
-pub const DEFAULT_QUICKSHELL_FONT_SIZE_OFFSET: i64 = 0;
-pub const DEFAULT_GTK_FONT_SIZE_OFFSET: i64 = 0;
-pub const DEFAULT_QT_FONT_SIZE_OFFSET: i64 = 0;
-pub const DEFAULT_MONO_FONT_SIZE: i64 = 11;
-pub const DEFAULT_ALACRITTY_MONO_FONT_SIZE_OFFSET: i64 = 0;
-pub const DEFAULT_GHOSTTY_MONO_FONT_SIZE_OFFSET: i64 = 0;
-pub const DEFAULT_GTK_MONO_FONT_SIZE_OFFSET: i64 = 0;
-pub const DEFAULT_NEOVIDE_MONO_FONT_SIZE_OFFSET: i64 = 0;
-pub const DEFAULT_QT_MONO_FONT_SIZE_OFFSET: i64 = 0;
-pub const DEFAULT_VSCODE_MONO_FONT_SIZE_OFFSET: i64 = 3;
-pub const DEFAULT_ZED_MONO_FONT_SIZE_OFFSET: i64 = 4;
-pub const DEFAULT_DARK_HINT: bool = false;
-pub const DEFAULT_HYPR_GAPS_IN: i64 = 4;
-pub const DEFAULT_HYPR_GAPS_OUT: i64 = 6;
-pub const DEFAULT_HYPR_BORDER_SIZE: i64 = 0;
-pub const DEFAULT_HYPR_ROUNDING: i64 = 8;
-pub const DEFAULT_HYPR_BLUR_ENABLED: bool = true;
-pub const DEFAULT_HYPR_BLUR_SIZE: i64 = 8;
-pub const DEFAULT_HYPR_BLUR_PASSES: i64 = 3;
-pub const DEFAULT_HYPR_ANIMATIONS_ENABLED: bool = true;
+
+/// Project a state map onto the seed format: the known fields in declaration
+/// order, minus the machine-local ones, so that
+/// `theme export > styling/state.json` round-trips through
+/// [`ThemeState::load_seed`]. Unknown keys carried by [`ThemeState::extra`]
+/// are dropped — whatever they are, they are not part of the committed schema
+/// and must not be seeded onto a fresh machine.
+pub fn seed_json_map(state: &Map<String, Value>) -> Map<String, Value> {
+    THEME_STATE_FIELD_ORDER
+        .iter()
+        .filter(|name| !MACHINE_LOCAL_FIELDS.contains(name))
+        .filter_map(|name| {
+            state
+                .get(*name)
+                .map(|value| ((*name).to_owned(), value.clone()))
+        })
+        .collect()
+}
 
 pub fn canonicalize_theme_string_value<'a>(key: &str, value: &'a str) -> Cow<'a, str> {
     match (key, value) {
@@ -547,55 +548,46 @@ pub struct ThemeState {
 
 impl ThemeState {
     pub fn default_state() -> crate::Result<Self> {
-        Ok(Self::default_state_for_repo_root(&paths::repo_root()?))
+        Self::load_seed(&paths::data_dir()?, &paths::repo_root()?)
     }
 
-    pub fn default_state_for_repo_root(repo_root: &Path) -> Self {
-        let default_dark_hint = crate::theme::resolve::load_colors(
-            DEFAULT_COLOR_SCHEME,
-            &repo_root.join("styling/colors"),
-        )
-        .map(|colors| colors.is_dark())
-        .unwrap_or(DEFAULT_DARK_HINT);
-        Self {
-            color_scheme: DEFAULT_COLOR_SCHEME.to_owned(),
-            wallpaper: repo_root
-                .join(DEFAULT_WALLPAPER_RELATIVE_PATH)
-                .display()
-                .to_string(),
-            wallpaper_dir: repo_root
-                .join(DEFAULT_WALLPAPER_DIR_RELATIVE_PATH)
-                .display()
-                .to_string(),
-            filter_wallpaper: DEFAULT_FILTER_WALLPAPER,
-            system_font: DEFAULT_SYSTEM_FONT.to_owned(),
-            mono_font: DEFAULT_MONO_FONT.to_owned(),
-            icon_theme: DEFAULT_ICON_THEME.to_owned(),
-            cursor_theme: DEFAULT_CURSOR_THEME.to_owned(),
-            cursor_size: DEFAULT_CURSOR_SIZE,
-            font_size: DEFAULT_FONT_SIZE,
-            quickshell_font_size_offset: DEFAULT_QUICKSHELL_FONT_SIZE_OFFSET,
-            gtk_font_size_offset: DEFAULT_GTK_FONT_SIZE_OFFSET,
-            qt_font_size_offset: DEFAULT_QT_FONT_SIZE_OFFSET,
-            mono_font_size: DEFAULT_MONO_FONT_SIZE,
-            alacritty_mono_font_size_offset: DEFAULT_ALACRITTY_MONO_FONT_SIZE_OFFSET,
-            ghostty_mono_font_size_offset: DEFAULT_GHOSTTY_MONO_FONT_SIZE_OFFSET,
-            gtk_mono_font_size_offset: DEFAULT_GTK_MONO_FONT_SIZE_OFFSET,
-            neovide_mono_font_size_offset: DEFAULT_NEOVIDE_MONO_FONT_SIZE_OFFSET,
-            qt_mono_font_size_offset: DEFAULT_QT_MONO_FONT_SIZE_OFFSET,
-            vscode_mono_font_size_offset: DEFAULT_VSCODE_MONO_FONT_SIZE_OFFSET,
-            zed_mono_font_size_offset: DEFAULT_ZED_MONO_FONT_SIZE_OFFSET,
-            dark_hint: default_dark_hint,
-            hypr_gaps_in: DEFAULT_HYPR_GAPS_IN,
-            hypr_gaps_out: DEFAULT_HYPR_GAPS_OUT,
-            hypr_border_size: DEFAULT_HYPR_BORDER_SIZE,
-            hypr_rounding: DEFAULT_HYPR_ROUNDING,
-            hypr_blur_enabled: DEFAULT_HYPR_BLUR_ENABLED,
-            hypr_blur_size: DEFAULT_HYPR_BLUR_SIZE,
-            hypr_blur_passes: DEFAULT_HYPR_BLUR_PASSES,
-            hypr_animations_enabled: DEFAULT_HYPR_ANIMATIONS_ENABLED,
-            extra: Map::new(),
+    /// Load the committed default state, filling the machine-local wallpaper
+    /// keys from the checkout. A missing, malformed or incomplete seed is
+    /// fatal by design: falling back to compiled values would restore exactly
+    /// the invisible second set of defaults this seed replaced.
+    pub fn load_seed(data_dir: &Path, repo_root: &Path) -> crate::Result<Self> {
+        let path = data_dir.join(STATE_SEED_RELATIVE_PATH);
+        let text = fs::read_to_string(&path).map_err(|error| {
+            io::Error::new(
+                error.kind(),
+                format!("Cannot read theme state seed {}: {error}", path.display()),
+            )
+        })?;
+
+        let mut seed: Map<String, Value> = serde_json::from_str(&text).map_err(|error| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("Invalid theme state seed {}: {error}", path.display()),
+            )
+        })?;
+
+        for (key, relative) in [
+            ("wallpaper", DEFAULT_WALLPAPER_RELATIVE_PATH),
+            ("wallpaper_dir", DEFAULT_WALLPAPER_DIR_RELATIVE_PATH),
+        ] {
+            seed.insert(
+                key.to_owned(),
+                Value::String(repo_root.join(relative).display().to_string()),
+            );
         }
+
+        serde_json::from_value(Value::Object(seed)).map_err(|error| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("Invalid theme state seed {}: {error}", path.display()),
+            )
+            .into()
+        })
     }
 
     pub fn known_field_names() -> &'static [&'static str] {
@@ -759,5 +751,45 @@ mod dim_ramp_tests {
     fn dim_ramp_rejects_malformed_colors() {
         assert!(dim_ramp("#zzzzzz", "#000000").is_err());
         assert!(dim_ramp("#fff", "#000000").is_err());
+    }
+}
+
+#[cfg(test)]
+mod seed_tests {
+    use super::{MACHINE_LOCAL_FIELDS, THEME_STATE_FIELD_ORDER, ThemeState, seed_json_map};
+    use crate::test_support::repo_root;
+    use serde_json::{Map, Value};
+    use std::fs;
+
+    fn seed_object() -> Map<String, Value> {
+        let path = repo_root().join("styling/state.json");
+        let text = fs::read_to_string(&path).expect("committed state seed exists");
+        match serde_json::from_str(&text).expect("committed state seed is JSON") {
+            Value::Object(object) => object,
+            _ => panic!("committed state seed is not a JSON object"),
+        }
+    }
+
+    /// The compiler used to guarantee that every field had a default. With the
+    /// defaults in data, this test is what stops a new `ThemeState` field from
+    /// shipping without a committed value.
+    #[test]
+    fn seed_covers_exactly_the_non_machine_local_fields() {
+        let object = seed_object();
+        let expected: Vec<&str> = THEME_STATE_FIELD_ORDER
+            .iter()
+            .copied()
+            .filter(|name| !MACHINE_LOCAL_FIELDS.contains(name))
+            .collect();
+
+        let actual: Vec<&str> = object.keys().map(String::as_str).collect();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn seed_loads_and_round_trips_through_export() {
+        let root = repo_root();
+        let state = ThemeState::load_seed(&root.join("styling"), &root).expect("seed loads");
+        assert_eq!(seed_json_map(&state.to_ordered_json_map()), seed_object());
     }
 }

@@ -432,15 +432,8 @@ pub fn build_registry() -> crate::Result<TargetRegistry> {
 
 #[cfg(test)]
 pub(crate) mod testsupport {
+    use crate::test_support::repo_root;
     use crate::theme::schema::{ColorScheme, ThemeState};
-    use std::path::{Path, PathBuf};
-
-    fn repo_root() -> PathBuf {
-        Path::new(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .expect("desktopctl lives under the repo root")
-            .to_path_buf()
-    }
 
     /// Every scheme shipped in `styling/colors`, for tests that assert a
     /// property must hold across all of them rather than for a chosen few.

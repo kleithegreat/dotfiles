@@ -4,7 +4,7 @@ use crate::theme::schema::{ColorScheme, ThemeState};
 pub const METADATA: TargetMetadata =
     TargetMetadata::new("starship", Assembly::Concat, &["color_scheme"])
         .output("~/.config/starship.toml")
-        .base("config/starship/base.toml")
+        .base("bases/starship.toml")
         .comment("#");
 
 const WCAG_AA_NORMAL_TEXT: f64 = 4.5;

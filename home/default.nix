@@ -20,6 +20,7 @@ let
 in
 {
   imports = [
+    ./desktopctl.nix
     ./shell.nix
     ./gtk.nix
     ./packages.nix
@@ -46,18 +47,6 @@ in
 
   programs.git.settings.credential.helper =
     "${pkgs.gitFull}/bin/git-credential-libsecret";
-
-  home.activation.applyTheme = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    PATH="${lib.makeBinPath [ pkgs.optimized.desktopctl ]}:$PATH"
-    mkdir -p "$HOME/.config/hypr"
-    # Seed the desktopctl-managed data tables. An empty file is the "no
-    # overrides" state: the Lua appliers guard their require, and `desktopctl
-    # hypr {animations,keybinds} clear` truncates back to empty.
-    touch "$HOME/.config/hypr/input-runtime.lua"
-    touch "$HOME/.config/hypr/animations-override-data.lua"
-    touch "$HOME/.config/hypr/keybinds-override-data.lua"
-    desktopctl theme sync
-  '';
 
   programs.chromium = {
     enable = true;

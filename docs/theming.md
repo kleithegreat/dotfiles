@@ -2,10 +2,18 @@
 
 ## Intent
 
-- One mutable theme state (the `theme_state` table in `desktopctl.db`), a
-  version-controlled scheme catalog (`styling/colors/*.json`) and preset
-  patches (`styling/presets/*.json`), and bounded write surfaces. Generated
-  outputs contain only theming data; base config is never overwritten.
+- One mutable theme state (the `theme_state` table in `desktopctl.db`) over
+  version-controlled data in `styling/`: the scheme catalog (`colors/*.json`),
+  preset patches (`presets/*.json`), concat bases (`bases/*`) and the default
+  state (`state.json`). Generated outputs contain only theming data; base
+  config is never overwritten.
+- `styling/state.json` is the *only* source of defaults — there is no compiled
+  fallback, so the desktop a fresh machine renders is the one under review in
+  git rather than whatever the local database drifted to. `theme export`
+  prints the current state back in that format for commit; it emits the known
+  schema fields only, minus the two machine-local wallpaper paths, which stay
+  derived because the wallpaper library is gitignored. A `ThemeState` field
+  added without a seed value fails `seed_covers_exactly_the_non_machine_local_fields`.
 - Every target declares one assembly strategy — `import`, `concat`,
   `standalone`, or `command` — plus the `ThemeState` keys it consumes.
   Fanout for `theme colors`/`theme fonts`/per-key applies derives from those

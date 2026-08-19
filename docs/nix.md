@@ -11,9 +11,14 @@
 - Layer boundaries: `system/*.nix` owns shared privileged policy;
   `hosts/<name>/` owns hardware and host-only overrides; `home/*.nix` owns
   user packages, XDG deployment, and session glue; `config/` owns
-  repo-authored application config that Home Manager deploys; `lib/` owns
+  repo-authored application config that Home Manager deploys; `styling/` owns
+  the theming data desktopctl deploys at apply time ([[theming]]); `lib/` owns
   helpers that are merged into `lib` and reachable everywhere. Installing a
-  tool (Nix) and configuring it (`config/`) are separate responsibilities.
+  tool (Nix) and configuring it (`config/`) are separate responsibilities, and
+  so are the two deployers: everything under `config/` reaches `~/.config` on
+  rebuild, everything under `styling/` only on a theme apply. A file whose
+  content desktopctl merges — the concat bases — belongs in `styling/bases`,
+  never in `config/`, so the owner is legible from the path.
 - Modules never receive packages or computed values as extra function
   arguments. What a module needs reaches it through `pkgs` (via an overlay),
   through `config`, or through a `specialArgs` entry that every module gets.

@@ -386,24 +386,6 @@ async fn handle_client(stream: UnixStream, context: ServerContext) -> io::Result
                 let result = tokio::task::spawn_blocking(move || hypr.animations_clear()).await;
                 write_join_result(&mut writer, result).await?;
             }
-            methods::HYPR_KEYBINDS_SAVE => {
-                match parse_params::<PayloadParams>(request.params, methods::HYPR_KEYBINDS_SAVE) {
-                    Err(message) => write_error(&mut writer, message).await?,
-                    Ok(params) => {
-                        let hypr = context.hypr.clone();
-                        let result = tokio::task::spawn_blocking(move || {
-                            hypr.keybinds_save(&params.payload)
-                        })
-                        .await;
-                        write_join_result(&mut writer, result).await?;
-                    }
-                }
-            }
-            methods::HYPR_KEYBINDS_CLEAR => {
-                let hypr = context.hypr.clone();
-                let result = tokio::task::spawn_blocking(move || hypr.keybinds_clear()).await;
-                write_join_result(&mut writer, result).await?;
-            }
             methods::BRIGHTNESS_STATUS => {
                 let brightness = context.brightness.clone();
                 let result = tokio::task::spawn_blocking(move || brightness.status()).await;

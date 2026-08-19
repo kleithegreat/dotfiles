@@ -3,7 +3,32 @@ use std::{
     path::{Path, PathBuf},
 };
 
+/// Return the versioned theming data directory: color schemes, presets,
+/// concat bases and the state seed.
+///
+/// The package wraps the binary with `DESKTOPCTL_DATA` pointing at its own
+/// store copy, so a deployed desktop never depends on the working tree — a
+/// `git checkout` in the dotfiles repo must not change what a running session
+/// renders. The checkout fallback is the authoring path: it is what makes a
+/// new scheme visible to `theme set color_scheme` before a rebuild.
+pub(crate) fn data_dir() -> io::Result<PathBuf> {
+    if let Some(path) = env_path("DESKTOPCTL_DATA") {
+        return Ok(path);
+    }
+
+    Ok(repo_root()?.join(Path::new("styling")))
+}
+
+/// Return a path rooted at the theming data directory.
+pub(crate) fn data_path(relative: impl AsRef<Path>) -> io::Result<PathBuf> {
+    Ok(data_dir()?.join(relative))
+}
+
 /// Return the repo root from the environment or the default dotfiles checkout.
+///
+/// Only wallpapers resolve through this: they are gitignored user assets that
+/// live in the checkout, not versioned data the closure can pin. Everything
+/// else goes through [`data_dir`].
 pub(crate) fn repo_root() -> io::Result<PathBuf> {
     if let Some(path) = env_path("DESKTOPCTL_REPO") {
         return Ok(path);

@@ -274,6 +274,7 @@ fn run_cli(args: crate::ThemeArgs) -> CliResult<()> {
         crate::ThemeCommand::ListWallpapers(args) => cmd_list_wallpapers(args),
         crate::ThemeCommand::ListPresets(args) => cmd_list_presets(args.json),
         crate::ThemeCommand::Status(args) => cmd_status(args.json),
+        crate::ThemeCommand::Export => cmd_export(),
     }
 }
 
@@ -561,21 +562,42 @@ fn cmd_list_wallpapers(args: crate::ListWallpapersArgs) -> CliResult<()> {
     Ok(())
 }
 
-fn cmd_status(json_output: bool) -> CliResult<()> {
-    // Read through the daemon for a snapshot consistent with in-flight
-    // mutations, falling back to the DB directly so status still works for
-    // debugging a dead daemon.
-    let state_map = match crate::ipc::send_request::<(), Value>(
+// Read through the daemon for a snapshot consistent with in-flight
+// mutations, falling back to the DB directly so reads still work for
+// debugging a dead daemon.
+fn read_state_map() -> CliResult<Value> {
+    match crate::ipc::send_request::<(), Value>(
         crate::ipc::methods::THEME_STATUS,
         None,
         crate::ipc::DEFAULT_TIMEOUT,
     ) {
-        Ok(value) => value,
+        Ok(value) => Ok(value),
         Err(error) if crate::ipc::socket_unavailable(error.as_ref()) => {
-            state_json(&map_user_err(resolve::load_state())?)
+            Ok(state_json(&map_user_err(resolve::load_state())?))
         }
-        Err(error) => return Err(CliFailure::from_error(error)),
+        Err(error) => Err(CliFailure::from_error(error)),
+    }
+}
+
+/// Print the current state in seed format, for review and commit as
+/// `styling/state.json`. What a fresh machine renders is then what is in git,
+/// not whatever the local database happens to have drifted to.
+fn cmd_export() -> CliResult<()> {
+    let Value::Object(state_map) = read_state_map()? else {
+        return Err(CliFailure::Message(
+            "theme state did not deserialize to an object".to_owned(),
+        ));
     };
+
+    println!(
+        "{}",
+        json::format_pretty_value(&Value::Object(schema::seed_json_map(&state_map)))
+    );
+    Ok(())
+}
+
+fn cmd_status(json_output: bool) -> CliResult<()> {
+    let state_map = read_state_map()?;
 
     if json_output {
         println!("{}", json::format_pretty_value(&state_map));
@@ -1031,7 +1053,7 @@ fn coerce_theme_value(key: &str, value: Value) -> crate::Result<Value> {
 }
 
 fn presets_dir() -> io::Result<PathBuf> {
-    Ok(paths::repo_root()?.join("styling/presets"))
+    paths::data_path("presets")
 }
 
 fn preset_path(name: &str) -> crate::Result<(String, PathBuf)> {
@@ -1224,15 +1246,7 @@ fn command_result(output: io::Result<std::process::Output>, program: &str) -> cr
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_support::{ScopedEnvVar, TempDir, env_lock};
-    use std::path::{Path, PathBuf};
-
-    fn repo_root() -> PathBuf {
-        Path::new(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .expect("desktopctl lives under the repo root")
-            .to_path_buf()
-    }
+    use crate::test_support::{ScopedEnvVar, TempDir, env_lock, repo_root, scoped_repo_paths};
 
     fn repo_scheme_is_dark(scheme_name: &str) -> crate::Result<bool> {
         Ok(resolve::load_colors(scheme_name, &repo_root().join("styling/colors"))?.is_dark())
@@ -1330,7 +1344,11 @@ mod tests {
         let _lock = env_lock();
         let data_home = TempDir::new("desktopctl-theme-state").expect("temp dir");
         let _data = ScopedEnvVar::set("XDG_DATA_HOME", data_home.path().as_os_str());
-        let _repo = ScopedEnvVar::set("DESKTOPCTL_REPO", repo_root().as_os_str());
+        let _paths = scoped_repo_paths();
+
+        // State the precondition instead of inheriting it: dark_hint's seeded
+        // value is user data and may legitimately be either.
+        resolve::save_state_keys(&[("dark_hint", &Value::Bool(true))]).expect("seed dark_hint");
 
         let outcome =
             set_state_key_internal("color_scheme", Value::String("gruvbox-light".to_owned()))
@@ -1343,14 +1361,16 @@ mod tests {
     #[test]
     fn color_targets_include_zsh() {
         let registry = targets::build_registry().expect("registry builds");
-        let state = schema::ThemeState::default_state_for_repo_root(&repo_root());
+        let state = schema::ThemeState::load_seed(&repo_root().join("styling"), &repo_root())
+            .expect("committed state seed loads");
         assert!(orchestrator::color_targets(&registry, &state).contains("zsh"));
     }
 
     #[test]
     fn color_targets_include_opencode() {
         let registry = targets::build_registry().expect("registry builds");
-        let state = schema::ThemeState::default_state_for_repo_root(&repo_root());
+        let state = schema::ThemeState::load_seed(&repo_root().join("styling"), &repo_root())
+            .expect("committed state seed loads");
         assert!(orchestrator::color_targets(&registry, &state).contains("opencode"));
     }
 

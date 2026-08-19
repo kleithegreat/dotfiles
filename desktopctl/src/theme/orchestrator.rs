@@ -541,7 +541,7 @@ fn resolve_base_path(path: &str) -> crate::Result<PathBuf> {
         return theme::expand_user_path(path);
     }
 
-    Ok(paths::repo_path(candidate)?)
+    Ok(paths::data_path(candidate)?)
 }
 
 fn trim_trailing_newlines(text: &str) -> &str {

@@ -24,15 +24,28 @@
   snapshot; events publish only after a successful commit. Quickshell
   subscribes instead of polling ([[quickshell]]). Write subcommands accept
   `--wait-daemon` for autostart call sites that race the daemon's own spawn.
-- Repo root resolves from `DESKTOPCTL_REPO`, falling back to
-  `~/repos/dotfiles`. Repo-relative concat base paths and the scheme/preset
-  catalogs depend on this. `launch-quickshell` does not: it runs the Home
-  Manager-deployed config at `$XDG_CONFIG_HOME/quickshell` (store symlinks),
-  so shell changes go live on rebuild, never on a repo edit.
+- Versioned theming data — scheme catalog, presets, concat bases, the state
+  seed — resolves from `DESKTOPCTL_DATA`, which the package wraps to its own
+  store copy. A deployed session therefore never reads the working tree, and a
+  `git checkout` cannot change what it renders. The fallback,
+  `<DESKTOPCTL_REPO>/styling` (in turn defaulting to `~/repos/dotfiles`), is
+  the authoring path: it is what makes a new scheme visible before a rebuild.
+  `launch-quickshell` follows the same rule through the Home Manager-deployed
+  config at `$XDG_CONFIG_HOME/quickshell`.
+- `DESKTOPCTL_REPO` survives only for wallpapers, which are gitignored user
+  assets rather than versioned data the closure can pin.
+- The daemon runs as `systemd.user.services.desktopctl`, wanted by and part of
+  `graphical-session.target` (started and stopped by `config/hypr/autostart.lua`,
+  which exports the session environment to systemd first). It is supervised
+  because everything else hard-fails without it; an autostart line gave no
+  restart, no ordering and no journal.
+- Auxiliary subsystems (focus tracker, monitor watcher, solar scheduler) have
+  their own failure domain: they are reported and survived, never fatal. Only
+  the socket server exiting ends the process, which is what `Restart=on-failure`
+  then acts on.
 - `desktopctl hypr` writes only its own generated override files
-  (`input-runtime.lua`, `animations-override-data.lua`,
-  `keybinds-override-data.lua`) — never the static or host-selected fragments
-  they layer on top of.
+  (`input-runtime.lua`, `animations-override-data.lua`) — never the static or
+  host-selected fragments they layer on top of.
 - State mutations persist only after the required target apply succeeds, write
   only the mutated keys (per-key upserts in one transaction), and replace
   files atomically. See [[theming]] for the full contract.

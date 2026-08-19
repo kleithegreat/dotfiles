@@ -4,30 +4,7 @@ local mainMod = "SUPER"
 local terminal = "alacritty"
 local fileManager = "dolphin"
 
--- Overrides only remap the combo: a bind is a closure, so nothing outside this
--- file can rebuild its dispatcher.
-local function canonical(combo)
-    return (combo:gsub("%s*%+%s*", "+"):gsub("%s+", "+"):gsub("^%+", "")):lower()
-end
-
-local remap = {}
-do
-    local ok, overrides = pcall(require, "./keybinds-override-data")
-    if ok and type(overrides) == "table" then
-        for _, ovr in ipairs(overrides) do
-            local from = canonical(ovr.original_mods .. "+" .. ovr.original_key)
-            local to = ovr.new_key
-            if ovr.new_mods ~= "" then
-                to = (ovr.new_mods:gsub("%s+", " + ")) .. " + " .. ovr.new_key
-            end
-            remap[from] = to
-        end
-    end
-end
-
-local function bind(combo, dispatcher, opts)
-    hl.bind(remap[canonical(combo)] or combo, dispatcher, opts)
-end
+local bind = hl.bind
 
 -- Core
 bind(mainMod .. " + Q", hl.dsp.exec_cmd(terminal), { description = "Open terminal" })
@@ -117,12 +94,6 @@ bind("ALT + Tab", hl.dsp.exec_cmd("snappy-switcher next --workspace --mod alt"),
     { description = "Next item in switcher" })
 bind("ALT + SHIFT + Tab", hl.dsp.exec_cmd("snappy-switcher prev --workspace --mod alt"),
     { description = "Previous item in switcher" })
-
--- Capture submap for the Quickshell keybind editor. Declared once:
--- `hl.define_submap` appends, so defining it per session stacks duplicates.
-hl.define_submap("hyprmod_capture", function()
-    hl.bind("catchall", hl.dsp.pass({ window = "" }))
-end)
 
 -- A closure bound here registers but never fires; route through `hyprctl eval`,
 -- where `expo()` does work.

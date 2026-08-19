@@ -10,7 +10,7 @@ hl.on("hyprland.start", function()
     -- environment to D-Bus + systemd before starting activation-sensitive user units.
     exec([[sh -c 'export SSH_AUTH_SOCK="${XDG_RUNTIME_DIR}/gcr/ssh"; dbus-update-activation-environment --systemd --all; dbus-update-activation-environment HL_INITIAL_WORKSPACE_TOKEN= XDG_ACTIVATION_TOKEN= DESKTOP_STARTUP_ID=; systemctl --user unset-environment HL_INITIAL_WORKSPACE_TOKEN XDG_ACTIVATION_TOKEN DESKTOP_STARTUP_ID; systemctl --user start graphical-session.target xdg-desktop-portal.service xdg-desktop-portal-hyprland.service xdg-desktop-portal-gtk.service hyprpolkitagent']])
 
-    exec("desktopctl daemon")
+    -- `desktopctl.service` is pulled in by graphical-session.target above.
     exec("desktopctl launch-quickshell")
 
     exec("vicinae server")

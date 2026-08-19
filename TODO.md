@@ -31,14 +31,29 @@ Open issues and pending validations. Delete entries when resolved.
       daytime survives a daemon restart and the schedule reasserts at the next
       edge; hypridle dim/restore restores the original level with no pid file;
       relogin applies the wallpaper through `--wait-daemon` and the laptop
-      lid-switch works with the daemon absent.
+      lid-switch works with the daemon absent. Note the daemon is now a user
+      unit: use `systemctl --user stop desktopctl` to test the absent-daemon
+      paths, since `pkill` is answered by `Restart=on-failure`.
+
+- [ ] desktopctl user unit (needs a real login): confirm the daemon starts with
+      `graphical-session.target` and inherits `WAYLAND_DISPLAY` /
+      `HYPRLAND_INSTANCE_SIGNATURE` (the focus tracker and hyprctl calls need
+      them), that `systemctl --user stop graphical-session.target` on
+      `hyprland.shutdown` takes it down, and that killing an auxiliary
+      subsystem no longer takes the socket with it.
+
+- [ ] Theme state seed (needs a rebuild): the live database predates
+      `styling/state.json`, so the seed only takes effect on a fresh machine.
+      After any state change worth keeping, run
+      `desktopctl theme export > styling/state.json` and commit the diff.
 
 ## Open issues
 
-- [ ] Quickshell (low): the Hyprland keybind capture/editor and the animation
-      bezier editor were not rebuilt, by decision rather than oversight — both
-      remain reachable through `desktopctl hypr keybinds` / `hypr animations`.
-      Revisit only if editing them by hand starts to hurt.
+- [ ] Quickshell (low): the animation bezier editor was not rebuilt, by
+      decision rather than oversight — overrides remain reachable through
+      `desktopctl hypr animations`. Revisit only if editing them by hand starts
+      to hurt. (The keybind capture/editor and its whole override layer are
+      gone: keybinds live in `config/hypr/keybinds.lua` and nothing else.)
 
 - [ ] NVIDIA (high): laptop `AQ_DRM_DEVICES` depends on hardcoded
       `/dev/dri/cardN` ordering, which can shift across boots/updates.

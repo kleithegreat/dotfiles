@@ -14,7 +14,7 @@ pub const METADATA: TargetMetadata = TargetMetadata::new(
     &["color_scheme", "system_font", "icon_theme", "font_size"],
 )
 .output("~/.config/snappy-switcher/config.ini")
-.base("config/snappy-switcher/base.ini")
+.base("bases/snappy-switcher.ini")
 .comment("#");
 
 fn rgba(hex_color: &str, alpha: &str) -> String {

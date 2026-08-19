@@ -16,7 +16,7 @@ const THEME_STATE_TABLE_SCHEMA: &str = "
 ";
 
 pub fn colors_dir() -> io::Result<PathBuf> {
-    Ok(paths::repo_root()?.join("styling/colors"))
+    paths::data_path("colors")
 }
 
 pub fn load_colors(scheme_name: &str, colors_dir: &Path) -> crate::Result<ColorScheme> {
@@ -424,21 +424,15 @@ fn invalid_data(message: String) -> io::Error {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_support::{ScopedEnvVar, env_lock};
-    use crate::theme::schema::{
-        DEFAULT_GTK_FONT_SIZE_OFFSET, DEFAULT_QT_FONT_SIZE_OFFSET,
-        DEFAULT_QUICKSHELL_FONT_SIZE_OFFSET,
-    };
+    use crate::test_support::{env_lock, repo_root, scoped_repo_paths};
     use std::error::Error;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     type TestResult = std::result::Result<(), Box<dyn Error + Send + Sync>>;
 
-    fn repo_root() -> PathBuf {
-        Path::new(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .expect("desktopctl lives under the repo root")
-            .to_path_buf()
+    fn seed_state() -> ThemeState {
+        ThemeState::load_seed(&repo_root().join("styling"), &repo_root())
+            .expect("committed state seed loads")
     }
 
     fn temp_path(name: &str, extension: &str) -> PathBuf {
@@ -486,51 +480,10 @@ mod tests {
         Ok(keys)
     }
 
-    fn expected_default_state_json() -> String {
-        format!(
-            concat!(
-                "{{\n",
-                "  \"color_scheme\": \"gruvbox-dark\",\n",
-                "  \"wallpaper\": \"{}\",\n",
-                "  \"wallpaper_dir\": \"{}\",\n",
-                "  \"filter_wallpaper\": false,\n",
-                "  \"system_font\": \"Overpass\",\n",
-                "  \"mono_font\": \"JetBrainsMono Nerd Font\",\n",
-                "  \"icon_theme\": \"Neuwaita\",\n",
-                "  \"cursor_theme\": \"BreezeX-RosePine-Linux\",\n",
-                "  \"cursor_size\": 24,\n",
-                "  \"font_size\": 11,\n",
-                "  \"quickshell_font_size_offset\": 0,\n",
-                "  \"gtk_font_size_offset\": 0,\n",
-                "  \"qt_font_size_offset\": 0,\n",
-                "  \"mono_font_size\": 11,\n",
-                "  \"alacritty_mono_font_size_offset\": 0,\n",
-                "  \"ghostty_mono_font_size_offset\": 0,\n",
-                "  \"gtk_mono_font_size_offset\": 0,\n",
-                "  \"neovide_mono_font_size_offset\": 0,\n",
-                "  \"qt_mono_font_size_offset\": 0,\n",
-                "  \"vscode_mono_font_size_offset\": 3,\n",
-                "  \"zed_mono_font_size_offset\": 4,\n",
-                "  \"dark_hint\": true,\n",
-                "  \"hypr_gaps_in\": 4,\n",
-                "  \"hypr_gaps_out\": 6,\n",
-                "  \"hypr_border_size\": 0,\n",
-                "  \"hypr_rounding\": 8,\n",
-                "  \"hypr_blur_enabled\": true,\n",
-                "  \"hypr_blur_size\": 8,\n",
-                "  \"hypr_blur_passes\": 3,\n",
-                "  \"hypr_animations_enabled\": true\n",
-                "}}\n"
-            ),
-            repo_root().join("styling/wallpapers/lmao.png").display(),
-            repo_root().join("styling/wallpapers").display()
-        )
-    }
-
     #[test]
     fn empty_theme_state_db_initializes_defaults() -> TestResult {
         let _lock = env_lock();
-        let _repo = ScopedEnvVar::set("DESKTOPCTL_REPO", repo_root().as_os_str());
+        let _paths = scoped_repo_paths();
         let db_path = temp_path("state-defaults", "db");
 
         let state = load_state_from_db_path(&db_path)?;
@@ -551,15 +504,41 @@ mod tests {
 
     #[test]
     fn state_serialization_matches_legacy_output() -> TestResult {
-        let state = ThemeState::default_state_for_repo_root(&repo_root());
+        let state = seed_state();
         let rendered = serialize_state(&state)?;
-        assert_eq!(rendered, expected_default_state_json());
+
+        // Pins the rendering, not the values: two-space indent, one key per
+        // line in THEME_STATE_FIELD_ORDER, trailing newline. The values are
+        // user data in styling/state.json and checked by the seed tests.
+        let keys = rendered
+            .lines()
+            .filter_map(|line| line.trim().strip_prefix('"'))
+            .filter_map(|line| line.split('"').next())
+            .collect::<Vec<_>>();
+        assert_eq!(keys, ThemeState::known_field_names());
+        assert!(rendered.starts_with("{\n  \"color_scheme\": "));
+        assert!(rendered.ends_with("\n}\n"));
+
+        // The two machine-local keys are the only computed values.
+        assert_eq!(
+            state.wallpaper,
+            repo_root()
+                .join("styling/wallpapers/lmao.png")
+                .display()
+                .to_string()
+        );
+        assert_eq!(
+            state.wallpaper_dir,
+            repo_root().join("styling/wallpapers").display().to_string()
+        );
         Ok(())
     }
 
     #[test]
     fn state_round_trip_preserves_unknown_fields() -> TestResult {
-        let mut value: Value = serde_json::from_str(&expected_default_state_json())?;
+        let _lock = env_lock();
+        let _paths = scoped_repo_paths();
+        let mut value: Value = serde_json::from_str(&serialize_state(&seed_state())?)?;
         let object = value
             .as_object_mut()
             .expect("state fixture should remain a JSON object");
@@ -596,10 +575,12 @@ mod tests {
 
     #[test]
     fn partial_theme_state_db_backfills_missing_keys_and_persists_upgrade() -> TestResult {
+        let _lock = env_lock();
+        let _paths = scoped_repo_paths();
         let db_path = temp_path("state-partial-db", "db");
 
         let mut partial =
-            ThemeState::default_state_for_repo_root(&repo_root()).to_ordered_json_map();
+            seed_state().to_ordered_json_map();
         partial.remove("quickshell_font_size_offset");
         partial.remove("gtk_font_size_offset");
         partial.remove("qt_font_size_offset");
@@ -610,12 +591,13 @@ mod tests {
         write_state_rows_to_db(&db_path, &partial)?;
 
         let state = load_state_from_db_path(&db_path)?;
+        let seed = seed_state();
         assert_eq!(
             state.quickshell_font_size_offset,
-            DEFAULT_QUICKSHELL_FONT_SIZE_OFFSET
+            seed.quickshell_font_size_offset
         );
-        assert_eq!(state.gtk_font_size_offset, DEFAULT_GTK_FONT_SIZE_OFFSET);
-        assert_eq!(state.qt_font_size_offset, DEFAULT_QT_FONT_SIZE_OFFSET);
+        assert_eq!(state.gtk_font_size_offset, seed.gtk_font_size_offset);
+        assert_eq!(state.qt_font_size_offset, seed.qt_font_size_offset);
         assert_eq!(
             state.extra.get("future_key"),
             Some(&Value::String("still here".to_owned()))
@@ -638,7 +620,7 @@ mod tests {
     fn save_state_keys_upserts_only_the_given_keys() -> TestResult {
         let db_path = temp_path("state-key-upsert", "db");
 
-        let mut rows = ThemeState::default_state_for_repo_root(&repo_root()).to_ordered_json_map();
+        let mut rows = seed_state().to_ordered_json_map();
         rows.remove("font_size");
         write_state_rows_to_db(&db_path, &rows)?;
 
@@ -668,9 +650,11 @@ mod tests {
 
     #[test]
     fn theme_state_load_canonicalizes_legacy_mono_font_aliases() -> TestResult {
+        let _lock = env_lock();
+        let _paths = scoped_repo_paths();
         let db_path = temp_path("state-alias-db", "db");
 
-        let mut rows = ThemeState::default_state_for_repo_root(&repo_root()).to_ordered_json_map();
+        let mut rows = seed_state().to_ordered_json_map();
         rows.insert(
             "mono_font".to_owned(),
             Value::String("JetBrains Mono Nerd Font".to_owned()),

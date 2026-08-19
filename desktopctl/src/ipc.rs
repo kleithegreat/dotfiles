@@ -44,8 +44,6 @@ pub(crate) mod methods {
     pub const HYPR_INPUT_SET: &str = "hypr.input_set";
     pub const HYPR_ANIMATIONS_SAVE: &str = "hypr.animations_save";
     pub const HYPR_ANIMATIONS_CLEAR: &str = "hypr.animations_clear";
-    pub const HYPR_KEYBINDS_SAVE: &str = "hypr.keybinds_save";
-    pub const HYPR_KEYBINDS_CLEAR: &str = "hypr.keybinds_clear";
 
     pub const BRIGHTNESS_STATUS: &str = "brightness.status";
     pub const BRIGHTNESS_SET: &str = "brightness.set";

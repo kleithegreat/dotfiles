@@ -17,7 +17,7 @@ pub const METADATA: TargetMetadata = TargetMetadata::new(
     ],
 )
 .output("~/.config/Code/User/settings.json")
-.base("config/vscode/base.json")
+.base("bases/vscode.json")
 .managed_paths(&["~/.config/Code/User/globalStorage/state.vscdb"]);
 
 const STATE_DB: &str = "~/.config/Code/User/globalStorage/state.vscdb";

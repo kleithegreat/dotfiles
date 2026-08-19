@@ -10,6 +10,27 @@ use std::{
 
 static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
+/// The dotfiles checkout this crate lives in. The Nix build reproduces the
+/// same shape by copying `styling/` next to the unpacked source root.
+pub(crate) fn repo_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("desktopctl lives under the repo root")
+        .to_path_buf()
+}
+
+/// Point theming data and wallpaper resolution at the checkout. Required by
+/// anything that reads the state seed or the scheme catalog: the build sandbox
+/// has no `~/repos/dotfiles` for the default to find. Hold the returned guards
+/// (and an [`env_lock`]) for the duration of the test.
+pub(crate) fn scoped_repo_paths() -> (ScopedEnvVar, ScopedEnvVar) {
+    let root = repo_root();
+    (
+        ScopedEnvVar::set("DESKTOPCTL_DATA", root.join("styling").as_os_str()),
+        ScopedEnvVar::set("DESKTOPCTL_REPO", root.as_os_str()),
+    )
+}
+
 pub(crate) fn env_lock() -> MutexGuard<'static, ()> {
     ENV_LOCK
         .get_or_init(|| Mutex::new(()))

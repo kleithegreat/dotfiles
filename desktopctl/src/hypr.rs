@@ -16,7 +16,6 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>
 const INPUT_CONF_RELATIVE_PATH: &str = "hypr/input-defaults.lua";
 const INPUT_RUNTIME_RELATIVE_PATH: &str = "hypr/input-runtime.lua";
 const ANIMATIONS_OVERRIDE_RELATIVE_PATH: &str = "hypr/animations-override-data.lua";
-const KEYBINDS_OVERRIDE_RELATIVE_PATH: &str = "hypr/keybinds-override-data.lua";
 
 #[derive(Debug, Clone, Deserialize)]
 pub(crate) struct WindowInfo {
@@ -1072,84 +1071,6 @@ pub(crate) fn clear_animations() -> Result<()> {
     Ok(())
 }
 
-// ── Keybind override persistence ────────────────────────────────
-
-#[derive(Debug, Deserialize)]
-struct KeybindsPayload {
-    overrides: Vec<KeybindOverride>,
-}
-
-/// A pure remap of the combo a bind answers to. `hyprctl binds` reports every
-/// bind as `__lua` plus a callback index, so there is nothing to rebuild one
-/// from; `keybinds.lua` applies the remap where the bind is defined.
-#[derive(Debug, Deserialize)]
-struct KeybindOverride {
-    original_mods: String,
-    original_key: String,
-    new_mods: String,
-    new_key: String,
-}
-
-fn keybinds_override_path() -> Result<PathBuf> {
-    Ok(paths::xdg_config_home()?.join(KEYBINDS_OVERRIDE_RELATIVE_PATH))
-}
-
-fn validate_keybinds_payload(payload: &KeybindsPayload) -> Result<()> {
-    for keybind in &payload.overrides {
-        validate_rendered_field("original modifiers", &keybind.original_mods)?;
-        validate_non_empty_field("original key", &keybind.original_key)?;
-        validate_rendered_field("new modifiers", &keybind.new_mods)?;
-        validate_non_empty_field("new key", &keybind.new_key)?;
-    }
-
-    Ok(())
-}
-
-fn render_keybinds_override(payload: &KeybindsPayload) -> String {
-    let mut out = String::from("-- Managed by desktopctl — do not edit\nreturn {\n");
-
-    for ovr in &payload.overrides {
-        out.push_str("    {\n");
-        out.push_str(&format!(
-            "        original_mods = {}, original_key = {},\n",
-            lua_str(&ovr.original_mods),
-            lua_str(&ovr.original_key),
-        ));
-        out.push_str(&format!(
-            "        new_mods = {}, new_key = {},\n",
-            lua_str(&ovr.new_mods),
-            lua_str(&ovr.new_key),
-        ));
-        out.push_str("    },\n");
-    }
-
-    out.push_str("}\n");
-    out
-}
-
-/// Write keybind overrides to the managed config file.
-pub(crate) fn save_keybinds(json: &str) -> Result<()> {
-    let payload: KeybindsPayload = serde_json::from_str(json).map_err(|e| {
-        io::Error::new(
-            io::ErrorKind::InvalidInput,
-            format!("invalid keybinds JSON: {e}"),
-        )
-    })?;
-
-    validate_keybinds_payload(&payload)?;
-    let contents = render_keybinds_override(&payload);
-    theme::atomic_write(&keybinds_override_path()?, contents.as_bytes())?;
-    hyprctl_output(&["reload"])?;
-    Ok(())
-}
-
-/// Clear all keybind overrides and reload Hyprland.
-pub(crate) fn clear_keybinds() -> Result<()> {
-    theme::atomic_write(&keybinds_override_path()?, b"")?;
-    hyprctl_output(&["reload"])?;
-    Ok(())
-}
-
 fn hyprctl_output(args: &[&str]) -> Result<Output> {
     let output = Command::new("hyprctl").args(args).output()?;
     if output.status.success() {
@@ -1174,13 +1095,12 @@ fn hyprctl_output(args: &[&str]) -> Result<Output> {
 #[cfg(test)]
 mod tests {
     use super::{
-        AccelProfile, AnimationsPayload, InputSetting, InputState, KeybindsPayload, LidSwitchState,
-        MonitorInfo, WorkspaceInfo, WorkspaceRuleInfo, check_lua_output, config_expression,
-        exec_dispatcher, focus_workspace_dispatcher, format_decimal, lua_str,
-        monitor_enable_expression, orphaned_pinned_workspaces, parse_input_state_from_str,
-        parse_scroll_factor, parse_sensitivity, reclaim_target, render_animations_override,
-        render_input_runtime_state, render_keybinds_override, validate_animations_payload,
-        validate_keybinds_payload,
+        AccelProfile, AnimationsPayload, InputSetting, InputState, LidSwitchState, MonitorInfo,
+        WorkspaceInfo, WorkspaceRuleInfo, check_lua_output, config_expression, exec_dispatcher,
+        focus_workspace_dispatcher, format_decimal, lua_str, monitor_enable_expression,
+        orphaned_pinned_workspaces, parse_input_state_from_str, parse_scroll_factor,
+        parse_sensitivity, reclaim_target, render_animations_override, render_input_runtime_state,
+        validate_animations_payload,
     };
 
     const EXTERNAL_SELECTOR: &str = "desc:BNQ ZOWIE XL LCD EB12M01465SL0";
@@ -1519,63 +1439,5 @@ return {
             animations: Vec::new(),
         };
         assert!(validate_animations_payload(&payload).is_err());
-    }
-
-    #[test]
-    fn render_keybinds_override_emits_remap_pairs_only() {
-        let payload: KeybindsPayload = serde_json::from_str(
-            r#"{
-                "overrides": [{
-                    "original_mods": "SUPER",
-                    "original_key": "Q",
-                    "new_mods": "SUPER SHIFT",
-                    "new_key": "Q"
-                }]
-            }"#,
-        )
-        .expect("payload should parse");
-
-        let rendered = render_keybinds_override(&payload);
-        assert!(rendered.starts_with("-- Managed by desktopctl"));
-        assert!(rendered.contains(r#"original_mods = "SUPER", original_key = "Q","#));
-        assert!(rendered.contains(r#"new_mods = "SUPER SHIFT", new_key = "Q","#));
-        // The dispatcher lives with the bind definition; an override is a remap.
-        assert!(!rendered.contains("dispatcher"));
-        assert!(!rendered.contains("flags"));
-    }
-
-    #[test]
-    fn render_keybinds_override_mouse_bind_without_description() {
-        let payload: KeybindsPayload = serde_json::from_str(
-            r#"{
-                "overrides": [{
-                    "original_mods": "SUPER",
-                    "original_key": "mouse:272",
-                    "new_mods": "SUPER ALT",
-                    "new_key": "mouse:272"
-                }]
-            }"#,
-        )
-        .expect("payload should parse");
-
-        let rendered = render_keybinds_override(&payload);
-        assert!(rendered.contains(r#"original_mods = "SUPER", original_key = "mouse:272","#));
-        assert!(rendered.contains(r#"new_mods = "SUPER ALT", new_key = "mouse:272","#));
-    }
-
-    #[test]
-    fn validate_keybinds_rejects_injected_lines() {
-        let payload: KeybindsPayload = serde_json::from_str(
-            r#"{
-                "overrides": [{
-                    "original_mods": "SUPER",
-                    "original_key": "Q\nunbind = SUPER, Return",
-                    "new_mods": "SUPER",
-                    "new_key": "Q"
-                }]
-            }"#,
-        )
-        .expect("payload should parse");
-        assert!(validate_keybinds_payload(&payload).is_err());
     }
 }
