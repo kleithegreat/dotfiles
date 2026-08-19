@@ -142,17 +142,6 @@ Scope {
     }
 
     IpcHandler {
-        target: "brightness"
-
-        // The hotkeys write brightness through desktopctl directly; this only
-        // reports what they did.
-        function osd(percent: string): void {
-            Sys.Brightness.refresh();
-            Sys.Osd.show(Sys.Brightness.icon, parseInt(percent, 10) / 100, percent + "%");
-        }
-    }
-
-    IpcHandler {
         target: "notifications"
 
         function toggleDnd(): void {

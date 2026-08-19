@@ -64,7 +64,11 @@ pub fn save_state_keys(pairs: &[(&str, &Value)]) -> crate::Result<()> {
     save_state_keys_to_db_path(pairs, &db_path)
 }
 
-pub fn serialize_state(state: &ThemeState) -> crate::Result<String> {
+/// Test-only since the daemon became the reader: production serializes state
+/// through `theme::state_json`, but the legacy-output fixtures assert on this
+/// exact rendering.
+#[cfg(test)]
+fn serialize_state(state: &ThemeState) -> crate::Result<String> {
     Ok(format!(
         "{}\n",
         crate::theme::json::format_pretty_value(&Value::Object(state.to_ordered_json_map()))

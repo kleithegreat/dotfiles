@@ -818,6 +818,10 @@ mod tests {
         ]
     }
 
+    // The env guard is deliberately held across awaits: this is a
+    // current-thread test runtime and the guard scopes the process-global
+    // env for the whole scenario.
+    #[allow(clippy::await_holding_lock)]
     #[tokio::test]
     async fn subscribe_confirms_topics_and_forwards_matching_events() {
         let _lock = crate::test_support::env_lock();

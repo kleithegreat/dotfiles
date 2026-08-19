@@ -53,10 +53,6 @@ pub enum DarkHintOrigin {
 /// Rides the schema's unknown-key passthrough (`ThemeState.extra`).
 pub(crate) const DARK_HINT_MANUAL_AT_KEY: &str = "dark_hint_manual_at";
 
-pub fn set_dark_hint(enabled: bool, origin: DarkHintOrigin) -> crate::Result<()> {
-    set_dark_hint_internal(enabled, origin).map(|_changed| ())
-}
-
 fn set_dark_hint_internal(enabled: bool, origin: DarkHintOrigin) -> crate::Result<bool> {
     let outcome = set_state_key_internal("dark_hint", Value::Bool(enabled))?;
     if !outcome.changed {
@@ -254,19 +250,26 @@ pub(crate) fn find_command(program: &str) -> Option<PathBuf> {
         .find(|candidate| is_executable(candidate))
 }
 
+// Write subcommands are thin daemon clients: the daemon is the single writer
+// of theme state, so a CLI mutation with no reachable daemon fails rather
+// than becoming a second writer. `sync` is the deliberate exception — it runs
+// during home-manager activation with no session — and the list/status reads
+// keep direct paths (status only as fallback) since reads cannot conflict.
 fn run_cli(args: crate::ThemeArgs) -> CliResult<()> {
     match args.command {
-        crate::ThemeCommand::All => cmd_all(),
+        crate::ThemeCommand::All(wait) => remote_apply("all", None, wait.wait_daemon),
         crate::ThemeCommand::Sync => cmd_sync(),
-        crate::ThemeCommand::Colors => cmd_colors(),
-        crate::ThemeCommand::Wallpaper => cmd_wallpaper(),
-        crate::ThemeCommand::Cursor => cmd_cursor(),
-        crate::ThemeCommand::Fonts => cmd_fonts(),
-        crate::ThemeCommand::Target(args) => cmd_target(args),
-        crate::ThemeCommand::Set(args) => cmd_set(args),
-        crate::ThemeCommand::Preset(args) => cmd_preset(args),
-        crate::ThemeCommand::SavePreset(args) => cmd_save_preset(args),
-        crate::ThemeCommand::DeletePreset(args) => cmd_delete_preset(args),
+        crate::ThemeCommand::Colors(wait) => remote_apply("colors", None, wait.wait_daemon),
+        crate::ThemeCommand::Wallpaper(wait) => remote_apply("wallpaper", None, wait.wait_daemon),
+        crate::ThemeCommand::Cursor(wait) => remote_apply("cursor", None, wait.wait_daemon),
+        crate::ThemeCommand::Fonts(wait) => remote_apply("fonts", None, wait.wait_daemon),
+        crate::ThemeCommand::Target(args) => {
+            remote_apply("target", Some(args.name), args.wait.wait_daemon)
+        }
+        crate::ThemeCommand::Set(args) => remote_set(args),
+        crate::ThemeCommand::Preset(args) => remote_preset_apply(args),
+        crate::ThemeCommand::SavePreset(args) => remote_preset_save(args),
+        crate::ThemeCommand::DeletePreset(args) => remote_preset_delete(args),
         crate::ThemeCommand::ListSchemes(args) => cmd_list_schemes(args.json),
         crate::ThemeCommand::ListWallpapers(args) => cmd_list_wallpapers(args),
         crate::ThemeCommand::ListPresets(args) => cmd_list_presets(args.json),
@@ -274,18 +277,132 @@ fn run_cli(args: crate::ThemeArgs) -> CliResult<()> {
     }
 }
 
-fn cmd_all() -> CliResult<()> {
-    let registry = map_user_err(targets::build_registry())?;
-    let (state, colors) = load_state_and_colors()?;
-    println!(
-        "Applying all targets ({}-{})...",
-        colors.family, colors.variant
-    );
-    if orchestrator::apply_all(&registry, &colors, &state, true, false) {
+fn remote_request<P: serde::Serialize + Clone>(
+    method: &str,
+    params: Option<P>,
+    wait_secs: u64,
+    timeout: std::time::Duration,
+) -> CliResult<Value> {
+    let result = if wait_secs > 0 {
+        crate::ipc::send_request_with_retry(
+            method,
+            params,
+            timeout,
+            std::time::Duration::from_secs(wait_secs),
+        )
+    } else {
+        crate::ipc::send_request(method, params, timeout)
+    };
+
+    result.map_err(|error| {
+        if crate::ipc::socket_unavailable(error.as_ref()) {
+            CliFailure::Message(crate::ipc::daemon_unavailable_message(&error))
+        } else {
+            CliFailure::from_error(error)
+        }
+    })
+}
+
+fn remote_apply(scope: &str, target: Option<String>, wait_secs: u64) -> CliResult<()> {
+    let params = serde_json::json!({ "scope": scope, "target": target });
+    let report = remote_request(
+        crate::ipc::methods::THEME_APPLY,
+        Some(params),
+        wait_secs,
+        crate::ipc::APPLY_TIMEOUT,
+    )?;
+
+    if let Some(skipped) = report["skipped"].as_array()
+        && !skipped.is_empty()
+    {
+        let names = skipped
+            .iter()
+            .filter_map(Value::as_str)
+            .collect::<Vec<_>>()
+            .join(", ");
+        println!("  (skipping unregistered: {names})");
+    }
+    for name in report["applied"].as_array().into_iter().flatten() {
+        if let Some(name) = name.as_str() {
+            println!("  {name}: ok");
+        }
+    }
+
+    let failed = report["failed"].as_array().cloned().unwrap_or_default();
+    for failure in &failed {
+        eprintln!(
+            "  {}: FAILED — {}",
+            failure["target"].as_str().unwrap_or("?"),
+            failure["error"].as_str().unwrap_or("unknown error")
+        );
+    }
+    if failed.is_empty() {
         Ok(())
     } else {
         Err(CliFailure::Reported)
     }
+}
+
+fn remote_set(args: crate::SetArgs) -> CliResult<()> {
+    let params = serde_json::json!({ "key": args.key, "value": args.value });
+    let response = remote_request(
+        crate::ipc::methods::THEME_SET,
+        Some(params),
+        args.wait.wait_daemon,
+        crate::ipc::APPLY_TIMEOUT,
+    )?;
+
+    let committed = response["state"][&args.key].clone();
+    if response["changed"].as_bool() == Some(false) {
+        println!(
+            "{} is already '{}', nothing to do.",
+            args.key,
+            python_display_value(&committed)
+        );
+    } else {
+        println!("Set {} = {}", args.key, python_repr_value(&committed));
+    }
+    Ok(())
+}
+
+fn remote_preset_apply(args: crate::NamedArg) -> CliResult<()> {
+    let params = serde_json::json!({ "name": args.name });
+    remote_request(
+        crate::ipc::methods::THEME_PRESET_APPLY,
+        Some(params),
+        args.wait.wait_daemon,
+        crate::ipc::APPLY_TIMEOUT,
+    )?;
+    println!("Loaded preset '{}'.", args.name);
+    Ok(())
+}
+
+fn remote_preset_save(args: crate::SavePresetArgs) -> CliResult<()> {
+    let payload = map_user_err(parse_json_value(&args.payload))?;
+    let params = serde_json::json!({ "name": args.name, "payload": payload });
+    let response = remote_request(
+        crate::ipc::methods::THEME_PRESET_SAVE,
+        Some(params),
+        args.wait.wait_daemon,
+        crate::ipc::DEFAULT_TIMEOUT,
+    )?;
+
+    let count = response["fields"].as_u64().unwrap_or(0);
+    let noun = if count == 1 { "field" } else { "fields" };
+    println!("Saved preset '{}' ({} {}).", args.name, count, noun);
+    Ok(())
+}
+
+fn remote_preset_delete(args: crate::NamedArg) -> CliResult<()> {
+    let params = serde_json::json!({ "name": args.name });
+    remote_request(
+        crate::ipc::methods::THEME_PRESET_DELETE,
+        Some(params),
+        args.wait.wait_daemon,
+        crate::ipc::DEFAULT_TIMEOUT,
+    )?;
+    println!("Deleted preset '{}'.", args.name);
+    Ok(())
 }
 
 fn cmd_sync() -> CliResult<()> {
@@ -300,210 +417,6 @@ fn cmd_sync() -> CliResult<()> {
     } else {
         Err(CliFailure::Reported)
     }
-}
-
-fn cmd_colors() -> CliResult<()> {
-    let registry = map_user_err(targets::build_registry())?;
-    let (state, colors) = load_state_and_colors()?;
-    println!(
-        "Applying color targets ({}-{})...",
-        colors.family, colors.variant
-    );
-    if orchestrator::apply_targets(
-        &registry,
-        orchestrator::color_targets(&registry, &state),
-        &colors,
-        &state,
-        true,
-    ) {
-        Ok(())
-    } else {
-        Err(CliFailure::Reported)
-    }
-}
-
-fn cmd_wallpaper() -> CliResult<()> {
-    let registry = map_user_err(targets::build_registry())?;
-    let (state, colors) = load_state_and_colors()?;
-    println!("Applying wallpaper ({})...", state.wallpaper);
-    if orchestrator::apply_targets(&registry, ["wallpaper"], &colors, &state, true) {
-        Ok(())
-    } else {
-        Err(CliFailure::Reported)
-    }
-}
-
-fn cmd_cursor() -> CliResult<()> {
-    let registry = map_user_err(targets::build_registry())?;
-    let (state, colors) = load_state_and_colors()?;
-    println!(
-        "Applying cursor ({} {})...",
-        state.cursor_theme, state.cursor_size
-    );
-    if orchestrator::apply_targets(&registry, ["cursor"], &colors, &state, true) {
-        Ok(())
-    } else {
-        Err(CliFailure::Reported)
-    }
-}
-
-fn cmd_fonts() -> CliResult<()> {
-    let registry = map_user_err(targets::build_registry())?;
-    let (state, colors) = load_state_and_colors()?;
-    println!(
-        "Applying font targets ({}, {})...",
-        state.mono_font, state.system_font
-    );
-    if orchestrator::apply_targets(
-        &registry,
-        orchestrator::font_targets(&registry),
-        &colors,
-        &state,
-        true,
-    ) {
-        Ok(())
-    } else {
-        Err(CliFailure::Reported)
-    }
-}
-
-fn cmd_target(args: crate::TargetArgs) -> CliResult<()> {
-    let registry = map_user_err(targets::build_registry())?;
-    let (state, colors) = load_state_and_colors()?;
-    println!("Applying target: {}...", args.name);
-    if orchestrator::apply_target(&registry, &args.name, &colors, &state, true) {
-        Ok(())
-    } else {
-        Err(CliFailure::Reported)
-    }
-}
-
-fn cmd_set(args: crate::SetArgs) -> CliResult<()> {
-    let crate::SetArgs { key, value } = args;
-    if key == "dark_hint" {
-        let enabled = match map_user_err(coerce_theme_value(&key, Value::String(value)))? {
-            Value::Bool(enabled) => enabled,
-            _ => unreachable!("dark_hint is validated as a bool"),
-        };
-        if !map_user_err(set_dark_hint_internal(enabled, DarkHintOrigin::Manual))? {
-            println!(
-                "{} is already '{}', nothing to do.",
-                key,
-                python_display_value(&Value::Bool(enabled))
-            );
-            return Ok(());
-        }
-        println!("Set {} = {}", key, python_repr_value(&Value::Bool(enabled)));
-        return Ok(());
-    }
-
-    let outcome = map_user_err(set_state_key_internal(&key, Value::String(value)))?;
-
-    if !outcome.changed {
-        println!(
-            "{} is already '{}', nothing to do.",
-            key,
-            python_display_value(&outcome.value)
-        );
-        return Ok(());
-    }
-
-    println!("Set {} = {}", key, python_repr_value(&outcome.value));
-    apply_affected_targets(
-        &outcome.registry,
-        &outcome.new_state,
-        &outcome.affected_targets,
-    )?;
-    map_user_err(resolve::save_state_keys(&[(key.as_str(), &outcome.value)]))?;
-    Ok(())
-}
-
-fn cmd_preset(args: crate::NamedArg) -> CliResult<()> {
-    let (preset_name, preset_path) = map_user_err(preset_path(&args.name))?;
-    if !preset_path.is_file() {
-        return missing_preset(&preset_name);
-    }
-
-    let preset_value = map_user_err(read_json_file(&preset_path))?;
-    let mut preset = map_user_err(normalize_theme_patch(
-        preset_value,
-        &format!("preset '{}'", preset_name),
-    ))?;
-    let requested_dark_hint = preset.remove("dark_hint").and_then(|value| value.as_bool());
-
-    let has_theme_changes = !preset.is_empty();
-
-    if has_theme_changes {
-        let state = map_user_err(resolve::load_state())?;
-        let mut state_map = state.to_ordered_json_map();
-        for (key, value) in &preset {
-            state_map.insert(key.clone(), value.clone());
-        }
-        let new_state = map_user_err(validated_theme_state(state_map, "theme state"))?;
-
-        println!("Loaded preset '{}', applying all targets...", preset_name);
-        let colors_dir = map_user_err(resolve::colors_dir())?;
-        let colors = map_user_err(resolve::load_colors(&new_state.color_scheme, &colors_dir))?;
-        let registry = map_user_err(targets::build_registry())?;
-        if !orchestrator::apply_all(&registry, &colors, &new_state, true, false) {
-            return Err(CliFailure::Reported);
-        }
-        // Persist only the preset's keys so concurrent writers (e.g. the
-        // daemon's dark_hint edge) commute on disjoint keys.
-        let pairs = preset
-            .iter()
-            .map(|(key, value)| (key.as_str(), value))
-            .collect::<Vec<_>>();
-        map_user_err(resolve::save_state_keys(&pairs))?;
-    }
-
-    if let Some(enabled) = requested_dark_hint {
-        map_user_err(set_dark_hint(enabled, DarkHintOrigin::Manual))?;
-        if !has_theme_changes {
-            println!("Loaded preset '{}'.", preset_name);
-        }
-    }
-
-    Ok(())
-}
-
-fn cmd_save_preset(args: crate::SavePresetArgs) -> CliResult<()> {
-    let (preset_name, preset_path) = map_user_err(preset_path(&args.name))?;
-    let payload = map_user_err(parse_json_value(&args.payload))?;
-    let preset = map_user_err(normalize_theme_patch(
-        payload,
-        &format!("preset '{}'", preset_name),
-    ))?;
-
-    if preset.is_empty() {
-        return Err(CliFailure::Message(
-            "error: preset must include at least one field".to_owned(),
-        ));
-    }
-
-    if let Some(parent) = preset_path.parent() {
-        map_user_err(fs::create_dir_all(parent))?;
-    }
-
-    let ordered = ordered_theme_mapping(&preset);
-    let rendered = format!("{}\n", json::format_pretty_value(&Value::Object(ordered)));
-    map_user_err(atomic_write(&preset_path, rendered.as_bytes()))?;
-
-    let count = preset.len();
-    let noun = if count == 1 { "field" } else { "fields" };
-    println!("Saved preset '{}' ({} {}).", preset_name, count, noun);
-    Ok(())
-}
-
-fn cmd_delete_preset(args: crate::NamedArg) -> CliResult<()> {
-    let (preset_name, preset_path) = map_user_err(preset_path(&args.name))?;
-    if !preset_path.is_file() {
-        return missing_preset(&preset_name);
-    }
-
-    map_user_err(fs::remove_file(&preset_path))?;
-    println!("Deleted preset '{}'.", preset_name);
-    Ok(())
 }
 
 fn cmd_list_schemes(json_output: bool) -> CliResult<()> {
@@ -649,14 +562,26 @@ fn cmd_list_wallpapers(args: crate::ListWallpapersArgs) -> CliResult<()> {
 }
 
 fn cmd_status(json_output: bool) -> CliResult<()> {
-    let state = map_user_err(resolve::load_state())?;
+    // Read through the daemon for a snapshot consistent with in-flight
+    // mutations, falling back to the DB directly so status still works for
+    // debugging a dead daemon.
+    let state_map = match crate::ipc::send_request::<(), Value>(
+        crate::ipc::methods::THEME_STATUS,
+        None,
+        crate::ipc::DEFAULT_TIMEOUT,
+    ) {
+        Ok(value) => value,
+        Err(error) if crate::ipc::socket_unavailable(error.as_ref()) => {
+            state_json(&map_user_err(resolve::load_state())?)
+        }
+        Err(error) => return Err(CliFailure::from_error(error)),
+    };
 
     if json_output {
-        print!("{}", map_user_err(resolve::serialize_state(&state))?);
+        println!("{}", json::format_pretty_value(&state_map));
         return Ok(());
     }
 
-    let state_map = state.to_ordered_json_map();
     for key in schema::ThemeState::known_field_names() {
         if let Some(value) = state_map.get(*key) {
             println!("  {}: {}", key, python_display_value(value));
@@ -912,25 +837,6 @@ fn load_state_and_colors() -> CliResult<(schema::ThemeState, schema::ColorScheme
     Ok((state, colors))
 }
 
-fn apply_affected_targets(
-    registry: &targets::TargetRegistry,
-    state: &schema::ThemeState,
-    affected_targets: &std::collections::BTreeSet<String>,
-) -> CliResult<()> {
-    if affected_targets.is_empty() {
-        return Ok(());
-    }
-
-    let colors_dir = map_user_err(resolve::colors_dir())?;
-    let colors = map_user_err(resolve::load_colors(&state.color_scheme, &colors_dir))?;
-    println!("Applying affected targets...");
-    if orchestrator::apply_targets(registry, affected_targets.iter(), &colors, state, true) {
-        Ok(())
-    } else {
-        Err(CliFailure::Reported)
-    }
-}
-
 fn set_state_key_internal(key: &str, raw_value: Value) -> crate::Result<StateUpdateOutcome> {
     let state = resolve::load_state()?;
     let mut state_map = state.to_ordered_json_map();
@@ -1161,19 +1067,6 @@ fn normalize_preset_name(name: &str) -> crate::Result<String> {
     }
 
     Ok(normalized)
-}
-
-fn missing_preset(preset_name: &str) -> CliResult<()> {
-    let available = map_user_err(available_presets())?;
-    Err(CliFailure::Message(format!(
-        "error: preset '{}' not found. Available: {}",
-        preset_name,
-        if available.is_empty() {
-            "(none)".to_owned()
-        } else {
-            available.join(", ")
-        }
-    )))
 }
 
 fn available_presets() -> crate::Result<Vec<String>> {

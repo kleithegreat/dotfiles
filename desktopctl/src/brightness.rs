@@ -1,13 +1,11 @@
 use std::{
     fmt, fs, io,
-    path::{Path, PathBuf},
-    process::{self, Command, Output},
+    process::{Command, Output},
     sync::atomic::{AtomicBool, Ordering},
     thread,
     time::Duration,
 };
 
-use crate::paths;
 use serde::Serialize;
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
@@ -17,17 +15,9 @@ const STEP: f64 = 0.05;
 const DIM_STEPS: u32 = 20;
 const DIM_DELAY: Duration = Duration::from_millis(50);
 const BACKLIGHT_ROOT: &str = "/sys/class/backlight";
-const DIM_PID_PATH: &str = "/tmp/dim-screen.pid";
-const DDC_DIM_STATE_FILE: &str = "dim-screen-ddc-state";
 const DDC_BRIGHTNESS_VCP: &str = "10";
 
-const SIGHUP: i32 = 1;
-const SIGINT: i32 = 2;
-const SIGQUIT: i32 = 3;
-const SIGTERM: i32 = 15;
-const SIG_ERR: usize = usize::MAX;
 
-static DIM_ABORTED: AtomicBool = AtomicBool::new(false);
 
 /// DDC/CI displays are addressed by I2C bus rather than by `ddcutil` display
 /// number: `--display` makes `ddcutil` re-enumerate every bus on each
@@ -77,22 +67,6 @@ struct DdcDisplay {
     label: Option<String>,
 }
 
-unsafe extern "C" {
-    fn signal(sig: i32, handler: usize) -> usize;
-}
-
-extern "C" fn handle_dim_signal(_signal: i32) {
-    DIM_ABORTED.store(true, Ordering::Relaxed);
-}
-
-pub fn up(device: Option<&str>) -> Result<()> {
-    step(device, 1.0)
-}
-
-pub fn down(device: Option<&str>) -> Result<()> {
-    step(device, -1.0)
-}
-
 pub fn status(json: bool) -> Result<()> {
     if json {
         let devices = available_device_statuses()?;
@@ -102,56 +76,6 @@ pub fn status(json: bool) -> Result<()> {
         let state = resolve_state(None)?;
         let status = status_payload(&state)?;
         println!("{}: {}%", status.label, status.percent);
-    }
-
-    Ok(())
-}
-
-pub fn set(device: Option<&str>, percent: u16) -> Result<()> {
-    let state = resolve_state(device)?;
-    let fraction = (percent as f64 / 100.0).clamp(0.0, 1.0);
-    let raw = match &state.device {
-        BrightnessDevice::Backlight(_) => perceived_to_raw(fraction, state.max).max(1),
-        BrightnessDevice::Ddc { .. } => fraction_to_raw(fraction, state.max),
-    };
-
-    set_raw(&state.device, raw)?;
-    Ok(())
-}
-
-pub fn dim(device: Option<&str>) -> Result<()> {
-    let state = resolve_state(device)?;
-    let _pid_file = DimPidFile::create(Path::new(DIM_PID_PATH))?;
-    install_dim_signal_handlers()?;
-
-    if let BrightnessDevice::Backlight(device) = &state.device {
-        brightnessctl(device, &["-s"])?;
-    } else {
-        save_ddc_dim_state(&state)?;
-    }
-
-    let current = state.current;
-    let max = state.max;
-    ensure_nonzero_max(max)?;
-
-    if current == 0 {
-        return Ok(());
-    }
-
-    let target = ((current as f64) * 0.3).floor() as u64;
-
-    for raw in dim_ramp_raw_values(&state.device, current, target, max) {
-        if DIM_ABORTED.load(Ordering::Relaxed) {
-            break;
-        }
-
-        set_raw(&state.device, raw)?;
-
-        if DIM_ABORTED.load(Ordering::Relaxed) {
-            break;
-        }
-
-        thread::sleep(DIM_DELAY);
     }
 
     Ok(())
@@ -177,30 +101,6 @@ fn dim_ramp_raw_values(device: &BrightnessDevice, current: u64, target: u64, max
         .collect()
 }
 
-pub fn restore(device: Option<&str>) -> Result<()> {
-    let resolved = resolve_device(device)?;
-    match resolved {
-        BrightnessDevice::Backlight(device) => {
-            brightnessctl(&device, &["-r"])?;
-        }
-        BrightnessDevice::Ddc { bus, .. } => {
-            let raw = read_ddc_dim_state(bus)?;
-            set_raw(
-                &BrightnessDevice::Ddc {
-                    bus,
-                    connector: None,
-                    label: None,
-                },
-                raw,
-            )?;
-            if let Ok(path) = ddc_dim_state_path() {
-                let _ = fs::remove_file(path);
-            }
-        }
-    }
-    Ok(())
-}
-
 // ---------------------------------------------------------------------------
 // Cores for the daemon's brightness controller: same hardware paths as the
 // CLI entry points above, but returning the written device's status instead
@@ -216,7 +116,7 @@ pub(crate) struct SavedLevel {
 }
 
 /// Stable identity for dim/restore bookkeeping across invocations.
-pub(crate) fn device_key(device: &BrightnessDevice) -> String {
+fn device_key(device: &BrightnessDevice) -> String {
     match device {
         BrightnessDevice::Backlight(name) => name.clone(),
         BrightnessDevice::Ddc { bus, .. } => match bus {
@@ -302,27 +202,6 @@ pub(crate) fn restore_saved(saved: &SavedLevel) -> Result<serde_json::Value> {
     set_raw(&saved.device, saved.raw)?;
     let state = read_state(saved.device.clone())?;
     Ok(serde_json::to_value(status_payload(&state)?)?)
-}
-
-fn step(device: Option<&str>, direction: f64) -> Result<()> {
-    let state = resolve_state(device)?;
-    let current = state.current;
-    let max = state.max;
-    ensure_nonzero_max(max)?;
-
-    let perceived = match &state.device {
-        BrightnessDevice::Backlight(_) => raw_to_perceived(current, max),
-        BrightnessDevice::Ddc { .. } => current as f64 / max as f64,
-    };
-    let next = (perceived + (direction * STEP)).clamp(0.0, 1.0);
-    let raw = match &state.device {
-        BrightnessDevice::Backlight(_) => perceived_to_raw(next, max),
-        BrightnessDevice::Ddc { .. } => fraction_to_raw(next, max),
-    };
-
-    set_raw(&state.device, raw)?;
-    notify_quickshell_osd(display_fraction_for_raw(&state.device, raw, max));
-    Ok(())
 }
 
 fn resolve_state(device: Option<&str>) -> Result<BrightnessState> {
@@ -750,67 +629,6 @@ fn number_after(text: &str, marker: &str) -> Option<u64> {
     digits.parse().ok()
 }
 
-fn save_ddc_dim_state(state: &BrightnessState) -> Result<()> {
-    let BrightnessDevice::Ddc { bus, .. } = &state.device else {
-        return Ok(());
-    };
-    let path = ddc_dim_state_path()?;
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    fs::write(path, format!("{}\n{}\n", format_ddc_bus(*bus), state.current))?;
-    Ok(())
-}
-
-fn read_ddc_dim_state(bus: Option<u32>) -> Result<u64> {
-    let contents = fs::read_to_string(ddc_dim_state_path()?)?;
-    let mut lines = contents.lines();
-    let saved_bus = lines.next().unwrap_or("");
-    let raw = lines
-        .next()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing saved DDC brightness"))?
-        .parse()?;
-
-    if saved_bus != format_ddc_bus(bus) {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "saved DDC bus does not match",
-        )
-        .into());
-    }
-
-    Ok(raw)
-}
-
-fn format_ddc_bus(bus: Option<u32>) -> String {
-    bus.map(|bus| bus.to_string()).unwrap_or_default()
-}
-
-fn ddc_dim_state_path() -> Result<PathBuf> {
-    Ok(paths::xdg_runtime_dir()?
-        .join("desktopctl")
-        .join(DDC_DIM_STATE_FILE))
-}
-
-/// Fire the on-screen display for keybind-driven changes. Spawned without
-/// waiting: the OSD is cosmetic and blocking on it would add its whole startup
-/// cost to every brightness step.
-fn notify_quickshell_osd(perceived_fraction: f64) {
-    let percent = (perceived_fraction * 100.0).round() as i32;
-    let qs_path = match paths::repo_root() {
-        Ok(root) => root.join("config/quickshell"),
-        Err(_) => return,
-    };
-
-    let _ = Command::new("qs")
-        .args(["-p"])
-        .arg(qs_path)
-        .args(["ipc", "call", "brightness", "osd", &percent.to_string()])
-        .stdout(process::Stdio::null())
-        .stderr(process::Stdio::null())
-        .spawn();
-}
-
 fn ensure_nonzero_max(max: u64) -> Result<()> {
     if max == 0 {
         return Err(io::Error::other("brightness maximum is zero").into());
@@ -840,19 +658,6 @@ fn display_fraction_for_raw(device: &BrightnessDevice, raw: u64, max: u64) -> f6
     }
 }
 
-fn install_dim_signal_handlers() -> io::Result<()> {
-    DIM_ABORTED.store(false, Ordering::Relaxed);
-
-    for signal_number in [SIGHUP, SIGINT, SIGQUIT, SIGTERM] {
-        let previous = unsafe { signal(signal_number, handle_dim_signal as *const () as usize) };
-        if previous == SIG_ERR {
-            return Err(io::Error::last_os_error());
-        }
-    }
-
-    Ok(())
-}
-
 fn command_error(binary: &str, args: &[&str], output: &Output) -> io::Error {
     let stderr = String::from_utf8_lossy(&output.stderr);
     let detail = if stderr.trim().is_empty() {
@@ -871,25 +676,6 @@ impl fmt::Display for BrightnessDevice {
             BrightnessDevice::Ddc { bus: Some(bus), .. } => write!(formatter, "ddc:{bus}"),
             BrightnessDevice::Ddc { bus: None, .. } => write!(formatter, "ddc"),
         }
-    }
-}
-
-struct DimPidFile {
-    path: PathBuf,
-}
-
-impl DimPidFile {
-    fn create(path: &Path) -> io::Result<Self> {
-        fs::write(path, format!("{}\n", process::id()))?;
-        Ok(Self {
-            path: path.to_path_buf(),
-        })
-    }
-}
-
-impl Drop for DimPidFile {
-    fn drop(&mut self) {
-        let _ = fs::remove_file(&self.path);
     }
 }
 

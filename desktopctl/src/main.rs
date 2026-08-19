@@ -56,17 +56,17 @@ struct ThemeArgs {
 #[derive(Debug, Subcommand)]
 enum ThemeCommand {
     /// Apply all theme targets.
-    All,
+    All(WaitDaemonArgs),
     /// Apply all sync-safe targets for activation-time usage.
     Sync,
     /// Apply color-dependent targets.
-    Colors,
+    Colors(WaitDaemonArgs),
     /// Apply only the wallpaper target.
-    Wallpaper,
+    Wallpaper(WaitDaemonArgs),
     /// Apply only the cursor target.
-    Cursor,
+    Cursor(WaitDaemonArgs),
     /// Apply font-dependent targets.
-    Fonts,
+    Fonts(WaitDaemonArgs),
     /// Apply one target by registry name.
     Target(TargetArgs),
     /// Update one theme-state key and apply affected targets.
@@ -87,6 +87,15 @@ enum ThemeCommand {
     Status(JsonOutputArgs),
 }
 
+/// Shared by daemon-routed write subcommands, mainly for autostart call
+/// sites racing the daemon's own startup.
+#[derive(Debug, Args)]
+struct WaitDaemonArgs {
+    /// Retry connecting to the daemon for up to this many seconds.
+    #[arg(long, value_name = "SECS", default_value_t = 0)]
+    wait_daemon: u64,
+}
+
 #[derive(Debug, Args)]
 struct ListWallpapersArgs {
     /// Print machine-readable JSON instead of human-readable text.
@@ -101,6 +110,8 @@ struct ListWallpapersArgs {
 struct TargetArgs {
     /// Target name from the theme registry.
     name: String,
+    #[command(flatten)]
+    wait: WaitDaemonArgs,
 }
 
 #[derive(Debug, Args)]
@@ -110,12 +121,16 @@ struct SetArgs {
     /// New value for the provided key.
     #[arg(allow_hyphen_values = true)]
     value: String,
+    #[command(flatten)]
+    wait: WaitDaemonArgs,
 }
 
 #[derive(Debug, Args)]
 struct NamedArg {
     /// Name of the preset to operate on.
     name: String,
+    #[command(flatten)]
+    wait: WaitDaemonArgs,
 }
 
 #[derive(Debug, Args)]
@@ -125,6 +140,8 @@ struct SavePresetArgs {
     /// JSON object payload for the preset patch.
     #[arg(value_name = "JSON")]
     payload: String,
+    #[command(flatten)]
+    wait: WaitDaemonArgs,
 }
 
 #[derive(Debug, Args)]
@@ -346,15 +363,74 @@ fn run() -> Result<()> {
     }
 }
 
+// Writes are daemon-routed and hard-fail when it is unreachable: the daemon
+// owns the dim/restore state, so a direct write would be a second writer.
 fn run_brightness(args: BrightnessArgs) -> Result<()> {
     match args.command {
-        BrightnessCommand::Status(args) => brightness::status(args.json),
-        BrightnessCommand::Set(args) => brightness::set(args.device.as_deref(), args.percent),
-        BrightnessCommand::Up(args) => brightness::up(args.device.as_deref()),
-        BrightnessCommand::Down(args) => brightness::down(args.device.as_deref()),
-        BrightnessCommand::Dim(args) => brightness::dim(args.device.as_deref()),
-        BrightnessCommand::Restore(args) => brightness::restore(args.device.as_deref()),
+        BrightnessCommand::Status(args) => run_brightness_status(args.json),
+        BrightnessCommand::Set(args) => strict_request(
+            ipc::methods::BRIGHTNESS_SET,
+            serde_json::json!({ "device": args.device, "percent": args.percent }),
+        ),
+        BrightnessCommand::Up(args) => strict_request(
+            ipc::methods::BRIGHTNESS_STEP,
+            serde_json::json!({ "device": args.device, "direction": "up" }),
+        ),
+        BrightnessCommand::Down(args) => strict_request(
+            ipc::methods::BRIGHTNESS_STEP,
+            serde_json::json!({ "device": args.device, "direction": "down" }),
+        ),
+        BrightnessCommand::Dim(args) => strict_request(
+            ipc::methods::BRIGHTNESS_DIM,
+            serde_json::json!({ "device": args.device }),
+        ),
+        BrightnessCommand::Restore(args) => strict_request(
+            ipc::methods::BRIGHTNESS_RESTORE,
+            serde_json::json!({ "device": args.device }),
+        ),
     }
+}
+
+fn run_brightness_status(json: bool) -> Result<()> {
+    match ipc::send_request::<(), serde_json::Value>(
+        ipc::methods::BRIGHTNESS_STATUS,
+        None,
+        ipc::DEFAULT_TIMEOUT,
+    ) {
+        Ok(payload) => {
+            if json {
+                println!("{}", serde_json::to_string(&payload)?);
+            } else {
+                println!(
+                    "{}: {}%",
+                    payload["label"].as_str().unwrap_or("brightness"),
+                    payload["percent"].as_u64().unwrap_or(0)
+                );
+            }
+            Ok(())
+        }
+        Err(error) if ipc::socket_unavailable(error.as_ref()) => brightness::status(json),
+        Err(error) => Err(error),
+    }
+}
+
+/// Send a daemon mutation, converting a missing daemon into the strict-mode
+/// failure message. The response payload is discarded; the exit code is the
+/// contract.
+fn strict_request(method: &str, params: serde_json::Value) -> Result<()> {
+    ipc::send_request::<serde_json::Value, serde_json::Value>(
+        method,
+        Some(params),
+        ipc::DEFAULT_TIMEOUT,
+    )
+    .map(|_response| ())
+    .map_err(|error| {
+        if ipc::socket_unavailable(error.as_ref()) {
+            std::io::Error::other(ipc::daemon_unavailable_message(&error)).into()
+        } else {
+            error
+        }
+    })
 }
 
 fn run_hypr(args: HyprArgs) -> Result<()> {
@@ -373,25 +449,52 @@ fn run_hypr(args: HyprArgs) -> Result<()> {
 
 fn run_hypr_animations(args: HyprAnimationsArgs) -> Result<()> {
     match args.command {
-        HyprAnimationsCommand::Save(args) => hypr::save_animations(&args.payload),
-        HyprAnimationsCommand::Clear => hypr::clear_animations(),
+        HyprAnimationsCommand::Save(args) => strict_request(
+            ipc::methods::HYPR_ANIMATIONS_SAVE,
+            serde_json::json!({ "payload": parse_payload_json(&args.payload)? }),
+        ),
+        HyprAnimationsCommand::Clear => {
+            strict_request(ipc::methods::HYPR_ANIMATIONS_CLEAR, serde_json::json!({}))
+        }
     }
 }
 
 fn run_hypr_keybinds(args: HyprKeybindsArgs) -> Result<()> {
     match args.command {
-        HyprKeybindsCommand::Save(args) => hypr::save_keybinds(&args.payload),
-        HyprKeybindsCommand::Clear => hypr::clear_keybinds(),
+        HyprKeybindsCommand::Save(args) => strict_request(
+            ipc::methods::HYPR_KEYBINDS_SAVE,
+            serde_json::json!({ "payload": parse_payload_json(&args.payload)? }),
+        ),
+        HyprKeybindsCommand::Clear => {
+            strict_request(ipc::methods::HYPR_KEYBINDS_CLEAR, serde_json::json!({}))
+        }
     }
+}
+
+fn parse_payload_json(raw: &str) -> Result<serde_json::Value> {
+    serde_json::from_str(raw)
+        .map_err(|error| std::io::Error::other(format!("invalid JSON payload: {error}")).into())
 }
 
 fn run_hypr_input(args: HyprInputArgs) -> Result<()> {
     match args.command {
-        HyprInputCommand::Status(args) => hypr::print_input_status(args.json),
-        HyprInputCommand::Set(args) => {
-            let setting = hypr::InputSetting::parse(&args.key)?;
-            hypr::set_input_value(setting, &args.value).map(|_state| ())
+        HyprInputCommand::Status(args) => {
+            match ipc::send_request::<(), serde_json::Value>(
+                ipc::methods::HYPR_INPUT_STATUS,
+                None,
+                ipc::DEFAULT_TIMEOUT,
+            ) {
+                Ok(state) => hypr::print_input_state_value(&state, args.json),
+                Err(error) if ipc::socket_unavailable(error.as_ref()) => {
+                    hypr::print_input_status(args.json)
+                }
+                Err(error) => Err(error),
+            }
         }
+        HyprInputCommand::Set(args) => strict_request(
+            ipc::methods::HYPR_INPUT_SET,
+            serde_json::json!({ "key": args.key, "value": args.value }),
+        ),
     }
 }
 

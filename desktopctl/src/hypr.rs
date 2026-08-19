@@ -198,6 +198,28 @@ impl Default for InputState {
     }
 }
 
+/// Print an input state the daemon returned, matching the direct format.
+pub(crate) fn print_input_state_value(state: &serde_json::Value, json: bool) -> Result<()> {
+    if json {
+        println!("{}", serde_json::to_string(state)?);
+    } else {
+        println!(
+            "sensitivity = {}",
+            format_decimal(state["sensitivity"].as_f64().unwrap_or(0.0))
+        );
+        println!(
+            "accel_profile = {}",
+            state["accel_profile"].as_str().unwrap_or("")
+        );
+        println!(
+            "scroll_factor = {}",
+            format_decimal(state["scroll_factor"].as_f64().unwrap_or(0.0))
+        );
+    }
+
+    Ok(())
+}
+
 /// Print the effective Hyprland input state.
 pub(crate) fn print_input_status(json: bool) -> Result<()> {
     let state = load_effective_input_state()?;
