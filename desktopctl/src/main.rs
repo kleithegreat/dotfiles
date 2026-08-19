@@ -1,6 +1,7 @@
 mod brightness;
 mod daemon;
 mod hypr;
+mod ipc;
 mod launch;
 mod night_light;
 mod paths;

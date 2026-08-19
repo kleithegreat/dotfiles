@@ -49,10 +49,14 @@ async fn run_async() -> crate::Result<()> {
             )
         }
     });
+    let events = server::Events::new();
     tasks.spawn({
-        let night_light = night_light.clone();
+        let context = server::ServerContext {
+            night_light: night_light.clone(),
+            events: events.clone(),
+        };
         let shutdown_rx = shutdown_rx.clone();
-        async move { ("socket server", server::run(night_light, shutdown_rx).await) }
+        async move { ("socket server", server::run(context, shutdown_rx).await) }
     });
 
     let mut sigterm = signal(SignalKind::terminate())?;

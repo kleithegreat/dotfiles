@@ -1,18 +1,15 @@
 use crate::{
     daemon::night_light::Controller,
-    night_light::{
-        METHOD_NIGHT_LIGHT_SET, METHOD_NIGHT_LIGHT_STATUS, METHOD_NIGHT_LIGHT_TOGGLE,
-        NightLightSetParams,
-    },
-    paths,
+    ipc::{self, EventEnvelope, methods},
+    night_light::NightLightSetParams,
 };
 use serde::Deserialize;
-use std::{io, os::unix::fs::FileTypeExt, path::Path};
+use std::{io, os::unix::fs::FileTypeExt, path::Path, sync::Arc};
 use tokio::{
     fs,
     io::{AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader},
     net::{UnixListener, UnixStream},
-    sync::watch,
+    sync::{broadcast, watch},
 };
 
 #[derive(Debug, Deserialize)]
@@ -22,8 +19,48 @@ struct Request {
     params: serde_json::Value,
 }
 
-pub async fn run(controller: Controller, mut shutdown: watch::Receiver<bool>) -> crate::Result<()> {
-    let socket_path = paths::xdg_runtime_dir()?.join("desktopctl.sock");
+#[derive(Debug, Deserialize)]
+struct SubscribeParams {
+    #[serde(default)]
+    topics: Vec<String>,
+}
+
+/// Fan-out handle for daemon-side change events. Controllers publish after a
+/// successful commit; subscribed connections forward matching events.
+#[derive(Clone)]
+pub struct Events {
+    sender: broadcast::Sender<Arc<EventEnvelope>>,
+}
+
+impl Events {
+    pub fn new() -> Self {
+        let (sender, _) = broadcast::channel(64);
+        Self { sender }
+    }
+
+    pub fn publish(&self, event: &str, data: serde_json::Value) {
+        // A send error only means no subscriber is connected right now.
+        let _ = self.sender.send(Arc::new(EventEnvelope {
+            event: event.to_owned(),
+            data,
+        }));
+    }
+
+    fn receiver(&self) -> broadcast::Receiver<Arc<EventEnvelope>> {
+        self.sender.subscribe()
+    }
+}
+
+/// Everything a client connection can reach. Grows a field per controller as
+/// state ownership moves into the daemon.
+#[derive(Clone)]
+pub struct ServerContext {
+    pub night_light: Controller,
+    pub events: Events,
+}
+
+pub async fn run(context: ServerContext, mut shutdown: watch::Receiver<bool>) -> crate::Result<()> {
+    let socket_path = ipc::socket_path()?;
     prepare_socket_path(&socket_path).await?;
     let listener = UnixListener::bind(&socket_path)?;
 
@@ -38,9 +75,9 @@ pub async fn run(controller: Controller, mut shutdown: watch::Receiver<bool>) ->
                 accepted = listener.accept() => {
                     match accepted {
                         Ok((stream, _)) => {
-                            let controller = controller.clone();
+                            let context = context.clone();
                             tokio::spawn(async move {
-                                let _ = handle_client(stream, controller).await;
+                                let _ = handle_client(stream, context).await;
                             });
                         }
                         // Transient accept failures (e.g. ECONNABORTED, EMFILE)
@@ -94,7 +131,7 @@ async fn prepare_socket_path(path: &Path) -> io::Result<()> {
     }
 }
 
-async fn handle_client(stream: UnixStream, controller: Controller) -> io::Result<()> {
+async fn handle_client(stream: UnixStream, context: ServerContext) -> io::Result<()> {
     let (reader, mut writer) = stream.into_split();
     let mut lines = BufReader::new(reader).lines();
 
@@ -112,31 +149,56 @@ async fn handle_client(stream: UnixStream, controller: Controller) -> io::Result
         };
 
         match request.method.as_str() {
-            "ping" => {
+            methods::PING => {
                 write_ok(&mut writer, serde_json::json!({ "pong": true })).await?;
             }
-            METHOD_NIGHT_LIGHT_STATUS => {
-                let controller = controller.clone();
-                match tokio::task::spawn_blocking(move || controller.status()).await {
-                    Ok(Ok(status)) => write_ok(&mut writer, status).await?,
-                    Ok(Err(error)) => write_error(&mut writer, error.to_string()).await?,
-                    Err(error) => write_error(&mut writer, error.to_string()).await?,
-                }
-            }
-            METHOD_NIGHT_LIGHT_SET => {
-                let params = match serde_json::from_value::<NightLightSetParams>(request.params) {
+            methods::SUBSCRIBE => {
+                let params = if request.params.is_null() {
+                    Ok(SubscribeParams { topics: Vec::new() })
+                } else {
+                    serde_json::from_value::<SubscribeParams>(request.params)
+                };
+                let params = match params {
                     Ok(params) => params,
                     Err(error) => {
                         write_error(
                             &mut writer,
-                            format!("invalid params for {METHOD_NIGHT_LIGHT_SET}: {error}"),
+                            format!("invalid params for {}: {error}", methods::SUBSCRIBE),
                         )
                         .await?;
                         continue;
                     }
                 };
 
-                let controller = controller.clone();
+                let topics = resolve_topics(params.topics);
+                // Subscribe before confirming so an event published right
+                // after the client sees the reply cannot be lost.
+                let receiver = context.events.receiver();
+                write_ok(&mut writer, serde_json::json!({ "subscribed": topics })).await?;
+                return run_subscription(&mut writer, &mut lines, topics, context, receiver).await;
+            }
+            methods::NIGHT_LIGHT_STATUS => {
+                let controller = context.night_light.clone();
+                match tokio::task::spawn_blocking(move || controller.status()).await {
+                    Ok(Ok(status)) => write_ok(&mut writer, status).await?,
+                    Ok(Err(error)) => write_error(&mut writer, error.to_string()).await?,
+                    Err(error) => write_error(&mut writer, error.to_string()).await?,
+                }
+            }
+            methods::NIGHT_LIGHT_SET => {
+                let params = match serde_json::from_value::<NightLightSetParams>(request.params) {
+                    Ok(params) => params,
+                    Err(error) => {
+                        write_error(
+                            &mut writer,
+                            format!("invalid params for {}: {error}", methods::NIGHT_LIGHT_SET),
+                        )
+                        .await?;
+                        continue;
+                    }
+                };
+
+                let controller = context.night_light.clone();
                 match tokio::task::spawn_blocking(move || {
                     controller.set_mode(params.mode, params.temperature)
                 })
@@ -147,8 +209,8 @@ async fn handle_client(stream: UnixStream, controller: Controller) -> io::Result
                     Err(error) => write_error(&mut writer, error.to_string()).await?,
                 }
             }
-            METHOD_NIGHT_LIGHT_TOGGLE => {
-                let controller = controller.clone();
+            methods::NIGHT_LIGHT_TOGGLE => {
+                let controller = context.night_light.clone();
                 match tokio::task::spawn_blocking(move || controller.toggle()).await {
                     Ok(Ok(status)) => write_ok(&mut writer, status).await?,
                     Ok(Err(error)) => write_error(&mut writer, error.to_string()).await?,
@@ -166,6 +228,100 @@ async fn handle_client(stream: UnixStream, controller: Controller) -> io::Result
     }
 
     Ok(())
+}
+
+fn resolve_topics(requested: Vec<String>) -> Vec<String> {
+    if requested.is_empty() {
+        return ipc::TOPICS.iter().map(|topic| (*topic).to_owned()).collect();
+    }
+
+    requested
+        .into_iter()
+        .filter(|topic| ipc::TOPICS.contains(&topic.as_str()))
+        .collect()
+}
+
+/// After a `subscribe` reply the connection becomes push-only: snapshots for
+/// each topic first, then matching events as controllers publish them. The
+/// read half is drained only to notice EOF; further requests are refused.
+async fn run_subscription<W, R>(
+    writer: &mut W,
+    lines: &mut tokio::io::Lines<BufReader<R>>,
+    topics: Vec<String>,
+    context: ServerContext,
+    mut receiver: broadcast::Receiver<Arc<EventEnvelope>>,
+) -> io::Result<()>
+where
+    W: AsyncWrite + Unpin,
+    R: tokio::io::AsyncRead + Unpin,
+{
+    push_snapshots(writer, &topics, &context).await?;
+
+    loop {
+        tokio::select! {
+            event = receiver.recv() => match event {
+                Ok(event) => {
+                    if topics.iter().any(|topic| topic == event.topic()) {
+                        write_event(writer, &event).await?;
+                    }
+                }
+                Err(broadcast::error::RecvError::Lagged(_)) => {
+                    // Dropped events cannot be replayed; resync via snapshots.
+                    push_snapshots(writer, &topics, &context).await?;
+                }
+                Err(broadcast::error::RecvError::Closed) => return Ok(()),
+            },
+            line = lines.next_line() => match line? {
+                None => return Ok(()),
+                Some(line) if line.trim().is_empty() => {}
+                Some(_) => {
+                    write_error(
+                        writer,
+                        "connection is subscribed; open a new connection for requests".to_owned(),
+                    )
+                    .await?;
+                }
+            },
+        }
+    }
+}
+
+async fn push_snapshots<W: AsyncWrite + Unpin>(
+    writer: &mut W,
+    topics: &[String],
+    context: &ServerContext,
+) -> io::Result<()> {
+    for topic in topics {
+        match topic.as_str() {
+            "night_light" => {
+                let controller = context.night_light.clone();
+                if let Ok(Ok(status)) =
+                    tokio::task::spawn_blocking(move || controller.status()).await
+                {
+                    let event = EventEnvelope {
+                        event: "night_light.changed".to_owned(),
+                        data: serde_json::to_value(status).unwrap_or(serde_json::Value::Null),
+                    };
+                    write_event(writer, &event).await?;
+                }
+            }
+            // Snapshots for the remaining topics arrive with their
+            // controllers as state ownership moves into the daemon.
+            "theme" | "brightness" | "hypr_input" => {}
+            _ => {}
+        }
+    }
+
+    Ok(())
+}
+
+async fn write_event<W: AsyncWrite + Unpin>(
+    writer: &mut W,
+    event: &EventEnvelope,
+) -> io::Result<()> {
+    let payload = serde_json::to_string(event)?;
+    writer.write_all(payload.as_bytes()).await?;
+    writer.write_all(b"\n").await
 }
 
 async fn write_ok<T: serde::Serialize, W: AsyncWrite + Unpin>(
@@ -263,9 +419,9 @@ mod tests {
 
     async fn send_requests(requests: &[&str]) -> Vec<serde_json::Value> {
         let (client, server) = UnixStream::pair().expect("socket pair");
-        let controller = Controller::new();
+        let context = test_context();
         let server_task = tokio::spawn(async move {
-            handle_client(server, controller)
+            handle_client(server, context)
                 .await
                 .expect("server should handle requests");
         });
@@ -288,5 +444,113 @@ mod tests {
 
         server_task.await.expect("server task should finish");
         responses
+    }
+
+    fn test_context() -> ServerContext {
+        ServerContext {
+            night_light: Controller::new(),
+            events: Events::new(),
+        }
+    }
+
+    #[tokio::test]
+    async fn subscribe_confirms_topics_and_forwards_matching_events() {
+        let (client, server) = UnixStream::pair().expect("socket pair");
+        let context = test_context();
+        let events = context.events.clone();
+        let server_task = tokio::spawn(async move {
+            let _ = handle_client(server, context).await;
+        });
+
+        let (reader, mut writer) = client.into_split();
+        writer
+            .write_all(b"{\"method\":\"subscribe\",\"params\":{\"topics\":[\"theme\",\"bogus\"]}}\n")
+            .await
+            .expect("write subscribe");
+
+        let mut lines = BufReader::new(reader).lines();
+        let reply: serde_json::Value = serde_json::from_str(
+            &lines
+                .next_line()
+                .await
+                .expect("read reply")
+                .expect("reply line"),
+        )
+        .expect("valid reply json");
+        assert_eq!(
+            reply,
+            serde_json::json!({ "ok": true, "data": { "subscribed": ["theme"] } })
+        );
+
+        // No theme snapshot exists yet (no theme controller in Phase 1), so
+        // the next line is the first published event.
+        events.publish("night_light.changed", serde_json::json!({ "ignored": true }));
+        events.publish("theme.changed", serde_json::json!({ "changed_keys": ["wallpaper"] }));
+
+        let event: serde_json::Value = serde_json::from_str(
+            &lines
+                .next_line()
+                .await
+                .expect("read event")
+                .expect("event line"),
+        )
+        .expect("valid event json");
+        assert_eq!(
+            event,
+            serde_json::json!({
+                "event": "theme.changed",
+                "data": { "changed_keys": ["wallpaper"] },
+            })
+        );
+
+        // A request on a subscribed connection is refused but not fatal.
+        writer
+            .write_all(b"{\"method\":\"ping\"}\n")
+            .await
+            .expect("write ping");
+        let refusal: serde_json::Value = serde_json::from_str(
+            &lines
+                .next_line()
+                .await
+                .expect("read refusal")
+                .expect("refusal line"),
+        )
+        .expect("valid refusal json");
+        assert_eq!(refusal["ok"], serde_json::json!(false));
+
+        writer.shutdown().await.expect("shutdown writer");
+        server_task.await.expect("server task should finish");
+    }
+
+    #[tokio::test]
+    async fn subscribe_with_no_topics_selects_every_topic() {
+        let (client, server) = UnixStream::pair().expect("socket pair");
+        let context = test_context();
+        let server_task = tokio::spawn(async move {
+            let _ = handle_client(server, context).await;
+        });
+
+        let (reader, mut writer) = client.into_split();
+        writer
+            .write_all(b"{\"method\":\"subscribe\"}\n")
+            .await
+            .expect("write subscribe");
+
+        let mut lines = BufReader::new(reader).lines();
+        let reply: serde_json::Value = serde_json::from_str(
+            &lines
+                .next_line()
+                .await
+                .expect("read reply")
+                .expect("reply line"),
+        )
+        .expect("valid reply json");
+        assert_eq!(
+            reply["data"]["subscribed"],
+            serde_json::json!(["theme", "night_light", "brightness", "hypr_input"])
+        );
+
+        writer.shutdown().await.expect("shutdown writer");
+        server_task.await.expect("server task should finish");
     }
 }

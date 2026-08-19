@@ -1,8 +1,12 @@
-use crate::{hypr, paths, solar, theme};
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use crate::{
+    hypr,
+    ipc::{self, methods},
+    paths, solar, theme,
+};
+use serde::{Deserialize, Serialize};
 use std::{
     env, fs,
-    io::{self, BufRead, BufReader, Read, Write},
+    io::{self, BufReader, Read, Write},
     net::Shutdown,
     os::unix::net::UnixStream,
     path::{Path, PathBuf},
@@ -10,9 +14,6 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-pub const METHOD_NIGHT_LIGHT_STATUS: &str = "night_light.status";
-pub const METHOD_NIGHT_LIGHT_SET: &str = "night_light.set";
-pub const METHOD_NIGHT_LIGHT_TOGGLE: &str = "night_light.toggle";
 pub const NIGHT_LIGHT_MIN_TEMP: i32 = 3000;
 pub const NIGHT_LIGHT_MAX_TEMP: i32 = 6500;
 const SOCKET_TIMEOUT: Duration = Duration::from_secs(3);
@@ -59,20 +60,6 @@ pub(crate) struct HyprsunsetProcessState {
     pub temperature: Option<i32>,
 }
 
-#[derive(Debug, Serialize)]
-struct RequestEnvelope<P> {
-    method: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    params: Option<P>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ResponseEnvelope<T> {
-    ok: bool,
-    data: Option<T>,
-    error: Option<String>,
-}
-
 pub fn run(args: crate::NightLightArgs) -> crate::Result<()> {
     match args.command {
         crate::NightLightCommand::Status(args) => cmd_status(args.json),
@@ -84,9 +71,13 @@ pub fn run(args: crate::NightLightArgs) -> crate::Result<()> {
 }
 
 pub fn request_status() -> crate::Result<NightLightStatus> {
-    match send_request::<(), NightLightStatus>(METHOD_NIGHT_LIGHT_STATUS, None) {
+    match ipc::send_request::<(), NightLightStatus>(
+        methods::NIGHT_LIGHT_STATUS,
+        None,
+        ipc::DEFAULT_TIMEOUT,
+    ) {
         Ok(status) => Ok(status),
-        Err(error) if socket_unavailable(error.as_ref()) => fallback_status(),
+        Err(error) if ipc::socket_unavailable(error.as_ref()) => fallback_status(),
         Err(error) => Err(error),
     }
 }
@@ -96,11 +87,15 @@ pub fn request_mode(
     temperature: Option<i32>,
 ) -> crate::Result<NightLightStatus> {
     let params = NightLightSetParams { mode, temperature };
-    send_request(METHOD_NIGHT_LIGHT_SET, Some(params))
+    ipc::send_request(methods::NIGHT_LIGHT_SET, Some(params), ipc::DEFAULT_TIMEOUT)
 }
 
 pub fn request_toggle() -> crate::Result<NightLightStatus> {
-    send_request::<(), NightLightStatus>(METHOD_NIGHT_LIGHT_TOGGLE, None)
+    ipc::send_request::<(), NightLightStatus>(
+        methods::NIGHT_LIGHT_TOGGLE,
+        None,
+        ipc::DEFAULT_TIMEOUT,
+    )
 }
 
 pub(crate) fn normalize_temperature(value: i32) -> crate::Result<i32> {
@@ -247,77 +242,6 @@ fn fallback_status() -> crate::Result<NightLightStatus> {
         dark_hint: current_dark_hint()?,
         scheduled_running: solar_status.is_night,
         scheduled_dark_hint: solar_status.is_dark,
-    })
-}
-
-fn send_request<P, T>(method: &str, params: Option<P>) -> crate::Result<T>
-where
-    P: Serialize,
-    T: DeserializeOwned,
-{
-    let socket_path = paths::xdg_runtime_dir()?.join("desktopctl.sock");
-    let mut stream = UnixStream::connect(&socket_path).map_err(|error| {
-        io::Error::new(
-            error.kind(),
-            format!("failed to connect to {}: {error}", socket_path.display()),
-        )
-    })?;
-    stream.set_read_timeout(Some(SOCKET_TIMEOUT))?;
-    stream.set_write_timeout(Some(SOCKET_TIMEOUT))?;
-
-    let payload = RequestEnvelope {
-        method: method.to_owned(),
-        params,
-    };
-    let request = serde_json::to_string(&payload)?;
-    stream.write_all(request.as_bytes())?;
-    stream.write_all(b"\n")?;
-    stream.flush()?;
-
-    let mut reader = BufReader::new(stream);
-    let mut response_line = String::new();
-    if reader.read_line(&mut response_line)? == 0 {
-        return Err(io::Error::new(
-            io::ErrorKind::UnexpectedEof,
-            "desktopctl daemon closed the socket without responding",
-        )
-        .into());
-    }
-
-    let response: ResponseEnvelope<T> =
-        serde_json::from_str(response_line.trim_end()).map_err(|error| {
-            io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("invalid response from desktopctl daemon: {error}"),
-            )
-        })?;
-
-    if response.ok {
-        return response.data.ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::InvalidData,
-                "desktopctl daemon returned success without data",
-            )
-            .into()
-        });
-    }
-
-    Err(io::Error::other(
-        response
-            .error
-            .unwrap_or_else(|| "desktopctl daemon request failed".to_owned()),
-    )
-    .into())
-}
-
-fn socket_unavailable(error: &(dyn std::error::Error + 'static)) -> bool {
-    error.downcast_ref::<io::Error>().is_some_and(|io_error| {
-        matches!(
-            io_error.kind(),
-            io::ErrorKind::NotFound
-                | io::ErrorKind::ConnectionRefused
-                | io::ErrorKind::ConnectionReset
-        )
     })
 }
 
@@ -510,75 +434,4 @@ mod tests {
         assert!(parse_temperature_reply("ok").is_err());
     }
 
-    #[test]
-    fn request_envelope_serialization_matches_socket_protocol() {
-        let ping = serde_json::to_value(RequestEnvelope::<()> {
-            method: "ping".to_owned(),
-            params: None,
-        })
-        .expect("ping request should serialize");
-        assert_eq!(ping, serde_json::json!({ "method": "ping" }));
-
-        let set_mode = serde_json::to_value(RequestEnvelope {
-            method: METHOD_NIGHT_LIGHT_SET.to_owned(),
-            params: Some(NightLightSetParams {
-                mode: NightLightMode::On,
-                temperature: Some(4500),
-            }),
-        })
-        .expect("set request should serialize");
-        assert_eq!(
-            set_mode,
-            serde_json::json!({
-                "method": "night_light.set",
-                "params": {
-                    "mode": "on",
-                    "temperature": 4500,
-                },
-            })
-        );
-    }
-
-    #[test]
-    fn response_envelope_deserializes_success_and_error_payloads() {
-        let success: ResponseEnvelope<NightLightStatus> = serde_json::from_str(
-            r#"{"ok":true,"data":{"mode":"auto","running":true,"temperature":4500,"target_temperature":4500,"dark_hint":false,"scheduled_running":true,"scheduled_dark_hint":false}}"#,
-        )
-        .expect("success response should deserialize");
-        assert!(success.ok);
-        assert_eq!(success.data.expect("status data").temperature, Some(4500));
-        assert!(success.error.is_none());
-
-        let error: ResponseEnvelope<serde_json::Value> =
-            serde_json::from_str(r#"{"ok":false,"error":"socket unavailable"}"#)
-                .expect("error response should deserialize");
-        assert!(!error.ok);
-        assert_eq!(error.error.as_deref(), Some("socket unavailable"));
-        assert!(error.data.is_none());
-    }
-
-    #[test]
-    fn socket_unavailable_only_matches_expected_io_errors() {
-        assert!(socket_unavailable(&io::Error::new(
-            io::ErrorKind::NotFound,
-            "missing socket",
-        )));
-        assert!(socket_unavailable(&io::Error::new(
-            io::ErrorKind::ConnectionRefused,
-            "refused",
-        )));
-        assert!(socket_unavailable(&io::Error::new(
-            io::ErrorKind::ConnectionReset,
-            "reset",
-        )));
-        assert!(!socket_unavailable(&io::Error::new(
-            io::ErrorKind::PermissionDenied,
-            "denied",
-        )));
-        assert!(!socket_unavailable(&io::Error::new(
-            io::ErrorKind::AddrInUse,
-            "in use",
-        )));
-        assert!(!socket_unavailable(&io::Error::other("other failure")));
-    }
 }
