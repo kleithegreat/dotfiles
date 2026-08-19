@@ -201,6 +201,109 @@ pub fn restore(device: Option<&str>) -> Result<()> {
     Ok(())
 }
 
+// ---------------------------------------------------------------------------
+// Cores for the daemon's brightness controller: same hardware paths as the
+// CLI entry points above, but returning the written device's status instead
+// of printing, and with dim/restore state held by the caller instead of the
+// pid/state files.
+// ---------------------------------------------------------------------------
+
+/// A brightness level saved before dimming, restorable via [`restore_saved`].
+#[derive(Clone, Debug)]
+pub(crate) struct SavedLevel {
+    device: BrightnessDevice,
+    raw: u64,
+}
+
+/// Stable identity for dim/restore bookkeeping across invocations.
+pub(crate) fn device_key(device: &BrightnessDevice) -> String {
+    match device {
+        BrightnessDevice::Backlight(name) => name.clone(),
+        BrightnessDevice::Ddc { bus, .. } => match bus {
+            Some(bus) => format!("ddc:{bus}"),
+            None => "ddc".to_owned(),
+        },
+    }
+}
+
+pub(crate) fn resolve_device_key(device: Option<&str>) -> Result<String> {
+    Ok(device_key(&resolve_device(device)?))
+}
+
+pub(crate) fn status_json() -> Result<serde_json::Value> {
+    let devices = available_device_statuses()?;
+    Ok(serde_json::to_value(status_payload_for_devices(devices))?)
+}
+
+pub(crate) fn set_core(device: Option<&str>, percent: u16) -> Result<serde_json::Value> {
+    let state = resolve_state(device)?;
+    let fraction = (percent as f64 / 100.0).clamp(0.0, 1.0);
+    let raw = match &state.device {
+        BrightnessDevice::Backlight(_) => perceived_to_raw(fraction, state.max).max(1),
+        BrightnessDevice::Ddc { .. } => fraction_to_raw(fraction, state.max),
+    };
+
+    set_raw(&state.device, raw)?;
+    Ok(serde_json::to_value(status_payload(&BrightnessState { current: raw, ..state })?)?)
+}
+
+pub(crate) fn step_core(device: Option<&str>, direction: f64) -> Result<serde_json::Value> {
+    let state = resolve_state(device)?;
+    ensure_nonzero_max(state.max)?;
+
+    let perceived = match &state.device {
+        BrightnessDevice::Backlight(_) => raw_to_perceived(state.current, state.max),
+        BrightnessDevice::Ddc { .. } => state.current as f64 / state.max as f64,
+    };
+    let next = (perceived + (direction * STEP)).clamp(0.0, 1.0);
+    let raw = match &state.device {
+        BrightnessDevice::Backlight(_) => perceived_to_raw(next, state.max),
+        BrightnessDevice::Ddc { .. } => fraction_to_raw(next, state.max),
+    };
+
+    set_raw(&state.device, raw)?;
+    Ok(serde_json::to_value(status_payload(&BrightnessState { current: raw, ..state })?)?)
+}
+
+/// Save the current level and ramp down, checking `abort` between steps.
+/// Returns the saved level whether or not the ramp was aborted — the caller
+/// owns it and decides when to restore.
+pub(crate) fn dim_core(device: Option<&str>, abort: &AtomicBool) -> Result<SavedLevel> {
+    let state = resolve_state(device)?;
+    ensure_nonzero_max(state.max)?;
+    let saved = SavedLevel {
+        device: state.device.clone(),
+        raw: state.current,
+    };
+
+    if state.current == 0 {
+        return Ok(saved);
+    }
+
+    let target = ((state.current as f64) * 0.3).floor() as u64;
+    for raw in dim_ramp_raw_values(&state.device, state.current, target, state.max) {
+        if abort.load(Ordering::Relaxed) {
+            break;
+        }
+
+        set_raw(&state.device, raw)?;
+
+        if abort.load(Ordering::Relaxed) {
+            break;
+        }
+
+        thread::sleep(DIM_DELAY);
+    }
+
+    Ok(saved)
+}
+
+pub(crate) fn restore_saved(saved: &SavedLevel) -> Result<serde_json::Value> {
+    set_raw(&saved.device, saved.raw)?;
+    let state = read_state(saved.device.clone())?;
+    Ok(serde_json::to_value(status_payload(&state)?)?)
+}
+
 fn step(device: Option<&str>, direction: f64) -> Result<()> {
     let state = resolve_state(device)?;
     let current = state.current;

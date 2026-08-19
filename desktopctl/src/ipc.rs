@@ -46,6 +46,12 @@ pub(crate) mod methods {
     pub const HYPR_ANIMATIONS_CLEAR: &str = "hypr.animations_clear";
     pub const HYPR_KEYBINDS_SAVE: &str = "hypr.keybinds_save";
     pub const HYPR_KEYBINDS_CLEAR: &str = "hypr.keybinds_clear";
+
+    pub const BRIGHTNESS_STATUS: &str = "brightness.status";
+    pub const BRIGHTNESS_SET: &str = "brightness.set";
+    pub const BRIGHTNESS_STEP: &str = "brightness.step";
+    pub const BRIGHTNESS_DIM: &str = "brightness.dim";
+    pub const BRIGHTNESS_RESTORE: &str = "brightness.restore";
 }
 
 /// Topics a subscriber can select; each event name is `<topic>.<what>`.

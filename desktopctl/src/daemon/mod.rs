@@ -1,3 +1,4 @@
+pub mod brightness;
 pub mod focus;
 pub mod hypr;
 pub mod monitors;
@@ -59,6 +60,7 @@ async fn run_async() -> crate::Result<()> {
             night_light: night_light.clone(),
             theme: theme.clone(),
             hypr: hypr::HyprController::new(events.clone()),
+            brightness: brightness::BrightnessController::new(events.clone()),
             events: events.clone(),
         };
         let shutdown_rx = shutdown_rx.clone();

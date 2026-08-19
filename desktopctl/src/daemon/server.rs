@@ -1,5 +1,6 @@
 use crate::{
     daemon::{
+        brightness::BrightnessController,
         hypr::HyprController,
         night_light::Controller,
         theme::{ThemeController, ThemeJob},
@@ -63,7 +64,28 @@ pub struct ServerContext {
     pub night_light: Controller,
     pub theme: ThemeController,
     pub hypr: HyprController,
+    pub brightness: BrightnessController,
     pub events: Events,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct BrightnessDeviceParams {
+    #[serde(default)]
+    device: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct BrightnessSetParams {
+    #[serde(default)]
+    device: Option<String>,
+    percent: u16,
+}
+
+#[derive(Debug, Deserialize)]
+struct BrightnessStepParams {
+    #[serde(default)]
+    device: Option<String>,
+    direction: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -382,6 +404,82 @@ async fn handle_client(stream: UnixStream, context: ServerContext) -> io::Result
                 let result = tokio::task::spawn_blocking(move || hypr.keybinds_clear()).await;
                 write_join_result(&mut writer, result).await?;
             }
+            methods::BRIGHTNESS_STATUS => {
+                let brightness = context.brightness.clone();
+                let result = tokio::task::spawn_blocking(move || brightness.status()).await;
+                write_join_result(&mut writer, result).await?;
+            }
+            methods::BRIGHTNESS_SET => {
+                match parse_params::<BrightnessSetParams>(request.params, methods::BRIGHTNESS_SET) {
+                    Err(message) => write_error(&mut writer, message).await?,
+                    Ok(params) => {
+                        let brightness = context.brightness.clone();
+                        let result = tokio::task::spawn_blocking(move || {
+                            brightness.set(params.device.as_deref(), params.percent)
+                        })
+                        .await;
+                        write_join_result(&mut writer, result).await?;
+                    }
+                }
+            }
+            methods::BRIGHTNESS_STEP => {
+                match parse_params::<BrightnessStepParams>(request.params, methods::BRIGHTNESS_STEP)
+                {
+                    Err(message) => write_error(&mut writer, message).await?,
+                    Ok(params) => {
+                        let direction = match params.direction.as_str() {
+                            "up" => 1.0,
+                            "down" => -1.0,
+                            other => {
+                                write_error(
+                                    &mut writer,
+                                    format!("invalid step direction '{other}'"),
+                                )
+                                .await?;
+                                continue;
+                            }
+                        };
+                        let brightness = context.brightness.clone();
+                        let result = tokio::task::spawn_blocking(move || {
+                            brightness.step(params.device.as_deref(), direction)
+                        })
+                        .await;
+                        write_join_result(&mut writer, result).await?;
+                    }
+                }
+            }
+            methods::BRIGHTNESS_DIM => {
+                match parse_params_or_default::<BrightnessDeviceParams>(
+                    request.params,
+                    methods::BRIGHTNESS_DIM,
+                ) {
+                    Err(message) => write_error(&mut writer, message).await?,
+                    Ok(params) => {
+                        let brightness = context.brightness.clone();
+                        let result = tokio::task::spawn_blocking(move || {
+                            brightness.dim(params.device.as_deref())
+                        })
+                        .await;
+                        write_join_result(&mut writer, result).await?;
+                    }
+                }
+            }
+            methods::BRIGHTNESS_RESTORE => {
+                match parse_params_or_default::<BrightnessDeviceParams>(
+                    request.params,
+                    methods::BRIGHTNESS_RESTORE,
+                ) {
+                    Err(message) => write_error(&mut writer, message).await?,
+                    Ok(params) => {
+                        let brightness = context.brightness.clone();
+                        let result = tokio::task::spawn_blocking(move || {
+                            brightness.restore(params.device.as_deref())
+                        })
+                        .await;
+                        write_join_result(&mut writer, result).await?;
+                    }
+                }
+            }
             _ => {
                 write_error(
                     &mut writer,
@@ -393,6 +491,17 @@ async fn handle_client(stream: UnixStream, context: ServerContext) -> io::Result
     }
 
     Ok(())
+}
+
+/// Like [`parse_params`], but a missing/null params object means defaults.
+fn parse_params_or_default<T>(params: serde_json::Value, method: &str) -> Result<T, String>
+where
+    T: serde::de::DeserializeOwned + Default,
+{
+    if params.is_null() {
+        return Ok(T::default());
+    }
+    parse_params(params, method)
 }
 
 async fn write_join_result<W: AsyncWrite + Unpin>(
@@ -483,7 +592,12 @@ async fn push_snapshots<W: AsyncWrite + Unpin>(
     topics: &[String],
     context: &ServerContext,
 ) -> io::Result<()> {
-    for topic in topics {
+    // Brightness last: its snapshot enumerates DDC buses (~1s) and must not
+    // delay the cheap ones.
+    let mut ordered: Vec<&String> = topics.iter().filter(|t| *t != "brightness").collect();
+    ordered.extend(topics.iter().filter(|t| *t == "brightness"));
+
+    for topic in ordered {
         match topic.as_str() {
             "night_light" => {
                 let controller = context.night_light.clone();
@@ -522,9 +636,22 @@ async fn push_snapshots<W: AsyncWrite + Unpin>(
                     write_event(writer, &event).await?;
                 }
             }
-            // The brightness snapshot arrives with its controller as state
-            // ownership moves into the daemon.
-            "brightness" => {}
+            "brightness" => {
+                let brightness = context.brightness.clone();
+                if let Ok(Ok(devices)) =
+                    tokio::task::spawn_blocking(move || brightness.status()).await
+                {
+                    let event = EventEnvelope {
+                        event: "brightness.changed".to_owned(),
+                        data: serde_json::json!({
+                            "devices": devices.get("devices").cloned()
+                                .unwrap_or(serde_json::Value::Array(Vec::new())),
+                            "osd": false,
+                        }),
+                    };
+                    write_event(writer, &event).await?;
+                }
+            }
             _ => {}
         }
     }
@@ -669,6 +796,7 @@ mod tests {
             night_light: Controller::new(),
             theme: ThemeController::spawn(events.clone()),
             hypr: HyprController::new(events.clone()),
+            brightness: BrightnessController::new(events.clone()),
             events,
         }
     }
@@ -775,39 +903,17 @@ mod tests {
         server_task.await.expect("server task should finish");
     }
 
-    #[tokio::test]
-    async fn subscribe_with_no_topics_selects_every_topic() {
-        let _lock = crate::test_support::env_lock();
-        let temp = crate::test_support::TempDir::new("desktopctl-subscribe-all").expect("temp dir");
-        let _env = scoped_test_env(&temp);
-
-        let (client, server) = UnixStream::pair().expect("socket pair");
-        let context = test_context();
-        let server_task = tokio::spawn(async move {
-            let _ = handle_client(server, context).await;
-        });
-
-        let (reader, mut writer) = client.into_split();
-        writer
-            .write_all(b"{\"method\":\"subscribe\"}\n")
-            .await
-            .expect("write subscribe");
-
-        let mut lines = BufReader::new(reader).lines();
-        let reply: serde_json::Value = serde_json::from_str(
-            &lines
-                .next_line()
-                .await
-                .expect("read reply")
-                .expect("reply line"),
-        )
-        .expect("valid reply json");
+    // Unit-level on purpose: a full subscribe with every topic would run the
+    // brightness snapshot's real DDC enumeration.
+    #[test]
+    fn resolve_topics_defaults_to_every_topic_and_drops_unknown_ones() {
         assert_eq!(
-            reply["data"]["subscribed"],
-            serde_json::json!(["theme", "night_light", "brightness", "hypr_input"])
+            resolve_topics(Vec::new()),
+            vec!["theme", "night_light", "brightness", "hypr_input"]
         );
-
-        writer.shutdown().await.expect("shutdown writer");
-        server_task.await.expect("server task should finish");
+        assert_eq!(
+            resolve_topics(vec!["night_light".to_owned(), "bogus".to_owned()]),
+            vec!["night_light"]
+        );
     }
 }
