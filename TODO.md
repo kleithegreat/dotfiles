@@ -12,13 +12,30 @@ Open issues and pending validations. Delete entries when resolved.
       `laptop-power-profile set e-core-only`, check `cpu*/online`, confirm
       `get` reports the mode and the Quickshell tile doesn't snap back.
 - [ ] Laptop VA-API: verify `vainfo` picks up `iHD` via `intel-media-driver`.
-- [ ] Quickshell live smoke test: slider drags end-to-end (audio OSD
-      suppression across a drag, night-light commit-on-release, brightness
-      drag vs the 30s poll, knob spring feel), popup animation/first-paint on
-      low- and high-refresh displays, bar tooltips live-updating while
-      hovered, preset-editor field editors, Wi-Fi forms, Display undo/redo.
+- [ ] Quickshell live smoke test after the rewrite: slider drags end to end
+      (OSD suppression across a volume drag, night-light commit-on-release,
+      brightness drag vs the 30s poll), Wi-Fi join forms including enterprise,
+      Display staged apply and its revert countdown, tray menus via
+      QsMenuAnchor, and the Bluetooth pane on the laptop — the desktop has no
+      bluez running, so the native adapter path is untested on real hardware.
 
 ## Open issues
+
+- [ ] Sun schedule (high): `where-am-i` is not installed, so `query_geoclue()`
+      in `solar.rs` always fails, `~/.cache/sun-schedule/location.json` is never
+      written, and every lookup falls through to the hardcoded College Station
+      constant. Sunrise/sunset and the Quickshell weather readout are therefore
+      computed for the wrong place whenever the laptop is not in College
+      Station. Needs an owner decision: ship geoclue's `where-am-i` and point
+      `geoProviderUrl` at a live backend (Mozilla's service is retired), or add
+      an IP-geolocation step — which reports the exit relay's city whenever
+      Mullvad is connected.
+
+- [ ] Quickshell (medium): three settings surfaces from the old shell are not
+      yet rebuilt — the Hyprland keybind capture/editor and animation bezier
+      editor, the theme preset editor, and the Wi-Fi diagnostics/channel
+      analyser. Everything they wrote is still reachable through
+      `desktopctl`; only the graphical editors are gone.
 
 - [ ] NVIDIA (high): laptop `AQ_DRM_DEVICES` depends on hardcoded
       `/dev/dri/cardN` ordering, which can shift across boots/updates.

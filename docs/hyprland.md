@@ -50,6 +50,10 @@ all died without one failing command. Anything shelling out must scan stdout.
 
 - `hl.dsp.exec_raw("<raw dispatcher>")` returns `ok` and does nothing. It reads
   like the escape hatch for plugin dispatchers and is not one.
+- There is no `hl.dsp.workspace(n)`; the name resolves to a table, so calling it
+  is a Lua error reported on stdout. Workspace switching is
+  `hl.dsp.focus({ workspace = n })`. Pointer warping is
+  `hl.dsp.cursor.move({ x = ..., y = ... })` and rejects positional arguments.
 - `hl.dsp.window.resize` takes pixels and rejects `"75%"`; percentage sizing has
   to be resolved against the focused monitor by the caller.
 - `hl.dsp.window.fullscreen` ignores its `window` key and hits the active

@@ -1,330 +1,192 @@
 import Quickshell
-import Quickshell.Wayland
+import Quickshell.Io
 import Quickshell.Hyprland
 import QtQuick
-import QtQuick.Layouts
-import Quickshell.Io
-import qs
 import qs.bar as Bar
-import "components" as Components
+import qs.surfaces as Surfaces
+import qs.services as Sys
 
 Scope {
-    id: root
+    id: shell
 
-    Timer {
-        interval: 1000
-        running: true
-        repeat: false
-        onTriggered: IdleInhibitService.applyBootDefault()
-    }
+    readonly property ShellState state: ShellState {}
 
-    // Popup state
-    property QtObject popupVisibility: PopupVisibility {}
-
-    // Drive bar lifetime from Hyprland's real monitor model; Qt keeps a
-    // placeholder screen alive when all outputs disappear.
-    function isRealMonitor(monitor) {
-        return monitor && monitor.id >= 0 && monitor.name !== "FALLBACK";
-    }
-
-    readonly property string barMonitorName: {
+    // Bar lifetime follows Hyprland's monitor model, not Quickshell.screens:
+    // output churn (suspend, DPMS, hotplug) tears down the layer surface while
+    // Qt keeps a placeholder QScreen alive, so `screens` never reports that the
+    // outputs are gone.
+    readonly property string barMonitor: {
         const monitors = Hyprland.monitors.values;
-        let fallbackName = "";
-        for (let i = 0; i < monitors.length; ++i) {
+        let fallback = "";
+        for (let i = 0; i < monitors.length; i++) {
             const monitor = monitors[i];
-            if (!root.isRealMonitor(monitor))
+            if (!monitor || monitor.id < 0 || monitor.name === "FALLBACK")
                 continue;
-
-            if (fallbackName === "")
-                fallbackName = monitor.name;
-
+            if (fallback === "")
+                fallback = monitor.name;
             if (monitor.x === 0 && monitor.y === 0)
                 return monitor.name;
         }
-
-        return fallbackName;
+        return fallback;
     }
 
     readonly property var barScreen: {
-        if (root.barMonitorName === "") {
+        if (barMonitor === "")
             return null;
-        }
-
         const screens = Quickshell.screens;
-        for (let i = 0; i < screens.length; ++i) {
-            const screen = screens[i];
-            const monitor = Hyprland.monitorFor(screen);
-            if (root.isRealMonitor(monitor) && monitor.name === root.barMonitorName) {
-                return screen;
-            }
+        for (let i = 0; i < screens.length; i++) {
+            const monitor = Hyprland.monitorFor(screens[i]);
+            if (monitor && monitor.name === barMonitor)
+                return screens[i];
         }
-
         return null;
     }
 
-    readonly property real barScreenWidth: barScreen ? barScreen.width : 900
-
-    component OsdAnim: Components.Anim {
-        property bool showing: false
-        duration: showing ? Theme.animOsdIn : Theme.animOsdOut
-        easing.type: showing ? Easing.OutCubic : Easing.InCubic
+    // Services are created on first reference. The ones that poll or hold a
+    // subscription have to exist from the start, whether or not anything is
+    // currently looking at them.
+    Component.onCompleted: {
+        void Sys.Network.label;
+        void Sys.Bluetooth.available;
+        void Sys.Audio.percent;
+        void Sys.Brightness.available;
+        void Sys.Power.present;
+        void Sys.Notifications.historyCount;
+        void Sys.Compositor.blurEnabled;
+        void Sys.Mullvad.state;
+        void Sys.Tailscale.state;
+        void Sys.NightLight.mode;
+        void Sys.Appearance.state;
+        Sys.Idle.applyBootDefault();
     }
 
-    // Tooltip
-    TooltipWindow {}
-
-    Connections {
-        target: Hyprland
-
-        function onRawEvent(event) {
-            if (event.name === "monitoradded" || event.name === "monitorremoved") {
-                Hyprland.refreshMonitors();
-                DisplayService.refreshMonitors();
-                BrightnessService.refresh();
-            }
-        }
-    }
-
-    // Bar
     Loader {
-        active: root.barMonitorName !== "" && root.barScreen !== null
+        id: barLoader
+        active: shell.barScreen !== null
 
         sourceComponent: Bar.Bar {
-            screen: root.barScreen
-            popupVisibility: root.popupVisibility
-            doNotDisturb: NotificationService.doNotDisturb
-            historyCount: NotificationService.historyCount
+            screen: shell.barScreen
+            state: shell.state
         }
     }
 
-    // Notification popups
-    PanelWindow {
-        anchors { top: true; right: true }
-        margins { top: Theme.popupTopMargin; right: Theme.gapOut }
-        implicitWidth: Theme.notifWidth; implicitHeight: notifColumn.implicitHeight
-        visible: NotificationService.popupModel.count > 0; color: "transparent"
-        WlrLayershell.namespace: "quickshell:notifications"; WlrLayershell.layer: WlrLayer.Overlay; exclusionMode: ExclusionMode.Ignore
-
-        Column {
-            id: notifColumn; spacing: Theme.notifSpacing
-            anchors { left: parent.left; right: parent.right; top: parent.top }
-            Repeater {
-                model: NotificationService.popupModel
-                Rectangle {
-                    id: card; required property string appName; required property string summary; required property string body; required property int nid; required property int index
-                    width: Theme.notifWidth; height: cardC.implicitHeight + Theme.notifPadding * 2; radius: Theme.notifRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
-                    opacity: 0; x: Theme.notifWidth * 0.5; scale: Theme.popupStartScale
-                    Component.onCompleted: { notifEnterAnim.start(); }
-
-                    SequentialAnimation {
-                        id: notifEnterAnim
-                        PauseAnimation { duration: card.index * Theme.animStagger }
-                        ParallelAnimation {
-                            Components.Anim { target: card; property: "opacity"; from: 0; to: 1; duration: Theme.animNotifIn; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveEmphasizedEnter }
-                            Components.Anim { target: card; property: "x"; from: Theme.notifWidth * 0.5; to: 0; duration: Theme.animNotifIn; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveEmphasizedEnter }
-                            Components.Anim { target: card; property: "scale"; from: Theme.popupStartScale; to: 1.0; duration: Theme.animNotifIn; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.animCurveEmphasizedEnter }
-                        }
-                    }
-                    ColumnLayout {
-                        id: cardC; spacing: 4
-                        anchors { left: parent.left; right: parent.right; top: parent.top; margins: Theme.notifPadding }
-                        RowLayout { Layout.fillWidth: true
-                            Text { text: card.appName; color: Theme.fg4; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; elide: Text.ElideRight; Layout.fillWidth: true }
-                            Components.Icon { source: "../icons/close.svg"; color: pcA.containsMouse ? Theme.redBright : Theme.fg4; iconSize: Theme.fontSizeSmall
-                                MouseArea { id: pcA; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: NotificationService.removeNotifPopup(card.nid) } }
-                        }
-                        Text { text: card.summary; color: Theme.fg; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true; visible: text !== "" }
-                        Text { text: card.body; color: Theme.fg3; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall; wrapMode: Text.WordWrap; maximumLineCount: 3; elide: Text.ElideRight; Layout.fillWidth: true; visible: text !== "" }
-                    }
-                }
-            }
-        }
+    Surfaces.Overlay {
+        state: shell.state
+        barWindow: barLoader.item
     }
 
-    IpcHandler {
-        target: "brightness"
-        function osd(percent: string): void {
-            let pct = parseInt(percent);
-            if (!isNaN(pct)) {
-                BrightnessService.refresh();
-                AudioService.showOsdState(pct, pct + "%", "../icons/brightness-medium.svg");
-            }
-        }
-    }
+    Surfaces.Hint {}
 
-    PanelWindow {
-        visible: AudioService.showOsd || osdPanel.opacity > 0.001
-        anchors { top: true }
-        margins { top: Theme.popupTopMargin }
-        implicitWidth: Theme.osdWidth; implicitHeight: Theme.osdHeight; color: "transparent"; mask: Region {}
-        WlrLayershell.namespace: "quickshell:osd"; WlrLayershell.layer: WlrLayer.Overlay; exclusionMode: ExclusionMode.Ignore
-        Rectangle {
-            id: osdPanel
-            anchors.fill: parent
-            radius: Theme.osdRadius; color: Theme.bg1; border.width: 1; border.color: Theme.bg3
-            scale: AudioService.showOsd ? 1.0 : 0.85
-            opacity: AudioService.showOsd ? 1.0 : 0.0
-            Behavior on scale { OsdAnim { showing: AudioService.showOsd } }
-            Behavior on opacity { OsdAnim { showing: AudioService.showOsd } }
-            RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: Theme.popupPadding
-                anchors.rightMargin: Theme.popupPadding
-                spacing: 10
+    Surfaces.Osd {}
 
-                Components.Icon {
-                    source: AudioService.osdIcon
-                    color: Theme.fg
-                    Layout.alignment: Qt.AlignVCenter
-                }
-                Rectangle {
-                    Layout.fillWidth: true
-                    Layout.minimumWidth: Math.max(Theme.fontSize * 8, 72)
-                    height: Theme.osdBarHeight
-                    radius: Theme.osdBarRadius
-                    color: Theme.bg3
-                    Layout.alignment: Qt.AlignVCenter
-                    Rectangle {
-                        width: parent.width * (AudioService.osdValue / 100); radius: parent.radius; color: Theme.greenBright
-                        anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
-                        Behavior on width { Components.Anim { duration: Theme.animFast; easing.type: Easing.OutCubic } }
-                    }
-                }
-                Text {
-                    text: AudioService.osdLabel
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeSmall
-                    color: Theme.fg3
-                    elide: Text.ElideRight
-                    Layout.preferredWidth: Math.min(implicitWidth, Math.max(Theme.fontSize * 5, 56))
-                    Layout.maximumWidth: Math.round(osdPanel.width * 0.3)
-                    Layout.alignment: Qt.AlignVCenter
-                }
-            }
-        }
-    }
+    Surfaces.Toasts {}
 
-    // Toast
-    PanelWindow {
-        visible: ToastService.toastVisible || toastPanel.opacity > 0.001
-        anchors { bottom: true }
-        margins { bottom: Theme.gapOut }
-        implicitWidth: Math.min(toastContent.implicitWidth + Theme.popupPadding * 2, Math.max(Theme.osdWidth, root.barScreenWidth - Theme.gapOut * 4))
-        implicitHeight: Theme.osdHeight
-        color: "transparent"; mask: Region {}
-        WlrLayershell.namespace: "quickshell:toast"; WlrLayershell.layer: WlrLayer.Overlay; exclusionMode: ExclusionMode.Ignore
+    Surfaces.Banners {}
 
-        Rectangle {
-            id: toastPanel
-            anchors.fill: parent
-            radius: Theme.osdRadius
-            color: ToastService.currentLevel === "error"   ? Qt.rgba(Theme.red.r, Theme.red.g, Theme.red.b, 0.25) :
-                   ToastService.currentLevel === "warning" ? Qt.rgba(Theme.yellow.r, Theme.yellow.g, Theme.yellow.b, 0.25) :
-                   Theme.bg1
-            border.width: 1; border.color: Theme.bg3
-            scale: ToastService.toastVisible ? 1.0 : 0.85
-            opacity: ToastService.toastVisible ? 1.0 : 0.0
-
-            Behavior on scale { OsdAnim { showing: ToastService.toastVisible } }
-            Behavior on opacity { OsdAnim { showing: ToastService.toastVisible } }
-
-            Row {
-                id: toastContent
-                anchors.centerIn: parent
-                spacing: 8
-
-                Components.Icon {
-                    source: ToastService.currentLevel === "error" ? "../icons/circle-x.svg" :
-                            ToastService.currentLevel === "warning" ? "../icons/alert-triangle.svg" : "../icons/info-circle.svg"
-                    color: ToastService.currentLevel === "error"   ? Theme.redBright :
-                           ToastService.currentLevel === "warning" ? Theme.yellowBright : Theme.fg
-                    anchors.verticalCenter: parent.verticalCenter
-                }
-
-                Text {
-                    text: ToastService.currentMessage
-                    font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize
-                    color: Theme.fg
-                    width: Math.min(implicitWidth, Math.max(Theme.osdWidth, root.barScreenWidth - Theme.popupPadding * 2 - Theme.gapOut * 4 - 32))
-                    elide: Text.ElideRight
-                    maximumLineCount: 1
-                    anchors.verticalCenter: parent.verticalCenter
-                }
-            }
-        }
-    }
-
-    // Shared overlay host
-    PopupOverlayHost { popupVisibility: root.popupVisibility }
-
+    // These names are the shell's published interface: config/hypr/keybinds.lua
+    // calls them. Renaming them here silently breaks the keybinds until the next
+    // Home Manager rebuild, which is a long time to leave Super+T dead.
     IpcHandler {
         target: "popups"
 
-        function closeAll(): void { root.popupVisibility.closeAll(); }
-        function togglePowerMenu(): void { root.popupVisibility.togglePowerMenu(); }
-        function toggleDrawer(): void { root.popupVisibility.toggleDrawer(); }
-        function toggleCalendar(): void { root.popupVisibility.toggleCalendar(); }
-        function toggleTray(): void { root.popupVisibility.toggleTray(); }
-        function toggleMpris(): void { root.popupVisibility.toggleMpris(); }
-        function toggleSettings(): void { root.popupVisibility.toggleSettings(); }
-        function toggleQuickSettings(): void { root.popupVisibility.toggleQuickSettings(); }
-    }
-
-    IpcHandler {
-        target: "notifications"
-
-        function toggleDnd(): void { NotificationService.toggleDnd(); }
-        function clearHistory(): void { NotificationService.clearHistory(); }
+        function togglePowerMenu(): void {
+            shell.state.open("session");
+        }
+        function toggleDrawer(): void {
+            shell.state.open("notifications");
+        }
+        function toggleControl(): void {
+            shell.state.open("control");
+        }
+        function toggleCalendar(): void {
+            shell.state.open("calendar");
+        }
+        function toggleMedia(): void {
+            shell.state.open("media");
+        }
+        function closeAll(): void {
+            shell.state.close();
+        }
     }
 
     IpcHandler {
         target: "settings"
 
-        function toggle(): void { root.popupVisibility.toggleSettings(); }
+        function toggle(): void {
+            if (shell.state.isOpen("settings"))
+                shell.state.close();
+            else
+                shell.state.showSettings();
+        }
+        function pane(name: string): void {
+            shell.state.showSettings(name);
+        }
     }
 
     IpcHandler {
         target: "audio"
 
-        function toggleMute(): void { AudioService.toggleMute(); }
+        function toggleMute(): void {
+            Sys.Audio.toggleMute();
+        }
+        function raise(): void {
+            Sys.Audio.nudge(0.05);
+        }
+        function lower(): void {
+            Sys.Audio.nudge(-0.05);
+        }
         function status(): string {
-            return JSON.stringify({
-                volume: Math.round(AudioService.volume * 100),
-                muted: AudioService.muted,
-                sinkName: AudioService.sinkDescription
-            });
+            return JSON.stringify({ volume: Sys.Audio.percent, muted: Sys.Audio.muted, sink: Sys.Audio.sinkName });
+        }
+    }
+
+    IpcHandler {
+        target: "brightness"
+
+        // The hotkeys write brightness through desktopctl directly; this only
+        // reports what they did.
+        function osd(percent: string): void {
+            Sys.Brightness.refresh();
+            Sys.Osd.show(Sys.Brightness.icon, parseInt(percent, 10) / 100, percent + "%");
+        }
+    }
+
+    IpcHandler {
+        target: "notifications"
+
+        function toggleDnd(): void {
+            Sys.Notifications.toggleDnd();
+        }
+        function clear(): void {
+            Sys.Notifications.clearHistory();
         }
     }
 
     IpcHandler {
         target: "vpn"
 
-        function mullvadConnect(): void { VpnService.mullvadConnect(); }
-        function mullvadDisconnect(): void { VpnService.mullvadDisconnect(); }
-        function tailscaleUp(): void { VpnService.tailscaleUp(); }
-        function tailscaleDown(): void { VpnService.tailscaleDown(); }
-        function refresh(): void { VpnService.refresh(); }
-        function status(): string {
-            return JSON.stringify({
-                mullvadState: VpnService.mullvadState,
-                mullvadCity: VpnService.mullvadCity,
-                tailscaleState: VpnService.tailscaleState,
-                tailscaleIp: VpnService.tailscaleIp
-            });
+        function mullvad(on: string): void {
+            Sys.Mullvad.set(on === "on");
         }
-    }
-
-    IpcHandler {
-        target: "theme"
-
-        function open(): void { root.popupVisibility.toggleSettings(); }
+        function tailscale(on: string): void {
+            Sys.Tailscale.set(on === "on");
+        }
+        function status(): string {
+            return JSON.stringify({ mullvad: Sys.Mullvad.state, location: Sys.Mullvad.location, tailscale: Sys.Tailscale.state, ip: Sys.Tailscale.ip });
+        }
     }
 
     IpcHandler {
         target: "toast"
 
-        function info(message: string): void { ToastService.showInfo(message); }
-        function warning(message: string): void { ToastService.showWarning(message); }
-        function error(message: string): void { ToastService.showError(message); }
+        function info(message: string): void {
+            Sys.Toast.info(message);
+        }
+        function warning(message: string): void {
+            Sys.Toast.warning(message);
+        }
+        function error(message: string): void {
+            Sys.Toast.error(message);
+        }
     }
 }

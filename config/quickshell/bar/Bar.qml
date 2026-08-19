@@ -1,80 +1,123 @@
-import qs
+import QtQuick
 import Quickshell
 import Quickshell.Wayland
-import QtQuick
+import Quickshell.Hyprland
 import QtQuick.Layouts
+import qs
+import qs.ui as Ui
+import qs.services as Sys
 
 PanelWindow {
     id: bar
 
-    component VDivider: Rectangle { width: 1; height: Theme.barHeight * 0.4; color: Theme.bg3; Layout.alignment: Qt.AlignVCenter }
+    required property ShellState state
 
-    property QtObject popupVisibility: null
-    property bool doNotDisturb: false
-    property int historyCount: 0
-    readonly property var brightnessDevices: BrightnessService.devicesForMonitors(DisplayService.monitors, BrightnessService.brightnessDevices)
-    anchors { top: true; left: true; right: true }
-    margins { top: Theme.barMargin; left: Theme.barMargin; right: Theme.barMargin }
-    implicitHeight: Theme.barHeight
+    anchors {
+        top: true
+        left: true
+        right: true
+    }
+    margins {
+        top: Metrics.barMargin - Metrics.barShadowPad
+        left: Metrics.barMargin - Metrics.barShadowPad
+        right: Metrics.barMargin - Metrics.barShadowPad
+    }
+    implicitHeight: Metrics.barHeight + Metrics.barShadowPad * 2
+    // Layer-shell adds the surface's own margin to the exclusive zone, so the
+    // two together must come to the margin plus the bar — never the margin
+    // twice, which leaves double the air below the bar that sits above it.
+    exclusiveZone: Metrics.barHeight + Metrics.barShadowPad
     color: "transparent"
     WlrLayershell.namespace: "quickshell:bar"
 
-    Rectangle { anchors.fill: parent; color: Theme.bg; opacity: Theme.barOpacity; radius: Theme.barRadius }
+    Ui.Surface {
+        id: plate
+        anchors.fill: parent
+        anchors.margins: Metrics.barShadowPad
+        // Follows Hyprland's window rounding and its shadow, so the bar is cut
+        // from the same shape language as everything tiled beneath it — an
+        // identical gap reads wider around a plate that casts nothing.
+        radius: Sys.Appearance.value("hypr_rounding", Metrics.rBar)
+        tint: Theme.glassBar
+        elevation: 9
 
-    RowLayout {
-        anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
-        anchors.leftMargin: Theme.barPadding; spacing: Theme.barSpacing
-        Workspaces {}
-        ExpoButton {}
-        VDivider { visible: mpris.visible }
-        Mpris { id: mpris; onLabelClicked: bar.popupVisibility?.toggleMpris() }
-    }
+        Clock {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.verticalCenter: parent.verticalCenter
+            hint: "Calendar and weather"
+            surface: "calendar"
+            onMoved: (name, at) => bar.state.setOrigin(name, at)
+            onActivated: anchor => bar.state.open("calendar", anchor)
+        }
 
-    Clock {
-        anchors.centerIn: parent
-        onClicked: bar.popupVisibility?.toggleCalendar()
-    }
+        RowLayout {
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.leftMargin: Metrics.barInset
+            spacing: Metrics.barSpacing
 
-    RowLayout {
-        anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
-        anchors.rightMargin: Theme.barPadding; spacing: Theme.barSpacing
+            RowLayout {
+                spacing: Metrics.barSpacing
 
-        TrayExpand { onClicked: bar.popupVisibility?.toggleTray() }
+                Workspaces {}
 
-        Rectangle {
-            color: Theme.bg1
-            radius: Theme.barRadius
-            implicitWidth: statusRow.implicitWidth + Theme.barSpacing * 2
-            implicitHeight: statusRow.implicitHeight + Theme.barSpacing
-            Layout.alignment: Qt.AlignVCenter
+                Glyph {
+                    icon: "layout"
+                    hint: "Workspace overview"
+                    // hyprexpo's expo() returns nil, so the IPC needs a real
+                    // dispatcher handed back to it.
+                    onActivated: Hyprland.dispatch('(function() hl.plugin.hyprexpo.expo("toggle") return hl.dsp.no_op() end)()')
+                }
+            }
 
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: bar.popupVisibility?.toggleQuickSettings()
+            NowPlaying {
+                hint: "Now playing"
+                surface: "media"
+                onMoved: (name, at) => bar.state.setOrigin(name, at)
+                onActivated: anchor => bar.state.open("media", anchor)
+            }
+        }
+
+        RowLayout {
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.rightMargin: Metrics.barInset
+            spacing: Metrics.barSpacing
+
+            Tray {
+                Layout.alignment: Qt.AlignVCenter
+                state: bar.state
             }
 
             RowLayout {
-                id: statusRow
-                anchors.centerIn: parent
-                spacing: Theme.barSpacing
+                spacing: 2
 
-                Network { onClicked: bar.popupVisibility?.toggleQuickSettings() }
-                Bluetooth { onClicked: bar.popupVisibility?.toggleQuickSettings() }
-                Volume { onClicked: bar.popupVisibility?.toggleQuickSettings() }
-                Brightness { visible: bar.brightnessDevices.length > 0; onClicked: bar.popupVisibility?.toggleQuickSettings() }
-                Battery { onClicked: bar.popupVisibility?.toggleQuickSettings() }
+                Status {
+                    surface: "control"
+                    onMoved: (name, at) => bar.state.setOrigin(name, at)
+                    hint: Sys.Network.label + " · " + Sys.Audio.percent + "% volume" + (Sys.Power.present ? " · " + Sys.Power.percent + "% battery" : "")
+                    onActivated: anchor => bar.state.open("control", anchor)
+                }
+
+                Glyph {
+                    icon: Sys.Notifications.dnd ? "bell-off" : "bell"
+                    badge: Sys.Notifications.historyCount > 0 && !Sys.Notifications.dnd
+                    surface: "notifications"
+                    onMoved: (name, at) => bar.state.setOrigin(name, at)
+                    hint: Sys.Notifications.dnd ? "Do Not Disturb" : Sys.Notifications.historyCount > 0 ? Sys.Notifications.historyCount + " notifications" : "Notifications"
+                    tint: Sys.Notifications.dnd ? Theme.textQuaternary : hovered ? Theme.text : Theme.textSecondary
+                    onActivated: anchor => bar.state.open("notifications", anchor)
+                }
+
+                Glyph {
+                    icon: "power"
+                    surface: "session"
+                    onMoved: (name, at) => bar.state.setOrigin(name, at)
+                    hint: "Session"
+                    tint: hovered ? Theme.critical : Theme.textSecondary
+                    onActivated: anchor => bar.state.open("session", anchor)
+                }
             }
         }
-
-        VDivider {}
-        Bell {
-            doNotDisturb: bar.doNotDisturb
-            historyCount: bar.historyCount
-            onClicked: bar.popupVisibility?.toggleDrawer()
-        }
-
-        VDivider {}
-        Power { onClicked: bar.popupVisibility?.togglePowerMenu() }
     }
 }

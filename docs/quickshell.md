@@ -2,28 +2,46 @@
 
 ## Intent
 
-- The bar is thin chrome. One overlay host (`PopupOverlayHost.qml`) owns all
-  managed popups: at most one visible, host-owned focus/outside-click/scrim,
-  popups request handoff rather than managing siblings. Transient surfaces
-  (tooltip, OSD, toast, notification popups) are independent of that
-  exclusivity.
-- State ownership: shared/system state lives in singleton services; the
-  Settings host owns snapshot-style theme data and preset/wallpaper
-  orchestration; panes keep only local view state. One capability gets one
-  write path — if a domain is service-owned, every surface talks to the
-  service; if host-owned, panes emit intents and the host mutates. Quick
-  Settings stays shallow: summary state, bounded toggles, jumps into Settings.
-- The shell is intentionally pointer-first; no custom tab-order or
-  Enter/Space activation contract is imposed on shell chrome.
-- Reuse the shared interaction primitives in `components/` (WheelFlickable,
-  HoverLayer, SliderTrack, the Anim family, ActionButton, ...) instead of
-  reinventing hover/overscroll/slider behavior per view.
-- QML never edits theme or Hyprland config files. Theme mutations go through
-  the Settings host via `desktopctl theme`, serialized one backend write at a
-  time (the theme and Hyprland write queues cross-gate); changes propagate on
-  real command completion, not timers; backend failures surface as toasts, not
-  console lines. Write-oriented services may stage optimistic values with
-  rollback on real completion.
+- The design system is *structural*, never authored per widget. `Theme` maps the
+  generated scheme onto named roles and hands them out unmodified — the scheme's
+  own `fg`/`fg2`/`fg3`/`fg4` ramp, its own accent, its own status hues; the
+  theming pipeline already guarantees that ramp's ordering and contrast floor
+  ([[theming]]) and the shell does not get a second opinion. Only interaction
+  states are computed, as alpha over the foreground, because no scheme ships
+  them. `Metrics` holds the space, radius and size scales; `Motion` holds four
+  durations and three curves. A constant that exactly one widget uses belongs at
+  that widget or, far more often, nowhere. Widgets never reach for palette slots
+  directly.
+- Chrome is glass over the compositor's blur; dense content sits on opaque cards
+  inside it. Translucency stacked on translucency is mud, and translucency
+  without blur is unreadable rather than atmospheric — so the glass alphas must
+  stay above `ignore_alpha` in `config/hypr/rules.lua`, and the material falls
+  back to opaque when the compositor reports blur off.
+- At most one managed surface is open, expressed as one name in `ShellState`.
+  Exclusivity is structural, not coordinated. The overlay owns focus, outside
+  click dismissal and the scrim; its input mask excludes the bar strip so bar
+  buttons keep working while a surface is open.
+- Surfaces grow from the control that summoned them: bar items report their
+  screen-centre x and the popover scales from that origin.
+- Services own system state and expose values. They never compose display
+  sentences and never render; presentation composes text from service state. One
+  capability gets one write path.
+- Capability decides visibility. A control this host cannot support is absent,
+  not shown disabled.
+- QML never edits theme or Hyprland config files. Every mutation is a
+  `desktopctl` call on a single serialised queue — the Hyprland appearance
+  values *are* theme-state keys, so there is one queue, not two that cross-gate
+  — staged optimistically and rolled back on real completion. Backend failures
+  surface as toasts, never console lines. All `hyprctl` traffic goes through the
+  `Compositor` gateway, which exists because hyprctl reports failure on stdout
+  while exiting 0 ([[hyprland]]).
+- The IPC target and function names are a published interface, not internal
+  naming: `config/hypr/keybinds.lua` calls them, and that file reaches the
+  session through Home Manager, so a rename leaves the keybinds dead until the
+  next rebuild. Bar items publish where they sit (`ShellState.setOrigin`) so a
+  surface opened from a keybind still grows from the button it belongs to.
+- The shell is pointer-first. No tab-order or keyboard-activation contract is
+  imposed on chrome beyond Escape closing the open surface.
 
 ## Quirks
 
@@ -31,36 +49,84 @@
 Reassigning a `var` array bound as a Repeater model cannot be diffed, so
 `QQmlDelegateModel` destroys and recreates every delegate — taking the
 `MouseArea` holding the pointer grab with it. This made brightness sliders
-click-only: the service rebuilds `brightnessDevices` on every write, and the
-first `moved` emission destroyed the delegate mid-gesture. Any view over a
-service array rebuilt on write must key its model on the *count* and index
-into the array; binding the array itself silently breaks drags and all
-per-delegate state.
+click-only: the service rebuilds its device array on every write, and the first
+`moved` emission destroyed the delegate mid-gesture. Any view over a service
+array rebuilt on write must key its model on the *count* and index into the
+array; binding the array itself silently breaks drags and all per-delegate
+state.
 
-### Draggable controls inside a `WheelFlickable` need `preventStealing`
+### Draggable controls inside a `Scroll` need `claimsDrag`
 `Flickable` filters child mouse events and steals the grab once a drag passes
-the threshold, reducing any child slider to click-to-set. `SliderTrack` sets
-`preventStealing: true`; every future draggable control in a scroll view needs
-the same flag — and plain buttons must *not* set it, since dragging across a
-button is a legitimate scroll gesture.
+the threshold, reducing any child slider to click-to-set. `Slider.claimsDrag`
+sets `preventStealing`; every draggable control in a scroll view needs it — and
+plain buttons must *not*, since dragging across a button is a legitimate scroll
+gesture.
 
 ### Risky display changes are staged and batch-applied, never live
-Monitor drags edit a local cloned layout normalized to a `0x0` origin and apply
-once on release as a single `hyprctl eval` chunk; resolution/transform/VRR/mirror
-changes capture a snapshot and revert as one chunk if the confirm countdown
-expires. Do not reintroduce per-pointer-move `hl.monitor` calls — they could
-strand the session on an unreachable layout.
+The display pane accumulates edits and applies them as one `hyprctl eval` chunk,
+then runs a confirm countdown that re-applies the captured snapshot if it
+expires. Do not reintroduce per-control or per-pointer-move writes — they can
+strand the session on a layout the display cannot show.
 
 ### Bar lifetime follows Hyprland's monitor model, not `Quickshell.screens`
 Output churn (suspend, DPMS, hotplug) tears down the layer-shell surface while
 Qt keeps a placeholder `QScreen` alive, so `Quickshell.screens` is not a
 reliable "outputs gone" signal. `shell.qml` drives the bar through a Loader
-keyed on Hyprland's real monitor list (filtering `FALLBACK`), refreshed on
-`monitoradded`/`monitorremoved`.
+keyed on Hyprland's real monitor list (filtering `FALLBACK`).
 
-### `desktopctl` resolves from the session PATH
-Every `Process` invocation uses the bare `desktopctl` name; it must stay
-installed via Home Manager or theme reads/writes fail with correct-looking
-argv arrays.
+### A missing binary fails to *start*, which never emits `exited`
+Backend probes must run in parallel and resolve by priority, never chain on each
+other's exit codes. `Power` probes `laptop-power-profile`, `powerprofilesctl`
+and the cpufreq governor at once: a chained version stalls forever on the first
+backend that is not installed, and every later one is silently never tried —
+with no failing command to point at.
+
+### Singletons are constructed on first reference
+A service that polls or holds a subscription does not exist until something
+reads it, so it never starts if the only reader is a surface that has not been
+opened yet. `shell.qml` touches those services in `Component.onCompleted`; that
+block is load-bearing, not defensive.
+
+### A tray icon the theme lacks loads *successfully* as a magenta checkerboard
+`Image.status` reports `Ready` for the icon theme's missing-icon placeholder, so
+status cannot detect the failure — the bar renders a magenta and black grid.
+Themed names have to be tested with `Quickshell.iconPath(name, true)` before the
+image is requested, and fall back to a monogram.
+
+### The exclusive zone excludes the surface's own margin
+Layer-shell reserves `margin + exclusive_zone`, so a bar that sets its exclusive
+zone to height *plus* its top margin reserves that margin twice and leaves twice
+as much air below the bar as above it. The zone is the bar's height and nothing
+else; `hyprctl monitors -j` reports the total under `reserved`.
+
+### A scrim below `ignore_alpha` turns the panel edge into a blur boundary
+The modal backdrop has to be opaque enough for the compositor to blur it, or the
+blurred panel meets a sharp desktop at its own outline and the material stops
+reading as a material. Surfaces that are menus rather than modals — the session
+menu — take no scrim at all, so nothing behind them changes.
+
+### Mapping functions in bindings never re-evaluate
+`mapToItem`/`mapToGlobal` are calls, not reactive expressions, so a property
+bound to one captures the geometry the item had while it was still being built:
+zero. Bar items therefore expose `anchorPoint()` and callers ask at click time.
+Bound instead, every surface silently opens at the far left of the screen.
+
+### A new QML file needs a restart, not a reload
+Hot reload re-reads files it already knows about; a file added to a directory
+module is not in the generated qmldir yet, so it reloads cleanly and then fails
+with "X is not a type". Restart quickshell after adding a file.
+
+### Platform menus need QApplication mode, so tray menus are drawn here
+`QsMenuAnchor.open()` refuses to run unless the shell was started with
+`//@ pragma UseQApplication`, and what it opens is a Qt widget menu wearing
+whatever qt6ct hands it. `TrayMenu` renders the same DBus model through
+`QsMenuOpener` with the shell's own rows instead, and drills into submenus in
+place rather than cascading.
+
+### Popover content declares its own height
+`Popover.contentHeight` is set by each surface. Deriving it from the holder that
+the surface fills makes the holder's height depend on the panel that depends on
+the holder; QML resolves that by giving the panel a height of zero, which
+renders as content spilling out of a panel with no visible background.
 
 Related: [[theming]], [[hyprland]], [[desktopctl]], [[focus-time]]

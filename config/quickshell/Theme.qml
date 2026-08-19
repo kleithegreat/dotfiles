@@ -1,206 +1,167 @@
 pragma Singleton
+
 import QtQuick
 import QtCore
 import Quickshell.Io
 
+// The design system's colour and type layer. Everything here is *derived* from
+// the generated scheme; nothing is hand-tuned per surface. Adding a constant
+// that only one widget uses belongs in Metrics or, more likely, nowhere.
 QtObject {
     id: root
 
-    readonly property string generatedThemePath: {
-        let configHome = StandardPaths.writableLocation(StandardPaths.ConfigLocation);
+    readonly property string sourcePath: {
+        const configHome = StandardPaths.writableLocation(StandardPaths.ConfigLocation);
         if (configHome !== "")
             return configHome + "/quickshell/GeneratedTheme.json";
         return StandardPaths.writableLocation(StandardPaths.HomeLocation) + "/.config/quickshell/GeneratedTheme.json";
     }
 
-    // ── Load from generated JSON (auto-reloads on file change) ──
-    property FileView _themeFile: FileView {
-        path: root.generatedThemePath
+    readonly property FileView _file: FileView {
+        path: root.sourcePath
         watchChanges: true
         blockLoading: true
         onFileChanged: reload()
-        onLoaded: root._reparse()
+        onLoaded: root._parse()
     }
 
-    property var _data: null
+    property var _scheme: ({})
+    property var _typeface: ({})
 
-    function _reparse() {
-        try { _data = JSON.parse(_themeFile.text()); }
-        catch(e) {}
+    function _parse() {
+        try {
+            const parsed = JSON.parse(_file.text());
+            _scheme = parsed.colors || {};
+            _typeface = parsed.fonts || {};
+        } catch (e) {
+            // Keep the last good scheme; a half-written file must not blank the shell.
+        }
     }
 
-    Component.onCompleted: _reparse()
+    Component.onCompleted: _parse()
 
-    property var _colors: _data ? _data.colors : {}
-    property var _fonts: _data ? _data.fonts : {}
+    // ── Colour arithmetic ──────────────────────────────────────────────────
 
-    // ── Colors (with hardcoded Gruvbox fallbacks) ──
-    readonly property color bg:            _colors.bg            || "#282828"
-    readonly property color bg0_h:         _colors.bg0_h         || "#1d2021"
-    readonly property color bg1:           _colors.bg1           || "#3c3836"
-    readonly property color bg2:           _colors.bg2           || "#504945"
-    readonly property color bg3:           _colors.bg3           || "#665c54"
-    readonly property color fg:            _colors.fg            || "#ebdbb2"
-    readonly property color fg2:           _colors.fg2           || "#d5c4a1"
-    readonly property color fg3:           _colors.fg3           || "#bdae93"
-    readonly property color fg4:           _colors.fg4           || "#a89984"
-    readonly property color fgFaint:       _colors.fgFaint       || "#7c6f64"
-    readonly property color red:           _colors.red           || "#cc241d"
-    readonly property color green:         _colors.green         || "#98971a"
-    readonly property color yellow:        _colors.yellow        || "#d79921"
-    readonly property color blue:          _colors.blue          || "#458588"
-    readonly property color purple:        _colors.purple        || "#b16286"
-    readonly property color aqua:          _colors.aqua          || "#689d6a"
-    readonly property color orange:        _colors.orange        || "#d65d0e"
-    readonly property color redBright:     _colors.redBright     || "#fb4934"
-    readonly property color greenBright:   _colors.greenBright   || "#b8bb26"
-    readonly property color yellowBright:  _colors.yellowBright  || "#fabd2f"
-    readonly property color blueBright:    _colors.blueBright    || "#83a598"
-    readonly property color purpleBright:  _colors.purpleBright  || "#d3869b"
-    readonly property color aquaBright:    _colors.aquaBright    || "#8ec07c"
-    readonly property color orangeBright:  _colors.orangeBright  || "#fe8019"
-    readonly property color accent:        _colors.accent        || "#458588"
+    function _channel(value) {
+        return value <= 0.03928 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4);
+    }
 
-    // ── Layout constants (NOT themed) ──
-    readonly property int barHeight: 32
-    readonly property int barMargin: 4
-    readonly property int barRadius: 8
-    readonly property int barSpacing: 8
-    readonly property int barPadding: 12
-    readonly property real barOpacity: 0.92
-    readonly property int gapOut: 6
+    function luminance(c) {
+        return 0.2126 * _channel(c.r) + 0.7152 * _channel(c.g) + 0.0722 * _channel(c.b);
+    }
 
-    // ── Fonts ──
-    readonly property string fontFamily:    _fonts.systemFamily || "Overpass"
-    readonly property string monoFamily:    _fonts.family       || "JetBrainsMono Nerd Font"
-    readonly property int fontSize:         _fonts.size         || 12
-    readonly property int fontSizeSmall:    _fonts.sizeSmall    || 10
-    readonly property int fontSizeLarge:    _fonts.sizeLarge    || 14
-    // Sub-small steps for dense secondary text (sublabels, captions).
-    readonly property int fontSizeMini:     fontSizeSmall - 1
-    readonly property int fontSizeMicro:    fontSizeSmall - 2
-    readonly property int iconSize: 14
+    function contrast(a, b) {
+        const la = luminance(a);
+        const lb = luminance(b);
+        return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+    }
 
-    readonly property int notifWidth: 380
-    readonly property int notifRadius: 8
-    readonly property int notifPadding: 12
-    readonly property int notifSpacing: 8
-    readonly property int notifTimeout: 5000
+    function mix(a, b, t) {
+        return Qt.rgba(a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t, a.b + (b.b - a.b) * t, a.a + (b.a - a.a) * t);
+    }
 
-    readonly property int osdWidth: 220
-    readonly property int osdHeight: 40
-    readonly property int osdRadius: 20
-    readonly property int osdTimeout: 1500
-    readonly property int osdBarHeight: 4
-    readonly property int osdBarRadius: 2
+    function withAlpha(c, a) {
+        return Qt.rgba(c.r, c.g, c.b, a);
+    }
 
-    readonly property int drawerWidth: 380
-    readonly property int powerBtnSize: 72
-    readonly property int powerBtnRadius: 16
-    readonly property int powerBtnSpacing: 24
-    readonly property int powerIconSize: 28
+    function _read(key, fallback) {
+        const raw = _scheme[key];
+        return raw ? Qt.color(raw) : Qt.color(fallback);
+    }
 
-    readonly property int popupRadius: 10
-    readonly property int popupPadding: 14
-    readonly property int popupTopMargin: barHeight + barMargin + gapOut
+    // ── Scheme inputs ──────────────────────────────────────────────────────
 
-    readonly property int sliderHeight: 6
-    // Shared SliderTrack knob + drag-spring geometry.
-    readonly property int sliderKnobSize: 12
-    readonly property int sliderKnobSizeSmall: 10
-    readonly property real sliderSpring: 4
-    readonly property real sliderDamping: 0.4
+    readonly property color _bg: _read("bg", "#282828")
+    readonly property color _bgDeep: _read("bg0_h", "#1d2021")
+    readonly property color _fg: _read("fg", "#ebdbb2")
 
-    // Metric rows (slider + value readouts in audio/brightness/battery panes).
-    readonly property int metricIconWidth: 16
-    readonly property int metricValueWidth: Math.max(fontSize * 3, 32)
+    // Polarity is measured, never declared. A scheme file that says "dark" while
+    // shipping a paper background would otherwise invert every derived role.
+    readonly property bool dark: luminance(_bg) < 0.28
 
-    readonly property int calCellSize: 38
-    readonly property int calWidth: calCellSize * 7 + popupPadding * 2 + 12
+    // ── Grounds ────────────────────────────────────────────────────────────
 
-    readonly property int mprisArtSize: 80
-    readonly property int mprisPopupWidth: 510
+    readonly property color base: _bg
+    readonly property color baseDeep: _bgDeep
+    readonly property color raised: _read("bg1", "#3c3836")
+    readonly property color raisedHigh: _read("bg2", "#504945")
 
-    // ── Animation constants ──
-    // Shell chrome should feel instant/reactive, not floaty.
-    // Slightly favor 60 Hz displays so the motion samples read more continuously.
-    // Opens are slightly slower (ease-in to land), close/nav are fast (get out of the way).
-    readonly property real animScale: 1.1
-    readonly property real popupStartScale: 0.97
+    // ── Interaction fills ──────────────────────────────────────────────────
+    // Alpha over whatever they sit on, so one ladder works on glass, on solid
+    // cards, and in both polarities. This replaces per-widget bg1/bg2/bg3 picks.
 
-    // Micro-interactions (press scale, icon color, hover bg)
-    readonly property int animMicro:       Math.round(60  * animScale)
-    readonly property int animFast:        Math.round(80  * animScale)
-    readonly property int animHover:       Math.round(120 * animScale)
+    readonly property color fillHover: withAlpha(_fg, dark ? 0.07 : 0.06)
+    readonly property color fillPress: withAlpha(_fg, dark ? 0.12 : 0.10)
+    readonly property color fillActive: withAlpha(_fg, dark ? 0.16 : 0.11)
+    readonly property color fillTrack: withAlpha(_fg, dark ? 0.14 : 0.13)
+    readonly property color separator: withAlpha(_fg, dark ? 0.11 : 0.14)
 
-    // Content transitions (state swaps, cross-fades, text changes)
-    readonly property int animContentSwap: Math.round(150 * animScale)
-    readonly property int animNormal:      Math.round(180 * animScale)
-    readonly property int animSpring:      Math.round(220 * animScale)
+    // ── Content ────────────────────────────────────────────────────────────
+    // The scheme's own colours, unmodified. The dimmed ramp is derived by the
+    // theming pipeline, which already guarantees its ordering and a contrast
+    // floor ([[theming]]); re-deriving it here would be a second opinion about
+    // colours the scheme has already decided.
 
-    // Popup open — keep a bit of weight so it feels intentional
-    readonly property int animPopupIn:     Math.round(280 * animScale)
-    // Popup close / navigation — snappy, get out of the way
-    readonly property int animPopupOut:    Math.round(150 * animScale)
-    readonly property int animMedium:      Math.round(250 * animScale)
-    readonly property int animPopupScaleLead: Math.round(40 * animScale)
+    readonly property color text: _fg
+    readonly property color textSecondary: _read("fg2", "#d5c4a1")
+    readonly property color textTertiary: _read("fg3", "#bdae93")
+    readonly property color textQuaternary: _read("fg4", "#a89984")
 
-    // Popup height resize
-    readonly property int animHeightResize: Math.round(200 * animScale)
+    // ── Accent and status ──────────────────────────────────────────────────
 
-    // Notification slide
-    readonly property int animNotifIn:     Math.round(280 * animScale)
+    readonly property color accent: _read("accent", "#458588")
+    readonly property color accentSoft: withAlpha(accent, dark ? 0.22 : 0.18)
+    // Accent over the opaque card it sits on. Cards are never translucent, so
+    // this composites to a flat colour rather than to mud.
+    readonly property color accentSurface: mix(raised, accent, dark ? 0.28 : 0.20)
+    readonly property color onAccent: luminance(accent) > 0.45 ? Qt.rgba(0, 0, 0, 0.92) : Qt.rgba(1, 1, 1, 0.96)
 
-    // Stagger delay per item in lists/grids
-    readonly property int animStagger:     Math.round(30  * animScale)
+    readonly property color positive: _read("greenBright", "#b8bb26")
+    readonly property color caution: _read("yellowBright", "#fabd2f")
+    readonly property color critical: _read("redBright", "#fb4934")
 
-    // OSD pop
-    readonly property int animOsdIn:       Math.round(200 * animScale)
-    readonly property int animOsdOut:      Math.round(140 * animScale)
+    // ── Materials ──────────────────────────────────────────────────────────
+    // Glass is applied to chrome that floats over the desktop; dense content
+    // sits on solid cards inside it. Hyprland blurs anything above
+    // `ignore_alpha` in config/hypr/rules.lua — keep these above it.
 
-    // QML Easing.BezierSpline format: [cx1, cy1, cx2, cy2, 1.0, 1.0]
-    // Default for opens/enters: quick response up front, then a soft landing.
-    readonly property var animCurveEnter:             [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
-    // Default for closes/exits: get moving immediately and clear the screen fast.
-    readonly property var animCurveExit:              [0.3, 0.0, 1.0, 1.0, 1.0, 1.0]
-    // Balanced curve for continuous motion like hover fades, toggles, and progress.
-    readonly property var animCurveStandard:          [0.4, 0.0, 0.2, 1.0, 1.0, 1.0]
-    // Stronger deceleration for showpiece entrances like popups and notification slides.
-    readonly property var animCurveEmphasizedEnter:   [0.05, 0.7, 0.1, 1.0, 1.0, 1.0]
+    readonly property color glassBar: withAlpha(_bg, 0.97)
+    readonly property color glassPanel: withAlpha(_bg, dark ? 0.80 : 0.86)
+    readonly property color solid: base
 
-    // ── Shared interactive element geometry ──
-    readonly property int hoverRadius: 8        // unified hover highlight corner radius
-    readonly property real pendingOpacity: 0.72 // controls staging an optimistic write
-    readonly property int listItemHeight: 40    // standard interactive row height
-    readonly property int listItemPadding: 10   // standard row left/right inset
-    readonly property int sectionSpacing: 12    // space between logical sections in a popup
-    readonly property int headerFontSize: fontSize // popup header text size
-    readonly property int flickableWheelStep: 72
+    // One hairline that reads as light catching the top edge, and a shadow wide
+    // enough to be felt rather than seen. A bright inner stroke around the whole
+    // perimeter plus a hard dark outer stroke is the Aero look: it draws the
+    // panel's outline instead of its depth.
+    readonly property color specularFade: Qt.rgba(1, 1, 1, dark ? 0.06 : 0.14)
+    readonly property color rim: dark ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(0, 0, 0, 0.10)
+    readonly property color shadow: Qt.rgba(0, 0, 0, dark ? 0.34 : 0.16)
+    // Above `ignore_alpha`, so the dimmed backdrop is blurred by the same pass
+    // as the panel over it. Below it, the panel's edge becomes a hard boundary
+    // between blurred and sharp — which is the one place the material stops
+    // looking like a material.
+    readonly property color scrim: Qt.rgba(0, 0, 0, dark ? 0.42 : 0.30)
 
-    // Toggle switch dimensions
-    readonly property int toggleWidth: 40
-    readonly property int toggleHeight: 22
-    readonly property int toggleKnobSize: 18
+    // ── Type ───────────────────────────────────────────────────────────────
 
-    // Small action button geometry
-    readonly property int btnRadius: 6
-    readonly property int btnHeight: 26
-    readonly property int btnPaddingH: 12
+    readonly property string family: _typeface.systemFamily || "Geist"
+    readonly property string familyMono: _typeface.family || "JetBrainsMono Nerd Font"
 
-    // Quick Settings toggle tiles
-    readonly property int qsTileHeight: 56
-    readonly property int qsTileExpandSize: 22
+    readonly property int _base: _typeface.size || 13
 
-    // Cascading context menus (tray / DBus menus)
-    readonly property int menuRowHeight: 28
-    readonly property int menuPadding: 6         // panel inset around the row column
-    readonly property int menuItemPadding: 10    // row left/right inset
-    readonly property int menuMinWidth: 150
-    readonly property int menuMaxWidth: 360
-    readonly property int menuGutter: 20         // check mark / icon column
-    readonly property int menuGap: 4             // panel offset from its anchor
-    readonly property int menuEdgeMargin: 6      // keep panels off the screen edge
-    readonly property int menuSubmenuOverlap: 4  // flyout tuck into its parent panel
-    readonly property int menuSeparatorHeight: 9
-    readonly property int menuHoverDelay: 160    // hover dwell before a flyout opens
+    readonly property int sizeDisplay: _base + 11
+    readonly property int sizeTitle: _base + 4
+    readonly property int sizeHeadline: _base + 1
+    readonly property int sizeBody: _base
+    readonly property int sizeCallout: _base - 1
+    readonly property int sizeCaption: _base - 2
+    readonly property int sizeMicro: _base - 3
+
+    readonly property int weightRegular: Font.Normal
+    readonly property int weightMedium: Font.Medium
+    readonly property int weightSemi: Font.DemiBold
+
+    // Numerals that change in place — clocks, percentages, bitrates — must not
+    // reflow their neighbours as digits swap.
+    readonly property var tabular: ({ "tnum": 1 })
 }

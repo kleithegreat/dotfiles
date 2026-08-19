@@ -63,14 +63,15 @@ hl.window_rule({
 })
 
 -- Layer Rules
--- Quickshell blur. ignore_alpha 0.79 keeps blur on the near-opaque panels
--- (bar is 0.92) while skipping transparent margins and the full-screen
--- popup-overlay gaps, so rounded corners get no blur halo.
+-- Quickshell blur. The shell's glass sits at 0.62 (bar) and 0.76 (panels), so
+-- the threshold has to clear both while still skipping the transparent window
+-- margins, the full-screen overlay's gaps and its scrim -- otherwise rounded
+-- corners pick up a blur halo and the scrim blurs the desktop behind it.
 hl.layer_rule({
     name = "quickshell-blur",
     match = { namespace = "quickshell:.*" },
     blur = true,
-    ignore_alpha = 0.79,
+    ignore_alpha = 0.35,
 })
 
 -- Disable hyprbars on apps with client-side decorations
