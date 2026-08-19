@@ -1074,8 +1074,15 @@ mod tests {
         );
     }
 
+    // Both ui_colors tests resolve the scheme catalog through
+    // `resolve::colors_dir()`, which reads DESKTOPCTL_REPO — it must be
+    // scoped here (like the vicinae pairing tests), not inherited by luck
+    // from whichever env-setting test happens to be running concurrently.
     #[test]
     fn ui_colors_follows_dark_hint_with_same_family_pair() {
+        let _lock = crate::test_support::env_lock();
+        let _repo = crate::test_support::ScopedEnvVar::set("DESKTOPCTL_REPO", repo_root());
+
         let dark = load_repo_colors("gruvbox-dark");
         let mut state = crate::theme::targets::testsupport::dummy_state();
         state.color_scheme = "gruvbox-dark".to_owned();
@@ -1089,6 +1096,9 @@ mod tests {
 
     #[test]
     fn ui_colors_uses_declared_dark_pairing_for_light_schemes() {
+        let _lock = crate::test_support::env_lock();
+        let _repo = crate::test_support::ScopedEnvVar::set("DESKTOPCTL_REPO", repo_root());
+
         let light = load_repo_colors("catppuccin-latte");
         let mut state = crate::theme::targets::testsupport::dummy_state();
         state.color_scheme = "catppuccin-latte".to_owned();
