@@ -46,6 +46,7 @@ Scope {
     // subscription have to exist from the start, whether or not anything is
     // currently looking at them.
     Component.onCompleted: {
+        void Sys.Desktopctl.ready;
         void Sys.Network.label;
         void Sys.Bluetooth.available;
         void Sys.Audio.percent;

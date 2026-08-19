@@ -51,7 +51,31 @@ QtObject {
         writer.running = true;
     }
 
+    function _ingest(data) {
+        sensitivity = data.sensitivity;
+        accelProfile = data.accel_profile;
+        scrollFactor = data.scroll_factor;
+        // Only drop staged values the backend now agrees with; a wholesale
+        // clear would discard optimism for writes still in the queue.
+        const remaining = {};
+        for (const key in staged) {
+            if (data[key] !== staged[key])
+                remaining[key] = staged[key];
+        }
+        staged = remaining;
+    }
+
     Component.onCompleted: refresh()
+
+    // State is pushed over the Desktopctl socket (snapshot on subscribe,
+    // hypr_input.changed per write); the startup refresh is the degraded
+    // path for a daemon that is not up yet.
+    readonly property Connections _events: Connections {
+        target: Desktopctl
+        function onInputChanged(state) {
+            root._ingest(state);
+        }
+    }
 
     readonly property Process _status: Process {
         id: status
@@ -59,11 +83,7 @@ QtObject {
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
-                    const data = JSON.parse(this.text);
-                    root.sensitivity = data.sensitivity;
-                    root.accelProfile = data.accel_profile;
-                    root.scrollFactor = data.scroll_factor;
-                    root.staged = ({});
+                    root._ingest(JSON.parse(this.text));
                 } catch (e) {
                     // Keep the last known values.
                 }
@@ -87,8 +107,8 @@ QtObject {
                 Toast.error(failure.text.trim().split("\n").filter(line => line !== "").pop() || "Input change failed");
             }
 
-            if (root._queue.length === 0)
-                root.refresh();
+            // No refresh: the daemon's hypr_input.changed event carries the
+            // committed state for every successful write.
             Qt.callLater(root._pump);
         }
     }

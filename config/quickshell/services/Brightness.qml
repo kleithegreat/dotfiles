@@ -128,7 +128,64 @@ QtObject {
         _all = usable;
     }
 
+    // Merge a pushed device update into _all. The subscribe-time snapshot
+    // carries every device; per-write events carry just the written one, so
+    // merge by id rather than replacing (a device removed while the shell
+    // runs lingers until the next snapshot; Displays gates the internal
+    // panel case already).
+    function _merge(listed) {
+        const merged = _all.slice();
+        for (let i = 0; i < listed.length; i++) {
+            const device = listed[i];
+            const max = Math.max(0, parseInt(device.max || 0, 10));
+            if (!device.available || !device.device || max <= 0)
+                continue;
+
+            const fraction = Math.max(0, Math.min(1, Number(device.fraction || 0)));
+            const entry = {
+                kind: device.kind || "",
+                device: device.device,
+                label: device.label || String(device.device).replace(/_/g, " "),
+                connector: device.connector || "",
+                raw: Math.max(0, parseInt(device.raw || 0, 10)),
+                max: max,
+                fraction: fraction,
+                percent: Math.round(fraction * 100)
+            };
+
+            let found = false;
+            for (let j = 0; j < merged.length; j++) {
+                if (merged[j].device === entry.device) {
+                    merged[j] = entry;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found)
+                merged.push(entry);
+        }
+        _all = merged;
+    }
+
     Component.onCompleted: refresh()
+
+    // Daemon-pushed updates: a full snapshot on subscribe, then one event per
+    // write — hotkey steps carry osd: true and drive the overlay, replacing
+    // the old `qs ipc call` round-trip. Changes made from the monitor's own
+    // buttons have no event source; they surface on the next daemon-side
+    // brightness operation (the old 30s detect poll is gone).
+    readonly property Connections _daemonEvents: Connections {
+        target: Desktopctl
+        function onBrightnessChanged(payload) {
+            // Our own queued writes are the truth while in flight; a pushed
+            // event describing an older write must not fight the slider.
+            const busy = writer.running || Object.keys(root._queued).length > 0;
+            if (!busy)
+                root._merge(payload.devices || []);
+            if (payload.osd)
+                root.announce();
+        }
+    }
 
     readonly property Process _status: Process {
         id: status
@@ -150,21 +207,11 @@ QtObject {
         id: writer
         onExited: code => {
             // A successful write needs no read-back: the value sent is the
-            // truth. The poll below still catches the monitor's own buttons.
+            // truth, and the daemon's event confirms it.
             if (code !== 0)
                 root.refresh();
             else
                 root._drain();
         }
-    }
-
-    readonly property Timer _poll: Timer {
-        // Safety net only. Enumerating DDC buses costs over a second, and every
-        // in-shell path already refreshes on demand; this exists to notice
-        // changes made from the monitor's physical buttons.
-        interval: 30000
-        running: true
-        repeat: true
-        onTriggered: root.refresh()
     }
 }

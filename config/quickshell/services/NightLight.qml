@@ -90,20 +90,23 @@ QtObject {
 
     Component.onCompleted: refresh()
 
-    property int _burst: 0
-
-    readonly property Timer _poll: Timer {
-        // 5s keeps changes made by the hotkeys (which call desktopctl directly)
-        // reasonably fresh; the 2s burst after a command exists because
-        // hyprsunset reports a brief false negative while restarting.
-        interval: root._burst > 0 ? 2000 : 5000
-        running: true
-        repeat: true
-        onTriggered: {
-            if (root._burst > 0)
-                root._burst--;
-            root.refresh();
+    // State is pushed over the Desktopctl socket: a snapshot on subscribe and
+    // night_light.changed after every set/toggle/solar reconcile — hotkey
+    // changes included, so no poll is needed. The startup refresh is the
+    // degraded path for a daemon that is not up yet.
+    readonly property Connections _events: Connections {
+        target: Desktopctl
+        function onNightLightChanged(status) {
+            root._ingest(status);
         }
+    }
+
+    readonly property Timer _settleRefresh: Timer {
+        // hyprsunset restarts asynchronously, so the event published right
+        // after a command can carry a false negative for `running`. One
+        // delayed read settles the tile; this replaces the old 2s poll burst.
+        interval: 2000
+        onTriggered: root.refresh()
     }
 
     readonly property Process _status: Process {
@@ -140,8 +143,7 @@ QtObject {
             }
 
             root.pending = "";
-            root._burst = 3;
-            root._poll.restart();
+            root._settleRefresh.restart();
         }
     }
 }

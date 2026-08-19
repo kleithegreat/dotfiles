@@ -10,8 +10,13 @@ import Quickshell.Io
 // generated fragments per apply. The old shell ran a theme queue and a Hyprland
 // queue that had to cross-gate each other to avoid interleaving — but the
 // Hyprland values *are* theme-state keys, so there was only ever one queue to
-// have. A value is staged optimistically and rolled back if the write fails,
-// and changes propagate on real command completion, never on a timer.
+// have. A value is staged optimistically and rolled back if the write fails.
+//
+// State arrives over the Desktopctl event socket: the daemon pushes a snapshot
+// on subscribe and theme.changed after every commit, so external changes
+// (hotkeys, a terminal `desktopctl theme set`) land here too. The one-shot
+// status read at startup is only the degraded path for a daemon that is not
+// up yet.
 QtObject {
     id: root
 
@@ -136,17 +141,44 @@ QtObject {
             staged = reverted;
         }
 
-        if (_queue.length === 0) {
-            refresh();
-            Qt.callLater(root.reloadCatalogs);
-        }
-
+        // No refresh here: the daemon's theme.changed event carries the
+        // committed state for every successful write.
         Qt.callLater(root._pump);
+    }
+
+    function _ingestState(next) {
+        state = next;
+        // Anything the backend now agrees with is no longer staged.
+        const remaining = {};
+        for (const key in staged) {
+            if (state[key] !== staged[key])
+                remaining[key] = staged[key];
+        }
+        staged = remaining;
     }
 
     Component.onCompleted: {
         refresh();
         reloadCatalogs();
+    }
+
+    readonly property Connections _events: Connections {
+        target: Desktopctl
+        function onThemeChanged(state, changedKeys) {
+            root._ingestState(state);
+            // The scheme and wallpaper catalogs only shift when these keys
+            // move (or the repo changes, which a session restart covers).
+            const catalogKeys = ["wallpaper", "wallpaper_dir", "filter_wallpaper", "color_scheme"];
+            for (let i = 0; i < changedKeys.length; i++) {
+                if (catalogKeys.indexOf(changedKeys[i]) >= 0) {
+                    Qt.callLater(root.reloadCatalogs);
+                    break;
+                }
+            }
+        }
+        function onPresetsChanged(presets) {
+            root.presets = presets;
+        }
     }
 
     readonly property Process _status: Process {
@@ -155,14 +187,7 @@ QtObject {
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
-                    root.state = JSON.parse(this.text);
-                    // Anything the backend now agrees with is no longer staged.
-                    const remaining = {};
-                    for (const key in root.staged) {
-                        if (root.state[key] !== root.staged[key])
-                            remaining[key] = root.staged[key];
-                    }
-                    root.staged = remaining;
+                    root._ingestState(JSON.parse(this.text));
                 } catch (e) {
                     // Keep the last good state.
                 }
