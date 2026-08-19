@@ -10,14 +10,16 @@
 - The override mode (`auto`/`on`/`off`) is intentionally in-memory only: a
   daemon restart returns to `auto`. Do not "fix" this by persisting it.
 - Schedule: `hyprsunset` on at 4500K from sunset to sunrise; `dark_hint`
-  enabled at 23:00 and disabled at 06:00 local time as one-shot edges, plus a
-  single startup reconcile if the persisted value is stale. After that first
-  reconcile, staying inside a window must not keep reapplying the same value.
-- `dark_hint` deliberately has *two* supported write paths: the daemon's
-  scheduled edges and direct `desktopctl theme set dark_hint` / preset writes.
-  Both persist through the theming pipeline's per-key upserts, so concurrent
-  writers commute on disjoint keys. A unified override model is an open
-  decision (`TODO.md`); do not unify it unilaterally.
+  enabled at 23:00 and disabled at 06:00 local time as one-shot edges.
+  Staying inside a window must not keep reapplying the same value.
+- `dark_hint` override policy: a manual write (theme set or preset) wins
+  until the next 23:00/06:00 edge, when the schedule reasserts. The daemon is
+  the single writer — scheduled edges route through the theme controller like
+  every other theme mutation — and manual writes record their time in the
+  `dark_hint_manual_at` state row. A daemon restart never clobbers a manual
+  value: the scheduler acts on edges only, plus a once-per-boot catch-up that
+  applies the schedule value only when no manual write is recorded for the
+  current window (covering machines that were off across an edge).
 - Coordinate resolution order: cached location fresh within 6 hours →
   GeoClue (`where-am-i`) → stale-but-parseable cache → hardcoded fallback
   `30.6280, -96.3344` (College Station, TX). Degradation must be

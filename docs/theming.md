@@ -21,12 +21,17 @@
   target-local match arms. Same-family light/dark resolution is shared through
   one resolver (`scheme_pair.rs`, used by `qt`, `gtksourceview`, `vicinae`):
   explicit `dark_scheme` pairing wins, then variant-preference ranking.
-- Writes are atomic replacements; state persists only after the required
-  target apply succeeds; mutations upsert only the changed keys in one
-  transaction so concurrent writers commute on disjoint keys. Older persisted
-  rows are backfilled from compiled defaults before validation.
+- All theme mutations route through the daemon's theme controller, which
+  serializes them on one queue without holding a lock across a multi-second
+  apply; the CLI is a strict socket client ([[desktopctl]]). Writes are
+  atomic replacements; state persists only after the required target apply
+  succeeds; mutations upsert only the changed keys in one transaction. Older
+  persisted rows are backfilled from compiled defaults before validation.
 - `dark_hint` persistence always flows through the theming pipeline, even when
-  the daemon decides the value ([[sun-schedule]]).
+  the daemon's schedule decides the value; a manual write additionally upserts
+  `dark_hint_manual_at` in the same transaction, which gates the scheduler's
+  boot catch-up ([[sun-schedule]]). A preset carrying `dark_hint` applies in
+  the same single pass as its other keys and counts as a manual write.
 - `theme sync` is the activation-safe subset (no runtime reload hooks);
   Home Manager activation runs it so generated fragments exist before the
   first session. No generated output is ever committed to the repo.

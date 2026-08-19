@@ -3,11 +3,27 @@
 ## Intent
 
 - One Rust binary owns the desktop glue: `daemon` (focus tracker, monitor
-  watcher, solar scheduler, Unix-socket server), the theming pipeline
-  (`theme`), `brightness`, Hyprland helpers (`hypr`), the night-light client,
-  and `launch-quickshell`.
-- The daemon is the single live arbiter of `hyprsunset`; see [[sun-schedule]].
-  Quickshell and keybinds are request surfaces, never parallel writers.
+  watcher, solar scheduler, Unix-socket server, and the state controllers),
+  the theming pipeline (`theme`), `brightness`, Hyprland helpers (`hypr`),
+  the night-light client, and `launch-quickshell`.
+- The daemon is the single writer of all mutable desktop state: theme state,
+  the hypr override files, brightness dim/restore, and `hyprsunset`
+  ([[sun-schedule]]). CLI write subcommands are thin socket clients that
+  hard-fail when the daemon is unreachable — they must never become a second
+  writer. Quickshell and keybinds are request surfaces.
+- Deliberate exceptions to strict daemon routing: `theme sync` keeps a direct
+  in-process path because Home Manager activation runs it with no session;
+  the hyprctl-only helpers (`toggle-float`, `lid-switch`,
+  `reclaim-workspaces`) stay direct because they persist nothing and must
+  work with the session locked or the daemon dead; `list-*`, `sun status`,
+  and `launch-quickshell` are reads or launchers. Status reads go through the
+  daemon for a consistent snapshot but fall back to direct reads so a dead
+  daemon can still be debugged.
+- The socket pushes change events (`theme`, `night_light`, `brightness`,
+  `hypr_input` topics) to subscribed connections, each preceded by a
+  snapshot; events publish only after a successful commit. Quickshell
+  subscribes instead of polling ([[quickshell]]). Write subcommands accept
+  `--wait-daemon` for autostart call sites that race the daemon's own spawn.
 - Repo root resolves from `DESKTOPCTL_REPO`, falling back to
   `~/repos/dotfiles`. Quickshell launch and repo-relative concat base paths
   depend on this.
@@ -47,9 +63,9 @@ default; measurement shows it is not (matching `--help`).
 
 ### A brightness slider jumping backward is a racing read, not a slow monitor
 The BenQ reports a written value back correctly ~100ms after the write. When a
-slider snaps to an old value, look for a status read *started before* the
-write that landed after it — `BrightnessService.qml` guards exactly this with
-`_writeEpoch`/`_statusEpoch`.
+slider snaps to an old value, look for a status read or pushed event describing
+a pre-write world — `services/Brightness.qml` guards both: the epoch pair on
+status reads, and dropping daemon events while its own writes are queued.
 
 ### External monitor brightness needs DDC/CI plus i2c access
 If a monitor's slider is missing or dead: check the monitor OSD has DDC/CI

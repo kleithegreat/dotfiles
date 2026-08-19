@@ -14,10 +14,24 @@ Open issues and pending validations. Delete entries when resolved.
 - [ ] Laptop VA-API: verify `vainfo` picks up `iHD` via `intel-media-driver`.
 - [ ] Quickshell live smoke test after the rewrite: slider drags end to end
       (OSD suppression across a volume drag, night-light commit-on-release,
-      brightness drag vs the 30s poll), Wi-Fi join forms including enterprise,
-      Display staged apply and its revert countdown, tray menus via
-      QsMenuAnchor, and the Bluetooth pane on the laptop — the desktop has no
-      bluez running, so the native adapter path is untested on real hardware.
+      brightness drag vs pushed events), Wi-Fi join forms including
+      enterprise, Display staged apply and its revert countdown, tray menus
+      via QsMenuAnchor, and the Bluetooth pane on the laptop — the desktop has
+      no bluez running, so the native adapter path is untested on real
+      hardware.
+- [ ] Daemon-owned-state migration smoke test (after rebuild; restart the
+      daemon before the shell): terminal `desktopctl theme set color_scheme`
+      updates an open settings pane; brightness slider tracks Super+F6/F7 and
+      OSD appears (event-driven); Super+F8 night-light toggle updates the tile
+      promptly; `pkill -x desktopctl` then `theme set` prints the strict
+      daemon-unavailable error while `theme status` still prints, and the
+      shell reconnects when the daemon returns (verify the QML Socket
+      reconnect-by-resetting-`connected` actually retriggers — fall back to a
+      Loader-recreated Socket if not); manual `theme set dark_hint true` in
+      daytime survives a daemon restart and the schedule reasserts at the next
+      edge; hypridle dim/restore restores the original level with no pid file;
+      relogin applies the wallpaper through `--wait-daemon` and the laptop
+      lid-switch works with the daemon absent.
 
 ## Open issues
 
@@ -30,10 +44,6 @@ Open issues and pending validations. Delete entries when resolved.
       `/dev/dri/cardN` ordering, which can shift across boots/updates.
       Blocked on Aquamarine supporting by-path selectors (colons split the
       list); revisit on Aquamarine updates.
-- [ ] Theming/sun-schedule (medium): `dark_hint` has two live policy
-      initiators (daemon schedule + direct theme writes) and no unified
-      override model. Writers commute mechanically now; the remaining work is
-      an owner decision on policy.
 - [ ] Nix (medium): drop the EOL Electron insecure exceptions
       (`electron-39.8.10` for bitwarden-desktop, `electron-40.10.5` for
       winboat) once nixpkgs moves those packages to supported Electron.

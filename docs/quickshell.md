@@ -35,6 +35,12 @@
   surface as toasts, never console lines. All `hyprctl` traffic goes through the
   `Compositor` gateway, which exists because hyprctl reports failure on stdout
   while exiting 0 ([[hyprland]]).
+- State flows the other way over the `Desktopctl` service's subscribed socket:
+  the daemon pushes a snapshot per topic and change events after each commit,
+  so external changes (hotkeys, terminal) reach the shell without polling.
+  Reconnect-with-backoff in that service is load-bearing — the daemon and the
+  shell start concurrently, and the shell restarts alone. Services keep a
+  one-shot startup status read as the degraded path while the daemon is down.
 - The IPC target and function names are a published interface, not internal
   naming: `config/hypr/keybinds.lua` calls them, and that file reaches the
   session through Home Manager, so a rename leaves the keybinds dead until the
@@ -80,6 +86,12 @@ other's exit codes. `Power` probes `laptop-power-profile`, `powerprofilesctl`
 and the cpufreq governor at once: a chained version stalls forever on the first
 backend that is not installed, and every later one is silently never tried —
 with no failing command to point at.
+
+### Monitor-button brightness changes have no event source
+The 30s DDC-enumerating brightness poll is gone; brightness state arrives as
+daemon events, and nothing watches the monitor's own OSD buttons. A change made
+on the monitor itself surfaces only at the next daemon-side brightness
+operation. Accepted trade-off — do not reintroduce the poll for it.
 
 ### Singletons are constructed on first reference
 A service that polls or holds a subscription does not exist until something
