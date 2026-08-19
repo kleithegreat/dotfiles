@@ -6,7 +6,7 @@ let
   # writable out-of-store symlink into the repo checkout below so
   # `:Lazy update` writes the committed lock directly (review + commit the
   # diff afterward). Assumes the checkout lives at ~/repos/dotfiles, same as
-  # the DESKTOPCTL_REPO fallback in config/hypr/keybinds.lua.
+  # desktopctl's DESKTOPCTL_REPO fallback.
   nvimSource = lib.cleanSourceWith {
     name = "nvim-config";
     src = "${dotfilesPath}/config/nvim";

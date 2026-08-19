@@ -96,15 +96,15 @@ bind(mainMod .. " + F10", hl.dsp.exec_cmd("grim"), { description = "Screenshot f
 bind(mainMod .. " + L", hl.dsp.exec_cmd("loginctl lock-session"), { description = "Lock session" })
 
 bind(mainMod .. " + Escape",
-    hl.dsp.exec_cmd([[sh -lc 'qs -p "${DESKTOPCTL_REPO:-$HOME/repos/dotfiles}/config/quickshell" ipc call popups togglePowerMenu']]),
+    hl.dsp.exec_cmd([[sh -lc 'qs -p "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell" ipc call popups togglePowerMenu']]),
     { description = "Toggle power menu" })
 bind(mainMod .. " + SHIFT + N",
-    hl.dsp.exec_cmd([[sh -lc 'qs -p "${DESKTOPCTL_REPO:-$HOME/repos/dotfiles}/config/quickshell" ipc call popups toggleDrawer']]),
+    hl.dsp.exec_cmd([[sh -lc 'qs -p "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell" ipc call popups toggleDrawer']]),
     { description = "Toggle notifications drawer" })
 
 -- Settings panel
 bind(mainMod .. " + T",
-    hl.dsp.exec_cmd([[sh -lc 'qs -p "${DESKTOPCTL_REPO:-$HOME/repos/dotfiles}/config/quickshell" ipc call settings toggle']]),
+    hl.dsp.exec_cmd([[sh -lc 'qs -p "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell" ipc call settings toggle']]),
     { description = "Toggle settings" })
 
 -- Restart Quickshell

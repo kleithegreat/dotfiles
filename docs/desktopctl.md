@@ -25,8 +25,10 @@
   subscribes instead of polling ([[quickshell]]). Write subcommands accept
   `--wait-daemon` for autostart call sites that race the daemon's own spawn.
 - Repo root resolves from `DESKTOPCTL_REPO`, falling back to
-  `~/repos/dotfiles`. Quickshell launch and repo-relative concat base paths
-  depend on this.
+  `~/repos/dotfiles`. Repo-relative concat base paths and the scheme/preset
+  catalogs depend on this. `launch-quickshell` does not: it runs the Home
+  Manager-deployed config at `$XDG_CONFIG_HOME/quickshell` (store symlinks),
+  so shell changes go live on rebuild, never on a repo edit.
 - `desktopctl hypr` writes only its own generated override files
   (`input-runtime.lua`, `animations-override-data.lua`,
   `keybinds-override-data.lua`) — never the static or host-selected fragments

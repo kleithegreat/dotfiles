@@ -20,7 +20,9 @@ pub fn run(print_env: bool) -> Result<()> {
         return Ok(());
     }
 
-    let quickshell_path = paths::repo_root()?.join("config/quickshell");
+    // The Home Manager-deployed config (store symlinks), not the repo
+    // checkout: shell changes go live on rebuild, never on a repo edit.
+    let quickshell_path = paths::xdg_config_home()?.join("quickshell");
     let mut command = Command::new("quickshell");
     command.arg("-p").arg(quickshell_path);
     command.env_remove("HYPRCURSOR_THEME");
