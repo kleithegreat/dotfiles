@@ -4,7 +4,7 @@ let
   kernelOomNotifier = pkgs.writeShellApplication {
     name = "kernel-oom-notifier";
     runtimeInputs = with pkgs; [ coreutils libnotify systemd util-linux ];
-    text = ''
+    text = /* bash */ ''
       notify_user=kevin
       notify_uid="$(id -u "$notify_user")"
 
@@ -90,7 +90,7 @@ in
         Type = "oneshot";
         RemainAfterExit = true;
       };
-      script = ''
+      script = /* bash */ ''
         # Use MGLRU's thrash-prevention knob as the MGLRU-friendly equivalent of
         # LE9/LE10-style working-set and file-cache protection.
         if [ -w /sys/kernel/mm/lru_gen/enabled ]; then

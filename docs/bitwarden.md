@@ -1,52 +1,35 @@
-# Bitwarden Desktop + Chromium Biometric Unlock
+# Bitwarden
 
-Runbook for the Bitwarden desktop app, browser integration, and
-fingerprint-backed biometric unlock.
+## Intent
 
-## Current Wiring
+- Biometric unlock is a polkit grant, not a PAM change. Bitwarden's "unlock
+  with system authentication" raises a polkit prompt that hyprpolkitagent
+  answers with fprintd, which is why the laptop only sets
+  `polkit-1.fprintAuth`. Do not add PAM stanzas for Bitwarden — if the prompt
+  stops working the fault is in the polkit agent or fprintd, not in PAM.
+- The vault's own configuration — server URL, browser integration, biometric
+  unlock, tray behavior — is app-internal state and stays that way. It is
+  deliberately not declarative: none of it is reachable from Nix, and nothing
+  in this repo should grow a module that pretends otherwise.
 
-- **Install**: `pkgs.bitwarden-desktop` is in `environment.systemPackages` in
-  `system/services.nix` (not Home Manager). The nixpkgs package ships a polkit
-  policy at `share/polkit-1/actions/com.bitwarden.Bitwarden.policy`, and only
-  system-level packages get polkit policies linked into the system-wide
-  actions directory (see nixpkgs#344073 and the "Home Manager packages do not
-  register system-scoped helpers" rule in `docs/nix.md`). The package
-  also includes the `desktop_proxy` native messaging binary required for
-  browser integration. The package currently needs the narrow
-  `electron-39.8.10` insecure-package exception in `system/configuration.nix`.
-- **Window rule**: `config/hypr/rules.lua` keeps
-  `windowrule = match:class Bitwarden, float on, center on`.
-- **Fingerprint path**: `hosts/laptop/system.nix` sets
-  `polkit-1.fprintAuth = true`, so Bitwarden's "Unlock with system
-  authentication" polkit prompt is presented by hyprpolkitagent with fprintd.
-  No PAM changes required.
+## Quirks
 
-## Manual Setup
+### Browser integration must be enabled in the desktop app before the extension can pair
+The extension's "unlock with biometrics" toggle does nothing until the desktop
+app has registered its native messaging host, and the failure is silent from
+the extension's side. Enable Settings > App settings > "Allow browser
+integration" in the desktop app first, then the extension toggle, then accept
+the pairing prompt that the desktop app raises.
 
-1. Enroll fingerprints if needed: `fprintd-list $USER`, then `fprintd-enroll`
-   (and `fprintd-enroll -f left-index-finger`).
-2. Open Bitwarden manually and log in. For a self-hosted Vaultwarden server,
-   set the server URL via the gear icon on the login screen first.
-3. Enable tray behavior in Settings: "Close to tray icon", "Start to tray
-   icon" (if present), "Minimize to tray icon".
-4. Enable browser integration: Settings > App settings > "Allow browser
-   integration". This registers the `desktop_proxy` native messaging host at
-   `~/.config/chromium/NativeMessagingHosts/`.
-5. Enable biometric unlock: Settings > Security > "Unlock with system
-   authentication" (triggers the polkit/fingerprint prompt).
-6. In the Chromium extension: Settings > Account security > "Unlock with
-   biometrics", then accept the connection prompt in the desktop app.
-7. Verify: lock the extension (or restart Chromium), open the extension popup,
-   touch the fingerprint reader — the vault should unlock.
+### "Browser integration not enabled" is usually a stale native messaging host
+The desktop app writes
+`~/.config/chromium/NativeMessagingHosts/com.8bit.bitwarden.json` pointing at a
+`desktop_proxy` binary in the Nix store. That path is not updated when the
+package is garbage-collected or upgraded, so the file can survive while the
+binary it names is gone. Check the `path` field resolves before debugging
+anything else.
 
-## Troubleshooting
-
-- **Extension says "browser integration not enabled"**: Check that
-  `~/.config/chromium/NativeMessagingHosts/com.8bit.bitwarden.json` exists and
-  its `path` field points at a valid `desktop_proxy` binary in the Nix store.
-- **Fingerprint prompt doesn't appear**: Verify `fprintd-verify` works
-  standalone and hyprpolkitagent is running (`pgrep hyprpolkitagent`).
-- **Window rule doesn't match**: Run `hyprctl clients` with Bitwarden open and
-  update the class in `config/hypr/rules.lua` if it differs from `Bitwarden`.
-- **No tray icon**: The Quickshell bar needs its system tray
-  (StatusNotifierItem) widget for the icon to appear.
+### The window rule matches a class that upstream has changed before
+`config/hypr/rules.lua` floats class `Bitwarden`. If the window stops floating
+after an upgrade, read the real class out of `hyprctl clients` rather than
+assuming the rule is wrong in some subtler way.

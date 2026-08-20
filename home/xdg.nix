@@ -53,7 +53,7 @@ let
   # Hyprland runs through /bin/sh.
   codeLauncher = pkgs.writeShellApplication {
     name = "code-hypr";
-    text = ''
+    text = /* bash */ ''
       cmd=code
       for arg in "$@"; do
         cmd="$cmd $(printf '%q' "$arg")"
@@ -110,13 +110,16 @@ let
     # VS Code's URL-handler launcher only exists to claim vscode:// links.
     "code-url-handler.desktop"
   ];
-  hiddenDesktopEntries = lib.listToAttrs (map (name: {
-    name = "applications/${name}";
-    value.text = ''
-      [Desktop Entry]
-      Hidden=true
-    '';
-  }) hiddenDesktopFiles);
+  hiddenDesktopEntries =
+    hiddenDesktopFiles
+    |> map (name: {
+      name = "applications/${name}";
+      value.text = ''
+        [Desktop Entry]
+        Hidden=true
+      '';
+    })
+    |> lib.listToAttrs;
 in
 {
   xdg.configFile = staticConfigSources // recursiveConfigSources // {

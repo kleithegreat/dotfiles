@@ -28,16 +28,17 @@ let
   # mirroring the SSL/interop toggles from the flake's own glaze-hyprland
   # overlay. Drop once the Hyprland input carries upstream's unbounded
   # find_package.
+  glazeForHyprlandVersion = "7.9.1";
   glazeForHyprland =
     (pkgs.glaze.override {
       enableSSL = false;
       enableInterop = false;
-    }).overrideAttrs (_: rec {
-      version = "7.9.1";
+    }).overrideAttrs (_: {
+      version = glazeForHyprlandVersion;
       src = pkgs.fetchFromGitHub {
         owner = "stephenberry";
         repo = "glaze";
-        tag = "v${version}";
+        tag = "v${glazeForHyprlandVersion}";
         hash = "sha256-NRRq5MGF2f5PW0teYnq58ELzson+U6KHVPaY6r30KLA=";
       };
     });

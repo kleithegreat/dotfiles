@@ -24,9 +24,10 @@ let
   cudaPackages = cudaPackages_13_3.overrideScope (
     _final: prev: {
       libnvshmem = prev.libnvshmem.overrideAttrs (old: {
-        cmakeFlags = map (disableCmakeBool "NVSHMEM_BUILD_EXAMPLES") (
-          map (disableCmakeBool "NVSHMEM_BUILD_TESTS") old.cmakeFlags
-        );
+        cmakeFlags =
+          old.cmakeFlags
+          |> map (disableCmakeBool "NVSHMEM_BUILD_TESTS")
+          |> map (disableCmakeBool "NVSHMEM_BUILD_EXAMPLES");
       });
     }
   );

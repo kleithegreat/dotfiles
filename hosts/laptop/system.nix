@@ -129,7 +129,7 @@ in {
   # every pkexec call above fails with "pkexec must be setuid root".
   security.polkit.enablePkexecWrapper = true;
 
-  security.polkit.extraConfig = ''
+  security.polkit.extraConfig = /* javascript */ ''
     polkit.addRule(function(action, subject) {
       if (action.id === "net.reactivated.fprint.device.enroll" &&
           subject.user === "kevin" && subject.local && subject.active) {

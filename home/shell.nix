@@ -36,7 +36,7 @@ in
 
     autocd = true;
     enableCompletion = true;
-    completionInit = ''
+    completionInit = /* bash */ ''
       autoload -Uz compinit
       mkdir -p "$XDG_CACHE_HOME/zsh"
       compinit -C -d "$XDG_CACHE_HOME/zsh/zcompdump"
@@ -79,7 +79,7 @@ in
       }
     ];
 
-    initContent = ''
+    initContent = /* bash */ ''
       # ── Options ──────────────────────────────────────────────
       setopt INTERACTIVE_COMMENTS
       setopt NO_BEEP

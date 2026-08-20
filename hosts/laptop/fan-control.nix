@@ -1,44 +1,5 @@
 { pkgs, lib, ... }:
 
-let
-  i8kutils = pkgs.stdenv.mkDerivation rec {
-    pname = "i8kutils";
-    version = "1.60";
-
-    src = pkgs.fetchFromGitHub {
-      owner = "Wer-Wolf";
-      repo = "i8kutils";
-      rev = "v${version}";
-      hash = "sha256-vNRi56gjVaQKS1bMbWw0MSKsf1tZcrkILGMqklQ6OLs=";
-    };
-
-    nativeBuildInputs = with pkgs; [ meson ninja makeWrapper ];
-    buildInputs = [ pkgs.tcl ];
-
-    mesonFlags = [
-      "-Dmoduledir=${placeholder "out"}/lib/tcl8/8.6"
-      "-Ddefault_config=disabled"
-      "-Dsystemd_support=disabled"
-      "-Dsysvinit_support=disabled"
-    ];
-
-    postInstall = ''
-      for bin in i8kmon i8kctl; do
-        wrapProgram "$out/bin/$bin" \
-          --prefix PATH : ${lib.makeBinPath [ pkgs.acpi ]} \
-          --set TCL8_6_TM_PATH "$out/lib/tcl8/8.6" \
-          --set TCLLIBPATH "${pkgs.tclPackages.tcllib}/lib"
-      done
-    '';
-
-    meta = {
-      description = "Fan control for Dell laptops via dell-smm-hwmon";
-      homepage = "https://github.com/Wer-Wolf/i8kutils";
-      license = lib.licenses.gpl3Plus;
-      platforms = lib.platforms.linux;
-    };
-  };
-in
 {
   # ── Dell SMM userspace fan control ──────────────────────────
   #
@@ -85,11 +46,11 @@ in
     requisite = [ "multi-user.target" ];
     wantedBy = [ "sys-subsystem-hwmon-devices-dell_smm.device" ];
     serviceConfig = {
-      ExecStart = "${i8kutils}/bin/i8kmon";
+      ExecStart = lib.getExe pkgs.i8kutils;
       Restart = "on-failure";
       RestartSec = 5;
     };
   };
 
-  environment.systemPackages = [ i8kutils ];
+  environment.systemPackages = [ pkgs.i8kutils ];
 }

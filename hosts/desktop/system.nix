@@ -36,7 +36,7 @@
   services.power-profiles-daemon.enable = true;
   # Keep this desktop pinned to the top performance profile whenever the daemon
   # comes up, including later restarts.
-  systemd.services.power-profiles-daemon.postStart = ''
+  systemd.services.power-profiles-daemon.postStart = /* bash */ ''
     ${config.services.power-profiles-daemon.package}/bin/powerprofilesctl set performance
   '';
 

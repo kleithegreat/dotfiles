@@ -36,7 +36,7 @@ in
   ];
 
   system.activationScripts.desktopctlSddmThemeBackground = {
-    text = ''
+    text = /* bash */ ''
       mkdir -p "${sddmThemeBackgroundDir}"
       if [ ! -e "${sddmThemeBackgroundPath}" ]; then
         install -Dm0644 ${../styling/wallpapers/lmao.png} "${sddmThemeBackgroundPath}"
@@ -48,7 +48,7 @@ in
     description = "Sync desktopctl wallpaper into SDDM background";
     serviceConfig = {
       Type = "oneshot";
-      ExecStart = pkgs.writeShellScript "desktopctl-sddm-theme-sync" ''
+      ExecStart = pkgs.writeShellScript "desktopctl-sddm-theme-sync" /* bash */ ''
         set -eu
 
         if [ ! -f "${sddmThemeStagingPath}" ]; then

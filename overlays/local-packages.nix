@@ -14,6 +14,7 @@ final: prev: {
   comfyui = final.callPackage ../pkgs/comfyui { };
   desktopctl = final.callPackage ../desktopctl { };
   helium = final.callPackage ../pkgs/helium { };
+  i8kutils = final.callPackage ../pkgs/i8kutils { };
   lmstudio = final.callPackage ../pkgs/lmstudio {
     upstreamLmstudio = prev.lmstudio;
   };
