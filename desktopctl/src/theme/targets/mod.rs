@@ -515,7 +515,7 @@ mod tests {
     }
 
     #[test]
-    fn registry_contains_all_python_targets() {
+    fn registry_contains_every_target() {
         let registry = build_registry().expect("registry builds");
         let names = registry.iter().map(|(name, _)| name).collect::<Vec<_>>();
         assert_eq!(names.len(), 26);
@@ -611,7 +611,7 @@ mod tests {
     }
 
     #[test]
-    fn alacritty_output_matches_python_format() {
+    fn alacritty_output_is_toml_font_and_palette_sections() {
         let output = text(alacritty::generate(&dummy_colors(), &dummy_state()));
         assert_eq!(
             output,
@@ -638,7 +638,7 @@ mod tests {
     }
 
     #[test]
-    fn quickshell_output_matches_python_format() {
+    fn quickshell_output_is_a_colors_and_fonts_document() {
         let output = text(quickshell::generate(&dummy_colors(), &dummy_state()));
         assert_eq!(
             output,
@@ -659,7 +659,7 @@ mod tests {
     }
 
     #[test]
-    fn neovim_output_matches_python_format() {
+    fn neovim_output_tracks_scheme_lightness() {
         let output = text(neovim::generate(&dummy_colors(), &dummy_state()));
         assert_eq!(output, "{\n  \"background\": \"dark\"\n}\n");
 
@@ -668,19 +668,19 @@ mod tests {
     }
 
     #[test]
-    fn neovide_output_matches_python_format() {
+    fn neovide_output_sets_guifont_with_size() {
         let output = text(neovide::generate(&dummy_colors(), &dummy_state()));
         assert_eq!(output, "vim.o.guifont = \"JetBrains Mono Nerd Font:h11\"\n");
     }
 
     #[test]
-    fn bat_output_matches_python_format() {
+    fn bat_output_selects_the_scheme_theme() {
         let output = text(bat::generate(&dummy_colors(), &dummy_state()));
         assert_eq!(output, "--theme=gruvbox-dark\n");
     }
 
     #[test]
-    fn ghostty_output_matches_python_format() {
+    fn ghostty_output_is_key_values_with_an_indexed_palette() {
         let output = text(ghostty::generate(&dummy_colors(), &dummy_state()));
         assert_eq!(
             output,
@@ -720,7 +720,7 @@ mod tests {
     }
 
     #[test]
-    fn qt_output_matches_python_format() {
+    fn qt_output_is_a_colorscheme_ini_with_three_states() {
         let mut state = dummy_state();
         state.dark_hint = true;
         let output = text(qt::generate(&dummy_colors(), &state));
@@ -741,7 +741,7 @@ mod tests {
     }
 
     #[test]
-    fn cursor_generate_matches_python_behavior() {
+    fn cursor_output_inherits_the_scheme_icon_theme() {
         let output = text(cursor::generate(&dummy_colors(), &dummy_state()));
         assert_eq!(
             output,
@@ -750,7 +750,7 @@ mod tests {
     }
 
     #[test]
-    fn vscode_json_uses_python_ascii_escaping() {
+    fn vscode_json_escapes_non_ascii_scheme_names() {
         let output = text(vscode::generate(&rose_pine_dawn_colors(), &dummy_state()));
         assert!(
             output.contains("\"workbench.colorTheme\": \"Ros\\u00e9 Pine Dawn\""),
