@@ -17,8 +17,6 @@ const DIM_DELAY: Duration = Duration::from_millis(50);
 const BACKLIGHT_ROOT: &str = "/sys/class/backlight";
 const DDC_BRIGHTNESS_VCP: &str = "10";
 
-
-
 /// DDC/CI displays are addressed by I2C bus rather than by `ddcutil` display
 /// number: `--display` makes `ddcutil` re-enumerate every bus on each
 /// invocation (~1s here), while `--bus` talks to the monitor directly (~0.1s).
@@ -144,7 +142,10 @@ pub(crate) fn set_core(device: Option<&str>, percent: u16) -> Result<serde_json:
     };
 
     set_raw(&state.device, raw)?;
-    Ok(serde_json::to_value(status_payload(&BrightnessState { current: raw, ..state })?)?)
+    Ok(serde_json::to_value(status_payload(&BrightnessState {
+        current: raw,
+        ..state
+    })?)?)
 }
 
 pub(crate) fn step_core(device: Option<&str>, direction: f64) -> Result<serde_json::Value> {
@@ -162,7 +163,10 @@ pub(crate) fn step_core(device: Option<&str>, direction: f64) -> Result<serde_js
     };
 
     set_raw(&state.device, raw)?;
-    Ok(serde_json::to_value(status_payload(&BrightnessState { current: raw, ..state })?)?)
+    Ok(serde_json::to_value(status_payload(&BrightnessState {
+        current: raw,
+        ..state
+    })?)?)
 }
 
 /// Save the current level and ramp down, checking `abort` between steps.

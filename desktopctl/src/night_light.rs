@@ -425,5 +425,4 @@ mod tests {
     fn parse_temperature_reply_rejects_non_numeric_responses() {
         assert!(parse_temperature_reply("ok").is_err());
     }
-
 }

@@ -499,10 +499,7 @@ mod tests {
         let dark_off = local_datetime(date, DARK_OFF_HOUR, 0, 0);
 
         // 22:59 is still the day window that opened at 06:00.
-        assert_eq!(
-            dark_window_start(local_datetime(date, 22, 59, 0)),
-            dark_off
-        );
+        assert_eq!(dark_window_start(local_datetime(date, 22, 59, 0)), dark_off);
         // 23:00 opens the dark window.
         assert_eq!(dark_window_start(local_datetime(date, 23, 0, 0)), dark_on);
         // 05:59 the next morning is still yesterday's dark window.

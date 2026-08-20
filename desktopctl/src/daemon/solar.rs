@@ -171,7 +171,10 @@ mod tests {
         assert_eq!(catch_up_decision(true, before, window_start, true), None);
 
         // No manual record: plain schedule reassertion on disagreement.
-        assert_eq!(catch_up_decision(false, None, window_start, true), Some(true));
+        assert_eq!(
+            catch_up_decision(false, None, window_start, true),
+            Some(true)
+        );
         assert_eq!(
             catch_up_decision(true, None, window_start, false),
             Some(false)

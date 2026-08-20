@@ -283,7 +283,8 @@ async fn handle_client(stream: UnixStream, context: ServerContext) -> io::Result
             }
             methods::THEME_STATUS => {
                 let result = tokio::task::spawn_blocking(|| {
-                    crate::theme::resolve::load_state().map(|state| crate::theme::state_json(&state))
+                    crate::theme::resolve::load_state()
+                        .map(|state| crate::theme::state_json(&state))
                 })
                 .await;
                 match result {
@@ -515,7 +516,10 @@ async fn write_result<W: AsyncWrite + Unpin>(
 
 fn resolve_topics(requested: Vec<String>) -> Vec<String> {
     if requested.is_empty() {
-        return ipc::TOPICS.iter().map(|topic| (*topic).to_owned()).collect();
+        return ipc::TOPICS
+            .iter()
+            .map(|topic| (*topic).to_owned())
+            .collect();
     }
 
     requested
@@ -595,7 +599,8 @@ async fn push_snapshots<W: AsyncWrite + Unpin>(
             }
             "theme" => {
                 if let Ok(Ok(state)) = tokio::task::spawn_blocking(|| {
-                    crate::theme::resolve::load_state().map(|state| crate::theme::state_json(&state))
+                    crate::theme::resolve::load_state()
+                        .map(|state| crate::theme::state_json(&state))
                 })
                 .await
                 {
@@ -819,7 +824,9 @@ mod tests {
 
         let (reader, mut writer) = client.into_split();
         writer
-            .write_all(b"{\"method\":\"subscribe\",\"params\":{\"topics\":[\"theme\",\"bogus\"]}}\n")
+            .write_all(
+                b"{\"method\":\"subscribe\",\"params\":{\"topics\":[\"theme\",\"bogus\"]}}\n",
+            )
             .await
             .expect("write subscribe");
 
@@ -850,8 +857,14 @@ mod tests {
         assert_eq!(snapshot["data"]["changed_keys"], serde_json::json!([]));
         assert!(snapshot["data"]["state"].is_object());
 
-        events.publish("night_light.changed", serde_json::json!({ "ignored": true }));
-        events.publish("theme.changed", serde_json::json!({ "changed_keys": ["wallpaper"] }));
+        events.publish(
+            "night_light.changed",
+            serde_json::json!({ "ignored": true }),
+        );
+        events.publish(
+            "theme.changed",
+            serde_json::json!({ "changed_keys": ["wallpaper"] }),
+        );
 
         // The night_light event is filtered out; the theme event arrives.
         let event: serde_json::Value = serde_json::from_str(

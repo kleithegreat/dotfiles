@@ -48,14 +48,16 @@ impl ThemeController {
         tokio::spawn(async move {
             while let Some(request) = receiver.recv().await {
                 let events = events.clone();
-                let result =
-                    match tokio::task::spawn_blocking(move || run_job(request.job, &events)).await {
-                        Ok(result) => result,
-                        Err(error) => Err(std::io::Error::other(format!(
-                            "theme job panicked: {error}"
-                        ))
-                        .into()),
-                    };
+                let result = match tokio::task::spawn_blocking(move || {
+                    run_job(request.job, &events)
+                })
+                .await
+                {
+                    Ok(result) => result,
+                    Err(error) => {
+                        Err(std::io::Error::other(format!("theme job panicked: {error}")).into())
+                    }
+                };
                 let _ = request.reply.send(result);
             }
         });
@@ -192,10 +194,7 @@ mod tests {
         }
 
         for response in replies {
-            response
-                .await
-                .expect("worker reply")
-                .expect("job result");
+            response.await.expect("worker reply").expect("job result");
         }
         assert_eq!(overlap_seen.load(Ordering::SeqCst), 0);
     }

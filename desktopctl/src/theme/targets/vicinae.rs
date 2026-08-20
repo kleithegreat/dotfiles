@@ -70,8 +70,7 @@ pub fn persist(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
 
     let light_theme_name = colors.vicinae_light_theme_name();
     if light_theme_name != theme_name {
-        let light_colors =
-            resolve::load_colors(&light_theme_name, &paths::data_path("colors")?)?;
+        let light_colors = resolve::load_colors(&light_theme_name, &paths::data_path("colors")?)?;
         write_theme_file(&light_theme_name, &light_colors)?;
     }
 
@@ -306,9 +305,12 @@ mod tests {
 
         persist(&colors, &dummy_state()).expect("persist succeeds");
 
-        let dark =
-            fs::read_to_string(data_home.path().join("vicinae/themes/catppuccin-mocha.toml"))
-                .expect("dark companion written");
+        let dark = fs::read_to_string(
+            data_home
+                .path()
+                .join("vicinae/themes/catppuccin-mocha.toml"),
+        )
+        .expect("dark companion written");
         assert!(dark.contains("variant = \"dark\""));
         assert!(dark.contains("background = \"#1e1e2e\""));
     }

@@ -322,7 +322,10 @@ mod tests {
 
         let error = result.expect_err("no daemon is listening");
         assert!(socket_unavailable(error.as_ref()));
-        assert!(elapsed >= Duration::from_millis(400), "retried until deadline");
+        assert!(
+            elapsed >= Duration::from_millis(400),
+            "retried until deadline"
+        );
     }
 
     #[test]

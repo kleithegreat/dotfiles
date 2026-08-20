@@ -579,8 +579,7 @@ mod tests {
         let _paths = scoped_repo_paths();
         let db_path = temp_path("state-partial-db", "db");
 
-        let mut partial =
-            seed_state().to_ordered_json_map();
+        let mut partial = seed_state().to_ordered_json_map();
         partial.remove("quickshell_font_size_offset");
         partial.remove("gtk_font_size_offset");
         partial.remove("qt_font_size_offset");
