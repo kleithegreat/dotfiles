@@ -94,110 +94,50 @@ impl TargetMetadata {
 
     pub const fn output(self, output_path: &'static str) -> Self {
         Self {
-            name: self.name,
-            assembly: self.assembly,
             output_path: Some(output_path),
-            base_path: self.base_path,
-            extra_outputs: self.extra_outputs,
-            managed_paths: self.managed_paths,
-            state_keys: self.state_keys,
-            reload_cmd: self.reload_cmd,
-            comment: self.comment,
-            sync_safe: self.sync_safe,
+            ..self
         }
     }
 
     pub const fn base(self, base_path: &'static str) -> Self {
         Self {
-            name: self.name,
-            assembly: self.assembly,
-            output_path: self.output_path,
             base_path: Some(base_path),
-            extra_outputs: self.extra_outputs,
-            managed_paths: self.managed_paths,
-            state_keys: self.state_keys,
-            reload_cmd: self.reload_cmd,
-            comment: self.comment,
-            sync_safe: self.sync_safe,
+            ..self
         }
     }
 
     pub const fn extra_outputs(self, extra_outputs: &'static [&'static str]) -> Self {
         Self {
-            name: self.name,
-            assembly: self.assembly,
-            output_path: self.output_path,
-            base_path: self.base_path,
             extra_outputs,
-            managed_paths: self.managed_paths,
-            state_keys: self.state_keys,
-            reload_cmd: self.reload_cmd,
-            comment: self.comment,
-            sync_safe: self.sync_safe,
+            ..self
         }
     }
 
     pub const fn managed_paths(self, managed_paths: &'static [&'static str]) -> Self {
         Self {
-            name: self.name,
-            assembly: self.assembly,
-            output_path: self.output_path,
-            base_path: self.base_path,
-            extra_outputs: self.extra_outputs,
             managed_paths,
-            state_keys: self.state_keys,
-            reload_cmd: self.reload_cmd,
-            comment: self.comment,
-            sync_safe: self.sync_safe,
+            ..self
         }
     }
 
     pub const fn reload_cmd(self, reload_cmd: &'static [&'static str]) -> Self {
         Self {
-            name: self.name,
-            assembly: self.assembly,
-            output_path: self.output_path,
-            base_path: self.base_path,
-            extra_outputs: self.extra_outputs,
-            managed_paths: self.managed_paths,
-            state_keys: self.state_keys,
             reload_cmd: Some(reload_cmd),
-            comment: self.comment,
-            sync_safe: self.sync_safe,
+            ..self
         }
     }
 
     pub const fn comment(self, comment: &'static str) -> Self {
         Self {
-            name: self.name,
-            assembly: self.assembly,
-            output_path: self.output_path,
-            base_path: self.base_path,
-            extra_outputs: self.extra_outputs,
-            managed_paths: self.managed_paths,
-            state_keys: self.state_keys,
-            reload_cmd: self.reload_cmd,
             comment: Some(comment),
-            sync_safe: self.sync_safe,
+            ..self
         }
     }
 
     pub const fn sync_safe(self, sync_safe: bool) -> Self {
-        Self {
-            name: self.name,
-            assembly: self.assembly,
-            output_path: self.output_path,
-            base_path: self.base_path,
-            extra_outputs: self.extra_outputs,
-            managed_paths: self.managed_paths,
-            state_keys: self.state_keys,
-            reload_cmd: self.reload_cmd,
-            comment: self.comment,
-            sync_safe,
-        }
+        Self { sync_safe, ..self }
     }
 }
-
 pub trait Target: Send + Sync {
     fn metadata(&self) -> &TargetMetadata;
     fn generate(&self, colors: &ColorScheme, state: &ThemeState)

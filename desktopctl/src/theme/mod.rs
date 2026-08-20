@@ -358,10 +358,10 @@ fn remote_set(args: crate::SetArgs) -> CliResult<()> {
         println!(
             "{} is already '{}', nothing to do.",
             args.key,
-            python_display_value(&committed)
+            display_value(&committed)
         );
     } else {
-        println!("Set {} = {}", args.key, python_repr_value(&committed));
+        println!("Set {} = {}", args.key, committed);
     }
     Ok(())
 }
@@ -606,7 +606,7 @@ fn cmd_status(json_output: bool) -> CliResult<()> {
 
     for key in schema::ThemeState::known_field_names() {
         if let Some(value) = state_map.get(*key) {
-            println!("  {}: {}", key, python_display_value(value));
+            println!("  {}: {}", key, display_value(value));
         }
     }
     Ok(())
@@ -978,11 +978,7 @@ fn coerce_theme_value(key: &str, value: Value) -> crate::Result<Value> {
                 Ok(number) => Ok(Value::from(number)),
                 Err(_) => Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
-                    format!(
-                        "'{}' must be an integer, got {}",
-                        key,
-                        python_repr_value(&Value::String(text))
-                    ),
+                    format!("'{}' must be an integer, got {}", key, Value::String(text)),
                 )
                 .into()),
             },
@@ -993,11 +989,7 @@ fn coerce_theme_value(key: &str, value: Value) -> crate::Result<Value> {
             .into()),
             other => Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
-                format!(
-                    "'{}' must be an integer, got {}",
-                    key,
-                    python_repr_value(&other)
-                ),
+                format!("'{}' must be an integer, got {}", key, other),
             )
             .into()),
         };
@@ -1018,7 +1010,7 @@ fn coerce_theme_value(key: &str, value: Value) -> crate::Result<Value> {
                         format!(
                             "'{}' must be a boolean (true/false, on/off, dark/light), got {}",
                             key,
-                            python_repr_value(&Value::String(text))
+                            Value::String(text)
                         ),
                     )
                     .into())
@@ -1028,8 +1020,7 @@ fn coerce_theme_value(key: &str, value: Value) -> crate::Result<Value> {
                 io::ErrorKind::InvalidInput,
                 format!(
                     "'{}' must be a boolean (true/false, on/off, dark/light), got {}",
-                    key,
-                    python_repr_value(&other)
+                    key, other
                 ),
             )
             .into()),
@@ -1083,7 +1074,7 @@ fn normalize_preset_name(name: &str) -> crate::Result<String> {
     {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
-            format!("invalid preset name {}", python_string_repr(name)),
+            format!("invalid preset name {}", Value::String(name.to_owned())),
         )
         .into());
     }
@@ -1140,43 +1131,11 @@ fn valid_theme_keys() -> Vec<&'static str> {
     keys
 }
 
-fn python_display_value(value: &Value) -> String {
+fn display_value(value: &Value) -> String {
     match value {
-        Value::Bool(value) => python_bool(*value).to_owned(),
         Value::String(value) => value.clone(),
         other => other.to_string(),
     }
-}
-
-fn python_repr_value(value: &Value) -> String {
-    match value {
-        Value::String(value) => python_string_repr(value),
-        Value::Bool(value) => python_bool(*value).to_owned(),
-        other => other.to_string(),
-    }
-}
-
-fn python_string_repr(value: &str) -> String {
-    let mut output = String::from("'");
-    for character in value.chars() {
-        match character {
-            '\\' => output.push_str("\\\\"),
-            '\'' => output.push_str("\\'"),
-            '\n' => output.push_str("\\n"),
-            '\r' => output.push_str("\\r"),
-            '\t' => output.push_str("\\t"),
-            character if character.is_control() => {
-                output.push_str(&format!("\\x{:02x}", character as u32));
-            }
-            character => output.push(character),
-        }
-    }
-    output.push('\'');
-    output
-}
-
-fn python_bool(value: bool) -> &'static str {
-    if value { "True" } else { "False" }
 }
 
 fn parse_json_value(text: &str) -> crate::Result<Value> {
@@ -1253,7 +1212,7 @@ mod tests {
     }
 
     #[test]
-    fn bool_aliases_match_python_cli() {
+    fn bool_aliases_are_coerced() {
         assert_eq!(
             coerce_theme_value("dark_hint", Value::String("on".to_owned()))
                 .expect("valid bool alias"),
@@ -1284,12 +1243,12 @@ mod tests {
     }
 
     #[test]
-    fn python_style_value_rendering_matches_cli_messages() {
-        assert_eq!(python_display_value(&Value::Bool(true)), "True");
-        assert_eq!(python_repr_value(&Value::Bool(false)), "False");
+    fn value_rendering_matches_cli_messages() {
+        assert_eq!(display_value(&Value::Bool(true)), "true");
+        assert_eq!(display_value(&Value::String("Mono".to_owned())), "Mono");
         assert_eq!(
-            python_repr_value(&Value::String("O'Reilly".to_owned())),
-            "'O\\'Reilly'"
+            Value::String("O'Reilly".to_owned()).to_string(),
+            "\"O'Reilly\""
         );
     }
 
