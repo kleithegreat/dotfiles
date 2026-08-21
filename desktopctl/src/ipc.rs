@@ -93,7 +93,7 @@ pub(crate) fn daemon_unavailable_message(cause: &dyn std::fmt::Display) -> Strin
         .unwrap_or_else(|_| "$XDG_RUNTIME_DIR/desktopctl.sock".to_owned());
     format!(
         "desktopctl daemon is unavailable at {socket}: {cause}; \
-         desktop mutations require the running daemon (started from Hyprland autostart)"
+         desktop mutations require the running daemon (`systemctl --user status desktopctl.service`)"
     )
 }
 
