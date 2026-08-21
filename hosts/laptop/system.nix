@@ -116,12 +116,14 @@ in {
     hyprlock.fprintAuth = false;
   };
 
-  # ── Polkit — local fingerprint management + Dell battery reads ─
+  # ── Polkit — local fingerprint management + Dell battery control ─
   # Allow the active local desktop user to enroll/delete their own fingerprints
   # without bouncing through the external auth agent on every action.
-  # smbios-battery-ctl needs root to read SMBIOS tables (WMI/dcdbas), but
-  # --get-charging-cfg is read-only.  Auto-approve it so the Quickshell
-  # power-profile popup doesn't trigger an auth dialog on every open. The
+  # smbios-battery-ctl needs root for the SMBIOS tables (WMI/dcdbas), so the
+  # Quickshell charge-limit toggle would raise a dialog on every flip. The
+  # grant enumerates whole argument forms rather than a program path:
+  # smbios-battery-ctl also takes --password/--security-key, and a
+  # program-wide grant would hand those to any caller. The
   # laptop-only power-profile helper also runs through pkexec so the shell can
   # switch the P-core mask without prompting.
   #
@@ -138,8 +140,8 @@ in {
 
       if (action.id === "org.freedesktop.policykit.exec" &&
           /\/smbios-battery-ctl$/.test(action.lookup("program")) &&
-          /\bsmbios-battery-ctl\s+--get-charging-cfg\s*$/.test(action.lookup("command_line")) &&
-          subject.isInGroup("users")) {
+          /^\S*\/smbios-battery-ctl\s+(--get-charging-cfg|--set-charging-mode=(primarily_ac|adaptive|custom|standard|express)(\s+--set-custom-charge-interval\s+[0-9]+\s+[0-9]+)?)\s*$/.test(action.lookup("command_line")) &&
+          subject.user === "kevin" && subject.local && subject.active) {
         return polkit.Result.YES;
       }
 

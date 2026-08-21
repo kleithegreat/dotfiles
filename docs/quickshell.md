@@ -93,6 +93,14 @@ by the binary existing. On non-hybrid CPUs it exits non-zero with empty
 stdout, leaving `_helperProfile` empty so the `ppctl` backend wins and the
 "Efficiency Cores" tile stays hidden.
 
+### Battery sysfs reports a charge interval even when the cap is off
+`/sys/class/power_supply/BAT0/charge_control_{start,end}_threshold` exposes the
+*stored* Dell custom interval whatever the active charging mode is: it reads
+`75`/`80` while the firmware sits in `primarily_ac` and happily charges to 100%.
+Whether the cap is actually engaged lives in the mode, which only
+`smbios-battery-ctl --get-charging-cfg` reports. That is why `Power` shells out
+for a value sysfs appears to hand over for free.
+
 ### Monitor-button brightness changes have no event source
 The 30s DDC-enumerating brightness poll is gone; brightness state arrives as
 daemon events, and nothing watches the monitor's own OSD buttons. A change made

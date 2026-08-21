@@ -79,12 +79,11 @@ QtObject {
 
     // ── Charge limit (Dell smbios) ─────────────────────────────────────────
 
-    readonly property int chargeFloor: 50
+    readonly property int chargeFloor: 75
     readonly property int chargeCeiling: 80
 
     // custom · adaptive · standard · express · primarily_ac · unknown
     property string chargeMode: "unknown"
-    property int chargeStart: -1
     property int chargeStop: -1
     property bool chargeKnown: false
     property string chargeError: ""
@@ -210,9 +209,8 @@ QtObject {
             root.chargeKnown = true;
             root.chargeError = "";
 
-            const interval = chargeReadOutput.text.match(/Charging interval:\s*\((\d+),\s*(\d+)\)/);
-            root.chargeStart = root.chargeMode === "custom" && interval ? parseInt(interval[1], 10) : -1;
-            root.chargeStop = root.chargeMode === "custom" && interval ? parseInt(interval[2], 10) : -1;
+            const interval = chargeReadOutput.text.match(/Charging interval:\s*\(\d+,\s*(\d+)\)/);
+            root.chargeStop = root.chargeMode === "custom" && interval ? parseInt(interval[1], 10) : -1;
 
             if (root.chargeMode !== "custom" && root.chargeMode !== "unknown")
                 root.uncappedMode = root.chargeMode;
@@ -230,7 +228,6 @@ QtObject {
                 root.chargeKnown = true;
                 root.chargeError = "";
                 root.chargeMode = root.chargePending === "capped" ? "custom" : chargeWriter.targetMode;
-                root.chargeStart = root.chargePending === "capped" ? root.chargeFloor : -1;
                 root.chargeStop = root.chargePending === "capped" ? root.chargeCeiling : -1;
                 if (root.chargePending !== "capped")
                     root.uncappedMode = chargeWriter.targetMode;

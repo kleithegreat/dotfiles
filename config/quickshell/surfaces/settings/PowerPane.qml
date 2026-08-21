@@ -65,7 +65,7 @@ Ui.Scroll {
                 Layout.fillWidth: true
                 icon: "bolt"
                 title: "Limit charging"
-                subtitle: Sys.Power.chargeCapped ? Sys.Power.chargeFloor + "–" + Sys.Power.chargeCeiling + "%" : "Charge to full"
+                subtitle: Sys.Power.chargeCapped ? "Stops at " + (Sys.Power.chargeStop > 0 ? Sys.Power.chargeStop : Sys.Power.chargeCeiling) + "%" : "Charge to full"
                 interactive: false
 
                 Ui.Toggle {
