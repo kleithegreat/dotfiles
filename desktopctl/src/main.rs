@@ -1,5 +1,6 @@
 mod brightness;
 mod daemon;
+mod displays;
 mod hypr;
 mod ipc;
 mod launch;
@@ -209,6 +210,8 @@ enum HyprCommand {
     ReclaimWorkspaces,
     /// Inspect and update managed Hyprland input settings.
     Input(HyprInputArgs),
+    /// Inspect and update the display topology: primary output and arrangement.
+    Monitors(HyprMonitorsArgs),
     /// Persist or clear animation override state.
     Animations(HyprAnimationsArgs),
 }
@@ -247,6 +250,31 @@ struct HyprInputSetArgs {
     /// New value for the provided setting.
     #[arg(allow_hyphen_values = true)]
     value: String,
+}
+
+#[derive(Debug, Args)]
+#[command(arg_required_else_help = true, subcommand_required = true)]
+struct HyprMonitorsArgs {
+    #[command(subcommand)]
+    command: HyprMonitorsCommand,
+}
+
+#[derive(Debug, Subcommand)]
+enum HyprMonitorsCommand {
+    /// Show the stored topology and the output the primary resolves to.
+    Status(JsonOutputArgs),
+    /// Choose the primary output; an empty selector restores automatic choice.
+    Primary(HyprMonitorsPrimaryArgs),
+    /// Persist an arrangement already applied to the session.
+    Layout(HyprJsonPayloadArgs),
+}
+
+#[derive(Debug, Args)]
+struct HyprMonitorsPrimaryArgs {
+    /// Monitor selector (`desc:<description>` or a connector name), or empty
+    /// to let the largest external display win.
+    #[arg(default_value = "")]
+    selector: String,
 }
 
 #[derive(Debug, Args)]
@@ -427,6 +455,7 @@ fn run_hypr(args: HyprArgs) -> Result<()> {
         }
         HyprCommand::ReclaimWorkspaces => hypr::reclaim_workspaces(),
         HyprCommand::Input(args) => run_hypr_input(args),
+        HyprCommand::Monitors(args) => run_hypr_monitors(args),
         HyprCommand::Animations(args) => run_hypr_animations(args),
     }
 }
@@ -466,6 +495,32 @@ fn run_hypr_input(args: HyprInputArgs) -> Result<()> {
         HyprInputCommand::Set(args) => strict_request(
             ipc::methods::HYPR_INPUT_SET,
             serde_json::json!({ "key": args.key, "value": args.value }),
+        ),
+    }
+}
+
+fn run_hypr_monitors(args: HyprMonitorsArgs) -> Result<()> {
+    match args.command {
+        HyprMonitorsCommand::Status(args) => {
+            match ipc::send_request::<(), serde_json::Value>(
+                ipc::methods::HYPR_MONITORS_STATUS,
+                None,
+                ipc::DEFAULT_TIMEOUT,
+            ) {
+                Ok(status) => displays::print_status_value(&status, args.json),
+                Err(error) if ipc::socket_unavailable(error.as_ref()) => {
+                    displays::print_direct_status(args.json)
+                }
+                Err(error) => Err(error),
+            }
+        }
+        HyprMonitorsCommand::Primary(args) => strict_request(
+            ipc::methods::HYPR_MONITORS_PRIMARY,
+            serde_json::json!({ "selector": args.selector }),
+        ),
+        HyprMonitorsCommand::Layout(args) => strict_request(
+            ipc::methods::HYPR_MONITORS_LAYOUT,
+            serde_json::json!({ "positions": serde_json::from_str::<serde_json::Value>(&args.payload)? }),
         ),
     }
 }

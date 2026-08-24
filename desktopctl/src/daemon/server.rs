@@ -100,6 +100,16 @@ struct PayloadParams {
 }
 
 #[derive(Debug, Deserialize)]
+struct MonitorsPrimaryParams {
+    selector: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct MonitorsLayoutParams {
+    positions: serde_json::Value,
+}
+
+#[derive(Debug, Deserialize)]
 struct ThemeSetParams {
     key: String,
     value: serde_json::Value,
@@ -369,6 +379,43 @@ async fn handle_client(stream: UnixStream, context: ServerContext) -> io::Result
                     }
                 }
             }
+            methods::HYPR_MONITORS_STATUS => {
+                let hypr = context.hypr.clone();
+                let result = tokio::task::spawn_blocking(move || hypr.monitors_status()).await;
+                write_join_result(&mut writer, result).await?;
+            }
+            methods::HYPR_MONITORS_PRIMARY => {
+                match parse_params::<MonitorsPrimaryParams>(
+                    request.params,
+                    methods::HYPR_MONITORS_PRIMARY,
+                ) {
+                    Err(message) => write_error(&mut writer, message).await?,
+                    Ok(params) => {
+                        let hypr = context.hypr.clone();
+                        let result = tokio::task::spawn_blocking(move || {
+                            hypr.monitors_primary(&params.selector)
+                        })
+                        .await;
+                        write_join_result(&mut writer, result).await?;
+                    }
+                }
+            }
+            methods::HYPR_MONITORS_LAYOUT => {
+                match parse_params::<MonitorsLayoutParams>(
+                    request.params,
+                    methods::HYPR_MONITORS_LAYOUT,
+                ) {
+                    Err(message) => write_error(&mut writer, message).await?,
+                    Ok(params) => {
+                        let hypr = context.hypr.clone();
+                        let result = tokio::task::spawn_blocking(move || {
+                            hypr.monitors_layout(&params.positions)
+                        })
+                        .await;
+                        write_join_result(&mut writer, result).await?;
+                    }
+                }
+            }
             methods::HYPR_ANIMATIONS_SAVE => {
                 match parse_params::<PayloadParams>(request.params, methods::HYPR_ANIMATIONS_SAVE) {
                     Err(message) => write_error(&mut writer, message).await?,
@@ -619,6 +666,18 @@ async fn push_snapshots<W: AsyncWrite + Unpin>(
                     let event = EventEnvelope {
                         event: "hypr_input.changed".to_owned(),
                         data: state,
+                    };
+                    write_event(writer, &event).await?;
+                }
+            }
+            "hypr_monitors" => {
+                let hypr = context.hypr.clone();
+                if let Ok(Ok(status)) =
+                    tokio::task::spawn_blocking(move || hypr.monitors_status()).await
+                {
+                    let event = EventEnvelope {
+                        event: "hypr_monitors.changed".to_owned(),
+                        data: status,
                     };
                     write_event(writer, &event).await?;
                 }
@@ -908,7 +967,13 @@ mod tests {
     fn resolve_topics_defaults_to_every_topic_and_drops_unknown_ones() {
         assert_eq!(
             resolve_topics(Vec::new()),
-            vec!["theme", "night_light", "brightness", "hypr_input"]
+            vec![
+                "theme",
+                "night_light",
+                "brightness",
+                "hypr_input",
+                "hypr_monitors"
+            ]
         );
         assert_eq!(
             resolve_topics(vec!["night_light".to_owned(), "bogus".to_owned()]),

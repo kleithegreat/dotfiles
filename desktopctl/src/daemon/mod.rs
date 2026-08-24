@@ -34,6 +34,7 @@ async fn run_async() -> crate::Result<()> {
     let events = server::Events::new();
     let theme = theme::ThemeController::spawn(events.clone());
     let night_light = night_light::Controller::with_hooks(theme.clone(), events.clone());
+    let hypr = hypr::HyprController::new(events.clone());
 
     // Auxiliary subsystems get their own failure domain. A focus tracker or
     // solar scheduler that dies must not take the socket server with it: the
@@ -46,7 +47,9 @@ async fn run_async() -> crate::Result<()> {
     }
     {
         let shutdown = Arc::clone(&shutdown);
-        auxiliary.spawn_blocking(move || ("monitor watcher", monitors::run(shutdown)));
+        let hypr = hypr.clone();
+        let theme = theme.clone();
+        auxiliary.spawn_blocking(move || ("monitor watcher", monitors::run(shutdown, hypr, theme)));
     }
     auxiliary.spawn({
         let night_light = night_light.clone();
@@ -70,7 +73,7 @@ async fn run_async() -> crate::Result<()> {
         let context = server::ServerContext {
             night_light: night_light.clone(),
             theme: theme.clone(),
-            hypr: hypr::HyprController::new(events.clone()),
+            hypr: hypr.clone(),
             brightness: brightness::BrightnessController::new(events.clone()),
             events: events.clone(),
         };

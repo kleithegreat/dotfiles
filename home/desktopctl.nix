@@ -30,6 +30,7 @@
     # overrides" state: the Lua appliers guard their require, and `desktopctl
     # hypr animations clear` truncates back to empty.
     touch "$HOME/.config/hypr/input-runtime.lua"
+    touch "$HOME/.config/hypr/displays-runtime.lua"
     touch "$HOME/.config/hypr/animations-override-data.lua"
     desktopctl theme sync
   '';

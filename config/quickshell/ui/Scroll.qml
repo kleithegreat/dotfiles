@@ -3,6 +3,8 @@ import qs
 
 // Wheel scrolling glides to a target instead of teleporting by a few pixels per
 // notch, and the indicator is present only while it is telling you something.
+// Both wheels reach it through the same glide `Choice` uses sideways, at the
+// same step: two scroll speeds in one pane read as one of them being broken.
 Flickable {
     id: root
 
@@ -11,8 +13,6 @@ Flickable {
     clip: true
     contentWidth: width
     boundsBehavior: Flickable.StopAtBounds
-    flickDeceleration: 5500
-    maximumFlickVelocity: 3200
     pixelAligned: true
 
     property real _target: contentY
@@ -52,7 +52,7 @@ Flickable {
     }
 
     WheelHandler {
-        acceptedDevices: PointerDevice.Mouse
+        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
         onWheel: event => {
             if (root._limit <= 0)
                 return;

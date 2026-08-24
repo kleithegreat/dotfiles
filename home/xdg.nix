@@ -20,6 +20,7 @@ let
     "hypr/env.lua" = dotfilesSource "config/hypr/env.lua";
     "hypr/autostart.lua" = dotfilesSource "config/hypr/autostart.lua";
     "hypr/cursor.lua" = dotfilesSource "config/hypr/cursor.lua";
+    "hypr/displays.lua" = dotfilesSource "config/hypr/displays.lua";
     "hypr/input.lua" = dotfilesSource "config/hypr/input.lua";
     "hypr/input-defaults.lua" = dotfilesSource "config/hypr/input-defaults.lua";
     "hypr/keybinds.lua" = dotfilesSource "config/hypr/keybinds.lua";

@@ -44,8 +44,20 @@
   the socket server exiting ends the process, which is what `Restart=on-failure`
   then acts on.
 - `desktopctl hypr` writes only its own generated override files
-  (`input-runtime.lua`, `animations-override-data.lua`) — never the static or
-  host-selected fragments they layer on top of.
+  (`input-runtime.lua`, `animations-override-data.lua`,
+  `displays-runtime.lua`) — never the static or host-selected fragments they
+  layer on top of.
+- The daemon is the only thing that decides which output is primary. Hyprland
+  has no such concept, so the choice is stored as a monitor selector (empty =
+  automatic, meaning the largest external and the built-in panel only when it
+  is alone) and published resolved, as a connector name. Quickshell reads that
+  answer rather than deriving one, because the same choice also decides which
+  output owns the numbered workspaces — two rules that agree today would
+  disagree the first time either changed.
+- Applying a layout and persisting it are separate on purpose. The display
+  pane applies through `hyprctl` so its confirm countdown can take a layout
+  straight back off; only the arrangement the user kept is written to
+  `displays-runtime.lua`, and only that one survives a reload.
 - State mutations persist only after the required target apply succeeds, write
   only the mutated keys (per-key upserts in one transaction), and replace
   files atomically. See [[theming]] for the full contract.
@@ -86,6 +98,13 @@ status reads, and dropping daemon events while its own writes are queued.
 If a monitor's slider is missing or dead: check the monitor OSD has DDC/CI
 enabled, `ddcutil detect` sees the display, and the user is in the `i2c`
 group after a rebuild *and fresh login*.
+
+### Workspace *rules* alone never move a workspace that already exists
+Pinning workspaces 1-10 to a new primary output places workspaces created
+afterwards and does nothing to the ones on screen — which reads as the pin
+silently failing. Reconciling has to re-issue the rule *and* dispatch
+`hl.dsp.workspace.move` for each one, and the two go through different hyprctl
+verbs ([[hyprland]]).
 
 ### `--wait-daemon` waits for desktopctl's daemon, not awww's
 Applying a wallpaper at login races two unrelated daemons. `--wait-daemon`

@@ -56,12 +56,12 @@ impl LidSwitchState {
     }
 }
 
-#[derive(Debug, Deserialize)]
-struct MonitorInfo {
+#[derive(Debug, Default, Deserialize)]
+pub(crate) struct MonitorInfo {
     #[serde(default)]
-    name: String,
+    pub(crate) name: String,
     #[serde(default)]
-    description: String,
+    pub(crate) description: String,
     #[serde(default)]
     make: String,
     #[serde(default)]
@@ -69,13 +69,13 @@ struct MonitorInfo {
     #[serde(default)]
     serial: String,
     #[serde(default)]
-    disabled: bool,
+    pub(crate) disabled: bool,
     #[serde(default)]
     focused: bool,
     #[serde(default)]
-    width: f64,
+    pub(crate) width: f64,
     #[serde(default)]
-    height: f64,
+    pub(crate) height: f64,
     #[serde(default)]
     scale: f64,
     #[serde(rename = "activeWorkspace", default)]
@@ -85,7 +85,7 @@ struct MonitorInfo {
 impl MonitorInfo {
     /// Mirror of Hyprland's `CMonitor::matchesStaticSelector`: `desc:` selectors
     /// prefix-match either description form, anything else is a connector name.
-    fn matches_selector(&self, selector: &str) -> bool {
+    pub(crate) fn matches_selector(&self, selector: &str) -> bool {
         let Some(description) = selector.strip_prefix("desc:") else {
             return self.name == selector;
         };
@@ -96,6 +96,27 @@ impl MonitorInfo {
         !description.is_empty()
             && (strip_commas(&self.description).starts_with(&description)
                 || strip_commas(&self.short_description()).starts_with(&description))
+    }
+
+    /// Connector names Hyprland gives a panel wired to the board rather than
+    /// to a port. The same test the display pane applies, kept here so both
+    /// sides agree on what "external" means.
+    pub(crate) fn is_internal(&self) -> bool {
+        let name = self.name.as_str();
+        ["eDP", "LVDS", "DSI"]
+            .iter()
+            .any(|prefix| name == *prefix || name.starts_with(&format!("{prefix}-")))
+    }
+
+    #[cfg(test)]
+    pub(crate) fn for_test(name: &str, description: &str, width: f64, height: f64) -> Self {
+        Self {
+            name: name.to_owned(),
+            description: description.to_owned(),
+            width,
+            height,
+            ..Self::default()
+        }
     }
 
     /// Hyprland's `m_shortDescription`: make, model, and serial joined by spaces.
@@ -271,7 +292,7 @@ pub(crate) fn dispatch(lua: &str) -> Result<()> {
 }
 
 /// Run `hyprctl eval <lua>`. Replaces `hyprctl keyword`, which is inert.
-fn eval(lua: &str) -> Result<()> {
+pub(crate) fn eval(lua: &str) -> Result<()> {
     let output = hyprctl_output(&["eval", lua])?;
     check_lua_output(&output.stdout, &format!("hyprctl eval {lua}"))
 }
@@ -548,7 +569,7 @@ fn orphaned_pinned_workspaces(monitors: &[MonitorInfo], rules: &[WorkspaceRuleIn
     ids
 }
 
-fn query_monitors() -> Result<Vec<MonitorInfo>> {
+pub(crate) fn query_monitors() -> Result<Vec<MonitorInfo>> {
     let output = hyprctl_output(&["monitors", "-j"])?;
     Ok(serde_json::from_slice(&output.stdout)?)
 }

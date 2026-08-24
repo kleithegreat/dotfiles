@@ -20,7 +20,14 @@ PanelWindow {
         right: true
     }
     color: "transparent"
-    visible: state.open_ || linger.running
+    // One property owns whether the layer surface exists. Binding `visible` to
+    // `open_` and extending it from a `currentChanged` handler cannot work: the
+    // binding re-evaluates in the pass that closes the surface, one pass before
+    // the handler can extend it, so the surface unmaps and immediately remaps
+    // and the compositor animates that second map in -- the panel flashing back
+    // for a moment after you dismissed it.
+    property bool mapped: false
+    visible: mapped
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.namespace: "quickshell:overlay"
     WlrLayershell.layer: WlrLayer.Overlay
@@ -38,18 +45,24 @@ PanelWindow {
         height: Math.max(0, overlay.height - Metrics.barHeight - Metrics.barMargin)
     }
 
+    // The overlay outlives the close by one exit animation, so the surface it
+    // holds can play one.
     Timer {
         id: linger
         interval: Motion.settled
-        running: false
+        onTriggered: overlay.mapped = false
     }
 
     Connections {
         target: overlay.state
 
         function onCurrentChanged() {
-            if (overlay.state.current === "")
+            if (overlay.state.open_) {
+                linger.stop();
+                overlay.mapped = true;
+            } else {
                 linger.restart();
+            }
         }
     }
 

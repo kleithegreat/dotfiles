@@ -42,6 +42,9 @@ pub(crate) mod methods {
 
     pub const HYPR_INPUT_STATUS: &str = "hypr.input_status";
     pub const HYPR_INPUT_SET: &str = "hypr.input_set";
+    pub const HYPR_MONITORS_STATUS: &str = "hypr.monitors_status";
+    pub const HYPR_MONITORS_PRIMARY: &str = "hypr.monitors_primary";
+    pub const HYPR_MONITORS_LAYOUT: &str = "hypr.monitors_layout";
     pub const HYPR_ANIMATIONS_SAVE: &str = "hypr.animations_save";
     pub const HYPR_ANIMATIONS_CLEAR: &str = "hypr.animations_clear";
 
@@ -53,7 +56,13 @@ pub(crate) mod methods {
 }
 
 /// Topics a subscriber can select; each event name is `<topic>.<what>`.
-pub(crate) const TOPICS: &[&str] = &["theme", "night_light", "brightness", "hypr_input"];
+pub(crate) const TOPICS: &[&str] = &[
+    "theme",
+    "night_light",
+    "brightness",
+    "hypr_input",
+    "hypr_monitors",
+];
 
 #[derive(Debug, Serialize)]
 pub(crate) struct RequestEnvelope<P> {

@@ -12,6 +12,16 @@ Open issues and pending validations. Delete entries when resolved.
       `laptop-power-profile set e-core-only`, check `cpu*/online`, confirm
       `get` reports the mode and the Quickshell tile doesn't snap back.
 - [ ] Laptop VA-API: verify `vainfo` picks up `iHD` via `intel-media-driver`.
+- [ ] Displays subsystem (needs a rebuild, then a relogin): plug and unplug an
+      external monitor and confirm the wallpaper lands on it, the bar and every
+      surface move to it, and workspaces 1-10 follow — then that unplugging it
+      hands all three back to the built-in panel. Toggle "Main display" onto
+      the internal panel with an external attached and confirm the choice
+      survives a relogin, and that plugging in a *different* unknown monitor
+      still auto-selects it. Drag a display in the arrangement canvas: check
+      the snap, the confirm countdown's revert, and that "Keep" survives
+      `hyprctl reload`.
+
 - [ ] Quickshell live smoke test after the rewrite: slider drags end to end
       (OSD suppression across a volume drag, night-light commit-on-release,
       brightness drag vs pushed events), Wi-Fi join forms including
@@ -70,6 +80,14 @@ Open issues and pending validations. Delete entries when resolved.
       completion behaves oddly after adding completions.
 - [ ] Nix (low): the NVIDIA/CUDA entries in `allowedUnfreePackageNames` have
       no per-entry reason or host annotation, making cleanup triage harder.
+
+- [ ] Quickshell (medium): the Pointer pane's "Scrolling" slider writes
+      `input:scroll_factor`, which the touchpad ignores — the laptop's
+      `input:touchpad:scroll_factor` (0.25, in `hosts/laptop/input-devices.lua`)
+      is not reachable from any UI. Scroll speed inside the shell is now
+      consistent between panes and option strips, but if it still feels slow,
+      that hardcoded 0.25 is the knob and it wants a home in
+      `input-defaults.lua` with the rest.
 
 ## Owner questions
 

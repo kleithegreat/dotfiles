@@ -27,7 +27,13 @@
   Quickshell talks to Hyprland only through `hyprctl`/IPC and transient
   `systemd-inhibit` holds, never config writes; the daemon owns `hyprsunset`
   ([[sun-schedule]]); the wallpaper target owns `awww img` while
-  `autostart.lua` owns `awww-daemon` startup.
+  `autostart.lua` owns `awww-daemon` startup, and the daemon's monitor watcher
+  is what re-runs it when an output appears ([[desktopctl]]).
+- Where each output sits and which one is primary are runtime state, not
+  config: a host file cannot describe a monitor the host has never met.
+  `hosts/<host>/monitors.lua` carries modes only; `displays.lua` applies the
+  arrangement desktopctl records, and desktopctl pins the numbered workspaces
+  to the primary live.
 - Hyprland is pinned to a release tag, and hyprexpo comes from the maintained
   `sandwichfarm/hyprexpo` fork as a repo-local package
   (`pkgs/hyprland-plugins/hyprexpo/`) because the official plugin flake
@@ -35,6 +41,15 @@
   re-pin `hyprland-plugins` (hyprbars) when it publishes a matching tag.
 
 ## Quirks
+
+### One monitor moving drags every `position = "auto"` output with it
+`hl.monitor({ output = X, position = ... })` is a valid partial update — mode
+and scale survive, which is what makes an arrangement editor possible at all.
+But `auto` is resolved at apply time, not frozen at first resolution: moving
+one output re-resolves every other output still on `auto`, which slides
+displays nobody touched. Any layout write has to name a position for every
+connected output, which is why the display pane applies the whole set rather
+than only the monitors with staged edits.
 
 ### hyprctl takes Lua now, and reports failure with exit code 0
 `hyprctl dispatch X` evaluates `X` as `return hl.dispatch(X)`, so every
@@ -50,6 +65,11 @@ all died without one failing command. Anything shelling out must scan stdout.
 
 - `hl.dsp.exec_raw("<raw dispatcher>")` returns `ok` and does nothing. It reads
   like the escape hatch for plugin dispatchers and is not one.
+- The eval/dispatch split is not interchangeable in either direction: an
+  `hl.dsp.*` expression handed to `hyprctl eval` also answers `ok` and does
+  nothing, because eval builds the dispatcher object and never runs it. Config
+  (`hl.config`, `hl.monitor`, `hl.workspace_rule`) goes through `eval`,
+  dispatchers through `dispatch`, and picking the wrong one is invisible.
 - There is no `hl.dsp.workspace(n)`; the name resolves to a table, so calling it
   is a Lua error reported on stdout. Workspace switching is
   `hl.dsp.focus({ workspace = n })`. Pointer warping is

@@ -41,8 +41,8 @@ Ui.Scroll {
             width: pendingFor(monitor, "width"),
             height: pendingFor(monitor, "height"),
             refreshRate: pendingFor(monitor, "refreshRate"),
-            x: monitor.x,
-            y: monitor.y,
+            x: root.pendingFor(monitor, "x"),
+            y: root.pendingFor(monitor, "y"),
             scale: pendingFor(monitor, "scale"),
             transform: pendingFor(monitor, "transform"),
             vrr: pendingFor(monitor, "vrr"),
@@ -50,17 +50,16 @@ Ui.Scroll {
         };
     }
 
+    // Every monitor goes in the chunk, not just the edited ones: a monitor left
+    // on `position = "auto"` re-resolves against the new geometry and slides
+    // somewhere nobody asked for the moment a neighbour moves.
     function apply() {
-        const states = [];
-        const before = [];
-        for (let i = 0; i < Sys.Displays.monitors.length; i++) {
-            const monitor = Sys.Displays.monitors[i];
-            before.push(stateFor(monitor));
-            if (edits[monitor.name] !== undefined)
-                states.push(stateFor(monitor));
-        }
-        if (states.length === 0)
+        if (!dirty)
             return;
+
+        const states = [];
+        for (let i = 0; i < Sys.Displays.monitors.length; i++)
+            states.push(stateFor(Sys.Displays.monitors[i]));
 
         snapshot = [];
         for (let i = 0; i < Sys.Displays.monitors.length; i++) {
@@ -85,9 +84,11 @@ Ui.Scroll {
         countdown.restart();
     }
 
+    // Only an arrangement the user kept is worth surviving a reload.
     function keep() {
         confirmLeft = 0;
         countdown.stop();
+        Sys.Displays.savePositions(Sys.Displays.monitors.filter(monitor => !monitor.disabled).map(stateFor));
         snapshot = [];
     }
 
@@ -171,6 +172,28 @@ Ui.Scroll {
             }
         }
 
+        Ui.Group {
+            title: "Arrangement"
+            footnote: "Drag a display to where it sits on your desk. Edges snap together."
+
+            DisplayArrangement {
+                Layout.fillWidth: true
+                Layout.margins: Metrics.s2
+                layout: Sys.Displays.monitors.filter(monitor => !monitor.disabled).map(monitor => ({
+                    name: monitor.name,
+                    x: root.pendingFor(monitor, "x"),
+                    y: root.pendingFor(monitor, "y"),
+                    width: root.pendingFor(monitor, "width"),
+                    height: root.pendingFor(monitor, "height"),
+                    primary: Sys.Displays.isPrimary(monitor)
+                }))
+                onMoved: (name, x, y) => {
+                    root.edit(name, "x", x);
+                    root.edit(name, "y", y);
+                }
+            }
+        }
+
         Repeater {
             model: Sys.Displays.monitors.length
 
@@ -192,6 +215,27 @@ Ui.Scroll {
                         anchors.verticalCenter: parent.verticalCenter
                         checked: !root.pendingFor(screen.monitor, "disabled")
                         onToggled: on => root.edit(screen.monitor.name, "disabled", !on)
+                    }
+                }
+
+                Ui.Divider {
+                    inset: Metrics.rowInset
+                }
+
+                // Applied immediately rather than staged: nothing about which
+                // display carries the bar can leave you unable to see a screen,
+                // so there is nothing for a countdown to rescue.
+                Ui.ListRow {
+                    Layout.fillWidth: true
+                    icon: "layout"
+                    title: "Main display"
+                    subtitle: Sys.Displays.primary === "" ? "Chosen automatically" : "Carries the bar and workspaces 1-10"
+                    interactive: false
+
+                    Ui.Toggle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        checked: Sys.Displays.isPrimary(screen.monitor)
+                        onToggled: on => Sys.Displays.setPrimary(on ? screen.monitor : null)
                     }
                 }
 

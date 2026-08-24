@@ -3,7 +3,7 @@
 //! The operations are sub-second, so a plain mutex held across each one is
 //! fine — unlike theme applies.
 
-use crate::{daemon::server::Events, hypr};
+use crate::{daemon::server::Events, displays, hypr};
 use serde_json::Value;
 use std::{
     io,
@@ -39,6 +39,42 @@ impl HyprController {
         let state = serde_json::to_value(state)?;
         self.events.publish("hypr_input.changed", state.clone());
         Ok(serde_json::json!({ "state": state }))
+    }
+
+    pub fn monitors_status(&self) -> crate::Result<Value> {
+        Ok(serde_json::to_value(displays::status()?)?)
+    }
+
+    pub fn monitors_primary(&self, selector: &str) -> crate::Result<Value> {
+        let status = {
+            let _guard = self.lock_serialized()?;
+            displays::set_primary(selector)?
+        };
+        self.publish_monitors(status)
+    }
+
+    pub fn monitors_layout(&self, positions: &Value) -> crate::Result<Value> {
+        let status = {
+            let _guard = self.lock_serialized()?;
+            displays::save_positions(serde_json::from_value(positions.clone())?)?
+        };
+        self.publish_monitors(status)
+    }
+
+    /// Reconciling publishes as well: a monitor coming or going can change the
+    /// effective primary without anyone having asked for a change.
+    pub fn monitors_reconcile(&self) -> crate::Result<Value> {
+        let status = {
+            let _guard = self.lock_serialized()?;
+            displays::reconcile()?
+        };
+        self.publish_monitors(status)
+    }
+
+    fn publish_monitors(&self, status: displays::DisplayStatus) -> crate::Result<Value> {
+        let status = serde_json::to_value(status)?;
+        self.events.publish("hypr_monitors.changed", status.clone());
+        Ok(status)
     }
 
     // Animations publish no events: the shell has no live subscriber for

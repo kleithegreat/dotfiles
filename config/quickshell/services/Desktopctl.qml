@@ -5,7 +5,8 @@ import Quickshell
 import Quickshell.Io
 
 // Live link to the desktopctl daemon: one subscribed socket over which the
-// daemon pushes change events (theme, night light, brightness, hypr input),
+// daemon pushes change events (theme, night light, brightness, hypr input and
+// monitors),
 // each preceded by a snapshot at subscribe time. Writes never go through this
 // connection — services keep issuing `desktopctl` commands, which are thin
 // clients of the same daemon — so the shell needs no polling timers to stay
@@ -23,6 +24,7 @@ QtObject {
     signal nightLightChanged(var status)
     signal brightnessChanged(var payload)
     signal inputChanged(var state)
+    signal monitorsChanged(var status)
 
     property int _retryMs: 500
 
@@ -58,6 +60,9 @@ QtObject {
             break;
         case "hypr_input.changed":
             inputChanged(data);
+            break;
+        case "hypr_monitors.changed":
+            monitorsChanged(data);
             break;
         }
     }

@@ -11,11 +11,17 @@ Scope {
 
     readonly property ShellState state: ShellState {}
 
-    // Bar lifetime follows Hyprland's monitor model, not Quickshell.screens:
-    // output churn (suspend, DPMS, hotplug) tears down the layer surface while
-    // Qt keeps a placeholder QScreen alive, so `screens` never reports that the
-    // outputs are gone.
-    readonly property string barMonitor: {
+    // Which output the shell lives on is the daemon's answer, not a rule the
+    // shell keeps its own copy of ([[desktopctl]] `displays`): the same choice
+    // decides which output owns the numbered workspaces, and two rules that
+    // agree today would disagree the first time either one changed. The local
+    // fallback covers only a daemon that has not answered yet.
+    //
+    // Lifetime follows Hyprland's monitor model, not Quickshell.screens: output
+    // churn (suspend, DPMS, hotplug) tears down the layer surface while Qt keeps
+    // a placeholder QScreen alive, so `screens` never reports that the outputs
+    // are gone.
+    readonly property string primaryMonitor: {
         const monitors = Hyprland.monitors.values;
         let fallback = "";
         for (let i = 0; i < monitors.length; i++) {
@@ -24,19 +30,19 @@ Scope {
                 continue;
             if (fallback === "")
                 fallback = monitor.name;
-            if (monitor.x === 0 && monitor.y === 0)
+            if (monitor.name === Sys.Displays.primaryOutput)
                 return monitor.name;
         }
         return fallback;
     }
 
-    readonly property var barScreen: {
-        if (barMonitor === "")
+    readonly property var primaryScreen: {
+        if (primaryMonitor === "")
             return null;
         const screens = Quickshell.screens;
         for (let i = 0; i < screens.length; i++) {
             const monitor = Hyprland.monitorFor(screens[i]);
-            if (monitor && monitor.name === barMonitor)
+            if (monitor && monitor.name === primaryMonitor)
                 return screens[i];
         }
         return null;
@@ -58,31 +64,45 @@ Scope {
         void Sys.Tailscale.state;
         void Sys.NightLight.mode;
         void Sys.Appearance.state;
+        void Sys.Displays.primaryOutput;
         Sys.Idle.applyBootDefault();
     }
 
     Loader {
         id: barLoader
-        active: shell.barScreen !== null
+        active: shell.primaryScreen !== null
 
         sourceComponent: Bar.Bar {
-            screen: shell.barScreen
+            screen: shell.primaryScreen
             state: shell.state
         }
     }
 
+    // Every surface names the same screen. Left unset they default to
+    // Quickshell.screens[0], which is not the bar's output — and since popovers
+    // grow from a bar item's coordinates, a mismatch opens them at the right
+    // spot on the wrong display.
     Surfaces.Overlay {
+        screen: shell.primaryScreen
         state: shell.state
         barWindow: barLoader.item
     }
 
-    Surfaces.Hint {}
+    Surfaces.Hint {
+        screen: shell.primaryScreen
+    }
 
-    Surfaces.Osd {}
+    Surfaces.Osd {
+        screen: shell.primaryScreen
+    }
 
-    Surfaces.Toasts {}
+    Surfaces.Toasts {
+        screen: shell.primaryScreen
+    }
 
-    Surfaces.Banners {}
+    Surfaces.Banners {
+        screen: shell.primaryScreen
+    }
 
     // These names are the shell's published interface: config/hypr/keybinds.lua
     // calls them. Renaming them here silently breaks the keybinds until the next

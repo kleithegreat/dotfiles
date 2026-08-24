@@ -23,6 +23,11 @@
   buttons keep working while a surface is open.
 - Surfaces grow from the control that summoned them: bar items report their
   screen-centre x and the popover scales from that origin.
+- The shell occupies exactly one output, and every window it owns names that
+  same output. Which one it is comes from the daemon ([[desktopctl]]); the
+  shell has no second rule for it. Left unnamed a surface defaults to
+  `Quickshell.screens[0]`, and since popovers grow from bar-item coordinates a
+  mismatch opens them at the right spot on the wrong display.
 - Services own system state and expose values. They never compose display
   sentences and never render; presentation composes text from service state. One
   capability gets one write path.
@@ -61,6 +66,15 @@ array rebuilt on write must key its model on the *count* and index into the
 array; binding the array itself silently breaks drags and all per-delegate
 state.
 
+### One scroll gesture, two implementations, two speeds
+`Scroll` and `Choice` both glide the wheel to a target by `Metrics.wheelStep`.
+When `Scroll` accepted only `PointerDevice.Mouse`, touchpad scrolling fell
+through to `Flickable`'s own wheel handling instead — a different curve, scaled
+again by `input:touchpad:scroll_factor`, and damped by a `flickDeceleration`
+well above Qt's default. The pane crawled while the option strip inside it
+zipped along. Both handlers accept both devices now; a device one of them
+handles and the other declines will read as one of them being broken.
+
 ### Draggable controls inside a `Scroll` need `claimsDrag`
 `Flickable` filters child mouse events and steals the grab once a drag passes
 the threshold, reducing any child slider to click-to-set. `Slider.claimsDrag`
@@ -69,16 +83,30 @@ plain buttons must *not*, since dragging across a button is a legitimate scroll
 gesture.
 
 ### Risky display changes are staged and batch-applied, never live
-The display pane accumulates edits and applies them as one `hyprctl eval` chunk,
+The display pane accumulates edits and applies them as one `hyprctl eval` chunk
+covering *every* connected output (see [[hyprland]] on `position = "auto"`),
 then runs a confirm countdown that re-applies the captured snapshot if it
 expires. Do not reintroduce per-control or per-pointer-move writes — they can
-strand the session on a layout the display cannot show.
+strand the session on a layout the display cannot show. The main-display toggle
+is deliberately outside that flow: it cannot leave you unable to see a screen,
+so there is nothing for a countdown to rescue.
 
 ### Bar lifetime follows Hyprland's monitor model, not `Quickshell.screens`
 Output churn (suspend, DPMS, hotplug) tears down the layer-shell surface while
 Qt keeps a placeholder `QScreen` alive, so `Quickshell.screens` is not a
 reliable "outputs gone" signal. `shell.qml` drives the bar through a Loader
 keyed on Hyprland's real monitor list (filtering `FALLBACK`).
+
+### A window whose `visible` is extended by a signal handler unmaps first
+`visible: open || linger.running`, with the linger restarted from a
+`currentChanged` handler, is a flicker, not a lifetime: the binding
+re-evaluates in the pass that closes the surface — one pass before the handler
+can extend it — so the layer surface unmaps and immediately remaps, and the
+compositor animates that second map in. It looks exactly like the panel
+popping back for a moment after you dismissed it, and it is visible on
+Hyprland's event socket as `closelayer` / `openlayer` on the same namespace.
+A window's visibility has to be one property that nothing else can drive
+false.
 
 ### A missing binary fails to *start*, which never emits `exited`
 Backend probes must run in parallel and resolve by priority, never chain on each
