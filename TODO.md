@@ -12,16 +12,17 @@ Open issues and pending validations. Delete entries when resolved.
       `laptop-power-profile set e-core-only`, check `cpu*/online`, confirm
       `get` reports the mode and the Quickshell tile doesn't snap back.
 - [ ] Laptop VA-API: verify `vainfo` picks up `iHD` via `intel-media-driver`.
-- [ ] Displays subsystem (needs a rebuild, then a relogin): plug and unplug an
-      external monitor and confirm the wallpaper lands on it, the bar and every
-      surface move to it, and workspaces 1-10 follow — then that unplugging it
-      hands all three back to the built-in panel. Toggle "Main display" onto
-      the internal panel with an external attached and confirm the choice
-      survives a relogin, and that plugging in a *different* unknown monitor
-      still auto-selects it. Drag a display in the arrangement canvas: check
-      the snap, the confirm countdown's revert, and that "Keep" survives
-      `hyprctl reload`. Change the scale, press Keep, then `hyprctl reload`
-      twice: the scale must hold both times and never drift to `auto`.
+- [ ] Displays subsystem, multi-monitor half (needs an external display
+      attached): plug and unplug one and confirm the wallpaper lands on it,
+      the bar and every surface move to it, and workspaces 1-10 follow — then
+      that unplugging hands all three back to the built-in panel. Toggle
+      "Main display" onto the internal panel with an external attached and
+      confirm that choice survives a relogin, and that a *different* unknown
+      monitor still auto-selects. Drag a display in the arrangement canvas and
+      check the edge snap and the countdown's revert with two outputs.
+      Single-output behaviour is confirmed on the laptop: staged apply, Keep,
+      scale persisting across reloads, and the auto fallback to `eDP-1` when
+      the external went away.
 
 - [ ] Quickshell live smoke test after the rewrite: slider drags end to end
       (OSD suppression across a volume drag, night-light commit-on-release,
