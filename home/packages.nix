@@ -11,6 +11,12 @@ let
     mdframed
     needspace
     zref
+    algorithms
+    cleveref
+    eepic
+    libertine
+    paralist
+    wrapfig
   ]);
 
   customPackages = [
