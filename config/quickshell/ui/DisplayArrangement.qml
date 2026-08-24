@@ -1,6 +1,5 @@
 import QtQuick
 import qs
-import qs.ui as Ui
 
 // The outputs, to scale, where they sit. Dragging one reports where it landed;
 // the pane stages that like any other display edit rather than applying it, so
@@ -98,13 +97,13 @@ Item {
                     anchors.centerIn: parent
                     spacing: 1
 
-                    Ui.Label {
+                    Label {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: tile.screen.name
                         role: "callout"
                     }
 
-                    Ui.Label {
+                    Label {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: tile.screen.width + " × " + tile.screen.height
                         role: "caption"

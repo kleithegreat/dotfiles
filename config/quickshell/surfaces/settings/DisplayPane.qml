@@ -176,7 +176,7 @@ Ui.Scroll {
             title: "Arrangement"
             footnote: "Drag a display to where it sits on your desk. Edges snap together."
 
-            DisplayArrangement {
+            Ui.DisplayArrangement {
                 Layout.fillWidth: true
                 Layout.margins: Metrics.s2
                 layout: Sys.Displays.monitors.filter(monitor => !monitor.disabled).map(monitor => ({

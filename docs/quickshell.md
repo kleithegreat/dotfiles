@@ -170,6 +170,16 @@ Hot reload re-reads files it already knows about; a file added to a directory
 module is not in the generated qmldir yet, so it reloads cleanly and then fails
 with "X is not a type". Restart quickshell after adding a file.
 
+### A sibling type resolves only in a directory something imports as a module
+`ui/` files reference each other bare — `Group` uses `Label` and `Card` with no
+import — so bare sibling references look like a language feature. They are not:
+they work because `qs.ui` is imported elsewhere and the directory is therefore a
+registered module. `surfaces/settings/` is only ever reached through
+`Loader.source` URLs, so a new component dropped beside the panes fails with
+"X is not a type" *after a full restart*, which reads exactly like the reload
+trap above and is not it. A shared component belongs in `ui/`; the panes are
+leaves.
+
 ### Platform menus need QApplication mode, so tray menus are drawn here
 `QsMenuAnchor.open()` refuses to run unless the shell was started with
 `//@ pragma UseQApplication`, and what it opens is a Qt widget menu wearing
