@@ -26,24 +26,29 @@ pub fn run(
     hypr: HyprController,
     theme: ThemeController,
 ) -> crate::Result<()> {
-    let settled = |shutdown: &AtomicBool| {
+    let settled = |shutdown: &AtomicBool, wallpaper: bool| {
         if shutdown.load(Ordering::SeqCst) {
             return;
         }
         thread::sleep(SETTLE_DELAY);
         reconcile(&hypr);
         reclaim();
-        reapply_wallpaper(&theme);
+        if wallpaper {
+            reapply_wallpaper(&theme);
+        }
     };
 
     hypr::watch_event_socket(
         &shutdown,
         // A daemon restart is a topology event too: nothing else re-establishes
-        // the workspace pins this process is the only writer of.
-        || settled(&shutdown),
+        // the workspace pins this process is the only writer of. The wallpaper
+        // is left alone here -- at login `autostart.lua` is already applying it,
+        // and racing that only produces awww's "none of the requested outputs
+        // are valid" against outputs it has not registered yet.
+        || settled(&shutdown, false),
         |line| {
             if line.starts_with("monitoradded") || line.starts_with("monitorremoved") {
-                settled(&shutdown);
+                settled(&shutdown, true);
             }
         },
     );

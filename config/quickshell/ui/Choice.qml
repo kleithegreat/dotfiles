@@ -31,7 +31,7 @@ Item {
         contentWidth: row.implicitWidth
         contentHeight: height
         flickableDirection: Flickable.HorizontalFlick
-        boundsBehavior: Flickable.StopAtBounds
+        boundsBehavior: Flickable.DragAndOvershootBounds
         pixelAligned: true
         clip: true
 
@@ -72,17 +72,40 @@ Item {
         }
     }
 
+    readonly property real _limit: Math.max(0, strip.contentWidth - strip.width)
+
+    function _scrollTo(x, curve) {
+        glide.to = x;
+        glide.easing.bezierCurve = curve || Motion.enter;
+        glide.restart();
+    }
+
     // Both wheels move it: the vertical one because that is the wheel most
     // people have under a finger, the horizontal one because the mice that
-    // have it expect it to work.
+    // have it expect it to work. Past either end it stretches and springs back,
+    // the same way and by the same amount a `Scroll` does vertically.
     WheelHandler {
         acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
         enabled: root.overflowing
         onWheel: event => {
             const delta = event.angleDelta.x !== 0 ? event.angleDelta.x : event.angleDelta.y;
-            glide.to = Math.max(0, Math.min(strip.contentWidth - strip.width, (glide.running ? glide.to : strip.contentX) - delta / 120 * Metrics.wheelStep));
-            glide.restart();
+            const next = (glide.running ? glide.to : strip.contentX) - delta / 120 * Metrics.wheelStep;
+            const past = next < 0 ? -next : next > root._limit ? next - root._limit : 0;
+
+            if (past === 0) {
+                root._scrollTo(next);
+                return;
+            }
+
+            root._scrollTo(next < 0 ? -Metrics.resist(past) : root._limit + Metrics.resist(past));
+            recoil.restart();
         }
+    }
+
+    Timer {
+        id: recoil
+        interval: 110
+        onTriggered: root._scrollTo(Math.max(0, Math.min(root._limit, glide.to)), Motion.standard)
     }
 
     NumberAnimation {

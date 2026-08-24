@@ -265,7 +265,8 @@ enum HyprMonitorsCommand {
     Status(JsonOutputArgs),
     /// Choose the primary output; an empty selector restores automatic choice.
     Primary(HyprMonitorsPrimaryArgs),
-    /// Persist an arrangement already applied to the session.
+    /// Persist a layout already applied to the session, as complete per-output
+    /// specs. A spec that omits a field resets that field on the next reload.
     Layout(HyprJsonPayloadArgs),
 }
 
@@ -520,7 +521,7 @@ fn run_hypr_monitors(args: HyprMonitorsArgs) -> Result<()> {
         ),
         HyprMonitorsCommand::Layout(args) => strict_request(
             ipc::methods::HYPR_MONITORS_LAYOUT,
-            serde_json::json!({ "positions": serde_json::from_str::<serde_json::Value>(&args.payload)? }),
+            serde_json::json!({ "outputs": serde_json::from_str::<serde_json::Value>(&args.payload)? }),
         ),
     }
 }

@@ -56,8 +56,16 @@
   disagree the first time either changed.
 - Applying a layout and persisting it are separate on purpose. The display
   pane applies through `hyprctl` so its confirm countdown can take a layout
-  straight back off; only the arrangement the user kept is written to
+  straight back off; only the layout the user kept is written to
   `displays-runtime.lua`, and only that one survives a reload.
+- What is stored per output is the *whole* spec — mode, position, scale, vrr,
+  transform, disabled — never the subset that changed, because the generated
+  file is re-read at config-parse time where an omitted field resets rather
+  than persists ([[hyprland]]). The shell's runtime expression and this
+  file must keep naming the same fields.
+- Stored outputs are merged, never replaced. The entry for a display that is
+  unplugged right now is exactly the one worth keeping for when it comes
+  back, so keeping a layout while it is away must not forget it.
 - State mutations persist only after the required target apply succeeds, write
   only the mutated keys (per-key upserts in one transaction), and replace
   files atomically. See [[theming]] for the full contract.

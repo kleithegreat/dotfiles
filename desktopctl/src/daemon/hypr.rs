@@ -53,10 +53,10 @@ impl HyprController {
         self.publish_monitors(status)
     }
 
-    pub fn monitors_layout(&self, positions: &Value) -> crate::Result<Value> {
+    pub fn monitors_layout(&self, outputs: &Value) -> crate::Result<Value> {
         let status = {
             let _guard = self.lock_serialized()?;
-            displays::save_positions(serde_json::from_value(positions.clone())?)?
+            displays::save_layout(serde_json::from_value(outputs.clone())?)?
         };
         self.publish_monitors(status)
     }

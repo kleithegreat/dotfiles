@@ -20,7 +20,8 @@ Open issues and pending validations. Delete entries when resolved.
       survives a relogin, and that plugging in a *different* unknown monitor
       still auto-selects it. Drag a display in the arrangement canvas: check
       the snap, the confirm countdown's revert, and that "Keep" survives
-      `hyprctl reload`.
+      `hyprctl reload`. Change the scale, press Keep, then `hyprctl reload`
+      twice: the scale must hold both times and never drift to `auto`.
 
 - [ ] Quickshell live smoke test after the rewrite: slider drags end to end
       (OSD suppression across a volume drag, night-light commit-on-release,

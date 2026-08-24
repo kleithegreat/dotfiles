@@ -42,14 +42,23 @@
 
 ## Quirks
 
+### A partial `hl.monitor` merges at runtime and *resets* at parse time
+Through `hyprctl eval`, `hl.monitor({ output = X, position = ... })` is a
+genuine partial update: mode and scale survive, which is what makes an
+arrangement editor possible at all. The same table in a config file is not an
+update at all — it is a second rule for that output, and every field it does
+not name takes that field's default. `scale`'s default is `auto`, so a
+generated file carrying positions alone silently rescaled the built-in panel
+to 150% on the next reload, and kept doing it, because writing the file is
+itself what trips the config watcher. Anything desktopctl generates into the
+config graph must spell out every field it cares about.
+
 ### One monitor moving drags every `position = "auto"` output with it
-`hl.monitor({ output = X, position = ... })` is a valid partial update — mode
-and scale survive, which is what makes an arrangement editor possible at all.
-But `auto` is resolved at apply time, not frozen at first resolution: moving
-one output re-resolves every other output still on `auto`, which slides
-displays nobody touched. Any layout write has to name a position for every
-connected output, which is why the display pane applies the whole set rather
-than only the monitors with staged edits.
+`auto` is resolved at apply time, not frozen at first resolution: moving one
+output re-resolves every other output still on `auto`, which slides displays
+nobody touched. Any layout write has to name a position for every connected
+output, which is why the display pane applies the whole set rather than only
+the monitors with staged edits.
 
 ### hyprctl takes Lua now, and reports failure with exit code 0
 `hyprctl dispatch X` evaluates `X` as `return hl.dispatch(X)`, so every

@@ -12,18 +12,43 @@ Flickable {
 
     clip: true
     contentWidth: width
-    boundsBehavior: Flickable.StopAtBounds
+    // Dragging past an edge stretches and springs back rather than stopping
+    // dead; the wheel gets the same treatment below, by hand, because the
+    // wheel never reaches Flickable's own bounds handling.
+    boundsBehavior: Flickable.DragAndOvershootBounds
     pixelAligned: true
 
     property real _target: contentY
 
     readonly property real _limit: Math.max(0, contentHeight - height)
 
+    function scrollTo(y, curve) {
+        _target = y;
+        glide.to = y;
+        glide.easing.bezierCurve = curve || Motion.enter;
+        glide.restart();
+    }
+
     function scrollBy(delta) {
         const from = glide.running ? _target : contentY;
-        _target = Math.max(0, Math.min(_limit, from + delta));
-        glide.to = _target;
-        glide.restart();
+        const next = from + delta;
+        const past = next < 0 ? -next : next > _limit ? next - _limit : 0;
+
+        if (past === 0) {
+            scrollTo(next);
+            return;
+        }
+
+        scrollTo(next < 0 ? -Metrics.resist(past) : _limit + Metrics.resist(past));
+        recoil.restart();
+    }
+
+    // Springs back once the input stops, not while it continues -- holding a
+    // scroll against the end should stay stretched.
+    Timer {
+        id: recoil
+        interval: 110
+        onTriggered: root.scrollTo(Math.max(0, Math.min(root._limit, root._target)), Motion.standard)
     }
 
     NumberAnimation {

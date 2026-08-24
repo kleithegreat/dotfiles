@@ -13,7 +13,7 @@ import Quickshell.Hyprland
 //
 // Applying and persisting are deliberately separate. `apply` puts a layout on
 // screen through the compositor gateway so the confirm countdown can take it
-// straight back off again; `savePositions` records the one the user kept, and
+// straight back off again; `saveLayout` records the one the user kept, and
 // only that one survives a reload. The primary output is not risky in the same
 // way -- nothing about it can leave you unable to see the screen -- so it is
 // written straight through.
@@ -29,7 +29,7 @@ QtObject {
     property string primaryOutput: ""
     // The stored selector; empty means the choice is automatic.
     property string primary: ""
-    property var positions: ({})
+    property var outputs: ({})
 
     signal applied(bool ok)
 
@@ -55,12 +55,26 @@ QtObject {
         writer.running = true;
     }
 
-    function savePositions(states) {
+    // The stored spec carries every field `expressionFor` writes, because the
+    // generated Lua is re-read at config-parse time where a partial spec is a
+    // separate rule rather than a merge: anything left out silently reverts to
+    // its default on the next reload, and `scale`'s default is `auto`. The two
+    // must keep naming the same fields.
+    function saveLayout(states) {
         const payload = {};
         for (let i = 0; i < states.length; i++) {
-            const monitor = monitorFor(states[i].name);
-            if (monitor)
-                payload[selectorFor(monitor)] = states[i].x + "x" + states[i].y;
+            const state = states[i];
+            const monitor = monitorFor(state.name);
+            if (!monitor)
+                continue;
+            payload[selectorFor(monitor)] = {
+                mode: state.width + "x" + state.height + "@" + Number(state.refreshRate).toFixed(2),
+                position: state.x + "x" + state.y,
+                scale: state.scale,
+                vrr: state.vrr ? 1 : 0,
+                transform: state.transform || 0,
+                disabled: state.disabled ? true : false
+            };
         }
         writer.command = ["desktopctl", "hypr", "monitors", "layout", JSON.stringify(payload)];
         writer.running = true;
@@ -130,7 +144,7 @@ QtObject {
     function _ingest(status) {
         primary = status.primary || "";
         primaryOutput = status.primary_output || "";
-        positions = status.positions || ({});
+        outputs = status.outputs || ({});
     }
 
     Component.onCompleted: {

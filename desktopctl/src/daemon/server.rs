@@ -106,7 +106,7 @@ struct MonitorsPrimaryParams {
 
 #[derive(Debug, Deserialize)]
 struct MonitorsLayoutParams {
-    positions: serde_json::Value,
+    outputs: serde_json::Value,
 }
 
 #[derive(Debug, Deserialize)]
@@ -409,7 +409,7 @@ async fn handle_client(stream: UnixStream, context: ServerContext) -> io::Result
                     Ok(params) => {
                         let hypr = context.hypr.clone();
                         let result = tokio::task::spawn_blocking(move || {
-                            hypr.monitors_layout(&params.positions)
+                            hypr.monitors_layout(&params.outputs)
                         })
                         .await;
                         write_join_result(&mut writer, result).await?;

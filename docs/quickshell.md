@@ -66,6 +66,15 @@ array rebuilt on write must key its model on the *count* and index into the
 array; binding the array itself silently breaks drags and all per-delegate
 state.
 
+### Scrolling past an edge stretches; the wheel needs that done by hand
+`boundsBehavior` governs dragging and flicking only. Wheel and touchpad input
+reaches `Scroll` and `Choice` through a `WheelHandler` that animates
+`contentY`/`contentX` directly, so it never touches Flickable's bounds logic
+at all — the rubber band there is computed by `Metrics.resist` and released by
+a timer once input stops, and holding a scroll against the end deliberately
+stays stretched. Both scrollers share that curve; two surfaces that stretch by
+different amounts read as one of them being broken.
+
 ### One scroll gesture, two implementations, two speeds
 `Scroll` and `Choice` both glide the wheel to a target by `Metrics.wheelStep`.
 When `Scroll` accepted only `PointerDevice.Mouse`, touchpad scrolling fell
@@ -90,6 +99,11 @@ expires. Do not reintroduce per-control or per-pointer-move writes — they can
 strand the session on a layout the display cannot show. The main-display toggle
 is deliberately outside that flow: it cannot leave you unable to see a screen,
 so there is nothing for a countdown to rescue.
+
+Applying also scrolls the pane back to the top, because the confirm card is the
+first thing in it and the controls that trigger an apply are far below the fold.
+A countdown nobody can see reverts every single time, which reads as the Keep
+button being broken.
 
 ### Bar lifetime follows Hyprland's monitor model, not `Quickshell.screens`
 Output churn (suspend, DPMS, hotplug) tears down the layer-shell surface while

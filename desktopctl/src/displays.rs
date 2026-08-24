@@ -22,18 +22,39 @@ const RUNTIME_RELATIVE_PATH: &str = "hypr/displays-runtime.lua";
 /// `config/hypr/keybinds.lua`; the pins and the keys have to name the same set.
 const NUMBERED_WORKSPACES: std::ops::RangeInclusive<u32> = 1..=10;
 
+/// Everything the display pane can change about one output.
+///
+/// Stored whole, never partially. A partial `hl.monitor` is a merge when it
+/// arrives through `hyprctl eval` but a *separate rule* at config-parse time,
+/// where every field it omits falls back to that field's default -- and
+/// `scale`'s default is `auto`. A file carrying positions alone therefore
+/// silently rescaled the built-in panel on the next reload. Whatever this
+/// struct omits, the compositor decides.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub(crate) struct OutputState {
+    /// `"<width>x<height>@<rate>"`.
+    pub(crate) mode: String,
+    /// `"<x>x<y>"`.
+    pub(crate) position: String,
+    pub(crate) scale: f64,
+    pub(crate) vrr: i64,
+    pub(crate) transform: i64,
+    pub(crate) disabled: bool,
+}
+
 /// Stored topology. Empty is the default and means every choice is automatic.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub(crate) struct DisplayState {
     /// Monitor selector, or empty for "pick the primary automatically".
     pub(crate) primary: String,
-    /// Selector -> `"<x>x<y>"`, for every output the user has arranged.
-    pub(crate) positions: BTreeMap<String, String>,
+    /// Selector -> the whole of what the user configured for that output.
+    pub(crate) outputs: BTreeMap<String, OutputState>,
 }
 
 /// What the rest of the system reads: the stored choice plus the output that
 /// choice currently resolves to.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub(crate) struct DisplayStatus {
     /// The stored selector, empty when the primary is chosen automatically.
@@ -42,7 +63,7 @@ pub(crate) struct DisplayStatus {
     pub(crate) primary_output: String,
     /// Selector the effective primary is addressed by, for pinning rules.
     pub(crate) primary_selector: String,
-    pub(crate) positions: BTreeMap<String, String>,
+    pub(crate) outputs: BTreeMap<String, OutputState>,
 }
 
 pub(crate) fn runtime_path() -> Result<PathBuf> {
@@ -110,7 +131,7 @@ fn status_for(monitors: &[hypr::MonitorInfo], state: DisplayState) -> DisplaySta
         primary: state.primary,
         primary_output: effective.map(|m| m.name.clone()).unwrap_or_default(),
         primary_selector: effective.map(selector_for).unwrap_or_default(),
-        positions: state.positions,
+        outputs: state.outputs,
     }
 }
 
@@ -158,20 +179,38 @@ pub(crate) fn set_primary(selector: &str) -> Result<DisplayStatus> {
     reconcile()
 }
 
-/// Record an arrangement the user has already accepted. Positions are applied
-/// live by whoever staged them; this is what makes them survive a reload.
-pub(crate) fn save_positions(positions: BTreeMap<String, String>) -> Result<DisplayStatus> {
-    for position in positions.values() {
-        parse_position(position).ok_or_else(|| {
-            io::Error::new(
+/// Record a layout the user has already accepted. It is applied live by
+/// whoever staged it; this is what makes it survive a reload.
+///
+/// Merged, never replaced: the entry for an output that is unplugged right now
+/// is exactly the one worth keeping for when it comes back, and a layout kept
+/// while it is away must not forget it.
+pub(crate) fn save_layout(outputs: BTreeMap<String, OutputState>) -> Result<DisplayStatus> {
+    for (selector, output) in &outputs {
+        if output.disabled {
+            continue;
+        }
+        if parse_position(&output.position).is_none() {
+            return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
-                format!("position '{position}' is not '<x>x<y>'"),
+                format!(
+                    "position '{}' for '{selector}' is not '<x>x<y>'",
+                    output.position
+                ),
             )
-        })?;
+            .into());
+        }
+        if output.mode.trim().is_empty() {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("'{selector}' has no mode; a partial spec resets everything it omits"),
+            )
+            .into());
+        }
     }
 
     let mut state = load_state()?;
-    state.positions = positions;
+    state.outputs.extend(outputs);
     persist(&state)?;
     status()
 }
@@ -200,20 +239,25 @@ fn parse_position(value: &str) -> Option<(i64, i64)> {
     Some((x.trim().parse().ok()?, y.trim().parse().ok()?))
 }
 
-/// Rendered flat on purpose: one `key = value` per line, so the same file is
-/// both the Lua the compositor reads and the state this module reads back.
+/// One output per line on purpose, so the same file is both the Lua the
+/// compositor reads and the state this module reads back.
 fn render_state(state: &DisplayState) -> String {
     let mut out = String::from("-- Generated by desktopctl - do not edit\nreturn {\n");
     out.push_str(&format!(
         "    primary = {},\n",
         hypr::lua_str(&state.primary)
     ));
-    out.push_str("    positions = {\n");
-    for (selector, position) in &state.positions {
+    out.push_str("    outputs = {\n");
+    for (selector, output) in &state.outputs {
         out.push_str(&format!(
-            "        [{}] = {},\n",
+            "        [{}] = {{ mode = {}, position = {}, scale = {}, vrr = {}, transform = {}, disabled = {} }},\n",
             hypr::lua_str(selector),
-            hypr::lua_str(position)
+            hypr::lua_str(&output.mode),
+            hypr::lua_str(&output.position),
+            output.scale,
+            output.vrr,
+            output.transform,
+            output.disabled,
         ));
     }
     out.push_str("    },\n}\n");
@@ -226,19 +270,43 @@ fn parse_state(contents: &str) -> DisplayState {
         let line = line.trim();
         if let Some(value) = line.strip_prefix("primary = ") {
             state.primary = unquote(value.trim_end_matches(',')).unwrap_or_default();
-        } else if let Some((key, value)) = line.strip_prefix('[').and_then(|rest| {
-            let (key, value) = rest.split_once("] = ")?;
-            Some((unquote(key)?, unquote(value.trim_end_matches(','))?))
-        }) {
-            state.positions.insert(key, value);
+        } else if let Some((selector, output)) = parse_output_line(line) {
+            state.outputs.insert(selector, output);
         }
     }
     state
 }
 
+fn parse_output_line(line: &str) -> Option<(String, OutputState)> {
+    let rest = line.strip_prefix("[\"")?;
+    let (selector, rest) = rest.split_once("\"] = {")?;
+    let fields = rest.trim_end_matches(&[',', ' '][..]).strip_suffix('}')?;
+
+    let mut output = OutputState::default();
+    for field in fields.split(", ") {
+        let Some((key, value)) = field.split_once(" = ") else {
+            continue;
+        };
+        match key.trim() {
+            "mode" => output.mode = unquote(value)?,
+            "position" => output.position = unquote(value)?,
+            "scale" => output.scale = value.trim().parse().ok()?,
+            "vrr" => output.vrr = value.trim().parse().ok()?,
+            "transform" => output.transform = value.trim().parse().ok()?,
+            "disabled" => output.disabled = value.trim() == "true",
+            _ => {}
+        }
+    }
+    Some((unescape(selector), output))
+}
+
 fn unquote(value: &str) -> Option<String> {
     let inner = value.trim().strip_prefix('"')?.strip_suffix('"')?;
-    Some(inner.replace("\\\"", "\"").replace("\\\\", "\\"))
+    Some(unescape(inner))
+}
+
+fn unescape(value: &str) -> String {
+    value.replace("\\\"", "\"").replace("\\\\", "\\")
 }
 
 pub(crate) fn print_status(status: &DisplayStatus, json: bool) -> Result<()> {
@@ -256,8 +324,14 @@ pub(crate) fn print_status(status: &DisplayStatus, json: bool) -> Result<()> {
         }
     );
     println!("primary_output = {}", status.primary_output);
-    for (selector, position) in &status.positions {
-        println!("{selector} = {position}");
+    for (selector, output) in &status.outputs {
+        println!(
+            "{selector} = {} at {} scale {}{}",
+            output.mode,
+            output.position,
+            output.scale,
+            if output.disabled { " (disabled)" } else { "" }
+        );
     }
     Ok(())
 }
@@ -280,20 +354,51 @@ mod tests {
         hypr::MonitorInfo::for_test(name, description, width, height)
     }
 
+    fn output(mode: &str, position: &str, scale: f64) -> OutputState {
+        OutputState {
+            mode: mode.to_owned(),
+            position: position.to_owned(),
+            scale,
+            ..OutputState::default()
+        }
+    }
+
     #[test]
     fn state_round_trips_through_the_generated_lua() {
         let mut state = DisplayState {
             primary: "desc:LG Electronics LG ULTRAWIDE".to_owned(),
-            positions: BTreeMap::new(),
+            outputs: BTreeMap::new(),
         };
-        state
-            .positions
-            .insert("desc:LG Display 0x06B3".to_owned(), "0x0".to_owned());
-        state
-            .positions
-            .insert("DP-4".to_owned(), "-320x-1080".to_owned());
+        state.outputs.insert(
+            "desc:LG Display 0x06B3".to_owned(),
+            output("1920x1200@59.95", "0x0", 1.25),
+        );
+        state.outputs.insert(
+            "DP-4".to_owned(),
+            OutputState {
+                vrr: 1,
+                transform: 1,
+                disabled: true,
+                ..output("2560x1080@60.00", "-320x-1080", 1.0)
+            },
+        );
 
         assert_eq!(parse_state(&render_state(&state)), state);
+    }
+
+    /// The bug this whole struct exists for: a spec that names only a position
+    /// is a *separate rule* at parse time, so scale falls back to `auto`.
+    #[test]
+    fn every_rendered_output_carries_a_full_spec() {
+        let mut state = DisplayState::default();
+        state
+            .outputs
+            .insert("eDP-1".to_owned(), output("1920x1200@59.95", "0x0", 1.0));
+
+        let rendered = render_state(&state);
+        for field in ["mode", "position", "scale", "vrr", "transform", "disabled"] {
+            assert!(rendered.contains(field), "missing {field}: {rendered}");
+        }
     }
 
     #[test]
@@ -351,6 +456,23 @@ mod tests {
         assert!(first.contains("default = true"));
         assert!(!second.contains("default"));
         assert!(second.contains("monitor = \"desc:LG ULTRAWIDE\""));
+    }
+
+    #[test]
+    fn a_kept_layout_never_forgets_an_output_that_is_unplugged() {
+        // save_layout merges onto the stored map; the entry for an absent
+        // output is the one worth keeping for when it comes back.
+        let mut stored = DisplayState::default();
+        stored
+            .outputs
+            .insert("DP-4".to_owned(), output("2560x1080@60.00", "0x0", 1.0));
+
+        let mut incoming = BTreeMap::new();
+        incoming.insert("eDP-1".to_owned(), output("1920x1200@59.95", "0x0", 1.0));
+        stored.outputs.extend(incoming);
+
+        assert_eq!(stored.outputs.len(), 2);
+        assert!(stored.outputs.contains_key("DP-4"));
     }
 
     #[test]

@@ -74,4 +74,14 @@ QtObject {
     readonly property int detachment: barHeight + barMargin + gap
 
     readonly property int wheelStep: 165
+
+    // How far past an edge a wheel may stretch content, and the curve that gets
+    // it there: diminishing returns, asymptotic to `overshoot`, so pushing
+    // harder against the end never runs away. One home, because two scrollers
+    // that stretch differently read as one of them being broken.
+    readonly property int overshoot: 72
+
+    function resist(past) {
+        return overshoot * past / (past + overshoot);
+    }
 }

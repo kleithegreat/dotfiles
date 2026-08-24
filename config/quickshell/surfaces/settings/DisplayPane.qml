@@ -80,15 +80,19 @@ Ui.Scroll {
 
         edits = ({});
         Sys.Displays.apply(states);
-        confirmLeft = 12;
+        confirmLeft = 15;
         countdown.restart();
+        // The confirm card is the top of a pane you are almost certainly
+        // scrolled past -- a countdown nobody can see reverts every time.
+        root.scrollTo(0);
     }
 
-    // Only an arrangement the user kept is worth surviving a reload.
+    // Only a layout the user kept is worth surviving a reload. Disabled outputs
+    // go in too: staying off is a setting like any other.
     function keep() {
         confirmLeft = 0;
         countdown.stop();
-        Sys.Displays.savePositions(Sys.Displays.monitors.filter(monitor => !monitor.disabled).map(stateFor));
+        Sys.Displays.saveLayout(Sys.Displays.monitors.map(monitor => stateFor(monitor)));
         snapshot = [];
     }
 
