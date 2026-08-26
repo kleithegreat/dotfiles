@@ -158,29 +158,56 @@ pub fn is_efficiency_mode(root: &Path) -> Result<bool> {
 }
 
 pub fn current(root: &Path) -> Result<String> {
-    ensure_hybrid(root)?;
-
+    // Before the topology check, not after. The mask this looks for is exactly
+    // what makes that check fail: offlining the P-cores takes their `topology/`
+    // group with it, so a machine sitting in e-core-only reads as non-hybrid and
+    // `ensure_hybrid` would refuse to answer for the one profile it is in.
     if is_efficiency_mode(root)? {
         return Ok(Profile::ECoreOnly.as_str().to_owned());
     }
+
+    ensure_hybrid(root)?;
 
     let output = powerprofilesctl(&["get"])?;
     Ok(String::from_utf8(output.stdout)?.trim().to_owned())
 }
 
-pub fn apply(root: &Path, profile: Profile) -> Result<()> {
-    ensure_hybrid(root)?;
+/// Bring every hotpluggable CPU back online, whatever profile is being applied.
+///
+/// Every profile starts from a fully-online machine: the P-core mask is only
+/// readable while the cores are online, so e-core-only has to re-online before
+/// it can work out what to offline, and the standard profiles have to undo
+/// whatever mask a previous e-core-only left behind.
+///
+/// Split out of [`apply`] so the mask handling can be tested against a fake tree
+/// without a live power-profiles-daemon — which is not incidental here, since
+/// `powerprofilesctl set` fails outright while the P-cores are offline (it
+/// writes `energy_performance_preference` for every policy, and an offlined
+/// core's policy is EBUSY). That is why this runs before the daemon call and not
+/// after.
+fn unmask(root: &Path) -> Result<()> {
+    ensure_manageable(root)?;
 
-    // Every profile starts from a fully-online machine: the P-core mask is only
-    // readable while the cores are online, so e-core-only has to re-online
-    // before it can work out what to offline, and the standard profiles have to
-    // undo whatever mask a previous e-core-only left behind.
     for cpu in hotpluggable_cpus(root)? {
         set_cpu_online(root, cpu, true)?;
     }
 
+    Ok(())
+}
+
+pub fn apply(root: &Path, profile: Profile) -> Result<()> {
+    unmask(root)?;
+
     match profile {
         Profile::ECoreOnly => {
+            // The authoritative topology check, deliberately here and not at the
+            // top: the re-onlining above is what brings `topology/` back, and
+            // this is the only arm that needs it — both to trust the machine is
+            // hybrid and to read the mask off it. Leaving e-core-only asks sysfs
+            // nothing, so it stays reachable even when the mask is what is
+            // making the topology unreadable.
+            ensure_hybrid(root)?;
+
             powerprofilesctl(&["set", Profile::PowerSaver.as_str()])?;
             for cpu in p_core_cpus(root)? {
                 set_cpu_online(root, cpu, false)?;
@@ -199,10 +226,29 @@ fn ensure_hybrid(root: &Path) -> Result<()> {
         return Ok(());
     }
 
-    Err(
-        io::Error::other("no hybrid P-core/E-core topology here; use powerprofilesctl directly")
-            .into(),
-    )
+    Err(not_hybrid())
+}
+
+/// The gate `apply` opens with, before it has re-onlined anything. An active
+/// mask passes on its own because it is proof of a topology `is_hybrid` can no
+/// longer see — sound for the same reason [`is_efficiency_mode`] is sound: this
+/// binary is the only thing that offlines CPUs here, and it only ever does so
+/// once `ensure_hybrid` has already said yes.
+///
+/// Deliberately weaker than [`ensure_hybrid`], and never the check that guards
+/// an offline: `apply` re-onlines and then runs the real check inside the arm
+/// that masks, so a uniform-SMT machine that happens to have a core offline gets
+/// its core back and an error, not every core but cpu0 offlined.
+fn ensure_manageable(root: &Path) -> Result<()> {
+    if is_hybrid(root)? || is_efficiency_mode(root)? {
+        return Ok(());
+    }
+
+    Err(not_hybrid())
+}
+
+fn not_hybrid() -> Box<dyn std::error::Error + Send + Sync> {
+    io::Error::other("no hybrid P-core/E-core topology here; use powerprofilesctl directly").into()
 }
 
 fn cpu_path(root: &Path, cpu: u32, rest: &str) -> PathBuf {
@@ -446,6 +492,81 @@ mod tests {
         }
 
         assert!(!is_hybrid(tree.path()).unwrap());
+    }
+
+    /// A tree in the state e-core-only actually leaves behind: P-cores offline,
+    /// their `topology/` gone with them, cpu0 now claiming no SMT sibling.
+    fn masked_tree() -> TempTree {
+        let tree = hybrid_tree();
+
+        tree.write("cpu0/topology/thread_siblings_list", "0\n");
+        for cpu in 1..12u32 {
+            fs::remove_dir_all(tree.path().join(format!("cpu{cpu}/topology")))
+                .expect("topology is removable");
+            tree.write(&format!("cpu{cpu}/online"), "0\n");
+        }
+
+        tree
+    }
+
+    /// The regression: `current` used to run the topology check first, so the
+    /// mask hid the very profile that laid it down. The popup read that failure
+    /// as "no laptop-helper backend", fell back to powerprofilesctl, and dropped
+    /// the e-core-only entry off the list while the P-cores stayed offline.
+    #[test]
+    fn current_reports_e_core_only_through_the_mask_it_left() {
+        let tree = masked_tree();
+
+        assert!(!is_hybrid(tree.path()).unwrap());
+        assert_eq!(current(tree.path()).unwrap(), "e-core-only");
+    }
+
+    /// The other half of the same regression: with the mask on, `apply` refused
+    /// too, so the profile could not be left by the control that entered it.
+    /// The tree stays stripped of `topology/` after the re-onlining, which real
+    /// sysfs would restore — leaving e-core-only must not lean on that.
+    #[test]
+    fn apply_re_onlines_through_the_mask_it_left() {
+        let tree = masked_tree();
+
+        unmask(tree.path()).expect("the mask comes off without a topology to read");
+
+        for cpu in 1..20u32 {
+            assert_eq!(
+                fs::read_to_string(tree.path().join(format!("cpu{cpu}/online"))).unwrap(),
+                "1",
+                "cpu{cpu} should be back online"
+            );
+        }
+    }
+
+    /// An offline CPU alone must not be taken as licence to offline the rest:
+    /// on uniform SMT every core reads as a P-core, so a mask laid on the
+    /// strength of `ensure_manageable` would leave the machine on cpu0 alone.
+    #[test]
+    fn uniform_smt_with_an_offline_cpu_is_still_refused() {
+        let tree = TempTree::new();
+        for cpu in 0..16u32 {
+            let pair_start = cpu - (cpu % 2);
+            tree.write(
+                &format!("cpu{cpu}/topology/thread_siblings_list"),
+                &format!("{pair_start}-{}\n", pair_start + 1),
+            );
+        }
+        for cpu in 1..16u32 {
+            tree.write(&format!("cpu{cpu}/online"), "1\n");
+        }
+        tree.write("cpu7/online", "0\n");
+
+        assert!(apply(tree.path(), Profile::ECoreOnly).is_err());
+
+        for cpu in 1..16u32 {
+            assert_eq!(
+                fs::read_to_string(tree.path().join(format!("cpu{cpu}/online"))).unwrap(),
+                "1",
+                "cpu{cpu} should be online, not masked"
+            );
+        }
     }
 
     /// `current` and `apply` must refuse before shelling out to
