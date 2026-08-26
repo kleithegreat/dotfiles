@@ -96,6 +96,52 @@ in {
   # Runs `powertop --auto-tune` at boot to enable runtime PM on devices that
   # don't default to it (NVMe, audio codec, sensor hub, etc.)
   powerManagement.powertop.enable = true;
+
+  # ── Touchpad responsiveness ─────────────────────────────────
+  # `powertop --auto-tune` sets power/control=auto on *every* PCI device, 00:15.1
+  # included — the Alder Lake LPSS I2C controller the ELAN touchpad hangs off
+  # (.../0000:00:15.1/i2c_designware.1/i2c-2/i2c-VEN_04F3:00). The designware
+  # adapter is slow to leave runtime suspend, so the first reports after an idle
+  # stretch arrive late and the cursor stutters before catching up. Upstream hit
+  # the same wall and removed runtime PM from i2c-hid outright, measuring "little
+  # to none" energy saved, so pin this one controller to `on` and let powertop
+  # tune everything else.
+  #
+  # Two mechanisms because neither covers the other's case: the udev rule catches
+  # probe and re-probe, and the unit re-asserts the value at boot, where
+  # powertop.service runs long after udev has settled.
+  services.udev.extraRules = ''
+    ACTION=="add|change", SUBSYSTEM=="pci", KERNEL=="0000:00:15.1", ATTR{power/control}="on"
+  '';
+
+  systemd.services.touchpad-i2c-no-runtime-pm = {
+    description = "Keep the touchpad's I2C controller out of runtime suspend";
+    after = [ "powertop.service" ];
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    script = ''
+      echo on > /sys/bus/pci/devices/0000:00:15.1/power/control
+    '';
+  };
+
+  # Kept for the BIOS/EC regions and the Goodix fingerprint sensor, all of which
+  # it does enumerate as updatable.
+  #
+  # It will NOT show the ELAN touchpad, and that is not a misconfiguration: the
+  # elantp plugin is Ready and i2c_dev is loaded, but fwupd 2.1.6's quirk DB
+  # carries 30 ELAN entries and 04F3:311C is not one of them, so nothing claims
+  # the device. That matters because 311C is the part with the documented
+  # firmware bug -- 0x000b stalls into an "inertia" lag every few minutes, which
+  # libinput reports as rate-limited "Touch jump detected and discarded". There
+  # is no LVFS path to 0x000c for it. Reaching it would mean hand-writing a quirk
+  # and flashing an unofficial blob meant for the 9510/5560, which is precisely
+  # what bricked this same part into bootloader mode (04F3:0400) in fwupd#5281.
+  # Don't. The runtime-PM pin above is the supported lever.
+  services.fwupd.enable = true;
+
   # ── Fingerprint auth ────────────────────────────────────────
   # Goodix 27c6:63ac is supported by upstream libfprint, so keep TOD disabled.
   services.fprintd = {
