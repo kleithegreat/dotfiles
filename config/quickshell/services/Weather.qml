@@ -19,6 +19,7 @@ QtObject {
     property int rainChance: 0
     property int code: -1
     property bool daylight: true
+    property string place: ""
     property string sunrise: ""
     property string sunset: ""
     property string updated: ""
@@ -92,11 +93,14 @@ QtObject {
         command: ["desktopctl", "sun", "status"]
         stdout: StdioCollector {
             onStreamFinished: {
-                const place = this.text.match(/Location:\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)/);
+                const coords = this.text.match(/Location:\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)/);
+                const named = this.text.match(/Place:\s*(.+)/);
                 const solar = this.text.match(/Sunrise:\s+([\d:]+)\s+Sunset:\s+([\d:]+)/);
-                if (place) {
-                    root._latitude = parseFloat(place[1]);
-                    root._longitude = parseFloat(place[2]);
+                if (named)
+                    root.place = named[1].trim();
+                if (coords) {
+                    root._latitude = parseFloat(coords[1]);
+                    root._longitude = parseFloat(coords[2]);
                     root._located = true;
                 }
                 if (solar) {

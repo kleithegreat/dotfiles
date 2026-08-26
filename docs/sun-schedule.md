@@ -24,6 +24,11 @@
   GeoClue (`where-am-i`) → stale-but-parseable cache → hardcoded fallback
   `30.6280, -96.3344` (College Station, TX). Degradation must be
   deterministic, never fatal.
+- GeoClue reports coordinates, never a name for them, and the forecast API
+  answers coordinates alone — so a place name exists only where `solar.rs`
+  reverse-geocodes one. It is resolved lazily, on `sun status` and never on
+  the daemon's path, cached beside the coordinates it describes, and dropped
+  whenever they refresh: a name must never outlive the fix it belongs to.
 
 ## Quirks
 

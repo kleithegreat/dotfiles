@@ -38,12 +38,25 @@ pub struct SolarStatus {
 struct CachedLocation {
     latitude: f64,
     longitude: f64,
+    // A name for these coordinates and no others, so it is dropped whenever
+    // they are refreshed rather than left describing somewhere else.
+    #[serde(default)]
+    place: Option<String>,
+}
+
+impl CachedLocation {
+    fn coordinates(&self) -> Option<Coordinates> {
+        validated_coordinates(self.latitude, self.longitude)
+    }
 }
 
 pub fn print_status() -> crate::Result<()> {
     let location = resolve_location()?;
     let status = status_for_now(Local::now(), location);
 
+    if let Some(place) = resolve_place_name(location) {
+        println!("Place:    {place}");
+    }
     println!(
         "Location: {:.4}, {:.4}",
         status.location.latitude, status.location.longitude
@@ -70,9 +83,9 @@ pub fn print_status() -> crate::Result<()> {
 
 pub fn resolve_location() -> io::Result<Coordinates> {
     let cache_path = paths::xdg_cache_home()?.join("sun-schedule/location.json");
-    let cached_location = read_cached_location(&cache_path);
+    let cached_location = read_cached_location(&cache_path).and_then(|cached| cached.coordinates());
 
-    if let Some(location) = cached_location.as_ref().copied()
+    if let Some(location) = cached_location
         && cached_location_is_fresh(&cache_path)
     {
         return Ok(location);
@@ -82,6 +95,7 @@ pub fn resolve_location() -> io::Result<Coordinates> {
         let payload = CachedLocation {
             latitude: location.latitude,
             longitude: location.longitude,
+            place: None,
         };
         if let Err(error) = write_cached_location(&cache_path, &payload) {
             eprintln!(
@@ -244,10 +258,9 @@ pub fn sun_times(latitude: f64, longitude: f64, date: NaiveDate) -> (DateTime<Ut
     (sunrise, sunset)
 }
 
-fn read_cached_location(path: &std::path::Path) -> Option<Coordinates> {
+fn read_cached_location(path: &std::path::Path) -> Option<CachedLocation> {
     let contents = fs::read(path).ok()?;
-    let cached: CachedLocation = serde_json::from_slice(&contents).ok()?;
-    validated_coordinates(cached.latitude, cached.longitude)
+    serde_json::from_slice(&contents).ok()
 }
 
 fn cached_location_is_fresh(path: &std::path::Path) -> bool {
@@ -267,6 +280,72 @@ fn write_cached_location(path: &std::path::Path, location: &CachedLocation) -> i
     }
     let json = serde_json::to_vec(location).map_err(io::Error::other)?;
     fs::write(path, json)
+}
+
+/// The place name for `location`, reverse-geocoded on first ask and cached
+/// beside the coordinates it describes. GeoClue reports where we are, never
+/// what it is called, and the forecast API answers coordinates alone.
+pub fn resolve_place_name(location: Coordinates) -> Option<String> {
+    let cache_path = paths::xdg_cache_home()
+        .ok()?
+        .join("sun-schedule/location.json");
+
+    if let Some(cached) = read_cached_location(&cache_path)
+        && let Some(place) = cached.place
+    {
+        return Some(place);
+    }
+
+    let place = reverse_geocode(location)?;
+    let payload = CachedLocation {
+        latitude: location.latitude,
+        longitude: location.longitude,
+        place: Some(place.clone()),
+    };
+    if let Err(error) = write_cached_location(&cache_path, &payload) {
+        eprintln!(
+            "warning: failed to cache place name at {}: {error}",
+            cache_path.display()
+        );
+    }
+
+    Some(place)
+}
+
+fn reverse_geocode(location: Coordinates) -> Option<String> {
+    let url = format!(
+        "https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={:.4}&longitude={:.4}&localityLanguage=en",
+        location.latitude, location.longitude
+    );
+    let output = Command::new("curl")
+        .args(["-fsS", "--connect-timeout", "4", "--max-time", "8", &url])
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    parse_place(&String::from_utf8_lossy(&output.stdout))
+}
+
+fn parse_place(body: &str) -> Option<String> {
+    let data: serde_json::Value = serde_json::from_str(body).ok()?;
+    let field = |key: &str| {
+        data.get(key)
+            .and_then(serde_json::Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+    };
+
+    let town = field("city").or_else(|| field("locality"))?;
+
+    // `principalSubdivisionCode` is ISO 3166-2 — "US-CO" — and only the
+    // subdivision half distinguishes one town of the same name from another.
+    match field("principalSubdivisionCode").and_then(|code| code.split('-').next_back()) {
+        Some(region) => Some(format!("{town}, {region}")),
+        None => Some(town.to_string()),
+    }
 }
 
 fn query_geoclue() -> Option<Coordinates> {
@@ -371,6 +450,25 @@ mod tests {
         assert!(parse_where_am_i("Client object: /org/freedesktop/GeoClue2/Client/3\n").is_none());
     }
 
+    #[test]
+    fn place_pairs_the_town_with_its_subdivision_code() {
+        let body = r#"{"city":"College Station","locality":"Bryan",
+            "principalSubdivision":"Texas","principalSubdivisionCode":"US-TX"}"#;
+        assert_eq!(parse_place(body).as_deref(), Some("College Station, TX"));
+    }
+
+    #[test]
+    fn place_falls_back_to_the_locality_and_omits_a_missing_subdivision() {
+        let body = r#"{"city":"","locality":"Bryan"}"#;
+        assert_eq!(parse_place(body).as_deref(), Some("Bryan"));
+    }
+
+    #[test]
+    fn place_over_open_water_yields_nothing() {
+        let body = r#"{"city":"","locality":"","countryCode":""}"#;
+        assert!(parse_place(body).is_none());
+    }
+
     fn sample_location(date: NaiveDate) -> Coordinates {
         // Keep solar noon roughly aligned with the builder's local noon so the
         // sunrise/sunset window assertions stay stable under different `TZ`s.
@@ -470,12 +568,13 @@ mod tests {
     }
 
     #[test]
-    fn read_cached_location_rejects_out_of_range_coordinates() {
+    fn cached_out_of_range_coordinates_are_not_usable() {
         let temp_dir = TempDir::new("desktopctl-solar-invalid-cache").expect("temp dir");
         let cache_path = temp_dir.path().join("location.json");
         fs::write(&cache_path, r#"{"latitude":123.45,"longitude":56.78}"#).expect("write cache");
 
-        assert!(read_cached_location(&cache_path).is_none());
+        let cached = read_cached_location(&cache_path).expect("cache parses");
+        assert!(cached.coordinates().is_none());
     }
 
     #[test]

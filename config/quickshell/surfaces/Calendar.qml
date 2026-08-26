@@ -151,21 +151,34 @@ Popover {
 
             ColumnLayout {
                 spacing: 0
+                Layout.fillWidth: true
 
-                Ui.Label {
-                    text: Sys.Weather.ready ? Math.round(Sys.Weather.temperature) + Sys.Weather.unit : Sys.Weather.loading ? "··" : "--"
-                    role: "title"
-                    numeric: true
+                RowLayout {
+                    spacing: Metrics.s2
+                    Layout.fillWidth: true
+
+                    Ui.Label {
+                        text: Sys.Weather.ready ? Math.round(Sys.Weather.temperature) + Sys.Weather.unit : Sys.Weather.loading ? "··" : "--"
+                        role: "title"
+                        numeric: true
+                    }
+
+                    // Named before the forecast lands, so a reading is never
+                    // shown without the place it was fetched for.
+                    Ui.Label {
+                        text: Sys.Weather.place
+                        role: "caption"
+                        visible: text !== ""
+                        elide: Text.ElideRight
+                        Layout.fillWidth: true
+                        Layout.alignment: Qt.AlignBaseline
+                    }
                 }
 
                 Ui.Label {
                     text: Sys.Weather.ready ? Sys.Weather.conditions : Sys.Weather.error !== "" ? Sys.Weather.error : "Loading"
                     role: "caption"
                 }
-            }
-
-            Item {
-                Layout.fillWidth: true
             }
 
             ColumnLayout {
