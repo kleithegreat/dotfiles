@@ -88,6 +88,10 @@ in {
   environment.sessionVariables.__EGL_VENDOR_LIBRARY_FILENAMES =
     "/run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json";
 
+  # Only this host travels, so only this host tracks the timezone by
+  # location; the desktop pins `time.timeZone` instead.
+  services.automatic-timezoned.enable = true;
+
   # Laptop overrides — disable laptop-only remote login.
   services.openssh.enable = lib.mkForce false;
 

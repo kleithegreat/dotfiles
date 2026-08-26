@@ -208,7 +208,6 @@ in
   programs.virt-manager.enable = true;
 
   location.provider = "geoclue2";
-  services.automatic-timezoned.enable = true;
   services.geoclue2 = {
     enable = true;
     enableDemoAgent = true;

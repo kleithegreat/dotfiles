@@ -243,11 +243,13 @@ Don't go looking for LE9-style `vm.anon_min_kbytes` knobs, and don't add
 low-swappiness values: swap is zram-only, where the kernel default of 60 is
 the right policy — the desktop deliberately keeps only the writeback sysctls.
 
-### Automatic timezone depends on GeoClue actually resolving
-`automatic-timezoned` only acts when GeoClue returns coordinates; after
-travel, check `where-am-i` under the user session and
-`journalctl -u geoclue.service` before debugging the timezone service. Locale
-and keymap are static on purpose; only timezone is dynamic.
+### Only the laptop resolves its timezone from location
+`automatic-timezoned` runs on the laptop alone; the desktop pins
+`time.timeZone` because a stationary host gains nothing from geolocation and
+loses correctness when GeoClue guesses wrong. On the laptop the daemon only
+acts when GeoClue returns coordinates, so after travel check `where-am-i`
+under the user session and `journalctl -u geoclue.service` before debugging
+the timezone service. Locale and keymap are static on purpose everywhere.
 
 ### `tailscaled` can stall shutdown
 Intermittent wgengine teardown races can eat most of systemd's 90s stop

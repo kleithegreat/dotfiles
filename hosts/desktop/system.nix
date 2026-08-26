@@ -59,6 +59,10 @@
   environment.sessionVariables.__EGL_VENDOR_LIBRARY_FILENAMES =
     "/run/opengl-driver/share/glvnd/egl_vendor.d/10_nvidia.json:/run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json";
 
+  # ── Locale ────────────────────────────────────────────────────
+  # Stationary host: declare the zone rather than geolocating it.
+  time.timeZone = "America/New_York";
+
   # ── Steam ─────────────────────────────────────────────────────
   programs.steam = {
     enable = true;
