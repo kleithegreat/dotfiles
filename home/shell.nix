@@ -72,8 +72,8 @@ in
         src = pkgs.fetchFromGitHub {
           owner = "jimhester";
           repo = "per-directory-history";
-          rev = "95f06973e9f2ff0ff75f3cebd0a2ee5485e27834";
-          sha256 = "sha256-EV9QPBndwAWzdOcghDXrIIgP0oagVMOTyXzoyt8tXRo=";
+          rev = "c2a00fb2e1d801567b5f2d4ce06986aa42bde813";
+          sha256 = "sha256-d3YMHo1Q/mFPBJAdwhDYSeQWmD/aVo3BCpKPhaqe+yo=";
         };
         file = "per-directory-history.zsh";
       }

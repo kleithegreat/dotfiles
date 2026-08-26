@@ -2,13 +2,13 @@
 
 stdenv.mkDerivation {
   pname = "snappy-switcher";
-  version = "4.0.0";
+  version = "4.5.0";
 
   src = fetchFromGitHub {
     owner = "OpalAayan";
     repo = "snappy-switcher";
-    rev = "v4.0.0";
-    hash = "sha256-TadQupTY8uu46KAyrcsEWSgOija5Qgt4x9zXK7rJzUE=";
+    rev = "v4.5.0";
+    hash = "sha256-HH7Pmw6LHJhuV07FOsVlyZNwztZgz4IRi6XT5G+qroA=";
   };
 
   nativeBuildInputs = [
