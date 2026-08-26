@@ -91,6 +91,21 @@ Open issues and pending validations. Delete entries when resolved.
       that hardcoded 0.25 is the knob and it wants a home in
       `input-defaults.lua` with the rest.
 
+- [ ] GeoClue (medium): it resolves no real location on either host — the IP
+      source is disabled (`Unknown IP source method '(null)'`) and the WiFi
+      source lost its backend when Mozilla Location Service shut down in 2024,
+      so `where-am-i` returns a fallback rather than an answer. On the desktop
+      this set the timezone to Denver, which is why `time.timeZone` is pinned
+      there now; the laptop still trusts it via `automatic-timezoned`. It also
+      feeds sun-schedule, whose cache is stuck at `39.6002,-104.89`
+      (Greenwood Village CO) — delete `$XDG_CACHE_HOME/sun-schedule/location.json`
+      once the source works, since a stale cache is preferred over a live
+      lookup for 6h and is the third fallback after that. Either give GeoClue a
+      working IP source or drop it for static coordinates; if it goes, the
+      laptop needs a different timezone story and `location.provider`,
+      `services.geoclue2`, and the `where-am-i` path in `docs/sun-schedule.md`
+      go with it.
+
 ## Owner questions
 
 - [ ] VS Code `config/vscode/base.json` carries settings for uninstalled
