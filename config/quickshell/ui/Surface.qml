@@ -15,6 +15,9 @@ Item {
     property bool shadow: true
     property real elevation: 22
     property bool specular: glass
+    // Flattening the content protects NativeRendering text through a scale.
+    // Layering the surface instead clips its shadow ([[quickshell]]).
+    property bool flatten: false
 
     default property alias content: holder.data
 
@@ -60,5 +63,6 @@ Item {
     Item {
         id: holder
         anchors.fill: parent
+        layer.enabled: root.flatten
     }
 }

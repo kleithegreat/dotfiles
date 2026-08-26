@@ -37,9 +37,7 @@ Item {
         elevation: 34
 
         opacity: root.shown ? 1 : 0
-        // Rendering to a texture while the scale runs keeps natively-rendered
-        // text from re-rasterising on every frame of the entrance.
-        layer.enabled: emergeAnim.running || fadeAnim.running
+        flatten: emergeAnim.running || fadeAnim.running
 
         property real emerge: root.shown ? 1 : Motion.emergeScale
 
@@ -66,7 +64,11 @@ Item {
             }
         }
 
+        // Content re-laying out under an open panel animates; the height the
+        // panel opens at belongs to the entrance, not to a transition of its own.
         Behavior on height {
+            enabled: !emergeAnim.running && !fadeAnim.running
+
             Ui.Anim {
                 duration: Motion.settled
                 easing.bezierCurve: Motion.enter

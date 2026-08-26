@@ -13,7 +13,12 @@ Popover {
 
     required property ShellState state
 
-    shown: state.isOpen("menu")
+    // Rows arrive from DBus a round trip after the handle does; opening on the
+    // state flag alone shows an 8px sliver that then grows into the menu.
+    readonly property bool requested: state.isOpen("menu")
+    readonly property int rows: opener.children ? opener.children.values.length : 0
+
+    shown: requested && rows > 0
     anchor: state.anchor
     panelWidth: 300
     padded: false
@@ -25,7 +30,7 @@ Popover {
     property var trail: []
     readonly property var handle: trail.length > 0 ? trail[trail.length - 1] : root.state.menu
 
-    onShownChanged: if (!shown) trail = []
+    onRequestedChanged: if (!requested) trail = []
 
     QsMenuOpener {
         id: opener

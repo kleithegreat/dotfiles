@@ -213,6 +213,17 @@ rtt line afterwards. A plain `kill` gets no summary at all, so the loaded
 latency silently reads as unmeasured and the ratio never appears; the background
 ping has to be stopped with `kill -INT`.
 
+### A layer on a surface clips the shadow off it
+`Surface`'s `RectangularShadow` paints well outside the item it fills, so
+`layer.enabled` on the surface renders the panel into a texture its own size and
+the shadow is gone for as long as the layer is on — which, since the layer is
+there to hold `Label`'s `NativeRendering` glyphs still through a scale, is the
+whole entrance. It returns at full strength on the frame the animation ends,
+reading as a shadow that arrives after the panel. `Surface.flatten` layers the
+content instead. `layer.sourceRect` is not the fix: it widens the captured area
+but still maps it into the item's own rect, so the shadow lands inside the panel
+and darkens it.
+
 ### Popover content declares its own height
 `Popover.contentHeight` is set by each surface. Deriving it from the holder that
 the surface fills makes the holder's height depend on the panel that depends on

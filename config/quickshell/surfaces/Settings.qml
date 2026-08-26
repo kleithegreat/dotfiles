@@ -59,7 +59,7 @@ Item {
         elevation: 48
 
         opacity: root.state.isOpen("settings") ? 1 : 0
-        layer.enabled: rise.running
+        flatten: rise.running
         property real emerge: root.state.isOpen("settings") ? 1 : Motion.emergeScale
         transform: Scale {
             xScale: panel.emerge
