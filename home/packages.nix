@@ -126,6 +126,7 @@ let
     obs-studio
     spotify
     zathura
+    libreoffice
     vscode
     zed-editor
     lmstudio
