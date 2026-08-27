@@ -132,7 +132,6 @@ let
     lmstudio
     comfyui
     helium
-    ladybird
     imv
     nautilus
     glib
