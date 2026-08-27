@@ -243,9 +243,10 @@ Don't go looking for LE9-style `vm.anon_min_kbytes` knobs, and don't add
 low-swappiness values: swap is zram-only, where the kernel default of 60 is
 the right policy — the desktop deliberately keeps only the writeback sysctls.
 
-### Only the laptop resolves its timezone from location
+### Only the laptop resolves its location
 `automatic-timezoned` runs on the laptop alone; the desktop pins
-`time.timeZone` because a stationary host gains nothing from geolocation and
+`time.timeZone` and `DESKTOPCTL_LOCATION` (the sun-schedule coordinates)
+because a stationary host gains nothing from geolocation and
 loses correctness when GeoClue guesses wrong. On the laptop the daemon only
 acts when GeoClue returns coordinates, so after travel check `where-am-i`
 under the user session and `journalctl -u geoclue.service` before debugging

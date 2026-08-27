@@ -60,8 +60,14 @@
     "/run/opengl-driver/share/glvnd/egl_vendor.d/10_nvidia.json:/run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json";
 
   # ── Locale ────────────────────────────────────────────────────
-  # Stationary host: declare the zone rather than geolocating it.
+  # Stationary host: declare where it is rather than geolocating it. The zone
+  # and the coordinates travel together — GeoClue resolves nothing real here
+  # (see TODO.md), so sun-schedule would otherwise run on a stale fix from
+  # wherever the cache was last written.
   time.timeZone = "America/New_York";
+  # Ithaca, NY. Read by desktopctl's solar scheduler; outranks GeoClue and the
+  # location cache.
+  environment.sessionVariables.DESKTOPCTL_LOCATION = "42.4440,-76.5019";
 
   # ── Steam ─────────────────────────────────────────────────────
   programs.steam = {

@@ -95,14 +95,16 @@ Open issues and pending validations. Delete entries when resolved.
       source is disabled (`Unknown IP source method '(null)'`) and the WiFi
       source lost its backend when Mozilla Location Service shut down in 2024,
       so `where-am-i` returns a fallback rather than an answer. On the desktop
-      this set the timezone to Denver, which is why `time.timeZone` is pinned
-      there now; the laptop still trusts it via `automatic-timezoned`. It also
-      feeds sun-schedule, whose cache is stuck at `39.6002,-104.89`
-      (Greenwood Village CO) — delete `$XDG_CACHE_HOME/sun-schedule/location.json`
-      once the source works, since a stale cache is preferred over a live
-      lookup for 6h and is the third fallback after that. Either give GeoClue a
-      working IP source or drop it for static coordinates; if it goes, the
-      laptop needs a different timezone story and `location.provider`,
+      this set the timezone to Denver and left sun-schedule's cache stuck at
+      `39.6002,-104.89` (Greenwood Village CO), which is why that host now pins
+      both `time.timeZone` and `DESKTOPCTL_LOCATION`; the laptop still trusts
+      GeoClue via `automatic-timezoned`. The desktop's pin outranks the cache,
+      so nothing needs deleting there, but delete
+      `$XDG_CACHE_HOME/sun-schedule/location.json` on the laptop once the source
+      works, since a stale cache is preferred over a live lookup for 6h and is
+      the fourth fallback after that. Either give GeoClue a working IP source or
+      drop it for static coordinates on the laptop too; if it goes,
+      the laptop needs a different timezone story and `location.provider`,
       `services.geoclue2`, and the `where-am-i` path in `docs/sun-schedule.md`
       go with it.
 

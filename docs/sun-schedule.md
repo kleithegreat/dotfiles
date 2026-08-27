@@ -20,15 +20,24 @@
   value: the scheduler acts on edges only, plus a once-per-boot catch-up that
   applies the schedule value only when no manual write is recorded for the
   current window (covering machines that were off across an edge).
-- Coordinate resolution order: cached location fresh within 6 hours →
-  GeoClue (`where-am-i`) → stale-but-parseable cache → hardcoded fallback
-  `30.6280, -96.3344` (College Station, TX). Degradation must be
-  deterministic, never fatal.
+- Coordinate resolution order: `DESKTOPCTL_LOCATION` pin → cached location
+  fresh within 6 hours → GeoClue (`where-am-i`) → stale-but-parseable cache →
+  hardcoded fallback `30.6280, -96.3344` (College Station, TX). Degradation
+  must be deterministic, never fatal — a malformed pin warns and falls through
+  rather than failing.
+- The pin is `"<latitude>,<longitude>"` and outranks every other source,
+  including a fresh cache: a host that declares where it is has said something
+  GeoClue cannot improve on, and a stale fix from elsewhere must not shadow it.
+  The desktop sets it in `hosts/desktop/system.nix` alongside `time.timeZone`;
+  the laptop travels and leaves it unset.
 - GeoClue reports coordinates, never a name for them, and the forecast API
   answers coordinates alone — so a place name exists only where `solar.rs`
   reverse-geocodes one. It is resolved lazily, on `sun status` and never on
   the daemon's path, cached beside the coordinates it describes, and dropped
-  whenever they refresh: a name must never outlive the fix it belongs to.
+  whenever they refresh: a name must never outlive the fix it belongs to. A
+  pinned host never rewrites the cache on resolve, so the cached name is also
+  checked against the coordinates it is about to be printed beside and ignored
+  when they differ.
 
 ## Quirks
 
@@ -42,6 +51,9 @@ must be the longer of the two. This is what pinned the whole desktop to the
 College Station fallback while GeoClue was working perfectly.
 
 ### Wrong sunrise/sunset times usually mean silent coordinate fallback
+On a pinned host, check `DESKTOPCTL_LOCATION` first: the daemon inherits it
+from the session environment, so a pin added without restarting the session
+(or `systemctl --user restart desktopctl`) is not yet in effect.
 If GeoClue fails and the cache is missing or invalid, the scheduler silently
 uses the College Station fallback; if the cache is stale but parseable, it
 keeps the *last* resolved location indefinitely. Before debugging schedule

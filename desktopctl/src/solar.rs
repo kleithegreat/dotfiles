@@ -1,14 +1,22 @@
 use crate::paths;
 use chrono::{DateTime, Datelike, Days, Duration, Local, LocalResult, NaiveDate, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
-use std::{fs, io, process::Command, time::Duration as StdDuration};
+use std::{env, fs, io, process::Command, time::Duration as StdDuration};
 
 pub const DEFAULT_LATITUDE: f64 = 30.6280;
 pub const DEFAULT_LONGITUDE: f64 = -96.3344;
+/// `"<latitude>,<longitude>"` for a host that declares where it is instead of
+/// asking GeoClue. A stationary machine gains nothing from geolocation and
+/// loses correctness when GeoClue guesses wrong, so the pin outranks every
+/// other source — a stale cache from somewhere else must not shadow it.
+const LOCATION_PIN_ENV: &str = "DESKTOPCTL_LOCATION";
 pub const HYPRSUNSET_TEMP: i32 = 4500;
 pub const DARK_ON_HOUR: u32 = 23;
 pub const DARK_OFF_HOUR: u32 = 6;
 const LOCATION_CACHE_MAX_AGE: StdDuration = StdDuration::from_secs(6 * 60 * 60);
+/// Coordinates this close (~0.1 m) are the same fix; anything further apart
+/// is a different one and cannot borrow the other's name.
+const COORDINATE_EPSILON: f64 = 1e-6;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Coordinates {
@@ -82,6 +90,10 @@ pub fn print_status() -> crate::Result<()> {
 }
 
 pub fn resolve_location() -> io::Result<Coordinates> {
+    if let Some(location) = pinned_location() {
+        return Ok(location);
+    }
+
     let cache_path = paths::xdg_cache_home()?.join("sun-schedule/location.json");
     let cached_location = read_cached_location(&cache_path).and_then(|cached| cached.coordinates());
 
@@ -291,7 +303,7 @@ pub fn resolve_place_name(location: Coordinates) -> Option<String> {
         .join("sun-schedule/location.json");
 
     if let Some(cached) = read_cached_location(&cache_path)
-        && let Some(place) = cached.place
+        && let Some(place) = cached_place_for(&cached, location)
     {
         return Some(place);
     }
@@ -310,6 +322,17 @@ pub fn resolve_place_name(location: Coordinates) -> Option<String> {
     }
 
     Some(place)
+}
+
+/// The cached name, but only when it describes `location`. A pinned host
+/// never rewrites the cache on resolve, so without this check a name left
+/// behind by an earlier fix would be printed beside coordinates it has
+/// nothing to do with.
+fn cached_place_for(cached: &CachedLocation, location: Coordinates) -> Option<String> {
+    let describes_location = (cached.latitude - location.latitude).abs() < COORDINATE_EPSILON
+        && (cached.longitude - location.longitude).abs() < COORDINATE_EPSILON;
+
+    describes_location.then(|| cached.place.clone()).flatten()
 }
 
 fn reverse_geocode(location: Coordinates) -> Option<String> {
@@ -377,6 +400,33 @@ fn parse_where_am_i(stdout: &str) -> Option<Coordinates> {
     }
 
     validated_coordinates(latitude?, longitude?)
+}
+
+/// The host's declared coordinates, or `None` when unset or unusable. A
+/// malformed pin warns and falls through to the normal resolution order
+/// rather than failing: degradation here must never be fatal.
+fn pinned_location() -> Option<Coordinates> {
+    let raw = env::var(LOCATION_PIN_ENV).ok()?;
+    if raw.trim().is_empty() {
+        return None;
+    }
+
+    let location = parse_location_pin(&raw);
+    if location.is_none() {
+        eprintln!(
+            "warning: ignoring {LOCATION_PIN_ENV}={raw:?}; expected \"<latitude>,<longitude>\""
+        );
+    }
+
+    location
+}
+
+fn parse_location_pin(value: &str) -> Option<Coordinates> {
+    let (latitude, longitude) = value.split_once(',')?;
+    validated_coordinates(
+        latitude.trim().parse().ok()?,
+        longitude.trim().parse().ok()?,
+    )
 }
 
 fn validated_coordinates(latitude: f64, longitude: f64) -> Option<Coordinates> {
@@ -575,6 +625,52 @@ mod tests {
 
         let cached = read_cached_location(&cache_path).expect("cache parses");
         assert!(cached.coordinates().is_none());
+    }
+
+    #[test]
+    fn location_pin_parses_a_latitude_longitude_pair() {
+        let location = parse_location_pin(" 42.4440 , -76.5019 ").expect("coordinates");
+        assert!((location.latitude - 42.4440).abs() < 1e-6);
+        assert!((location.longitude - -76.5019).abs() < 1e-6);
+    }
+
+    #[test]
+    fn location_pin_rejects_malformed_and_out_of_range_values() {
+        assert!(parse_location_pin("42.4440").is_none());
+        assert!(parse_location_pin("north,west").is_none());
+        assert!(parse_location_pin("42.4440,").is_none());
+        assert!(parse_location_pin("91.0,-76.5019").is_none());
+    }
+
+    #[test]
+    fn cached_place_is_reused_only_for_the_fix_it_describes() {
+        let cached = CachedLocation {
+            latitude: 39.6002,
+            longitude: -104.89,
+            place: Some("Greenwood Village, CO".to_string()),
+        };
+
+        assert_eq!(
+            cached_place_for(
+                &cached,
+                Coordinates {
+                    latitude: 39.6002,
+                    longitude: -104.89,
+                },
+            )
+            .as_deref(),
+            Some("Greenwood Village, CO"),
+        );
+        assert!(
+            cached_place_for(
+                &cached,
+                Coordinates {
+                    latitude: 42.4440,
+                    longitude: -76.5019,
+                },
+            )
+            .is_none()
+        );
     }
 
     #[test]
