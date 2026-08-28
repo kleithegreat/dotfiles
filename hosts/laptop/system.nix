@@ -203,6 +203,43 @@ in {
     });
   '';
 
+  # ── Cornell eduroam ─────────────────────────────────────────
+  # `domain-suffix-match` is the load-bearing line. Cornell's RADIUS server
+  # presents a publicly-trusted InCommon/Sectigo chain, so `system-ca-certs`
+  # on its own would accept any valid web certificate a rogue `eduroam` could
+  # buy; pinning the server name is what stops one harvesting the MSCHAPv2
+  # exchange and cracking the NetID password offline.
+  networking.networkmanager.ensureProfiles = {
+    environmentFiles = [ "/etc/nm-secrets/eduroam.env" ];
+    profiles.eduroam = {
+      connection = {
+        id = "eduroam";
+        type = "wifi";
+      };
+      wifi = {
+        ssid = "eduroam";
+        mode = "infrastructure";
+      };
+      wifi-security.key-mgmt = "wpa-eap";
+      # The outer identity stays anonymous so the NetID is never broadcast in
+      # the clear; the realm is all Cornell's RADIUS needs to route on.
+      "802-1x" = {
+        eap = "peap";
+        phase2-auth = "mschapv2";
+        anonymous-identity = "anonymous@cornell.edu";
+        identity = "kl2344@cornell.edu";
+        password = "$CORNELL_NETID_PASSWORD";
+        password-flags = 0;
+        system-ca-certs = true;
+        domain-suffix-match = "network-access.it.cornell.edu";
+      };
+      ipv4.method = "auto";
+      ipv6.method = "auto";
+    };
+  };
+
+  systemd.tmpfiles.rules = [ "d /etc/nm-secrets 0700 root root -" ];
+
   # ── Captive Portal Browser ──────────────────────────────────
   # Dedicated Chromium instance for logging into captive portals
   # (hotel/airport WiFi) without messing with your DNS settings.
