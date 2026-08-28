@@ -7,12 +7,12 @@ use crate::{
     },
 };
 use serde_json::{Map, Value};
-use std::{fmt::Write as _, path::PathBuf};
+use std::{borrow::Cow, fmt::Write as _, path::PathBuf};
 
 pub const METADATA: TargetMetadata = TargetMetadata::new(
     "vicinae",
     Assembly::Import,
-    &["color_scheme", "system_font", "icon_theme"],
+    &["color_scheme", "system_font", "icon_theme", "dark_hint"],
 )
 .output("~/.config/vicinae/settings.theme.json")
 .managed_paths(&["~/.local/share/vicinae/themes/*.toml"]);
@@ -28,28 +28,26 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Gener
     );
     font.insert("normal".to_owned(), Value::Object(normal));
 
-    let mut dark = Map::new();
-    dark.insert(
-        "name".to_owned(),
-        Value::String(match dark_companion(colors)? {
-            Some(companion) => companion.vicinae_theme_name(),
-            None => colors.vicinae_theme_name(),
-        }),
-    );
-    dark.insert(
+    // Both slots name the same theme, because desktopctl -- not vicinae -- owns
+    // which appearance the desktop is in. Vicinae picks a slot from its own
+    // reading of the system appearance, and that reading disagrees with the one
+    // `dark_hint` drives for qt and gtk: selecting solarized-light left vicinae
+    // showing solarized-dark while the portal, kdeglobals, and the gtk settings
+    // all said light. Filling both slots makes the slot vicinae chooses
+    // irrelevant, so the launcher can only ever show the scheme that is
+    // actually selected.
+    let resolved = ui_colors(colors, state)?;
+    let theme_name = resolved.vicinae_theme_name();
+
+    let mut appearance = Map::new();
+    appearance.insert("name".to_owned(), Value::String(theme_name));
+    appearance.insert(
         "icon_theme".to_owned(),
         Value::String(state.icon_theme.clone()),
     );
 
-    let mut light = Map::new();
-    light.insert(
-        "name".to_owned(),
-        Value::String(colors.vicinae_light_theme_name()),
-    );
-    light.insert(
-        "icon_theme".to_owned(),
-        Value::String(state.icon_theme.clone()),
-    );
+    let dark = appearance.clone();
+    let light = appearance;
 
     let mut theme = Map::new();
     theme.insert("dark".to_owned(), Value::Object(dark));
@@ -65,35 +63,74 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Gener
 }
 
 pub fn persist(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
-    let theme_name = colors.vicinae_theme_name();
-    write_theme_file(&theme_name, colors)?;
+    // Every theme this scheme can resolve to gets a file, not just the one the
+    // current `dark_hint` names: flipping the hint has to find its counterpart
+    // already on disk, and `generate` names the *resolved* scheme, which is the
+    // counterpart rather than the selected one whenever the hint disagrees with
+    // the selection's own appearance.
+    let mut candidates = vec![(colors.vicinae_theme_name(), Cow::Borrowed(colors))];
 
     let light_theme_name = colors.vicinae_light_theme_name();
-    if light_theme_name != theme_name {
+    if light_theme_name != candidates[0].0 {
         let light_colors = resolve::load_colors(&light_theme_name, &paths::data_path("colors")?)?;
-        write_theme_file(&light_theme_name, &light_colors)?;
+        candidates.push((light_theme_name, Cow::Owned(light_colors)));
     }
 
-    if let Some(companion) = dark_companion(colors)? {
-        let dark_theme_name = companion.vicinae_theme_name();
-        if dark_theme_name != theme_name {
-            write_theme_file(&dark_theme_name, &companion)?;
+    for appearance in [ColorSchemeAppearance::Light, ColorSchemeAppearance::Dark] {
+        if let Some(companion) = appearance_companion(colors, appearance)? {
+            candidates.push((companion.vicinae_theme_name(), Cow::Owned(companion)));
         }
+    }
+
+    let mut written: Vec<String> = Vec::with_capacity(candidates.len());
+    for (name, scheme) in candidates {
+        if written.contains(&name) {
+            continue;
+        }
+        write_theme_file(&name, &scheme)?;
+        written.push(name);
     }
 
     Ok(())
 }
 
-/// Same-family dark companion referenced by the generated dark slot, so the
-/// theme file it names always exists. `None` when the scheme is already dark.
-fn dark_companion(colors: &ColorScheme) -> crate::Result<Option<ColorScheme>> {
-    if colors.is_dark() {
+fn desired_appearance(state: &ThemeState) -> ColorSchemeAppearance {
+    if state.dark_hint {
+        ColorSchemeAppearance::Dark
+    } else {
+        ColorSchemeAppearance::Light
+    }
+}
+
+/// The scheme the desktop is actually presenting: the selected one when its
+/// appearance already matches `dark_hint`, otherwise its same-family
+/// counterpart. Mirrors how the qt target resolves its own colours, so the
+/// launcher and the rest of the desktop cannot disagree about light vs dark.
+fn ui_colors<'a>(
+    colors: &'a ColorScheme,
+    state: &ThemeState,
+) -> crate::Result<Cow<'a, ColorScheme>> {
+    Ok(
+        match appearance_companion(colors, desired_appearance(state))? {
+            Some(companion) => Cow::Owned(companion),
+            None => Cow::Borrowed(colors),
+        },
+    )
+}
+
+/// Same-family counterpart for `appearance`. `None` when the scheme already has
+/// that appearance or no counterpart exists.
+fn appearance_companion(
+    colors: &ColorScheme,
+    appearance: ColorSchemeAppearance,
+) -> crate::Result<Option<ColorScheme>> {
+    if colors.appearance == appearance {
         return Ok(None);
     }
 
     let catalog = scheme_pair::load_scheme_catalog()?;
     Ok(
-        scheme_pair::scheme_for_appearance(&catalog, colors, ColorSchemeAppearance::Dark)
+        scheme_pair::scheme_for_appearance(&catalog, colors, appearance)
             .map(|entry| entry.colors.clone()),
     )
 }
@@ -211,7 +248,12 @@ mod tests {
 
     #[test]
     fn generate_writes_theme_names_and_font() {
-        let rendered = text(generate(&dummy_colors(), &dummy_state()));
+        let _lock = env_lock();
+        let _repo = ScopedEnvVar::set("DESKTOPCTL_REPO", repo_root().as_os_str());
+
+        let mut state = dummy_state();
+        state.dark_hint = true;
+        let rendered = text(generate(&load_repo_colors("gruvbox-dark"), &state));
         let value: Value = serde_json::from_str(&rendered).expect("valid json");
 
         assert_eq!(
@@ -227,34 +269,51 @@ mod tests {
             Value::String("Neuwaita".to_owned())
         );
         assert_eq!(
-            value["theme"]["light"]["name"],
-            Value::String("gruvbox-light".to_owned())
-        );
-        assert_eq!(
             value["theme"]["light"]["icon_theme"],
             Value::String("Neuwaita".to_owned())
         );
     }
 
+    /// Vicinae reads the system appearance itself and can disagree with the
+    /// `dark_hint` that qt and gtk follow, so neither slot is allowed to name a
+    /// theme other than the one the desktop is actually presenting.
     #[test]
-    fn generate_dark_slot_uses_declared_dark_pairing_for_light_schemes() {
+    fn generate_pins_both_slots_to_the_scheme_the_desktop_is_presenting() {
         let _lock = env_lock();
         let _repo = ScopedEnvVar::set("DESKTOPCTL_REPO", repo_root().as_os_str());
 
-        let rendered = text(generate(
-            &load_repo_colors("catppuccin-latte"),
-            &dummy_state(),
-        ));
+        let mut state = dummy_state();
+        state.dark_hint = false;
+        let rendered = text(generate(&load_repo_colors("solarized-light"), &state));
         let value: Value = serde_json::from_str(&rendered).expect("valid json");
 
         assert_eq!(
-            value["theme"]["dark"]["name"],
-            Value::String("catppuccin-mocha".to_owned())
+            value["theme"]["light"]["name"],
+            Value::String("solarized-light".to_owned())
         );
         assert_eq!(
-            value["theme"]["light"]["name"],
-            Value::String("catppuccin-latte".to_owned())
+            value["theme"]["dark"]["name"],
+            Value::String("solarized-light".to_owned())
         );
+    }
+
+    #[test]
+    fn generate_follows_dark_hint_to_the_declared_pairing() {
+        let _lock = env_lock();
+        let _repo = ScopedEnvVar::set("DESKTOPCTL_REPO", repo_root().as_os_str());
+
+        let mut state = dummy_state();
+        state.dark_hint = true;
+        let rendered = text(generate(&load_repo_colors("catppuccin-latte"), &state));
+        let value: Value = serde_json::from_str(&rendered).expect("valid json");
+
+        for slot in ["dark", "light"] {
+            assert_eq!(
+                value["theme"][slot]["name"],
+                Value::String("catppuccin-mocha".to_owned()),
+                "{slot} slot"
+            );
+        }
     }
 
     #[test]
@@ -293,6 +352,39 @@ mod tests {
         assert!(dark.contains("background = \"#002b36\""));
         assert!(light.contains("variant = \"light\""));
         assert!(light.contains("background = \"#fdf6e3\""));
+    }
+
+    /// `generate` names the resolved scheme, which is the companion whenever
+    /// `dark_hint` disagrees with the selection's own appearance -- so the file
+    /// it names has to exist regardless of which way the hint points.
+    #[test]
+    fn persist_covers_the_theme_generate_names_under_either_dark_hint() {
+        for dark_hint in [false, true] {
+            let _lock = env_lock();
+            let data_home = TempDir::new("desktopctl-vicinae-hint").expect("temp dir");
+            let _data = ScopedEnvVar::set("XDG_DATA_HOME", data_home.path().as_os_str());
+            let _repo = ScopedEnvVar::set("DESKTOPCTL_REPO", repo_root().as_os_str());
+
+            let colors = load_repo_colors("solarized-light");
+            let mut state = dummy_state();
+            state.dark_hint = dark_hint;
+
+            persist(&colors, &state).expect("persist succeeds");
+
+            let rendered = text(generate(&colors, &state));
+            let value: Value = serde_json::from_str(&rendered).expect("valid json");
+            let named = value["theme"]["dark"]["name"]
+                .as_str()
+                .expect("dark slot names a theme");
+
+            assert!(
+                data_home
+                    .path()
+                    .join(format!("vicinae/themes/{named}.toml"))
+                    .is_file(),
+                "dark_hint={dark_hint} names {named} but no such theme file was written"
+            );
+        }
     }
 
     #[test]
