@@ -228,6 +228,13 @@ in
     options = [ "--cmd" "cd" ];
   };
 
+  # ── direnv ───────────────────────────────────────────────────
+  programs.direnv = {
+    enable = true;
+    enableZshIntegration = true;
+    nix-direnv.enable = true;
+  };
+
   # ── fzf ──────────────────────────────────────────────────────
   programs.fzf = {
     enable = true;
