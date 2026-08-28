@@ -13,6 +13,7 @@ result
 *.pem
 id_*
 .claude/settings.local.json
+.sudo_password
 
 *.qcow2
 
