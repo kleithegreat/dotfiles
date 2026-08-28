@@ -738,8 +738,7 @@ mod tests {
                 "chromium".to_owned(),
                 "gtk".to_owned(),
                 "helium".to_owned(),
-                "qt".to_owned(),
-                "vicinae".to_owned()
+                "qt".to_owned()
             ]
         );
     }

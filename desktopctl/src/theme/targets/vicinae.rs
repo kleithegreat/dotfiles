@@ -2,17 +2,22 @@ use super::{Assembly, GeneratedContent, TargetMetadata, scheme_pair};
 use crate::{
     paths,
     theme::{
-        atomic_write, find_command, json, resolve, run_owned_command,
+        atomic_write, find_command, json, resolve,
         schema::{ColorScheme, ColorSchemeAppearance, ThemeState},
     },
 };
 use serde_json::{Map, Value};
-use std::{borrow::Cow, fmt::Write as _, path::PathBuf};
+use std::{
+    borrow::Cow,
+    fmt::Write as _,
+    path::PathBuf,
+    process::{Command, Stdio},
+};
 
 pub const METADATA: TargetMetadata = TargetMetadata::new(
     "vicinae",
     Assembly::Import,
-    &["color_scheme", "system_font", "icon_theme", "dark_hint"],
+    &["color_scheme", "system_font", "icon_theme"],
 )
 .output("~/.config/vicinae/settings.theme.json")
 .managed_paths(&["~/.local/share/vicinae/themes/*.toml"]);
@@ -28,19 +33,23 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Gener
     );
     font.insert("normal".to_owned(), Value::Object(normal));
 
-    // Both slots name the same theme, because desktopctl -- not vicinae -- owns
-    // which appearance the desktop is in. Vicinae picks a slot from its own
-    // reading of the system appearance, and that reading disagrees with the one
-    // `dark_hint` drives for qt and gtk: selecting solarized-light left vicinae
-    // showing solarized-dark while the portal, kdeglobals, and the gtk settings
-    // all said light. Filling both slots makes the slot vicinae chooses
-    // irrelevant, so the launcher can only ever show the scheme that is
-    // actually selected.
-    let resolved = ui_colors(colors, state)?;
-    let theme_name = resolved.vicinae_theme_name();
-
+    // Both slots name the selected scheme.
+    //
+    // The launcher is themed by an explicit choice, so it shows what was
+    // chosen -- not the same-family variant `dark_hint` swaps the system
+    // chrome to. Selecting gruvbox-dark and being handed gruvbox-light is the
+    // scheme not being applied, however consistent it is with qt and gtk.
+    //
+    // Both slots get it because vicinae picks between them from its own
+    // reading of the system appearance, which disagreed with everything else
+    // on this desktop: with the portal, kdeglobals, and the gtk settings all
+    // reporting light, the launcher was still choosing its dark slot. Filling
+    // both makes which slot it picks irrelevant.
     let mut appearance = Map::new();
-    appearance.insert("name".to_owned(), Value::String(theme_name));
+    appearance.insert(
+        "name".to_owned(),
+        Value::String(colors.vicinae_theme_name()),
+    );
     appearance.insert(
         "icon_theme".to_owned(),
         Value::String(state.icon_theme.clone()),
@@ -63,11 +72,10 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Gener
 }
 
 pub fn persist(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
-    // Every theme this scheme can resolve to gets a file, not just the one the
-    // current `dark_hint` names: flipping the hint has to find its counterpart
-    // already on disk, and `generate` names the *resolved* scheme, which is the
-    // counterpart rather than the selected one whenever the hint disagrees with
-    // the selection's own appearance.
+    // The selected scheme's file plus both same-family counterparts. Only the
+    // first is named by `generate`; the others are what populate the launcher's
+    // own theme picker with the rest of the family, so switching from inside
+    // vicinae finds them already rendered.
     let mut candidates = vec![(colors.vicinae_theme_name(), Cow::Borrowed(colors))];
 
     let light_theme_name = colors.vicinae_light_theme_name();
@@ -94,30 +102,6 @@ pub fn persist(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
     Ok(())
 }
 
-fn desired_appearance(state: &ThemeState) -> ColorSchemeAppearance {
-    if state.dark_hint {
-        ColorSchemeAppearance::Dark
-    } else {
-        ColorSchemeAppearance::Light
-    }
-}
-
-/// The scheme the desktop is actually presenting: the selected one when its
-/// appearance already matches `dark_hint`, otherwise its same-family
-/// counterpart. Mirrors how the qt target resolves its own colours, so the
-/// launcher and the rest of the desktop cannot disagree about light vs dark.
-fn ui_colors<'a>(
-    colors: &'a ColorScheme,
-    state: &ThemeState,
-) -> crate::Result<Cow<'a, ColorScheme>> {
-    Ok(
-        match appearance_companion(colors, desired_appearance(state))? {
-            Some(companion) => Cow::Owned(companion),
-            None => Cow::Borrowed(colors),
-        },
-    )
-}
-
 /// Same-family counterpart for `appearance`. `None` when the scheme already has
 /// that appearance or no counterpart exists.
 fn appearance_companion(
@@ -135,28 +119,44 @@ fn appearance_companion(
     )
 }
 
-/// Nudge the running launcher onto the theme just written.
+/// Restart the launcher so it re-reads the theme just written.
 ///
-/// vicinae reads its config once at startup and is never told to look again,
-/// so a session that starts before activation-time `theme sync` lands keeps
-/// whatever was on disk at login -- which is how selecting a scheme could
-/// leave the launcher showing the *previous* session's theme indefinitely.
-/// Writing the file is not enough; something has to say so.
+/// Two things make the heavier hammer the only one that lands. vicinae reads
+/// its config once at startup and never re-reads the imported file this target
+/// writes; and `vicinae theme set`, which does reach the running server, tries
+/// to persist through `settings.json` -- which home-manager owns as a symlink
+/// into the read-only store, so the write cannot happen. The command still
+/// validates the theme id and exits 0, which is why it looked like it worked
+/// while the launcher kept the previous session's colours.
 ///
-/// Best-effort on purpose: during activation the launcher is usually not up
-/// yet, and a theme apply must not fail because of that.
-pub fn on_apply(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
-    if find_command("vicinae").is_none() {
+/// Only ever a restart of something already running: `--replace` on a machine
+/// with no server would *start* one, and this hook also runs at activation,
+/// before there is a graphical session to start it into.
+pub fn on_apply(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
+    let Some(vicinae) = find_command("vicinae") else {
+        return Ok(());
+    };
+
+    let running = Command::new(&vicinae)
+        .arg("ping")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .is_ok_and(|status| status.success());
+    if !running {
         return Ok(());
     }
 
-    let resolved = ui_colors(colors, state)?;
-    let _ = run_owned_command(&[
-        "vicinae".to_owned(),
-        "theme".to_owned(),
-        "set".to_owned(),
-        resolved.vicinae_theme_name(),
-    ]);
+    // Detached: this replaces the server with a long-lived one, so waiting on
+    // it would hang the apply for as long as the launcher runs.
+    let _child = Command::new(&vicinae)
+        .arg("server")
+        .arg("--replace")
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()?;
+
     Ok(())
 }
 
@@ -303,7 +303,7 @@ mod tests {
     /// `dark_hint` that qt and gtk follow, so neither slot is allowed to name a
     /// theme other than the one the desktop is actually presenting.
     #[test]
-    fn generate_pins_both_slots_to_the_scheme_the_desktop_is_presenting() {
+    fn generate_pins_both_slots_to_the_selected_scheme() {
         let _lock = env_lock();
         let _repo = ScopedEnvVar::set("DESKTOPCTL_REPO", repo_root().as_os_str());
 
@@ -322,22 +322,27 @@ mod tests {
         );
     }
 
+    /// The launcher shows what was selected. `dark_hint` swaps the system
+    /// chrome to a same-family variant; it does not get to overrule an
+    /// explicit scheme choice here.
     #[test]
-    fn generate_follows_dark_hint_to_the_declared_pairing() {
+    fn generate_ignores_dark_hint_in_favour_of_the_selected_scheme() {
         let _lock = env_lock();
         let _repo = ScopedEnvVar::set("DESKTOPCTL_REPO", repo_root().as_os_str());
 
-        let mut state = dummy_state();
-        state.dark_hint = true;
-        let rendered = text(generate(&load_repo_colors("catppuccin-latte"), &state));
-        let value: Value = serde_json::from_str(&rendered).expect("valid json");
+        for dark_hint in [false, true] {
+            let mut state = dummy_state();
+            state.dark_hint = dark_hint;
+            let rendered = text(generate(&load_repo_colors("catppuccin-latte"), &state));
+            let value: Value = serde_json::from_str(&rendered).expect("valid json");
 
-        for slot in ["dark", "light"] {
-            assert_eq!(
-                value["theme"][slot]["name"],
-                Value::String("catppuccin-mocha".to_owned()),
-                "{slot} slot"
-            );
+            for slot in ["dark", "light"] {
+                assert_eq!(
+                    value["theme"][slot]["name"],
+                    Value::String("catppuccin-latte".to_owned()),
+                    "{slot} slot with dark_hint={dark_hint}"
+                );
+            }
         }
     }
 
@@ -379,11 +384,9 @@ mod tests {
         assert!(light.contains("background = \"#fdf6e3\""));
     }
 
-    /// `generate` names the resolved scheme, which is the companion whenever
-    /// `dark_hint` disagrees with the selection's own appearance -- so the file
-    /// it names has to exist regardless of which way the hint points.
+    /// The file `generate` names has to exist, whichever way the hint points.
     #[test]
-    fn persist_covers_the_theme_generate_names_under_either_dark_hint() {
+    fn persist_covers_the_theme_generate_names() {
         for dark_hint in [false, true] {
             let _lock = env_lock();
             let data_home = TempDir::new("desktopctl-vicinae-hint").expect("temp dir");
