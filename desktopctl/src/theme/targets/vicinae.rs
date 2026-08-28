@@ -2,7 +2,7 @@ use super::{Assembly, GeneratedContent, TargetMetadata, scheme_pair};
 use crate::{
     paths,
     theme::{
-        atomic_write, json, resolve,
+        atomic_write, find_command, json, resolve, run_owned_command,
         schema::{ColorScheme, ColorSchemeAppearance, ThemeState},
     },
 };
@@ -133,6 +133,31 @@ fn appearance_companion(
         scheme_pair::scheme_for_appearance(&catalog, colors, appearance)
             .map(|entry| entry.colors.clone()),
     )
+}
+
+/// Nudge the running launcher onto the theme just written.
+///
+/// vicinae reads its config once at startup and is never told to look again,
+/// so a session that starts before activation-time `theme sync` lands keeps
+/// whatever was on disk at login -- which is how selecting a scheme could
+/// leave the launcher showing the *previous* session's theme indefinitely.
+/// Writing the file is not enough; something has to say so.
+///
+/// Best-effort on purpose: during activation the launcher is usually not up
+/// yet, and a theme apply must not fail because of that.
+pub fn on_apply(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
+    if find_command("vicinae").is_none() {
+        return Ok(());
+    }
+
+    let resolved = ui_colors(colors, state)?;
+    let _ = run_owned_command(&[
+        "vicinae".to_owned(),
+        "theme".to_owned(),
+        "set".to_owned(),
+        resolved.vicinae_theme_name(),
+    ]);
+    Ok(())
 }
 
 fn write_theme_file(theme_name: &str, colors: &ColorScheme) -> crate::Result<()> {

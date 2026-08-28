@@ -343,7 +343,7 @@ const TARGET_REGISTRATIONS: &[TargetRegistration] = &[
     target_registration!(spicetify, persist, on_apply),
     target_registration!(starship),
     target_registration!(tmux, on_apply),
-    target_registration!(vicinae, persist),
+    target_registration!(vicinae, persist, on_apply),
     target_registration!(vscode, persist),
     target_registration!(wallpaper, on_apply),
     target_registration!(where_is_my_sddm_theme, persist),
