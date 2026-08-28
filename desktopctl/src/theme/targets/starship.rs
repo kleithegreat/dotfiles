@@ -61,10 +61,10 @@ fn readable_on(plate: &str, colors: &ColorScheme) -> String {
 /// First candidate far enough from every plate already placed, falling back to
 /// whichever candidate is furthest from its nearest neighbour.
 ///
-/// The segment hues cannot be hardcoded, because the scheme's own `accent`
-/// leads the chain and collides differently per family: every catppuccin and
-/// rose-pine variant defines `accent` as its purple, so the language segment
-/// has to slide to blue there while solarized and gruvbox keep purple.
+/// The rainbow's hues cannot be taken straight from the palette, because
+/// schemes disagree about how many distinct hues they even have: rose-pine
+/// defines its orange and its yellow as one colour, so the first two plates
+/// would be a single bar with an invisible chevron down the middle.
 fn distinct_plate(candidates: &[&str], placed: &[String]) -> String {
     let separation = |candidate: &str| {
         placed
@@ -118,29 +118,37 @@ struct Plates {
 }
 
 fn plates(colors: &ColorScheme) -> Plates {
-    // Identity leads with the scheme's declared accent: one segment carrying
-    // the colour the scheme calls its own is what makes the prompt read as
-    // *this* theme rather than as the gruvbox preset wearing other hex codes.
-    let identity = colors.accent.clone();
+    // gruvbox's powerline order -- orange, yellow, aqua, blue, then two neutral
+    // plates -- read through each scheme's own palette. The roles are what is
+    // fixed; the hues each role resolves to are the scheme's.
+    //
+    // Identity is chosen against the yellow the path plate intends to take
+    // rather than against nothing, because it is the warm pair that collides:
+    // rose-pine's orange *is* its yellow, and tokyo-night-light's two sit 15.7
+    // apart. Letting identity fall to red there recovers each family's own
+    // canonical rainbow -- rose-pine lands on love, gold, pine, iris -- instead
+    // of forcing a hue the scheme does not have.
+    let identity = distinct_plate(
+        &[
+            &colors.orange,
+            &colors.red,
+            &colors.orange_bright,
+            &colors.red_bright,
+        ],
+        std::slice::from_ref(&colors.yellow),
+    );
     let mut placed = vec![identity.clone()];
 
-    let path = distinct_plate(
-        &[
-            &colors.yellow,
-            &colors.orange,
-            &colors.yellow_bright,
-            &colors.orange_bright,
-        ],
-        &placed,
-    );
+    let path = distinct_plate(&[&colors.yellow, &colors.yellow_bright], &placed);
     placed.push(path.clone());
 
+    // "aqua" in gruvbox's names, which is this palette's cyan slot.
     let git = distinct_plate(
         &[
-            &colors.green,
             &colors.cyan,
-            &colors.green_bright,
             &colors.cyan_bright,
+            &colors.green,
+            &colors.green_bright,
         ],
         &placed,
     );
@@ -148,10 +156,9 @@ fn plates(colors: &ColorScheme) -> Plates {
 
     let lang = distinct_plate(
         &[
-            &colors.purple,
             &colors.blue,
-            &colors.cyan,
-            &colors.red,
+            &colors.blue_bright,
+            &colors.purple,
             &colors.purple_bright,
         ],
         &placed,
@@ -311,20 +318,30 @@ mod tests {
     }
 
     #[test]
-    fn accent_leads_and_purple_families_slide_the_language_plate_off_it() {
+    fn gruvbox_reproduces_the_powerline_preset_the_order_came_from() {
         let _lock = env_lock();
         let _repo = ScopedEnvVar::set("DESKTOPCTL_REPO", repo_root().as_os_str());
 
-        let mocha = load_repo_colors("catppuccin-mocha");
-        let mocha_plates = plates(&mocha);
-        assert_eq!(mocha_plates.identity, mocha.accent);
-        // catppuccin declares purple as its accent, so the language plate has
-        // to give way rather than repeat the identity plate.
-        assert_eq!(mocha_plates.lang, mocha.blue);
+        let colors = load_repo_colors("gruvbox-dark");
+        let plates = plates(&colors);
+        assert_eq!(plates.identity, colors.orange);
+        assert_eq!(plates.path, colors.yellow);
+        assert_eq!(plates.git, colors.cyan);
+        assert_eq!(plates.lang, colors.blue);
+    }
 
-        let solarized = load_repo_colors("solarized-light");
-        let solarized_plates = plates(&solarized);
-        assert_eq!(solarized_plates.identity, solarized.accent);
-        assert_eq!(solarized_plates.lang, solarized.purple);
+    /// rose-pine defines one warm hue under both `orange` and `yellow`, so the
+    /// identity plate has to leave the pair rather than repeat the path plate.
+    #[test]
+    fn a_scheme_whose_orange_is_its_yellow_moves_the_identity_plate() {
+        let _lock = env_lock();
+        let _repo = ScopedEnvVar::set("DESKTOPCTL_REPO", repo_root().as_os_str());
+
+        let colors = load_repo_colors("rose-pine");
+        assert_eq!(colors.orange, colors.yellow, "fixture assumption");
+
+        let plates = plates(&colors);
+        assert_eq!(plates.path, colors.yellow);
+        assert_eq!(plates.identity, colors.red);
     }
 }
