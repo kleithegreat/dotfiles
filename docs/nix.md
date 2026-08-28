@@ -116,7 +116,7 @@ are not a safe cache boundary across hosts. Native derivations carry
 advertises that feature in `nix.settings.system-features` *only while*
 `pkgs.optimize.enabled` (`host.nativeOptimizations`) is on — unconditional
 advertisement changes scheduling/cacheability even when the overlay is off.
-Flake-input packages (Hyprland family, hyprqt6engine) go through
+Flake-input packages (the Hyprland family) go through
 `pkgs.optimize.cc` from `lib/optimize.nix`, the same helper the overlay uses,
 so they cannot diverge from the overlay policy. Bootstrap wrinkle: the switch that first enables the feature runs
 through a daemon that doesn't advertise it yet, so the `nrs` wrapper passes
@@ -160,9 +160,9 @@ advances, so `flake.nix` carries a `nixpkgs-claude` input on master feeding
 broke once against the moving upstream builder shape.
 
 ### Haruna must share the session Qt/KDE package set
-`QT_QPA_PLATFORMTHEME=hyprqt6engine` loads a platform-theme plugin built
-against the session's Qt/KDE ABI; pinning Haruna to a different nixpkgs makes
-it load a mismatched plugin and abort at startup with no media loaded.
+`QT_QPA_PLATFORMTHEME=qt6ct` loads a platform-theme plugin built against the
+session's Qt ABI; pinning Haruna to a different nixpkgs makes it load a
+mismatched plugin and abort at startup with no media loaded.
 
 ### Discord's Krisp module fails its signature check when Nix-packaged
 `pkgs/discord-krisp/` carries a local backport of the nixpkgs patcher: it

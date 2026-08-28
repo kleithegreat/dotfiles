@@ -320,7 +320,6 @@ fn assemble(
             };
             let output_path = output_path(metadata)?;
             write_output(&output_path, &rendered)?;
-            write_extra_outputs(metadata, &rendered)?;
             Ok(())
         }
         Assembly::Concat => assemble_concat(metadata, content, colors),
@@ -376,7 +375,6 @@ fn assemble_concat(
     };
 
     write_output(&output_path, &rendered)?;
-    write_extra_outputs(metadata, &rendered)?;
     Ok(())
 }
 
@@ -500,17 +498,6 @@ fn run_owned_command(command: &[String]) -> crate::Result<()> {
 
 fn write_output(path: &Path, content: &str) -> crate::Result<()> {
     theme::atomic_write(path, content.as_bytes())
-}
-
-fn write_extra_outputs(
-    metadata: &crate::theme::targets::TargetMetadata,
-    content: &str,
-) -> crate::Result<()> {
-    for extra in metadata.extra_outputs {
-        let path = theme::expand_user_path(extra)?;
-        write_output(&path, content)?;
-    }
-    Ok(())
 }
 
 fn output_path(

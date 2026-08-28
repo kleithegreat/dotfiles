@@ -46,6 +46,20 @@
 - The dimmed foreground ramp (`fg2`/`fg3`/`fg4`/`fg_faint`) is derived by
   `dim_ramp()` blending `fg` toward `bg` at rising fractions; scheme files
   must not author it.
+- The Kvantum theme is generated whole — `kvantum.rs` emits the SVG as well as
+  the kvconfig. Kvantum draws every widget surface from SVG elements, so
+  borrowing another theme's SVG pins shape *and* most colour to whatever
+  palette it was drawn in; only text could follow the scheme. Generating both
+  is what makes an arbitrary scheme reach the pixels, and it is also where the
+  visual language lives: flat fills, hairline borders, one radius per widget
+  class, and accent reserved for selection, focus and progress. No Kvantum
+  theme is searched for on disk, and nothing scans the store for one.
+- Label colours that land on an accent fill — selected text, a toggled
+  button, a checkbox tick — come from `color_utils::readable_on`, never from
+  `fg`: pairing the scheme's body grey with its own accent drops light schemes
+  to about 1.6:1. It prefers the scheme's own ends and falls back to
+  black/white when neither clears WCAG AA, because some accents clear it
+  against neither.
 
 ## Quirks
 
@@ -59,20 +73,72 @@ pair foreground tiers against *background* tiers when a guaranteed gap is
 needed — the ramps are independent, and solarized-light's `bg3` sits exactly
 on its `fg`→`bg` line.
 
-### Kirigami ignores a plain Qt palette outside Plasma
-KDE chrome (toolbars, sidebars) follows KDE color infrastructure, not
-`QPalette`. The `qt` target therefore writes the whole chain: qt6ct/qt5ct +
-`kdeglobals`/`current.colors` + Kvantum + hyprqt6engine. Partial subsets were
-tried and looked half-themed. hyprqt6engine only sets
-`KDE_COLOR_SCHEME_PATH` when its config points `color_scheme` at a `.colors`
-file, which is why `hyprqt6engine.conf` points at the generated
-`~/.local/share/color-schemes/current.colors`. See [[nix]] for the plugin-path
-side of Qt theming.
+### No single Qt channel themes every app
+Theming is split across `system/qt.nix` (the env vars) and the `qt` target
+(every config file). Each piece below was isolated by changing it alone and
+relaunching; do not drop one because it looks redundant.
 
-### Kvantum SVG assets cap exact background matching
-KvGnome/KvGnomeDark SVGs have baked background shades the generated kvconfig
-cannot fully override; some KDE surfaces stay slightly off. Exact matching
-would need custom SVG assets.
+- `QT_STYLE_OVERRIDE=kvantum`, from `qt.style`. With `QT_QPA_PLATFORMTHEME=qt6ct`
+  alone, Dolphin picked up Kvantum but kcharselect did not and rendered
+  unstyled; adding this styled both. Breeze is not installed as a Qt style
+  plugin here (`.../qt-6/plugins/styles` holds only `libkvantum.so` and
+  `libqt6ct-style.so`), so an app that resolves a style by name and misses
+  falls through to Qt's default. Dolphin and kcharselect both link
+  `KStyleManager::initStyle`, and `libKF6ConfigWidgets` carries the
+  `widgetStyle` key it reads — hence the `[KDE] widgetStyle` the target also
+  writes, which on its own was enough to style Dolphin.
+- Kvantum's `[GeneralColors]` supplies `QPalette`. Setting `base.color` to
+  magenta turned Dolphin's view magenta *while* qt6ct's `Base` was set to a
+  different colour, and deleting the section dropped the view to white rather
+  than to qt6ct's value — so qt6ct's `custom_palette` does not reach these
+  apps at all.
+- qt6ct supplies fonts to non-KDE Qt apps: `[Fonts] general` visibly changed
+  qt6ct's own window and did nothing in kcharselect. Its `icon_theme` was not
+  isolated; KDE apps take icons from `kdeglobals [Icons] Theme`, which works.
+- The fontconfig generic families are the only channel that reaches a KDE
+  app's UI font. `kdeglobals [General] font` and qt6ct `[Fonts] general` both
+  left kcharselect on the default; aliasing `sans-serif` changed it. Only the
+  `sans-serif` half was measured.
+
+`hyprqt6engine` used to hold the platform-theme slot and was inert: raising
+its `font_size` and changing its `icon_theme` altered nothing, and qt6ct's own
+window rendered unstyled under it and themed under qt6ct. That is what left
+most Qt apps unthemed.
+
+`KDE_COLOR_SCHEME_PATH` (set in `system/qt.nix`) is the only consumer of the
+generated `~/.local/share/color-schemes/current.colors`; the variable name
+appears in `libKF6ColorScheme`. No role was found that visibly changes with
+it — do not treat it as load-bearing without measuring first.
+
+### Dolphin's alternate row colour is unreachable — stop trying to theme it
+Dolphin's details view paints every other row a fixed near-white, sampled as
+`#f9f9f9` and `#f7f7f7` on solarized-light. Neither value comes from the
+scheme. The *normal* row does follow it (that one is Kvantum's `base.color`),
+so only the alternate is stranded.
+
+Each channel below was probed on its own and the app relaunched — the colour
+ones set to a loud magenta, the rest simply switched on. None moved it:
+
+- `kdeglobals [Colors:View] BackgroundAlternate`
+- `~/.local/share/color-schemes/<name>.colors` installed under a name matching
+  `kdeglobals [General] ColorScheme`, with `KDE_COLOR_SCHEME_PATH` pointing at
+  it
+- Kvantum `[GeneralColors] alt.base.color`
+- the qt6ct colour scheme's `AlternateBase` slot — moot in hindsight, since
+  the quirk above shows none of that palette reaches these apps
+- `[KDE] contrast` (`0` as well as `4`, in case the colour was shaded rather
+  than read)
+- `kdePackages.plasma-integration` with `QT_QPA_PLATFORMTHEME=kde`, i.e. KDE's
+  own platform theme rather than qt6ct
+- Kvantum `[Hacks] transparent_dolphin_view=true`
+
+`kdeglobals [Colors:View] ForegroundNormal` set to magenta also left the file
+names their normal colour, so KDE's colour infrastructure is not reading our
+config in these apps at all — the alternate row keeps a compiled default.
+Dolphin's `KItemListView`/`KItemListWidget` own the painting and ship no
+config key for it (nothing in `share/config.kcfg/*.kcfg` matches `alternat`),
+which is why no amount of scheme data reaches it. This needs an upstream fix;
+do not re-run the search.
 
 ### Neuwaita needs a KDE wrapper theme for symbolic recoloring
 KIconThemes only recolors SVGs when the icon theme declares

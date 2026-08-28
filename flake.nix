@@ -28,10 +28,6 @@
       url = "github:hyprwm/hyprland-plugins/v0.56.0";
       inputs.hyprland.follows = "hyprland";
     };
-    hyprqt6engine = {
-      url = "github:hyprwm/hyprqt6engine";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
   outputs =

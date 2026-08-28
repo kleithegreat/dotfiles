@@ -137,8 +137,6 @@ let
     glib
     gdk-pixbuf
     gedit
-    # Haruna needs to stay on the session Qt/KDE stack so the global
-    # hyprqt6engine platform theme plugin is ABI-compatible.
     haruna
     ffmpeg
     zoom-us

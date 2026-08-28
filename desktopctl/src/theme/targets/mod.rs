@@ -9,6 +9,7 @@ mod gtksourceview;
 mod helium;
 mod hypr_appearance;
 mod hyprland;
+mod kvantum;
 mod neovide;
 mod neovim;
 mod opencode;
@@ -64,7 +65,6 @@ pub struct TargetMetadata {
     pub assembly: Assembly,
     pub output_path: Option<&'static str>,
     pub base_path: Option<&'static str>,
-    pub extra_outputs: &'static [&'static str],
     pub managed_paths: &'static [&'static str],
     pub state_keys: &'static [&'static str],
     pub reload_cmd: Option<&'static [&'static str]>,
@@ -83,7 +83,6 @@ impl TargetMetadata {
             assembly,
             output_path: None,
             base_path: None,
-            extra_outputs: &[],
             managed_paths: &[],
             state_keys,
             reload_cmd: None,
@@ -102,13 +101,6 @@ impl TargetMetadata {
     pub const fn base(self, base_path: &'static str) -> Self {
         Self {
             base_path: Some(base_path),
-            ..self
-        }
-    }
-
-    pub const fn extra_outputs(self, extra_outputs: &'static [&'static str]) -> Self {
-        Self {
-            extra_outputs,
             ..self
         }
     }
@@ -724,10 +716,28 @@ mod tests {
         let mut state = dummy_state();
         state.dark_hint = true;
         let output = text(qt::generate(&dummy_colors(), &state));
-        assert_eq!(
-            output,
-            "[ColorScheme]\nactive_colors=#fff0f0f0, #ff020202, #ff040404, #ff030303, #ff010101, #ff040404, #fff0f0f0, #fff0f0f0, #fff0f0f0, #ff000000, #ff020202, #ff010101, #ff3366ff, #fff0f0f0, #ff0000ff, #ffff00ff, #ff000000, #ff020202, #fff0f0f0, #808b8b8b, #ff3366ff\ndisabled_colors=#ff8b8b8b, #ff020202, #ff040404, #ff030303, #ff010101, #ff040404, #ff8b8b8b, #fff0f0f0, #ff8b8b8b, #ff000000, #ff020202, #ff010101, #ff3366ff, #ff8b8b8b, #ff0000ff, #ffff00ff, #ff000000, #ff020202, #fff0f0f0, #808b8b8b, #ff3366ff\ninactive_colors=#fff0f0f0, #ff020202, #ff040404, #ff030303, #ff010101, #ff040404, #fff0f0f0, #fff0f0f0, #fff0f0f0, #ff000000, #ff020202, #ff010101, #ff3366ff, #fff0f0f0, #ff0000ff, #ffff00ff, #ff000000, #ff020202, #fff0f0f0, #808b8b8b, #ff3366ff\n"
-        );
+
+        let mut lines = output.lines();
+        assert_eq!(lines.next(), Some("[ColorScheme]"));
+        for (line, key) in lines.zip(["active_colors", "disabled_colors", "inactive_colors"]) {
+            let values = line
+                .strip_prefix(&format!("{key}="))
+                .unwrap_or_else(|| panic!("{key} row"));
+            assert_eq!(values.split(", ").count(), 21, "{key} role count");
+
+            // Index 13 is HighlightedText over index 12's Highlight. Pairing it
+            // with the scheme's body `fg` drops light schemes to ~1.6:1. The
+            // disabled row is exempt: dimmed selected text is the point there.
+            if key == "disabled_colors" {
+                continue;
+            }
+            let role =
+                |index: usize| format!("#{}", &values.split(", ").nth(index).expect("role")[3..]);
+            assert!(
+                color_utils::contrast_ratio(&role(12), &role(13)) >= 4.5,
+                "{key}: selected text is unreadable on the highlight"
+            );
+        }
     }
 
     #[test]

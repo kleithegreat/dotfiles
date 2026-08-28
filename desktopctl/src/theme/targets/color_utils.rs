@@ -66,3 +66,27 @@ pub fn blend(from: &str, to: &str, ratio: f64) -> String {
     };
     format!("#{:02x}{:02x}{:02x}", channel(1), channel(3), channel(5))
 }
+
+/// WCAG AA for normal text; below this a label on a filled plate stops being
+/// readable rather than merely low-contrast.
+const WCAG_AA_NORMAL_TEXT: f64 = 4.5;
+
+/// Text colour for a filled plate, preferring the scheme's own ends. Neither
+/// `fg` nor `bg` is safe on its own: on a light scheme the accent carries the
+/// body grey at ~1.6:1, and some accents clear AA against neither, which is
+/// what the black/white fallback is for.
+pub fn readable_on(plate: &str, background: &str, foreground: &str) -> String {
+    let best = |first: &str, second: &str| -> String {
+        if contrast_ratio(plate, first) >= contrast_ratio(plate, second) {
+            first.to_owned()
+        } else {
+            second.to_owned()
+        }
+    };
+
+    let candidate = best(background, foreground);
+    if contrast_ratio(plate, &candidate) >= WCAG_AA_NORMAL_TEXT {
+        return candidate;
+    }
+    best("#000000", "#ffffff")
+}
