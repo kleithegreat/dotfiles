@@ -9,7 +9,6 @@ Ui.Scroll {
 
     contentHeight: body.height
 
-    readonly property string directory: Sys.Appearance.value("wallpaper_dir", "")
     readonly property string current: Sys.Appearance.value("wallpaper", "")
 
     ColumnLayout {
@@ -46,8 +45,12 @@ Ui.Scroll {
                 Ui.Pressable {
                     id: option
 
-                    required property string modelData
-                    readonly property string path: root.directory + "/" + option.modelData
+                    required property var modelData
+                    readonly property string path: option.modelData.path
+                    // The originals here run to 35 MB; the cached preview is a
+                    // 640x400 PNG. Falling back to the original keeps a
+                    // wallpaper visible even when its preview failed to render.
+                    readonly property string thumbnail: option.modelData.preview_path || option.modelData.path
                     readonly property bool selected: root.current === option.path
 
                     Layout.fillWidth: true
@@ -64,10 +67,11 @@ Ui.Scroll {
 
                         Image {
                             anchors.fill: parent
-                            source: "file://" + option.path
+                            source: "file://" + option.thumbnail
                             fillMode: Image.PreserveAspectCrop
                             sourceSize.width: 480
                             asynchronous: true
+                            cache: true
                             smooth: true
                         }
                     }

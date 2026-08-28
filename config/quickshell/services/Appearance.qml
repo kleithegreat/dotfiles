@@ -25,6 +25,8 @@ QtObject {
 
     property var schemes: []
     property var presets: []
+    // { name, path, preview_path } per entry; preview_path may be null when
+    // preview generation failed for that file.
     property var wallpapers: []
 
     readonly property bool busy: writer.running || _queue.length > 0
@@ -223,11 +225,20 @@ QtObject {
         }
     }
 
+    // The JSON form carries the cached 640x400 preview desktopctl already
+    // renders for each wallpaper. The plain-text form only carries names, which
+    // left the picker decoding the originals -- ten JPEGs averaging 24 MB each.
     readonly property Process _wallpaperList: Process {
         id: wallpaperList
-        command: ["desktopctl", "theme", "list-wallpapers"]
+        command: ["desktopctl", "theme", "list-wallpapers", "--json"]
         stdout: StdioCollector {
-            onStreamFinished: root.wallpapers = this.text.split("\n").map(line => line.trim()).filter(line => line !== "")
+            onStreamFinished: {
+                try {
+                    root.wallpapers = JSON.parse(this.text);
+                } catch (error) {
+                    root.wallpapers = [];
+                }
+            }
         }
     }
 }
