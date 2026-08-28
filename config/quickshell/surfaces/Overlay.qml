@@ -74,56 +74,64 @@ PanelWindow {
         onCleared: overlay.state.close()
     }
 
-    Item {
+    // Escape is handled here, owning the surfaces, rather than beside them.
+    // Key events travel up the parent chain from whatever holds focus, so a
+    // handler that is a *sibling* of the surfaces only ever sees the key while
+    // nothing inside one has taken focus -- and Ui.Field calls
+    // forceActiveFocus(), so opening a settings pane that carries a field is
+    // enough to strand Escape in a subtree the handler is not on the path of.
+    // Being an ancestor is what makes one handler dismiss every surface.
+    FocusScope {
         anchors.fill: parent
         focus: true
+
         Keys.onEscapePressed: overlay.state.close()
-    }
 
-    Rectangle {
-        anchors.fill: parent
-        color: Theme.scrim
-        opacity: overlay.scrimmed ? 1 : 0
-        visible: opacity > 0.001
+        Rectangle {
+            anchors.fill: parent
+            color: Theme.scrim
+            opacity: overlay.scrimmed ? 1 : 0
+            visible: opacity > 0.001
 
-        Behavior on opacity {
-            Ui.Anim {
-                duration: overlay.scrimmed ? Motion.settled : Motion.quick
+            Behavior on opacity {
+                Ui.Anim {
+                    duration: overlay.scrimmed ? Motion.settled : Motion.quick
+                }
             }
         }
-    }
 
-    MouseArea {
-        anchors.fill: parent
-        acceptedButtons: Qt.AllButtons
-        onPressed: overlay.state.close()
-    }
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.AllButtons
+            onPressed: overlay.state.close()
+        }
 
-    ControlCenter {
-        state: overlay.state
-    }
+        ControlCenter {
+            state: overlay.state
+        }
 
-    Calendar {
-        state: overlay.state
-    }
+        Calendar {
+            state: overlay.state
+        }
 
-    NowPlaying {
-        state: overlay.state
-    }
+        NowPlaying {
+            state: overlay.state
+        }
 
-    NotificationCenter {
-        state: overlay.state
-    }
+        NotificationCenter {
+            state: overlay.state
+        }
 
-    Session {
-        state: overlay.state
-    }
+        Session {
+            state: overlay.state
+        }
 
-    TrayMenu {
-        state: overlay.state
-    }
+        TrayMenu {
+            state: overlay.state
+        }
 
-    Settings {
-        state: overlay.state
+        Settings {
+            state: overlay.state
+        }
     }
 }
