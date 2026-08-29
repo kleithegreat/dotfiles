@@ -250,6 +250,22 @@ the timezone service. Locale and keymap are static on purpose everywhere.
 Intermittent wgengine teardown races can eat most of systemd's 90s stop
 timeout. Physical hosts cap `TimeoutStopSec=15s` on tailscaled.
 
+### Mission Center's "Run Additional Setup" is a dead end
+The button fails with `Error executing /tmp/missioncenter-magpie-setup: No such
+file or directory`. The script is there; its `#!/bin/bash` interpreter is not,
+and ENOENT on a shebang reads as the *script* being missing. Do not chase the
+path. Even patched, every line of it is inert here: it `setcap`s a read-only
+`/nix/store` path, writes `/etc/udev/rules.d/99-powercap.rules` into an
+`/etc` NixOS owns, calls a `/usr/bin/chmod` that does not exist, and runs
+`sensors-detect --auto` to persist modules that `boot.kernelModules` already
+declares. `system/physical-host.nix` installs the two effects declaratively:
+a `security.wrappers.nethogs` carrying the capabilities magpie's per-process
+network readout needs (magpie resolves `nethogs` off PATH, and
+`/run/wrappers/bin` precedes the profiles), and a powercap udev rule for CPU
+power draw. That rule deliberately re-opens `intel-rapl*/energy_uj`, which the
+kernel restricted to root against PLATYPUS (CVE-2020-8694) — the side channel
+is the price of the reading, so weigh that before copying it elsewhere.
+
 ### Widening `cudaCapabilities` exhausts RAM on these hosts
 Both hosts are sm_86 (laptop RTX 3050 Mobile, desktop RTX 3080) and nothing
 CUDA here is unfree-cached, so every CUDA package is built locally. Left at the

@@ -141,6 +141,20 @@ in
     hardware.cpu.intel.updateMicrocode =
       lib.mkDefault config.hardware.enableRedistributableFirmware;
 
+    # Mission Center's in-app "Run Additional Setup" cannot work here; see
+    # docs/nix.md. These are the two things it would have installed.
+    security.wrappers.nethogs = {
+      owner = "root";
+      group = "root";
+      capabilities = "cap_net_admin,cap_net_raw,cap_dac_read_search,cap_sys_ptrace+ep";
+      source = lib.getExe pkgs.nethogs;
+    };
+
+    # Re-opens energy_uj, which the kernel closed against PLATYPUS.
+    services.udev.extraRules = ''
+      SUBSYSTEM=="powercap", KERNEL=="intel-rapl*", RUN+="${lib.getExe' pkgs.coreutils "chmod"} a+r /sys%p/energy_uj"
+    '';
+
     # Bound rare upstream tailscaled shutdown hangs so reboot does not wait for
     # the full systemd default stop timeout.
     systemd.services.tailscaled.serviceConfig.TimeoutStopSec = "15s";
