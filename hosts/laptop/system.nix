@@ -112,24 +112,25 @@ in {
   # tune everything else.
   #
   # Two mechanisms because neither covers the other's case: the udev rule catches
-  # probe and re-probe, and the unit re-asserts the value at boot, where
-  # powertop.service runs long after udev has settled.
+  # probe and re-probe, and the ExecStartPost re-asserts the value at boot, where
+  # powertop runs long after udev has settled.
   services.udev.extraRules = ''
     ACTION=="add|change", SUBSYSTEM=="pci", KERNEL=="0000:00:15.1", ATTR{power/control}="on"
   '';
 
-  systemd.services.touchpad-i2c-no-runtime-pm = {
-    description = "Keep the touchpad's I2C controller out of runtime suspend";
-    after = [ "powertop.service" ];
-    wantedBy = [ "multi-user.target" ];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-    };
-    script = ''
+  # Hang the re-assert off powertop.service itself rather than racing it from a
+  # separate unit. A separate unit cannot win here: powertop.service is both
+  # WantedBy= and After= multi-user.target, so anything WantedBy that target must
+  # start before it, and ordering After=powertop.service closes a cycle that
+  # systemd breaks by silently deleting the job -- which is exactly what happened
+  # (`Found ordering cycle ... deleted to break ordering cycle`), leaving the pin
+  # dead at every boot while looking fine after a `switch`. ExecStartPost runs
+  # inside powertop's own transaction, so the ordering is guaranteed by
+  # construction instead of negotiated.
+  systemd.services.powertop.serviceConfig.ExecStartPost =
+    pkgs.writeShellScript "touchpad-i2c-pin-runtime-pm" ''
       echo on > /sys/bus/pci/devices/0000:00:15.1/power/control
     '';
-  };
 
   # Kept for the BIOS/EC regions and the Goodix fingerprint sensor, all of which
   # it does enumerate as updatable.
