@@ -20,10 +20,14 @@ PanelWindow {
     WlrLayershell.namespace: "quickshell:hint"
     WlrLayershell.layer: WlrLayer.Overlay
 
+    // The strip's own width is only right once the layer surface has been
+    // configured, which is one map behind the position the bubble needs.
+    readonly property real span: window.screen ? window.screen.width : 0
+
     Ui.Surface {
         id: bubble
 
-        x: Math.max(Metrics.gap, Math.min(parent.width - width - Metrics.gap, Sys.Hint.anchor - width / 2))
+        x: Math.max(Metrics.gap, Math.min(window.span - width - Metrics.gap, Sys.Hint.anchor - width / 2))
         y: 0
         width: caption.implicitWidth + Metrics.s4 * 2
         height: Metrics.controlHeight + Metrics.s1
@@ -31,20 +35,52 @@ PanelWindow {
         elevation: 18
 
         opacity: Sys.Hint.showing ? 1 : 0
-        scale: Sys.Hint.showing ? 1 : 0.92
+        flatten: emergeAnim.running || fadeAnim.running || travelAnim.running
+
+        // The hint belongs to the item under the pointer, so it unfolds from
+        // that item's centre and hangs from its own top edge, the same
+        // entrance every other summoned surface makes ([[quickshell]]).
+        property real emerge: Sys.Hint.showing ? 1 : Motion.emergeScale
+
+        transform: Scale {
+            xScale: bubble.emerge
+            yScale: bubble.emerge
+            origin.x: Math.max(0, Math.min(bubble.width, Sys.Hint.anchor - bubble.x))
+            origin.y: 0
+        }
+
+        Behavior on emerge {
+            Ui.Anim {
+                id: emergeAnim
+                duration: Sys.Hint.showing ? Motion.quick : Motion.instant
+                easing.bezierCurve: Sys.Hint.showing ? Motion.enter : Motion.exit
+            }
+        }
 
         Behavior on opacity {
             Ui.Anim {
-                duration: Motion.instant
+                id: fadeAnim
+                duration: Sys.Hint.showing ? Motion.quick : Motion.instant
+                easing.bezierCurve: Sys.Hint.showing ? Motion.enter : Motion.exit
             }
         }
-        Behavior on scale {
+
+        // Geometry is placed while the hint is down and animated only while it
+        // is up: this window unmaps between hints, and a move queued against a
+        // window nobody can see runs in full once it maps ([[quickshell]]).
+        Behavior on x {
+            enabled: Sys.Hint.showing
+
             Ui.Anim {
+                id: travelAnim
                 duration: Motion.quick
                 easing.bezierCurve: Motion.enter
             }
         }
-        Behavior on x {
+
+        Behavior on width {
+            enabled: Sys.Hint.showing
+
             Ui.Anim {
                 duration: Motion.quick
                 easing.bezierCurve: Motion.enter

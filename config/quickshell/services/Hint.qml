@@ -18,20 +18,26 @@ QtObject {
             return;
         }
 
-        text = message;
-        anchor = at;
         // Once one hint has been earned, moving along the bar shows the rest
         // immediately; making every neighbour re-earn the dwell is what makes a
-        // bar feel unresponsive.
-        if (showing)
-            return;
-        dwell.restart();
+        // bar feel unresponsive. Raising `showing` before the new target is what
+        // then makes the bubble travel to it rather than jump.
+        if (showing || grace.running) {
+            grace.stop();
+            showing = true;
+        } else {
+            dwell.restart();
+        }
+
+        text = message;
+        anchor = at;
     }
 
     function clear() {
         dwell.stop();
+        if (showing)
+            grace.restart();
         showing = false;
-        linger.restart();
     }
 
     readonly property Timer _dwell: Timer {
@@ -40,8 +46,10 @@ QtObject {
         onTriggered: root.showing = true
     }
 
-    readonly property Timer _linger: Timer {
-        id: linger
+    // How long after a hint leaves the next item still counts as the same
+    // question rather than a new one.
+    readonly property Timer _grace: Timer {
+        id: grace
         interval: 350
     }
 }

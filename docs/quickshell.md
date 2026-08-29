@@ -22,7 +22,7 @@
   click dismissal and the scrim; its input mask excludes the bar strip so bar
   buttons keep working while a surface is open.
 - Surfaces grow from the control that summoned them: bar items report their
-  screen-centre x and the popover scales from that origin.
+  screen-centre x, and popovers and the bar's hover hint scale from that origin.
 - The shell occupies exactly one output, and every window it owns names that
   same output. Which one it is comes from the daemon ([[desktopctl]]); the
   shell has no second rule for it. Left unnamed a surface defaults to
@@ -121,6 +121,17 @@ popping back for a moment after you dismissed it, and it is visible on
 Hyprland's event socket as `closelayer` / `openlayer` on the same namespace.
 A window's visibility has to be one property that nothing else can drive
 false.
+
+### A geometry animation on a window that unmaps replays when it maps
+`Hint`'s bubble is positioned by a binding on whichever bar item is hovered, and
+its window unmaps whenever no hint is up. A `Behavior` on that `x` therefore
+queues a move against a window nobody is looking at: it does not advance while
+the window is hidden, and it runs in full on the frame it maps — so every hint
+slid across the screen from wherever the previous one sat, or from the left edge
+if the surface had not been configured yet and the clamp had collapsed. Geometry
+on a surface that unmaps is placed while hidden and animated only while shown;
+the `enabled:` on those Behaviors is load-bearing, and the position clamps
+against the *screen's* width rather than the strip's for the same reason.
 
 ### A missing binary fails to *start*, which never emits `exited`
 Backend probes must run in parallel and resolve by priority, never chain on each
