@@ -69,6 +69,13 @@ That log is always on and unconditional; `host_window_cadence ... direct=0` for
 the whole run says no guest frame ever arrived, and the refusal naming the tool
 is above it.
 
+`direct=0` has a second cause that looks identical from the window, so read
+`display_enable_mask` before blaming the host: the guest publishes that mask and
+the host only reads it, so `0xc -> 0xd` is macOS arming vblank and starting to
+composite. Missing translation still shows the transition and then refuses every
+draw; a guest that never composites at all never transitions, and no host-side
+switch can cause that.
+
 ### `fetch` writes to the working directory
 `fetch-macOS-v2.py` ignores `--outdir` on its menu path and hardcodes `.`, so
 `macos-vm fetch` changes directory into the VM directory first. Handing the
