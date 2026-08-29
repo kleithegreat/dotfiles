@@ -54,7 +54,20 @@ The device's UEFI GOP lives in a PCI option ROM built from
 does not build it. `macos-vm run` shows an empty window through OpenCore and
 early boot, and only comes alive once the guest driver loads. That is not a
 hang — `macos-vm run --console` is how anything at the firmware or OpenCore
-level gets seen.
+level gets seen. A window that is *still* black a minute in is a different
+fault, and the next quirk is the one that has caused it.
+
+### The device shells out to `llvm-dis` and `spirv-val`
+`metal2vulkan` translates each uncached guest shader by spawning both, so they
+have to be on QEMU's own PATH — `shaderTools` in `pkgs/reims-vgpu` is what puts
+them there. Without them every translation refuses, every draw is skipped, and
+the guest scans out a surface nothing ever drew into: an attached, healthy,
+fully booted guest behind a permanently black window. Nothing about that
+presents as a missing build tool, and the quirk above supplies a ready
+explanation for it, so read `/tmp/reims-vgpu-fail.log` before believing either.
+That log is always on and unconditional; `host_window_cadence ... direct=0` for
+the whole run says no guest frame ever arrived, and the refusal naming the tool
+is above it.
 
 ### `fetch` writes to the working directory
 `fetch-macOS-v2.py` ignores `--outdir` on its menu path and hardcodes `.`, so

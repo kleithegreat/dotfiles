@@ -13,6 +13,8 @@
   libxcursor,
   libxi,
   libxrandr,
+  llvm,
+  spirv-tools,
 }:
 
 let
@@ -44,6 +46,13 @@ let
     rev = "f5772a62ec52591ff6870b7e8ef32482371f22c6";
     hash = "sha256-GbZ5mrUYLXMi0IX4IZzles0Oyc095ij2xAsiLNJwfKQ=";
   };
+
+  # `metal2vulkan` spawns these once per uncached shader, so they have to be on
+  # QEMU's own PATH. See docs/macos-vm.md.
+  shaderTools = [
+    llvm
+    spirv-tools
+  ];
 
   # `ash` and `winit` reach these through dlopen, so no DT_NEEDED entry names
   # them and nothing puts them in the binary's RUNPATH.
@@ -138,6 +147,7 @@ in
 
   preFixup = ''
     gappsWrapperArgs+=(--prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath runtimeLibs})
+    gappsWrapperArgs+=(--prefix PATH : ${lib.makeBinPath shaderTools})
   '';
 
   passthru = { };
