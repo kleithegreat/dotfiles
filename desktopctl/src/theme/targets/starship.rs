@@ -118,16 +118,8 @@ struct Plates {
 }
 
 fn plates(colors: &ColorScheme) -> Plates {
-    // gruvbox's powerline order -- orange, yellow, aqua, blue, then two neutral
-    // plates -- read through each scheme's own palette. The roles are what is
-    // fixed; the hues each role resolves to are the scheme's.
-    //
-    // Identity is chosen against the yellow the path plate intends to take
-    // rather than against nothing, because it is the warm pair that collides:
-    // rose-pine's orange *is* its yellow, and tokyo-night-light's two sit 15.7
-    // apart. Letting identity fall to red there recovers each family's own
-    // canonical rainbow -- rose-pine lands on love, gold, pine, iris -- instead
-    // of forcing a hue the scheme does not have.
+    // Identity resolves against the yellow the path plate intends to take, not
+    // against nothing: it is the warm pair that collides ([[theming]]).
     let identity = distinct_plate(
         &[
             &colors.orange,

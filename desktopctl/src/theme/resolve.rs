@@ -621,6 +621,7 @@ mod tests {
 
         let mut rows = seed_state().to_ordered_json_map();
         rows.remove("font_size");
+        let seeded_scheme = rows["color_scheme"].to_string();
         write_state_rows_to_db(&db_path, &rows)?;
 
         let mono_font = Value::String("CommitMono".to_owned());
@@ -641,7 +642,7 @@ mod tests {
         assert_eq!(stored("mono_font")?, "\"CommitMono\"");
         assert_eq!(stored("font_size")?, "13");
         // Untouched keys keep their previous values.
-        assert_eq!(stored("color_scheme")?, "\"gruvbox-dark\"");
+        assert_eq!(stored("color_scheme")?, seeded_scheme);
 
         remove_file_if_exists(&db_path)?;
         Ok(())

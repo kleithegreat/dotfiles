@@ -42,6 +42,16 @@
 
 ## Quirks
 
+### A desktop-entry field code cannot survive `exec_cmd`
+VS Code is spawned through Hyprland rather than by the launcher so the new
+window is tracked on the active workspace, but that indirection cannot carry a
+field code: `hl.dsp.exec_cmd` takes the whole command as one quoted string, and
+per the desktop-entry spec a field code inside a quoted argument is not
+expanded. A literal `%F` therefore reached `code` and opened an empty buffer
+named "%F" instead of the previous session. The `code-hypr` wrapper in
+`home/xdg.nix` takes the files as real argv and shell-quotes them into the
+dispatch string, which Hyprland runs through `/bin/sh`.
+
 ### A partial `hl.monitor` merges at runtime and *resets* at parse time
 Through `hyprctl eval`, `hl.monitor({ output = X, position = ... })` is a
 genuine partial update: mode and scale survive, which is what makes an

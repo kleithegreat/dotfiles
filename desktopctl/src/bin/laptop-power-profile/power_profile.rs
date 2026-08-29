@@ -179,12 +179,9 @@ pub fn current(root: &Path) -> Result<String> {
 /// it can work out what to offline, and the standard profiles have to undo
 /// whatever mask a previous e-core-only left behind.
 ///
-/// Split out of [`apply`] so the mask handling can be tested against a fake tree
-/// without a live power-profiles-daemon — which is not incidental here, since
-/// `powerprofilesctl set` fails outright while the P-cores are offline (it
-/// writes `energy_performance_preference` for every policy, and an offlined
-/// core's policy is EBUSY). That is why this runs before the daemon call and not
-/// after.
+/// Runs before the `powerprofilesctl` call, never after: that command writes
+/// `energy_performance_preference` for every policy, and an offlined core's
+/// policy answers EBUSY.
 fn unmask(root: &Path) -> Result<()> {
     ensure_manageable(root)?;
 

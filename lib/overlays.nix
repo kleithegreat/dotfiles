@@ -7,6 +7,7 @@
     [
       (import ../overlays/local-packages.nix)
       (import ../overlays/claude-code.nix { inherit (inputs) nixpkgs-claude; })
+      (import ../overlays/hyprland.nix { inherit inputs; })
       (import ../overlays/native-optimized.nix {
         lib = self;
         inherit host;

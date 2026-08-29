@@ -4,14 +4,8 @@ import QtQuick
 import Quickshell.Io
 import Quickshell.Hyprland
 
-// The single gateway to hyprctl.
-//
-// Two facts make a shared gateway mandatory rather than convenient. hyprctl
-// **exits 0 when it fails**, printing `error: ...` on stdout, so a caller that
-// checks only the exit status sees a silent no-op — that is how a float toggle,
-// the titlebar buttons and the lid-close monitor disable all died without one
-// failing command. And `hyprctl keyword` does nothing at all under the Lua
-// parser, so runtime config has to go through `eval`. Both rules live here once.
+// The single gateway to hyprctl: it exits 0 on failure and `keyword` is inert
+// under the Lua parser, so both rules live here once ([[hyprland]]).
 QtObject {
     id: root
 

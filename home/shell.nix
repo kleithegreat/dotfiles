@@ -2,8 +2,8 @@
 
 let
   zshShareOnly = pkgs.runCommand "zsh-share-only" {} ''
-    mkdir -p "$out/share"
-    ln -s ${pkgs.zsh}/share/zsh "$out/share/zsh"
+    mkdir --parents "$out/share"
+    ln --symbolic ${pkgs.zsh}/share/zsh "$out/share/zsh"
   '';
   rebuildSystemFeatures = [
     "benchmark"
@@ -38,7 +38,7 @@ in
     enableCompletion = true;
     completionInit = /* bash */ ''
       autoload -Uz compinit
-      mkdir -p "$XDG_CACHE_HOME/zsh"
+      mkdir --parents "$XDG_CACHE_HOME/zsh"
       compinit -C -d "$XDG_CACHE_HOME/zsh/zcompdump"
     '';
     autosuggestion = {
@@ -49,13 +49,13 @@ in
 
     shellAliases = {
       ls = ''eza --color=always --long --git --no-filesize --icons=always --no-time --no-user --no-permissions'';
-      la = ''eza --color=always --long --git --icons=always -a'';
+      la = ''eza --color=always --long --git --icons=always --all'';
       lt = ''eza --color=always --tree --level=2 --icons=always'';
       ".." = "cd ..";
       "..." = "cd ../..";
-      rm = "rm -i";
-      mv = "mv -i";
-      cp = "cp -i";
+      rm = "rm --interactive";
+      mv = "mv --interactive";
+      cp = "cp --interactive";
       cat = "bat --paging=never --style=plain";
       catn = "/run/current-system/sw/bin/cat";
       grep = "grep --color=auto";
@@ -139,7 +139,7 @@ in
       }
 
       mkcd() {
-          mkdir -p "$1" && cd "$1"
+          mkdir --parents "$1" && cd "$1"
       }
 
       # nixos-rebuild wrapper. Activating actions swap the ~/.config/hypr symlinks
@@ -178,7 +178,7 @@ in
       }
 
       # ── bat as manpager ──────────────────────────────────────
-      export MANPAGER="sh -c 'col -bx | bat -l man -p'"
+      export MANPAGER="sh -c 'col -bx | bat --language=man --plain'"
       export MANROFFOPT="-c"
 
       # ── SSH agent (GCR socket, managed by gcr-ssh-agent.socket) ──

@@ -10,7 +10,7 @@ rustPlatform.buildRustPackage {
   nativeBuildInputs = [ makeWrapper ];
 
   postUnpack = ''
-    cp -r ${../styling} $sourceRoot/../styling
+    cp --recursive ${../styling} $sourceRoot/../styling
   '';
 
   postInstall = ''

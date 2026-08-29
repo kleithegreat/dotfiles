@@ -11,16 +11,7 @@ Scope {
 
     readonly property ShellState state: ShellState {}
 
-    // Which output the shell lives on is the daemon's answer, not a rule the
-    // shell keeps its own copy of ([[desktopctl]] `displays`): the same choice
-    // decides which output owns the numbered workspaces, and two rules that
-    // agree today would disagree the first time either one changed. The local
-    // fallback covers only a daemon that has not answered yet.
-    //
-    // Lifetime follows Hyprland's monitor model, not Quickshell.screens: output
-    // churn (suspend, DPMS, hotplug) tears down the layer surface while Qt keeps
-    // a placeholder QScreen alive, so `screens` never reports that the outputs
-    // are gone.
+    // Fallback only: the daemon's answer wins ([[quickshell]], [[desktopctl]]).
     readonly property string primaryMonitor: {
         const monitors = Hyprland.monitors.values;
         let fallback = "";

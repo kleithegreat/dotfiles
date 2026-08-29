@@ -37,7 +37,7 @@ in
 
   system.activationScripts.desktopctlSddmThemeBackground = {
     text = /* bash */ ''
-      mkdir -p "${sddmThemeBackgroundDir}"
+      mkdir --parents "${sddmThemeBackgroundDir}"
       if [ ! -e "${sddmThemeBackgroundPath}" ]; then
         install -Dm0644 ${../styling/wallpapers/lmao.png} "${sddmThemeBackgroundPath}"
       fi
@@ -55,14 +55,9 @@ in
           exit 0
         fi
 
-        # Consume the handoff. `PathExists` re-arms the moment this unit
-        # finishes and fires again while the file is still there, so leaving
-        # the staging file in place spins the service until systemd's start
-        # limiter trips and fails both units -- which is what made every
-        # `nixos-rebuild switch` exit non-zero. The trap runs on failure too:
-        # a stuck file would loop forever, and desktopctl re-stages on every
-        # theme apply, so a dropped sync corrects itself on the next one.
-        trap 'rm -f "${sddmThemeStagingPath}"' EXIT
+        # Must consume the file on every exit, failure included, or the
+        # level-triggered path unit spins; see docs/nix.md.
+        trap 'rm --force "${sddmThemeStagingPath}"' EXIT
 
         install -Dm0644 "${sddmThemeStagingPath}" "${sddmThemeBackgroundPath}"
       '';

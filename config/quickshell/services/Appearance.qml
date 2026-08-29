@@ -3,20 +3,7 @@ pragma Singleton
 import QtQuick
 import Quickshell.Io
 
-// Theme state, and the only path that changes it.
-//
-// QML never edits theme or Hyprland config files; every mutation is a
-// `desktopctl theme` call, and they are serialised because the backend rewrites
-// generated fragments per apply. The old shell ran a theme queue and a Hyprland
-// queue that had to cross-gate each other to avoid interleaving — but the
-// Hyprland values *are* theme-state keys, so there was only ever one queue to
-// have. A value is staged optimistically and rolled back if the write fails.
-//
-// State arrives over the Desktopctl event socket: the daemon pushes a snapshot
-// on subscribe and theme.changed after every commit, so external changes
-// (hotkeys, a terminal `desktopctl theme set`) land here too. The one-shot
-// status read at startup is only the degraded path for a daemon that is not
-// up yet.
+// Theme state, and the only path that changes it ([[quickshell]]).
 QtObject {
     id: root
 

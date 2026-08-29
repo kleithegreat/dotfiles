@@ -54,11 +54,6 @@ Open issues and pending validations. Delete entries when resolved.
       `hyprland.shutdown` takes it down, and that killing an auxiliary
       subsystem no longer takes the socket with it.
 
-- [ ] Theme state seed (needs a rebuild): the live database predates
-      `styling/state.json`, so the seed only takes effect on a fresh machine.
-      After any state change worth keeping, run
-      `desktopctl theme export > styling/state.json` and commit the diff.
-
 - [ ] macOS VM, end to end (needs a guest install): nothing in it has been
       booted. `macos-vm fetch` → `install` → `run`, then check that the
       reims-vgpu device's own Vulkan window opens on the desktop, that

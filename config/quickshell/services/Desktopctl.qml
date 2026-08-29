@@ -4,16 +4,8 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 
-// Live link to the desktopctl daemon: one subscribed socket over which the
-// daemon pushes change events (theme, night light, brightness, hypr input and
-// monitors),
-// each preceded by a snapshot at subscribe time. Writes never go through this
-// connection — services keep issuing `desktopctl` commands, which are thin
-// clients of the same daemon — so the shell needs no polling timers to stay
-// current, including for changes made from hotkeys or a terminal.
-//
-// The daemon and the shell start concurrently (and the shell can be restarted
-// alone), so reconnecting with backoff is load-bearing, not defensive.
+// Read side of the daemon link: subscribed socket in, `desktopctl` commands
+// out ([[quickshell]]).
 QtObject {
     id: root
 

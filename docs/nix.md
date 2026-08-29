@@ -41,7 +41,7 @@
   deliberate reproducible bootstrap login (SSH password auth stays disabled);
   don't remove it silently.
 
-## Quirks — evaluation and build failures
+## Quirks
 
 ### Narrow unfree/insecure predicates must cover transitive closures
 `allowUnfreePredicate` must list not just chosen apps but names pulled in by
@@ -79,8 +79,6 @@ The fixed-output hash eventually stops matching upstream bytes — refresh the
 version date and `src.hash` in `pkgs/sf-pro/default.nix`. The current DMG's
 `Payload~` is a plain cpio archive (no second gzip unpack); the derivation
 tries `cpio` and falls back to `7z` for older layouts.
-
-## Quirks — native optimizations
 
 ### The native overlay namespaces, it never shadows
 Rewriting the global `pkgs` set gives every transitive consumer a new
@@ -122,8 +120,6 @@ so they cannot diverge from the overlay policy. Bootstrap wrinkle: the switch th
 through a daemon that doesn't advertise it yet, so the `nrs` wrapper passes
 the target `system-features` to `sudo nixos-rebuild` directly (plain user
 `--option system-features` is rejected as a restricted setting).
-
-## Quirks — packages
 
 ### Neuwaita's upstream no longer exists — the vendored tarball is the only copy
 The `RusticBard` GitHub account was deleted outright; the pinned rev is
@@ -204,8 +200,6 @@ shares the ID list with `programs.chromium.extensions`).
   extra deps via the `extraPythonPackages` override. Python is pinned to 3.13
   deliberately (upstream custom-node support), not drifting with `python3`.
 
-## Quirks — services and runtime
-
 ### A `PathExists` unit must consume the file it triggers on
 `PathExists` is level-triggered: the path unit re-arms the moment the service
 exits and fires again while the file exists, spinning until the start limiter
@@ -255,6 +249,46 @@ the timezone service. Locale and keymap are static on purpose everywhere.
 ### `tailscaled` can stall shutdown
 Intermittent wgengine teardown races can eat most of systemd's 90s stop
 timeout. Physical hosts cap `TimeoutStopSec=15s` on tailscaled.
+
+### Widening `cudaCapabilities` exhausts RAM on these hosts
+Both hosts are sm_86 (laptop RTX 3050 Mobile, desktop RTX 3080) and nothing
+CUDA here is unfree-cached, so every CUDA package is built locally. Left at the
+nixpkgs default, `cudaCapabilities` spans nine architectures (75 through 121)
+and source-built CUDA packages compile every device translation unit once per
+architecture. `libnvshmem` is the one that hurts: a full CMake/nvcc build
+reached through comfyui -> torch, where nine architectures' worth of parallel
+nvcc exhausts the machine's RAM. Pinning cuts that ~9x. Add a capability only
+when a host actually gets a different GPU.
+
+### The laptop touchpad needs its I2C controller pinned out of runtime PM
+`powertop --auto-tune` sets `power/control=auto` on *every* PCI device, 00:15.1
+included — the Alder Lake LPSS I2C controller the ELAN touchpad hangs off
+(`.../0000:00:15.1/i2c_designware.1/i2c-2/i2c-VEN_04F3:00`). The designware
+adapter is slow to leave runtime suspend, so the first reports after an idle
+stretch arrive late and the cursor stutters before catching up. Upstream hit
+the same wall and removed runtime PM from i2c-hid outright, measuring "little
+to none" energy saved.
+
+Two mechanisms pin it and neither covers the other's case: a udev rule catches
+probe and re-probe, and an `ExecStartPost` re-asserts the value at boot, where
+powertop runs long after udev has settled. That re-assert has to hang off
+`powertop.service` itself. A separate unit cannot win: `powertop.service` is
+both `WantedBy=` and `After=multi-user.target`, so anything `WantedBy` that
+target must start before it, and `After=powertop.service` closes a cycle
+systemd breaks by silently deleting the job (`Found ordering cycle ... deleted
+to break ordering cycle`) — leaving the pin dead at every boot while looking
+fine right after a `switch`.
+
+### fwupd will not enumerate the ELAN touchpad, and that is not a bug
+The elantp plugin is Ready and `i2c_dev` is loaded, but fwupd 2.1.6's quirk DB
+carries 30 ELAN entries and 04F3:311C is not one of them, so nothing claims the
+device. 311C is the part with the documented firmware bug — 0x000b stalls into
+an "inertia" lag every few minutes, which libinput reports as rate-limited
+"Touch jump detected and discarded" — and there is no LVFS path to 0x000c for
+it. Reaching it would mean hand-writing a quirk and flashing an unofficial blob
+meant for the 9510/5560, which is exactly what bricked this same part into
+bootloader mode (04F3:0400) in fwupd#5281. Don't. The runtime-PM pin above is
+the supported lever.
 
 ### The laptop's `e-core-only` profile keeps one P-core thread online
 `cpu0` exposes no `online` control on the XPS 15 9520, so the

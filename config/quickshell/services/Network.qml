@@ -3,14 +3,9 @@ pragma Singleton
 import QtQuick
 import Quickshell.Io
 
-// Connectivity state and the writes that change it.
-//
-// The whole picture — radio, default route, active device, addresses, SSID,
-// link — is read by *one* command that does its own joining in shell and emits
-// tagged lines. The old service fanned four nmcli calls out and rebuilt the
-// answer behind a hand-rolled barrier of "is every process idle yet"; every
-// field it produced needed a staging twin to survive the wait. One read, one
-// parse, one state update needs neither.
+// Connectivity state and the writes that change it. The whole picture is read
+// by *one* command emitting tagged lines: one read, one parse, one update, so
+// no field needs a staging twin to survive a multi-call barrier.
 QtObject {
     id: root
 

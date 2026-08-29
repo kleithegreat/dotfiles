@@ -46,7 +46,7 @@ in
   };
 
   programs.git.settings.credential.helper =
-    "${pkgs.gitFull}/bin/git-credential-libsecret";
+    lib.getExe' pkgs.gitFull "git-credential-libsecret";
 
   programs.chromium = {
     enable = true;

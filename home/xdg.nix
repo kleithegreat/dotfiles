@@ -44,14 +44,8 @@ let
     quickshell = dotfilesSource "config/quickshell";
     nvim = nvimSource;
   };
-  # VS Code is spawned through Hyprland rather than by the launcher so the new
-  # window is tracked on the active workspace. That indirection cannot carry a
-  # desktop-entry field code directly: `hl.dsp.exec_cmd` takes the whole command
-  # as one quoted string, and per the desktop-entry spec a field code inside a
-  # quoted argument is not expanded, so a literal `%F` reached `code` and opened
-  # an empty buffer named "%F" instead of the previous session. Take the files
-  # as real argv here and shell-quote them into the dispatch string, which
-  # Hyprland runs through /bin/sh.
+  # Takes the files as real argv and shell-quotes them into the dispatch
+  # string: a desktop-entry field code cannot survive it ([[hyprland]]).
   codeLauncher = pkgs.writeShellApplication {
     name = "code-hypr";
     text = /* bash */ ''

@@ -21,6 +21,8 @@ require("config.keymaps")
 require("config.filetypes")
 require("config.autocmds")
 
+vim.cmd.colorscheme("desktopctl")
+
 require("lazy").setup({
   { import = "plugins" },
 }, {
@@ -28,6 +30,6 @@ require("lazy").setup({
     lazy = true,
   },
   install = {
-    colorscheme = { "gruvbox" },
+    colorscheme = { "desktopctl" },
   },
 })

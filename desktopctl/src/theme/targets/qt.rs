@@ -3,7 +3,7 @@ use crate::theme::{
     atomic_write, expand_user_path,
     schema::{ColorScheme, ColorSchemeAppearance, ThemeState},
 };
-use std::{borrow::Cow, fs, path::Path};
+use std::{borrow::Cow, fs, path::Path, process::Command};
 
 pub const METADATA: TargetMetadata = TargetMetadata::new(
     "qt",
@@ -89,6 +89,8 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Gener
     )))
 }
 
+const POLKIT_AGENT_UNIT: &str = "hyprpolkitagent.service";
+
 pub fn persist(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
     let colors = ui_colors(colors, state)?;
     let colors = colors.as_ref();
@@ -99,6 +101,26 @@ pub fn persist(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
     write_fontconfig(state)?;
     setup_kvantum(colors)?;
     sync_kde_app_configs(colors)?;
+    Ok(())
+}
+
+/// Qt apps read the palette once at startup, so a long-lived one keeps
+/// whatever scheme was current when it launched. hyprpolkitagent is the only
+/// such app here that is both permanently resident and purely QtQuick — its
+/// dialog takes every colour from `QQuickSystemPalette`, which the platform
+/// theme fills in at startup and never revisits.
+pub fn on_apply(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
+    let active = Command::new("systemctl")
+        .args(["--user", "--quiet", "is-active", POLKIT_AGENT_UNIT])
+        .status()
+        .is_ok_and(|status| status.success());
+    if !active {
+        return Ok(());
+    }
+
+    Command::new("systemctl")
+        .args(["--user", "restart", POLKIT_AGENT_UNIT])
+        .status()?;
     Ok(())
 }
 

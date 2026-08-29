@@ -4,19 +4,7 @@ import QtQuick
 import Quickshell.Io
 import Quickshell.Hyprland
 
-// Monitor topology and the layout writes that change it.
-//
-// Every risky change is staged and applied as one chunk: a half-applied layout,
-// or one applied per pointer-move during a drag, can strand the session on a
-// mode the display cannot show. Confirmation is the caller's job; this service
-// only guarantees the write is indivisible and that failure is reported.
-//
-// Applying and persisting are deliberately separate. `apply` puts a layout on
-// screen through the compositor gateway so the confirm countdown can take it
-// straight back off again; `saveLayout` records the one the user kept, and
-// only that one survives a reload. The primary output is not risky in the same
-// way -- nothing about it can leave you unable to see the screen -- so it is
-// written straight through.
+// Monitor topology and the layout writes that change it ([[quickshell]]).
 QtObject {
     id: root
 

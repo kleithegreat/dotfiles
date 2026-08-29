@@ -25,7 +25,7 @@
 
   home.activation.applyTheme = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     PATH="${lib.makeBinPath [ pkgs.optimized.desktopctl ]}:$PATH"
-    mkdir -p "$HOME/.config/hypr"
+    mkdir --parents "$HOME/.config/hypr"
     # Seed the desktopctl-managed data tables. An empty file is the "no
     # overrides" state: the Lua appliers guard their require, and `desktopctl
     # hypr animations clear` truncates back to empty.

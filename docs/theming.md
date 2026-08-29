@@ -54,6 +54,14 @@
   visual language lives: flat fills, hairline borders, one radius per widget
   class, and accent reserved for selection, focus and progress. No Kvantum
   theme is searched for on disk, and nothing scans the store for one.
+- The starship prompt keeps gruvbox's powerline *order* — orange, yellow, aqua,
+  blue, then two neutral plates — but resolves every role through the active
+  scheme's own palette; the roles are fixed, the hues are the scheme's. The
+  identity plate picks itself against the yellow the path plate intends to
+  take, because the warm pair is the one that collides: rose-pine's orange *is*
+  its yellow and tokyo-night-light's two sit 15.7 apart. Letting identity fall
+  to red there recovers each family's canonical rainbow (rose-pine lands on
+  love, gold, pine, iris) instead of forcing a hue the scheme does not have.
 - Label colours that land on an accent fill — selected text, a toggled
   button, a checkbox tick — come from `color_utils::readable_on`, never from
   `fg`: pairing the scheme's body grey with its own accent drops light schemes
@@ -104,6 +112,16 @@ relaunching; do not drop one because it looks redundant.
 its `font_size` and changing its `icon_theme` altered nothing, and qt6ct's own
 window rendered unstyled under it and themed under qt6ct. That is what left
 most Qt apps unthemed.
+
+A Qt app reads the palette once, at startup: rewriting the files above does
+nothing for one that is already running. hyprpolkitagent is the resident case
+— its dialog is pure QtQuick and takes every colour from
+`QQuickSystemPalette`, so it kept whatever scheme was current at login until
+the `qt` target grew an `on_apply` that restarts its user unit. Verify a
+palette complaint against a *fresh* process before touching the generators;
+`qml` with a `SystemPalette` object prints what a new app would get.
+`hyprland-qt-support` supplies only roundness/border width/reduce-motion, from
+`~/.config/hypr/application-style.conf` — no colour ever comes from there.
 
 `KDE_COLOR_SCHEME_PATH` (set in `system/qt.nix`) is the only consumer of the
 generated `~/.local/share/color-schemes/current.colors`; the variable name
@@ -168,6 +186,25 @@ disabled contributing extension silently falls back to a built-in theme. Keep
 extensions installed once; `nord-light` intentionally maps to built-in
 `One Light`. The VS Code integrated terminal needs the `... Nerd Font Mono`
 subfamily listed first or prompt glyphs render as boxes.
+
+### Vicinae needs both appearance slots and a full restart
+Two traps, both of which look like the target working when it is not.
+
+`vicinae theme set` reaches the running server, validates the theme id and
+exits 0 — but it persists through `settings.json`, which Home Manager owns as
+a symlink into the read-only store, so the write never lands and the launcher
+keeps the previous session's colours. It also reads its config once at startup
+and never re-reads the imported file the target writes. A restart is the only
+hammer that works, which is why `on_apply` exists.
+
+Both `theme.light` and `theme.dark` are filled with the *selected* scheme, not
+the same-family variant `dark_hint` swaps the system chrome to: picking
+gruvbox-dark and being handed gruvbox-light is the scheme not being applied,
+however consistent that is with qt and gtk. Both slots get the same value
+because vicinae chooses between them from its own reading of system
+appearance, which disagreed with everything else here — portal, kdeglobals and
+gtk settings all reporting light while the launcher took its dark slot.
+Filling both makes the choice irrelevant.
 
 ### Chromium-family prefs are profile-local and not live-reloaded
 The `chromium` and `helium` targets patch each *active* profile's

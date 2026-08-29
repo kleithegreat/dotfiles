@@ -7,8 +7,9 @@ let
   # program path, so keeping the privileged entry point in its own binary is
   # what stops that grant reaching every other desktopctl subcommand.
   laptopPowerProfile = pkgs.runCommand "laptop-power-profile" { } ''
-    mkdir -p "$out/bin"
-    ln -s ${pkgs.optimized.desktopctl}/bin/laptop-power-profile "$out/bin/laptop-power-profile"
+    mkdir --parents "$out/bin"
+    ln --symbolic ${lib.getExe' pkgs.optimized.desktopctl "laptop-power-profile"} \
+      "$out/bin/laptop-power-profile"
   '';
 in {
   imports = [
@@ -102,49 +103,21 @@ in {
   powerManagement.powertop.enable = true;
 
   # ── Touchpad responsiveness ─────────────────────────────────
-  # `powertop --auto-tune` sets power/control=auto on *every* PCI device, 00:15.1
-  # included — the Alder Lake LPSS I2C controller the ELAN touchpad hangs off
-  # (.../0000:00:15.1/i2c_designware.1/i2c-2/i2c-VEN_04F3:00). The designware
-  # adapter is slow to leave runtime suspend, so the first reports after an idle
-  # stretch arrive late and the cursor stutters before catching up. Upstream hit
-  # the same wall and removed runtime PM from i2c-hid outright, measuring "little
-  # to none" energy saved, so pin this one controller to `on` and let powertop
-  # tune everything else.
-  #
-  # Two mechanisms because neither covers the other's case: the udev rule catches
-  # probe and re-probe, and the ExecStartPost re-asserts the value at boot, where
-  # powertop runs long after udev has settled.
+  # Pin the touchpad's I2C controller out of runtime PM, against powertop. Both
+  # mechanisms are needed; see docs/nix.md before dropping either.
   services.udev.extraRules = ''
     ACTION=="add|change", SUBSYSTEM=="pci", KERNEL=="0000:00:15.1", ATTR{power/control}="on"
   '';
 
-  # Hang the re-assert off powertop.service itself rather than racing it from a
-  # separate unit. A separate unit cannot win here: powertop.service is both
-  # WantedBy= and After= multi-user.target, so anything WantedBy that target must
-  # start before it, and ordering After=powertop.service closes a cycle that
-  # systemd breaks by silently deleting the job -- which is exactly what happened
-  # (`Found ordering cycle ... deleted to break ordering cycle`), leaving the pin
-  # dead at every boot while looking fine after a `switch`. ExecStartPost runs
-  # inside powertop's own transaction, so the ordering is guaranteed by
-  # construction instead of negotiated.
+  # Must hang off powertop.service itself: a separate unit cannot be ordered
+  # after it without systemd deleting the job to break a cycle.
   systemd.services.powertop.serviceConfig.ExecStartPost =
     pkgs.writeShellScript "touchpad-i2c-pin-runtime-pm" ''
       echo on > /sys/bus/pci/devices/0000:00:15.1/power/control
     '';
 
-  # Kept for the BIOS/EC regions and the Goodix fingerprint sensor, all of which
-  # it does enumerate as updatable.
-  #
-  # It will NOT show the ELAN touchpad, and that is not a misconfiguration: the
-  # elantp plugin is Ready and i2c_dev is loaded, but fwupd 2.1.6's quirk DB
-  # carries 30 ELAN entries and 04F3:311C is not one of them, so nothing claims
-  # the device. That matters because 311C is the part with the documented
-  # firmware bug -- 0x000b stalls into an "inertia" lag every few minutes, which
-  # libinput reports as rate-limited "Touch jump detected and discarded". There
-  # is no LVFS path to 0x000c for it. Reaching it would mean hand-writing a quirk
-  # and flashing an unofficial blob meant for the 9510/5560, which is precisely
-  # what bricked this same part into bootloader mode (04F3:0400) in fwupd#5281.
-  # Don't. The runtime-PM pin above is the supported lever.
+  # Covers the BIOS/EC regions and the Goodix fingerprint sensor. It will not
+  # enumerate the ELAN touchpad, which is expected — see docs/nix.md.
   services.fwupd.enable = true;
 
   # ── Fingerprint auth ────────────────────────────────────────
@@ -168,18 +141,8 @@ in {
   };
 
   # ── Polkit — local fingerprint management + Dell battery control ─
-  # Allow the active local desktop user to enroll/delete their own fingerprints
-  # without bouncing through the external auth agent on every action.
-  # smbios-battery-ctl needs root for the SMBIOS tables (WMI/dcdbas), so the
-  # Quickshell charge-limit toggle would raise a dialog on every flip. The
-  # grant enumerates whole argument forms rather than a program path:
-  # smbios-battery-ctl also takes --password/--security-key, and a
-  # program-wide grant would hand those to any caller. The
-  # laptop-only power-profile helper also runs through pkexec so the shell can
-  # switch the P-core mask without prompting.
-  #
-  # nixpkgs stopped installing the setuid pkexec wrapper by default; without it
-  # every pkexec call above fails with "pkexec must be setuid root".
+  # Without the wrapper every pkexec call below fails "pkexec must be setuid
+  # root"; nixpkgs stopped installing it by default.
   security.polkit.enablePkexecWrapper = true;
 
   security.polkit.extraConfig = /* javascript */ ''
@@ -189,6 +152,8 @@ in {
         return polkit.Result.YES;
       }
 
+      // Whole argument forms, never the program path: smbios-battery-ctl also
+      // takes --password/--security-key.
       if (action.id === "org.freedesktop.policykit.exec" &&
           /\/smbios-battery-ctl$/.test(action.lookup("program")) &&
           /^\S*\/smbios-battery-ctl\s+(--get-charging-cfg|--set-charging-mode=(primarily_ac|adaptive|custom|standard|express)(\s+--set-custom-charge-interval\s+[0-9]+\s+[0-9]+)?)\s*$/.test(action.lookup("command_line")) &&

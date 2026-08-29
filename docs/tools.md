@@ -21,7 +21,7 @@
 
 ### Generated files inside symlinked trees are absent until first theme sync
 Base configs reference generated files that don't exist on a fresh clone
-(`~/.config/hypr/colors.lua`, `nvim/lua/theme-state.json`,
+(`~/.config/hypr/colors.lua`, `nvim/lua/theme-colors.lua`,
 `quickshell/GeneratedTheme.json`, `zsh/theme-colors`, the per-app theme
 fragments). They are not missing repo files — `desktopctl theme sync` during
 Home Manager activation creates them. Do not add placeholders to `config/`.

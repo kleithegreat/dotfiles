@@ -1,14 +1,5 @@
 //! The display topology the user chose: which output is primary, and where
-//! each output sits.
-//!
-//! Hyprland has no notion of a primary output, so the shell used to infer one
-//! from the monitor at the origin and the numbered workspaces were pinned to a
-//! monitor description hardcoded per host. Neither survives meeting a display
-//! you have never plugged in before. Both are replaced by one stored choice:
-//! an empty selector means "decide automatically", which is what an unfamiliar
-//! monitor gets, and everything downstream — the bar, the shell's surfaces,
-//! workspaces 1-10 — follows the *effective* primary rather than a rule of
-//! its own.
+//! each output sits. An empty primary selector means "decide automatically".
 
 use crate::{hypr, paths, theme};
 use serde::{Deserialize, Serialize};

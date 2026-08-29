@@ -337,7 +337,7 @@ const TARGET_REGISTRATIONS: &[TargetRegistration] = &[
     target_registration!(neovide),
     target_registration!(neovim),
     target_registration!(opencode, persist),
-    target_registration!(qt, persist),
+    target_registration!(qt, persist, on_apply),
     target_registration!(quickshell),
     target_registration!(snappy_switcher, on_apply),
     target_registration!(spicetify, persist, on_apply),
@@ -651,12 +651,15 @@ mod tests {
     }
 
     #[test]
-    fn neovim_output_tracks_scheme_lightness() {
+    fn neovim_output_carries_the_palette_and_tracks_scheme_lightness() {
         let output = text(neovim::generate(&dummy_colors(), &dummy_state()));
-        assert_eq!(output, "{\n  \"background\": \"dark\"\n}\n");
+        assert!(output.contains("background = \"dark\","), "{output}");
+        assert!(output.contains("accent = \"#3366ff\","), "{output}");
+        assert!(output.contains("fg_faint = \"#484848\","), "{output}");
+        assert!(output.contains("terminal = {\n    \"#000000\","), "{output}");
 
         let output = text(neovim::generate(&rose_pine_dawn_colors(), &dummy_state()));
-        assert_eq!(output, "{\n  \"background\": \"light\"\n}\n");
+        assert!(output.contains("background = \"light\","), "{output}");
     }
 
     #[test]

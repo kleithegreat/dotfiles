@@ -1,92 +1,6 @@
 { lib, pkgs, host, inputs, ... }:
 
 let
-  system = pkgs.stdenv.hostPlatform.system;
-  appendPatches = patches: drv:
-    drv.overrideAttrs (old: {
-      patches = (old.patches or []) ++ patches;
-    });
-  mkPatchedHyprPlugin = plugin: patches:
-    pkgs.optimize.cc (
-      appendPatches patches (plugin.override {
-        hyprland = patchedHyprland;
-        hyprlandPlugins = patchedHyprlandPluginHelpers;
-      })
-    );
-
-  patchedHyprlandGuiutils =
-    inputs.hyprland.inputs.hyprland-guiutils.packages.${system}.hyprland-guiutils.overrideAttrs (old: {
-      buildInputs = (old.buildInputs or []) ++ [ pkgs.pango ];
-      preConfigure = (old.preConfigure or "") + ''
-        export NIX_CFLAGS_COMPILE="$NIX_CFLAGS_COMPILE $(pkg-config --cflags pango)"
-      '';
-    });
-
-  # Hyprland 0.56.2 asks for `find_package(glaze 7...<8)` while nixpkgs has
-  # moved on to glaze 8, so CMake falls back to fetching glaze v7.2.0 over the
-  # network and dies in the sandbox. Keep a 7.x around for Hyprland only,
-  # mirroring the SSL/interop toggles from the flake's own glaze-hyprland
-  # overlay. Drop once the Hyprland input carries upstream's unbounded
-  # find_package.
-  glazeForHyprlandVersion = "7.9.1";
-  glazeForHyprland =
-    (pkgs.glaze.override {
-      enableSSL = false;
-      enableInterop = false;
-    }).overrideAttrs (_: {
-      version = glazeForHyprlandVersion;
-      src = pkgs.fetchFromGitHub {
-        owner = "stephenberry";
-        repo = "glaze";
-        tag = "v${glazeForHyprlandVersion}";
-        hash = "sha256-NRRq5MGF2f5PW0teYnq58ELzson+U6KHVPaY6r30KLA=";
-      };
-    });
-
-  patchedHyprland = pkgs.optimize.cc (
-    appendPatches [
-      ../patches/hyprland/hyprland-floating-top-decoration-rounding-0.55.patch
-      ../patches/hyprland/hyprland-gcc15-designated-initializer-fix-0.55.patch
-    ] (inputs.hyprland.packages.${system}.hyprland.override {
-      hyprland-guiutils = patchedHyprlandGuiutils;
-      glaze-hyprland = glazeForHyprland;
-    })
-  );
-
-  patchedHyprlandPortal = pkgs.optimize.cc (
-    inputs.hyprland.packages.${system}.xdg-desktop-portal-hyprland.override {
-      hyprland = patchedHyprland;
-    }
-  );
-
-  patchedHyprlandPluginHelpers = pkgs.callPackage
-    "${inputs.nixpkgs}/pkgs/applications/window-managers/hyprwm/hyprland-plugins/default.nix"
-    {
-      hyprland = patchedHyprland;
-    };
-
-  hyprPluginPkgs =
-    let
-      upstreamHyprPluginPkgs = inputs.hyprland-plugins.packages.${system};
-      localHyprexpo = pkgs.callPackage ../pkgs/hyprland-plugins/hyprexpo {
-        hyprland = patchedHyprland;
-        hyprlandPlugins = patchedHyprlandPluginHelpers;
-      };
-    in
-    upstreamHyprPluginPkgs
-    // {
-      hyprbars = mkPatchedHyprPlugin upstreamHyprPluginPkgs.hyprbars [];
-
-      hyprexpo = pkgs.optimize.cc localHyprexpo;
-    };
-  hyprPluginDir = pkgs.symlinkJoin {
-    name = "hyprland-plugins";
-    paths = with hyprPluginPkgs; [
-      hyprbars
-      hyprexpo
-    ];
-  };
-
   allowedUnfreePackageNames = [
     "bambu-studio"
     "cccl"
@@ -148,68 +62,59 @@ in
     ./services.nix
   ];
 
-  config = lib.mkMerge [
-    {
-      boot.tmp.useTmpfs = true;
+  boot.tmp.useTmpfs = true;
 
-      nix.settings = {
-        experimental-features = [ "nix-command" "flakes" "pipe-operators" ];
-        # Lets the flake's own `nixConfig` block apply; without it nix ignores
-        # every setting there as untrusted.
-        trusted-users = [ "root" "@wheel" ];
-        system-features = lib.mkIf pkgs.optimize.enabled (lib.mkAfter [ pkgs.optimize.hostFeature ]);
-        substituters = [
-          "https://cache.nixos.org"
-        ];
-        trusted-public-keys = [
-          "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
-        ];
-        auto-optimise-store = true;
-      };
-      nix.gc = {
-        automatic = true;
-        dates = "weekly";
-        options = "--delete-older-than 30d";
-      };
-      nix.registry = {
-        nixpkgs.flake = inputs.nixpkgs;
-        hyprland.flake = inputs.hyprland;
-      };
-      # Home Manager reuses the system package set in this flake, so keep the
-      # unfree allowlist on the shared `pkgs` instance rather than duplicating it
-      # in multiple module layers.
-      nixpkgs.config.allowUnfreePredicate = pkg:
-        builtins.elem (lib.getName pkg) allowedUnfreePackageNames;
-      # Both hosts are sm_86 (laptop RTX 3050 Mobile, desktop RTX 3080), and
-      # nothing here is unfree-cached, so every CUDA package is built locally.
-      # Left at the nixpkgs default, `cudaCapabilities` spans nine architectures
-      # (75 through 121), and source-built CUDA packages compile every device
-      # translation unit once per architecture. `libnvshmem` is the one that
-      # hurts: it is a full CMake/nvcc build reached through comfyui -> torch,
-      # and nine architectures' worth of parallel nvcc exhausts this machine's
-      # RAM. Pinning to the capability both hosts actually have cuts that work
-      # by ~9x. Add a capability here if a host ever gets a different GPU.
-      nixpkgs.config.cudaCapabilities = [ "8.6" ];
-      nixpkgs.config.permittedInsecurePackages = [
-        # Required by nixpkgs' bitwarden-desktop 2026.6.1 package on this input.
-        "electron-39.8.10"
-        # Required by nixpkgs' winboat 0.9.0 package on this input.
-        "electron-40.10.5"
-      ];
-      # ── Networking ───────────────────────────────────────────────
-      networking.hostName = host.name;
-      networking.networkmanager.enable = true;
+  nix.settings = {
+    experimental-features = [ "nix-command" "flakes" "pipe-operators" ];
+    # Lets the flake's own `nixConfig` block apply; without it nix ignores
+    # every setting there as untrusted.
+    trusted-users = [ "root" "@wheel" ];
+    system-features = lib.mkIf pkgs.optimize.enabled (lib.mkAfter [ pkgs.optimize.hostFeature ]);
+    substituters = [
+      "https://cache.nixos.org"
+    ];
+    trusted-public-keys = [
+      "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+    ];
+    auto-optimise-store = true;
+  };
+  nix.gc = {
+    automatic = true;
+    dates = "weekly";
+    options = "--delete-older-than 30d";
+  };
+  nix.registry = {
+    nixpkgs.flake = inputs.nixpkgs;
+    hyprland.flake = inputs.hyprland;
+  };
+  # Home Manager reuses the system package set in this flake, so keep the
+  # unfree allowlist on the shared `pkgs` instance rather than duplicating it
+  # in multiple module layers.
+  nixpkgs.config.allowUnfreePredicate = pkg:
+    builtins.elem (lib.getName pkg) allowedUnfreePackageNames;
+  # Both hosts are sm_86. Widening this OOMs libnvshmem (see docs/nix.md); add
+  # a capability only when a host actually gets a different GPU.
+  nixpkgs.config.cudaCapabilities = [ "8.6" ];
+  nixpkgs.config.permittedInsecurePackages = [
+    # Required by nixpkgs' bitwarden-desktop 2026.6.1 package on this input.
+    "electron-39.8.10"
+    # Required by nixpkgs' winboat 0.9.0 package on this input.
+    "electron-40.10.5"
+  ];
+  # ── Networking ───────────────────────────────────────────────
+  networking.hostName = host.name;
+  networking.networkmanager.enable = true;
 
-      # ── Hyprland ─────────────────────────────────────────────────
-      programs.hyprland = {
-        enable = true;
-        xwayland.enable = true;
-        package = patchedHyprland;
-        portalPackage = patchedHyprlandPortal;
-      };
+  # ── Hyprland ─────────────────────────────────────────────────
+  programs.hyprland = {
+    enable = true;
+    xwayland.enable = true;
+    package = pkgs.hypr.hyprland;
+    portalPackage = pkgs.hypr.portal;
+  };
 
-      # hyprlock — also auto-creates security.pam.services.hyprlock
-      programs.hyprlock.enable = true;
+  # hyprlock — also auto-creates security.pam.services.hyprlock
+  programs.hyprlock.enable = true;
 
   # ── Fonts ────────────────────────────────────────────────────
   fonts.packages = with pkgs; [
@@ -242,29 +147,29 @@ in
     # default grayscale-only stack.
     subpixel.rgba = "rgb";
     localConf = ''
-      <?xml version='1.0'?>
-      <!DOCTYPE fontconfig SYSTEM 'urn:fontconfig:fonts.dtd'>
-      <fontconfig>
-        <!-- Prefer the small-text optical cut when apps request the generic
-             SF Pro family; otherwise fontconfig resolves to Apple's catch-all
-             variable face first. -->
-        <match target="pattern">
-          <test name="family" qual="any">
-            <string>SF Pro</string>
-          </test>
-          <edit name="family" mode="prepend" binding="strong">
-            <string>SF Pro Text</string>
-          </edit>
-        </match>
-      </fontconfig>
+  <?xml version='1.0'?>
+  <!DOCTYPE fontconfig SYSTEM 'urn:fontconfig:fonts.dtd'>
+  <fontconfig>
+    <!-- Prefer the small-text optical cut when apps request the generic
+         SF Pro family; otherwise fontconfig resolves to Apple's catch-all
+         variable face first. -->
+    <match target="pattern">
+      <test name="family" qual="any">
+        <string>SF Pro</string>
+      </test>
+      <edit name="family" mode="prepend" binding="strong">
+        <string>SF Pro Text</string>
+      </edit>
+    </match>
+  </fontconfig>
     '';
   };
 
-      # ── Session variables ────────────────────────────────────────
-      # Electron apps: use Wayland backend
-      environment.sessionVariables.NIXOS_OZONE_WL = "1";
-      environment.sessionVariables.HYPR_PLUGIN_DIR = hyprPluginDir;
-  
+  # ── Session variables ────────────────────────────────────────
+  # Electron apps: use Wayland backend
+  environment.sessionVariables.NIXOS_OZONE_WL = "1";
+  environment.sessionVariables.HYPR_PLUGIN_DIR = pkgs.hypr.pluginDir;
+
   # ── Man pages ────────────────────────────────────────────────
   documentation.man.enable = true;
   documentation.dev.enable = true;  # development man pages
@@ -286,17 +191,15 @@ in
   };
   console.keyMap = "us";
 
-      # ── System packages (bare minimum — user tools go in home-manager) ──
-      environment.systemPackages = with pkgs; [
-        vim
-        wget
-        curl
-        cifs-utils
-        ntfs3g
-        dosfstools
-      ];
-
-      system.stateVersion = "25.05";
-    }
+  # ── System packages (bare minimum — user tools go in home-manager) ──
+  environment.systemPackages = with pkgs; [
+    vim
+    wget
+    curl
+    cifs-utils
+    ntfs3g
+    dosfstools
   ];
+
+  system.stateVersion = "25.05";
 }

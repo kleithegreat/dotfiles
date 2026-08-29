@@ -33,18 +33,8 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Gener
     );
     font.insert("normal".to_owned(), Value::Object(normal));
 
-    // Both slots name the selected scheme.
-    //
-    // The launcher is themed by an explicit choice, so it shows what was
-    // chosen -- not the same-family variant `dark_hint` swaps the system
-    // chrome to. Selecting gruvbox-dark and being handed gruvbox-light is the
-    // scheme not being applied, however consistent it is with qt and gtk.
-    //
-    // Both slots get it because vicinae picks between them from its own
-    // reading of the system appearance, which disagreed with everything else
-    // on this desktop: with the portal, kdeglobals, and the gtk settings all
-    // reporting light, the launcher was still choosing its dark slot. Filling
-    // both makes which slot it picks irrelevant.
+    // Both slots name the selected scheme, never the `dark_hint` variant; see
+    // the vicinae quirk in docs/theming.md before "fixing" either.
     let mut appearance = Map::new();
     appearance.insert(
         "name".to_owned(),
@@ -119,19 +109,9 @@ fn appearance_companion(
     )
 }
 
-/// Restart the launcher so it re-reads the theme just written.
-///
-/// Two things make the heavier hammer the only one that lands. vicinae reads
-/// its config once at startup and never re-reads the imported file this target
-/// writes; and `vicinae theme set`, which does reach the running server, tries
-/// to persist through `settings.json` -- which home-manager owns as a symlink
-/// into the read-only store, so the write cannot happen. The command still
-/// validates the theme id and exits 0, which is why it looked like it worked
-/// while the launcher kept the previous session's colours.
-///
-/// Only ever a restart of something already running: `--replace` on a machine
-/// with no server would *start* one, and this hook also runs at activation,
-/// before there is a graphical session to start it into.
+/// Restart the launcher so it re-reads the theme just written. Only ever a
+/// restart of something already running — `--replace` would otherwise start a
+/// server at activation time. See the vicinae quirk in docs/theming.md.
 pub fn on_apply(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
     let Some(vicinae) = find_command("vicinae") else {
         return Ok(());

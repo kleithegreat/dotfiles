@@ -42,7 +42,7 @@ let
   discordPatchedKrisp = pkgs.runCommand "discord-krisp-patched" {
     nativeBuildInputs = [ pkgs.brotli ];
   } ''
-    mkdir -p "$out"
+    mkdir --parents "$out"
     brotli -d < ${discordKrispSrc} | tar xf - --strip-components=1 -C "$out"
     ${discordKrispPatcherPython}/bin/python3 ${../pkgs/discord-krisp/patch-linux.py} "$out"
   '';
@@ -52,10 +52,10 @@ let
   discordPkg = pkgs.discord.overrideAttrs (old: {
     nativeBuildInputs = (old.nativeBuildInputs or []) ++ [ pkgs.python3 ];
     postInstall = (old.postInstall or "") + ''
-      rm -rf "$out/opt/Discord/modules/discord_krisp"
-      mkdir -p "$out/opt/Discord/modules/discord_krisp"
-      cp -R ${discordPatchedKrisp}/. "$out/opt/Discord/modules/discord_krisp/"
-      chmod -R u+w "$out/opt/Discord/modules/discord_krisp"
+      rm --recursive --force "$out/opt/Discord/modules/discord_krisp"
+      mkdir --parents "$out/opt/Discord/modules/discord_krisp"
+      cp --recursive ${discordPatchedKrisp}/. "$out/opt/Discord/modules/discord_krisp/"
+      chmod --recursive u+w "$out/opt/Discord/modules/discord_krisp"
 
       python3 ${../pkgs/discord-krisp/patch-voice.py} \
         "$out/opt/Discord/modules/discord_voice/index.js" \
@@ -70,13 +70,13 @@ let
         --replace-fail '@discordVersion@' '${old.version}' \
         --replace-fail '@configDirName@' 'discord'
 
-      rm -f "$out/bin/Discord" "$out/bin/discord"
+      rm --force "$out/bin/Discord" "$out/bin/discord"
       install -Dm0755 /dev/stdin "$out/bin/Discord" <<EOF
       #!${pkgs.runtimeShell}
       "$out/bin/.discord-deploy-krisp"
       exec "$out/opt/Discord/Discord" "\$@"
       EOF
-      ln -s "$out/bin/Discord" "$out/bin/discord" || true
+      ln --symbolic "$out/bin/Discord" "$out/bin/discord" || true
     '';
     passthru = (old.passthru or {}) // {
       patchedKrisp = discordPatchedKrisp;
