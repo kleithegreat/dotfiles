@@ -99,6 +99,7 @@
           inherit (pkgs)
             desktopctl
             helium
+            macos-vm
             snappy-switcher
             ;
         };

@@ -59,6 +59,14 @@ Open issues and pending validations. Delete entries when resolved.
       After any state change worth keeping, run
       `desktopctl theme export > styling/state.json` and commit the diff.
 
+- [ ] macOS VM, end to end (needs a guest install): nothing in it has been
+      booted. `macos-vm fetch` → `install` → `run`, then check that the
+      reims-vgpu device's own Vulkan window opens on the desktop, that
+      `nvidia-offload macos-vm run` on the laptop reaches the 3050 rather than
+      Intel's ANV, and that `--console` still shows OpenCore. The package has
+      only been built on the desktop; the laptop has not compiled it yet.
+      See `docs/macos-vm.md`.
+
 ## Open issues
 
 - [ ] Quickshell (low): the animation bezier editor was not rebuilt, by

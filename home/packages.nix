@@ -29,6 +29,7 @@ let
     pkgs.optimized.lsp-plugins
     pkgs.optimized.quickshell
     pkgs.snappy-switcher
+    pkgs.macos-vm
     pkgs.vicinae
   ];
 

@@ -18,7 +18,9 @@ final: prev: {
   lmstudio = final.callPackage ../pkgs/lmstudio {
     upstreamLmstudio = prev.lmstudio;
   };
+  macos-vm = final.callPackage ../pkgs/macos-vm { };
   neuwaita = final.callPackage ../pkgs/neuwaita { };
+  reims-vgpu = final.callPackage ../pkgs/reims-vgpu { };
   sf-pro = final.callPackage ../pkgs/sf-pro { };
   snappy-switcher = final.callPackage ../pkgs/snappy-switcher { };
 }
