@@ -33,7 +33,6 @@ Item {
         width: root.panelWidth
         height: root.panelHeight
         radius: Metrics.rPanel
-        tint: Theme.glassPanel
         elevation: 34
 
         opacity: root.shown ? 1 : 0

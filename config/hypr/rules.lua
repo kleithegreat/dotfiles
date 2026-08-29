@@ -63,10 +63,10 @@ hl.window_rule({
 })
 
 -- Layer Rules
--- Quickshell blur. The shell's glass sits at 0.62 (bar) and 0.76 (panels), so
--- the threshold has to clear both while still skipping the transparent window
--- margins, the full-screen overlay's gaps and its scrim -- otherwise rounded
--- corners pick up a blur halo and the scrim blurs the desktop behind it.
+-- Quickshell blur. Panels are opaque; the only translucent surfaces are the bar
+-- (0.97) and the modal scrim (0.42), so the threshold has to clear both while
+-- still skipping the transparent window margins and the full-screen overlay's
+-- gaps -- otherwise rounded corners pick up a blur halo.
 hl.layer_rule({
     name = "quickshell-blur",
     match = { namespace = "quickshell:.*" },

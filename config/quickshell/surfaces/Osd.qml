@@ -28,7 +28,6 @@ PanelWindow {
         width: parent.width
         height: 44
         radius: height / 2
-        tint: Theme.glassPanel
         elevation: 26
 
         opacity: Sys.Osd.showing ? 1 : 0

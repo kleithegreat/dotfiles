@@ -55,7 +55,6 @@ Item {
         width: 780
         height: 560
         radius: Metrics.rPanel
-        tint: Theme.glassPanel
         elevation: 48
 
         opacity: root.state.isOpen("settings") ? 1 : 0

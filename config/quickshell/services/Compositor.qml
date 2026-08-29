@@ -9,9 +9,8 @@ import Quickshell.Hyprland
 QtObject {
     id: root
 
-    // Whether the compositor is actually blurring. The glass material is a lie
-    // without it, so Theme falls back to opaque rather than shipping a shell
-    // made of unreadable transparent rectangles.
+    // Whether the compositor is actually blurring. Reported in settings; no
+    // surface's material depends on it.
     property bool blurEnabled: false
 
     property var _queue: []

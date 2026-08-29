@@ -42,7 +42,6 @@ PanelWindow {
                 Layout.fillWidth: true
                 Layout.preferredHeight: content.implicitHeight + Metrics.s4 * 2
                 radius: Metrics.rPanel
-                tint: Theme.glassPanel
                 elevation: 30
 
                 opacity: 0

@@ -28,7 +28,6 @@ PanelWindow {
         width: caption.implicitWidth + Metrics.s4 * 2
         height: Metrics.controlHeight + Metrics.s1
         radius: height / 2
-        tint: Theme.glassPanel
         elevation: 18
 
         opacity: Sys.Hint.showing ? 1 : 0

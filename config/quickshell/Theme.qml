@@ -121,13 +121,11 @@ QtObject {
     readonly property color critical: _read("redBright", "#fb4934")
 
     // ── Materials ──────────────────────────────────────────────────────────
-    // Glass is applied to chrome that floats over the desktop; dense content
-    // sits on solid cards inside it. Hyprland blurs anything above
-    // `ignore_alpha` in config/hypr/rules.lua — keep these above it.
+    // Panels are opaque, like the compositor's own windows; only the bar keeps
+    // a hair of translucency. Hyprland blurs anything above `ignore_alpha` in
+    // config/hypr/rules.lua — keep the bar and the scrim above it.
 
     readonly property color glassBar: withAlpha(_bg, 0.97)
-    readonly property color glassPanel: withAlpha(_bg, dark ? 0.80 : 0.86)
-    readonly property color solid: base
 
     // One hairline that reads as light catching the top edge, and a shadow wide
     // enough to be felt rather than seen. A bright inner stroke around the whole
@@ -136,10 +134,9 @@ QtObject {
     readonly property color specularFade: Qt.rgba(1, 1, 1, dark ? 0.06 : 0.14)
     readonly property color rim: dark ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(0, 0, 0, 0.10)
     readonly property color shadow: Qt.rgba(0, 0, 0, dark ? 0.34 : 0.16)
-    // Above `ignore_alpha`, so the dimmed backdrop is blurred by the same pass
-    // as the panel over it. Below it, the panel's edge becomes a hard boundary
-    // between blurred and sharp — which is the one place the material stops
-    // looking like a material.
+    // Above `ignore_alpha`, so the compositor blurs the desktop it dims. Below
+    // it the scrim is skipped by the blur pass entirely and the modal backdrop
+    // becomes a flat tint over a sharp desktop.
     readonly property color scrim: Qt.rgba(0, 0, 0, dark ? 0.42 : 0.30)
 
     // ── Type ───────────────────────────────────────────────────────────────

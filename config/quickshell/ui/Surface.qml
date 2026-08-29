@@ -2,19 +2,16 @@ import QtQuick
 import QtQuick.Effects
 import qs
 
-// A floating material: a tinted body over the compositor's blur, a hairline
-// that lifts its top edge, and a wide soft shadow. Without them a translucent
-// rectangle reads as a hole rather than an object — but overstate any of them
-// and it reads as a bevel.
+// A floating panel: an opaque body, a hairline that lifts its top edge, and a
+// wide soft shadow. Without them a panel reads as a flat patch rather than an
+// object over the desktop — but overstate any of them and it reads as a bevel.
 Item {
     id: root
 
     property real radius: Metrics.rPanel
-    property bool glass: true
-    property color tint: glass ? Theme.glassPanel : Theme.solid
+    property color tint: Theme.base
     property bool shadow: true
     property real elevation: 22
-    property bool specular: glass
     // Flattening the content protects NativeRendering text through a scale.
     // Layering the surface instead clips its shadow ([[quickshell]]).
     property bool flatten: false
@@ -52,7 +49,6 @@ Item {
         anchors.fill: body
         anchors.margins: Metrics.hairline
         radius: Metrics.inner(body.radius, Metrics.hairline)
-        visible: root.specular
         antialiasing: true
         gradient: Gradient {
             GradientStop { position: 0.0; color: Theme.specularFade }

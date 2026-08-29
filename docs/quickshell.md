@@ -12,11 +12,11 @@
   durations and three curves. A constant that exactly one widget uses belongs at
   that widget or, far more often, nowhere. Widgets never reach for palette slots
   directly.
-- Chrome is glass over the compositor's blur; dense content sits on opaque cards
-  inside it. Translucency stacked on translucency is mud, and translucency
-  without blur is unreadable rather than atmospheric — so the glass alphas must
-  stay above `ignore_alpha` in `config/hypr/rules.lua`, and the material falls
-  back to opaque when the compositor reports blur off.
+- Panels are opaque, matching the compositor's own windows. Only the bar and the
+  modal scrim stay translucent, and their alphas must stay above `ignore_alpha`
+  in `config/hypr/rules.lua` or the compositor skips blurring them. Dense content
+  sits on a raised card inside a panel, for elevation rather than to avoid
+  stacking translucency.
 - At most one managed surface is open, expressed as one name in `ShellState`.
   Exclusivity is structural, not coordinated. The overlay owns focus, outside
   click dismissal and the scrim; its input mask excludes the bar strip so bar
@@ -167,11 +167,11 @@ zone to height *plus* its top margin reserves that margin twice and leaves twice
 as much air below the bar as above it. The zone is the bar's height and nothing
 else; `hyprctl monitors -j` reports the total under `reserved`.
 
-### A scrim below `ignore_alpha` turns the panel edge into a blur boundary
-The modal backdrop has to be opaque enough for the compositor to blur it, or the
-blurred panel meets a sharp desktop at its own outline and the material stops
-reading as a material. Surfaces that are menus rather than modals — the session
-menu — take no scrim at all, so nothing behind them changes.
+### A scrim below `ignore_alpha` silently stops being blurred
+The layer rule gates blur on alpha, so dimming the modal backdrop past that
+threshold drops it out of the blur pass entirely and leaves a flat tint over a
+sharp desktop. Surfaces that are menus rather than modals — the session menu —
+take no scrim at all, so nothing behind them changes.
 
 ### Mapping functions in bindings never re-evaluate
 `mapToItem`/`mapToGlobal` are calls, not reactive expressions, so a property
