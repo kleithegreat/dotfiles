@@ -16,8 +16,22 @@
   `~/.config/zsh/theme-colors` from `programs.zsh.initContent`).
 - Generated outputs are never committed. Do not reintroduce committed concat
   outputs or snapshot files under `config/`.
+- Zsh history is single and global. Per-directory history was tried and
+  removed: fish, the model being copied, records no cwd and partitions
+  nothing, and the plugin also fights `history.share`. The fish-like part
+  that is actually wanted is ↑/↓ on `zsh-history-substring-search`
+  plus autosuggestions over one history file.
 
 ## Quirks
+
+### Zsh plugins are sourced before `HISTFILE` is set
+Home Manager's zsh module emits `programs.zsh.plugins` above its own
+`HISTFILE=` assignment in the generated `.zshrc`, so a plugin that reads
+`$HISTFILE` at load time captures zsh's built-in `~/.zsh_history` rather
+than `history.path`. The failure is silent — history keeps working, it just
+accumulates in a file nothing else reads. `zsh-per-directory-history` hit
+this and is gone. Source any history-aware plugin from `initContent`, which
+lands after the assignment; do not add it to `plugins`.
 
 ### Generated files inside symlinked trees are absent until first theme sync
 Base configs reference generated files that don't exist on a fresh clone

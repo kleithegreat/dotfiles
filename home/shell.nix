@@ -30,6 +30,7 @@ in
       save = 100000;
       ignoreAllDups = true;
       ignoreSpace = true;
+      append = true;
       extended = true;
       share = true;
     };
@@ -67,16 +68,6 @@ in
         src = pkgs.zsh-history-substring-search;
         file = "share/zsh-history-substring-search/zsh-history-substring-search.zsh";
       }
-      {
-        name = "zsh-per-directory-history";
-        src = pkgs.fetchFromGitHub {
-          owner = "jimhester";
-          repo = "per-directory-history";
-          rev = "c2a00fb2e1d801567b5f2d4ce06986aa42bde813";
-          sha256 = "sha256-d3YMHo1Q/mFPBJAdwhDYSeQWmD/aVo3BCpKPhaqe+yo=";
-        };
-        file = "per-directory-history.zsh";
-      }
     ];
 
     initContent = /* bash */ ''
@@ -85,13 +76,6 @@ in
       setopt NO_BEEP
       setopt GLOB_DOTS
       setopt HIST_REDUCE_BLANKS
-      setopt APPEND_HISTORY
-      setopt INC_APPEND_HISTORY
-
-      # ── Per-directory history ──────────────────────────────────
-      # Ctrl+G toggles between directory-local and global history
-      PER_DIRECTORY_HISTORY_TOGGLE='^G'
-      HISTORY_START_WITH_GLOBAL=false
 
       # ── Emacs keybindings ────────────────────────────────────
       bindkey -e
