@@ -171,10 +171,15 @@ in {
 
   # ── Cornell eduroam ─────────────────────────────────────────
   # `domain-suffix-match` is the load-bearing line. Cornell's RADIUS server
-  # presents a publicly-trusted InCommon/Sectigo chain, so `system-ca-certs`
-  # on its own would accept any valid web certificate a rogue `eduroam` could
-  # buy; pinning the server name is what stops one harvesting the MSCHAPv2
-  # exchange and cracking the NetID password offline.
+  # presents a publicly-trusted Sectigo chain, so trusting the CA store alone
+  # would accept any valid web certificate a rogue `eduroam` could buy; pinning
+  # the server name is what stops one harvesting the MSCHAPv2 exchange and
+  # cracking the NetID password offline.
+  # `ca-cert` must name the bundle file, never `system-ca-certs = true`: that
+  # sends wpa_supplicant an OpenSSL `ca_path`, which resolves issuers only via
+  # c_rehash `<hash>.0` symlinks, and NixOS ships `/etc/ssl/certs` with the two
+  # bundle files and no symlinks. Every root is then unfindable and the
+  # handshake dies at the root with `unable to get local issuer certificate`.
   networking.networkmanager.ensureProfiles = {
     environmentFiles = [ "/etc/nm-secrets/eduroam.env" ];
     profiles.eduroam = {
@@ -196,7 +201,7 @@ in {
         identity = "kl2344@cornell.edu";
         password = "$CORNELL_NETID_PASSWORD";
         password-flags = 0;
-        system-ca-certs = true;
+        ca-cert = "/etc/ssl/certs/ca-certificates.crt";
         domain-suffix-match = "network-access.it.cornell.edu";
       };
       ipv4.method = "auto";
