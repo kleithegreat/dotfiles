@@ -67,7 +67,11 @@ exists; move to the branch then, rather than disabling
 
 ### `texlive.combined.scheme-medium` recurses on this pin
 `scheme-medium` pulls `asymptote` through `collection-binextra` and evaluation
-blows up. `home/packages.nix` builds `scheme-small` plus explicit extras.
+blows up. `home/packages.nix` builds `scheme-small` plus explicit extras. That
+list is not a dependency closure: a texlive package pulls only what its tlpdb
+entry declares, and those declarations are incomplete, so a `.sty` the added
+package `\RequirePackage`s can still be missing at compile time. Add the
+package, compile a real document, and add whatever the log names next.
 
 ### `cantarell-fonts` variable-OTF autohinting is broken on this pin
 The default build fails in `otfautohint`. The overlay passes Meson flags

@@ -11,7 +11,10 @@ let
     mdframed
     needspace
     zref
-    algorithms
+    algorithm2e
+    # algorithm2e loads these; its tlpdb entry never declares them
+    ifoddpage
+    relsize
     cleveref
     eepic
     libertine
