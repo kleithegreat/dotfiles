@@ -169,6 +169,13 @@ in {
     });
   '';
 
+  # ── Wi-Fi power management ──────────────────────────────────
+  # Off, not for throughput: NM's default leaves iwlwifi powersave on, which
+  # stalls packets above the radio. Measured on this host — 30% loss and
+  # 38-1221 ms RTT to the first hop on an *idle* link, while the radio's own
+  # tx retry rate stayed at 0.8%. Costs some idle battery; keep it false.
+  networking.networkmanager.wifi.powersave = false;
+
   # ── Cornell eduroam ─────────────────────────────────────────
   # `domain-suffix-match` is the load-bearing line. Cornell's RADIUS server
   # presents a publicly-trusted Sectigo chain, so trusting the CA store alone
