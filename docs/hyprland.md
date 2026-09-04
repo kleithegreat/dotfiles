@@ -39,6 +39,13 @@
   (`pkgs/hyprland-plugins/hyprexpo/`) because the official plugin flake
   removed it. Advance Hyprland only when the fork has a matching release, and
   re-pin `hyprland-plugins` (hyprbars) when it publishes a matching tag.
+- `hyprlock.conf` must read as the active color scheme under every scheme, and
+  the schemes span light and dark. hyprlang has no conditionals, so the config
+  cannot branch on appearance: instead every widget draws `$theme_fg` on a
+  `$theme_bg` card, which is the one pair the scheme guarantees, and the
+  wallpaper is decoration behind it rather than something legibility depends
+  on. Colors with no cross-scheme contrast guarantee — `$theme_accent`,
+  `$theme_yellow` — are used for outlines only, never for text.
 
 ## Quirks
 
@@ -180,6 +187,32 @@ hyprpolkitagent sets no app_id (empty class), so its float rule matches on
 title `Hyprland Polkit Agent`; several other rules match exact classes/titles
 (`Zoom Meeting`, incognito patterns, Discord's updater). After bumping any of
 these packages, verify with `hyprctl clients` while the window is open.
+
+### hyprlock's caps-lock hint can only be a color
+hyprlock exposes caps lock as `input-field:capslock_color` and nothing else —
+there is no `$CAPSLOCK` for labels, so a text warning would mean polling a
+`cmd[update:...]` label against `/sys/class/leds`. Worse, an *unset*
+`capslock_color` falls back to `fail_color`, so the stock config flags caps
+lock in the same red as a rejected password. The amber outline is the whole
+mechanism.
+
+### hyprlock sorts widgets with an unstable sort
+Widgets are ordered by `zindex` through `std::ranges::sort`, so widgets sharing
+a `zindex` render in unspecified order — config order does not break the tie.
+Anything drawn behind another widget needs a strictly lower `zindex`, and
+`background` already occupies -1.
+
+### hyprlock parses its config before touching Wayland
+`hyprlock --display no-such-display-xyz -c <path>` reports every config error
+and then dies on the compositor connection, so it is a safe syntax check that
+cannot lock the screen. Errors are printed and skipped, not fatal — a
+misspelled key silently does nothing at runtime, which is why this check is
+worth running. It is also the *only* check available: unlike Hyprland's own
+config, hyprlock cannot be previewed in a nested session. `path = screenshot`
+hits `Bogus call to CAsyncResourceManager::screencopyToTexture` on a nested
+output and wedges the texture pipeline so no widget text ever renders, and once
+the nested session is locked its compositor refuses screencopy, so `grim` hangs
+instead of capturing the result.
 
 ### hyprlock's fingerprint auth is enabled on every host on purpose
 The shared `hyprlock.conf` enables fingerprint auth; only the laptop has
