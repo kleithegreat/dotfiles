@@ -71,7 +71,8 @@ blows up. `home/packages.nix` builds `scheme-small` plus explicit extras. That
 list is not a dependency closure: a texlive package pulls only what its tlpdb
 entry declares, and those declarations are incomplete, so a `.sty` the added
 package `\RequirePackage`s can still be missing at compile time. Add the
-package, compile a real document, and add whatever the log names next.
+package, then compile *every* document that loads it -- one passing template
+proves nothing about its siblings -- and add whatever the logs name next.
 
 ### `cantarell-fonts` variable-OTF autohinting is broken on this pin
 The default build fails in `otfautohint`. The overlay passes Meson flags

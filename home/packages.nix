@@ -15,6 +15,7 @@ let
     # algorithm2e loads these; its tlpdb entry never declares them
     ifoddpage
     relsize
+    algorithms
     cleveref
     eepic
     libertine
