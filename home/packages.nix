@@ -20,6 +20,7 @@ let
     eepic
     libertine
     paralist
+    stmaryrd
     wrapfig
   ]);
 
