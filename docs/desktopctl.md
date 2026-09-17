@@ -102,6 +102,18 @@ slider snaps to an old value, look for a status read or pushed event describing
 a pre-write world — `services/Brightness.qml` guards both: the epoch pair on
 status reads, and dropping daemon events while its own writes are queued.
 
+### A busy daemon is not an unreachable one, and `status` has no fallback for it
+`socket_unavailable` matches `NotFound`/`ConnectionRefused`/`ConnectionReset`,
+so the direct-read fallback covers a daemon that is *dead*, not one that is
+merely slow to answer. The brightness controller serializes, and a subscriber's
+snapshot enumerates DDC for ~1.8s even on a laptop with no external monitor, so
+a `brightness status` issued alongside it hits `DEFAULT_TIMEOUT` and exits 1
+with **empty stdout** — measured at 3.04s, `Resource temporarily unavailable`.
+A caller that parses that silence as "no devices" makes a transient collision
+permanent, which is why `services/Brightness.qml` keeps its last known list on
+a failed read and takes its startup state from the subscription instead of
+racing it.
+
 ### External monitor brightness needs DDC/CI plus i2c access
 If a monitor's slider is missing or dead: check the monitor OSD has DDC/CI
 enabled, `ddcutil detect` sees the display, and the user is in the `i2c`

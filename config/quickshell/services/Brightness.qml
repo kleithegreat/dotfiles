@@ -167,13 +167,13 @@ QtObject {
         _all = merged;
     }
 
-    Component.onCompleted: refresh()
-
-    // Daemon-pushed updates: a full snapshot on subscribe, then one event per
-    // write — hotkey steps carry osd: true and drive the overlay, replacing
-    // the old `qs ipc call` round-trip. Changes made from the monitor's own
-    // buttons have no event source; they surface on the next daemon-side
-    // brightness operation (the old 30s detect poll is gone).
+    // Daemon-pushed updates: a full snapshot on subscribe — which is the
+    // startup read, and unlike a one-shot command it arrives whenever the
+    // daemon does — then one event per write; hotkey steps carry osd: true and
+    // drive the overlay, replacing the old `qs ipc call` round-trip. Changes
+    // made from the monitor's own buttons have no event source; they surface on
+    // the next daemon-side brightness operation (the old 30s detect poll is
+    // gone).
     readonly property Connections _daemonEvents: Connections {
         target: Desktopctl
         function onBrightnessChanged(payload) {
@@ -187,6 +187,9 @@ QtObject {
         }
     }
 
+    // Re-enumeration for the two changes the daemon cannot push: a monitor
+    // appearing or leaving, and a write that failed so the optimistic value is
+    // a lie.
     readonly property Process _status: Process {
         id: status
         command: ["desktopctl", "brightness", "status", "--json"]
@@ -197,7 +200,8 @@ QtObject {
                 try {
                     root._ingest(JSON.parse(this.text));
                 } catch (e) {
-                    root._all = [];
+                    // Keep the last known devices: a read that failed says
+                    // nothing about what is plugged in.
                 }
             }
         }
