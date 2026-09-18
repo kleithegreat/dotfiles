@@ -22,6 +22,19 @@ let
     paralist
     stmaryrd
     wrapfig
+    acmart
+    # acmart loads these; its tlpdb entry never declares them
+    comment
+    draftwatermark
+    environ
+    hyperxmp
+    ifmtarg
+    inconsolata # zi4
+    ncctools # manyfoot
+    newtx # newtxmath
+    preprint # balance
+    totpages
+    xstring
   ]);
 
   customPackages = [
