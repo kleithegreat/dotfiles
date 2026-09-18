@@ -6,8 +6,9 @@ pub const METADATA: TargetMetadata =
         .output("~/.config/bat/config");
 
 pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<GeneratedContent> {
+    // bat splits config lines shell-style; half the bundled theme names hold a space.
     Ok(GeneratedContent::text(format!(
-        "--theme={}\n",
+        "--theme=\"{}\"\n",
         colors.bat_theme_name()
     )))
 }

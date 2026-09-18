@@ -669,9 +669,15 @@ mod tests {
     }
 
     #[test]
-    fn bat_output_selects_the_scheme_theme() {
+    fn bat_output_quotes_the_scheme_theme() {
         let output = text(bat::generate(&dummy_colors(), &dummy_state()));
-        assert_eq!(output, "--theme=gruvbox-dark\n");
+        assert_eq!(output, "--theme=\"gruvbox-dark\"\n");
+
+        let spaced = text(bat::generate(
+            &load_repo_colors("solarized-light"),
+            &dummy_state(),
+        ));
+        assert_eq!(spaced, "--theme=\"Solarized (light)\"\n");
     }
 
     #[test]
