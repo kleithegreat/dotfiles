@@ -81,9 +81,11 @@ the default build works.
 
 ### Apple rotates `SF-Pro.dmg` behind a stable URL
 The fixed-output hash eventually stops matching upstream bytes — refresh the
-version date and `src.hash` in `pkgs/sf-pro/default.nix`. The current DMG's
-`Payload~` is a plain cpio archive (no second gzip unpack); the derivation
-tries `cpio` and falls back to `7z` for older layouts.
+version date and `src.hash` in `pkgs/sf-pro/default.nix`. The inner layout
+moves too: the 2026-09-11 rotation renamed `SF Pro Fonts.pkg` to
+`SFProFontsPackage.pkg`, and `7z x` now walks the dmg/hfs/pkg/gzip chain by
+itself and drops a bare cpio `Payload~` in the build directory. Re-check the
+unpack against `7z l` on the new DMG, not just the hash.
 
 ### The native overlay namespaces, it never shadows
 Rewriting the global `pkgs` set gives every transitive consumer a new
