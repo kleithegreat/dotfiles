@@ -133,6 +133,17 @@ pub(crate) fn status_json() -> Result<serde_json::Value> {
     Ok(serde_json::to_value(status_payload_for_devices(devices))?)
 }
 
+/// The two halves of a subscriber's brightness snapshot. Split so the sysfs
+/// half goes out immediately: enumerating DDC costs ~1s, and a slider that
+/// waits on it is missing from the bar for that whole second.
+pub(crate) fn backlight_snapshot() -> Result<serde_json::Value> {
+    Ok(serde_json::to_value(backlight_device_statuses()?)?)
+}
+
+pub(crate) fn ddc_snapshot() -> Result<serde_json::Value> {
+    Ok(serde_json::to_value(ddc_device_statuses()?)?)
+}
+
 pub(crate) fn set_core(device: Option<&str>, percent: u16) -> Result<serde_json::Value> {
     let state = resolve_state(device)?;
     let fraction = (percent as f64 / 100.0).clamp(0.0, 1.0);
@@ -306,44 +317,42 @@ fn read_state(device: BrightnessDevice) -> Result<BrightnessState> {
 }
 
 fn available_device_statuses() -> Result<Vec<BrightnessDeviceStatus>> {
-    let mut statuses = Vec::new();
+    let mut statuses = backlight_device_statuses()?;
+    statuses.extend(ddc_device_statuses()?);
+    Ok(statuses)
+}
 
+fn backlight_device_statuses() -> Result<Vec<BrightnessDeviceStatus>> {
+    let mut statuses = Vec::new();
     for device in backlight_devices()? {
         if let Ok(state) = read_state(BrightnessDevice::Backlight(device)) {
             statuses.push(status_payload(&state)?);
         }
     }
-
-    for state in available_ddc_states() {
-        statuses.push(status_payload(&state)?);
-    }
-
     Ok(statuses)
 }
 
+fn ddc_device_statuses() -> Result<Vec<BrightnessDeviceStatus>> {
+    available_ddc_states().iter().map(status_payload).collect()
+}
+
 fn available_ddc_states() -> Vec<BrightnessState> {
-    let mut states = Vec::new();
-
-    if let Ok(devices) = detected_ddc_devices() {
-        for device in devices {
-            if let Ok(state) = read_state(device) {
-                states.push(state);
-            }
-        }
-    }
-
-    if states.is_empty() {
-        let fallback = BrightnessDevice::Ddc {
+    match detected_ddc_devices() {
+        Ok(devices) => devices
+            .into_iter()
+            .filter_map(|device| read_state(device).ok())
+            .collect(),
+        // Only a `detect` that failed outright leaves anything to guess at: a
+        // busless probe re-runs the same enumeration and can never reach a
+        // display `detect` succeeded in not reporting.
+        Err(_) => read_state(BrightnessDevice::Ddc {
             bus: None,
             connector: None,
             label: None,
-        };
-        if let Ok(state) = read_state(fallback) {
-            states.push(state);
-        }
+        })
+        .into_iter()
+        .collect(),
     }
-
-    states
 }
 
 fn status_payload_for_devices(devices: Vec<BrightnessDeviceStatus>) -> BrightnessStatus {

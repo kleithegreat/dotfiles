@@ -21,8 +21,12 @@
   daemon can still be debugged.
 - The socket pushes change events (`theme`, `night_light`, `brightness`,
   `hypr_input` topics) to subscribed connections, each preceded by a
-  snapshot; events publish only after a successful commit. Quickshell
-  subscribes instead of polling ([[quickshell]]). Write subcommands accept
+  snapshot; events publish only after a successful commit. A snapshot is not
+  required to be one event: brightness sends its backlights with the cheap
+  topics and its DDC devices after enumeration, because a slider that waits a
+  second to exist is worse than one that gains a device a second late.
+  Subscribers therefore merge snapshot events by device rather than
+  replacing. Quickshell subscribes instead of polling ([[quickshell]]). Write subcommands accept
   `--wait-daemon` for autostart call sites that race the daemon's own spawn.
 - Versioned theming data — scheme catalog, presets, concat bases, the state
   seed — resolves from `DESKTOPCTL_DATA`, which the package wraps to its own
@@ -82,6 +86,9 @@ Measured on the BenQ at `/dev/i2c-15`: ~0.99s get / ~1.61s set via
 `--display`, vs ~0.10s / ~0.15s via `--bus`. `brightness.rs` therefore keys
 DDC devices on the I2C bus parsed from `ddcutil detect --brief`, re-read on
 every status call because bus numbers can move across reboots and hotplug.
+A bus-less `getvcp` pays that same enumeration and can only reach a display
+`detect` already reported, so an *empty* detect is a final answer — only a
+detect that failed outright falls back to probing without a bus.
 
 ### `--skip-ddc-checks` everywhere except `detect`
 Reads and writes pass `--skip-ddc-checks` (a write drops 0.148s → 0.082s);
@@ -106,7 +113,7 @@ status reads, and dropping daemon events while its own writes are queued.
 `socket_unavailable` matches `NotFound`/`ConnectionRefused`/`ConnectionReset`,
 so the direct-read fallback covers a daemon that is *dead*, not one that is
 merely slow to answer. The brightness controller serializes, and a subscriber's
-snapshot enumerates DDC for ~1.8s even on a laptop with no external monitor, so
+snapshot enumerates DDC for ~1s even on a laptop with no external monitor, so
 a `brightness status` issued alongside it hits `DEFAULT_TIMEOUT` and exits 1
 with **empty stdout** — measured at 3.04s, `Resource temporarily unavailable`.
 A caller that parses that silence as "no devices" makes a transient collision

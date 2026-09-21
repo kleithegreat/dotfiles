@@ -625,12 +625,7 @@ async fn push_snapshots<W: AsyncWrite + Unpin>(
     topics: &[String],
     context: &ServerContext,
 ) -> io::Result<()> {
-    // Brightness last: its snapshot enumerates DDC buses (~1s) and must not
-    // delay the cheap ones.
-    let mut ordered: Vec<&String> = topics.iter().filter(|t| *t != "brightness").collect();
-    ordered.extend(topics.iter().filter(|t| *t == "brightness"));
-
-    for topic in ordered {
+    for topic in topics {
         match topic.as_str() {
             "night_light" => {
                 let controller = context.night_light.clone();
@@ -683,26 +678,40 @@ async fn push_snapshots<W: AsyncWrite + Unpin>(
                 }
             }
             "brightness" => {
-                let brightness = context.brightness.clone();
                 if let Ok(Ok(devices)) =
-                    tokio::task::spawn_blocking(move || brightness.status()).await
+                    tokio::task::spawn_blocking(crate::brightness::backlight_snapshot).await
                 {
-                    let event = EventEnvelope {
-                        event: "brightness.changed".to_owned(),
-                        data: serde_json::json!({
-                            "devices": devices.get("devices").cloned()
-                                .unwrap_or(serde_json::Value::Array(Vec::new())),
-                            "osd": false,
-                        }),
-                    };
-                    write_event(writer, &event).await?;
+                    write_brightness_snapshot(writer, devices).await?;
                 }
             }
             _ => {}
         }
     }
 
+    // The DDC half enumerates I2C buses (~1s); it follows the cheap topics so
+    // nothing waits on it. Subscribers merge snapshot events by device.
+    if topics.iter().any(|topic| topic == "brightness")
+        && let Ok(Ok(devices)) = tokio::task::spawn_blocking(crate::brightness::ddc_snapshot).await
+    {
+        write_brightness_snapshot(writer, devices).await?;
+    }
+
     Ok(())
+}
+
+async fn write_brightness_snapshot<W: AsyncWrite + Unpin>(
+    writer: &mut W,
+    devices: serde_json::Value,
+) -> io::Result<()> {
+    if devices.as_array().is_none_or(|devices| devices.is_empty()) {
+        return Ok(());
+    }
+
+    let event = EventEnvelope {
+        event: "brightness.changed".to_owned(),
+        data: serde_json::json!({ "devices": devices, "osd": false }),
+    };
+    write_event(writer, &event).await
 }
 
 async fn write_event<W: AsyncWrite + Unpin>(

@@ -41,8 +41,10 @@
   `Compositor` gateway, which exists because hyprctl reports failure on stdout
   while exiting 0 ([[hyprland]]).
 - State flows the other way over the `Desktopctl` service's subscribed socket:
-  the daemon pushes a snapshot per topic and change events after each commit,
-  so external changes (hotkeys, terminal) reach the shell without polling.
+  the daemon pushes a snapshot per topic — brightness's in two events, so the
+  slider does not wait on DDC enumeration ([[desktopctl]]) — and change events
+  after each commit, so external changes (hotkeys, terminal) reach the shell
+  without polling.
   Reconnect-with-backoff in that service is load-bearing — the daemon and the
   shell start concurrently, and the shell restarts alone. Services keep a
   one-shot startup status read as the degraded path while the daemon is down.

@@ -129,10 +129,10 @@ QtObject {
     }
 
     // Merge a pushed device update into _all. The subscribe-time snapshot
-    // carries every device; per-write events carry just the written one, so
-    // merge by id rather than replacing (a device removed while the shell
-    // runs lingers until the next snapshot; Displays gates the internal
-    // panel case already).
+    // arrives as one event per device class and per-write events carry just
+    // the written device, so merge by id rather than replacing (a device
+    // removed while the shell runs lingers until the next snapshot; Displays
+    // gates the internal panel case already).
     function _merge(listed) {
         const merged = _all.slice();
         for (let i = 0; i < listed.length; i++) {
@@ -167,9 +167,11 @@ QtObject {
         _all = merged;
     }
 
-    // Daemon-pushed updates: a full snapshot on subscribe — which is the
-    // startup read, and unlike a one-shot command it arrives whenever the
-    // daemon does — then one event per write; hotkey steps carry osd: true and
+    // Daemon-pushed updates: a snapshot on subscribe — which is the startup
+    // read, and unlike a one-shot command it arrives whenever the daemon does
+    // — then one event per write. The snapshot comes in two parts, backlights
+    // at once and DDC once enumerated, so the slider is not held off screen
+    // for the second that enumeration costs. Hotkey steps carry osd: true and
     // drive the overlay, replacing the old `qs ipc call` round-trip. Changes
     // made from the monitor's own buttons have no event source; they surface on
     // the next daemon-side brightness operation (the old 30s detect poll is
