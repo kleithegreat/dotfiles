@@ -44,8 +44,16 @@ QtObject {
     property string _governorProfile: ""
 
     readonly property string backend: _helperProfile !== "" ? "laptop-helper" : _ppctlProfile !== "" ? "ppctl" : _governorProfile !== "" ? "autocpufreq" : "none"
-    readonly property string profile: _helperProfile !== "" ? _helperProfile : _ppctlProfile !== "" ? _ppctlProfile : _governorProfile !== "" ? _governorProfile : "unknown"
+    readonly property string reported: _helperProfile !== "" ? _helperProfile : _ppctlProfile !== "" ? _ppctlProfile : _governorProfile !== "" ? _governorProfile : "unknown"
+
+    // A write takes a second and a half to come back. `profile` is the one the
+    // shell shows: the requested one from the click until the backend confirms
+    // it, so the selection moves under the pointer instead of snapping back.
+    // `switching` says it is not confirmed yet, and controls dim while it holds
+    // — the same contract `Toggle.pending` has.
     property string pendingProfile: ""
+    readonly property bool switching: pendingProfile !== "" && pendingProfile !== reported
+    readonly property string profile: switching ? pendingProfile : reported
 
     readonly property var profiles: {
         const list = [{ id: "performance", label: "Performance", icon: "flame" }, { id: "balanced", label: "Balanced", icon: "speed" }, { id: "power-saver", label: "Power Saver", icon: "leaf" }];
@@ -54,7 +62,7 @@ QtObject {
         return list;
     }
 
-    onProfileChanged: pendingProfile = ""
+    onReportedChanged: pendingProfile = ""
 
     function detect() {
         helper.running = true;

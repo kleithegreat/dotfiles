@@ -96,6 +96,10 @@ QtObject {
     readonly property color fillTrack: withAlpha(_fg, dark ? 0.14 : 0.13)
     readonly property color separator: withAlpha(_fg, dark ? 0.11 : 0.14)
 
+    // A control showing a value the backend has not confirmed yet. Far enough
+    // down to read as unsettled, not so far as to read as disabled.
+    readonly property real pendingAlpha: 0.65
+
     // ── Content ────────────────────────────────────────────────────────────
     // The scheme's own colours, unmodified. The dimmed ramp is derived by the
     // theming pipeline, which already guarantees its ordering and a contrast

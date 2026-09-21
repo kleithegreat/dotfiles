@@ -16,7 +16,7 @@ Pressable {
     radius: Metrics.rPill
     showFill: false
     pressScale: 0.94
-    opacity: !interactive ? 0.4 : pending ? 0.65 : 1.0
+    opacity: !interactive ? 0.4 : pending ? Theme.pendingAlpha : 1.0
 
     onClicked: root.toggled(!root.checked)
 

@@ -39,18 +39,27 @@ Ui.Scroll {
                 model: Sys.Power.profiles
 
                 Ui.ListRow {
+                    id: row
+
                     required property var modelData
+                    readonly property bool chosen: Sys.Power.profile === row.modelData.id
+
                     Layout.fillWidth: true
                     icon: modelData.icon
                     title: modelData.label
-                    selected: Sys.Power.profile === modelData.id
-                    onClicked: Sys.Power.setProfile(modelData.id)
+                    selected: row.chosen
+                    opacity: row.chosen && Sys.Power.switching ? Theme.pendingAlpha : 1
+                    onClicked: Sys.Power.setProfile(row.modelData.id)
+
+                    Behavior on opacity {
+                        Ui.Anim {}
+                    }
 
                     Ui.Icon {
                         anchors.verticalCenter: parent.verticalCenter
                         name: "circle-check-filled"
                         color: Theme.accent
-                        visible: Sys.Power.profile === parent.modelData.id
+                        visible: row.chosen
                     }
                 }
             }

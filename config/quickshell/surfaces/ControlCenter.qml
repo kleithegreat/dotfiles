@@ -219,17 +219,23 @@ Popover {
                     id: chip
 
                     required property var modelData
+                    readonly property bool chosen: Sys.Power.profile === chip.modelData.id
 
                     implicitWidth: Metrics.s6 + Metrics.s1
                     implicitHeight: Metrics.controlHeight
                     radius: Metrics.rControl
-                    active: Sys.Power.profile === chip.modelData.id
+                    active: chip.chosen
+                    opacity: chip.chosen && Sys.Power.switching ? Theme.pendingAlpha : 1
                     onClicked: Sys.Power.setProfile(chip.modelData.id)
+
+                    Behavior on opacity {
+                        Ui.Anim {}
+                    }
 
                     Ui.Icon {
                         anchors.centerIn: parent
                         name: chip.modelData.icon
-                        color: Sys.Power.profile === chip.modelData.id ? Theme.accent : Theme.textTertiary
+                        color: chip.chosen ? Theme.accent : Theme.textTertiary
                     }
                 }
             }
