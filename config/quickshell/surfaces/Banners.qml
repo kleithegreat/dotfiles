@@ -10,23 +10,35 @@ import qs.services as Sys
 PanelWindow {
     id: window
 
+    readonly property int cardElevation: 30
+    readonly property int pad: Metrics.shadowReach(cardElevation)
+
     anchors.top: true
     anchors.right: true
-    margins.top: Metrics.detachment
-    margins.right: Metrics.gap
-    implicitWidth: 380 + Metrics.s5
-    implicitHeight: Math.max(1, stack.implicitHeight + Metrics.s5)
+    margins.top: Metrics.detachment - pad
+    // Flush to the screen edge; no shadow can be shown past it anyway.
+    margins.right: 0
+    implicitWidth: 380 + Metrics.gap + pad
+    implicitHeight: Math.max(1, stack.implicitHeight + pad * 2)
     color: "transparent"
     visible: Sys.Notifications.banners.length > 0
     exclusionMode: ExclusionMode.Ignore
+    // Only the cards take clicks; the shadow's margin is desktop.
+    mask: Region {
+        x: stack.x
+        y: stack.y
+        width: stack.width
+        height: stack.height
+    }
     WlrLayershell.namespace: "quickshell:banners"
     WlrLayershell.layer: WlrLayer.Overlay
 
     ColumnLayout {
         id: stack
         anchors.top: parent.top
+        anchors.topMargin: window.pad
         anchors.right: parent.right
-        anchors.rightMargin: Metrics.s1
+        anchors.rightMargin: Metrics.gap
         width: 380
         spacing: Metrics.s2
 
@@ -42,10 +54,14 @@ PanelWindow {
                 Layout.fillWidth: true
                 Layout.preferredHeight: content.implicitHeight + Metrics.s4 * 2
                 radius: Metrics.rPanel
-                elevation: 30
+                elevation: window.cardElevation
 
                 opacity: 0
-                x: 60
+                // The layout owns x, so the arrival travels on a transform.
+                property real slide: 60
+                transform: Translate {
+                    x: card.slide
+                }
 
                 Component.onCompleted: arrival.start()
 
@@ -64,7 +80,7 @@ PanelWindow {
                         }
                         Ui.Anim {
                             target: card
-                            property: "x"
+                            property: "slide"
                             to: 0
                             duration: Motion.settled
                             easing.bezierCurve: Motion.enter

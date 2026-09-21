@@ -10,9 +10,9 @@ PanelWindow {
     id: window
 
     anchors.top: true
-    margins.top: Metrics.detachment
-    implicitWidth: 240
-    implicitHeight: 44 + Metrics.s6
+    margins.top: Metrics.detachment - pill.shadowPad
+    implicitWidth: 240 + pill.shadowPad * 2
+    implicitHeight: pill.height + pill.shadowPad * 2
     color: "transparent"
     visible: Sys.Osd.showing || pill.opacity > 0.001
     exclusionMode: ExclusionMode.Ignore
@@ -23,9 +23,9 @@ PanelWindow {
     Ui.Surface {
         id: pill
 
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: parent.top
-        width: parent.width
+        x: pill.shadowPad
+        y: pill.shadowPad
+        width: parent.width - pill.shadowPad * 2
         height: 44
         radius: height / 2
         elevation: 26

@@ -226,6 +226,22 @@ rtt line afterwards. A plain `kill` gets no summary at all, so the loaded
 latency silently reads as unmeasured and the ratio never appears; the background
 ping has to be stopped with `kill -INT`.
 
+### A layer surface's own buffer clips the shadow off it too
+A window sized to the panel it holds has nowhere to put that panel's shadow: a
+`wl_surface` ends at its buffer, so the blur is cut off flat on every side it
+touches — most visibly as a shadow that exists above a toast and nowhere else.
+Every window holding a floating `Surface` reserves `Surface.shadowPad` around
+it and pulls its own layer-shell margin back by the same amount, so the panel
+lands where it always did. `Metrics.shadowReach` is the one place that says how
+far a shadow travels; it is derived from `elevation`, so raising a panel's
+elevation without re-reading it silently re-clips the shadow. The bar is the
+exception: its margin from the screen edge is all the room there is, and
+`Metrics.barShadowPad` is that fixed budget rather than a derived reach.
+
+The extra transparent margin is part of the input region unless something says
+otherwise, so a window that gains one also needs a `mask` over the panel alone
+or it starts eating clicks meant for the desktop.
+
 ### A layer on a surface clips the shadow off it
 `Surface`'s `RectangularShadow` paints well outside the item it fills, so
 `layer.enabled` on the surface renders the panel into a texture its own size and

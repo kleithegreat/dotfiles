@@ -9,27 +9,34 @@ PanelWindow {
     id: window
 
     anchors.bottom: true
-    margins.bottom: Metrics.s6
-    implicitWidth: Math.min(560, body.implicitWidth + Metrics.s5 * 2)
-    implicitHeight: 44 + Metrics.s5
+    margins.bottom: Metrics.s6 - pill.shadowPad
+    implicitWidth: Math.min(560, body.implicitWidth + Metrics.s5 * 2) + pill.shadowPad * 2
+    implicitHeight: pill.height + pill.shadowPad * 2
     color: "transparent"
     visible: Sys.Toast.showing || pill.opacity > 0.001
     exclusionMode: ExclusionMode.Ignore
+    // Only the pill takes clicks; the shadow's margin is desktop.
+    mask: Region {
+        x: pill.x
+        y: pill.y
+        width: pill.width
+        height: pill.height
+    }
     WlrLayershell.namespace: "quickshell:toast"
     WlrLayershell.layer: WlrLayer.Overlay
 
     Ui.Surface {
         id: pill
 
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: parent.bottom
-        width: parent.width
+        x: pill.shadowPad
+        width: parent.width - pill.shadowPad * 2
         height: 44
         radius: height / 2
         elevation: 26
 
         opacity: Sys.Toast.showing ? 1 : 0
-        y: Sys.Toast.showing ? parent.height - height : parent.height
+        // Never anchored: an anchor wins over this and the slide stops happening.
+        y: Sys.Toast.showing ? pill.shadowPad : parent.height
 
         Behavior on opacity {
             Ui.Anim {

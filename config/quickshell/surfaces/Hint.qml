@@ -11,8 +11,8 @@ PanelWindow {
     anchors.top: true
     anchors.left: true
     anchors.right: true
-    margins.top: Metrics.detachment - Metrics.s1
-    implicitHeight: Metrics.rowHeight + Metrics.s4
+    margins.top: Metrics.detachment - Metrics.s1 - bubble.shadowPad
+    implicitHeight: bubble.height + bubble.shadowPad * 2
     color: "transparent"
     visible: Sys.Hint.showing || bubble.opacity > 0.001
     exclusionMode: ExclusionMode.Ignore
@@ -28,7 +28,7 @@ PanelWindow {
         id: bubble
 
         x: Math.max(Metrics.gap, Math.min(window.span - width - Metrics.gap, Sys.Hint.anchor - width / 2))
-        y: 0
+        y: bubble.shadowPad
         width: caption.implicitWidth + Metrics.s4 * 2
         height: Metrics.controlHeight + Metrics.s1
         radius: height / 2

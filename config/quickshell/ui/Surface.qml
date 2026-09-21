@@ -12,6 +12,8 @@ Item {
     property color tint: Theme.base
     property bool shadow: true
     property real elevation: 22
+    // Room a host window must leave around this surface for its shadow.
+    readonly property int shadowPad: Metrics.shadowReach(elevation)
     // Flattening the content protects NativeRendering text through a scale.
     // Layering the surface instead clips its shadow ([[quickshell]]).
     property bool flatten: false
@@ -23,7 +25,7 @@ Item {
         radius: body.radius
         blur: root.elevation
         spread: 0
-        offset: Qt.vector2d(0, Math.round(root.elevation / 4))
+        offset: Qt.vector2d(0, Metrics.shadowDrop(root.elevation))
         color: Theme.shadow
         visible: root.shadow
         cached: true

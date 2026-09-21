@@ -73,6 +73,17 @@ QtObject {
     // Clearance between the bar's lower edge and anything anchored beneath it.
     readonly property int detachment: barHeight + barMargin + gap
 
+    // How far a panel's shadow reaches past it: the blur's outer half plus its
+    // drop. A window hosting a floating surface must reserve this much on every
+    // side, because its buffer ends at its own edge and cuts the rest off flat.
+    function shadowDrop(elevation) {
+        return Math.round(elevation / 4);
+    }
+
+    function shadowReach(elevation) {
+        return Math.ceil(elevation / 2) + shadowDrop(elevation);
+    }
+
     readonly property int wheelStep: 165
 
     // How far past an edge a wheel may stretch content, and the curve that gets
