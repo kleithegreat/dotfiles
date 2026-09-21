@@ -26,8 +26,4 @@ hl.config({
         accel_profile = pick("accel_profile"),
         scroll_factor = pick("scroll_factor"),
     },
-
-    cursor = {
-        no_hardware_cursors = defaults.no_hardware_cursors,
-    },
 })

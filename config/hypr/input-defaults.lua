@@ -8,5 +8,4 @@ return {
     sensitivity = 0.75,
     accel_profile = "flat",
     scroll_factor = 1.0,
-    no_hardware_cursors = true,
 }
