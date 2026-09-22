@@ -2,7 +2,7 @@
 
 stdenvNoCC.mkDerivation {
   pname = "sf-pro";
-  version = "2026-09-11";
+  version = "2026-09-14";
 
   # Apple rotates the bytes behind this stable URL; refresh version + hash
   # together when the fixed-output fetch starts failing, and re-check the
