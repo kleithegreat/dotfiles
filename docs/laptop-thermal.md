@@ -29,3 +29,15 @@ This killed the machine twice, ~3 minutes into `nrs` runs that compiled
 natively-optimized packages, while a three-step curve held the fans at "low"
 until 80 °C package. If a rebuild dies silently under sustained load, check
 `pwm1_enable` before suspecting the battery or the charger.
+
+### Manual fan mode is a one-way door until the next power cycle
+`pwm1_enable=2`, the documented "hand the fans back" write, returns `EINVAL`
+here: `dell-smm-hwmon` autodetects auto-mode support, the 9520 does not have
+it, and no module parameter forces it. The fan module that used to live in
+`hosts/laptop` carried an `ExecStopPost` "safety net" that did exactly this
+write, so it never once worked — the journal holds 74 consecutive failures of
+it. Stopping or removing such a service therefore leaves the fans wherever the
+last `pwm1` write put them, which is "low" unless the curve happened to be in
+its top step. Only a power cycle gives the EC its fans back, so reboot after
+switching to a configuration that drops manual fan control rather than
+assuming the switch restored anything.
