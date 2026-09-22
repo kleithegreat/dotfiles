@@ -7,13 +7,13 @@
 
 hyprlandPlugins.mkHyprlandPlugin {
   pluginName = "hyprexpo";
-  version = "0.56.1+3-unstable-2026-08-17";
+  version = "0.56.2+2";
 
   src = fetchFromGitHub {
     owner = "sandwichfarm";
     repo = "hyprexpo";
-    rev = "f3ed01d3b024e404563e7ce18efdf1583aaa8cba";
-    hash = "sha256-KGZFBldDdAgUuNRJYxhdIIQnnsTb+PMCScSnB8IGBH4=";
+    rev = "7231b92e567d84d0388c153ddd14d9a5965ea8ab"; # v0.56.2+2
+    hash = "sha256-Svw9VOl33puJWguBVYiIRD47krkutWKZp0ZsUh4GQgc=";
   };
 
   inherit (hyprland) nativeBuildInputs;
