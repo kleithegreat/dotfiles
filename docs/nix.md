@@ -140,9 +140,9 @@ there is nowhere to re-fetch from. (KDE recoloring wrapper: see [[theming]].)
 Vicinae's detached launcher can treat an AppImage/FHS wrapper handoff as a
 successful launch and lose the real app. The `pkgs/lmstudio` and
 `pkgs/bambu-studio` packages wrap the upstream AppImages and rewrite their
-desktop files to
-absolute `$out/bin/<app>-desktop` launchers that invoke the binary *without*
-`exec`, and normalize `StartupWMClass` to the class Hyprland actually reports.
+desktop files to absolute `$out/bin/<app>-desktop` launchers that invoke the
+binary *without* `exec`. Only `pkgs/bambu-studio` normalizes `StartupWMClass`;
+LM Studio's upstream value already matches the class Hyprland reports.
 After switching, refresh the long-lived Vicinae server (`nrs` does this via
 `vicinae server --replace`) so it drops cached desktop entries. Bambu-specific:
 stay on the stable Ubuntu AppImage (the nixpkgs source package is an untested
