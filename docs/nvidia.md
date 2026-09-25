@@ -67,4 +67,14 @@ against looks like a ~31s stall between `PM: suspend exit` and display
 recovery, with `NVRM: _kgspRpcRecvPoll: GSP RM heartbeat timed out` in the
 journal — compare against that before concluding a resume cycle passed.
 
+### The Mesa-only EGL policy does not cover Vulkan
+The laptop's `__EGL_VENDOR_LIBRARY_FILENAMES` looks like it keeps ordinary
+apps off the dGPU, but the Vulkan loader still loads every ICD, NVIDIA's
+included. GTK4's default Vulkan renderer therefore opens `/dev/nvidiactl` on
+every launch and blocks ~1.4s while the runtime-suspended dGPU powers up, which
+is what made cold Nautilus starts slow. `GSK_RENDERER=gl` in
+`hosts/laptop/system.nix` keeps GTK on Mesa EGL. Check
+`/sys/bus/pci/devices/0000:01:00.0/power/runtime_status` before and after a
+launch to see whether an app wakes the dGPU.
+
 Related: [[nix]], [[hyprland]]

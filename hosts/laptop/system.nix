@@ -84,6 +84,8 @@ in {
   services.xserver.videoDrivers = [ "modesetting" "nvidia" ];
   environment.sessionVariables.__EGL_VENDOR_LIBRARY_FILENAMES =
     "/run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json";
+  # GTK's Vulkan renderer wakes the dGPU on every launch; see docs/nvidia.md.
+  environment.sessionVariables.GSK_RENDERER = "gl";
 
   # Only this host travels, so only this host tracks the timezone by
   # location; the desktop pins `time.timeZone` instead.

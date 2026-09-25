@@ -2,7 +2,7 @@
 
 local mainMod = "SUPER"
 local terminal = "alacritty"
-local fileManager = "dolphin"
+local fileManager = "nautilus"
 
 local bind = hl.bind
 
