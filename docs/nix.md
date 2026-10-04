@@ -167,6 +167,15 @@ broke once against the moving upstream builder shape.
 session's Qt ABI; pinning Haruna to a different nixpkgs makes it load a
 mismatched plugin and abort at startup with no media loaded.
 
+### Hyprland must follow the system nixpkgs
+Hyprland dlopens the system Mesa from `/run/opengl-driver` for its GBM
+allocator, so it must share the system's glibc. With its own nixpkgs pin, a
+system update that bumped glibc made `libgallium` fail to load (`GLIBC_2.43'
+not found`), Aquamarine found no allocator, and Hyprland aborted right after
+SDDM login, the same symptom as the `AQ_DRM_DEVICES` quirk in [[nvidia]].
+`~/.cache/hyprland/hyprlandCrashReport*.txt` log tails tell the two apart. The
+stack is built locally anyway (no Cachix), so the `follows` costs nothing.
+
 ### Discord's Krisp module fails its signature check when Nix-packaged
 `pkgs/discord-krisp/` carries a local backport of the nixpkgs patcher: it
 patches the signature check, points `discord_voice` at the user-deployed
