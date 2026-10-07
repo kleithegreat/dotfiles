@@ -13,6 +13,7 @@ QtObject {
     property bool wifi: false
     property bool fingerprint: false
     property bool powerProfiles: false
+    property bool heater: false
 
     readonly property bool battery: UPower.displayDevice.isPresent
 
@@ -43,6 +44,12 @@ QtObject {
         running: true
         command: ["powerprofilesctl", "get"]
         onExited: code => root.powerProfiles = code === 0
+    }
+
+    readonly property Process _heater: Process {
+        running: true
+        command: ["systemctl", "--user", "cat", "heater.service"]
+        onExited: code => root.heater = code === 0
     }
 
     readonly property Process _fingerprint: Process {

@@ -148,6 +148,13 @@ by the binary existing. On non-hybrid CPUs it exits non-zero with empty
 stdout, leaving `_helperProfile` empty so the `ppctl` backend wins and the
 "Efficiency Cores" tile stays hidden.
 
+### Heater mode on, machine idle: the client's own state, not the shell
+The toggle reports the `heater` unit, and the unit being active does not mean
+anything is folding. Folding@home keeps "paused" and the per-GPU enable in
+`client.db` under the unit's state directory, and a fresh one starts paused
+with every GPU off; neither is a command-line option. Both are set once from
+the client's web control and persist from then on.
+
 ### Battery sysfs reports a charge interval even when the cap is off
 `/sys/class/power_supply/BAT0/charge_control_{start,end}_threshold` exposes the
 *stored* Dell custom interval whatever the active charging mode is: it reads

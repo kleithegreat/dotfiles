@@ -26,7 +26,7 @@ Item {
                 { id: "Display", label: "Displays", icon: "monitor", shown: true },
                 { id: "Notifications", label: "Notifications", icon: "bell", shown: true },
                 { id: "Diagnostics", label: "Diagnostics", icon: "stethoscope", shown: true },
-                { id: "Power", label: "Battery & Power", icon: "bolt", shown: Sys.Host.battery || Sys.Host.profileSwitching }
+                { id: "Power", label: "Battery & Power", icon: "bolt", shown: Sys.Host.battery || Sys.Host.profileSwitching || Sys.Host.heater }
             ]
         },
         {

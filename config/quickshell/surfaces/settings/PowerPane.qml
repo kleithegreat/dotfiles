@@ -9,7 +9,12 @@ Ui.Scroll {
 
     contentHeight: body.height
 
-    Component.onCompleted: if (Sys.Host.laptop) Sys.Power.readChargeLimit()
+    Component.onCompleted: {
+        if (Sys.Host.laptop)
+            Sys.Power.readChargeLimit();
+        if (Sys.Host.heater)
+            Sys.Heater.refresh();
+    }
 
     ColumnLayout {
         id: body
@@ -87,6 +92,26 @@ Ui.Scroll {
         }
 
         Ui.Group {
+            title: "Heater"
+            visible: Sys.Host.heater
+            footnote: "Runs Folding@home on every core and the GPU."
+
+            Ui.ListRow {
+                Layout.fillWidth: true
+                icon: "flame"
+                title: "Heater mode"
+                interactive: false
+
+                Ui.Toggle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    checked: Sys.Heater.active
+                    pending: Sys.Heater.busy
+                    onToggled: enabled => Sys.Heater.set(enabled)
+                }
+            }
+        }
+
+        Ui.Group {
             title: "Keep awake"
 
             Ui.ListRow {
@@ -103,6 +128,7 @@ Ui.Scroll {
             }
 
             Ui.Divider {
+                visible: Sys.Host.laptop
                 inset: Metrics.rowInset
             }
 

@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ config, lib, pkgs, ... }:
 
 {
   boot.initrd.availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usbhid" "usb_storage" "sd_mod" ];
@@ -68,6 +68,18 @@
   # Ithaca, NY. Read by desktopctl's solar scheduler; outranks GeoClue and the
   # location cache.
   environment.sessionVariables.DESKTOPCTL_LOCATION = "42.4440,-76.5019";
+
+  # ── Heater ────────────────────────────────────────────────────
+  # Wanted by nothing: the shell's Power pane starts and stops it.
+  systemd.user.services.heater = {
+    description = "Folding@home as a space heater";
+    serviceConfig = {
+      ExecStart = lib.getExe pkgs.fahclient;
+      StateDirectory = "heater";
+      WorkingDirectory = "%S/heater";
+      Restart = "on-failure";
+    };
+  };
 
   # ── Steam ─────────────────────────────────────────────────────
   programs.steam = {

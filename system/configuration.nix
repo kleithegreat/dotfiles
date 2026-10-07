@@ -25,6 +25,7 @@ let
     "cudnn"
     "discord"
     "discord-unwrapped"
+    "fah-client"
     "libcublas"
     "libcufft"
     "libcufile"
