@@ -80,6 +80,37 @@
       Restart = "on-failure";
     };
   };
+  # Folding@home's servers do not always have GPU work, and the card is most of
+  # the heat. This covers the gaps and yields as soon as a GPU core is running.
+  systemd.user.services.heater-gpu-fallback = {
+    description = "Burn the GPU while Folding@home has no work for it";
+    partOf = [ "heater.service" ];
+    wantedBy = [ "heater.service" ];
+    serviceConfig = {
+      ExecStart = lib.getExe (pkgs.writeShellApplication {
+        name = "heater-gpu-fallback";
+        runtimeInputs = [
+          config.hardware.nvidia.package.bin
+          pkgs.coreutils
+          pkgs.gnugrep
+          pkgs.gpu-burn
+        ];
+        text = /* bash */ ''
+          while true; do
+            if nvidia-smi --query-compute-apps=name --format=csv,noheader | grep --quiet FahCore; then
+              sleep 30
+            else
+              # 1 GB already pins the card at full power. Without `-stts` every
+              # burst is followed by 30 idle seconds of waiting on its workers.
+              gpu_burn -stts 1 -m 1024 120 > /dev/null 2>&1
+            fi
+          done
+        '';
+      });
+      Restart = "on-failure";
+      RestartSec = 30;
+    };
+  };
 
   # ── Steam ─────────────────────────────────────────────────────
   programs.steam = {

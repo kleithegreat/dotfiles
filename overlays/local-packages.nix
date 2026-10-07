@@ -13,6 +13,11 @@ final: prev: {
   };
   comfyui = final.callPackage ../pkgs/comfyui { };
   desktopctl = final.callPackage ../desktopctl { };
+  # Shares comfyui's CUDA set rather than pulling the default one in beside it.
+  gpu-burn = prev.gpu-burn.override {
+    config = prev.config // { cudaSupport = true; };
+    cudaPackages = final.cudaPackages_13_3;
+  };
   helium = final.callPackage ../pkgs/helium { };
   lmstudio = final.callPackage ../pkgs/lmstudio {
     upstreamLmstudio = prev.lmstudio;
