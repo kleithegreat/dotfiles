@@ -26,6 +26,9 @@ hl.on("hyprland.start", function()
 
     -- Window switcher
     exec("snappy-switcher --daemon")
+
+    exec("solaar -w hide")
+    exec([[solaar config "MX Master 2S" smart-shift 50]])
 end)
 
 hl.on("hyprland.shutdown", function()

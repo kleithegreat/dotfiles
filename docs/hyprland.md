@@ -222,9 +222,7 @@ deliberately not done.
 
 ### MX Master 2S smart-shift caps at 50
 Solaar exposes `smart-shift` on a 0–50 scale for this device; 50 *is* the
-always-ratcheted value, and higher values fail. The laptop autostart also sets
-`scroll-ratchet Ratcheted` while the desktop doesn't (owner question pending,
-see `TODO.md`).
+always-ratcheted value, and higher values fail.
 
 ### `hyprland-guiutils` needs explicit Pango cflags on this input lock
 The locked `hyprgraphics` public headers include Pango, but the nested
