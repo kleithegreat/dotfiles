@@ -58,6 +58,9 @@ const SETTLE: Duration = Duration::from_secs(2);
 const SETTLE_DEADLINE: Duration = Duration::from_secs(30);
 const SETTLE_POLL: Duration = Duration::from_millis(500);
 
+/// Where a relaunched app's windows wait, unseen, until they are sorted.
+const PARKING: &str = "special:restoring";
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub(crate) struct Window {
     workspace: String,
@@ -157,6 +160,10 @@ pub(crate) fn record() -> Result<Recording> {
             })
         })
         .collect();
+    // Parked windows are a restore in progress, not where anything lives.
+    if windows.iter().any(|window| window.workspace == PARKING) {
+        return Err(io::Error::other("a restore is still sorting windows").into());
+    }
     windows.sort();
     Ok(Recording {
         instance: hypr::hyprland_signature().unwrap_or_default(),
@@ -183,6 +190,12 @@ fn child_cwd(pid: i64) -> Option<PathBuf> {
 }
 
 pub(crate) fn restore(windows: &[Window]) -> Result<()> {
+    let restored = relaunch(windows);
+    unpark(&whole_app_classes());
+    restored
+}
+
+fn relaunch(windows: &[Window]) -> Result<()> {
     let open = hypr::query_windows()?;
     let mut sorting = Vec::new();
 
@@ -208,8 +221,9 @@ pub(crate) fn restore(windows: &[Window]) -> Result<()> {
                 {
                     eprintln!("desktopctl: preparing {} failed: {error}", app.class);
                 }
-                hypr::dispatch(&hypr::exec_dispatcher(app.command))?;
+                hypr::eval(&parking_rule(app.class, true))?;
                 sorting.push((app.class, saved));
+                hypr::dispatch(&hypr::exec_dispatcher(app.command))?;
             }
         }
     }
@@ -218,7 +232,39 @@ pub(crate) fn restore(windows: &[Window]) -> Result<()> {
         return Ok(());
     }
     let classes: Vec<&str> = sorting.iter().map(|(class, _)| *class).collect();
-    let opened = settled_windows(&classes)?;
+    sort_parked(&classes, sorting)
+}
+
+/// Stop parking new windows of these classes. Also run when the daemon
+/// starts: a restore that died midway would leave every later window hidden.
+pub(crate) fn unpark(classes: &[&str]) {
+    for class in classes {
+        if let Err(error) = hypr::eval(&parking_rule(class, false)) {
+            eprintln!("desktopctl: could not stop parking {class} windows: {error}");
+        }
+    }
+}
+
+pub(crate) fn whole_app_classes() -> Vec<&'static str> {
+    APPS.iter()
+        .filter(|app| app.relaunch == Relaunch::Whole)
+        .map(|app| app.class)
+        .collect()
+}
+
+/// The rule is named, so declaring it again with `enabled = false` turns the
+/// same rule off instead of adding a second one.
+fn parking_rule(class: &str, enabled: bool) -> String {
+    format!(
+        "hl.window_rule({{ name = {}, enabled = {enabled}, match = {{ class = {} }}, workspace = {} }})",
+        hypr::lua_str(&format!("session-restore-{class}")),
+        hypr::lua_str(&format!("^{class}$")),
+        hypr::lua_str(&format!("{PARKING} silent")),
+    )
+}
+
+fn sort_parked(classes: &[&str], sorting: Vec<(&str, Vec<&Window>)>) -> Result<()> {
+    let opened = settled_windows(classes)?;
     for (class, saved) in sorting {
         let opened: Vec<&hypr::WindowInfo> = opened
             .iter()
@@ -286,8 +332,10 @@ fn settled_windows(classes: &[&str]) -> Result<Vec<hypr::WindowInfo>> {
 }
 
 /// Pair reopened windows with saved ones: by title where a title survived the
-/// restart, in order for the rest. Returns the moves that are still needed.
+/// restart, in order for the rest, and any window beyond the saved ones with
+/// the first. Returns the moves that are still needed.
 fn assign<'a>(saved: &[&'a Window], opened: &[&hypr::WindowInfo]) -> Vec<(String, &'a str)> {
+    let spare = saved.first().copied();
     let mut saved: Vec<&Window> = saved.to_vec();
     let mut unmatched = Vec::new();
     let mut pairs = Vec::new();
@@ -301,7 +349,12 @@ fn assign<'a>(saved: &[&'a Window], opened: &[&hypr::WindowInfo]) -> Vec<(String
             None => unmatched.push(*window),
         }
     }
-    pairs.extend(unmatched.into_iter().zip(saved));
+    let mut saved = saved.into_iter();
+    for window in unmatched {
+        if let Some(target) = saved.next().or(spare) {
+            pairs.push((window, target));
+        }
+    }
 
     pairs
         .into_iter()
@@ -399,13 +452,19 @@ mod tests {
     }
 
     #[test]
-    fn assign_leaves_surplus_windows_alone() {
+    fn assign_sends_surplus_windows_with_the_first_saved_one() {
         let saved = [saved("3", "Docs")];
         let saved: Vec<&Window> = saved.iter().collect();
-        let opened = [opened("0xa", "1", "Other"), opened("0xb", "1", "Extra")];
+        let opened = [
+            opened("0xa", PARKING, "Other"),
+            opened("0xb", PARKING, "Extra"),
+        ];
         let opened: Vec<&hypr::WindowInfo> = opened.iter().collect();
 
-        assert_eq!(assign(&saved, &opened), vec![("0xa".to_owned(), "3")]);
+        assert_eq!(
+            assign(&saved, &opened),
+            vec![("0xa".to_owned(), "3"), ("0xb".to_owned(), "3")]
+        );
     }
 
     #[test]

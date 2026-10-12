@@ -42,13 +42,19 @@ agreement in `daemon/session.rs` is that guard, not a debounce to tune down:
 it has to stay longer than a session takes to die. The price is that the last
 ten to twenty seconds before a crash are not recorded.
 
-### A whole-app restore sorts after the fact, so windows land twice
+### A whole-app restore parks its windows before it can place them
 Helium and VS Code reopen all their windows from one process, and Hyprland's
-exec rules place only what that launch maps first. Their windows therefore
-open on the active workspace and move once the window count has held still for
-two seconds. Seeing them appear and then scatter is the mechanism working. A
-browser that opens a single window is its own "continue where you left off"
-setting being off, which nothing here can turn on.
+exec rules place only what that launch maps first, so there is no saying
+up front where each window goes. For the length of a restore a named window
+rule sends every new window of the app to the hidden `special:restoring`
+workspace, and once the window count has held still for two seconds each is
+moved to its own workspace and the rule is switched off. A restore that
+looks like it did nothing for a few seconds is this wait; windows that never
+appear are still parked, which `hyprctl clients` shows. The daemon switches
+the rules off again whenever it starts, because a rule left on would swallow
+every later window of that app. A browser that opens a single window is its
+own "continue where you left off" setting being off, which nothing here can
+turn on.
 
 ### A browser that went down with the session believes it crashed
 Chromium writes `exit_type: Crashed` into its profile while it runs and

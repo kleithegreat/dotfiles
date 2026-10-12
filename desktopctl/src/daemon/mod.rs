@@ -36,6 +36,7 @@ async fn run_async() -> crate::Result<()> {
     let theme = theme::ThemeController::spawn(events.clone());
     let night_light = night_light::Controller::with_hooks(theme.clone(), events.clone());
     let hypr = hypr::HyprController::new(events.clone());
+    crate::session::unpark(&crate::session::whole_app_classes());
     let session = session::SessionController::new(
         crate::session::load_state().unwrap_or_else(|error| {
             eprintln!("desktopctl: session state unreadable, starting empty: {error}");
