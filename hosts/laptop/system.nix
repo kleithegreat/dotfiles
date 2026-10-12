@@ -89,8 +89,12 @@
 
   # Touchpad: pin its I2C controller out of runtime PM, against powertop. Both
   # mechanisms are needed; see docs/nix.md before dropping either.
+  # GPUs: colon-free names for the two card nodes, because Aquamarine's
+  # AQ_DRM_DEVICES cannot take by-path names; see docs/nvidia.md before editing.
   services.udev.extraRules = /* udev */ ''
     ACTION=="add|change", SUBSYSTEM=="pci", KERNEL=="0000:00:15.1", ATTR{power/control}="on"
+    SUBSYSTEM=="drm", ENV{DEVTYPE}=="drm_minor", KERNEL=="card[0-9]*", SUBSYSTEMS=="pci", DRIVERS=="i915", SYMLINK+="dri/intel-gpu"
+    SUBSYSTEM=="drm", ENV{DEVTYPE}=="drm_minor", KERNEL=="card[0-9]*", SUBSYSTEMS=="pci", DRIVERS=="nvidia", SYMLINK+="dri/nvidia-gpu"
   '';
 
   # Must hang off powertop.service itself: a separate unit cannot be ordered

@@ -33,11 +33,25 @@ Aquamarine parses `AQ_DRM_DEVICES` as a colon-separated list, and by-path
 symlinks (`pci-0000:...`) contain literal colons, so the list splits into
 garbage, no GPU backend is found, and Hyprland exits — the visible symptom is
 SDDM accepting the password and bouncing straight back to the greeter.
-`hosts/laptop/env.lua` therefore hardcodes `/dev/dri/card2:/dev/dri/card1` on
-the laptop. Card numbering is not stable across kernel/driver changes; if the
-laptop session dies at login after an update, re-check the card numbers before
-anything else. Aquamarine canonicalizes each entry, so a colon-free symlink to
-the same device is accepted (tracked in `TODO.md`).
+`hosts/laptop/env.lua` therefore lists `/dev/dri/intel-gpu:/dev/dri/nvidia-gpu`,
+colon-free symlinks that udev rules in `hosts/laptop/system.nix` attach to the
+i915 and NVIDIA card nodes (Aquamarine canonicalizes each entry). `cardN`
+numbering is not stable across kernel/driver changes, which is why the list does
+not use it.
+
+The rules match on the *PCI parent's driver*, not on PCI vendor or address.
+The NVIDIA card hangs off an Intel PCIe root port (vendor 0x8086), so a vendor
+match would give the dGPU the iGPU's name, and a simple-framebuffer card can sit
+under the iGPU's address as well. Rules also require `DEVTYPE=drm_minor`, so
+connector nodes and `renderD*` are not touched.
+
+If a driver swap (`xe` for `i915`, `nouveau` for `nvidia`) or a rule typo leaves
+a link missing, the laptop session dies at login exactly as described above.
+Recovery needs no working session: pick the previous generation in GRUB, or
+from a TTY run `ls -l /dev/dri` and `udevadm info --attribute-walk
+--name=/dev/dri/cardN` to see what the rules failed to match. These rules were
+dry-run against the live devices with `udevadm test`, but never exercised
+through a real boot and relogin.
 
 ### CUDA capabilities are pinned shared, not per host
 `cudaCapabilities` is the one piece of GPU policy in the shared baseline rather
