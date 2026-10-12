@@ -69,46 +69,11 @@ Item {
         }
     }
 
-    readonly property real _limit: Math.max(0, strip.contentWidth - strip.width)
-
-    function _scrollTo(x, curve) {
-        glide.to = x;
-        glide.easing.bezierCurve = curve || Motion.enter;
-        glide.restart();
-    }
-
-    // Both wheel axes and both devices, stretching like `Scroll`; see docs/quickshell.md.
-    WheelHandler {
-        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-        enabled: root.overflowing
-        onWheel: event => {
-            const delta = event.angleDelta.x !== 0 ? event.angleDelta.x : event.angleDelta.y;
-            const next = (glide.running ? glide.to : strip.contentX) - delta / 120 * Metrics.wheelStep;
-            const past = next < 0 ? -next : next > root._limit ? next - root._limit : 0;
-
-            if (past === 0) {
-                root._scrollTo(next);
-                return;
-            }
-
-            root._scrollTo(next < 0 ? -Metrics.resist(past) : root._limit + Metrics.resist(past));
-            recoil.restart();
-        }
-    }
-
-    Timer {
-        id: recoil
-        interval: 110
-        onTriggered: root._scrollTo(Math.max(0, Math.min(root._limit, glide.to)), Motion.standard)
-    }
-
-    NumberAnimation {
-        id: glide
-        target: strip
-        property: "contentX"
-        duration: Motion.quick
-        easing.type: Easing.BezierSpline
-        easing.bezierCurve: Motion.enter
+    WheelGlide {
+        id: wheel
+        flick: strip
+        horizontal: true
+        active: root.overflowing
     }
 
     // A rail under the options, sized to the visible fraction. The fades say
@@ -121,7 +86,7 @@ Item {
         radius: 1
         color: Theme.fillTrack
         visible: root.overflowing
-        opacity: strip.moving || glide.running ? 1 : 0.55
+        opacity: strip.moving || wheel.running ? 1 : 0.55
 
         Behavior on opacity {
             Anim {}

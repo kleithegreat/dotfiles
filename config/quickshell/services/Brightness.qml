@@ -175,11 +175,16 @@ QtObject {
 
     readonly property Process _writer: Process {
         id: writer
+        stderr: StdioCollector {
+            id: failure
+        }
         onExited: code => {
-            if (code !== 0)
+            if (code !== 0) {
+                Toast.failure(failure.text, "Brightness change failed");
                 root.refresh();
-            else
+            } else {
                 root._drain();
+            }
         }
     }
 }

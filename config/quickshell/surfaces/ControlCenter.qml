@@ -107,85 +107,38 @@ Popover {
 
         Ui.Divider {}
 
-        RowLayout {
+        Ui.SliderRow {
             Layout.fillWidth: true
-            spacing: Metrics.s3
-
-            Ui.Pressable {
-                implicitWidth: Metrics.s6
-                implicitHeight: Metrics.s6
-                onClicked: Sys.Audio.toggleMute()
-
-                Ui.Icon {
-                    anchors.centerIn: parent
-                    name: Sys.Audio.icon
-                    color: Sys.Audio.muted ? Theme.textQuaternary : Theme.textSecondary
-                }
-            }
-
-            Ui.Slider {
-                id: volume
-                Layout.fillWidth: true
-                value: Sys.Audio.volume
-                claimsDrag: false
-                onMoved: level => Sys.Audio.setVolume(level)
-            }
-
-            Ui.Label {
-                text: Sys.Audio.percent + "%"
-                role: "caption"
-                numeric: true
-                horizontalAlignment: Text.AlignRight
-                Layout.preferredWidth: Metrics.s8
-            }
-        }
-
-        // While the pointer owns the value, the OSD would be a second, worse
-        // copy of the control already under the cursor.
-        Binding {
-            target: Sys.Osd
-            property: "suppressed"
-            value: true
-            when: volume.pressed
+            icon: Sys.Audio.icon
+            iconColor: Sys.Audio.muted ? Theme.textQuaternary : Theme.textSecondary
+            iconInteractive: true
+            value: Sys.Audio.volume
+            caption: Sys.Audio.percent + "%"
+            claimsDrag: false
+            suppressOsd: true
+            onIconClicked: Sys.Audio.toggleMute()
+            onMoved: level => Sys.Audio.setVolume(level)
         }
 
         // Keyed on the count, never the array; see docs/quickshell.md.
         Repeater {
             model: Sys.Brightness.devices.length
 
-            RowLayout {
+            Ui.SliderRow {
                 id: lamp
 
                 required property int index
                 readonly property var device: Sys.Brightness.devices[lamp.index]
 
                 Layout.fillWidth: true
-                spacing: Metrics.s3
-
-                Ui.Icon {
-                    name: Sys.Brightness.icon
-                    color: Theme.textSecondary
-                    Layout.preferredWidth: Metrics.s6
-                    Layout.alignment: Qt.AlignVCenter
-                }
-
-                Ui.Slider {
-                    Layout.fillWidth: true
-                    minimum: 0.01
-                    value: lamp.device ? lamp.device.fraction : 0
-                    claimsDrag: false
-                    onMoved: fraction => {
-                        if (lamp.device)
-                            Sys.Brightness.set(lamp.device.device, fraction);
-                    }
-                }
-
-                Ui.Label {
-                    text: (lamp.device ? lamp.device.percent : 0) + "%"
-                    role: "caption"
-                    numeric: true
-                    horizontalAlignment: Text.AlignRight
-                    Layout.preferredWidth: Metrics.s8
+                icon: Sys.Brightness.icon
+                minimum: 0.01
+                value: lamp.device ? lamp.device.fraction : 0
+                caption: (lamp.device ? lamp.device.percent : 0) + "%"
+                claimsDrag: false
+                onMoved: fraction => {
+                    if (lamp.device)
+                        Sys.Brightness.set(lamp.device.device, fraction);
                 }
             }
         }

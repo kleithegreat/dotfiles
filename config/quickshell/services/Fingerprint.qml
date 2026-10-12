@@ -119,10 +119,7 @@ QtObject {
     readonly property Process _remove: Process {
         id: remove
         stderr: StdioCollector {
-            onStreamFinished: {
-                if (this.text.trim() !== "")
-                    Toast.error(this.text.trim().split("\n")[0]);
-            }
+            onStreamFinished: Toast.failure(this.text)
         }
         onExited: root.refresh()
     }

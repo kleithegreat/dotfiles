@@ -36,7 +36,7 @@ QtObject {
         }
         onExited: code => {
             if (code !== 0)
-                Toast.error(failure.text.trim().split("\n").filter(line => line !== "").pop() || "Could not switch the heater");
+                Toast.failure(failure.text, "Could not switch the heater");
             root.refresh();
         }
     }

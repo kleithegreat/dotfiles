@@ -101,14 +101,6 @@ QtObject {
         }
     }
 
-    readonly property Timer _settleRefresh: Timer {
-        // hyprsunset restarts asynchronously, so the event published right
-        // after a command can carry a false negative for `running`. One
-        // delayed read settles the tile.
-        interval: 2000
-        onTriggered: root.refresh()
-    }
-
     readonly property Process _status: Process {
         id: status
         command: ["desktopctl", "night-light", "status", "--json"]
@@ -125,10 +117,7 @@ QtObject {
     readonly property Process _command: Process {
         id: command
         stderr: StdioCollector {
-            onStreamFinished: {
-                if (this.text.trim() !== "")
-                    Toast.error(this.text.trim().split("\n")[0]);
-            }
+            onStreamFinished: Toast.failure(this.text)
         }
         onExited: code => {
             if (code !== 0) {
@@ -142,7 +131,6 @@ QtObject {
             }
 
             root.pending = "";
-            root._settleRefresh.restart();
         }
     }
 }

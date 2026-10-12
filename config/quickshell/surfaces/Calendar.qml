@@ -54,30 +54,14 @@ Popover {
                 Layout.fillWidth: true
             }
 
-            Ui.Pressable {
-                implicitWidth: Metrics.s6
-                implicitHeight: Metrics.s6
+            Ui.IconButton {
+                name: "chevron-left"
                 onClicked: root.offset--
-
-                Ui.Icon {
-                    anchors.centerIn: parent
-                    name: "chevron-left"
-                    size: Metrics.iconSm
-                    color: Theme.textTertiary
-                }
             }
 
-            Ui.Pressable {
-                implicitWidth: Metrics.s6
-                implicitHeight: Metrics.s6
+            Ui.IconButton {
+                name: "chevron-right"
                 onClicked: root.offset++
-
-                Ui.Icon {
-                    anchors.centerIn: parent
-                    name: "chevron-right"
-                    size: Metrics.iconSm
-                    color: Theme.textTertiary
-                }
             }
         }
 

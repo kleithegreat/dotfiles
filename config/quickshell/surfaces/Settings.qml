@@ -161,18 +161,10 @@ Item {
                             Layout.fillWidth: true
                         }
 
-                        Ui.Pressable {
-                            implicitWidth: Metrics.s6
-                            implicitHeight: Metrics.s6
+                        Ui.IconButton {
+                            name: "close"
                             radius: Metrics.rPill
                             onClicked: root.state.close()
-
-                            Ui.Icon {
-                                anchors.centerIn: parent
-                                name: "close"
-                                size: Metrics.iconSm
-                                color: Theme.textTertiary
-                            }
                         }
                     }
 

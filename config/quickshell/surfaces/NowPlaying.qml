@@ -139,57 +139,34 @@ Popover {
                 Layout.fillWidth: true
             }
 
-            Ui.Pressable {
-                implicitWidth: Metrics.s8
-                implicitHeight: Metrics.s8 - Metrics.s1
+            Ui.IconButton {
+                name: "player-prev"
+                size: Metrics.s8
+                iconSize: Metrics.icon
+                iconColor: Theme.textSecondary
                 interactive: root.player?.canGoPrevious ?? false
                 onClicked: root.player.previous()
-
-                Ui.Icon {
-                    anchors.centerIn: parent
-                    name: "player-prev"
-                    color: Theme.textSecondary
-                }
             }
 
-            Ui.Pressable {
+            Ui.IconButton {
+                name: root.playing ? "player-pause" : "player-play"
+                size: Metrics.s8
                 implicitWidth: Metrics.s8 + Metrics.s2
-                implicitHeight: Metrics.s8
+                iconSize: Metrics.iconLg
+                iconColor: Theme.text
                 radius: Metrics.rCard
-                showFill: false
+                filled: true
                 interactive: root.player?.canTogglePlaying ?? false
                 onClicked: root.player.togglePlaying()
-
-                Rectangle {
-                    anchors.fill: parent
-                    radius: parent.radius
-                    color: parent.pressed ? Theme.fillPress : parent.hovered ? Theme.fillActive : Theme.fillTrack
-                    antialiasing: true
-
-                    Behavior on color {
-                        Ui.Tint {}
-                    }
-                }
-
-                Ui.Icon {
-                    anchors.centerIn: parent
-                    name: root.playing ? "player-pause" : "player-play"
-                    size: Metrics.iconLg
-                    color: Theme.text
-                }
             }
 
-            Ui.Pressable {
-                implicitWidth: Metrics.s8
-                implicitHeight: Metrics.s8 - Metrics.s1
+            Ui.IconButton {
+                name: "player-next"
+                size: Metrics.s8
+                iconSize: Metrics.icon
+                iconColor: Theme.textSecondary
                 interactive: root.player?.canGoNext ?? false
                 onClicked: root.player.next()
-
-                Ui.Icon {
-                    anchors.centerIn: parent
-                    name: "player-next"
-                    color: Theme.textSecondary
-                }
             }
 
             Item {

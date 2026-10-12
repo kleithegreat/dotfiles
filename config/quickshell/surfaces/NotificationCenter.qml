@@ -26,18 +26,11 @@ Popover {
                 Layout.fillWidth: true
             }
 
-            Ui.Pressable {
-                implicitWidth: Metrics.s6
-                implicitHeight: Metrics.s6
+            Ui.IconButton {
+                name: Sys.Notifications.dnd ? "bell-off" : "bell"
+                iconColor: Sys.Notifications.dnd ? Theme.accent : Theme.textTertiary
                 active: Sys.Notifications.dnd
                 onClicked: Sys.Notifications.toggleDnd()
-
-                Ui.Icon {
-                    anchors.centerIn: parent
-                    name: Sys.Notifications.dnd ? "bell-off" : "bell"
-                    size: Metrics.iconSm
-                    color: Sys.Notifications.dnd ? Theme.accent : Theme.textTertiary
-                }
             }
 
             Ui.Button {
@@ -100,18 +93,12 @@ Popover {
                                     color: Theme.textQuaternary
                                 }
 
-                                Ui.Pressable {
+                                Ui.IconButton {
                                     id: dismiss
-                                    implicitWidth: Metrics.s5
-                                    implicitHeight: Metrics.s5
+                                    name: "close"
+                                    size: Metrics.s5
+                                    iconColor: dismiss.hovered ? Theme.text : Theme.textQuaternary
                                     onClicked: Sys.Notifications.forget(entry.entryId)
-
-                                    Ui.Icon {
-                                        anchors.centerIn: parent
-                                        name: "close"
-                                        size: Metrics.iconSm
-                                        color: dismiss.hovered ? Theme.text : Theme.textQuaternary
-                                    }
                                 }
                             }
 

@@ -91,20 +91,13 @@ Pressable {
         }
     }
 
-    Pressable {
-        width: Metrics.s5
-        height: Metrics.s5
+    IconButton {
+        name: "chevron-right"
+        size: Metrics.s5
         visible: root.expandable
         anchors.right: parent.right
         anchors.rightMargin: Metrics.s1 + 2
         anchors.verticalCenter: parent.verticalCenter
         onClicked: root.expand()
-
-        Icon {
-            anchors.centerIn: parent
-            name: "chevron-right"
-            size: Metrics.iconSm
-            color: Theme.textTertiary
-        }
     }
 }

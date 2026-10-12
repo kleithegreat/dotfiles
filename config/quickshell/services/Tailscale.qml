@@ -61,7 +61,7 @@ QtObject {
         onExited: code => {
             root.pending = "";
             if (code !== 0)
-                Toast.error(failure.text.trim().split("\n").filter(line => line !== "").pop() || "Tailscale command failed");
+                Toast.failure(failure.text, "Tailscale command failed");
             root.refresh();
         }
     }

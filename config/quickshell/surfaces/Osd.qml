@@ -54,27 +54,11 @@ PanelWindow {
                 color: Theme.text
             }
 
-            Rectangle {
+            Ui.Meter {
                 Layout.fillWidth: true
                 Layout.alignment: Qt.AlignVCenter
-                height: Metrics.trackHeight
-                radius: height / 2
-                color: Theme.fillTrack
-                antialiasing: true
-
-                Rectangle {
-                    width: parent.width * Sys.Osd.value
-                    height: parent.height
-                    radius: parent.radius
-                    color: Theme.text
-                    antialiasing: true
-
-                    Behavior on width {
-                        Ui.Anim {
-                            duration: Motion.instant
-                        }
-                    }
-                }
+                fraction: Sys.Osd.value
+                fill: Theme.text
             }
 
             Ui.Label {

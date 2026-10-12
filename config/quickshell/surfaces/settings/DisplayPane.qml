@@ -344,30 +344,14 @@ Ui.Scroll {
                 inset: Metrics.rowInset
             }
 
-            RowLayout {
+            Ui.SliderRow {
                 Layout.fillWidth: true
                 Layout.margins: Metrics.s2
-                spacing: Metrics.s3
-
-                Ui.Label {
-                    text: "Warmth"
-                    role: "body"
-                }
-
-                Ui.Slider {
-                    Layout.fillWidth: true
-                    value: Sys.NightLight.fraction
-                    onMoved: value => Sys.NightLight.setFraction(value)
-                    onCommitted: Sys.NightLight.commitTemperature()
-                }
-
-                Ui.Label {
-                    text: Sys.NightLight.target + "K"
-                    role: "caption"
-                    numeric: true
-                    horizontalAlignment: Text.AlignRight
-                    Layout.preferredWidth: Metrics.s8 + Metrics.s2
-                }
+                label: "Warmth"
+                value: Sys.NightLight.fraction
+                caption: Sys.NightLight.target + "K"
+                onMoved: value => Sys.NightLight.setFraction(value)
+                onCommitted: Sys.NightLight.commitTemperature()
             }
         }
     }

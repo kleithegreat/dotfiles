@@ -159,7 +159,7 @@ QtObject {
         }
         onExited: code => {
             if (code !== 0)
-                Toast.error(failure.text.trim().split("\n").filter(line => line !== "").pop() || "Display change failed");
+                Toast.failure(failure.text, "Display change failed");
         }
     }
 

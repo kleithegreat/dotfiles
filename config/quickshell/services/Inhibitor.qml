@@ -46,8 +46,7 @@ Process {
         if (root._shuttingDown || stopped)
             return;
 
-        const text = errors.text.trim().split("\n").filter(line => line.trim() !== "").pop();
-        Toast.error(text || "Inhibitor stopped unexpectedly");
+        Toast.failure(errors.text, "Inhibitor stopped unexpectedly");
     }
 
     Component.onDestruction: {

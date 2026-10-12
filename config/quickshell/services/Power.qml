@@ -153,7 +153,7 @@ QtObject {
         onExited: code => {
             if (code !== 0) {
                 root.pendingProfile = "";
-                Toast.error(profileFailure.text.trim().split("\n").filter(line => line !== "").pop() || "Could not change the power profile");
+                Toast.failure(profileFailure.text, "Could not change the power profile");
             }
         }
     }

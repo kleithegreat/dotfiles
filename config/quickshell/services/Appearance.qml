@@ -8,7 +8,7 @@ QtObject {
     id: root
 
     property var state: ({})
-    property var staged: ({})
+    readonly property var staged: writes.staged
 
     property var schemes: []
     property var presets: []
@@ -16,39 +16,23 @@ QtObject {
     // preview generation failed for that file.
     property var wallpapers: []
 
-
-    property var _queue: []
-    property var _rollback: ({})
-
     function value(key, fallback) {
-        if (staged[key] !== undefined)
-            return staged[key];
-        if (state[key] !== undefined)
-            return state[key];
-        return fallback;
+        return writes.value(key, state[key] !== undefined ? state[key] : fallback);
     }
 
     function set(key, next) {
-        const previous = state[key];
-        if (previous === next && staged[key] === undefined)
+        if (state[key] === next && staged[key] === undefined)
             return;
-
-        const pending = Object.assign({}, staged);
-        pending[key] = next;
-        staged = pending;
-
-        const remembered = Object.assign({}, _rollback);
-        if (remembered[key] === undefined)
-            remembered[key] = previous;
-        _rollback = remembered;
-
-        _queue = _queue.concat([{ key: key, value: String(next) }]);
-        _pump();
+        writes.set(key, next, ["desktopctl", "theme", "set", key, String(next)]);
     }
 
     function applyPreset(name) {
-        _queue = _queue.concat([{ preset: name }]);
-        _pump();
+        writes.run(["desktopctl", "theme", "preset", name]);
+    }
+
+    readonly property WriteQueue _writes: WriteQueue {
+        id: writes
+        failureText: "Theme change failed"
     }
 
     // What each aspect of a preset covers. A preset is a partial patch, so
@@ -82,14 +66,12 @@ QtObject {
             return false;
         }
 
-        _queue = _queue.concat([{ savePreset: name, payload: JSON.stringify(patch) }]);
-        _pump();
+        writes.run(["desktopctl", "theme", "save-preset", name, JSON.stringify(patch)]);
         return true;
     }
 
     function deletePreset(name) {
-        _queue = _queue.concat([{ deletePreset: name }]);
-        _pump();
+        writes.run(["desktopctl", "theme", "delete-preset", name]);
     }
 
     function refresh() {
@@ -103,43 +85,9 @@ QtObject {
         wallpaperList.running = true;
     }
 
-    function _pump() {
-        if (writer.running || _queue.length === 0)
-            return;
-
-        const job = _queue[0];
-        if (job.preset !== undefined)
-            writer.command = ["desktopctl", "theme", "preset", job.preset];
-        else if (job.savePreset !== undefined)
-            writer.command = ["desktopctl", "theme", "save-preset", job.savePreset, job.payload];
-        else if (job.deletePreset !== undefined)
-            writer.command = ["desktopctl", "theme", "delete-preset", job.deletePreset];
-        else
-            writer.command = ["desktopctl", "theme", "set", job.key, job.value];
-        writer.running = true;
-    }
-
-    function _settle(ok) {
-        const job = _queue[0];
-        _queue = _queue.slice(1);
-
-        if (!ok && job && job.key !== undefined) {
-            const reverted = Object.assign({}, staged);
-            delete reverted[job.key];
-            staged = reverted;
-        }
-
-        Qt.callLater(root._pump);
-    }
-
     function _ingestState(next) {
         state = next;
-        const remaining = {};
-        for (const key in staged) {
-            if (state[key] !== staged[key])
-                remaining[key] = staged[key];
-        }
-        staged = remaining;
+        writes.settle(next);
     }
 
     Component.onCompleted: {
@@ -176,18 +124,6 @@ QtObject {
                 } catch (e) {
                 }
             }
-        }
-    }
-
-    readonly property Process _writer: Process {
-        id: writer
-        stderr: StdioCollector {
-            id: failure
-        }
-        onExited: code => {
-            if (code !== 0)
-                Toast.error(failure.text.trim().split("\n").filter(line => line !== "").pop() || "Theme change failed");
-            root._settle(code === 0);
         }
     }
 

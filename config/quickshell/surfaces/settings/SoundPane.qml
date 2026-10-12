@@ -17,44 +17,17 @@ Ui.Scroll {
         Ui.Group {
             title: "Output"
 
-            RowLayout {
+            Ui.SliderRow {
                 Layout.fillWidth: true
                 Layout.margins: Metrics.s2
-                spacing: Metrics.s3
-
-                Ui.Pressable {
-                    implicitWidth: Metrics.s6
-                    implicitHeight: Metrics.s6
-                    onClicked: Sys.Audio.toggleMute()
-
-                    Ui.Icon {
-                        anchors.centerIn: parent
-                        name: Sys.Audio.icon
-                        color: Sys.Audio.muted ? Theme.textQuaternary : Theme.textSecondary
-                    }
-                }
-
-                Ui.Slider {
-                    id: level
-                    Layout.fillWidth: true
-                    value: Sys.Audio.volume
-                    onMoved: value => Sys.Audio.setVolume(value)
-                }
-
-                Ui.Label {
-                    text: Sys.Audio.percent + "%"
-                    role: "caption"
-                    numeric: true
-                    horizontalAlignment: Text.AlignRight
-                    Layout.preferredWidth: Metrics.s8
-                }
-            }
-
-            Binding {
-                target: Sys.Osd
-                property: "suppressed"
-                value: true
-                when: level.pressed
+                icon: Sys.Audio.icon
+                iconColor: Sys.Audio.muted ? Theme.textQuaternary : Theme.textSecondary
+                iconInteractive: true
+                value: Sys.Audio.volume
+                caption: Sys.Audio.percent + "%"
+                suppressOsd: true
+                onIconClicked: Sys.Audio.toggleMute()
+                onMoved: level => Sys.Audio.setVolume(level)
             }
 
             Ui.Divider {

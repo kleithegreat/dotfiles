@@ -238,20 +238,9 @@ Ui.Scroll {
                         anchors.verticalCenter: parent.verticalCenter
                         spacing: Metrics.s3
 
-                        Rectangle {
-                            width: 90
-                            height: 5
-                            radius: 2.5
-                            color: Theme.fillTrack
-                            antialiasing: true
-
-                            Rectangle {
-                                width: parent.width * Math.min(1, chan.modelData.strongest / 100)
-                                height: parent.height
-                                radius: parent.radius
-                                color: chan.modelData.channel === Sys.NetworkProbe.channel ? Theme.accent : Theme.textQuaternary
-                                antialiasing: true
-                            }
+                        Ui.Meter {
+                            fraction: chan.modelData.strongest / 100
+                            fill: chan.modelData.channel === Sys.NetworkProbe.channel ? Theme.accent : Theme.textQuaternary
                         }
 
                         Ui.Label {

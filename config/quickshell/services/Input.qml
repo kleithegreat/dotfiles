@@ -12,10 +12,9 @@ QtObject {
     property real sensitivity: 0
     property string accelProfile: "flat"
     property real scrollFactor: 1
+    property real touchpadScrollFactor: 0.25
 
-    property var staged: ({})
-
-    property var _queue: []
+    readonly property var staged: writes.staged
 
     function value(key, fallback) {
         if (staged[key] !== undefined)
@@ -26,16 +25,13 @@ QtObject {
             return accelProfile;
         if (key === "scroll_factor")
             return scrollFactor;
+        if (key === "touchpad_scroll_factor")
+            return touchpadScrollFactor;
         return fallback;
     }
 
     function set(key, next) {
-        const pending = Object.assign({}, staged);
-        pending[key] = next;
-        staged = pending;
-
-        _queue = _queue.concat([{ key: key, value: String(next) }]);
-        _pump();
+        writes.set(key, next, ["desktopctl", "hypr", "input", "set", key, String(next)]);
     }
 
     function refresh() {
@@ -43,24 +39,18 @@ QtObject {
             status.running = true;
     }
 
-    function _pump() {
-        if (writer.running || _queue.length === 0)
-            return;
-        writer.command = ["desktopctl", "hypr", "input", "set", _queue[0].key, _queue[0].value];
-        writer.running = true;
-    }
-
     function _ingest(data) {
         sensitivity = data.sensitivity;
         accelProfile = data.accel_profile;
         scrollFactor = data.scroll_factor;
-        // Not a wholesale clear: that would discard optimism for writes still queued.
-        const remaining = {};
-        for (const key in staged) {
-            if (data[key] !== staged[key])
-                remaining[key] = staged[key];
-        }
-        staged = remaining;
+        if (data.touchpad_scroll_factor !== undefined)
+            touchpadScrollFactor = data.touchpad_scroll_factor;
+        writes.settle(data);
+    }
+
+    readonly property WriteQueue _writes: WriteQueue {
+        id: writes
+        failureText: "Input change failed"
     }
 
     Component.onCompleted: refresh()
@@ -85,26 +75,6 @@ QtObject {
                 } catch (e) {
                 }
             }
-        }
-    }
-
-    readonly property Process _writer: Process {
-        id: writer
-        stderr: StdioCollector {
-            id: failure
-        }
-        onExited: code => {
-            const job = root._queue[0];
-            root._queue = root._queue.slice(1);
-
-            if (code !== 0) {
-                const reverted = Object.assign({}, root.staged);
-                delete reverted[job.key];
-                root.staged = reverted;
-                Toast.error(failure.text.trim().split("\n").filter(line => line !== "").pop() || "Input change failed");
-            }
-
-            Qt.callLater(root._pump);
         }
     }
 }

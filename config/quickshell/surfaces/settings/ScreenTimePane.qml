@@ -163,20 +163,8 @@ Ui.Scroll {
                         anchors.verticalCenter: parent.verticalCenter
                         spacing: Metrics.s3
 
-                        Rectangle {
-                            width: 90
-                            height: 5
-                            radius: 2.5
-                            color: Theme.fillTrack
-                            antialiasing: true
-
-                            Rectangle {
-                                width: parent.width * Math.min(1, (app.modelData?.percent ?? 0) / 100)
-                                height: parent.height
-                                radius: parent.radius
-                                color: Theme.accent
-                                antialiasing: true
-                            }
+                        Ui.Meter {
+                            fraction: (app.modelData?.percent ?? 0) / 100
                         }
 
                         Ui.Label {

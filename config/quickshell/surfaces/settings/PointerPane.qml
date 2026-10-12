@@ -17,66 +17,50 @@ Ui.Scroll {
         Ui.Group {
             title: "Pointer"
 
-            RowLayout {
+            Ui.SliderRow {
                 Layout.fillWidth: true
                 Layout.margins: Metrics.s2
-                spacing: Metrics.s3
-
-                Ui.Label {
-                    text: "Speed"
-                    role: "body"
-                    Layout.preferredWidth: 90
-                }
-
-                Ui.Slider {
-                    Layout.fillWidth: true
-                    minimum: -1
-                    maximum: 1
-                    value: Sys.Input.value("sensitivity", 0)
-                    pending: Sys.Input.staged["sensitivity"] !== undefined
-                    onCommitted: value => Sys.Input.set("sensitivity", Math.round(value * 100) / 100)
-                }
-
-                Ui.Label {
-                    text: Number(Sys.Input.value("sensitivity", 0)).toFixed(2)
-                    role: "caption"
-                    numeric: true
-                    horizontalAlignment: Text.AlignRight
-                    Layout.preferredWidth: Metrics.s8 + Metrics.s2
-                }
+                label: "Speed"
+                minimum: -1
+                maximum: 1
+                value: Sys.Input.value("sensitivity", 0)
+                pending: Sys.Input.staged["sensitivity"] !== undefined
+                caption: Number(Sys.Input.value("sensitivity", 0)).toFixed(2)
+                onCommitted: value => Sys.Input.set("sensitivity", Math.round(value * 100) / 100)
             }
 
             Ui.Divider {
                 inset: Metrics.rowInset
             }
 
-            RowLayout {
+            Ui.SliderRow {
                 Layout.fillWidth: true
                 Layout.margins: Metrics.s2
-                spacing: Metrics.s3
+                label: "Scrolling"
+                minimum: 0.2
+                maximum: 3
+                value: Sys.Input.value("scroll_factor", 1)
+                pending: Sys.Input.staged["scroll_factor"] !== undefined
+                caption: Number(Sys.Input.value("scroll_factor", 1)).toFixed(2) + "×"
+                onCommitted: value => Sys.Input.set("scroll_factor", Math.round(value * 100) / 100)
+            }
 
-                Ui.Label {
-                    text: "Scrolling"
-                    role: "body"
-                    Layout.preferredWidth: 90
-                }
+            Ui.Divider {
+                inset: Metrics.rowInset
+                visible: Sys.Host.touchpad
+            }
 
-                Ui.Slider {
-                    Layout.fillWidth: true
-                    minimum: 0.2
-                    maximum: 3
-                    value: Sys.Input.value("scroll_factor", 1)
-                    pending: Sys.Input.staged["scroll_factor"] !== undefined
-                    onCommitted: value => Sys.Input.set("scroll_factor", Math.round(value * 100) / 100)
-                }
-
-                Ui.Label {
-                    text: Number(Sys.Input.value("scroll_factor", 1)).toFixed(2) + "×"
-                    role: "caption"
-                    numeric: true
-                    horizontalAlignment: Text.AlignRight
-                    Layout.preferredWidth: Metrics.s8 + Metrics.s2
-                }
+            Ui.SliderRow {
+                Layout.fillWidth: true
+                Layout.margins: Metrics.s2
+                visible: Sys.Host.touchpad
+                label: "Touchpad scrolling"
+                minimum: 0.05
+                maximum: 1.5
+                value: Sys.Input.value("touchpad_scroll_factor", 0.25)
+                pending: Sys.Input.staged["touchpad_scroll_factor"] !== undefined
+                caption: Number(Sys.Input.value("touchpad_scroll_factor", 0.25)).toFixed(2) + "×"
+                onCommitted: value => Sys.Input.set("touchpad_scroll_factor", Math.round(value * 100) / 100)
             }
 
             Ui.Divider {

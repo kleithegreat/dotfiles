@@ -25,10 +25,6 @@ QtObject {
             sink.audio.volume = Math.max(0, Math.min(1, value));
     }
 
-    function nudge(delta) {
-        setVolume(volume + delta);
-    }
-
     function toggleMute() {
         if (sink?.audio)
             sink.audio.muted = !muted;

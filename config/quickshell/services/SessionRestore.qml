@@ -38,10 +38,7 @@ QtObject {
     readonly property Process _command: Process {
         id: command
         stderr: StdioCollector {
-            onStreamFinished: {
-                if (this.text.trim() !== "")
-                    Toast.error(this.text.trim().split("\n")[0]);
-            }
+            onStreamFinished: Toast.failure(this.text)
         }
     }
 }

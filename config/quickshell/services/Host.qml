@@ -11,6 +11,7 @@ QtObject {
 
     property bool laptop: false
     property bool fingerprint: false
+    property bool touchpad: false
     property bool powerProfiles: false
     property bool heater: false
 
@@ -41,6 +42,19 @@ QtObject {
         running: true
         command: ["systemctl", "--user", "cat", "heater.service"]
         onExited: code => root.heater = code === 0
+    }
+
+    readonly property Process _touchpad: Process {
+        running: true
+        command: ["hyprctl", "devices", "-j"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    root.touchpad = JSON.parse(this.text).mice.some(device => /touchpad|trackpad/i.test(device.name));
+                } catch (e) {
+                }
+            }
+        }
     }
 
     readonly property Process _fingerprint: Process {

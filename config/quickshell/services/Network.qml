@@ -407,7 +407,7 @@ QtObject {
             root.busy = "";
 
             if (code !== 0) {
-                Toast.error(writerErrors.text.trim().split("\n").filter(line => line.trim() !== "").pop() || "Network request failed");
+                Toast.failure(writerErrors.text, "Network request failed");
             } else if (was === "") {
                 root.connectSucceeded();
             }

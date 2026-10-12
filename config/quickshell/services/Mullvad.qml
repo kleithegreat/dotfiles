@@ -165,7 +165,7 @@ QtObject {
         onExited: code => {
             root.pending = "";
             if (code !== 0)
-                Toast.error(failure.text.trim().split("\n").filter(line => line !== "").pop() || "Mullvad command failed");
+                Toast.failure(failure.text, "Mullvad command failed");
             root.refresh();
         }
     }
