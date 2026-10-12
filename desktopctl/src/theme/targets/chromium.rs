@@ -40,6 +40,26 @@ pub(super) fn write_active_preferences(config_dir: &Path, state: &ThemeState) ->
     Ok(())
 }
 
+/// Record a clean exit in every active profile. A browser that was killed
+/// with the session opens a blank window offering to restore; one that
+/// "exited normally" restores by itself.
+pub(super) fn mark_clean_exit(config_dir: &Path) -> crate::Result<()> {
+    for profile_name in active_profile_names(config_dir)? {
+        let path = config_dir.join(profile_name).join(PREFERENCES_FILE_NAME);
+        if !path.exists() {
+            continue;
+        }
+        let mut root = load_preferences(&path)?;
+        merge_value(
+            &mut root,
+            serde_json::json!({ "profile": { "exit_type": "Normal" } }),
+        );
+        atomic_write(&path, json::format_value(&root).as_bytes())?;
+    }
+
+    Ok(())
+}
+
 fn write_preferences(path: &Path, state: &ThemeState) -> crate::Result<()> {
     // load_preferences guarantees an object root and merge_value preserves it.
     let mut root = load_preferences(path)?;
@@ -371,6 +391,30 @@ mod tests {
         );
 
         let _ = fs::remove_dir_all(config_dir);
+    }
+
+    #[test]
+    fn mark_clean_exit_touches_only_the_exit_type() {
+        let dir = temp_path("clean-exit");
+        let profile = dir.join(DEFAULT_PROFILE_NAME);
+        fs::create_dir_all(&profile).expect("create profile dir");
+        let path = profile.join(PREFERENCES_FILE_NAME);
+        fs::write(
+            &path,
+            r#"{"profile":{"exit_type":"Crashed","name":"Kevin"},"session":{"restore_on_startup":1}}"#,
+        )
+        .expect("write preferences");
+
+        mark_clean_exit(&dir).expect("mark clean exit");
+
+        assert_eq!(
+            read_json(&path),
+            serde_json::json!({
+                "profile": { "exit_type": "Normal", "name": "Kevin" },
+                "session": { "restore_on_startup": 1 },
+            })
+        );
+        fs::remove_dir_all(dir).expect("remove temp dir");
     }
 
     #[test]

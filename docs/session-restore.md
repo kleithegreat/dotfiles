@@ -50,4 +50,13 @@ two seconds. Seeing them appear and then scatter is the mechanism working. A
 browser that opens a single window is its own "continue where you left off"
 setting being off, which nothing here can turn on.
 
+### A browser that went down with the session believes it crashed
+Chromium writes `exit_type: Crashed` into its profile while it runs and
+`Normal` only on a clean quit, and a reboot never gives it one. Launched like
+that, Helium opens one blank window with a "restore pages?" bubble — which
+looks exactly like the sorting above having lost the windows. The `prepare`
+step on its `APPS` row rewrites the flag before launch; an app added as
+`Whole` that restores after a manual quit but not after a reboot needs the
+same kind of step.
+
 Related: [[desktopctl]], [[hyprland]], [[quickshell]]

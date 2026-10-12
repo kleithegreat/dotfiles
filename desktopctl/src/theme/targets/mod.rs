@@ -6,7 +6,7 @@ mod cursor;
 mod ghostty;
 mod gtk;
 mod gtksourceview;
-mod helium;
+pub(crate) mod helium;
 mod hypr_appearance;
 mod hyprland;
 mod kvantum;

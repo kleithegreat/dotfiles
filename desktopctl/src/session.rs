@@ -26,6 +26,9 @@ struct App {
     class: &'static str,
     command: &'static str,
     relaunch: Relaunch,
+    /// Run before a `Whole` app is launched, for whatever makes it reopen
+    /// its own windows.
+    prepare: Option<fn() -> Result<()>>,
 }
 
 const APPS: &[App] = &[
@@ -33,16 +36,19 @@ const APPS: &[App] = &[
         class: "Alacritty",
         command: "alacritty",
         relaunch: Relaunch::PerWindow,
+        prepare: None,
     },
     App {
         class: "helium",
         command: "helium",
         relaunch: Relaunch::Whole,
+        prepare: Some(theme::targets::helium::mark_clean_exit),
     },
     App {
         class: "code",
         command: "code",
         relaunch: Relaunch::Whole,
+        prepare: None,
     },
 ];
 
@@ -197,6 +203,11 @@ pub(crate) fn restore(windows: &[Window]) -> Result<()> {
             // A running app keeps its windows; relaunching would only add one.
             Relaunch::Whole if open.iter().any(|window| window.class == app.class) => {}
             Relaunch::Whole => {
+                if let Some(prepare) = app.prepare
+                    && let Err(error) = prepare()
+                {
+                    eprintln!("desktopctl: preparing {} failed: {error}", app.class);
+                }
                 hypr::dispatch(&hypr::exec_dispatcher(app.command))?;
                 sorting.push((app.class, saved));
             }

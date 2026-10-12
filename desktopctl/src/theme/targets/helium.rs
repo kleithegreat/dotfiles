@@ -16,6 +16,10 @@ pub fn generate(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<Gen
     Ok(GeneratedContent::commands(Vec::new()))
 }
 
+pub(crate) fn mark_clean_exit() -> crate::Result<()> {
+    chromium::mark_clean_exit(&expand_user_path(HELIUM_CONFIG_DIR)?)
+}
+
 pub fn persist(_colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
     chromium::write_active_preferences(&expand_user_path(HELIUM_CONFIG_DIR)?, state)
 }
