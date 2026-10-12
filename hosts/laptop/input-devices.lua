@@ -10,8 +10,7 @@ hl.config({
 })
 
 hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
--- `hl.plugin.hyprexpo` only exists once `plugins.lua` has loaded, which is after
--- this file; the callback body runs at gesture time, so it resolves by then.
+-- Resolved at gesture time: plugins.lua loads after this file.
 hl.gesture({
     fingers = 3,
     direction = "up",
@@ -26,8 +25,3 @@ hl.bind("switch:on:Lid Switch",
     hl.dsp.exec_cmd("desktopctl hypr lid-switch closed --internal eDP-1"), { locked = true })
 hl.bind("switch:off:Lid Switch",
     hl.dsp.exec_cmd("desktopctl hypr lid-switch open --internal eDP-1"), { locked = true })
-
-hl.device({
-    name = "logitech-mx-master-2s-1",
-    sensitivity = -0.2,
-})

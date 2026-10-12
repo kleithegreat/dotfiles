@@ -23,16 +23,6 @@ local treesitter_languages = {
 
 local parser_install_dir = vim.fn.stdpath("data") .. "/site"
 
-local function has_c_compiler()
-  local compilers = { "cc", "gcc", "clang", "cl", "zig" }
-  for _, compiler in ipairs(compilers) do
-    if vim.fn.executable(compiler) == 1 then
-      return true
-    end
-  end
-  return false
-end
-
 local treesitter_textobjects = {
   select = {
     enable = true,
@@ -58,59 +48,6 @@ local treesitter_textobjects = {
   },
 }
 
-local function setup_legacy_treesitter()
-  local ok, configs = pcall(require, "nvim-treesitter.configs")
-  if not ok then
-    return false
-  end
-
-  local compiler_available = has_c_compiler()
-  if not compiler_available then
-    vim.schedule(function()
-      vim.notify_once(
-        "No C compiler found; skipping treesitter parser installation.",
-        vim.log.levels.WARN
-      )
-    end)
-  end
-  vim.opt.runtimepath:prepend(parser_install_dir)
-
-  configs.setup({
-    ensure_installed = compiler_available and treesitter_languages or {},
-    auto_install = false,
-    parser_install_dir = parser_install_dir,
-    highlight = {
-      enable = true,
-      additional_vim_regex_highlighting = false,
-    },
-    indent = {
-      enable = true,
-    },
-    textobjects = treesitter_textobjects,
-  })
-
-  return true
-end
-
-local function setup_modern_treesitter()
-  if vim.fn.has("nvim-0.12") == 0 then
-    return false
-  end
-
-  local ok, treesitter = pcall(require, "nvim-treesitter")
-  if not ok or type(treesitter.setup) ~= "function" then
-    return false
-  end
-
-  vim.opt.runtimepath:prepend(parser_install_dir)
-
-  treesitter.setup({
-    install_dir = parser_install_dir,
-  })
-
-  return true
-end
-
 return {
   {
     "nvim-treesitter/nvim-treesitter",
@@ -124,16 +61,21 @@ return {
       },
     },
     config = function()
-      if setup_legacy_treesitter() or setup_modern_treesitter() then
-        return
-      end
+      vim.opt.runtimepath:prepend(parser_install_dir)
 
-      vim.schedule(function()
-        vim.notify_once(
-          "Skipped nvim-treesitter setup. Run :Lazy restore to use the pinned master branch on Neovim 0.11.",
-          vim.log.levels.WARN
-        )
-      end)
+      require("nvim-treesitter.configs").setup({
+        ensure_installed = treesitter_languages,
+        auto_install = false,
+        parser_install_dir = parser_install_dir,
+        highlight = {
+          enable = true,
+          additional_vim_regex_highlighting = false,
+        },
+        indent = {
+          enable = true,
+        },
+        textobjects = treesitter_textobjects,
+      })
     end,
   },
   {

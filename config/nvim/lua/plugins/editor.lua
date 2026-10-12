@@ -1,9 +1,7 @@
-local uv = vim.uv or vim.loop
-
 local function current_buffer_dir()
   local dir = vim.fn.expand("%:p:h")
   if dir == "" then
-    return uv.cwd()
+    return vim.uv.cwd()
   end
   return dir
 end
@@ -93,7 +91,7 @@ return {
         "<leader>t",
         function()
           local dir = vim.fn.fnameescape(current_buffer_dir())
-          vim.cmd("ToggleTerm direction=float dir=" .. dir)
+          vim.cmd("ToggleTerm dir=" .. dir)
         end,
         desc = "Toggle terminal",
       },

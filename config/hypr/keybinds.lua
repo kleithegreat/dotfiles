@@ -72,16 +72,21 @@ bind(mainMod .. " + F10", hl.dsp.exec_cmd("grim"), { description = "Screenshot f
 -- Lock
 bind(mainMod .. " + L", hl.dsp.exec_cmd("loginctl lock-session"), { description = "Lock session" })
 
+local function quickshellIpc(target, fn)
+    return hl.dsp.exec_cmd(
+        [[sh -lc 'qs -p "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell" ipc call ]] .. target .. " " .. fn .. "'")
+end
+
 bind(mainMod .. " + Escape",
-    hl.dsp.exec_cmd([[sh -lc 'qs -p "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell" ipc call popups togglePowerMenu']]),
+    quickshellIpc("popups", "togglePowerMenu"),
     { description = "Toggle power menu" })
 bind(mainMod .. " + SHIFT + N",
-    hl.dsp.exec_cmd([[sh -lc 'qs -p "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell" ipc call popups toggleDrawer']]),
+    quickshellIpc("popups", "toggleDrawer"),
     { description = "Toggle notifications drawer" })
 
 -- Settings panel
 bind(mainMod .. " + T",
-    hl.dsp.exec_cmd([[sh -lc 'qs -p "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell" ipc call settings toggle']]),
+    quickshellIpc("settings", "toggle"),
     { description = "Toggle settings" })
 
 -- Restart Quickshell

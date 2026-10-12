@@ -5,7 +5,6 @@ for _, class in ipairs({
     "org.pulseaudio.pavucontrol",
     "com.github.wwmm.easyeffects",
     "imv",
-    "f3d",
     "org.kde.ark",
     "org.kde.filelight",
     "io.missioncenter.MissionCenter",
@@ -62,18 +61,6 @@ hl.window_rule({
     fullscreen_state = "2 2",
 })
 
--- Layer Rules
--- Quickshell blur. Panels are opaque; the only translucent surfaces are the bar
--- (0.97) and the modal scrim (0.42), so the threshold has to clear both while
--- still skipping the transparent window margins and the full-screen overlay's
--- gaps -- otherwise rounded corners pick up a blur halo.
-hl.layer_rule({
-    name = "quickshell-blur",
-    match = { namespace = "quickshell:.*" },
-    blur = true,
-    ignore_alpha = 0.35,
-})
-
 -- Disable hyprbars on apps with client-side decorations
 hl.window_rule({ match = { title = "Discord Updater" }, ["hyprbars:no_bar"] = true })
 for _, class in ipairs({ "code", "obsidian", "org.gnome.Nautilus" }) do
@@ -85,6 +72,16 @@ hl.window_rule({
     name = "no-hyprbars-on-tiled",
     match = { float = false },
     ["hyprbars:no_bar"] = true,
+})
+
+-- Layer Rules
+-- The threshold has to clear the bar (0.97) and the scrim (0.42) yet skip the
+-- transparent window margins, or rounded corners pick up a blur halo.
+hl.layer_rule({
+    name = "quickshell-blur",
+    match = { namespace = "quickshell:.*" },
+    blur = true,
+    ignore_alpha = 0.35,
 })
 
 hl.layer_rule({

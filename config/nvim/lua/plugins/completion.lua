@@ -9,27 +9,26 @@ return {
       "hrsh7th/cmp-path",
       "saadparwaiz1/cmp_luasnip",
       {
-        "zbirenbaum/copilot.lua",
-        cmd = "Copilot",
-        opts = {
-          panel = {
-            enabled = false,
-          },
-          suggestion = {
-            enabled = false,
-          },
-          filetypes = {
-            markdown = true,
-            help = true,
-            gitcommit = true,
-            ["*"] = true,
-          },
-        },
-      },
-      {
         "zbirenbaum/copilot-cmp",
         dependencies = {
-          "zbirenbaum/copilot.lua",
+          {
+            "zbirenbaum/copilot.lua",
+            cmd = "Copilot",
+            opts = {
+              panel = {
+                enabled = false,
+              },
+              suggestion = {
+                enabled = false,
+              },
+              filetypes = {
+                markdown = true,
+                help = true,
+                gitcommit = true,
+                ["*"] = true,
+              },
+            },
+          },
         },
         config = function()
           require("copilot_cmp").setup()
@@ -88,10 +87,7 @@ return {
         }),
       })
 
-      local ok, cmp_autopairs = pcall(require, "nvim-autopairs.completion.cmp")
-      if ok then
-        cmp.event:on("confirm_done", cmp_autopairs.on_confirm_done())
-      end
+      cmp.event:on("confirm_done", require("nvim-autopairs.completion.cmp").on_confirm_done())
     end,
   },
 }

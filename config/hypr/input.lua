@@ -27,3 +27,8 @@ hl.config({
         scroll_factor = pick("scroll_factor"),
     },
 })
+
+hl.device({
+    name = "logitech-mx-master-2s-1",
+    sensitivity = -0.2,
+})

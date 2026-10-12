@@ -5,9 +5,6 @@ local theme = require("./appearance-theme")
 
 hl.config({
     general = {
-        layout = "dwindle",
-        allow_tearing = false,
-
         gaps_in = theme.gaps_in,
         gaps_out = theme.gaps_out,
         border_size = theme.border_size,
