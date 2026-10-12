@@ -4,21 +4,15 @@ Open issues and pending validations. Delete entries when resolved.
 
 ## Pending validation (needs real hardware / live session)
 
-- [ ] Laptop, FIRST login after the next rebuild: Hyprland now finds its GPUs
-      through `/dev/dri/intel-gpu` and `/dev/dri/nvidia-gpu`, udev symlinks
-      that have only been dry-run. If SDDM takes the password and bounces
-      back, boot the previous generation and see `docs/nvidia.md`. Once in,
-      `ls -l /dev/dri` should show both links.
-- [ ] After the next rebuild and reboot, with Helium open beforehand: it
-      should come back with its tabs instead of a blank window offering to
-      restore. Then turn "Restore windows at login" off, reboot, and confirm
-      nothing reopens and the power menu offers "Restore Windows" once.
-- [ ] After the next rebuild, the fixes nothing here could exercise:
-      `journalctl --user -b -u desktopctl` has no `wallpaper warning`;
-      `journalctl -b -u geoclue` has no `Unknown IP source method`; night
-      light switched off from the Control Center shows as off at once; the
-      Pointer pane's "Touchpad scrolling" slider changes two-finger scroll
-      speed; LTeX underlines a misspelling in a Markdown file (it was
+- [ ] After the next rebuild and reboot, with Helium and VS Code open on
+      different workspaces beforehand: each should first appear on its own
+      workspace, with nothing flashing on the active one (they wait on the
+      hidden `special:restoring` workspace until sorted), and Helium should
+      come back with its tabs. Then turn "Restore windows at login" off,
+      reboot, and confirm nothing reopens and the power menu offers "Restore
+      Windows" once.
+- [ ] The Pointer pane's "Touchpad scrolling" slider changes two-finger
+      scroll speed; LTeX underlines a misspelling in a Markdown file (it was
       disabled outright until now — set it back if the noise is unwelcome).
 - [ ] Laptop, after the rebuild: remove one fingerprint in Settings →
       Fingerprint and confirm no password prompt appears and the others
