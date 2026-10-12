@@ -3,24 +3,24 @@
 ## Intent
 
 - Every managed tool config is one of two things: a **base file** — repo-
-  authored under `config/<tool>/`, read-only to the theme pipeline, edited by
-  humans — or a **generated output** — pipeline-owned, written to `~/.config/`
+  authored, read-only to the theme pipeline, edited by humans (under
+  `styling/bases/` when desktopctl merges it, e.g. Starship, otherwise under
+  `config/<tool>/`) — or a **generated output** — pipeline-owned, written to `~/.config/`
   (or the app's own path) on theme apply, silently overwritten, never
   hand-edited. A base file and its generated output are never the same path.
 - A tool gets a `config/<tool>/` subdirectory when it has user-authored
   runtime config in its own file format. It stays pure-Nix (Home Manager
   `programs.*`) when the Nix module covers its useful surface (fzf, zoxide,
   eza) — a `config/` dir there would just duplicate the module. Tools with
-  both (Neovim, Starship) use Nix for the package and `config/` for behavior.
+  both (Neovim) use Nix for the package and `config/` for behavior.
   A Nix-authored tool may still source a generated fragment (zsh sources
   `~/.config/zsh/theme-colors` from `programs.zsh.initContent`).
 - Generated outputs are never committed. Do not reintroduce committed concat
   outputs or snapshot files under `config/`.
-- Zsh history is single and global. Per-directory history was tried and
-  removed: fish, the model being copied, records no cwd and partitions
-  nothing, and the plugin also fights `history.share`. The fish-like part
-  that is actually wanted is ↑/↓ on `zsh-history-substring-search`
-  plus autosuggestions over one history file.
+- Zsh history is single and global: fish, the model being copied, records no
+  cwd and partitions nothing, and per-directory history fights
+  `history.share`. The fish-like part that is actually wanted is ↑/↓ on
+  `zsh-history-substring-search` plus autosuggestions over one history file.
 
 ## Quirks
 
@@ -29,8 +29,7 @@ Home Manager's zsh module emits `programs.zsh.plugins` above its own
 `HISTFILE=` assignment in the generated `.zshrc`, so a plugin that reads
 `$HISTFILE` at load time captures zsh's built-in `~/.zsh_history` rather
 than `history.path`. The failure is silent — history keeps working, it just
-accumulates in a file nothing else reads. `zsh-per-directory-history` hit
-this and is gone. Source any history-aware plugin from `initContent`, which
+accumulates in a file nothing else reads. Source any history-aware plugin from `initContent`, which
 lands after the assignment; do not add it to `plugins`.
 
 ### Generated files inside symlinked trees are absent until first theme sync

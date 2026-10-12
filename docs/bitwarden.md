@@ -28,8 +28,3 @@ The desktop app writes
 package is garbage-collected or upgraded, so the file can survive while the
 binary it names is gone. Check the `path` field resolves before debugging
 anything else.
-
-### The window rule matches a class that upstream has changed before
-`config/hypr/rules.lua` floats class `Bitwarden`. If the window stops floating
-after an upgrade, read the real class out of `hyprctl clients` rather than
-assuming the rule is wrong in some subtler way.

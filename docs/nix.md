@@ -79,10 +79,10 @@ the default build works.
 ### Apple rotates `SF-Pro.dmg` behind a stable URL
 The fixed-output hash eventually stops matching upstream bytes — refresh the
 version date and `src.hash` in `pkgs/sf-pro/default.nix`. The inner layout
-moves too: the 2026-09-11 rotation renamed `SF Pro Fonts.pkg` to
-`SFProFontsPackage.pkg`, and `7z x` now walks the dmg/hfs/pkg/gzip chain by
-itself and drops a bare cpio `Payload~` in the build directory. Re-check the
-unpack against `7z l` on the new DMG, not just the hash.
+moves too (the inner package name has changed across rotations; `7z x` walks
+the dmg/hfs/pkg/gzip chain by itself and drops a bare cpio `Payload~` in the
+build directory). Re-check the unpack against `7z l` on the new DMG, not just
+the hash.
 
 ### The native overlay namespaces, it never shadows
 Rewriting the global `pkgs` set gives every transitive consumer a new
@@ -278,16 +278,6 @@ network readout needs (magpie resolves `nethogs` off PATH, and
 power draw. That rule deliberately re-opens `intel-rapl*/energy_uj`, which the
 kernel restricted to root against PLATYPUS (CVE-2020-8694) — the side channel
 is the price of the reading, so weigh that before copying it elsewhere.
-
-### Widening `cudaCapabilities` exhausts RAM on these hosts
-Both hosts are sm_86 (laptop RTX 3050 Mobile, desktop RTX 3080) and nothing
-CUDA here is unfree-cached, so every CUDA package is built locally. Left at the
-nixpkgs default, `cudaCapabilities` spans nine architectures (75 through 121)
-and source-built CUDA packages compile every device translation unit once per
-architecture. `libnvshmem` is the one that hurts: a full CMake/nvcc build
-reached through comfyui -> torch, where nine architectures' worth of parallel
-nvcc exhausts the machine's RAM. Pinning cuts that ~9x. Add a capability only
-when a host actually gets a different GPU.
 
 ### The laptop touchpad needs its I2C controller pinned out of runtime PM
 `powertop --auto-tune` sets `power/control=auto` on *every* PCI device, 00:15.1

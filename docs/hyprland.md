@@ -144,8 +144,8 @@ trustworthy check for config changes is a nested Hyprland session.
 ### Workspace pins exclude their IDs even when the pinned monitor is absent
 `CMonitor::findAvailableDefaultWS` skips every workspace ID whose
 `monitor:` rule selector the connecting output does not match — whether or not
-that monitor exists. With `hosts/laptop/monitors.lua` pinning 1–10 to the BenQ
-by EDID description, an undocked laptop login lands on workspace 11, which no
+that monitor exists. With the `desktopctl daemon` pinning 1–10 to the primary
+output by EDID description (`reconcile` in `displays.rs`), an undocked laptop login lands on workspace 11, which no
 keybind can reach; the first window of the session gets stranded there and the
 evidence self-destructs once the empty workspace is destroyed. Fixed by the
 `desktopctl daemon` monitor watcher running `hypr::reclaim_workspaces` on
@@ -165,9 +165,10 @@ keep it that way.
 ### Portal services need the imported graphical-session environment
 Portal backends started before `WAYLAND_DISPLAY`/`XDG_CURRENT_DESKTOP` are
 imported into the user manager come up broken (first-login file pickers fail
-while later restarts work). The first `exec-once` in `autostart.lua` imports
-the env, scrubs tokens, starts `graphical-session.target` and the portal
-services explicitly; `exec-shutdown` stops the target. See [[nix]] for the
+while later restarts work). The first command in the `hyprland.start` handler
+in `autostart.lua` imports the env, scrubs tokens, starts the session target
+and the portal services explicitly; the `hyprland.shutdown` handler stops the
+target. See [[nix]] for the
 portal backend selection itself.
 
 ### Files required before `plugins.lua` cannot name `hl.plugin.*` at parse time
@@ -233,7 +234,7 @@ always-ratcheted value, and higher values fail.
 The locked `hyprgraphics` public headers include Pango, but the nested
 `hyprland-guiutils` package doesn't request Pango's pkg-config cflags —
 `nrs` fails with `pango/pango-font.h: No such file or directory`.
-`system/configuration.nix` (`patchedHyprlandGuiutils`) carries the workaround;
+`overlays/hyprland.nix` (the `guiutils` binding) carries the workaround;
 re-test a plain build before removing it after input updates.
 
 Related: [[nix]], [[nvidia]], [[theming]], [[quickshell]], [[desktopctl]]

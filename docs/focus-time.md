@@ -23,9 +23,4 @@ classes. If a label looks wrong for an app that *was* installed, check whether
 its desktop entry's `StartupWMClass` (or file stem) matches the class Hyprland
 reports.
 
-### The pane lags reality by design
-The daemon writes every second, the pane polls every 3s, and the stale window
-is 5s — so a few seconds of lag behind the focused app, and a short delay
-before the "daemon not updating" message appears, are both expected, not bugs.
-
 Related: [[desktopctl]], [[quickshell]]

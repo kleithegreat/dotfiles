@@ -48,7 +48,7 @@ at the nixpkgs default the pin spans nine architectures and source-built
 packages compile each device translation unit once per architecture.
 `libnvshmem` is the derivation that makes this hurt — a full CMake/nvcc build
 pulled in only as a comfyui -> torch dependency, whose nine-architecture form
-OOMs the 16 GB laptop. `pkgs/comfyui/default.nix` additionally turns off its
+OOMs the 16 GB laptop; pinning cuts the work ~9x. `pkgs/comfyui/default.nix` additionally turns off its
 perftest and example device binaries, which nixpkgs hardcodes on. If a host
 ever gets a GPU that is not sm_86, this pin has to grow a capability or move
 into the host modules.

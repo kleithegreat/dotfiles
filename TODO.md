@@ -16,15 +16,12 @@ Open issues and pending validations. Delete entries when resolved.
       confirm that choice survives a relogin, and that a *different* unknown
       monitor still auto-selects. Drag a display in the arrangement canvas and
       check the edge snap and the countdown's revert with two outputs.
-      Single-output behaviour is confirmed on the laptop: staged apply, Keep,
-      scale persisting across reloads, and the auto fallback to `eDP-1` when
-      the external went away.
 
 - [ ] Quickshell live smoke test after the rewrite (needs hands on the UI):
       slider drags end to end (OSD suppression across a volume drag,
       night-light commit-on-release, brightness drag vs pushed events), Wi-Fi
       join forms including enterprise, Display staged apply and its revert
-      countdown, tray menus via QsMenuAnchor, and the Bluetooth pane on the
+      countdown, tray menus via QsMenuOpener, and the Bluetooth pane on the
       laptop — the desktop has no bluez running, so the native adapter path is
       untested on real hardware. Daemon-pushed state, same session: terminal
       `desktopctl theme set color_scheme` updates an open settings pane;
@@ -36,8 +33,7 @@ Open issues and pending validations. Delete entries when resolved.
       connection again within a second or two, and a settings pane tracks a
       terminal `theme set`) — the recreate-the-Socket reconnect was proven
       only in a throwaway Quickshell instance. Leave the laptop idle 5 minutes
-      and confirm the screen dims and restores: hypridle's unit could not find
-      `desktopctl` before its PATH was fixed. Log out without rebooting and
+      and confirm the screen dims and restores. Log out without rebooting and
       confirm `desktopctl.service` stops with the session.
 
 - [ ] Session restore, end to end (needs a rebuild and a relogin; only the
@@ -61,15 +57,9 @@ Open issues and pending validations. Delete entries when resolved.
 ## Open issues
 
 - [ ] NVIDIA (high): laptop `AQ_DRM_DEVICES` depends on hardcoded
-      `/dev/dri/cardN` ordering, which can shift across boots/updates.
-      Aquamarine 0.15 still splits the list on colons, so by-path names stay
-      out, but it now canonicalizes each entry: a udev rule giving the two
-      GPUs colon-free symlinks would make the list stable. Needs a relogin
-      to validate, and a wrong rule means no session.
-- [ ] Neovim (medium): the legacy `nvim-treesitter.configs` path is still
-      the one that runs (on 0.12.5, via the pinned `master` branch); the
-      modern path behind it only sets `install_dir`, so losing the pin would
-      change behavior materially.
+      `/dev/dri/cardN` ordering. Add a udev rule giving the two GPUs
+      colon-free symlinks and list those instead (see docs/nvidia.md). Needs
+      a relogin to validate, and a wrong rule means no session.
 - [ ] Nix (low): the NVIDIA/CUDA entries in `allowedUnfreePackageNames` have
       no per-entry reason or host annotation, making cleanup triage harder.
 

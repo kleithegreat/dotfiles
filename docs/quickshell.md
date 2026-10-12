@@ -84,17 +84,9 @@ reaches `Scroll` and `Choice` through a `WheelHandler` that animates
 `contentY`/`contentX` directly, so it never touches Flickable's bounds logic
 at all — the rubber band there is computed by `Metrics.resist` and released by
 a timer once input stops, and holding a scroll against the end deliberately
-stays stretched. Both scrollers share that curve; two surfaces that stretch by
-different amounts read as one of them being broken.
-
-### One scroll gesture, two implementations, two speeds
-`Scroll` and `Choice` both glide the wheel to a target by `Metrics.wheelStep`.
-When `Scroll` accepted only `PointerDevice.Mouse`, touchpad scrolling fell
-through to `Flickable`'s own wheel handling instead — a different curve, scaled
-again by `input:touchpad:scroll_factor`, and damped by a `flickDeceleration`
-well above Qt's default. The pane crawled while the option strip inside it
-zipped along. Both handlers accept both devices now; a device one of them
-handles and the other declines will read as one of them being broken.
+stays stretched. Both scrollers share that curve and accept the same devices; a device
+one handles and the other declines, or a different stretch, reads as one of
+them being broken.
 
 ### Draggable controls inside a `Scroll` need `claimsDrag`
 `Flickable` filters child mouse events and steals the grab once a drag passes
@@ -174,10 +166,9 @@ Whether the cap is actually engaged lives in the mode, which only
 for a value sysfs appears to hand over for free.
 
 ### Monitor-button brightness changes have no event source
-The 30s DDC-enumerating brightness poll is gone; brightness state arrives as
-daemon events, and nothing watches the monitor's own OSD buttons. A change made
-on the monitor itself surfaces only at the next daemon-side brightness
-operation. Accepted trade-off — do not reintroduce the poll for it.
+Brightness state arrives as daemon events, and nothing watches the monitor's
+own OSD buttons. A change made on the monitor itself surfaces only at the next
+daemon-side brightness operation. Accepted trade-off — do not add a poll for it.
 
 ### Singletons are constructed on first reference
 A service that polls or holds a subscription does not exist until something
@@ -225,9 +216,9 @@ trap above and is not it. A shared component belongs in `ui/`; the panes are
 leaves.
 
 ### Platform menus need QApplication mode, so tray menus are drawn here
-`QsMenuAnchor.open()` refuses to run unless the shell was started with
-`//@ pragma UseQApplication`, and what it opens is a Qt widget menu wearing
-whatever qt6ct hands it. `TrayMenu` renders the same DBus model through
+The platform route, `QsMenuAnchor.open()`, refuses to run unless the shell was
+started with `//@ pragma UseQApplication`, and what it opens is a Qt widget menu
+wearing whatever qt6ct hands it; do not switch to it. `TrayMenu` renders the same DBus model through
 `QsMenuOpener` with the shell's own rows instead, and drills into submenus in
 place rather than cascading.
 

@@ -34,7 +34,8 @@
   apply; the CLI is a strict socket client ([[desktopctl]]). Writes are
   atomic replacements; state persists only after the required target apply
   succeeds; mutations upsert only the changed keys in one transaction. Older
-  persisted rows are backfilled from compiled defaults before validation.
+  persisted rows are backfilled from the committed seed `styling/state.json`
+  before validation.
 - `dark_hint` persistence always flows through the theming pipeline, even when
   the daemon's schedule decides the value; a manual write additionally upserts
   `dark_hint_manual_at` in the same transaction, which gates the scheduler's
@@ -108,11 +109,6 @@ relaunching; do not drop one because it looks redundant.
   left kcharselect on the default; aliasing `sans-serif` changed it. Only the
   `sans-serif` half was measured.
 
-`hyprqt6engine` used to hold the platform-theme slot and was inert: raising
-its `font_size` and changing its `icon_theme` altered nothing, and qt6ct's own
-window rendered unstyled under it and themed under qt6ct. That is what left
-most Qt apps unthemed.
-
 A Qt app reads the palette once, at startup: rewriting the files above does
 nothing for one that is already running. hyprpolkitagent is the resident case
 — its dialog is pure QtQuick and takes every colour from
@@ -172,7 +168,7 @@ names upstream lacks (`folder-blue` etc.); the `qt` target maps the shared
 
 ### App theme names are declared only where the app bundles them
 `app_themes.bat` uses exact bundled bat theme names, with `base16` only for
-schemes bat does not bundle; `app_themes.ktexteditor` is declared on 11/14
+schemes bat does not bundle; `app_themes.ktexteditor` is declared only for
 schemes with names verified against `ksyntaxhighlighter6 --list-themes`, the
 rest intentionally fall back to Breeze. When bumping bat or KDE frameworks,
 re-check the bundled lists before assuming a fallback is a bug.
