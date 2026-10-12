@@ -27,14 +27,6 @@ for _, class in ipairs({
     hl.window_rule({ match = { class = class }, float = true, center = true })
 end
 
--- KDE portal file picker
-hl.window_rule({
-    match = { class = "org.freedesktop.impl.portal.desktop.kde" },
-    float = true,
-    size = "900 600",
-    center = true,
-})
-
 -- Bitwarden browser extension popup
 hl.window_rule({
     match = { class = "chrome-nngceckbapebfimnlniiiahkandclblb-Default" },
@@ -48,11 +40,6 @@ hl.window_rule({
     match = { class = "zoom", title = "Zoom Meeting" },
     size = "1200 800",
     center = true,
-})
-
-hl.window_rule({
-    match = { class = "google-chrome", title = [[\(Incognito\)]] },
-    float = true,
 })
 
 -- Old XWayland Minecraft clients need true fullscreen to cover reserved bar space.

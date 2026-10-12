@@ -45,8 +45,6 @@ pub(crate) mod methods {
     pub const HYPR_MONITORS_STATUS: &str = "hypr.monitors_status";
     pub const HYPR_MONITORS_PRIMARY: &str = "hypr.monitors_primary";
     pub const HYPR_MONITORS_LAYOUT: &str = "hypr.monitors_layout";
-    pub const HYPR_ANIMATIONS_SAVE: &str = "hypr.animations_save";
-    pub const HYPR_ANIMATIONS_CLEAR: &str = "hypr.animations_clear";
 
     pub const BRIGHTNESS_STATUS: &str = "brightness.status";
     pub const BRIGHTNESS_SET: &str = "brightness.set";

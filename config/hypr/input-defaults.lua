@@ -8,4 +8,5 @@ return {
     sensitivity = 0.75,
     accel_profile = "flat",
     scroll_factor = 1.0,
+    touchpad_scroll_factor = 0.25,
 }

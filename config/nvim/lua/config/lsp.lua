@@ -90,7 +90,6 @@ function M.setup()
     settings = {
       ltex = {
         checkFrequency = "save",
-        enabled = { "spelling" },
         disabledRules = {
           ["en-US"] = { "GRAMMAR", "STYLE", "TYPOGRAPHY" },
         },

@@ -12,12 +12,11 @@
 - Generated files are pure data tables (`return { ... }`) with no side
   effects; the hand-written module that requires one applies it and must
   tolerate the file being absent or empty (empty = "no overrides", which is
-  what `desktopctl ... clear` writes).
+  what Home Manager seeds).
 - Three file classes are not in the repo and generated/selected at runtime:
   - theming targets write `colors.lua`, `appearance-theme.lua`,
     `cursor-theme.lua` (plus a hyprlang `colors.conf` kept only for hyprlock);
-  - `desktopctl hypr` writes `input-runtime.lua` and
-    `animations-override-data.lua`;
+  - `desktopctl hypr` writes `input-runtime.lua` and `displays-runtime.lua`;
   - Home Manager selects `monitors.lua`, `env-host.lua`, `input-devices.lua`,
     and `autostart-host.lua` from `hosts/<host>/` via the `host.hyprland.*`
     facts, with fallbacks that must boot on any future host. Shared session
@@ -191,7 +190,7 @@ ignores the Mouse settings page is hitting a device block, not a bug.
 ### Window-rule matches drift
 hyprpolkitagent sets no app_id (empty class), so its float rule matches on
 title `Hyprland Polkit Agent`; several other rules match exact classes/titles
-(`Zoom Meeting`, incognito patterns, Discord's updater). After bumping any of
+(`Zoom Meeting`, Discord's updater). After bumping any of
 these packages, verify with `hyprctl clients` while the window is open.
 
 ### hyprlock's caps-lock hint can only be a color

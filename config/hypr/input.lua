@@ -25,6 +25,9 @@ hl.config({
         sensitivity = pick("sensitivity"),
         accel_profile = pick("accel_profile"),
         scroll_factor = pick("scroll_factor"),
+        touchpad = {
+            scroll_factor = pick("touchpad_scroll_factor"),
+        },
     },
 })
 

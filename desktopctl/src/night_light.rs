@@ -11,11 +11,14 @@ use std::{
     os::unix::net::UnixStream,
     path::{Path, PathBuf},
     process::Command,
-    time::{SystemTime, UNIX_EPOCH},
+    thread,
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 pub const NIGHT_LIGHT_MIN_TEMP: i32 = 3000;
 pub const NIGHT_LIGHT_MAX_TEMP: i32 = 6500;
+const PROCESS_SETTLE_TIMEOUT: Duration = Duration::from_secs(1);
+const PROCESS_SETTLE_POLL: Duration = Duration::from_millis(25);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -177,12 +180,26 @@ pub(crate) fn ensure_hyprsunset_running(target_temperature: i32) -> crate::Resul
     }
 
     let command = format!("hyprsunset -t {normalized}");
-    hypr::dispatch(&hypr::exec_dispatcher(&command))
+    hypr::dispatch(&hypr::exec_dispatcher(&command))?;
+    wait_for_hyprsunset(true);
+    Ok(())
+}
+
+/// Signals and spawns are asynchronous; the status published right after must
+/// describe the process table as it settles, not as it was a moment ago.
+fn wait_for_hyprsunset(running: bool) {
+    let deadline = Instant::now() + PROCESS_SETTLE_TIMEOUT;
+    while hyprsunset_process_state().running != running && Instant::now() < deadline {
+        thread::sleep(PROCESS_SETTLE_POLL);
+    }
 }
 
 pub(crate) fn stop_hyprsunset() -> crate::Result<()> {
     match Command::new("pkill").args(["-x", "hyprsunset"]).output() {
-        Ok(output) if output.status.success() || output.status.code() == Some(1) => Ok(()),
+        Ok(output) if output.status.success() || output.status.code() == Some(1) => {
+            wait_for_hyprsunset(false);
+            Ok(())
+        }
         Ok(output) => Err(command_error("pkill hyprsunset", &output).into()),
         Err(error) => Err(io::Error::new(
             error.kind(),

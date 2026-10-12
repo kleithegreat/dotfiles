@@ -96,11 +96,6 @@ struct KeyValueParams {
 }
 
 #[derive(Debug, Deserialize)]
-struct PayloadParams {
-    payload: serde_json::Value,
-}
-
-#[derive(Debug, Deserialize)]
 struct MonitorsPrimaryParams {
     selector: String,
 }
@@ -411,24 +406,6 @@ async fn handle_client(stream: UnixStream, context: ServerContext) -> io::Result
                         write_join_result(&mut writer, result).await?;
                     }
                 }
-            }
-            methods::HYPR_ANIMATIONS_SAVE => {
-                match parse_params::<PayloadParams>(request.params, methods::HYPR_ANIMATIONS_SAVE) {
-                    Err(message) => write_error(&mut writer, message).await?,
-                    Ok(params) => {
-                        let hypr = context.hypr.clone();
-                        let result = tokio::task::spawn_blocking(move || {
-                            hypr.animations_save(&params.payload)
-                        })
-                        .await;
-                        write_join_result(&mut writer, result).await?;
-                    }
-                }
-            }
-            methods::HYPR_ANIMATIONS_CLEAR => {
-                let hypr = context.hypr.clone();
-                let result = tokio::task::spawn_blocking(move || hypr.animations_clear()).await;
-                write_join_result(&mut writer, result).await?;
             }
             methods::SESSION_STATUS => {
                 write_result(&mut writer, context.session.status()).await?;

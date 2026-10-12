@@ -215,8 +215,6 @@ enum HyprCommand {
     Input(HyprInputArgs),
     /// Inspect and update the display topology: primary output and arrangement.
     Monitors(HyprMonitorsArgs),
-    /// Persist or clear animation override state.
-    Animations(HyprAnimationsArgs),
 }
 
 #[derive(Debug, Args)]
@@ -279,21 +277,6 @@ struct HyprMonitorsPrimaryArgs {
     /// to let the largest external display win.
     #[arg(default_value = "")]
     selector: String,
-}
-
-#[derive(Debug, Args)]
-#[command(arg_required_else_help = true, subcommand_required = true)]
-struct HyprAnimationsArgs {
-    #[command(subcommand)]
-    command: HyprAnimationsCommand,
-}
-
-#[derive(Debug, Subcommand)]
-enum HyprAnimationsCommand {
-    /// Write animation overrides from a JSON payload to the managed config file.
-    Save(HyprJsonPayloadArgs),
-    /// Clear all animation overrides and reload Hyprland.
-    Clear,
 }
 
 #[derive(Debug, Args)]
@@ -444,11 +427,13 @@ fn run_brightness_status(json: bool) -> Result<()> {
             if json {
                 println!("{}", serde_json::to_string(&payload)?);
             } else {
-                println!(
-                    "{}: {}%",
-                    payload["label"].as_str().unwrap_or("brightness"),
-                    payload["percent"].as_u64().unwrap_or(0)
-                );
+                #[derive(serde::Deserialize)]
+                struct Summary {
+                    label: String,
+                    percent: u64,
+                }
+                let summary: Summary = serde_json::from_value(payload)?;
+                println!("{}: {}%", summary.label, summary.percent);
             }
             Ok(())
         }
@@ -473,25 +458,7 @@ fn run_hypr(args: HyprArgs) -> Result<()> {
         HyprCommand::ReclaimWorkspaces => hypr::reclaim_workspaces(),
         HyprCommand::Input(args) => run_hypr_input(args),
         HyprCommand::Monitors(args) => run_hypr_monitors(args),
-        HyprCommand::Animations(args) => run_hypr_animations(args),
     }
-}
-
-fn run_hypr_animations(args: HyprAnimationsArgs) -> Result<()> {
-    match args.command {
-        HyprAnimationsCommand::Save(args) => strict_request(
-            ipc::methods::HYPR_ANIMATIONS_SAVE,
-            serde_json::json!({ "payload": parse_payload_json(&args.payload)? }),
-        ),
-        HyprAnimationsCommand::Clear => {
-            strict_request(ipc::methods::HYPR_ANIMATIONS_CLEAR, serde_json::json!({}))
-        }
-    }
-}
-
-fn parse_payload_json(raw: &str) -> Result<serde_json::Value> {
-    serde_json::from_str(raw)
-        .map_err(|error| std::io::Error::other(format!("invalid JSON payload: {error}")).into())
 }
 
 fn run_hypr_input(args: HyprInputArgs) -> Result<()> {

@@ -3,7 +3,11 @@ use chrono::{
     DateTime, Datelike, Days, Duration, Local, LocalResult, NaiveDate, TimeZone, Timelike, Utc,
 };
 use serde::{Deserialize, Serialize};
-use std::{env, fs, io, process::Command, time::Duration as StdDuration};
+use std::{
+    env, fs, io,
+    process::Command,
+    time::{Duration as StdDuration, SystemTime, UNIX_EPOCH},
+};
 
 pub const DEFAULT_LATITUDE: f64 = 30.6280;
 pub const DEFAULT_LONGITUDE: f64 = -96.3344;
@@ -43,6 +47,9 @@ pub struct SolarStatus {
 struct CachedLocation {
     latitude: f64,
     longitude: f64,
+    /// Unix seconds when GeoClue produced this fix; absent means stale.
+    #[serde(default)]
+    fixed_at: Option<u64>,
     // Describes these coordinates only; dropped whenever they are refreshed.
     #[serde(default)]
     place: Option<String>,
@@ -52,6 +59,36 @@ impl CachedLocation {
     fn coordinates(&self) -> Option<Coordinates> {
         validated_coordinates(self.latitude, self.longitude)
     }
+
+    fn is_fresh(&self, now: u64) -> bool {
+        self.fixed_at
+            .and_then(|fixed_at| now.checked_sub(fixed_at))
+            .is_some_and(|age| age <= LOCATION_CACHE_MAX_AGE.as_secs())
+    }
+
+    fn describes(&self, location: Coordinates) -> bool {
+        (self.latitude - location.latitude).abs() < COORDINATE_EPSILON
+            && (self.longitude - location.longitude).abs() < COORDINATE_EPSILON
+    }
+
+    /// `location` plus its name, keeping the fix time only when `previous`
+    /// is the same fix: a name changes nothing about how old the fix is.
+    fn named(previous: Option<&Self>, location: Coordinates, place: String) -> Self {
+        Self {
+            latitude: location.latitude,
+            longitude: location.longitude,
+            fixed_at: previous
+                .filter(|previous| previous.describes(location))
+                .and_then(|previous| previous.fixed_at),
+            place: Some(place),
+        }
+    }
+}
+
+fn unix_now() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |elapsed| elapsed.as_secs())
 }
 
 pub fn print_status() -> crate::Result<()> {
@@ -91,10 +128,11 @@ pub fn resolve_location() -> io::Result<Coordinates> {
     }
 
     let cache_path = paths::xdg_cache_home()?.join("sun-schedule/location.json");
-    let cached_location = read_cached_location(&cache_path).and_then(|cached| cached.coordinates());
+    let cached = read_cached_location(&cache_path);
+    let cached_location = cached.as_ref().and_then(CachedLocation::coordinates);
 
     if let Some(location) = cached_location
-        && cached_location_is_fresh(&cache_path)
+        && cached.is_some_and(|cached| cached.is_fresh(unix_now()))
     {
         return Ok(location);
     }
@@ -103,6 +141,7 @@ pub fn resolve_location() -> io::Result<Coordinates> {
         let payload = CachedLocation {
             latitude: location.latitude,
             longitude: location.longitude,
+            fixed_at: Some(unix_now()),
             place: None,
         };
         if let Err(error) = write_cached_location(&cache_path, &payload) {
@@ -251,17 +290,6 @@ fn read_cached_location(path: &std::path::Path) -> Option<CachedLocation> {
     serde_json::from_slice(&contents).ok()
 }
 
-fn cached_location_is_fresh(path: &std::path::Path) -> bool {
-    let Ok(modified) = path.metadata().and_then(|metadata| metadata.modified()) else {
-        return false;
-    };
-
-    modified
-        .elapsed()
-        .map(|age| age <= LOCATION_CACHE_MAX_AGE)
-        .unwrap_or(true)
-}
-
 fn write_cached_location(path: &std::path::Path, location: &CachedLocation) -> io::Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
@@ -278,18 +306,15 @@ pub fn resolve_place_name(location: Coordinates) -> Option<String> {
         .ok()?
         .join("sun-schedule/location.json");
 
-    if let Some(cached) = read_cached_location(&cache_path)
-        && let Some(place) = cached_place_for(&cached, location)
+    let cached = read_cached_location(&cache_path);
+    if let Some(cached) = &cached
+        && let Some(place) = cached_place_for(cached, location)
     {
         return Some(place);
     }
 
     let place = reverse_geocode(location)?;
-    let payload = CachedLocation {
-        latitude: location.latitude,
-        longitude: location.longitude,
-        place: Some(place.clone()),
-    };
+    let payload = CachedLocation::named(cached.as_ref(), location, place.clone());
     if let Err(error) = write_cached_location(&cache_path, &payload) {
         eprintln!(
             "warning: failed to cache place name at {}: {error}",
@@ -305,10 +330,10 @@ pub fn resolve_place_name(location: Coordinates) -> Option<String> {
 /// behind by an earlier fix would be printed beside coordinates it has
 /// nothing to do with.
 fn cached_place_for(cached: &CachedLocation, location: Coordinates) -> Option<String> {
-    let describes_location = (cached.latitude - location.latitude).abs() < COORDINATE_EPSILON
-        && (cached.longitude - location.longitude).abs() < COORDINATE_EPSILON;
-
-    describes_location.then(|| cached.place.clone()).flatten()
+    cached
+        .describes(location)
+        .then(|| cached.place.clone())
+        .flatten()
 }
 
 fn reverse_geocode(location: Coordinates) -> Option<String> {
@@ -577,7 +602,14 @@ mod tests {
         let _cache_home = ScopedEnvVar::set("XDG_CACHE_HOME", temp_dir.path().as_os_str());
         let cache_path = temp_dir.path().join("sun-schedule/location.json");
         fs::create_dir_all(cache_path.parent().expect("cache parent")).expect("create cache dir");
-        fs::write(&cache_path, r#"{"latitude":12.34,"longitude":56.78}"#).expect("write cache");
+        fs::write(
+            &cache_path,
+            format!(
+                r#"{{"latitude":12.34,"longitude":56.78,"fixed_at":{}}}"#,
+                unix_now()
+            ),
+        )
+        .expect("write cache");
 
         let location = resolve_location().expect("location should resolve");
 
@@ -615,6 +647,7 @@ mod tests {
         let cached = CachedLocation {
             latitude: 39.6002,
             longitude: -104.89,
+            fixed_at: None,
             place: Some("Greenwood Village, CO".to_string()),
         };
 
@@ -639,6 +672,46 @@ mod tests {
             )
             .is_none()
         );
+    }
+
+    #[test]
+    fn cached_fix_is_fresh_only_within_the_max_age_of_its_own_timestamp() {
+        let max_age = LOCATION_CACHE_MAX_AGE.as_secs();
+        let fix = |fixed_at| CachedLocation {
+            latitude: 1.0,
+            longitude: 2.0,
+            fixed_at,
+            place: None,
+        };
+
+        assert!(fix(Some(1_000)).is_fresh(1_000 + max_age));
+        assert!(!fix(Some(1_000)).is_fresh(1_001 + max_age));
+        assert!(!fix(Some(2_000)).is_fresh(1_000));
+        assert!(!fix(None).is_fresh(1_000));
+    }
+
+    #[test]
+    fn naming_a_fix_keeps_its_age_and_a_different_fix_never_inherits_one() {
+        let previous = CachedLocation {
+            latitude: 1.0,
+            longitude: 2.0,
+            fixed_at: Some(1_000),
+            place: None,
+        };
+        let same = Coordinates {
+            latitude: 1.0,
+            longitude: 2.0,
+        };
+        let elsewhere = Coordinates {
+            latitude: 3.0,
+            longitude: 4.0,
+        };
+
+        let named = CachedLocation::named(Some(&previous), same, "Here".to_owned());
+        assert_eq!(named.fixed_at, Some(1_000));
+        assert_eq!(named.place.as_deref(), Some("Here"));
+        let named = CachedLocation::named(Some(&previous), elsewhere, "There".to_owned());
+        assert_eq!(named.fixed_at, None);
     }
 
     #[test]

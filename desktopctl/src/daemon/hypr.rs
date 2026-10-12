@@ -1,5 +1,5 @@
-//! Serializes hypr override mutations (input runtime settings, the animation
-//! override file) so two writers can never interleave a read-modify-write.
+//! Serializes hypr override mutations (input runtime settings,
+//! display layout) so two writers can never interleave a read-modify-write.
 //! The operations are sub-second, so a plain mutex held across each one is
 //! fine — unlike theme applies.
 
@@ -75,19 +75,6 @@ impl HyprController {
         let status = serde_json::to_value(status)?;
         self.events.publish("hypr_monitors.changed", status.clone());
         Ok(status)
-    }
-
-    // Animations publish no events: the shell has no subscriber for them.
-    pub fn animations_save(&self, payload: &Value) -> crate::Result<Value> {
-        let _guard = self.lock_serialized()?;
-        hypr::save_animations(&serde_json::to_string(payload)?)?;
-        Ok(serde_json::json!({}))
-    }
-
-    pub fn animations_clear(&self) -> crate::Result<Value> {
-        let _guard = self.lock_serialized()?;
-        hypr::clear_animations()?;
-        Ok(serde_json::json!({}))
     }
 
     fn lock_serialized(&self) -> crate::Result<std::sync::MutexGuard<'_, ()>> {

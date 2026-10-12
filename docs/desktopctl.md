@@ -47,9 +47,8 @@
   the socket server exiting ends the process, which is what `Restart=on-failure`
   then acts on.
 - `desktopctl hypr` writes only its own generated override files
-  (`input-runtime.lua`, `animations-override-data.lua`,
-  `displays-runtime.lua`) — never the static or host-selected fragments they
-  layer on top of.
+  (`input-runtime.lua`, `displays-runtime.lua`) — never the static or
+  host-selected fragments they layer on top of.
 - The daemon is the only thing that decides which output is primary. Hyprland
   has no such concept, so the choice is stored as a monitor selector (empty =
   automatic, meaning the largest external and the built-in panel only when it
@@ -139,8 +138,9 @@ covers the desktopctl socket only; awww-daemon binds its own socket at
 spawns, and `awww img` exits immediately when that socket is missing instead
 of retrying. Reading `--wait-daemon` as covering both is the natural wrong
 conclusion, and it makes a wallpaper that silently fails to apply on login
-look unrelated to the flag. The wallpaper target polls that socket itself in
-`apply_wallpaper`; a `sleep` in the autostart line is not a substitute,
+look unrelated to the flag. The wallpaper target itself waits, in `apply_wallpaper`, until
+`awww query` lists an output (the socket existing is not enough; see
+[[theming]]); a `sleep` in the autostart line is not a substitute,
 because it guesses a delay that measurement already contradicts.
 
 Related: [[theming]], [[sun-schedule]], [[hyprland]], [[quickshell]], [[focus-time]], [[session-restore]]
