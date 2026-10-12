@@ -16,7 +16,7 @@
 set -eu
 
 base_directory="${COMFYUI_BASE_DIRECTORY:-${XDG_DATA_HOME:-$HOME/.local/share}/comfyui}"
-@mkdir@ -p @skeletonDirs@ "$base_directory/user"
+@mkdir@ --parents @skeletonDirs@ "$base_directory/user"
 
 exec @python@/bin/python @app@/main.py \
   --base-directory "$base_directory" \

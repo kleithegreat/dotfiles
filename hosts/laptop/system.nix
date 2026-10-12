@@ -1,17 +1,6 @@
 { pkgs, lib, ... }:
 
-let
-  # `desktopctl` implements the profile switch (desktopctl/src/bin/
-  # laptop-power-profile), but arrives through home-manager. Expose just that
-  # one binary system-wide: the polkit rule below grants passwordless pkexec by
-  # program path, so keeping the privileged entry point in its own binary is
-  # what stops that grant reaching every other desktopctl subcommand.
-  laptopPowerProfile = pkgs.runCommand "laptop-power-profile" { } ''
-    mkdir --parents "$out/bin"
-    ln --symbolic ${lib.getExe' pkgs.optimized.desktopctl "laptop-power-profile"} \
-      "$out/bin/laptop-power-profile"
-  '';
-in {
+{
   # Hardware — from nixos-generate-config
   boot.initrd.availableKernelModules = [ "xhci_pci" "thunderbolt" "vmd" "nvme" "rtsx_pci_sdmmc" ];
   boot.kernelPatches = [
@@ -98,17 +87,16 @@ in {
   # don't default to it (NVMe, audio codec, sensor hub, etc.)
   powerManagement.powertop.enable = true;
 
-  # ── Touchpad responsiveness ─────────────────────────────────
-  # Pin the touchpad's I2C controller out of runtime PM, against powertop. Both
+  # Touchpad: pin its I2C controller out of runtime PM, against powertop. Both
   # mechanisms are needed; see docs/nix.md before dropping either.
-  services.udev.extraRules = ''
+  services.udev.extraRules = /* udev */ ''
     ACTION=="add|change", SUBSYSTEM=="pci", KERNEL=="0000:00:15.1", ATTR{power/control}="on"
   '';
 
   # Must hang off powertop.service itself: a separate unit cannot be ordered
   # after it without systemd deleting the job to break a cycle.
   systemd.services.powertop.serviceConfig.ExecStartPost =
-    pkgs.writeShellScript "touchpad-i2c-pin-runtime-pm" ''
+    pkgs.writeShellScript "touchpad-i2c-pin-runtime-pm" /* bash */ ''
       echo on > /sys/bus/pci/devices/0000:00:15.1/power/control
     '';
 
@@ -227,6 +215,6 @@ in {
 
   environment.systemPackages = with pkgs; [
     libsmbios
-    laptopPowerProfile
+    laptop-power-profile
   ];
 }

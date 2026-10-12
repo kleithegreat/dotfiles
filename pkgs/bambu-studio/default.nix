@@ -50,11 +50,11 @@ appimageTools.wrapType2 {
   # Shell-parent launcher plus the real BambuStudio window class; see the
   # AppImage/Vicinae quirk in docs/nix.md.
   extraInstallCommands = /* bash */ ''
-    install -m 444 -D ${appimageContents}/BambuStudio.desktop \
+    install -D --mode=444 ${appimageContents}/BambuStudio.desktop \
       $out/share/applications/BambuStudio.desktop
-    install -m 444 -D ${appimageContents}/BambuStudio.png \
+    install -D --mode=444 ${appimageContents}/BambuStudio.png \
       $out/share/icons/hicolor/scalable/apps/BambuStudio.png
-    install -m 755 -D /dev/stdin $out/bin/bambu-studio-desktop <<EOF
+    install -D --mode=755 /dev/stdin $out/bin/bambu-studio-desktop <<EOF
     #!${runtimeShell}
     "$out/bin/bambu-studio" "\$@"
     EOF

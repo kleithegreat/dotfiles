@@ -1,31 +1,46 @@
 { lib, pkgs, host, inputs, ... }:
 
 let
+  # Every name either host's closure asks the predicate about, grouped by what
+  # pulls it in. `cuda_compat` is also asked (an availability probe) and stays
+  # refused.
   allowedUnfreePackageNames = [
+    # Applications — home.packages
     "bambu-studio"
+    "discord"
+    "discord-unwrapped"
+    "lmstudio"
+    "obsidian"
+    "slack"
+    "spotify"
+    "unrar"
+    "vscode"
+    "zoom"
+
+    # Steam
+    "steam"
+    "steam-unwrapped"
+
+    # Fonts — fonts.packages
+    "sf-pro"
+    "symbola"
+
+    # NVIDIA driver and tools — hardware.nvidia
+    "nvidia-settings"
+    "nvidia-x11"
+
+    # CUDA userspace — comfyui -> torch, gpu-burn
     "cccl"
-    "claude-code"
     "cuda-bindings"
-    "cuda_cccl"
     "cuda_crt"
     "cuda_cudart"
-    "cuda_cuobjdump"
     "cuda_cupti"
-    "cuda_cuxxfilt"
-    "cuda_gdb"
-    "cuda-merged"
     "cuda_nvcc"
-    "cuda_nvdisasm"
     "cuda_nvml_dev"
-    "cuda_nvprune"
     "cuda_nvrtc"
     "cuda_nvtx"
     "cuda_profiler_api"
-    "cuda_sanitizer_api"
     "cudnn"
-    "discord"
-    "discord-unwrapped"
-    "fah-client"
     "libcublas"
     "libcufft"
     "libcufile"
@@ -33,26 +48,12 @@ let
     "libcusolver"
     "libcusparse"
     "libcusparse_lt"
-    "libnpp"
     "libnvfatbin"
     "libnvjitlink"
     "libnvshmem"
     "libnvvm"
-    "lmstudio"
-    "nvidia-settings"
-    "nvidia-x11"
-    "obsidian"
-    "slack"
-    "spotify"
-    "sf-pro"
-    "steam"
-    "steam-unwrapped"
-    "symbola"
     "torch"
     "triton"
-    "unrar"
-    "vscode"
-    "zoom"
   ];
 in
 {

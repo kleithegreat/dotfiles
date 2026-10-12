@@ -1,10 +1,6 @@
 { config, pkgs, lib, host, ... }:
 
 let
-  zshShareOnly = pkgs.runCommand "zsh-share-only" {} ''
-    mkdir --parents "$out/share"
-    ln --symbolic ${pkgs.zsh}/share/zsh "$out/share/zsh"
-  '';
   rebuildSystemFeatures = [
     "benchmark"
     "big-parallel"
@@ -21,7 +17,7 @@ in
   # ── Zsh ──────────────────────────────────────────────────────
   programs.zsh = {
     enable = true;
-    package = zshShareOnly;
+    package = pkgs.zsh-share-only;
     dotDir = "${config.xdg.configHome}/zsh";
 
     history = {
@@ -163,7 +159,7 @@ in
       }
 
       # ── bat as manpager ──────────────────────────────────────
-      export MANPAGER="sh -c 'col -bx | bat --language=man --plain'"
+      export MANPAGER="sh -c 'col --no-backspaces --spaces | bat --language=man --plain'"
       export MANROFFOPT="-c"
 
       # ── SSH agent (GCR socket, managed by gcr-ssh-agent.socket) ──

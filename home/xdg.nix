@@ -43,18 +43,6 @@ let
     quickshell = dotfilesSource "config/quickshell";
     nvim = nvimSource;
   };
-  # Takes the files as real argv and shell-quotes them into the dispatch
-  # string: a desktop-entry field code cannot survive it ([[hyprland]]).
-  codeLauncher = pkgs.writeShellApplication {
-    name = "code-hypr";
-    text = /* bash */ ''
-      cmd=code
-      for arg in "$@"; do
-        cmd="$cmd $(printf '%q' "$arg")"
-      done
-      hyprctl dispatch "hl.dsp.exec_cmd([==[$cmd]==])"
-    '';
-  };
   mkHostConfigFile = key: fallback:
     let
       relativePath = host.hyprland.${key};
@@ -164,7 +152,7 @@ in
     comment = "Code Editing. Redefined.";
     genericName = "Text Editor";
     icon = "vscode";
-    exec = "${lib.getExe codeLauncher} %F";
+    exec = "${lib.getExe pkgs.code-hypr} %F";
     categories = [ "Utility" "TextEditor" "Development" "IDE" ];
     startupNotify = true;
     settings = {
@@ -176,7 +164,7 @@ in
       new-empty-window = {
         name = "New Empty Window";
         icon = "vscode";
-        exec = "${lib.getExe codeLauncher} --new-window %F";
+        exec = "${lib.getExe pkgs.code-hypr} --new-window %F";
       };
     };
   };

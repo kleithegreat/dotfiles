@@ -26,7 +26,7 @@ stdenvNoCC.mkDerivation {
 
     7z x "$src"
     mkdir payload
-    cpio -id --quiet -D payload < Payload~
+    cpio --extract --make-directories --quiet --directory=payload < Payload~
 
     runHook postUnpack
   '';
@@ -34,9 +34,9 @@ stdenvNoCC.mkDerivation {
   installPhase = /* bash */ ''
     runHook preInstall
 
-    mkdir -p "$out/share/fonts/opentype" "$out/share/fonts/truetype"
-    find payload -type f -name '*.otf' -exec mv -t "$out/share/fonts/opentype" {} +
-    find payload -type f -name '*.ttf' -exec mv -t "$out/share/fonts/truetype" {} +
+    mkdir --parents "$out/share/fonts/opentype" "$out/share/fonts/truetype"
+    find payload -type f -name '*.otf' -exec mv --target-directory="$out/share/fonts/opentype" {} +
+    find payload -type f -name '*.ttf' -exec mv --target-directory="$out/share/fonts/truetype" {} +
 
     runHook postInstall
   '';

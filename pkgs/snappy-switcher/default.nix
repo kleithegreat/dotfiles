@@ -37,14 +37,14 @@ stdenv.mkDerivation {
   installPhase = /* bash */ ''
     runHook preInstall
 
-    mkdir -p $out/bin
-    mkdir -p $out/share/snappy-switcher/themes
-    mkdir -p $out/share/doc/snappy-switcher
+    mkdir --parents $out/bin
+    mkdir --parents $out/share/snappy-switcher/themes
+    mkdir --parents $out/share/doc/snappy-switcher
 
-    install -m 755 snappy-switcher $out/bin/
-    install -m 644 themes/*.ini $out/share/snappy-switcher/themes/
-    install -m 644 config.ini.example $out/share/doc/snappy-switcher/
-    install -m 644 README.md $out/share/doc/snappy-switcher/ || true
+    install --mode=755 snappy-switcher $out/bin/
+    install --mode=644 themes/*.ini $out/share/snappy-switcher/themes/
+    install --mode=644 config.ini.example $out/share/doc/snappy-switcher/
+    install --mode=644 README.md $out/share/doc/snappy-switcher/ || true
 
     runHook postInstall
   '';

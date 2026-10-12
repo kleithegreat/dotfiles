@@ -100,17 +100,17 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   installPhase = /* bash */ ''
     runHook preInstall
 
-    mkdir -p "$out/share/comfyui"
-    cp -r ./. "$out/share/comfyui"
+    mkdir --parents "$out/share/comfyui"
+    cp --recursive ./. "$out/share/comfyui"
 
     skeletonDirs=""
     for dir in $(find models input output custom_nodes -type d | sort); do
       skeletonDirs="$skeletonDirs \"\$base_directory/$dir\""
     done
 
-    install -Dm0755 ${./comfyui.sh} "$out/bin/comfyui"
+    install -D --mode=0755 ${./comfyui.sh} "$out/bin/comfyui"
     substituteInPlace "$out/bin/comfyui" \
-      --replace-fail '@mkdir@' '${coreutils}/bin/mkdir' \
+      --replace-fail '@mkdir@' '${lib.getExe' coreutils "mkdir"}' \
       --replace-fail '@skeletonDirs@' "$skeletonDirs" \
       --replace-fail '@python@' '${pythonEnv}' \
       --replace-fail '@app@' "$out/share/comfyui"

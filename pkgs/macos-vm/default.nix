@@ -17,7 +17,7 @@ let
 
   # OpenCore's boot disk and the OVMF pair are prebuilt binaries: OSX-KVM is
   # where they come from, and only these four files are wanted out of it.
-  bootFiles = runCommand "osx-kvm-boot-files" { } ''
+  bootFiles = runCommand "osx-kvm-boot-files" { } /* bash */ ''
     install -D --mode=444 --target-directory="$out" \
       ${osxKvm}/OVMF_CODE_4M.fd \
       ${osxKvm}/OVMF_VARS-1920x1080.fd \
@@ -156,7 +156,7 @@ writeShellApplication {
         exit 1
       fi
       seed
-      [ -e "$state/macos.qcow2" ] || qemu-img create -f qcow2 "$state/macos.qcow2" "$size"
+      [ -e "$state/macos.qcow2" ] || qemu-img create --format qcow2 "$state/macos.qcow2" "$size"
       base_args
       # The installer runs before AppleParavirtGPU exists in the guest, so it
       # only ever gets the console device.

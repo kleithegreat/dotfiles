@@ -45,8 +45,8 @@ let
 
   hyprland = final.optimize.cc (
     appendPatches [
-      ../patches/hyprland/hyprland-floating-top-decoration-rounding-0.55.patch
-      ../patches/hyprland/hyprland-gcc15-designated-initializer-fix-0.55.patch
+      ../patches/hyprland/hyprland-floating-top-decoration-rounding.patch
+      ../patches/hyprland/hyprland-gcc15-designated-initializer-fix.patch
     ] (inputs.hyprland.packages.${system}.hyprland.override {
       hyprland-guiutils = guiutils;
       glaze-hyprland = glaze;

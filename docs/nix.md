@@ -30,11 +30,12 @@
   through NixOS (`environment.systemPackages` or a NixOS module), not
   `home.packages` — user-profile packages never register system-scoped
   helpers. Current examples: partition-manager, bitwarden-desktop.
-- Physical hosts run the stock nixpkgs kernel. A custom boot-critical kernel
-  closure (Clang/LTO/CachyOS patches, forced initrd lists) already caused an
-  undebuggable no-journal boot failure (desktop generation 73); keep runtime
-  policy in `kernelParams`/sysctls/services and reintroduce Kconfig trims only
-  as separately boot-validated changes.
+- Every physical host runs the stock nixpkgs kernel package. A custom
+  boot-critical kernel closure (Clang/LTO/CachyOS patches, forced initrd lists)
+  already caused an undebuggable no-journal boot failure (desktop generation
+  73); keep runtime policy in `kernelParams`/sysctls/services. The laptop alone
+  carries Kconfig trims, because it boots on them daily; every new trim is its
+  own change and is boot-validated before anything else rides along with it.
 - Intentional exceptions that audits keep flagging: `mitigations=off` on
   physical hosts (performance tradeoff), `max-jobs = 2` local build
   concurrency, and the checked-in `users.users.kevin.initialPassword` — a
@@ -46,7 +47,11 @@
 ### A narrow unfree predicate must cover transitive closures
 `allowUnfreePredicate` must list not just chosen apps but names pulled in by
 modules (`fonts.packages`, Steam, CUDA closures — `steam-unwrapped`, `sf-pro`,
-`symbola`, the CUDA userspace set).
+`symbola`, the CUDA userspace set). The list in `system/configuration.nix` is
+exactly what the two toplevels ask the predicate about, so a bumped CUDA
+component that gains a new split-out package fails evaluation naming it; add
+that name. `cuda_compat` is asked too but is an availability probe, and staying
+refused is correct.
 
 ### Laptop Kconfig parent trims need child-symbol unsets
 Disabling a parent subsystem (Nouveau, Hyper-V DRM, AMD SEV) makes nixpkgs'
@@ -324,8 +329,9 @@ The helper lives in `desktopctl/src/bin/laptop-power-profile/` and is a
 second binary of the `desktopctl` crate rather than a subcommand: the polkit
 rule in `hosts/laptop/system.nix` grants passwordless pkexec by matching the
 program path, so a subcommand would extend that grant to all of `desktopctl`.
-`hosts/laptop/system.nix` symlinks just that binary into `systemPackages`;
-the package wraps it with `powerprofilesctl` on `PATH`, because pkexec resets
+The `laptop-power-profile` overlay package symlinks just that binary and
+`hosts/laptop/system.nix` puts it in `systemPackages`; desktopctl's own package
+wraps it with `powerprofilesctl` on `PATH`, because pkexec resets
 the environment.
 
 Because `desktopctl` is installed on every host, the helper refuses to run

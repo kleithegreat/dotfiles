@@ -12,20 +12,20 @@ stdenvNoCC.mkDerivation {
   installPhase = /* bash */ ''
     runHook preInstall
 
-    mkdir -p $out/share/icons/Neuwaita
-    cp -r index.theme scalable Extras $out/share/icons/Neuwaita/
-    cp -r $out/share/icons/Neuwaita $out/share/icons/Neuwaita-KDE
+    mkdir --parents $out/share/icons/Neuwaita
+    cp --recursive index.theme scalable Extras $out/share/icons/Neuwaita/
+    cp --recursive $out/share/icons/Neuwaita $out/share/icons/Neuwaita-KDE
     substituteInPlace $out/share/icons/Neuwaita-KDE/index.theme \
       --replace-fail 'Name=Neuwaita' 'Name=Neuwaita KDE' \
       --replace-fail 'Inherits=Adwaita,hicolor,breeze' $'Inherits=Neuwaita,breeze,Adwaita,hicolor\nFollowsColorScheme=true'
 
     for theme in Neuwaita Neuwaita-KDE; do
       places="$out/share/icons/$theme/scalable/places"
-      ln -s folder.svg "$places/folder-blue.svg"
-      ln -s folder-download.svg "$places/folder-downloads.svg"
-      ln -s user-desktop.svg "$places/folder-desktop.svg"
-      ln -s user-home.svg "$places/folder-home.svg"
-      ln -s folder.svg "$places/inode-directory.svg"
+      ln --symbolic folder.svg "$places/folder-blue.svg"
+      ln --symbolic folder-download.svg "$places/folder-downloads.svg"
+      ln --symbolic user-desktop.svg "$places/folder-desktop.svg"
+      ln --symbolic user-home.svg "$places/folder-home.svg"
+      ln --symbolic folder.svg "$places/inode-directory.svg"
     done
 
     runHook postInstall

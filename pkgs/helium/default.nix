@@ -122,13 +122,13 @@ stdenv.mkDerivation {
   installPhase = /* bash */ ''
     runHook preInstall
 
-    install -d "$out/bin" \
+    install --directory "$out/bin" \
       "$out/libexec/helium" \
       "$out/share/applications" \
       "$out/share/icons/hicolor/256x256/apps" \
       "$out/share/pixmaps"
 
-    cp -a ./* "$out/libexec/helium/"
+    cp --archive ./* "$out/libexec/helium/"
 
     substituteInPlace "$out/libexec/helium/helium-wrapper" \
       --replace-fail 'CHROME_VERSION_EXTRA="custom"' 'CHROME_VERSION_EXTRA="nixos"'
@@ -138,11 +138,11 @@ stdenv.mkDerivation {
       --prefix XDG_DATA_DIRS : "${runtimeDataDirs}" \
       --suffix PATH : "${lib.makeBinPath [ xdg-utils ]}"
 
-    install -m 0644 "$out/libexec/helium/helium.desktop" \
+    install --mode=0644 "$out/libexec/helium/helium.desktop" \
       "$out/share/applications/helium.desktop"
-    install -m 0644 "$out/libexec/helium/product_logo_256.png" \
+    install --mode=0644 "$out/libexec/helium/product_logo_256.png" \
       "$out/share/icons/hicolor/256x256/apps/helium.png"
-    ln -s ../icons/hicolor/256x256/apps/helium.png "$out/share/pixmaps/helium.png"
+    ln --symbolic ../icons/hicolor/256x256/apps/helium.png "$out/share/pixmaps/helium.png"
 
     runHook postInstall
   '';

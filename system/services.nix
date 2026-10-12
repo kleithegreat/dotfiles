@@ -1,31 +1,10 @@
-{ config, pkgs, ... }:
+{ config, lib, pkgs, ... }:
 
 let
-  sddmThemeBackgroundDir = "/var/lib/desktopctl/where-is-my-sddm-theme";
-  sddmThemeBackgroundPath = "${sddmThemeBackgroundDir}/background";
+  sddmThemeBackgroundDir = pkgs.sddm-theme.backgroundDir;
+  sddmThemeBackgroundPath = pkgs.sddm-theme.backgroundPath;
   sddmThemeStagingDir = "/tmp/desktopctl-where-is-my-sddm-theme";
   sddmThemeStagingPath = "${sddmThemeStagingDir}/background";
-  sddmTheme = pkgs.where-is-my-sddm-theme.override {
-    themeConfig.General = {
-      background = sddmThemeBackgroundPath;
-      backgroundMode = "fill";
-      blurRadius = 32;
-      basicTextColor = "#ebdbb2";
-      passwordCharacter = "*";
-      passwordFontSize = 36;
-      passwordInputBackground = "#3c3836";
-      passwordInputRadius = 8;
-      passwordInputWidth = 0.25;
-      passwordCursorColor = "#ebdbb2";
-      passwordMask = true;
-      passwordInputCursorVisible = true;
-      showUsersByDefault = true;
-      showUserRealNameByDefault = true;
-      usersFontSize = 24;
-      showSessionsByDefault = false;
-      sessionsFontSize = 16;
-    };
-  };
 in
 {
   systemd.tmpfiles.rules = [
@@ -39,7 +18,7 @@ in
     text = /* bash */ ''
       mkdir --parents "${sddmThemeBackgroundDir}"
       if [ ! -e "${sddmThemeBackgroundPath}" ]; then
-        install -Dm0644 ${../styling/wallpapers/lmao.png} "${sddmThemeBackgroundPath}"
+        install -D --mode=0644 ${../styling/wallpapers/lmao.png} "${sddmThemeBackgroundPath}"
       fi
     '';
   };
@@ -59,7 +38,7 @@ in
         # level-triggered path unit spins; see docs/nix.md.
         trap 'rm --force "${sddmThemeStagingPath}"' EXIT
 
-        install -Dm0644 "${sddmThemeStagingPath}" "${sddmThemeBackgroundPath}"
+        install -D --mode=0644 "${sddmThemeStagingPath}" "${sddmThemeBackgroundPath}"
       '';
     };
   };
@@ -107,7 +86,7 @@ in
     wayland.compositor = "kwin";
     theme = "where_is_my_sddm_theme";
     extraPackages = [
-      sddmTheme
+      pkgs.sddm-theme
       pkgs.kdePackages.qt5compat
     ];
   };
@@ -122,7 +101,7 @@ in
     description = "Discard unused blocks on the Linux root filesystem";
     serviceConfig = {
       Type = "oneshot";
-      ExecStart = "${pkgs.util-linux}/sbin/fstrim --verbose /";
+      ExecStart = "${lib.getExe' pkgs.util-linux "fstrim"} --verbose /";
       PrivateDevices = false;
       PrivateNetwork = true;
       PrivateUsers = false;
@@ -184,6 +163,16 @@ in
       isSystem = false;
     };
   };
+  # The module's geoclue.conf has no `[ip]` section, which disables the IP source.
+  environment.etc."geoclue/conf.d/50-ip.conf".text = lib.generators.toINI { } {
+    ip = {
+      enable = true;
+      method = "ichnaea";
+    };
+  };
+  systemd.services.geoclue.restartTriggers = [
+    config.environment.etc."geoclue/conf.d/50-ip.conf".source
+  ];
   services.tailscale = {
     enable = true;
     extraSetFlags = [ "--operator=kevin" ];
@@ -204,7 +193,7 @@ in
   programs.partition-manager.enable = true;
 
   environment.systemPackages = [
-    sddmTheme
+    pkgs.sddm-theme
     pkgs.bitwarden-desktop
   ];
 }

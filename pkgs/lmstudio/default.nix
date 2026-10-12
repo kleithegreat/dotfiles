@@ -21,14 +21,14 @@ appimageTools.wrapType2 {
   # Upstream names the entry after its appId; keep the desktop ID stable as
   # lm-studio.desktop so launcher state survives the rename.
   extraInstallCommands = /* bash */ ''
-    install -m 444 -D ${appimageContents}/ai.elementlabs.lmstudio.desktop \
+    install -D --mode=444 ${appimageContents}/ai.elementlabs.lmstudio.desktop \
       $out/share/applications/lm-studio.desktop
 
     cp --recursive ${appimageContents}/usr/share/icons $out/share/
 
     mv $out/bin/lmstudio $out/bin/lm-studio
 
-    install -m 755 -D /dev/stdin $out/bin/lm-studio-desktop <<EOF
+    install -D --mode=755 /dev/stdin $out/bin/lm-studio-desktop <<EOF
     #!${runtimeShell}
     "$out/bin/lm-studio" "\$@"
     EOF
@@ -36,7 +36,7 @@ appimageTools.wrapType2 {
     substituteInPlace $out/share/applications/lm-studio.desktop \
       --replace-fail 'Exec=AppRun %U' "Exec=$out/bin/lm-studio-desktop %U"
 
-    install -m 755 ${appimageContents}/resources/app/.webpack/lms $out/bin/
+    install --mode=755 ${appimageContents}/resources/app/.webpack/lms $out/bin/
     patchelf --set-interpreter "${stdenv.cc.bintools.dynamicLinker}" $out/bin/lms
   '';
 
