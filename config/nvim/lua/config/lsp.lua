@@ -86,7 +86,7 @@ function M.setup()
 
   vim.lsp.config("ltex", {
     capabilities = server_capabilities,
-    filetypes = { "markdown", "tex", "plaintex" },
+    filetypes = { "tex", "plaintex" },
     settings = {
       ltex = {
         checkFrequency = "save",

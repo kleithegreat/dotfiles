@@ -30,8 +30,9 @@ Item {
     readonly property real _span: Math.max(0.0001, maximum - minimum)
     property bool _dragging: false
     property real _local: 0
-    readonly property real _shown: _dragging ? _local : value
-    readonly property real _fraction: Math.max(0, Math.min(1, (_shown - minimum) / _span))
+    // What the control displays: the caller's value, or the drag in progress.
+    readonly property real shown: _dragging ? _local : value
+    readonly property real _fraction: Math.max(0, Math.min(1, (shown - minimum) / _span))
     readonly property real _usable: width - Metrics.knob
 
     function _valueAt(px) {
@@ -120,7 +121,7 @@ Item {
 
         onWheel: event => {
             const delta = event.angleDelta.y > 0 ? root.step : -root.step;
-            const next = Math.max(root.minimum, Math.min(root.maximum, root._shown + delta * root._span));
+            const next = Math.max(root.minimum, Math.min(root.maximum, root.shown + delta * root._span));
             root.moved(next);
             root.committed(next);
         }

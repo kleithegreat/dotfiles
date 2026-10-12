@@ -18,6 +18,7 @@ Ui.Scroll {
             title: "Pointer"
 
             Ui.SliderRow {
+                id: speed
                 Layout.fillWidth: true
                 Layout.margins: Metrics.s2
                 label: "Speed"
@@ -25,7 +26,7 @@ Ui.Scroll {
                 maximum: 1
                 value: Sys.Input.value("sensitivity", 0)
                 pending: Sys.Input.staged["sensitivity"] !== undefined
-                caption: Number(Sys.Input.value("sensitivity", 0)).toFixed(2)
+                caption: Number(speed.shown).toFixed(2)
                 onCommitted: value => Sys.Input.set("sensitivity", Math.round(value * 100) / 100)
             }
 
@@ -34,6 +35,7 @@ Ui.Scroll {
             }
 
             Ui.SliderRow {
+                id: scrolling
                 Layout.fillWidth: true
                 Layout.margins: Metrics.s2
                 label: "Scrolling"
@@ -41,7 +43,7 @@ Ui.Scroll {
                 maximum: 3
                 value: Sys.Input.value("scroll_factor", 1)
                 pending: Sys.Input.staged["scroll_factor"] !== undefined
-                caption: Number(Sys.Input.value("scroll_factor", 1)).toFixed(2) + "×"
+                caption: Number(scrolling.shown).toFixed(2) + "×"
                 onCommitted: value => Sys.Input.set("scroll_factor", Math.round(value * 100) / 100)
             }
 
@@ -51,6 +53,7 @@ Ui.Scroll {
             }
 
             Ui.SliderRow {
+                id: touchpadScrolling
                 Layout.fillWidth: true
                 Layout.margins: Metrics.s2
                 visible: Sys.Host.touchpad
@@ -59,7 +62,7 @@ Ui.Scroll {
                 maximum: 1.5
                 value: Sys.Input.value("touchpad_scroll_factor", 0.25)
                 pending: Sys.Input.staged["touchpad_scroll_factor"] !== undefined
-                caption: Number(Sys.Input.value("touchpad_scroll_factor", 0.25)).toFixed(2) + "×"
+                caption: Number(touchpadScrolling.shown).toFixed(2) + "×"
                 onCommitted: value => Sys.Input.set("touchpad_scroll_factor", Math.round(value * 100) / 100)
             }
 

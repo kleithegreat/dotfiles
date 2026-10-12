@@ -21,6 +21,7 @@ RowLayout {
     property alias pending: slider.pending
     property alias interactive: slider.interactive
     property alias claimsDrag: slider.claimsDrag
+    readonly property alias shown: slider.shown
 
     signal iconClicked
     signal moved(real value)

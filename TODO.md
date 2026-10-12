@@ -23,6 +23,10 @@ Open issues and pending validations. Delete entries when resolved.
       (glide, overshoot, recoil); OSD suppression across a volume drag;
       night-light commit-on-release; Wi-Fi join forms including enterprise;
       Display staged apply and its revert countdown; tray menus.
+- [ ] Laptop Bluetooth, after the rebuild: the adapter should be off at
+      boot; turn it on from the Control Center tile, pair something in
+      Settings → Bluetooth, and confirm audio routes to it. The shell's
+      native adapter path has never run against a real bluez.
 - [ ] Log out without rebooting and confirm `desktopctl.service` stops with
       the session.
 - [ ] Desktop suspend/resume: validate the post-overlay-removal resume stack
@@ -48,10 +52,6 @@ Open issues and pending validations. Delete entries when resolved.
 
 ## Open issues
 
-- [ ] Quickshell (medium): the Bluetooth pane, tile and service have no host
-      to run on — neither host enables `hardware.bluetooth`, so bluez is
-      absent and the native adapter path has never run. Enable it on the
-      laptop or delete the three.
 - [ ] Nix (low): `pkgs/reims-vgpu` still has `sed -i` in its build script;
       changing it means rebuilding the QEMU fork to prove the script.
 - [ ] Nix (low): the patched Discord builds, but nobody has checked that the
