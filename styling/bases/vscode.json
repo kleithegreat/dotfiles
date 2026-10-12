@@ -107,6 +107,7 @@
         "*.qrc": "qt-core.qrcEditor",
         "*.pdf": "pdf.view"
     },
+    "qt-core.showWelcomePageOnActivation": false,
     "qt-qml.doNotAskForQmllsDownload": true,
     "qt-qml.qmlls.customExePath": "/etc/profiles/per-user/kevin/bin/qmlls",
     "qt-qml.qmlls.additionalImportPaths": [
