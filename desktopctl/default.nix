@@ -9,11 +9,11 @@ rustPlatform.buildRustPackage {
 
   nativeBuildInputs = [ makeWrapper ];
 
-  postUnpack = ''
+  postUnpack = /* bash */ ''
     cp --recursive ${../styling} $sourceRoot/../styling
   '';
 
-  postInstall = ''
+  postInstall = /* bash */ ''
     # Versioned theming data travels in the closure so a running desktop never
     # reads the working tree. `--set-default` leaves DESKTOPCTL_DATA free for
     # authoring against a checkout. Wallpapers are deliberately absent: they

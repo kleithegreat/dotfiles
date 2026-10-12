@@ -28,13 +28,13 @@ stdenv.mkDerivation {
     gdk-pixbuf
   ];
 
-  buildPhase = ''
+  buildPhase = /* bash */ ''
     runHook preBuild
     make
     runHook postBuild
   '';
 
-  installPhase = ''
+  installPhase = /* bash */ ''
     runHook preInstall
 
     mkdir -p $out/bin

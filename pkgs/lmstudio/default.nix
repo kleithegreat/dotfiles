@@ -20,7 +20,7 @@ appimageTools.wrapType2 {
   # AppImage/FHS wrapper, or Vicinae's detached launch loses the app.
   # Upstream names the entry after its appId; keep the desktop ID stable as
   # lm-studio.desktop so launcher state survives the rename.
-  extraInstallCommands = ''
+  extraInstallCommands = /* bash */ ''
     install -m 444 -D ${appimageContents}/ai.elementlabs.lmstudio.desktop \
       $out/share/applications/lm-studio.desktop
 

@@ -119,7 +119,7 @@ in
 {
   xdg.configFile = staticConfigSources // recursiveConfigSources // {
     "nvim/lazy-lock.json".source =
-      config.lib.file.mkOutOfStoreSymlink "/home/kevin/repos/dotfiles/config/nvim/lazy-lock.json";
+      config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/repos/dotfiles/config/nvim/lazy-lock.json";
 
     "hypr/autostart-host.lua" = mkHostConfigFile "autostartHost" "";
     "hypr/input-devices.lua" = mkHostConfigFile "inputDevices" "";
@@ -165,7 +165,7 @@ in
     comment = "Code Editing. Redefined.";
     genericName = "Text Editor";
     icon = "vscode";
-    exec = "${codeLauncher}/bin/code-hypr %F";
+    exec = "${lib.getExe codeLauncher} %F";
     categories = [ "Utility" "TextEditor" "Development" "IDE" ];
     startupNotify = true;
     settings = {
@@ -177,7 +177,7 @@ in
       new-empty-window = {
         name = "New Empty Window";
         icon = "vscode";
-        exec = "${codeLauncher}/bin/code-hypr --new-window %F";
+        exec = "${lib.getExe codeLauncher} --new-window %F";
       };
     };
   };

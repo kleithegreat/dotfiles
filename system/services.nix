@@ -78,7 +78,6 @@ in
   ];
 
   networking.firewall = {
-    enable = true;
     allowedTCPPortRanges = [{ from = 1714; to = 1764; }];
     allowedUDPPorts = [ 5353 ];
     allowedUDPPortRanges = [{ from = 1714; to = 1764; }];
@@ -160,33 +159,7 @@ in
       package = pkgs.optimized.wireplumber;
     };
   };
-  services.pulseaudio.enable = false;
   security.rtkit.enable = true;
-
-  hardware.bluetooth = {
-    enable = false;
-    powerOnBoot = false;
-  };
-  services.blueman.enable = false;
-
-  services.printing.enable = false;
-  services.avahi = {
-    enable = false;
-    nssmdns4 = false;
-    openFirewall = false;
-  };
-
-  services.samba = {
-    enable = false;
-    openFirewall = false;
-    settings = {
-      global = {
-        workgroup = "WORKGROUP";
-        "server string" = "nixos";
-        "server role" = "standalone server";
-      };
-    };
-  };
 
   virtualisation.podman = {
     enable = true;
@@ -215,8 +188,7 @@ in
     enable = true;
     extraSetFlags = [ "--operator=kevin" ];
   };
-  # `package` is the daemon (`pkgs.mullvad`) and stays at its default; the
-  # desktop app is now a separate opt-in rather than something bundled into it.
+  # `package` is the daemon (`pkgs.mullvad`); the desktop app is `gui.enable`.
   services.mullvad-vpn = {
     enable = true;
     gui.enable = true;

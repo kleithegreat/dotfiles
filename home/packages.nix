@@ -102,9 +102,6 @@ let
   });
 
   basePackages = with pkgs; [
-    bat
-    eza
-    fzf
     jq
     tree
     ncdu
@@ -174,7 +171,6 @@ let
     gnome-secrets
     bambu-studio
     pandoc
-    hypridle
     hyprpolkitagent
     hyprsunset
     geoclue2-with-demo-agent
@@ -187,7 +183,6 @@ let
     wl-clipboard
     playerctl
     easyeffects
-    networkmanager
     nwg-look
     papirus-icon-theme
     rose-pine-cursor

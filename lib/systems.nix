@@ -25,7 +25,7 @@
           home-manager.users.kevin = import ../home;
           home-manager.extraSpecialArgs = {
             dotfilesPath = flake;
-            inherit host inputs;
+            inherit host;
           };
         }
       ];

@@ -108,7 +108,7 @@ in
       wantedBy = [ "multi-user.target" ];
       after = [ "systemd-journald.service" ];
       serviceConfig = {
-        ExecStart = "${kernelOomNotifier}/bin/kernel-oom-notifier";
+        ExecStart = lib.getExe kernelOomNotifier;
         Restart = "always";
         RestartSec = "2s";
       };
@@ -127,10 +127,7 @@ in
     systemd.tmpfiles.rules = [ "d /var/tmp/nix-daemon 0755 root root -" ];
 
     networking.useDHCP = lib.mkDefault true;
-    zramSwap = {
-      enable = true;
-      memoryPercent = 50;
-    };
+    zramSwap.enable = true;
 
     hardware.enableRedistributableFirmware = true;
     hardware.i2c.enable = true;
@@ -158,5 +155,14 @@ in
     # Bound rare upstream tailscaled shutdown hangs so reboot does not wait for
     # the full systemd default stop timeout.
     systemd.services.tailscaled.serviceConfig.TimeoutStopSec = "15s";
+
+    services.power-profiles-daemon.enable = true;
+
+    programs.steam = {
+      enable = true;
+      remotePlay.openFirewall = true;
+      localNetworkGameTransfers.openFirewall = true;
+      extest.enable = true; # X11→uinput translation for controllers on Wayland
+    };
   };
 }

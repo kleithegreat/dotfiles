@@ -2,9 +2,8 @@
 
 {
   boot.initrd.availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usbhid" "usb_storage" "sd_mod" ];
-  # Keep only the writeback tuning here; swappiness/vfs_cache_pressure stay at
-  # kernel defaults, which suit the shared zram-only swap policy better than
-  # the disk-swap-oriented values previously set.
+  # Writeback tuning only: swappiness/vfs_cache_pressure stay at kernel
+  # defaults, which suit the shared zram-only swap policy.
   boot.kernel.sysctl = {
     "vm.dirty_ratio" = 10;
     "vm.dirty_background_ratio" = 5;
@@ -33,11 +32,10 @@
     options = [ "nofail" "x-systemd.device-timeout=10s" ];
   };
 
-  services.power-profiles-daemon.enable = true;
   # Keep this desktop pinned to the top performance profile whenever the daemon
   # comes up, including later restarts.
   systemd.services.power-profiles-daemon.postStart = /* bash */ ''
-    ${config.services.power-profiles-daemon.package}/bin/powerprofilesctl set performance
+    ${lib.getExe' config.services.power-profiles-daemon.package "powerprofilesctl"} set performance
   '';
 
   hardware.graphics.enable = true;
@@ -110,13 +108,5 @@
       Restart = "on-failure";
       RestartSec = 30;
     };
-  };
-
-  # ── Steam ─────────────────────────────────────────────────────
-  programs.steam = {
-    enable = true;
-    remotePlay.openFirewall = true;
-    localNetworkGameTransfers.openFirewall = true;
-    extest.enable = true;  # X11→uinput translation for controllers on Wayland
   };
 }

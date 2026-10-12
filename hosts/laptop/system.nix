@@ -94,8 +94,6 @@ in {
   # Laptop overrides — disable laptop-only remote login.
   services.openssh.enable = lib.mkForce false;
 
-  services.power-profiles-daemon.enable = true;
-
   # Runs `powertop --auto-tune` at boot to enable runtime PM on devices that
   # don't default to it (NVMe, audio codec, sensor hub, etc.)
   powerManagement.powertop.enable = true;
@@ -223,14 +221,6 @@ in {
   programs.captive-browser = {
     enable = true;
     interface = "wlp0s20f3";
-  };
-
-  # ── Steam ─────────────────────────────────────────────────────
-  programs.steam = {
-    enable = true;
-    remotePlay.openFirewall = true;
-    localNetworkGameTransfers.openFirewall = true;
-    extest.enable = true;  # X11→uinput translation for controllers on Wayland
   };
 
   environment.systemPackages = with pkgs; [

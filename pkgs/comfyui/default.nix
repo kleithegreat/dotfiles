@@ -97,7 +97,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   dontConfigure = true;
   dontBuild = true;
 
-  installPhase = ''
+  installPhase = /* bash */ ''
     runHook preInstall
 
     mkdir -p "$out/share/comfyui"

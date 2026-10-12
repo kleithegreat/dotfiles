@@ -100,6 +100,13 @@ Open issues and pending validations. Delete entries when resolved.
       a key that plugin reads; `config/hypr/rules.lua` still matches
       `google-chrome` incognito and a KDE portal class that nothing
       installed produces.
+- [ ] Nix (medium), style rules still broken: derivations defined in a
+      `let` instead of an overlay (the patched Discord in `home/packages.nix`,
+      `sddmTheme`, `kernelOomNotifier`, `codeLauncher`, `zshShareOnly`,
+      `laptopPowerProfile`); short flags in build scripts across `pkgs/`
+      (`mkdir -p`, `cp -r`, `install -Dm`, `tar xf`, `sed -i`), which need a
+      build of each package to change safely; the Hyprland patch files are
+      still named `-0.55` against a 0.56 input.
 - [ ] Nix (low): `docs/nix.md` Intent says physical hosts run the stock
       kernel, while `hosts/laptop/system.nix` carries a block of Kconfig
       trims that a Quirk in the same doc describes. One of the two is stale.

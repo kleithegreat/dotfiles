@@ -27,7 +27,7 @@ appimageTools.wrapType2 {
   inherit pname version;
   src = bambuStudioAppImage;
 
-  profile = ''
+  profile = /* bash */ ''
     export SSL_CERT_FILE="${caBundle}"
     export CURL_CA_BUNDLE="${caBundle}"
     export GIO_MODULE_DIR="${glib-networking}/lib/gio/modules"
@@ -49,7 +49,7 @@ appimageTools.wrapType2 {
 
   # Shell-parent launcher plus the real BambuStudio window class; see the
   # AppImage/Vicinae quirk in docs/nix.md.
-  extraInstallCommands = ''
+  extraInstallCommands = /* bash */ ''
     install -m 444 -D ${appimageContents}/BambuStudio.desktop \
       $out/share/applications/BambuStudio.desktop
     install -m 444 -D ${appimageContents}/BambuStudio.png \

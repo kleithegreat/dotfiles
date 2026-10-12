@@ -103,7 +103,6 @@ in
   # ── Hyprland ─────────────────────────────────────────────────
   programs.hyprland = {
     enable = true;
-    xwayland.enable = true;
     package = pkgs.hypr.hyprland;
     portalPackage = pkgs.hypr.portal;
   };
@@ -130,8 +129,6 @@ in
     cantarell-fonts
     source-sans
     sf-pro
-    # Quickshell menu fonts without a nixpkgs package in this revision:
-    # Berkeley Mono, Outfit (would need custom derivations)
     noto-fonts-cjk-sans
     noto-fonts-color-emoji
     roboto
@@ -168,7 +165,6 @@ in
   environment.sessionVariables.HYPR_PLUGIN_DIR = pkgs.hypr.pluginDir;
 
   # ── Man pages ────────────────────────────────────────────────
-  documentation.man.enable = true;
   documentation.dev.enable = true;  # development man pages
 
   # ── Locale ───────────────────────────────────────────────────
@@ -186,7 +182,6 @@ in
     LC_TELEPHONE      = "en_US.UTF-8";
     LC_TIME           = "en_US.UTF-8";
   };
-  console.keyMap = "us";
 
   # ── System packages (bare minimum — user tools go in home-manager) ──
   environment.systemPackages = with pkgs; [

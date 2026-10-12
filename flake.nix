@@ -52,7 +52,7 @@
           nativeOptimizations = true;
           module = ./hosts/desktop/system.nix;
           hyprland = {
-            autostartHost = "hosts/desktop/autostart.lua";
+            autostartHost = null;
             inputDevices = "hosts/desktop/input-devices.lua";
             monitors = "hosts/desktop/monitors.lua";
             env = "hosts/desktop/env.lua";

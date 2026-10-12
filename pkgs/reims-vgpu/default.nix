@@ -83,7 +83,7 @@ in
   # than be the source root. The source root stays the outer tree — that is
   # where `Cargo.lock` is, which is what `cargoSetupHook` validates against —
   # and preConfigure descends before anything QEMU-relative runs.
-  unpackPhase = ''
+  unpackPhase = /* bash */ ''
     runHook preUnpack
 
     # Every destination is created first and every copy names contents
@@ -107,7 +107,7 @@ in
   # nixpkgs' patches are cut against the 11.0.2 release; this fork is 11.0.50.
   patches = [ ];
 
-  postPatch = ''
+  postPatch = /* bash */ ''
     sed -i "/install_emptydir(get_option('localstatedir') \/ 'run')/d" \
       vendor/qemu/qga/meson.build
   '';
@@ -125,7 +125,7 @@ in
     rustPlatform.cargoSetupHook
   ];
 
-  preConfigure = ''
+  preConfigure = /* bash */ ''
     unset CPP # interferes with dependency calculation
     chmod +x vendor/qemu/scripts/shaderinclude.py
     patchShebangs vendor/qemu
@@ -145,7 +145,7 @@ in
     "--disable-tcg"
   ];
 
-  preFixup = ''
+  preFixup = /* bash */ ''
     gappsWrapperArgs+=(--prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath runtimeLibs})
     gappsWrapperArgs+=(--prefix PATH : ${lib.makeBinPath shaderTools})
   '';

@@ -119,7 +119,7 @@ stdenv.mkDerivation {
   dontBuild = true;
   dontWrapQtApps = true;
 
-  installPhase = ''
+  installPhase = /* bash */ ''
     runHook preInstall
 
     install -d "$out/bin" \

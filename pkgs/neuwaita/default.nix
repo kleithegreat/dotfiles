@@ -9,7 +9,7 @@ stdenvNoCC.mkDerivation {
   pname = "neuwaita";
   version = "unstable-2026-03-18";
   src = ./neuwaita-112525b2.tar.xz;
-  installPhase = ''
+  installPhase = /* bash */ ''
     runHook preInstall
 
     mkdir -p $out/share/icons/Neuwaita

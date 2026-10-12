@@ -21,7 +21,7 @@ stdenvNoCC.mkDerivation {
 
   # 7z walks the whole dmg -> hfs -> pkg -> gzip chain on its own and lands on
   # the bare cpio payload.
-  unpackPhase = ''
+  unpackPhase = /* bash */ ''
     runHook preUnpack
 
     7z x "$src"
@@ -31,7 +31,7 @@ stdenvNoCC.mkDerivation {
     runHook postUnpack
   '';
 
-  installPhase = ''
+  installPhase = /* bash */ ''
     runHook preInstall
 
     mkdir -p "$out/share/fonts/opentype" "$out/share/fonts/truetype"
