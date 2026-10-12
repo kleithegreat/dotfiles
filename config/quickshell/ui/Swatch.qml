@@ -8,7 +8,7 @@ Pressable {
     id: root
 
     property string scheme: ""
-    property string directory: ""
+    property string source: ""
     property bool selected: false
 
     property var colors: ({})
@@ -19,7 +19,7 @@ Pressable {
     pressScale: 0.98
 
     FileView {
-        path: root.directory === "" || root.scheme === "" ? "" : root.directory + "/" + root.scheme + ".json"
+        path: root.source
         onLoaded: {
             try {
                 root.colors = JSON.parse(this.text()).colors || {};

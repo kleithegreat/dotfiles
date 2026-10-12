@@ -101,7 +101,7 @@ QtObject {
             root._ingestState(state);
             // The scheme and wallpaper catalogs only shift when these keys
             // move (or the repo changes, which a session restart covers).
-            const catalogKeys = ["wallpaper", "wallpaper_dir", "filter_wallpaper", "color_scheme"];
+            const catalogKeys = ["wallpaper", "filter_wallpaper", "color_scheme"];
             for (let i = 0; i < changedKeys.length; i++) {
                 if (catalogKeys.indexOf(changedKeys[i]) >= 0) {
                     Qt.callLater(root.reloadCatalogs);
@@ -131,7 +131,7 @@ QtObject {
         id: schemeList
         command: ["desktopctl", "theme", "list-schemes"]
         stdout: StdioCollector {
-            onStreamFinished: root.schemes = this.text.split("\n").map(line => line.trim()).filter(line => line !== "")
+            onStreamFinished: root.schemes = this.text.split("\n").map(line => line.trim()).filter(line => line !== "").map(path => ({ name: path.replace(/^.*\//, "").replace(/\.json$/, ""), path: path }))
         }
     }
 

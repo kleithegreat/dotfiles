@@ -516,10 +516,6 @@ mod tests {
                 .display()
                 .to_string()
         );
-        assert_eq!(
-            state.wallpaper_dir,
-            repo_root().join("styling/wallpapers").display().to_string()
-        );
         Ok(())
     }
 

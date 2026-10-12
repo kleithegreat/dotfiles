@@ -13,12 +13,6 @@ Ui.Scroll {
     property string removing: ""
     property var captured: ["scheme", "icons"]
 
-    // The scheme catalog sits beside the wallpaper directory the backend reports.
-    readonly property string schemeDir: {
-        const wallpapers = Sys.Appearance.value("wallpaper_dir", "");
-        return wallpapers === "" ? "" : wallpapers.replace(/\/wallpapers\/?$/, "/colors");
-    }
-
     ColumnLayout {
         id: body
         width: root.width
@@ -148,12 +142,12 @@ Ui.Scroll {
                     model: Sys.Appearance.schemes
 
                     Ui.Swatch {
-                        required property string modelData
+                        required property var modelData
                         Layout.fillWidth: true
-                        scheme: modelData
-                        directory: root.schemeDir
-                        selected: Sys.Appearance.value("color_scheme", "") === modelData
-                        onClicked: Sys.Appearance.set("color_scheme", modelData)
+                        scheme: modelData.name
+                        source: modelData.path
+                        selected: Sys.Appearance.value("color_scheme", "") === modelData.name
+                        onClicked: Sys.Appearance.set("color_scheme", modelData.name)
                     }
                 }
             }

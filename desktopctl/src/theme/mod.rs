@@ -363,7 +363,7 @@ fn cmd_list_schemes() -> CliResult<()> {
         return Ok(());
     }
     for scheme in schemes {
-        println!("  {scheme}");
+        println!("{}", colors_dir.join(format!("{scheme}.json")).display());
     }
     Ok(())
 }

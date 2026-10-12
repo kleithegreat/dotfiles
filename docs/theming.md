@@ -11,7 +11,7 @@
   fallback, so the desktop a fresh machine renders is the one under review in
   git rather than whatever the local database drifted to. `theme export`
   prints the current state back in that format for commit; it emits the known
-  schema fields only, minus the two machine-local wallpaper paths, which stay
+  schema fields only, minus the machine-local wallpaper path, which stays
   derived because the wallpaper library is gitignored. A `ThemeState` field
   added without a seed value fails `seed_covers_exactly_the_non_machine_local_fields`.
 - Every target declares one assembly strategy — `standalone` (the generated

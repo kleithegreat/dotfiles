@@ -32,10 +32,9 @@ pub const COLOR_FIELD_NAMES: [&str; 21] = [
     "orange_bright",
 ];
 
-pub const THEME_STATE_FIELD_ORDER: [&str; 30] = [
+pub const THEME_STATE_FIELD_ORDER: [&str; 29] = [
     "color_scheme",
     "wallpaper",
-    "wallpaper_dir",
     "filter_wallpaper",
     "system_font",
     "mono_font",
@@ -65,10 +64,9 @@ pub const THEME_STATE_FIELD_ORDER: [&str; 30] = [
     "hypr_animations_enabled",
 ];
 
-pub const THEME_STATE_STRING_FIELDS: [&str; 7] = [
+pub const THEME_STATE_STRING_FIELDS: [&str; 6] = [
     "color_scheme",
     "wallpaper",
-    "wallpaper_dir",
     "system_font",
     "mono_font",
     "icon_theme",
@@ -108,11 +106,9 @@ pub const THEME_STATE_BOOL_FIELDS: [&str; 4] = [
 pub const STATE_SEED_RELATIVE_PATH: &str = "state.json";
 
 /// Keys the seed omits because the wallpaper library is gitignored.
-pub const MACHINE_LOCAL_FIELDS: [&str; 2] = ["wallpaper", "wallpaper_dir"];
+pub const MACHINE_LOCAL_FIELDS: [&str; 1] = ["wallpaper"];
 
 pub const DEFAULT_WALLPAPER_RELATIVE_PATH: &str = "styling/wallpapers/lmao.png";
-/// Picker browse directory, kept apart from `wallpaper` so browsing does not select.
-pub const DEFAULT_WALLPAPER_DIR_RELATIVE_PATH: &str = "styling/wallpapers";
 
 /// Known fields in declaration order minus machine-local ones; `extra` keys are dropped.
 pub fn seed_json_map(state: &Map<String, Value>) -> Map<String, Value> {
@@ -362,7 +358,6 @@ impl<'de> Deserialize<'de> for ColorScheme {
 pub struct ThemeState {
     pub color_scheme: String,
     pub wallpaper: String,
-    pub wallpaper_dir: String,
     pub filter_wallpaper: bool,
     pub system_font: String,
     pub mono_font: String,
@@ -416,15 +411,15 @@ impl ThemeState {
             )
         })?;
 
-        for (key, relative) in [
-            ("wallpaper", DEFAULT_WALLPAPER_RELATIVE_PATH),
-            ("wallpaper_dir", DEFAULT_WALLPAPER_DIR_RELATIVE_PATH),
-        ] {
-            seed.insert(
-                key.to_owned(),
-                Value::String(repo_root.join(relative).display().to_string()),
-            );
-        }
+        seed.insert(
+            "wallpaper".to_owned(),
+            Value::String(
+                repo_root
+                    .join(DEFAULT_WALLPAPER_RELATIVE_PATH)
+                    .display()
+                    .to_string(),
+            ),
+        );
 
         serde_json::from_value(Value::Object(seed)).map_err(|error| {
             io::Error::new(
