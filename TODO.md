@@ -4,25 +4,13 @@ Open issues and pending validations. Delete entries when resolved.
 
 ## Pending validation (needs real hardware / live session)
 
-- [ ] After the next rebuild and reboot, with Helium and VS Code open on
-      different workspaces beforehand: each should first appear on its own
-      workspace, with nothing flashing on the active one (they wait on the
-      hidden `special:restoring` workspace until sorted), and Helium should
-      come back with its tabs. Then turn "Restore windows at login" off,
+- [ ] Session restore on demand: turn "Restore windows at login" off,
       reboot, and confirm nothing reopens and the power menu offers "Restore
       Windows" once.
-- [ ] The Pointer pane's "Touchpad scrolling" slider changes two-finger
-      scroll speed; LTeX underlines a misspelling in a Markdown file (it was
-      disabled outright until now — set it back if the noise is unwelcome).
-- [ ] Laptop, after the rebuild: remove one fingerprint in Settings →
-      Fingerprint and confirm no password prompt appears and the others
-      survive; add one and confirm the card fills per touch on the real
-      reader (it has only been driven by a fake `fprintd-enroll`).
-- [ ] Quickshell, what a screenshot could not prove: wheel and touchpad
-      scrolling in panes and option strips after the shared scroll engine
-      (glide, overshoot, recoil); OSD suppression across a volume drag;
-      night-light commit-on-release; Wi-Fi join forms including enterprise;
-      Display staged apply and its revert countdown; tray menus.
+- [ ] Quickshell, what a screenshot could not prove: OSD suppression across
+      a volume drag; night-light commit-on-release; Wi-Fi join forms
+      including enterprise; Display staged apply and its revert countdown;
+      tray menus.
 - [ ] Laptop Bluetooth, after the rebuild: the adapter should be off at
       boot; turn it on from the Control Center tile, pair something in
       Settings → Bluetooth, and confirm audio routes to it. The shell's
