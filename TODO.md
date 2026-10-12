@@ -7,8 +7,9 @@ Open issues and pending validations. Delete entries when resolved.
 - [ ] Session restore on demand: turn "Restore windows at login" off,
       reboot, and confirm nothing reopens and the power menu offers "Restore
       Windows" once.
-- [ ] Quickshell, what a screenshot could not prove: OSD suppression across
-      a volume drag; night-light commit-on-release; Wi-Fi join forms
+- [ ] Quickshell, what a screenshot could not prove: no OSD while dragging
+      the volume slider or right after letting go (it now ignores the shell's
+      own volume writes for 400 ms); night-light commit-on-release; Wi-Fi join forms
       including enterprise; Display staged apply and its revert countdown;
       tray menus.
 - [ ] Laptop Bluetooth, after the rebuild: the adapter should be off at
@@ -38,15 +39,6 @@ Open issues and pending validations. Delete entries when resolved.
 
 ## Open issues
 
-- [ ] Nix (low): `pkgs/reims-vgpu` still has `sed -i` in its build script;
-      changing it means rebuilding the QEMU fork to prove the script.
-- [ ] Nix (low): the patched Discord builds, but nobody has checked that the
-      `postInstall` replacing `discord_krisp` lands in what the FHS wrapper
-      actually runs.
-- [ ] desktopctl (low): `resolve_place_name` rewrites the location cache on
-      a pinned host too, which `docs/sun-schedule.md` says never happens. The
-      result is still treated as stale, so nothing breaks; the doc or the
-      write should change.
 - [ ] Hyprland (low): the Bitwarden popup rule matches
       `chrome-nngceckbapebfimnlniiiahkandclblb-Default`; check with
       `hyprctl clients` that Helium really gives the popup that class.
