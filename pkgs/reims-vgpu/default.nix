@@ -108,7 +108,7 @@ in
   patches = [ ];
 
   postPatch = /* bash */ ''
-    sed -i "/install_emptydir(get_option('localstatedir') \/ 'run')/d" \
+    sed --in-place "/install_emptydir(get_option('localstatedir') \/ 'run')/d" \
       vendor/qemu/qga/meson.build
   '';
 
