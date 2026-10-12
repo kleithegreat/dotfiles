@@ -25,6 +25,21 @@ pub(crate) struct WindowInfo {
     pub(crate) initial_class: String,
     #[serde(default)]
     floating: bool,
+    #[serde(default)]
+    pub(crate) address: String,
+    #[serde(default)]
+    pub(crate) title: String,
+    #[serde(default)]
+    pub(crate) pid: i64,
+    #[serde(default)]
+    pub(crate) workspace: WindowWorkspace,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub(crate) struct WindowWorkspace {
+    /// Doubles as the workspace's selector: `"3"`, `"special:scratch"`.
+    #[serde(default)]
+    pub(crate) name: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -571,6 +586,11 @@ fn orphaned_pinned_workspaces(monitors: &[MonitorInfo], rules: &[WorkspaceRuleIn
 
 pub(crate) fn query_monitors() -> Result<Vec<MonitorInfo>> {
     let output = hyprctl_output(&["monitors", "-j"])?;
+    Ok(serde_json::from_slice(&output.stdout)?)
+}
+
+pub(crate) fn query_windows() -> Result<Vec<WindowInfo>> {
+    let output = hyprctl_output(&["clients", "-j"])?;
     Ok(serde_json::from_slice(&output.stdout)?)
 }
 

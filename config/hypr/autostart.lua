@@ -29,6 +29,8 @@ hl.on("hyprland.start", function()
 
     exec("solaar -w hide")
     exec([[solaar config "MX Master 2S" smart-shift 50]])
+
+    exec("desktopctl session restore --if-automatic --wait-daemon 15")
 end)
 
 hl.on("hyprland.shutdown", function()

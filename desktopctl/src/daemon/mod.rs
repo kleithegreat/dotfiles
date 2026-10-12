@@ -4,6 +4,7 @@ pub mod hypr;
 pub mod monitors;
 pub mod night_light;
 pub mod server;
+pub mod session;
 pub mod solar;
 pub mod theme;
 
@@ -35,6 +36,13 @@ async fn run_async() -> crate::Result<()> {
     let theme = theme::ThemeController::spawn(events.clone());
     let night_light = night_light::Controller::with_hooks(theme.clone(), events.clone());
     let hypr = hypr::HyprController::new(events.clone());
+    let session = session::SessionController::new(
+        crate::session::load_state().unwrap_or_else(|error| {
+            eprintln!("desktopctl: session state unreadable, starting empty: {error}");
+            Default::default()
+        }),
+        events.clone(),
+    );
 
     // Auxiliary subsystems get their own failure domain. A focus tracker or
     // solar scheduler that dies must not take the socket server with it: the
@@ -50,6 +58,10 @@ async fn run_async() -> crate::Result<()> {
         let hypr = hypr.clone();
         let theme = theme.clone();
         auxiliary.spawn_blocking(move || ("monitor watcher", monitors::run(shutdown, hypr, theme)));
+    }
+    {
+        let shutdown = Arc::clone(&shutdown);
+        auxiliary.spawn_blocking(move || ("session recorder", session::run(shutdown)));
     }
     auxiliary.spawn({
         let night_light = night_light.clone();
@@ -74,6 +86,7 @@ async fn run_async() -> crate::Result<()> {
             night_light: night_light.clone(),
             theme: theme.clone(),
             hypr: hypr.clone(),
+            session,
             brightness: brightness::BrightnessController::new(events.clone()),
             events: events.clone(),
         };

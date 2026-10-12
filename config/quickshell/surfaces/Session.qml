@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import Quickshell.Io
 import qs
 import qs.ui as Ui
+import qs.services as Sys
 
 // A menu, not a screen. Losing work to a mis-click is the only real risk here,
 // so the two actions that can do it ask once, in place, instead of firing on
@@ -64,6 +65,23 @@ Popover {
                 iconColor: option.modelData.confirm && (option.arming || option.hovered) ? Theme.critical : Theme.textSecondary
                 tint: option.arming ? Theme.withAlpha(Theme.critical, 0.18) : "transparent"
                 onClicked: root.invoke(option.modelData)
+            }
+        }
+
+        Ui.Divider {
+            visible: restore.visible
+        }
+
+        Ui.ListRow {
+            id: restore
+
+            Layout.fillWidth: true
+            visible: Sys.SessionRestore.restorable > 0
+            icon: "layout"
+            title: "Restore Windows"
+            onClicked: {
+                Sys.SessionRestore.restore();
+                root.state.close();
             }
         }
     }

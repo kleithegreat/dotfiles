@@ -105,6 +105,11 @@ all died without one failing command. Anything shelling out must scan stdout.
 - `hl.dsp.window.fullscreen` ignores its `window` key and hits the active
   window. `fullscreen_state({ internal, client, action, window })` honours it,
   and `client = -1` leaves the client's own fullscreen alone.
+- A `window` key does not make a dispatcher quiet. `window.move({ workspace,
+  silent = true, window })` leaves the view alone, but floating, resizing and
+  positioning a window on another workspace by address ended with that
+  workspace focused. Anything placing windows in the background has to stay
+  with the silent workspace move ([[session-restore]]).
 - `hl.monitor` needs `disabled = false` spelled out to re-enable an output;
   re-declaring mode/position/scale leaves a disabled one disabled. A config
   reload also re-enables the laptop panel with the lid shut, which is why

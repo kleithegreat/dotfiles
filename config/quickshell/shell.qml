@@ -54,6 +54,7 @@ Scope {
         void Sys.Mullvad.state;
         void Sys.Tailscale.state;
         void Sys.NightLight.mode;
+        void Sys.SessionRestore.restorable;
         void Sys.Appearance.state;
         void Sys.Displays.primaryOutput;
         Sys.Idle.applyBootDefault();

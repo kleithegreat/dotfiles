@@ -53,6 +53,10 @@ pub(crate) mod methods {
     pub const BRIGHTNESS_STEP: &str = "brightness.step";
     pub const BRIGHTNESS_DIM: &str = "brightness.dim";
     pub const BRIGHTNESS_RESTORE: &str = "brightness.restore";
+
+    pub const SESSION_STATUS: &str = "session.status";
+    pub const SESSION_AUTOMATIC: &str = "session.automatic";
+    pub const SESSION_RESTORE: &str = "session.restore";
 }
 
 /// Topics a subscriber can select; each event name is `<topic>.<what>`.
@@ -62,6 +66,7 @@ pub(crate) const TOPICS: &[&str] = &[
     "brightness",
     "hypr_input",
     "hypr_monitors",
+    "session",
 ];
 
 #[derive(Debug, Serialize)]

@@ -24,6 +24,7 @@ QtObject {
     signal brightnessChanged(var payload)
     signal inputChanged(var state)
     signal monitorsChanged(var status)
+    signal sessionChanged(var status)
 
     function _dispatch(line) {
         const text = String(line).trim();
@@ -60,6 +61,9 @@ QtObject {
             break;
         case "hypr_monitors.changed":
             monitorsChanged(data);
+            break;
+        case "session.changed":
+            sessionChanged(data);
             break;
         }
     }

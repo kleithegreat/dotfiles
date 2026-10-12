@@ -7,8 +7,8 @@
   the theming pipeline (`theme`), `brightness`, Hyprland helpers (`hypr`),
   the night-light client, and `launch-quickshell`.
 - The daemon is the single writer of all mutable desktop state: theme state,
-  the hypr override files, brightness dim/restore, and `hyprsunset`
-  ([[sun-schedule]]). CLI write subcommands are thin socket clients that
+  the hypr override files, brightness dim/restore, `hyprsunset`
+  ([[sun-schedule]]), and the recorded window session ([[session-restore]]). CLI write subcommands are thin socket clients that
   hard-fail when the daemon is unreachable — they must never become a second
   writer. Quickshell and keybinds are request surfaces.
 - Deliberate exceptions to strict daemon routing: `theme sync` keeps a direct
@@ -19,9 +19,8 @@
   and `launch-quickshell` are reads or launchers. Status reads go through the
   daemon for a consistent snapshot but fall back to direct reads so a dead
   daemon can still be debugged.
-- The socket pushes change events (`theme`, `night_light`, `brightness`,
-  `hypr_input` topics) to subscribed connections, each preceded by a
-  snapshot; events publish only after a successful commit. A snapshot is not
+- The socket pushes change events to subscribed connections, each topic
+  preceded by a snapshot; events publish only after a successful commit. A snapshot is not
   required to be one event: brightness sends its backlights with the cheap
   topics and its DDC devices after enumeration, because a slider that waits a
   second to exist is worse than one that gains a device a second late.
@@ -144,4 +143,4 @@ look unrelated to the flag. The wallpaper target polls that socket itself in
 `apply_wallpaper`; a `sleep` in the autostart line is not a substitute,
 because it guesses a delay that measurement already contradicts.
 
-Related: [[theming]], [[sun-schedule]], [[hyprland]], [[quickshell]], [[focus-time]]
+Related: [[theming]], [[sun-schedule]], [[hyprland]], [[quickshell]], [[focus-time]], [[session-restore]]

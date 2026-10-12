@@ -141,6 +141,24 @@ Ui.Scroll {
         }
 
         Ui.Group {
+            title: "Session"
+
+            Ui.ListRow {
+                Layout.fillWidth: true
+                title: "Restore windows at login"
+                subtitle: Sys.SessionRestore.automatic ? "Browser, terminals and editor reopen where they were" : "On demand, from the power menu"
+                interactive: false
+
+                Ui.Toggle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    checked: Sys.SessionRestore.automatic
+                    pending: Sys.SessionRestore.busy
+                    onToggled: on => Sys.SessionRestore.setAutomatic(on)
+                }
+            }
+        }
+
+        Ui.Group {
             title: "Motion"
 
             Ui.ListRow {

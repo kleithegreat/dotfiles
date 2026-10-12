@@ -6,6 +6,7 @@ mod ipc;
 mod launch;
 mod night_light;
 mod paths;
+mod session;
 mod solar;
 #[cfg(test)]
 mod test_support;
@@ -43,6 +44,8 @@ enum TopLevelCommand {
     LaunchQuickshell(LaunchQuickshellArgs),
     /// Inspect and control night-light override state.
     NightLight(NightLightArgs),
+    /// Restore the previous session's windows.
+    Session(SessionArgs),
     /// Inspect solar scheduling state.
     Sun(SunArgs),
 }
@@ -337,6 +340,38 @@ struct NightLightTempArgs {
 
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true, subcommand_required = true)]
+struct SessionArgs {
+    #[command(subcommand)]
+    command: SessionCommand,
+}
+
+#[derive(Debug, Subcommand)]
+enum SessionCommand {
+    /// Show the restore mode and how many windows are waiting to be restored.
+    Status(JsonOutputArgs),
+    /// Choose whether the previous session's windows come back at login.
+    Automatic(SessionAutomaticArgs),
+    /// Reopen the previous session's windows on their workspaces.
+    Restore(SessionRestoreArgs),
+}
+
+#[derive(Debug, Args)]
+struct SessionAutomaticArgs {
+    #[arg(action = clap::ArgAction::Set)]
+    enabled: bool,
+}
+
+#[derive(Debug, Args)]
+struct SessionRestoreArgs {
+    /// Do nothing unless restoring at login is enabled.
+    #[arg(long)]
+    if_automatic: bool,
+    #[command(flatten)]
+    wait: WaitDaemonArgs,
+}
+
+#[derive(Debug, Args)]
+#[command(arg_required_else_help = true, subcommand_required = true)]
 struct SunArgs {
     #[command(subcommand)]
     command: SunCommand,
@@ -372,6 +407,7 @@ fn run() -> Result<()> {
         TopLevelCommand::LaunchQuickshell(args) => launch::run(args.print_env),
         TopLevelCommand::NightLight(args) => night_light::run(args),
         TopLevelCommand::Daemon => daemon::run(),
+        TopLevelCommand::Session(args) => session::run(args),
         TopLevelCommand::Theme(args) => theme::run(args),
         TopLevelCommand::Sun(args) => run_sun(args),
     }

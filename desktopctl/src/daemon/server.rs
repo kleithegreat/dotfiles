@@ -3,6 +3,7 @@ use crate::{
         brightness::BrightnessController,
         hypr::HyprController,
         night_light::Controller,
+        session::SessionController,
         theme::{ThemeController, ThemeJob},
     },
     ipc::{self, EventEnvelope, methods},
@@ -64,6 +65,7 @@ pub struct ServerContext {
     pub night_light: Controller,
     pub theme: ThemeController,
     pub hypr: HyprController,
+    pub session: SessionController,
     pub brightness: BrightnessController,
     pub events: Events,
 }
@@ -102,6 +104,17 @@ struct PayloadParams {
 #[derive(Debug, Deserialize)]
 struct MonitorsPrimaryParams {
     selector: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct SessionAutomaticParams {
+    automatic: bool,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct SessionRestoreParams {
+    #[serde(default)]
+    if_automatic: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -434,6 +447,37 @@ async fn handle_client(stream: UnixStream, context: ServerContext) -> io::Result
                 let result = tokio::task::spawn_blocking(move || hypr.animations_clear()).await;
                 write_join_result(&mut writer, result).await?;
             }
+            methods::SESSION_STATUS => {
+                write_result(&mut writer, context.session.status()).await?;
+            }
+            methods::SESSION_AUTOMATIC => {
+                match parse_params::<SessionAutomaticParams>(
+                    request.params,
+                    methods::SESSION_AUTOMATIC,
+                ) {
+                    Err(message) => write_error(&mut writer, message).await?,
+                    Ok(params) => {
+                        let result = context.session.set_automatic(params.automatic);
+                        write_result(&mut writer, result).await?;
+                    }
+                }
+            }
+            methods::SESSION_RESTORE => {
+                match parse_params_or_default::<SessionRestoreParams>(
+                    request.params,
+                    methods::SESSION_RESTORE,
+                ) {
+                    Err(message) => write_error(&mut writer, message).await?,
+                    Ok(params) => {
+                        let session = context.session.clone();
+                        let result = tokio::task::spawn_blocking(move || {
+                            session.restore(params.if_automatic)
+                        })
+                        .await;
+                        write_join_result(&mut writer, result).await?;
+                    }
+                }
+            }
             methods::BRIGHTNESS_STATUS => {
                 let brightness = context.brightness.clone();
                 let result = tokio::task::spawn_blocking(move || brightness.status()).await;
@@ -677,6 +721,15 @@ async fn push_snapshots<W: AsyncWrite + Unpin>(
                     write_event(writer, &event).await?;
                 }
             }
+            "session" => {
+                if let Ok(status) = context.session.status() {
+                    let event = EventEnvelope {
+                        event: "session.changed".to_owned(),
+                        data: status,
+                    };
+                    write_event(writer, &event).await?;
+                }
+            }
             "brightness" => {
                 if let Ok(Ok(devices)) =
                     tokio::task::spawn_blocking(crate::brightness::backlight_snapshot).await
@@ -851,6 +904,7 @@ mod tests {
             night_light: Controller::new(),
             theme: ThemeController::spawn(events.clone()),
             hypr: HyprController::new(events.clone()),
+            session: SessionController::new(Default::default(), events.clone()),
             brightness: BrightnessController::new(events.clone()),
             events,
         }
@@ -981,7 +1035,8 @@ mod tests {
                 "night_light",
                 "brightness",
                 "hypr_input",
-                "hypr_monitors"
+                "hypr_monitors",
+                "session"
             ]
         );
         assert_eq!(

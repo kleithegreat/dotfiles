@@ -40,6 +40,16 @@ Open issues and pending validations. Delete entries when resolved.
       `desktopctl` before its PATH was fixed. Log out without rebooting and
       confirm `desktopctl.service` stops with the session.
 
+- [ ] Session restore, end to end (needs a rebuild and a relogin; only the
+      recorder, the placement dispatchers and the unit tests have run): with
+      a terminal in some project directory, two Helium windows and VS Code
+      spread over workspaces, reboot and confirm each comes back on its
+      workspace and the terminal in its directory. Turn "Restore windows at
+      login" off in Settings → Window, reboot, confirm nothing reopens and the
+      power menu offers "Restore Windows" once. Check Helium really reopens
+      its windows when launched bare, and that `desktopctl session status`
+      reports `restorable = 0` after either path.
+
 - [ ] macOS VM, end to end (needs a guest install): nothing in it has been
       booted. `macos-vm fetch` → `install` → `run`, then check that the
       reims-vgpu device's own Vulkan window opens on the desktop, that
