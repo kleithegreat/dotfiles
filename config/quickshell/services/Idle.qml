@@ -25,10 +25,6 @@ QtObject {
         lid.toggle();
     }
 
-    function set(enabled) {
-        idle.set(enabled);
-    }
-
     function applyBootDefault() {
         if (_bootDefault)
             idle.set(true);

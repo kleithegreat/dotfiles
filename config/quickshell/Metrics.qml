@@ -32,9 +32,7 @@ QtObject {
     }
 
     // ── Icons ──────────────────────────────────────────────────────────────
-    // The set is drawn on a 24px grid with a 2px stroke. Sizes are chosen so the
-    // stroke lands on or near a whole pixel; 14px (the old default) put it at
-    // 1.17px, which is why every glyph read soft.
+    // Drawn on a 24px grid with a 2px stroke; sizes keep the stroke on or near a whole pixel.
     readonly property int iconSm: 16
     readonly property int icon: 18
     readonly property int iconLg: 20
@@ -43,9 +41,7 @@ QtObject {
     // ── Bar ────────────────────────────────────────────────────────────────
     readonly property int barHeight: 32
     readonly property int barMargin: 6
-    // Room inside the layer surface for the bar's shadow to fall. Hyprland
-    // draws a shadow around every tiled window, so a bar without one sits in a
-    // gap that reads wider than theirs at the same measured size.
+    // Fixed budget for the bar's shadow: its screen-edge margin is all the room there is.
     readonly property int barShadowPad: 6
     readonly property int barItemHeight: 24
     readonly property int barIcon: 16
@@ -67,15 +63,12 @@ QtObject {
 
     // ── Surfaces ───────────────────────────────────────────────────────────
     readonly property int panelInset: 10
-    readonly property int panelNarrow: 320
     readonly property int panelWide: 348
     readonly property int gap: 8
     // Clearance between the bar's lower edge and anything anchored beneath it.
     readonly property int detachment: barHeight + barMargin + gap
 
-    // How far a panel's shadow reaches past it: the blur's outer half plus its
-    // drop. A window hosting a floating surface must reserve this much on every
-    // side, because its buffer ends at its own edge and cuts the rest off flat.
+    // How far a panel's shadow reaches past it: the blur's outer half plus its drop.
     function shadowDrop(elevation) {
         return Math.round(elevation / 4);
     }

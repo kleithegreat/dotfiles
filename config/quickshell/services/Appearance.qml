@@ -16,7 +16,6 @@ QtObject {
     // preview generation failed for that file.
     property var wallpapers: []
 
-    readonly property bool busy: writer.running || _queue.length > 0
 
     property var _queue: []
     property var _rollback: ({})
@@ -130,14 +129,11 @@ QtObject {
             staged = reverted;
         }
 
-        // No refresh here: the daemon's theme.changed event carries the
-        // committed state for every successful write.
         Qt.callLater(root._pump);
     }
 
     function _ingestState(next) {
         state = next;
-        // Anything the backend now agrees with is no longer staged.
         const remaining = {};
         for (const key in staged) {
             if (state[key] !== staged[key])
@@ -178,7 +174,6 @@ QtObject {
                 try {
                     root._ingestState(JSON.parse(this.text));
                 } catch (e) {
-                    // Keep the last good state.
                 }
             }
         }
@@ -212,9 +207,8 @@ QtObject {
         }
     }
 
-    // The JSON form carries the cached 640x400 preview desktopctl already
-    // renders for each wallpaper. The plain-text form only carries names, which
-    // left the picker decoding the originals -- ten JPEGs averaging 24 MB each.
+    // The JSON form carries the cached preview; the plain-text form only has names,
+    // which would leave the picker decoding the full-size originals.
     readonly property Process _wallpaperList: Process {
         id: wallpaperList
         command: ["desktopctl", "theme", "list-wallpapers", "--json"]

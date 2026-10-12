@@ -104,7 +104,7 @@ QtObject {
     readonly property Timer _settleRefresh: Timer {
         // hyprsunset restarts asynchronously, so the event published right
         // after a command can carry a false negative for `running`. One
-        // delayed read settles the tile; this replaces the old 2s poll burst.
+        // delayed read settles the tile.
         interval: 2000
         onTriggered: root.refresh()
     }
@@ -117,7 +117,6 @@ QtObject {
                 try {
                     root._ingest(JSON.parse(this.text));
                 } catch (e) {
-                    // Keep the last known state.
                 }
             }
         }

@@ -3,9 +3,7 @@ import QtQuick
 // Which surface is showing, and where it came from.
 //
 // Exclusivity is structural: one name can only hold one value, so "at most one
-// surface is open" needs no coordinator. The old shell kept seven independent
-// booleans plus a closeAll() that had to remember all seven, plus a 100ms
-// debounce to stop the resulting double-toggles.
+// surface is open" needs no coordinator.
 QtObject {
     id: root
 

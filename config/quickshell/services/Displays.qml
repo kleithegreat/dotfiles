@@ -17,9 +17,6 @@ QtObject {
     property string primaryOutput: ""
     // The stored selector; empty means the choice is automatic.
     property string primary: ""
-    property var outputs: ({})
-
-    signal applied(bool ok)
 
     function refresh() {
         if (!enumerate.running)
@@ -43,11 +40,9 @@ QtObject {
         writer.running = true;
     }
 
-    // The stored spec carries every field `expressionFor` writes, because the
-    // generated Lua is re-read at config-parse time where a partial spec is a
-    // separate rule rather than a merge: anything left out silently reverts to
-    // its default on the next reload, and `scale`'s default is `auto`. The two
-    // must keep naming the same fields.
+    // The generated Lua is re-read at config-parse time, where a partial spec
+    // is a separate rule rather than a merge: any field left out reverts to its
+    // default on the next reload, and `scale`'s default is `auto`.
     function saveLayout(states) {
         const payload = {};
         for (let i = 0; i < states.length; i++) {
@@ -98,10 +93,6 @@ QtObject {
             fields.push("transform = " + state.transform);
         if (state.vrr !== undefined && state.vrr !== false && state.vrr !== 0)
             fields.push("vrr = " + (typeof state.vrr === "boolean" ? 1 : state.vrr));
-        if (state.bitdepth)
-            fields.push("bitdepth = " + state.bitdepth);
-        if (state.mirrorOf && state.mirrorOf !== "none")
-            fields.push("mirror = " + _quote(state.mirrorOf));
 
         return "hl.monitor({ " + fields.join(", ") + " })";
     }
@@ -124,7 +115,6 @@ QtObject {
             if (!ok)
                 Toast.error("Display change failed");
             root.refresh();
-            root.applied(ok);
         });
         return true;
     }
@@ -132,7 +122,6 @@ QtObject {
     function _ingest(status) {
         primary = status.primary || "";
         primaryOutput = status.primary_output || "";
-        outputs = status.outputs || ({});
     }
 
     Component.onCompleted: {
@@ -158,7 +147,6 @@ QtObject {
                 try {
                     root._ingest(JSON.parse(this.text));
                 } catch (e) {
-                    // Keep the last known topology.
                 }
             }
         }
@@ -192,7 +180,6 @@ QtObject {
                 try {
                     root.monitors = JSON.parse(this.text);
                 } catch (e) {
-                    // A torn read is retried by the next refresh.
                 }
             }
         }

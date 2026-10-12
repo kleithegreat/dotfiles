@@ -4,10 +4,9 @@ import QtQuick
 import Quickshell.Services.Notifications
 
 // Banners are *rendered from* the server's tracked set rather than mirrored into
-// a parallel model. Mirroring is what forced the old service to create a
-// Connections object per notification just to learn that one had been closed
-// behind its back; membership of `server.trackedNotifications` already is that
-// signal. History is our own list because it has to outlive the notification.
+// a parallel model: membership of `server.trackedNotifications` already is the
+// "closed behind our back" signal. History is our own list because it has to
+// outlive the notification.
 QtObject {
     id: root
 

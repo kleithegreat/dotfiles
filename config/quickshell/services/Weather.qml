@@ -14,15 +14,11 @@ QtObject {
     property real temperature: 0
     property real high: 0
     property real low: 0
-    property int humidity: 0
-    property real wind: 0
     property int rainChance: 0
     property int code: -1
     property bool daylight: true
     property string place: ""
-    property string sunrise: ""
     property string sunset: ""
-    property string updated: ""
 
     property real _latitude: 0
     property real _longitude: 0
@@ -30,7 +26,6 @@ QtObject {
 
     readonly property bool imperial: Qt.locale().measurementSystem !== Locale.MetricSystem
     readonly property string unit: imperial ? "°F" : "°C"
-    readonly property string windUnit: imperial ? "mph" : "km/h"
 
     // WMO 4677, collapsed to the distinctions a glanceable summary can carry.
     readonly property string conditions: {
@@ -80,7 +75,7 @@ QtObject {
             return;
         }
 
-        const url = "https://api.open-meteo.com/v1/forecast" + "?latitude=" + _latitude.toFixed(4) + "&longitude=" + _longitude.toFixed(4) + "&current=temperature_2m,relative_humidity_2m,is_day,weather_code,wind_speed_10m" + "&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max" + "&forecast_days=1&timezone=auto" + (imperial ? "&temperature_unit=fahrenheit&wind_speed_unit=mph" : "");
+        const url = "https://api.open-meteo.com/v1/forecast" + "?latitude=" + _latitude.toFixed(4) + "&longitude=" + _longitude.toFixed(4) + "&current=temperature_2m,is_day,weather_code" + "&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max" + "&forecast_days=1&timezone=auto" + (imperial ? "&temperature_unit=fahrenheit" : "");
 
         forecast.command = ["curl", "-fsS", "--connect-timeout", "4", "--max-time", "8", url];
         forecast.running = true;
@@ -103,10 +98,8 @@ QtObject {
                     root._longitude = parseFloat(coords[2]);
                     root._located = true;
                 }
-                if (solar) {
-                    root.sunrise = solar[1];
+                if (solar)
                     root.sunset = solar[2];
-                }
                 root._fetch();
             }
         }
@@ -129,14 +122,11 @@ QtObject {
                     const day = data.daily;
 
                     root.temperature = now.temperature_2m;
-                    root.humidity = now.relative_humidity_2m;
-                    root.wind = now.wind_speed_10m;
                     root.code = now.weather_code;
                     root.daylight = now.is_day === 1;
                     root.high = day.temperature_2m_max[0];
                     root.low = day.temperature_2m_min[0];
                     root.rainChance = day.precipitation_probability_max[0] || 0;
-                    root.updated = Qt.formatDateTime(new Date(), "h:mm AP");
                     root._fetchedAt = Date.now();
                     root.ready = true;
                     root.error = "";

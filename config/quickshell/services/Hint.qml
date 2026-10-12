@@ -18,10 +18,7 @@ QtObject {
             return;
         }
 
-        // Once one hint has been earned, moving along the bar shows the rest
-        // immediately; making every neighbour re-earn the dwell is what makes a
-        // bar feel unresponsive. Raising `showing` before the new target is what
-        // then makes the bubble travel to it rather than jump.
+        // Raising `showing` before the new target is what makes the bubble travel rather than jump.
         if (showing || grace.running) {
             grace.stop();
             showing = true;

@@ -23,7 +23,6 @@ QtObject {
 
     readonly property bool connected: state === "connected"
     readonly property bool busy: pending !== "" || command.running
-    readonly property bool loadingRelays: relayList.running
 
     readonly property string location: {
         if (city !== "" && country !== "")

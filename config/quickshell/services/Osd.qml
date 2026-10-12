@@ -2,9 +2,7 @@ pragma Singleton
 
 import QtQuick
 
-// The on-screen level indicator. It is one shared surface, so it is one service:
-// the old shell hung it off the audio service and then had brightness reach in
-// sideways to drive it, which is why the two could fight over it.
+// The on-screen level indicator. One shared surface, so one service.
 QtObject {
     id: root
 
@@ -26,13 +24,6 @@ QtObject {
         label = text;
         showing = true;
         _hide.restart();
-    }
-
-    // Suppress for the duration of `fn` plus the change callbacks it triggers.
-    function without(fn) {
-        suppressed = true;
-        fn();
-        Qt.callLater(() => root.suppressed = false);
     }
 
     readonly property Timer _hide: Timer {

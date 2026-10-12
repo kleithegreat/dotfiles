@@ -1,6 +1,7 @@
 pragma Singleton
 
 import QtQuick
+import Quickshell
 import Quickshell.Io
 
 QtObject {
@@ -42,7 +43,7 @@ QtObject {
     function forget(finger) {
         if (busy)
             return;
-        remove.command = ["fprintd-delete", Quickshell.env("USER") || ""];
+        remove.command = ["fprintd-delete", "--finger", finger, Quickshell.env("USER") || ""];
         remove.running = true;
     }
 

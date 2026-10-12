@@ -60,9 +60,7 @@ RowLayout {
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
-                // `hl.dsp.workspace(n)` is not a dispatcher; it resolves to a
-                // table and hyprctl reports the failure on stdout while exiting
-                // zero, so the click silently does nothing.
+                // `hl.dsp.workspace(n)` is not a dispatcher; hyprctl fails silently on it.
                 onClicked: Hyprland.dispatch("hl.dsp.focus({ workspace = " + slot.id + " })")
             }
         }

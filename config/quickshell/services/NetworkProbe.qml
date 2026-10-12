@@ -35,7 +35,6 @@ QtObject {
 
     readonly property bool measuring: probe.running
     readonly property bool testingSpeed: speed.running
-    readonly property bool surveying: scan.running
 
     readonly property real bloat: idleLatency > 0 && loadedLatency > 0 ? loadedLatency / idleLatency : -1
     readonly property string band: frequency >= 5900 ? "6 GHz" : frequency >= 4900 ? "5 GHz" : frequency > 0 ? "2.4 GHz" : ""
@@ -60,17 +59,6 @@ QtObject {
     function surveyChannels() {
         if (!scan.running)
             scan.running = true;
-    }
-
-    function reset() {
-        gatewayHistory = [];
-        internetHistory = [];
-        signalHistory = [];
-        dnsHistory = [];
-        download = -1;
-        upload = -1;
-        idleLatency = -1;
-        loadedLatency = -1;
     }
 
     function _record(series, value) {

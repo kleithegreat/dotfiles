@@ -93,11 +93,7 @@ Row {
                     }
                     onRightClicked: entry.present()
 
-                    // An application naming an icon its theme does not carry is
-                    // common, and the loader reports *Ready* for the theme's
-                    // missing-icon placeholder — which Qt paints as a magenta
-                    // checkerboard. Image status cannot detect this; the name
-                    // has to be looked up before it is requested.
+                    // Image.status reports Ready for the theme's magenta placeholder; look the name up first.
                     readonly property bool resolvable: {
                         const source = String(entry.modelData.icon || "");
                         if (source === "")

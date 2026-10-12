@@ -2,9 +2,7 @@ pragma Singleton
 
 import QtQuick
 
-// Four durations and three curves. The old shell had twenty durations, which is
-// the same as having none: nothing could be recognised as belonging to the same
-// system. Pick by intent, not by feel.
+// Three durations and three curves. Pick by intent, not by feel.
 QtObject {
     // A state flip the pointer is already committed to — hover, press, toggle.
     readonly property int instant: 110
@@ -12,8 +10,6 @@ QtObject {
     readonly property int quick: 180
     // Surfaces arriving or leaving, content re-laying out.
     readonly property int settled: 260
-    // Showpiece entrances only.
-    readonly property int deliberate: 340
 
     // Easing.BezierSpline control points: [cx1, cy1, cx2, cy2, 1, 1]
 

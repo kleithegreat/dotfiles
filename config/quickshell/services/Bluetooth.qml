@@ -3,11 +3,8 @@ pragma Singleton
 import QtQuick
 import Quickshell.Bluetooth as Bluez
 
-// Bluetooth over bluez's own DBus objects. The old service shelled out to
-// `bluetoothctl --timeout 2` on a poll and reassembled the answer from four
-// text scrapes — on this desktop bluetoothctl is not even installed, so it had
-// been quietly failing. Adapter and device state are live objects; there is
-// nothing here to poll and nothing to parse.
+// Bluetooth over bluez's own DBus objects: adapter and device state are live
+// objects, so there is nothing to poll and nothing to parse.
 QtObject {
     id: root
 
@@ -23,7 +20,6 @@ QtObject {
     // Anything unpaired and named. Address-only entries are beacons and clutter.
     readonly property var discovered: devices.filter(device => !device.paired && device.name !== "" && device.name !== device.address)
 
-    readonly property var primary: connected.length > 0 ? connected[0] : null
 
     readonly property string label: {
         if (!available)

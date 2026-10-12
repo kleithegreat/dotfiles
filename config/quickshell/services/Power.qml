@@ -16,7 +16,6 @@ QtObject {
     readonly property int percent: Math.round(charge * 100)
     readonly property bool charging: _device.state === UPowerDeviceState.Charging || _device.state === UPowerDeviceState.FullyCharged
     readonly property bool full: _device.state === UPowerDeviceState.FullyCharged
-    readonly property real timeRemaining: charging ? _device.timeToFull : _device.timeToEmpty
 
     readonly property string icon: {
         if (charging)
@@ -41,10 +40,9 @@ QtObject {
     // one is silently never tried.
     property string _helperProfile: ""
     property string _ppctlProfile: ""
-    property string _governorProfile: ""
 
-    readonly property string backend: _helperProfile !== "" ? "laptop-helper" : _ppctlProfile !== "" ? "ppctl" : _governorProfile !== "" ? "autocpufreq" : "none"
-    readonly property string reported: _helperProfile !== "" ? _helperProfile : _ppctlProfile !== "" ? _ppctlProfile : _governorProfile !== "" ? _governorProfile : "unknown"
+    readonly property string backend: _helperProfile !== "" ? "laptop-helper" : _ppctlProfile !== "" ? "ppctl" : "none"
+    readonly property string reported: _helperProfile !== "" ? _helperProfile : _ppctlProfile !== "" ? _ppctlProfile : "unknown"
 
     // A write takes a second and a half to come back. `profile` is the one the
     // shell shows: the requested one from the click until the backend confirms
@@ -67,7 +65,6 @@ QtObject {
     function detect() {
         helper.running = true;
         ppctl.running = true;
-        governor.running = true;
     }
 
     function setProfile(id) {
@@ -75,10 +72,8 @@ QtObject {
 
         if (backend === "laptop-helper")
             profileWriter.command = ["pkexec", "laptop-power-profile", "set", id];
-        else if (backend === "ppctl")
-            profileWriter.command = ["powerprofilesctl", "set", id];
         else
-            profileWriter.command = ["pkexec", "auto-cpufreq", "--force=" + (id === "performance" ? "performance" : id === "power-saver" ? "powersave" : "reset")];
+            profileWriter.command = ["powerprofilesctl", "set", id];
 
         profileWriter.running = true;
         settle.restart();
@@ -147,17 +142,6 @@ QtObject {
         command: ["powerprofilesctl", "get"]
         stdout: StdioCollector {
             onStreamFinished: root._ppctlProfile = this.text.trim()
-        }
-    }
-
-    readonly property Process _governor: Process {
-        id: governor
-        command: ["cat", "/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                const value = this.text.trim();
-                root._governorProfile = value === "" ? "" : value === "performance" ? "performance" : value === "powersave" ? "power-saver" : "balanced";
-            }
         }
     }
 

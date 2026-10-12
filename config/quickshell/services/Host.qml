@@ -10,7 +10,6 @@ QtObject {
     id: root
 
     property bool laptop: false
-    property bool wifi: false
     property bool fingerprint: false
     property bool powerProfiles: false
     property bool heater: false
@@ -29,14 +28,6 @@ QtObject {
                 const kind = this.text.trim().toLowerCase();
                 root.laptop = kind === "laptop" || kind === "notebook" || kind === "convertible";
             }
-        }
-    }
-
-    readonly property Process _wifi: Process {
-        running: true
-        command: ["nmcli", "-t", "-f", "TYPE", "device", "status"]
-        stdout: StdioCollector {
-            onStreamFinished: root.wifi = this.text.split("\n").some(line => line.trim() === "wifi")
         }
     }
 

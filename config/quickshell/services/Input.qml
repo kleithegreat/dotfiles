@@ -14,7 +14,6 @@ QtObject {
     property real scrollFactor: 1
 
     property var staged: ({})
-    readonly property bool busy: writer.running || _queue.length > 0
 
     property var _queue: []
 
@@ -55,8 +54,7 @@ QtObject {
         sensitivity = data.sensitivity;
         accelProfile = data.accel_profile;
         scrollFactor = data.scroll_factor;
-        // Only drop staged values the backend now agrees with; a wholesale
-        // clear would discard optimism for writes still in the queue.
+        // Not a wholesale clear: that would discard optimism for writes still queued.
         const remaining = {};
         for (const key in staged) {
             if (data[key] !== staged[key])
@@ -85,7 +83,6 @@ QtObject {
                 try {
                     root._ingest(JSON.parse(this.text));
                 } catch (e) {
-                    // Keep the last known values.
                 }
             }
         }
@@ -107,8 +104,6 @@ QtObject {
                 Toast.error(failure.text.trim().split("\n").filter(line => line !== "").pop() || "Input change failed");
             }
 
-            // No refresh: the daemon's hypr_input.changed event carries the
-            // committed state for every successful write.
             Qt.callLater(root._pump);
         }
     }

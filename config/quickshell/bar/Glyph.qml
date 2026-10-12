@@ -30,8 +30,6 @@ BarItem {
         anchors.verticalCenter: glyph.top
         antialiasing: true
 
-        // The dot sits over the panel, so it needs its own edge to stay legible
-        // against a busy glyph beneath it.
         border.width: 1.5
         border.color: Theme.glassBar
     }

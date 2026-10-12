@@ -8,7 +8,6 @@ Process {
     id: root
 
     property string what: "idle"
-    property string mode: "block"
     property string why: ""
     // Distinguishes "we asked it to stop" from "it died", so only the latter is
     // reported to the user.
@@ -35,7 +34,7 @@ Process {
         set(!running);
     }
 
-    command: ["systemd-inhibit", "--what=" + what, "--mode=" + mode, "--who=quickshell", "--why=" + why, "sleep", "infinity"]
+    command: ["systemd-inhibit", "--what=" + what, "--mode=block", "--who=quickshell", "--why=" + why, "sleep", "infinity"]
 
     stderr: StdioCollector {
         id: errors

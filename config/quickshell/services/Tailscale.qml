@@ -10,7 +10,6 @@ QtObject {
     property string state: "Stopped"
     property string ip: ""
     property string tailnet: ""
-    property bool exitNode: false
     property string pending: ""
 
     readonly property bool up: state === "Running"
@@ -46,7 +45,6 @@ QtObject {
                     root.state = data.BackendState || "NoState";
                     root.ip = (data.TailscaleIPs || [])[0] || "";
                     root.tailnet = data.MagicDNSSuffix || "";
-                    root.exitNode = !!(data.ExitNodeStatus && data.ExitNodeStatus.Online);
                     root.pending = "";
                 } catch (e) {
                     root.state = "NoState";

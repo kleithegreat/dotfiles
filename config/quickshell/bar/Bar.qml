@@ -23,9 +23,7 @@ PanelWindow {
         right: Metrics.barMargin - Metrics.barShadowPad
     }
     implicitHeight: Metrics.barHeight + Metrics.barShadowPad * 2
-    // Layer-shell adds the surface's own margin to the exclusive zone, so the
-    // two together must come to the margin plus the bar — never the margin
-    // twice, which leaves double the air below the bar that sits above it.
+    // Layer-shell adds the surface's own margin to the zone, so it is not counted here.
     exclusiveZone: Metrics.barHeight + Metrics.barShadowPad
     color: "transparent"
     WlrLayershell.namespace: "quickshell:bar"
@@ -34,9 +32,6 @@ PanelWindow {
         id: plate
         anchors.fill: parent
         anchors.margins: Metrics.barShadowPad
-        // Follows Hyprland's window rounding and its shadow, so the bar is cut
-        // from the same shape language as everything tiled beneath it — an
-        // identical gap reads wider around a plate that casts nothing.
         radius: Sys.Appearance.value("hypr_rounding", Metrics.rBar)
         tint: Theme.glassBar
         elevation: 9

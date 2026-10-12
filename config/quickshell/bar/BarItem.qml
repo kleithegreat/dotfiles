@@ -24,12 +24,7 @@ Ui.Pressable {
             root.moved(surface, root.anchorPoint());
     }
 
-    // Screen x of this item's centre, handed to a surface so it can grow from
-    // the control that summoned it instead of from its own middle. It has to be
-    // asked for, never bound: mapping functions do not re-evaluate when geometry
-    // changes, so a binding captures the position the item had while it was
-    // still being built — which is zero, and every surface opens at the far
-    // left of the screen.
+    // Screen x of this item's centre. Asked for, never bound: mapping functions do not re-evaluate.
     function anchorPoint() {
         return mapToItem(null, width / 2, 0).x + Metrics.barMargin;
     }
@@ -48,7 +43,7 @@ Ui.Pressable {
     radius: Metrics.rControl
     pressScale: 0.94
 
-    property real contentWidth: childrenRect.width
+    required property real contentWidth
 
     onClicked: {
         Sys.Hint.clear();

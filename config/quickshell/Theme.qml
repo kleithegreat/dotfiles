@@ -50,12 +50,6 @@ QtObject {
         return 0.2126 * _channel(c.r) + 0.7152 * _channel(c.g) + 0.0722 * _channel(c.b);
     }
 
-    function contrast(a, b) {
-        const la = luminance(a);
-        const lb = luminance(b);
-        return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
-    }
-
     function mix(a, b, t) {
         return Qt.rgba(a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t, a.b + (b.b - a.b) * t, a.a + (b.a - a.a) * t);
     }
@@ -72,7 +66,6 @@ QtObject {
     // ── Scheme inputs ──────────────────────────────────────────────────────
 
     readonly property color _bg: _read("bg", "#282828")
-    readonly property color _bgDeep: _read("bg0_h", "#1d2021")
     readonly property color _fg: _read("fg", "#ebdbb2")
 
     // Polarity is measured, never declared. A scheme file that says "dark" while
@@ -82,13 +75,11 @@ QtObject {
     // ── Grounds ────────────────────────────────────────────────────────────
 
     readonly property color base: _bg
-    readonly property color baseDeep: _bgDeep
     readonly property color raised: _read("bg1", "#3c3836")
-    readonly property color raisedHigh: _read("bg2", "#504945")
 
     // ── Interaction fills ──────────────────────────────────────────────────
     // Alpha over whatever they sit on, so one ladder works on glass, on solid
-    // cards, and in both polarities. This replaces per-widget bg1/bg2/bg3 picks.
+    // cards, and in both polarities.
 
     readonly property color fillHover: withAlpha(_fg, dark ? 0.07 : 0.06)
     readonly property color fillPress: withAlpha(_fg, dark ? 0.12 : 0.10)

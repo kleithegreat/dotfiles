@@ -25,12 +25,10 @@ QtObject {
     property string gateway: ""
     property string dns: ""
     property string frequency: ""
-    property string linkRate: ""
     property string ethernetSpeed: ""
     property string ethernetDuplex: ""
     property string connectivity: ""
 
-    property string error: ""
     property string busy: ""
 
     readonly property bool online: linkType !== ""
@@ -49,9 +47,7 @@ QtObject {
     readonly property string icon: {
         if (linkType === "ethernet")
             return "ethernet";
-        if (!wifiRadio)
-            return "wifi-off";
-        if (linkType !== "wifi")
+        if (!wifiRadio || linkType !== "wifi")
             return "wifi-off";
         if (signal >= 75)
             return "wifi";
@@ -71,7 +67,6 @@ QtObject {
     }
 
     signal connectSucceeded
-    signal connectFailed(string reason)
 
     // ── Reads ──────────────────────────────────────────────────────────────
 
@@ -155,8 +150,6 @@ QtObject {
     // Returns what the caller must ask the user for: "" when the connection is
     // already under way, otherwise "password" or "enterprise".
     function connect(name, security) {
-        error = "";
-
         if (isEnterprise(security))
             return "enterprise";
 
@@ -205,10 +198,6 @@ QtObject {
         _run(server === "auto" ? ["nmcli", "con", "mod", "uuid", connectionUuid, "ipv4.dns", "", "ipv4.ignore-auto-dns", "no"] : ["nmcli", "con", "mod", "uuid", connectionUuid, "ipv4.dns", server, "ipv4.ignore-auto-dns", "yes"]);
     }
 
-    function openCaptivePortal() {
-        portal.running = true;
-    }
-
     function _run(command) {
         writer.command = command;
         writer.running = true;
@@ -225,7 +214,6 @@ QtObject {
         gateway = "";
         dns = "";
         frequency = "";
-        linkRate = "";
         ethernetSpeed = "";
         ethernetDuplex = "";
     }
@@ -245,7 +233,6 @@ QtObject {
         let netSsid = "";
         let netSignal = 0;
         let netFreq = "";
-        let netRate = "";
         let ethSpeed = "";
         let ethDuplex = "";
         let reachability = "";
@@ -285,7 +272,6 @@ QtObject {
                 netSsid = parts[1] || "";
                 netSignal = parseInt(parts[2] || "0", 10) || 0;
                 netFreq = parts[3] || "";
-                netRate = parts[4] || "";
             } else if (tag === "ETH") {
                 const parts = value.split(" ");
                 ethSpeed = parts[0] === "" || parts[0] === "-1" ? "" : parts[0];
@@ -314,7 +300,6 @@ QtObject {
         ssid = type === "wifi" ? netSsid : "";
         signal = type === "wifi" ? netSignal : 0;
         frequency = netFreq;
-        linkRate = netRate;
         ethernetSpeed = ethSpeed;
         ethernetDuplex = ethDuplex;
 
@@ -422,14 +407,8 @@ QtObject {
             root.busy = "";
 
             if (code !== 0) {
-                const reason = writerErrors.text.trim().split("\n").filter(line => line.trim() !== "").pop() || "Network request failed";
-                root.error = reason;
-                if (was === "")
-                    root.connectFailed(reason);
-                else
-                    Toast.error(reason);
+                Toast.error(writerErrors.text.trim().split("\n").filter(line => line.trim() !== "").pop() || "Network request failed");
             } else if (was === "") {
-                root.error = "";
                 root.connectSucceeded();
             }
 
@@ -437,11 +416,6 @@ QtObject {
             if (was === "forget")
                 root.loadKnown();
         }
-    }
-
-    readonly property Process _portal: Process {
-        id: portal
-        command: ["xdg-open", "http://networkcheck.kde.org"]
     }
 
     readonly property Timer _poll: Timer {

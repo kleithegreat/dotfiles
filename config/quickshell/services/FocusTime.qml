@@ -1,7 +1,6 @@
 pragma Singleton
 
 import QtQuick
-import QtCore
 import Quickshell
 import Quickshell.Io
 
@@ -16,16 +15,16 @@ QtObject {
     readonly property int average: data.average || 0
     readonly property int yesterday: data.yesterday || 0
     readonly property string weekRange: data.week_range || ""
-    readonly property string current: data.current || ""
     readonly property var apps: data.apps || []
     readonly property var week: data.week || []
 
     // The file is a once-per-second heartbeat, so its age is the only liveness
     // signal there is.
+    property real _now: Date.now()
+
     readonly property bool stale: {
-        void tick.triggeredOnStart;
         const stamp = data.last_updated || 0;
-        return stamp === 0 || Date.now() / 1000 - stamp > 5;
+        return stamp === 0 || _now / 1000 - stamp > 5;
     }
 
     function format(seconds) {
@@ -37,14 +36,13 @@ QtObject {
     }
 
     readonly property FileView _file: FileView {
-        path: (Quickshell.env("XDG_RUNTIME_DIR") || "/run/user/1000") + "/focustime_state.json"
+        path: Quickshell.env("XDG_RUNTIME_DIR") + "/focustime_state.json"
         watchChanges: true
         onFileChanged: reload()
         onLoaded: {
             try {
                 root.data = JSON.parse(this.text());
             } catch (e) {
-                // A torn read is replaced by the next heartbeat.
             }
         }
     }
@@ -54,5 +52,7 @@ QtObject {
         interval: 2000
         running: true
         repeat: true
+        triggeredOnStart: true
+        onTriggered: root._now = Date.now()
     }
 }
