@@ -30,13 +30,11 @@ Open issues and pending validations. Delete entries when resolved.
       monitor still auto-selects. Drag a display in the arrangement canvas and
       check the edge snap and the countdown's revert with two outputs.
 
-- [ ] macOS VM, end to end (needs a guest install): nothing in it has been
-      booted. `macos-vm fetch` → `install` → `run`, then check that the
-      reims-vgpu device's own Vulkan window opens on the desktop, that
-      `nvidia-offload macos-vm run` on the laptop reaches the 3050 rather than
-      Intel's ANV, and that `--console` still shows OpenCore. The package has
-      only been built on the desktop; the laptop has not compiled it yet.
-      See `docs/macos-vm.md`.
+- [ ] macOS VM: `nvidia-offload macos-vm run` on the laptop boots the
+      installed Ventura guest to a rendered desktop on the 3050. Still
+      unchecked: the desktop host (the device's Vulkan window there),
+      `--console` showing OpenCore, and `fetch` → `install` from nothing
+      with the current package. See `docs/macos-vm.md`.
 
 ## Open issues
 
