@@ -44,10 +44,6 @@ async fn run_async() -> crate::Result<()> {
         events.clone(),
     );
 
-    // Auxiliary subsystems get their own failure domain. A focus tracker or
-    // solar scheduler that dies must not take the socket server with it: the
-    // socket is what every write subcommand and the shell depend on, and
-    // those subsystems have nothing to do with each other.
     let mut auxiliary = JoinSet::new();
     {
         let shutdown = Arc::clone(&shutdown);

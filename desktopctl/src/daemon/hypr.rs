@@ -77,8 +77,7 @@ impl HyprController {
         Ok(status)
     }
 
-    // Animations publish no events: the shell has no live subscriber for
-    // them (the editor was deliberately not rebuilt).
+    // Animations publish no events: the shell has no subscriber for them.
     pub fn animations_save(&self, payload: &Value) -> crate::Result<Value> {
         let _guard = self.lock_serialized()?;
         hypr::save_animations(&serde_json::to_string(payload)?)?;

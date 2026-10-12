@@ -8,20 +8,12 @@ use std::{
     process::Command,
 };
 
-pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
-
-pub fn run(print_env: bool) -> Result<()> {
+pub fn run() -> crate::Result<()> {
     let cursor_conf = paths::xdg_config_home()?.join("hypr/cursor-theme.lua");
     let overrides = parse_cursor_conf(&cursor_conf)?;
     let env_state = CursorEnv::resolve(overrides);
 
-    if print_env {
-        println!("{}", env_state.printable());
-        return Ok(());
-    }
-
-    // The Home Manager-deployed config (store symlinks), not the repo
-    // checkout: shell changes go live on rebuild, never on a repo edit.
+    // The Home Manager-deployed config, not the repo checkout: shell changes go live on rebuild.
     let quickshell_path = paths::xdg_config_home()?.join("quickshell");
     let mut command = Command::new("quickshell");
     command.arg("-p").arg(quickshell_path);
@@ -41,13 +33,6 @@ pub fn run(print_env: bool) -> Result<()> {
 }
 
 #[derive(Debug, Default)]
-struct CursorEnvOverrides {
-    xcursor_theme: Option<String>,
-    hyprcursor_theme: Option<String>,
-    xcursor_size: Option<String>,
-}
-
-#[derive(Debug, Default)]
 struct CursorEnv {
     xcursor_theme: Option<String>,
     hyprcursor_theme: Option<String>,
@@ -55,7 +40,7 @@ struct CursorEnv {
 }
 
 impl CursorEnv {
-    fn resolve(overrides: CursorEnvOverrides) -> Self {
+    fn resolve(overrides: CursorEnv) -> Self {
         let mut env_state = Self {
             xcursor_theme: env::var("XCURSOR_THEME").ok(),
             hyprcursor_theme: None,
@@ -74,27 +59,18 @@ impl CursorEnv {
 
         env_state
     }
-
-    fn printable(&self) -> String {
-        format!(
-            "{}|{}|{}",
-            self.xcursor_theme.as_deref().unwrap_or(""),
-            self.hyprcursor_theme.as_deref().unwrap_or(""),
-            self.xcursor_size.as_deref().unwrap_or("")
-        )
-    }
 }
 
-fn parse_cursor_conf(path: &Path) -> io::Result<CursorEnvOverrides> {
+fn parse_cursor_conf(path: &Path) -> io::Result<CursorEnv> {
     let file = match File::open(path) {
         Ok(file) => file,
         Err(error) if error.kind() == io::ErrorKind::NotFound => {
-            return Ok(CursorEnvOverrides::default());
+            return Ok(CursorEnv::default());
         }
         Err(error) => return Err(error),
     };
 
-    let mut overrides = CursorEnvOverrides::default();
+    let mut overrides = CursorEnv::default();
     for line in BufReader::new(file).lines() {
         let line = line?;
         let Some((key, value)) = parse_lua_field(&line) else {
@@ -213,7 +189,7 @@ mod tests {
         let _xcursor_size = ScopedEnvVar::set("XCURSOR_SIZE", "32");
         let _hyprcursor_theme = ScopedEnvVar::set("HYPRCURSOR_THEME", "IgnoredEnvTheme");
 
-        let resolved = CursorEnv::resolve(CursorEnvOverrides {
+        let resolved = CursorEnv::resolve(CursorEnv {
             xcursor_theme: Some("FileTheme".to_owned()),
             hyprcursor_theme: Some("FileHyprTheme".to_owned()),
             xcursor_size: None,
@@ -222,6 +198,5 @@ mod tests {
         assert_eq!(resolved.xcursor_theme.as_deref(), Some("FileTheme"));
         assert_eq!(resolved.hyprcursor_theme.as_deref(), Some("FileHyprTheme"));
         assert_eq!(resolved.xcursor_size.as_deref(), Some("32"));
-        assert_eq!(resolved.printable(), "FileTheme|FileHyprTheme|32");
     }
 }

@@ -148,16 +148,13 @@ mod tests {
         time::Duration,
     };
 
-    // The worker must run jobs strictly one at a time even when requests
-    // arrive concurrently. Two slow jobs submitted together may never be
-    // observed in flight at once.
+    // Concurrent requests may never be observed in flight at once.
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn worker_serializes_jobs() {
         let in_flight = Arc::new(AtomicUsize::new(0));
         let overlap_seen = Arc::new(AtomicUsize::new(0));
 
-        // Exercise the queue shape directly rather than through run_job so
-        // the test needs no theme state on disk.
+        // Bypasses run_job so no theme state is needed on disk.
         let (sender, mut receiver) = mpsc::unbounded_channel::<ThemeRequest>();
         let worker_in_flight = Arc::clone(&in_flight);
         let worker_overlap = Arc::clone(&overlap_seen);

@@ -158,10 +158,7 @@ pub fn is_efficiency_mode(root: &Path) -> Result<bool> {
 }
 
 pub fn current(root: &Path) -> Result<String> {
-    // Before the topology check, not after. The mask this looks for is exactly
-    // what makes that check fail: offlining the P-cores takes their `topology/`
-    // group with it, so a machine sitting in e-core-only reads as non-hybrid and
-    // `ensure_hybrid` would refuse to answer for the one profile it is in.
+    // Before `ensure_hybrid`: the mask removes `topology/`, so e-core-only reads as non-hybrid.
     if is_efficiency_mode(root)? {
         return Ok(Profile::ECoreOnly.as_str().to_owned());
     }
@@ -197,12 +194,7 @@ pub fn apply(root: &Path, profile: Profile) -> Result<()> {
 
     match profile {
         Profile::ECoreOnly => {
-            // The authoritative topology check, deliberately here and not at the
-            // top: the re-onlining above is what brings `topology/` back, and
-            // this is the only arm that needs it — both to trust the machine is
-            // hybrid and to read the mask off it. Leaving e-core-only asks sysfs
-            // nothing, so it stays reachable even when the mask is what is
-            // making the topology unreadable.
+            // Only after unmask: re-onlining is what brings `topology/` back.
             ensure_hybrid(root)?;
 
             powerprofilesctl(&["set", Profile::PowerSaver.as_str()])?;
@@ -506,10 +498,8 @@ mod tests {
         tree
     }
 
-    /// The regression: `current` used to run the topology check first, so the
-    /// mask hid the very profile that laid it down. The popup read that failure
-    /// as "no laptop-helper backend", fell back to powerprofilesctl, and dropped
-    /// the e-core-only entry off the list while the P-cores stayed offline.
+    /// `current` must not run the topology check first: the mask hides the very
+    /// profile that laid it down.
     #[test]
     fn current_reports_e_core_only_through_the_mask_it_left() {
         let tree = masked_tree();
@@ -518,10 +508,8 @@ mod tests {
         assert_eq!(current(tree.path()).unwrap(), "e-core-only");
     }
 
-    /// The other half of the same regression: with the mask on, `apply` refused
-    /// too, so the profile could not be left by the control that entered it.
-    /// The tree stays stripped of `topology/` after the re-onlining, which real
-    /// sysfs would restore — leaving e-core-only must not lean on that.
+    /// With the mask on, `apply` must still leave e-core-only, without relying
+    /// on re-onlining restoring `topology/`.
     #[test]
     fn apply_re_onlines_through_the_mask_it_left() {
         let tree = masked_tree();

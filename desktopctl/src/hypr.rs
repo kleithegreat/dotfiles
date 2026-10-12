@@ -11,7 +11,7 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
+use crate::Result;
 
 const INPUT_CONF_RELATIVE_PATH: &str = "hypr/input-defaults.lua";
 const INPUT_RUNTIME_RELATIVE_PATH: &str = "hypr/input-runtime.lua";
@@ -192,7 +192,7 @@ impl InputSetting {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum AccelProfile {
     Adaptive,
@@ -216,7 +216,7 @@ impl AccelProfile {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct InputState {
     pub(crate) sensitivity: f64,
     pub(crate) accel_profile: AccelProfile,
@@ -233,34 +233,9 @@ impl Default for InputState {
     }
 }
 
-/// Print an input state the daemon returned, matching the direct format.
-pub(crate) fn print_input_state_value(state: &serde_json::Value, json: bool) -> Result<()> {
+pub(crate) fn print_input_state(state: &InputState, json: bool) -> Result<()> {
     if json {
         println!("{}", serde_json::to_string(state)?);
-    } else {
-        println!(
-            "sensitivity = {}",
-            format_decimal(state["sensitivity"].as_f64().unwrap_or(0.0))
-        );
-        println!(
-            "accel_profile = {}",
-            state["accel_profile"].as_str().unwrap_or("")
-        );
-        println!(
-            "scroll_factor = {}",
-            format_decimal(state["scroll_factor"].as_f64().unwrap_or(0.0))
-        );
-    }
-
-    Ok(())
-}
-
-/// Print the effective Hyprland input state.
-pub(crate) fn print_input_status(json: bool) -> Result<()> {
-    let state = load_effective_input_state()?;
-
-    if json {
-        println!("{}", serde_json::to_string(&state)?);
     } else {
         println!("sensitivity = {}", format_decimal(state.sensitivity));
         println!("accel_profile = {}", state.accel_profile.as_str());
@@ -306,7 +281,7 @@ pub(crate) fn dispatch(lua: &str) -> Result<()> {
     check_lua_output(&output.stdout, &format!("hyprctl dispatch {lua}"))
 }
 
-/// Run `hyprctl eval <lua>`. Replaces `hyprctl keyword`, which is inert.
+/// Run `hyprctl eval <lua>`.
 pub(crate) fn eval(lua: &str) -> Result<()> {
     let output = hyprctl_output(&["eval", lua])?;
     check_lua_output(&output.stdout, &format!("hyprctl eval {lua}"))
@@ -448,7 +423,7 @@ pub(crate) fn handle_lid_switch(
         LidSwitchState::Open => eval(&monitor_enable_expression(internal_monitor, open_spec)?),
         LidSwitchState::Closed => close_lid_monitor(internal_monitor),
         LidSwitchState::Sync => {
-            if read_lid_state()?.is_some_and(|state| state == LidSwitchState::Closed) {
+            if lid_is_closed()? {
                 close_lid_monitor(internal_monitor)?;
             }
             Ok(())
@@ -508,9 +483,9 @@ fn active_external_monitor_exists(internal_monitor: &str) -> Result<bool> {
 ///
 /// Hyprland's `CMonitor::findAvailableDefaultWS` skips any workspace ID bound to
 /// a monitor the new output does not match, so a laptop-only login under the
-/// `workspace = 1..10, monitor:desc:<external>` pins in
-/// `hosts/laptop/monitors.lua` parks the internal panel on workspace 11: no
-/// pill in the bar, and no keybind that can reach it again.
+/// `workspace = 1..10, monitor:desc:<external>` pins written by
+/// `displays::reconcile` parks the internal panel on workspace 11: no pill in
+/// the bar, and no keybind that can reach it again.
 pub(crate) fn reclaim_workspaces() -> Result<()> {
     let target = reclaim_target(
         &query_monitors()?,
@@ -537,15 +512,13 @@ fn reclaim_target(
         .iter()
         .find(|monitor| monitor.focused && !monitor.disabled)?;
 
-    // Only act on an output parked past the pinned block. Anything inside it is
-    // a workspace the user can already see and reach.
+    // Inside the pinned block the workspace is already reachable.
     let parked = focused.active_workspace.id;
     if parked <= highest {
         return None;
     }
 
-    // Never yank focus away from windows that are already open, and never steal
-    // a workspace some other output is displaying.
+    // Never strand open windows or steal a workspace another output shows.
     let parked_has_windows = workspaces
         .iter()
         .any(|workspace| workspace.id == parked && workspace.windows > 0);
@@ -608,32 +581,23 @@ fn strip_commas(value: &str) -> String {
     value.replace(',', "")
 }
 
-fn read_lid_state() -> Result<Option<LidSwitchState>> {
-    let root = Path::new("/proc/acpi/button/lid");
-    let entries = match fs::read_dir(root) {
+fn lid_is_closed() -> Result<bool> {
+    let entries = match fs::read_dir("/proc/acpi/button/lid") {
         Ok(entries) => entries,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(false),
         Err(error) => return Err(error.into()),
     };
 
-    let mut saw_open = false;
     for entry in entries {
-        let state_path = entry?.path().join("state");
-        let contents = match fs::read_to_string(state_path) {
-            Ok(contents) => contents.to_ascii_lowercase(),
-            Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
+        match fs::read_to_string(entry?.path().join("state")) {
+            Ok(contents) if contents.to_ascii_lowercase().contains("closed") => return Ok(true),
+            Ok(_) => {}
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
             Err(error) => return Err(error.into()),
-        };
-
-        if contents.contains("closed") {
-            return Ok(Some(LidSwitchState::Closed));
-        }
-        if contents.contains("open") {
-            saw_open = true;
         }
     }
 
-    Ok(saw_open.then_some(LidSwitchState::Open))
+    Ok(false)
 }
 
 /// How long to wait for an unavailable event socket before retrying.
@@ -725,7 +689,7 @@ pub(crate) fn socket2_path() -> Result<PathBuf> {
     .into())
 }
 
-fn hyprland_signature() -> Option<String> {
+pub(crate) fn hyprland_signature() -> Option<String> {
     env::var("HYPRLAND_INSTANCE_SIGNATURE")
         .ok()
         .filter(|value| !value.is_empty())

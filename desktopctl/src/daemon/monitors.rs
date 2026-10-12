@@ -40,11 +40,7 @@ pub fn run(
 
     hypr::watch_event_socket(
         &shutdown,
-        // A daemon restart is a topology event too: nothing else re-establishes
-        // the workspace pins this process is the only writer of. The wallpaper
-        // is left alone here -- at login `autostart.lua` is already applying it,
-        // and racing that only produces awww's "none of the requested outputs
-        // are valid" against outputs it has not registered yet.
+        // Wallpaper stays out: at login `autostart.lua` applies it, and racing that makes awww reject unregistered outputs.
         || settled(&shutdown, false),
         |line| {
             if line.starts_with("monitoradded") || line.starts_with("monitorremoved") {

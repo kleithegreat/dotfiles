@@ -19,10 +19,7 @@ pub async fn run(
     mut shutdown: watch::Receiver<bool>,
 ) -> crate::Result<()> {
     let mut sigusr1 = signal(SignalKind::user_defined1())?;
-    // The boot catch-up runs once, on the first tick: edges cover a running
-    // daemon, but a machine that was off across an edge needs the schedule
-    // value applied on startup — unless a manual write in the current window
-    // outranks it.
+    // Runs once, on the first tick: covers an edge crossed while the machine was off.
     let mut boot_catch_up = Some(theme);
 
     loop {
@@ -32,7 +29,7 @@ pub async fn run(
 
         let next_event = solar_tick(controller.clone(), boot_catch_up.take()).await?;
 
-        let event_sleep = tokio::time::sleep(duration_until(next_event.when));
+        let event_sleep = tokio::time::sleep(duration_until(next_event));
         let recompute_sleep = tokio::time::sleep(StdDuration::from_secs(2 * 60 * 60));
         tokio::pin!(event_sleep);
         tokio::pin!(recompute_sleep);
@@ -50,12 +47,11 @@ pub async fn run(
     }
 }
 
-/// Run one blocking solar recompute/reconcile cycle off the async runtime,
-/// matching the spawn_blocking pattern used by the socket server.
+/// Run one blocking solar recompute/reconcile cycle off the async runtime.
 async fn solar_tick(
     controller: Controller,
     boot_catch_up: Option<ThemeController>,
-) -> crate::Result<solar::SolarEvent> {
+) -> crate::Result<DateTime<Local>> {
     tokio::task::spawn_blocking(move || {
         let location = solar::resolve_location()?;
         let status = solar::status_for_now(chrono::Local::now(), location);

@@ -1,5 +1,7 @@
 use crate::paths;
-use chrono::{DateTime, Datelike, Days, Duration, Local, LocalResult, NaiveDate, TimeZone, Utc};
+use chrono::{
+    DateTime, Datelike, Days, Duration, Local, LocalResult, NaiveDate, TimeZone, Timelike, Utc,
+};
 use serde::{Deserialize, Serialize};
 use std::{env, fs, io, process::Command, time::Duration as StdDuration};
 
@@ -25,11 +27,6 @@ pub struct Coordinates {
 }
 
 #[derive(Debug, Clone)]
-pub struct SolarEvent {
-    pub when: DateTime<Local>,
-}
-
-#[derive(Debug, Clone)]
 pub struct SolarStatus {
     pub location: Coordinates,
     pub sunrise: DateTime<Local>,
@@ -46,8 +43,7 @@ pub struct SolarStatus {
 struct CachedLocation {
     latitude: f64,
     longitude: f64,
-    // A name for these coordinates and no others, so it is dropped whenever
-    // they are refreshed rather than left describing somewhere else.
+    // Describes these coordinates only; dropped whenever they are refreshed.
     #[serde(default)]
     place: Option<String>,
 }
@@ -178,8 +174,6 @@ pub fn status_for_now(now: DateTime<Local>, location: Coordinates) -> SolarStatu
 /// A manual dark_hint write recorded at or after this instant outranks the
 /// schedule until the next edge.
 pub fn dark_window_start(now: DateTime<Local>) -> DateTime<Local> {
-    use chrono::Timelike;
-
     let today = now.date_naive();
     if now.hour() >= DARK_ON_HOUR {
         local_datetime(today, DARK_ON_HOUR, 0, 0)
@@ -190,28 +184,12 @@ pub fn dark_window_start(now: DateTime<Local>) -> DateTime<Local> {
     }
 }
 
-pub fn next_event(status: &SolarStatus) -> SolarEvent {
-    let mut next = SolarEvent {
-        when: status.next_sunrise,
-    };
-
-    if status.next_sunset < next.when {
-        next = SolarEvent {
-            when: status.next_sunset,
-        };
-    }
-    if status.next_dark_on < next.when {
-        next = SolarEvent {
-            when: status.next_dark_on,
-        };
-    }
-    if status.next_dark_off < next.when {
-        next = SolarEvent {
-            when: status.next_dark_off,
-        };
-    }
-
-    next
+pub fn next_event(status: &SolarStatus) -> DateTime<Local> {
+    status
+        .next_sunrise
+        .min(status.next_sunset)
+        .min(status.next_dark_on)
+        .min(status.next_dark_off)
 }
 
 pub fn sun_times(latitude: f64, longitude: f64, date: NaiveDate) -> (DateTime<Utc>, DateTime<Utc>) {
@@ -251,9 +229,7 @@ pub fn sun_times(latitude: f64, longitude: f64, date: NaiveDate) -> (DateTime<Ut
         };
 
         let local_mean_time = hour_angle + right_ascension - 0.06571 * t - 6.622;
-        // Wrap the local mean time into [0, 24) first, then subtract lng_hour
-        // WITHOUT re-wrapping so the UTC instant may legitimately land on the
-        // previous or next UTC day for far-eastern/-western longitudes.
+        // Subtract lng_hour without re-wrapping: the UTC instant may land on an adjacent UTC day.
         local_mean_time.rem_euclid(24.0) - lng_hour
     };
 
@@ -372,12 +348,7 @@ fn parse_place(body: &str) -> Option<String> {
 }
 
 fn query_geoclue() -> Option<Coordinates> {
-    // `where-am-i` watches for location updates until its own `--timeout`
-    // fires, then exits 0. Wrapping it in `timeout` and reading the exit status
-    // instead means the wrapper kills it first, every time, and a perfectly
-    // good fix is thrown away as a failure. The outer bound is only a backstop
-    // for a helper that ignores its own deadline, so it has to be the longer of
-    // the two.
+    // `where-am-i` exits 0 at its own --timeout; the outer one is a longer backstop, or a good fix reads as a failure.
     let output = Command::new("timeout")
         .args(["20", "where-am-i", "--timeout", "10"])
         .output()
@@ -459,8 +430,7 @@ fn local_datetime(date: NaiveDate, hour: u32, minute: u32, second: u32) -> DateT
     match Local.from_local_datetime(&naive) {
         LocalResult::Single(dt) => dt,
         LocalResult::Ambiguous(dt, _) => dt,
-        // DST gap: the wall-clock time does not exist; fall back to one hour
-        // later, which lands past any standard transition gap.
+        // DST gap: the wall-clock time does not exist; one hour later lands past it.
         LocalResult::None => match Local.from_local_datetime(&(naive + Duration::hours(1))) {
             LocalResult::Single(dt) | LocalResult::Ambiguous(dt, _) => dt,
             LocalResult::None => Local.from_utc_datetime(&naive),
@@ -520,8 +490,7 @@ mod tests {
     }
 
     fn sample_location(date: NaiveDate) -> Coordinates {
-        // Keep solar noon roughly aligned with the builder's local noon so the
-        // sunrise/sunset window assertions stay stable under different `TZ`s.
+        // Keeps the sunrise/sunset window assertions stable under any `TZ`.
         let local_noon = local_datetime(date, 12, 0, 0);
         let offset_hours = f64::from(local_noon.offset().local_minus_utc()) / 3600.0;
 
@@ -543,8 +512,7 @@ mod tests {
 
     #[test]
     fn sun_times_assign_far_eastern_events_to_the_requested_local_day() {
-        // Regression: longitudes past roughly +90°E wrap the rising-event UT
-        // past midnight; the events must still fall on the requested local day.
+        // Past +90°E the rising UT wraps past midnight; events must still land on the local day.
         let date = NaiveDate::from_ymd_opt(2026, 6, 10).expect("valid date");
         let offset = chrono::FixedOffset::east_opt(8 * 3600).expect("valid +08:00 offset");
         let (sunrise, sunset) = sun_times(31.0, 120.0, date);
@@ -567,7 +535,7 @@ mod tests {
         assert!(status.is_night);
         assert!(status.is_dark);
         assert_eq!(status.next_dark_off, dark_off);
-        assert_eq!(next_event(&status).when, dark_off);
+        assert_eq!(next_event(&status), dark_off);
     }
 
     #[test]
@@ -582,7 +550,7 @@ mod tests {
 
         assert!(status.is_night);
         assert!(!status.is_dark);
-        assert_eq!(next_event(&status).when, sunrise);
+        assert_eq!(next_event(&status), sunrise);
     }
 
     #[test]
@@ -599,7 +567,7 @@ mod tests {
         assert!(status.is_night);
         assert!(!status.is_dark);
         assert_eq!(status.next_dark_on, dark_on);
-        assert_eq!(next_event(&status).when, dark_on);
+        assert_eq!(next_event(&status), dark_on);
     }
 
     #[test]

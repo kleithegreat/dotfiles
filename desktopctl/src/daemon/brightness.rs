@@ -1,7 +1,6 @@
-//! Owns dim/restore state in memory and serializes hardware writes, replacing
-//! the /tmp pid file and runtime-dir DDC state file whose races could lose
-//! the pre-dim level. A second dim while dimmed is a no-op (the original
-//! level is preserved); restore cancels an in-flight ramp before restoring.
+//! Owns dim/restore state in memory and serializes hardware writes. A second
+//! dim while dimmed is a no-op (the original level is preserved); restore
+//! cancels an in-flight ramp before restoring.
 
 use crate::{brightness, daemon::server::Events};
 use serde_json::Value;
@@ -58,8 +57,6 @@ impl BrightnessController {
             let _guard = self.lock_op()?;
             brightness::step_core(device, direction)?
         };
-        // Hotkey steps carry the OSD flag; the shell shows the overlay from
-        // this event instead of the old `qs ipc call` round-trip.
         self.publish(&device_status, true);
         Ok(serde_json::json!({ "devices": [device_status] }))
     }
@@ -67,12 +64,11 @@ impl BrightnessController {
     pub fn dim(&self, device: Option<&str>) -> crate::Result<Value> {
         let key = brightness::resolve_device_key(device)?;
 
-        self.inner.abort_dim.store(false, Ordering::Relaxed);
         let mut saved = self.lock_op()?;
-        // A dim while already dimmed must not overwrite the saved pre-dim
-        // level with the dimmed one.
+        // Cleared only under the lock: before it, this would cancel a restore's abort of the running ramp.
+        self.inner.abort_dim.store(false, Ordering::Relaxed);
         if saved.contains_key(&key) {
-            return Ok(serde_json::json!({ "already_dimmed": true }));
+            return Ok(serde_json::json!({}));
         }
         let level = brightness::dim_core(device, &self.inner.abort_dim)?;
         saved.insert(key, level);

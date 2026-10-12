@@ -1,9 +1,9 @@
 use crate::{hypr, paths, theme};
 use chrono::{Datelike, Duration, Local, NaiveDate};
-use rusqlite::{Connection, params};
+use rusqlite::{Connection, params, params_from_iter};
 use serde::{Serialize, Serializer};
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     fs, io,
     path::{Path, PathBuf},
     sync::{
@@ -15,6 +15,7 @@ use std::{
 };
 
 const LOCKED_CLASS: &str = "__locked__";
+const EXCLUDED_CLASSES: [&str; 3] = ["", "Desktop", "Quickshell"];
 
 pub fn run(shutdown: Arc<AtomicBool>) -> crate::Result<()> {
     let current_class = Arc::new(Mutex::new(get_active_class()));
@@ -26,7 +27,7 @@ pub fn run(shutdown: Arc<AtomicBool>) -> crate::Result<()> {
         .spawn(move || listen_for_focus(listener_class, listener_shutdown))?;
 
     let resolver = DesktopResolver::load();
-    let mut connection = init_db()?;
+    let connection = init_db()?;
     let mut next_tick = Instant::now() + StdDuration::from_secs(1);
 
     while !shutdown.load(Ordering::SeqCst) {
@@ -54,9 +55,9 @@ pub fn run(shutdown: Arc<AtomicBool>) -> crate::Result<()> {
         }
 
         if locked {
-            accumulate(&mut connection, LOCKED_CLASS, &now)?;
+            accumulate(&connection, LOCKED_CLASS, &now)?;
         } else if !class_name.is_empty() {
-            accumulate(&mut connection, &class_name, &now)?;
+            accumulate(&connection, &class_name, &now)?;
         }
 
         write_summary(&connection, &resolver, &class_name, locked, &now)?;
@@ -92,19 +93,16 @@ fn init_db() -> crate::Result<Connection> {
 }
 
 fn accumulate(
-    connection: &mut Connection,
+    connection: &Connection,
     app_class: &str,
     now: &chrono::DateTime<Local>,
 ) -> crate::Result<()> {
     let date = now.format("%Y-%m-%d").to_string();
-    let transaction = connection.transaction()?;
-
-    transaction.execute(
+    connection.execute(
         "INSERT INTO daily_totals (date, app_class, seconds) VALUES (?, ?, 1)
          ON CONFLICT(date, app_class) DO UPDATE SET seconds = seconds + 1",
         params![date, app_class],
     )?;
-    transaction.commit()?;
 
     Ok(())
 }
@@ -179,7 +177,7 @@ fn build_summary(
     let apps = load_apps(connection, resolver, &today_string, total)?;
     let current = if locked {
         "Locked".to_owned()
-    } else if current_class.is_empty() || excluded_classes().contains(current_class) {
+    } else if current_class.is_empty() || EXCLUDED_CLASSES.contains(&current_class) {
         String::new()
     } else {
         resolver.resolve(current_class).0
@@ -211,15 +209,16 @@ fn load_daily_sums(
          WHERE date BETWEEN ? AND ? AND app_class NOT IN (?, ?, ?, ?)
          GROUP BY date",
     )?;
+    let (range_start, range_end) = (
+        range_start.format("%Y-%m-%d").to_string(),
+        range_end.format("%Y-%m-%d").to_string(),
+    );
     let rows = statement.query_map(
-        params![
-            range_start.format("%Y-%m-%d").to_string(),
-            range_end.format("%Y-%m-%d").to_string(),
-            LOCKED_CLASS,
-            "Desktop",
-            "Quickshell",
-            "",
-        ],
+        params_from_iter(
+            [range_start.as_str(), range_end.as_str(), LOCKED_CLASS]
+                .into_iter()
+                .chain(EXCLUDED_CLASSES),
+        ),
         |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)),
     )?;
 
@@ -238,7 +237,6 @@ fn load_apps(
     today: &str,
     total: i64,
 ) -> crate::Result<Vec<AppEntry>> {
-    let excluded = excluded_classes();
     let mut statement = connection.prepare(
         "SELECT app_class, SUM(seconds)
          FROM daily_totals
@@ -253,7 +251,7 @@ fn load_apps(
     let mut apps = Vec::new();
     for row in rows {
         let (class_name, seconds) = row?;
-        if excluded.contains(class_name.as_str()) {
+        if EXCLUDED_CLASSES.contains(&class_name.as_str()) {
             continue;
         }
 
@@ -282,14 +280,13 @@ fn load_month(connection: &Connection, today: NaiveDate) -> crate::Result<Vec<Op
          WHERE date LIKE ? AND app_class NOT IN (?, ?, ?, ?)
          GROUP BY date",
     )?;
+    let month_pattern = format!("{month_prefix}%");
     let rows = statement.query_map(
-        params![
-            format!("{month_prefix}%"),
-            LOCKED_CLASS,
-            "Desktop",
-            "Quickshell",
-            ""
-        ],
+        params_from_iter(
+            [month_pattern.as_str(), LOCKED_CLASS]
+                .into_iter()
+                .chain(EXCLUDED_CLASSES),
+        ),
         |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)),
     )?;
 
@@ -388,10 +385,6 @@ fn set_current_class(current_class: &Arc<Mutex<String>>, class_name: String) {
     }
 }
 
-fn excluded_classes() -> HashSet<&'static str> {
-    HashSet::from(["", "Desktop", "Quickshell"])
-}
-
 fn round_half_even_i64(numerator: i64, denominator: i64) -> i64 {
     if denominator == 0 {
         return 0;
@@ -418,102 +411,6 @@ fn signum(numerator: i64, denominator: i64) -> i64 {
         1
     } else {
         -1
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{AppEntry, MonthEntry, Percent, Summary, WeekEntry, refresh_unlocked_class_name};
-
-    #[test]
-    fn summary_serialization_matches_the_python_style_runtime_contract() {
-        // The summary JSON is a byte-level contract with the Quickshell
-        // consumer; keep this in lockstep with theme::json::to_python_string.
-        let summary = Summary {
-            last_updated: 1_765_000_000,
-            total: 3600,
-            average: 1800,
-            week_range: "Jun 8 - Jun 14".to_owned(),
-            yesterday: 1200,
-            current: "Café".to_owned(),
-            apps: vec![
-                AppEntry {
-                    class_name: "kitty".to_owned(),
-                    name: "kitty".to_owned(),
-                    icon: "kitty-icon".to_owned(),
-                    seconds: 3000,
-                    percent: Percent::Tenths(833),
-                },
-                AppEntry {
-                    class_name: "café".to_owned(),
-                    name: "Café".to_owned(),
-                    icon: String::new(),
-                    seconds: 600,
-                    percent: Percent::Integer(0),
-                },
-            ],
-            week: vec![WeekEntry {
-                date: "2026-06-08".to_owned(),
-                day: "Mon".to_owned(),
-                total: 0,
-                is_target: false,
-            }],
-            month: vec![
-                None,
-                Some(MonthEntry {
-                    date: "2026-06-01".to_owned(),
-                    total: 42,
-                    is_target: true,
-                }),
-            ],
-        };
-
-        let rendered =
-            crate::theme::json::to_python_string(&summary).expect("summary should serialize");
-
-        assert_eq!(
-            rendered,
-            "{\"last_updated\": 1765000000, \"total\": 3600, \
-             \"average\": 1800, \"week_range\": \"Jun 8 - Jun 14\", \"yesterday\": 1200, \
-             \"current\": \"Caf\\u00e9\", \"apps\": [{\"class\": \"kitty\", \"name\": \"kitty\", \
-             \"icon\": \"kitty-icon\", \"seconds\": 3000, \"percent\": 83.3}, \
-             {\"class\": \"caf\\u00e9\", \"name\": \"Caf\\u00e9\", \"icon\": \"\", \
-             \"seconds\": 600, \"percent\": 0}], \"week\": [{\"date\": \"2026-06-08\", \
-             \"day\": \"Mon\", \"total\": 0, \"is_target\": false}], \"month\": [null, \
-             {\"date\": \"2026-06-01\", \"total\": 42, \"is_target\": true}]}"
-        );
-    }
-
-    #[test]
-    fn percent_tenths_serialize_with_one_decimal_digit() {
-        let whole = crate::theme::json::to_python_string(&Percent::Tenths(1000))
-            .expect("percent should serialize");
-        let fractional = crate::theme::json::to_python_string(&Percent::Tenths(123))
-            .expect("percent should serialize");
-        let zero = crate::theme::json::to_python_string(&Percent::Tenths(0))
-            .expect("percent should serialize");
-
-        assert_eq!(whole, "100.0");
-        assert_eq!(fractional, "12.3");
-        assert_eq!(zero, "0.0");
-    }
-
-    #[test]
-    fn refresh_unlocked_class_name_reseeds_empty_classes() {
-        let class_name = refresh_unlocked_class_name(String::new(), || "firefox".to_owned());
-        assert_eq!(class_name, "firefox");
-    }
-
-    #[test]
-    fn refresh_unlocked_class_name_keeps_existing_classes() {
-        let class_name = refresh_unlocked_class_name("kitty".to_owned(), || "firefox".to_owned());
-        assert_eq!(class_name, "kitty");
-    }
-
-    #[test]
-    fn refresh_unlocked_class_name_keeps_empty_when_reseed_is_empty() {
-        let class_name = refresh_unlocked_class_name(String::new(), String::new);
-        assert!(class_name.is_empty());
     }
 }
 
@@ -679,10 +576,104 @@ enum Percent {
 impl Serialize for Percent {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match self {
-            // Tenths must render with one decimal digit (e.g. 83.3, 100.0) to
-            // keep the runtime JSON contract; ryu prints n/10.0 exactly so.
+            // Tenths must render with one decimal digit (83.3, 100.0).
             Self::Integer(value) => serializer.serialize_i64(*value),
             Self::Tenths(value) => serializer.serialize_f64(*value as f64 / 10.0),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{AppEntry, MonthEntry, Percent, Summary, WeekEntry, refresh_unlocked_class_name};
+
+    #[test]
+    fn summary_serialization_matches_the_python_style_runtime_contract() {
+        // Byte-level contract with the Quickshell consumer.
+        let summary = Summary {
+            last_updated: 1_765_000_000,
+            total: 3600,
+            average: 1800,
+            week_range: "Jun 8 - Jun 14".to_owned(),
+            yesterday: 1200,
+            current: "Café".to_owned(),
+            apps: vec![
+                AppEntry {
+                    class_name: "kitty".to_owned(),
+                    name: "kitty".to_owned(),
+                    icon: "kitty-icon".to_owned(),
+                    seconds: 3000,
+                    percent: Percent::Tenths(833),
+                },
+                AppEntry {
+                    class_name: "café".to_owned(),
+                    name: "Café".to_owned(),
+                    icon: String::new(),
+                    seconds: 600,
+                    percent: Percent::Integer(0),
+                },
+            ],
+            week: vec![WeekEntry {
+                date: "2026-06-08".to_owned(),
+                day: "Mon".to_owned(),
+                total: 0,
+                is_target: false,
+            }],
+            month: vec![
+                None,
+                Some(MonthEntry {
+                    date: "2026-06-01".to_owned(),
+                    total: 42,
+                    is_target: true,
+                }),
+            ],
+        };
+
+        let rendered =
+            crate::theme::json::to_python_string(&summary).expect("summary should serialize");
+
+        assert_eq!(
+            rendered,
+            "{\"last_updated\": 1765000000, \"total\": 3600, \
+             \"average\": 1800, \"week_range\": \"Jun 8 - Jun 14\", \"yesterday\": 1200, \
+             \"current\": \"Caf\\u00e9\", \"apps\": [{\"class\": \"kitty\", \"name\": \"kitty\", \
+             \"icon\": \"kitty-icon\", \"seconds\": 3000, \"percent\": 83.3}, \
+             {\"class\": \"caf\\u00e9\", \"name\": \"Caf\\u00e9\", \"icon\": \"\", \
+             \"seconds\": 600, \"percent\": 0}], \"week\": [{\"date\": \"2026-06-08\", \
+             \"day\": \"Mon\", \"total\": 0, \"is_target\": false}], \"month\": [null, \
+             {\"date\": \"2026-06-01\", \"total\": 42, \"is_target\": true}]}"
+        );
+    }
+
+    #[test]
+    fn percent_tenths_serialize_with_one_decimal_digit() {
+        let whole = crate::theme::json::to_python_string(&Percent::Tenths(1000))
+            .expect("percent should serialize");
+        let fractional = crate::theme::json::to_python_string(&Percent::Tenths(123))
+            .expect("percent should serialize");
+        let zero = crate::theme::json::to_python_string(&Percent::Tenths(0))
+            .expect("percent should serialize");
+
+        assert_eq!(whole, "100.0");
+        assert_eq!(fractional, "12.3");
+        assert_eq!(zero, "0.0");
+    }
+
+    #[test]
+    fn refresh_unlocked_class_name_reseeds_empty_classes() {
+        let class_name = refresh_unlocked_class_name(String::new(), || "firefox".to_owned());
+        assert_eq!(class_name, "firefox");
+    }
+
+    #[test]
+    fn refresh_unlocked_class_name_keeps_existing_classes() {
+        let class_name = refresh_unlocked_class_name("kitty".to_owned(), || "firefox".to_owned());
+        assert_eq!(class_name, "kitty");
+    }
+
+    #[test]
+    fn refresh_unlocked_class_name_keeps_empty_when_reseed_is_empty() {
+        let class_name = refresh_unlocked_class_name(String::new(), String::new);
+        assert!(class_name.is_empty());
     }
 }

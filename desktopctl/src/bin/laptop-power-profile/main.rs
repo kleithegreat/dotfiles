@@ -4,9 +4,7 @@
 //! laptop's polkit rule (hosts/laptop/system.nix) grants passwordless pkexec by
 //! matching the program path, so folding these commands into the `desktopctl`
 //! binary would hand every desktopctl subcommand passwordless root along with
-//! them. The CLI surface is the one the Quickshell power popup already calls —
-//! `get`, and `set <profile>` — so it stays compatible with the shell script it
-//! replaces.
+//! them.
 
 mod power_profile;
 
@@ -68,7 +66,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn set_parses_every_profile_the_shell_offered() {
+    fn set_parses_every_profile() {
         for (argument, expected) in [
             ("performance", Profile::Performance),
             ("balanced", Profile::Balanced),

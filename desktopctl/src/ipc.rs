@@ -198,6 +198,23 @@ where
     }
 }
 
+/// A daemon mutation: retries while the daemon is absent, then reports its
+/// absence as the strict-mode failure instead of the raw connect error.
+pub(crate) fn mutate<T: DeserializeOwned>(
+    method: &str,
+    params: serde_json::Value,
+    timeout: Duration,
+    wait: Duration,
+) -> crate::Result<T> {
+    send_request_with_retry(method, Some(params), timeout, wait).map_err(|error| {
+        if socket_unavailable(error.as_ref()) {
+            io::Error::other(daemon_unavailable_message(&error)).into()
+        } else {
+            error
+        }
+    })
+}
+
 pub(crate) fn socket_unavailable(error: &(dyn std::error::Error + 'static)) -> bool {
     error.downcast_ref::<io::Error>().is_some_and(|io_error| {
         matches!(

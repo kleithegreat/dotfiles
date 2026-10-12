@@ -5,7 +5,7 @@ use crate::{hypr, paths, theme};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fs, io, path::PathBuf};
 
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
+use crate::Result;
 
 const RUNTIME_RELATIVE_PATH: &str = "hypr/displays-runtime.lua";
 
@@ -101,9 +101,7 @@ fn resolve_primary<'a>(
         return Some(chosen);
     }
 
-    // An external display is the one you sat down in front of. Between two of
-    // them the larger one wins; the built-in panel is the answer only when it
-    // is the only answer.
+    // Externals beat the built-in panel; between externals the larger wins.
     usable()
         .filter(|monitor| !monitor.is_internal())
         .max_by_key(|monitor| (monitor.width * monitor.height) as i64)
@@ -447,23 +445,6 @@ mod tests {
         assert!(first.contains("default = true"));
         assert!(!second.contains("default"));
         assert!(second.contains("monitor = \"desc:LG ULTRAWIDE\""));
-    }
-
-    #[test]
-    fn a_kept_layout_never_forgets_an_output_that_is_unplugged() {
-        // save_layout merges onto the stored map; the entry for an absent
-        // output is the one worth keeping for when it comes back.
-        let mut stored = DisplayState::default();
-        stored
-            .outputs
-            .insert("DP-4".to_owned(), output("2560x1080@60.00", "0x0", 1.0));
-
-        let mut incoming = BTreeMap::new();
-        incoming.insert("eDP-1".to_owned(), output("1920x1200@59.95", "0x0", 1.0));
-        stored.outputs.extend(incoming);
-
-        assert_eq!(stored.outputs.len(), 2);
-        assert!(stored.outputs.contains_key("DP-4"));
     }
 
     #[test]

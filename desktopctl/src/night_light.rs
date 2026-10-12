@@ -5,18 +5,17 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
-    env, fs,
+    fs,
     io::{self, BufReader, Read, Write},
     net::Shutdown,
     os::unix::net::UnixStream,
     path::{Path, PathBuf},
     process::Command,
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 pub const NIGHT_LIGHT_MIN_TEMP: i32 = 3000;
 pub const NIGHT_LIGHT_MAX_TEMP: i32 = 6500;
-const SOCKET_TIMEOUT: Duration = Duration::from_secs(3);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -45,6 +44,25 @@ pub struct NightLightStatus {
     pub dark_hint: bool,
     pub scheduled_running: bool,
     pub scheduled_dark_hint: bool,
+}
+
+impl NightLightStatus {
+    pub(crate) fn observe(
+        mode: NightLightMode,
+        target_temperature: i32,
+        solar_status: &solar::SolarStatus,
+    ) -> crate::Result<Self> {
+        let process = hyprsunset_process_state();
+        Ok(Self {
+            mode,
+            running: process.running,
+            temperature: process.temperature,
+            target_temperature,
+            dark_hint: current_dark_hint()?,
+            scheduled_running: solar_status.is_night,
+            scheduled_dark_hint: solar_status.is_dark,
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -225,16 +243,7 @@ fn print_set_mode_summary(status: NightLightStatus) {
 fn fallback_status() -> crate::Result<NightLightStatus> {
     let location = solar::resolve_location()?;
     let solar_status = solar::status_for_now(chrono::Local::now(), location);
-    let process = hyprsunset_process_state();
-    Ok(NightLightStatus {
-        mode: NightLightMode::Auto,
-        running: process.running,
-        temperature: process.temperature,
-        target_temperature: solar::HYPRSUNSET_TEMP,
-        dark_hint: current_dark_hint()?,
-        scheduled_running: solar_status.is_night,
-        scheduled_dark_hint: solar_status.is_dark,
-    })
+    NightLightStatus::observe(NightLightMode::Auto, solar::HYPRSUNSET_TEMP, &solar_status)
 }
 
 fn command_error(label: &str, output: &std::process::Output) -> io::Error {
@@ -281,8 +290,8 @@ fn hyprsunset_ipc_request(request: &str) -> crate::Result<String> {
             format!("failed to connect to {}: {error}", socket_path.display()),
         )
     })?;
-    stream.set_read_timeout(Some(SOCKET_TIMEOUT))?;
-    stream.set_write_timeout(Some(SOCKET_TIMEOUT))?;
+    stream.set_read_timeout(Some(ipc::DEFAULT_TIMEOUT))?;
+    stream.set_write_timeout(Some(ipc::DEFAULT_TIMEOUT))?;
 
     stream.write_all(request.as_bytes())?;
     stream.shutdown(Shutdown::Write)?;
@@ -295,7 +304,7 @@ fn hyprsunset_ipc_request(request: &str) -> crate::Result<String> {
 fn hyprsunset_socket_path() -> crate::Result<PathBuf> {
     let root = paths::xdg_runtime_dir()?.join("hypr");
 
-    if let Some(signature) = hyprland_signature() {
+    if let Some(signature) = hypr::hyprland_signature() {
         let runtime_path = root.join(&signature).join(".hyprsunset.sock");
         if runtime_path.exists() {
             return Ok(runtime_path);
@@ -315,17 +324,11 @@ fn hyprsunset_socket_path() -> crate::Result<PathBuf> {
         return Ok(path);
     }
 
-    if let Some(signature) = hyprland_signature() {
+    if let Some(signature) = hypr::hyprland_signature() {
         return Ok(root.join(signature).join(".hyprsunset.sock"));
     }
 
     Ok(fallback_path)
-}
-
-fn hyprland_signature() -> Option<String> {
-    env::var("HYPRLAND_INSTANCE_SIGNATURE")
-        .ok()
-        .filter(|value| !value.is_empty())
 }
 
 fn find_hyprsunset_socket_candidates(root: &Path) -> io::Result<Vec<(SystemTime, PathBuf)>> {

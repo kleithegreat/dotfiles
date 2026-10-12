@@ -58,8 +58,7 @@ impl Events {
     }
 }
 
-/// Everything a client connection can reach. Grows a field per controller as
-/// state ownership moves into the daemon.
+/// Everything a client connection can reach.
 #[derive(Clone)]
 pub struct ServerContext {
     pub night_light: Controller,
@@ -266,11 +265,8 @@ async fn handle_client(stream: UnixStream, context: ServerContext) -> io::Result
             }
             methods::NIGHT_LIGHT_STATUS => {
                 let controller = context.night_light.clone();
-                match tokio::task::spawn_blocking(move || controller.status()).await {
-                    Ok(Ok(status)) => write_ok(&mut writer, status).await?,
-                    Ok(Err(error)) => write_error(&mut writer, error.to_string()).await?,
-                    Err(error) => write_error(&mut writer, error.to_string()).await?,
-                }
+                let result = tokio::task::spawn_blocking(move || controller.status()).await;
+                write_join_result(&mut writer, result).await?;
             }
             methods::NIGHT_LIGHT_SET => {
                 let params = match serde_json::from_value::<NightLightSetParams>(request.params) {
@@ -286,23 +282,16 @@ async fn handle_client(stream: UnixStream, context: ServerContext) -> io::Result
                 };
 
                 let controller = context.night_light.clone();
-                match tokio::task::spawn_blocking(move || {
+                let result = tokio::task::spawn_blocking(move || {
                     controller.set_mode(params.mode, params.temperature)
                 })
-                .await
-                {
-                    Ok(Ok(status)) => write_ok(&mut writer, status).await?,
-                    Ok(Err(error)) => write_error(&mut writer, error.to_string()).await?,
-                    Err(error) => write_error(&mut writer, error.to_string()).await?,
-                }
+                .await;
+                write_join_result(&mut writer, result).await?;
             }
             methods::NIGHT_LIGHT_TOGGLE => {
                 let controller = context.night_light.clone();
-                match tokio::task::spawn_blocking(move || controller.toggle()).await {
-                    Ok(Ok(status)) => write_ok(&mut writer, status).await?,
-                    Ok(Err(error)) => write_error(&mut writer, error.to_string()).await?,
-                    Err(error) => write_error(&mut writer, error.to_string()).await?,
-                }
+                let result = tokio::task::spawn_blocking(move || controller.toggle()).await;
+                write_join_result(&mut writer, result).await?;
             }
             methods::THEME_STATUS => {
                 let result = tokio::task::spawn_blocking(|| {
@@ -310,11 +299,7 @@ async fn handle_client(stream: UnixStream, context: ServerContext) -> io::Result
                         .map(|state| crate::theme::state_json(&state))
                 })
                 .await;
-                match result {
-                    Ok(Ok(state)) => write_ok(&mut writer, state).await?,
-                    Ok(Err(error)) => write_error(&mut writer, error.to_string()).await?,
-                    Err(error) => write_error(&mut writer, error.to_string()).await?,
-                }
+                write_join_result(&mut writer, result).await?;
             }
             methods::THEME_SET => {
                 match parse_params::<ThemeSetParams>(request.params, methods::THEME_SET) {
@@ -323,9 +308,7 @@ async fn handle_client(stream: UnixStream, context: ServerContext) -> io::Result
                         let job = ThemeJob::Set {
                             key: params.key,
                             value: params.value,
-                            // Every socket write is user-initiated; the
-                            // schedule mutates through the controller
-                            // directly, not through this method.
+                            // User-initiated; the schedule bypasses this method.
                             origin: DarkHintOrigin::Manual,
                         };
                         write_result(&mut writer, context.theme.request(job).await).await?;
@@ -578,9 +561,9 @@ where
     parse_params(params, method)
 }
 
-async fn write_join_result<W: AsyncWrite + Unpin>(
+async fn write_join_result<T: serde::Serialize, W: AsyncWrite + Unpin>(
     writer: &mut W,
-    result: Result<crate::Result<serde_json::Value>, tokio::task::JoinError>,
+    result: Result<crate::Result<T>, tokio::task::JoinError>,
 ) -> io::Result<()> {
     match result {
         Ok(result) => write_result(writer, result).await,
@@ -595,9 +578,9 @@ fn parse_params<T: serde::de::DeserializeOwned>(
     serde_json::from_value(params).map_err(|error| format!("invalid params for {method}: {error}"))
 }
 
-async fn write_result<W: AsyncWrite + Unpin>(
+async fn write_result<T: serde::Serialize, W: AsyncWrite + Unpin>(
     writer: &mut W,
-    result: crate::Result<serde_json::Value>,
+    result: crate::Result<T>,
 ) -> io::Result<()> {
     match result {
         Ok(data) => write_ok(writer, data).await,
@@ -915,12 +898,11 @@ mod tests {
     fn scoped_test_env(
         temp: &crate::test_support::TempDir,
     ) -> Vec<crate::test_support::ScopedEnvVar> {
-        let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .expect("crate lives inside the repo")
-            .to_path_buf();
         vec![
-            crate::test_support::ScopedEnvVar::set("DESKTOPCTL_REPO", &repo_root),
+            crate::test_support::ScopedEnvVar::set(
+                "DESKTOPCTL_REPO",
+                crate::test_support::repo_root(),
+            ),
             crate::test_support::ScopedEnvVar::set("XDG_DATA_HOME", temp.path().join("data")),
             crate::test_support::ScopedEnvVar::set("XDG_CACHE_HOME", temp.path().join("cache")),
             crate::test_support::ScopedEnvVar::set("XDG_CONFIG_HOME", temp.path().join("config")),

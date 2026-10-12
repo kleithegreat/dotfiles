@@ -13,7 +13,7 @@ mod test_support;
 mod theme;
 
 use clap::{Args, Parser, Subcommand};
-use std::process::ExitCode;
+use std::{process::ExitCode, time::Duration};
 
 #[derive(Debug, Parser)]
 #[command(
@@ -41,7 +41,7 @@ enum TopLevelCommand {
     /// Run Hyprland helper commands.
     Hypr(HyprArgs),
     /// Export cursor variables and launch Quickshell.
-    LaunchQuickshell(LaunchQuickshellArgs),
+    LaunchQuickshell,
     /// Inspect and control night-light override state.
     NightLight(NightLightArgs),
     /// Restore the previous session's windows.
@@ -75,18 +75,18 @@ enum ThemeCommand {
     Target(TargetArgs),
     /// Update one theme-state key and apply affected targets.
     Set(SetArgs),
-    /// Load a preset and apply all targets.
+    /// Load a preset and apply the targets its keys affect.
     Preset(NamedArg),
     /// Save a preset from a JSON patch payload.
     SavePreset(SavePresetArgs),
     /// Delete a preset by name.
     DeletePreset(NamedArg),
     /// List available color schemes.
-    ListSchemes(JsonOutputArgs),
+    ListSchemes,
     /// List wallpapers and cached preview paths.
     ListWallpapers(ListWallpapersArgs),
     /// List available presets.
-    ListPresets(JsonOutputArgs),
+    ListPresets,
     /// Show the current theme state.
     Status(JsonOutputArgs),
     /// Print the current state in `styling/state.json` seed format.
@@ -304,13 +304,6 @@ struct HyprJsonPayloadArgs {
 }
 
 #[derive(Debug, Args)]
-struct LaunchQuickshellArgs {
-    /// Print XCURSOR_THEME|HYPRCURSOR_THEME|XCURSOR_SIZE and exit.
-    #[arg(long)]
-    print_env: bool,
-}
-
-#[derive(Debug, Args)]
 #[command(arg_required_else_help = true, subcommand_required = true)]
 struct NightLightArgs {
     #[command(subcommand)]
@@ -383,7 +376,7 @@ enum SunCommand {
     Status,
 }
 
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
+pub(crate) type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 fn main() -> ExitCode {
     match run() {
@@ -404,7 +397,7 @@ fn run() -> Result<()> {
     match cli.command {
         TopLevelCommand::Brightness(args) => run_brightness(args),
         TopLevelCommand::Hypr(args) => run_hypr(args),
-        TopLevelCommand::LaunchQuickshell(args) => launch::run(args.print_env),
+        TopLevelCommand::LaunchQuickshell => launch::run(),
         TopLevelCommand::NightLight(args) => night_light::run(args),
         TopLevelCommand::Daemon => daemon::run(),
         TopLevelCommand::Session(args) => session::run(args),
@@ -464,23 +457,10 @@ fn run_brightness_status(json: bool) -> Result<()> {
     }
 }
 
-/// Send a daemon mutation, converting a missing daemon into the strict-mode
-/// failure message. The response payload is discarded; the exit code is the
-/// contract.
+/// The response payload is discarded; the exit code is the contract.
 fn strict_request(method: &str, params: serde_json::Value) -> Result<()> {
-    ipc::send_request::<serde_json::Value, serde_json::Value>(
-        method,
-        Some(params),
-        ipc::DEFAULT_TIMEOUT,
-    )
-    .map(|_response| ())
-    .map_err(|error| {
-        if ipc::socket_unavailable(error.as_ref()) {
-            std::io::Error::other(ipc::daemon_unavailable_message(&error)).into()
-        } else {
-            error
-        }
-    })
+    ipc::mutate::<serde_json::Value>(method, params, ipc::DEFAULT_TIMEOUT, Duration::ZERO)
+        .map(|_response| ())
 }
 
 fn run_hypr(args: HyprArgs) -> Result<()> {
@@ -517,14 +497,14 @@ fn parse_payload_json(raw: &str) -> Result<serde_json::Value> {
 fn run_hypr_input(args: HyprInputArgs) -> Result<()> {
     match args.command {
         HyprInputCommand::Status(args) => {
-            match ipc::send_request::<(), serde_json::Value>(
+            match ipc::send_request::<(), hypr::InputState>(
                 ipc::methods::HYPR_INPUT_STATUS,
                 None,
                 ipc::DEFAULT_TIMEOUT,
             ) {
-                Ok(state) => hypr::print_input_state_value(&state, args.json),
+                Ok(state) => hypr::print_input_state(&state, args.json),
                 Err(error) if ipc::socket_unavailable(error.as_ref()) => {
-                    hypr::print_input_status(args.json)
+                    hypr::print_input_state(&hypr::load_effective_input_state()?, args.json)
                 }
                 Err(error) => Err(error),
             }

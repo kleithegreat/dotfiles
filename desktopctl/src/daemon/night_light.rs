@@ -4,8 +4,8 @@ use crate::{
         theme::{ThemeController, ThemeJob},
     },
     night_light::{
-        NightLightMode, NightLightStatus, current_dark_hint, ensure_hyprsunset_running,
-        hyprsunset_process_state, normalize_temperature, stop_hyprsunset,
+        NightLightMode, NightLightStatus, ensure_hyprsunset_running, hyprsunset_process_state,
+        normalize_temperature, stop_hyprsunset,
     },
     solar,
     theme::DarkHintOrigin,
@@ -113,16 +113,7 @@ impl Controller {
     pub fn status(&self) -> crate::Result<NightLightStatus> {
         let state = self.lock_state()?;
         let solar_status = current_solar_status(&state)?;
-        let process = hyprsunset_process_state();
-        Ok(NightLightStatus {
-            mode: state.mode,
-            running: process.running,
-            temperature: process.temperature,
-            target_temperature: target_temperature(&state),
-            dark_hint: current_dark_hint()?,
-            scheduled_running: solar_status.is_night,
-            scheduled_dark_hint: solar_status.is_dark,
-        })
+        NightLightStatus::observe(state.mode, target_temperature(&state), &solar_status)
     }
 
     /// Hyprsunset concerns only; a pending scheduled dark_hint is handed
@@ -137,19 +128,9 @@ impl Controller {
         apply_desired_state(&desired)?;
         let pending_dark_hint = state.pending_dark_hint_target.take();
 
-        let process = hyprsunset_process_state();
-        Ok((
-            NightLightStatus {
-                mode: state.mode,
-                running: process.running,
-                temperature: process.temperature,
-                target_temperature: target_temperature(state),
-                dark_hint: current_dark_hint()?,
-                scheduled_running: solar_status.is_night,
-                scheduled_dark_hint: solar_status.is_dark,
-            },
-            pending_dark_hint,
-        ))
+        let status =
+            NightLightStatus::observe(state.mode, target_temperature(state), &solar_status)?;
+        Ok((status, pending_dark_hint))
     }
 
     fn finish_reconcile(
@@ -216,8 +197,7 @@ fn dark_hint_transition(
     previous: Option<&solar::SolarStatus>,
     current: &solar::SolarStatus,
 ) -> Option<bool> {
-    // No previous status means daemon startup, not an edge — startup
-    // coverage belongs to the boot catch-up, which honors manual writes.
+    // No previous status is daemon startup, not an edge; the boot catch-up owns that.
     let previous = previous?;
     (previous.is_dark != current.is_dark).then_some(current.is_dark)
 }
@@ -299,9 +279,7 @@ mod tests {
 
     #[test]
     fn first_solar_status_never_queues_a_dark_hint_write() {
-        // A daemon restart mid-window must not clobber a manual dark_hint;
-        // only a real edge queues a scheduled write. Reboot coverage is the
-        // solar task's boot catch-up, not this path.
+        // A restart mid-window must not clobber a manual dark_hint.
         let controller = Controller::new();
         controller
             .update_solar_status(sample_solar_status(true, true))

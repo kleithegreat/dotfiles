@@ -8,7 +8,7 @@ use std::{
 
 use serde::Serialize;
 
-pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
+use crate::Result;
 
 const GAMMA: f64 = 2.2;
 const STEP: f64 = 0.05;
@@ -99,13 +99,6 @@ fn dim_ramp_raw_values(device: &BrightnessDevice, current: u64, target: u64, max
         .collect()
 }
 
-// ---------------------------------------------------------------------------
-// Cores for the daemon's brightness controller: same hardware paths as the
-// CLI entry points above, but returning the written device's status instead
-// of printing, and with dim/restore state held by the caller instead of the
-// pid/state files.
-// ---------------------------------------------------------------------------
-
 /// A brightness level saved before dimming, restorable via [`restore_saved`].
 #[derive(Clone, Debug)]
 pub(crate) struct SavedLevel {
@@ -113,19 +106,8 @@ pub(crate) struct SavedLevel {
     raw: u64,
 }
 
-/// Stable identity for dim/restore bookkeeping across invocations.
-fn device_key(device: &BrightnessDevice) -> String {
-    match device {
-        BrightnessDevice::Backlight(name) => name.clone(),
-        BrightnessDevice::Ddc { bus, .. } => match bus {
-            Some(bus) => format!("ddc:{bus}"),
-            None => "ddc".to_owned(),
-        },
-    }
-}
-
 pub(crate) fn resolve_device_key(device: Option<&str>) -> Result<String> {
-    Ok(device_key(&resolve_device(device)?))
+    Ok(resolve_device(device)?.to_string())
 }
 
 pub(crate) fn status_json() -> Result<serde_json::Value> {
@@ -342,9 +324,7 @@ fn available_ddc_states() -> Vec<BrightnessState> {
             .into_iter()
             .filter_map(|device| read_state(device).ok())
             .collect(),
-        // Only a `detect` that failed outright leaves anything to guess at: a
-        // busless probe re-runs the same enumeration and can never reach a
-        // display `detect` succeeded in not reporting.
+        // Only a failed `detect` leaves anything to guess at; a busless probe re-runs the same enumeration.
         Err(_) => read_state(BrightnessDevice::Ddc {
             bus: None,
             connector: None,
@@ -376,30 +356,22 @@ fn status_payload_for_devices(devices: Vec<BrightnessDeviceStatus>) -> Brightnes
 
 fn status_payload(state: &BrightnessState) -> Result<BrightnessDeviceStatus> {
     ensure_nonzero_max(state.max)?;
-    let (kind, device, label, fraction, connector) = match &state.device {
+    let device = state.device.to_string();
+    let (kind, label, fraction, connector) = match &state.device {
         BrightnessDevice::Backlight(name) => (
             "backlight",
-            name.clone(),
             name.replace('_', " "),
             raw_to_perceived(state.current, state.max),
             None,
         ),
         BrightnessDevice::Ddc {
-            bus,
-            connector,
-            label,
-        } => {
-            let device = bus
-                .map(|bus| format!("ddc:{bus}"))
-                .unwrap_or_else(|| "ddc".to_owned());
-            (
-                "ddc",
-                device,
-                ddc_label(label.as_deref(), connector.as_deref()),
-                state.current as f64 / state.max as f64,
-                connector.clone(),
-            )
-        }
+            connector, label, ..
+        } => (
+            "ddc",
+            ddc_label(label.as_deref(), connector.as_deref()),
+            state.current as f64 / state.max as f64,
+            connector.clone(),
+        ),
     };
 
     let fraction = fraction.clamp(0.0, 1.0);

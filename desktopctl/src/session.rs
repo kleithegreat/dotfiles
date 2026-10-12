@@ -11,7 +11,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
+use crate::Result;
 
 /// How an app's windows come back.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -114,17 +114,15 @@ fn load<T: Default + for<'de> Deserialize<'de>>(name: &str) -> Result<T> {
     }
 }
 
-fn instance() -> String {
-    std::env::var("HYPRLAND_INSTANCE_SIGNATURE").unwrap_or_default()
-}
-
 /// Load the state, first promoting a recording left by an earlier Hyprland
 /// instance to "the last session". A daemon restart inside one session finds
 /// its own instance on the recording and leaves it alone.
 pub(crate) fn load_state() -> Result<State> {
     let mut state: State = load("state.json")?;
     let recording: Recording = load("recording.json")?;
-    if !recording.instance.is_empty() && recording.instance != instance() {
+    if !recording.instance.is_empty()
+        && recording.instance != hypr::hyprland_signature().unwrap_or_default()
+    {
         state.last = recording.windows;
         state.persist()?;
         fs::remove_file(path("recording.json")?)?;
@@ -155,7 +153,7 @@ pub(crate) fn record() -> Result<Recording> {
         .collect();
     windows.sort();
     Ok(Recording {
-        instance: instance(),
+        instance: hypr::hyprland_signature().unwrap_or_default(),
         windows,
     })
 }
@@ -196,8 +194,7 @@ pub(crate) fn restore(windows: &[Window]) -> Result<()> {
                     hypr::eval(&exec_on_workspace(app, window))?;
                 }
             }
-            // An app that is already running has its windows where the user
-            // put them; relaunching would only hand it a new one.
+            // A running app keeps its windows; relaunching would only add one.
             Relaunch::Whole if open.iter().any(|window| window.class == app.class) => {}
             Relaunch::Whole => {
                 hypr::dispatch(&hypr::exec_dispatcher(app.command))?;
@@ -341,19 +338,12 @@ pub fn run(args: crate::SessionArgs) -> Result<()> {
 }
 
 fn request(method: &str, params: serde_json::Value, wait_daemon: u64) -> Result<serde_json::Value> {
-    ipc::send_request_with_retry(
+    ipc::mutate(
         method,
-        Some(params),
+        params,
         SETTLE_DEADLINE + ipc::DEFAULT_TIMEOUT,
         Duration::from_secs(wait_daemon),
     )
-    .map_err(|error| {
-        if ipc::socket_unavailable(error.as_ref()) {
-            io::Error::other(ipc::daemon_unavailable_message(&error)).into()
-        } else {
-            error
-        }
-    })
 }
 
 #[cfg(test)]
