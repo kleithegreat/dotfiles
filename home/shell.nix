@@ -127,7 +127,9 @@ in
       # one at a time, and each swap trips Hyprland's config watcher, so the
       # watcher is muted for the duration and its prior value restored even on
       # Ctrl-C. The Hyprland-owned Vicinae server caches desktop entries across
-      # generations (docs/nix.md), so a successful activation replaces it.
+      # generations (docs/nix.md), so a successful activation replaces it, and
+      # Quickshell is restarted when its files moved: a reload cannot see a new
+      # QML file (docs/quickshell.md).
       # A non-empty $watcher means "activating, and Hyprland is reachable".
       nrs() {
           local action=switch
@@ -135,7 +137,8 @@ in
               switch|boot|test|build|dry-build|dry-activate) action=$1; shift ;;
           esac
 
-          local watcher
+          local watcher shell_before
+          shell_before=$(readlink "''${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/shell.qml" 2>/dev/null)
           if [[ $action == switch || $action == test ]]; then
               # Reported as `bool:`, not `int:`; the wrong prefix leaves it empty.
               watcher=$(hyprctl getoption misc:disable_autoreload 2>/dev/null | awk '/^bool:/ { print $2 }')
@@ -152,7 +155,12 @@ in
           if [[ -n $watcher ]]; then
               trap - EXIT INT TERM
               hyprctl eval "hl.config({ misc = { disable_autoreload = $watcher } })" >/dev/null
-              (( rc == 0 )) && hyprctl dispatch 'hl.dsp.exec_cmd("vicinae server --replace")' >/dev/null
+              if (( rc == 0 )); then
+                  hyprctl dispatch 'hl.dsp.exec_cmd("vicinae server --replace")' >/dev/null
+                  if [[ $(readlink "''${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/shell.qml" 2>/dev/null) != "$shell_before" ]]; then
+                      hyprctl dispatch 'hl.dsp.exec_cmd("pkill quickshell || true; sleep 0.3; desktopctl launch-quickshell")' >/dev/null
+                  fi
+              fi
           fi
 
           return $rc

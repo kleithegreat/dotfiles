@@ -203,7 +203,9 @@ Bound instead, every surface silently opens at the far left of the screen.
 ### A new QML file needs a restart, not a reload
 Hot reload re-reads files it already knows about; a file added to a directory
 module is not in the generated qmldir yet, so it reloads cleanly and then fails
-with "X is not a type". Restart quickshell after adding a file.
+with "X is not a type" — after a rebuild as much as after an edit, which is
+why `nrs` restarts the shell whenever an activation moved its files. Started
+by hand (`nixos-rebuild switch` directly), restart it yourself.
 
 ### A sibling type resolves only in a directory something imports as a module
 `ui/` files reference each other bare — `Group` uses `Label` and `Card` with no
