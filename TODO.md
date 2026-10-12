@@ -4,6 +4,33 @@ Open issues and pending validations. Delete entries when resolved.
 
 ## Pending validation (needs real hardware / live session)
 
+- [ ] Laptop, FIRST login after the next rebuild: Hyprland now finds its GPUs
+      through `/dev/dri/intel-gpu` and `/dev/dri/nvidia-gpu`, udev symlinks
+      that have only been dry-run. If SDDM takes the password and bounces
+      back, boot the previous generation and see `docs/nvidia.md`. Once in,
+      `ls -l /dev/dri` should show both links.
+- [ ] After the next rebuild and reboot, with Helium open beforehand: it
+      should come back with its tabs instead of a blank window offering to
+      restore. Then turn "Restore windows at login" off, reboot, and confirm
+      nothing reopens and the power menu offers "Restore Windows" once.
+- [ ] After the next rebuild, the fixes nothing here could exercise:
+      `journalctl --user -b -u desktopctl` has no `wallpaper warning`;
+      `journalctl -b -u geoclue` has no `Unknown IP source method`; night
+      light switched off from the Control Center shows as off at once; the
+      Pointer pane's "Touchpad scrolling" slider changes two-finger scroll
+      speed; LTeX underlines a misspelling in a Markdown file (it was
+      disabled outright until now — set it back if the noise is unwelcome).
+- [ ] Laptop, after the rebuild: remove one fingerprint in Settings →
+      Fingerprint and confirm no password prompt appears and the others
+      survive; add one and confirm the card fills per touch on the real
+      reader (it has only been driven by a fake `fprintd-enroll`).
+- [ ] Quickshell, what a screenshot could not prove: wheel and touchpad
+      scrolling in panes and option strips after the shared scroll engine
+      (glide, overshoot, recoil); OSD suppression across a volume drag;
+      night-light commit-on-release; Wi-Fi join forms including enterprise;
+      Display staged apply and its revert countdown; tray menus.
+- [ ] Log out without rebooting and confirm `desktopctl.service` stops with
+      the session.
 - [ ] Desktop suspend/resume: validate the post-overlay-removal resume stack
       (see `docs/nvidia.md`). Until a real cycle passes, keep
       `kernelSuspendNotifier = false`, the `/var/tmp` VRAM path, and the
@@ -17,29 +44,6 @@ Open issues and pending validations. Delete entries when resolved.
       monitor still auto-selects. Drag a display in the arrangement canvas and
       check the edge snap and the countdown's revert with two outputs.
 
-- [ ] Quickshell live smoke test after the rewrite (needs hands on the UI):
-      slider drags end to end (OSD suppression across a volume drag,
-      night-light commit-on-release, brightness drag vs pushed events), Wi-Fi
-      join forms including enterprise, Display staged apply and its revert
-      countdown, tray menus via QsMenuOpener, and the Bluetooth pane on the
-      laptop — the desktop has no bluez running, so the native adapter path is
-      untested on real hardware. Daemon-pushed state, same session: terminal
-      `desktopctl theme set color_scheme` updates an open settings pane;
-      brightness slider tracks Super+F6/F7 and the OSD appears; Super+F8
-      updates the night-light tile promptly; a manual `dark_hint` is
-      reasserted by the schedule at the next 23:00/06:00 edge.
-- [ ] After the next rebuild and reboot, with Helium open beforehand: it
-      should come back with its tabs instead of a blank window offering to
-      restore (session restore now marks its profile as cleanly exited first).
-      Then turn "Restore windows at login" off, reboot, and confirm nothing
-      reopens and the power menu offers "Restore Windows" once.
-- [ ] Laptop, after the rebuild: remove one fingerprint in Settings →
-      Fingerprint and confirm no password prompt appears and the others
-      survive; add one and confirm the card fills per touch on the real
-      reader (it has only been driven by a fake `fprintd-enroll`).
-- [ ] Log out without rebooting and confirm `desktopctl.service` stops with
-      the session.
-
 - [ ] macOS VM, end to end (needs a guest install): nothing in it has been
       booted. `macos-vm fetch` → `install` → `run`, then check that the
       reims-vgpu device's own Vulkan window opens on the desktop, that
@@ -50,77 +54,19 @@ Open issues and pending validations. Delete entries when resolved.
 
 ## Open issues
 
-- [ ] desktopctl (low): `hypr animations save|clear` has no caller in the
-      repo — no pane, keybind or script. Either it is the intended manual
-      route to animation overrides, or it goes together with the override
-      file's seeding in `home/desktopctl.nix` and its Lua reader.
-- [ ] Quickshell (medium), structure the cleanup left alone because none of
-      it could be tried before a rebuild: `ui/Scroll.qml` and `ui/Choice.qml`
-      carry the same glide/overshoot engine twice; the icon button, the
-      label/slider/value row and the meter bar are each hand-built in
-      several surfaces with drifting sizes; `Appearance`/`Input` and
-      `Mullvad`/`Tailscale` are pairwise the same optimistic write queue; the
-      "last stderr line to a toast" idiom is pasted into a dozen services.
-- [ ] Quickshell (low): `shell.qml` exposes `audio`, `vpn`, `toast` and
-      `notifications` IPC targets, and `popups`/`settings` functions, that
-      no keybind calls. Kept as the published interface; delete them if
-      nothing outside the repo scripts them.
-- [ ] Theming (medium): the `command` assembly never carries a command (all
-      five targets return an empty batch), the orchestrator has three
-      spellings of "apply these targets", colour blending is implemented in
-      `schema.rs`, `color_utils.rs`, `opencode.rs`, `spicetify.rs` and
-      `starship.rs`, and the quickshell, hyprland and neovim targets emit
-      palette keys nothing reads. `wallpaper_dir` is a state key only QML
-      reads, and only to derive the colours directory from it by regex.
-- [ ] Daemon (medium): `night-light off` publishes its status right after
-      `pkill`, before hyprsunset has exited, so the event can still say
-      `running`; `NightLight.qml` papers over it with a 2s delayed re-read.
-      `sun status` rewrites the location cache to add a place name, which
-      refreshes the mtime the 6h freshness check reads, so a stale fix keeps
-      looking fresh for as long as the shell polls the weather.
-- [ ] Configs (low), unverified against upstream: `ltex.enabled` in
-      `config/nvim/lua/config/lsp.lua` lists `"spelling"`, which is not a
-      language id; `hyprexpo.gaps_in` in `config/hypr/plugins.lua` may not be
-      a key that plugin reads; `config/hypr/rules.lua` still matches
-      `google-chrome` incognito and a KDE portal class that nothing
-      installed produces.
-- [ ] Nix (medium), style rules still broken: derivations defined in a
-      `let` instead of an overlay (the patched Discord in `home/packages.nix`,
-      `sddmTheme`, `kernelOomNotifier`, `codeLauncher`, `zshShareOnly`,
-      `laptopPowerProfile`); short flags in build scripts across `pkgs/`
-      (`mkdir -p`, `cp -r`, `install -Dm`, `tar xf`, `sed -i`), which need a
-      build of each package to change safely; the Hyprland patch files are
-      still named `-0.55` against a 0.56 input.
-- [ ] Nix (low): `docs/nix.md` Intent says physical hosts run the stock
-      kernel, while `hosts/laptop/system.nix` carries a block of Kconfig
-      trims that a Quirk in the same doc describes. One of the two is stale.
-
-- [ ] NVIDIA (high): laptop `AQ_DRM_DEVICES` depends on hardcoded
-      `/dev/dri/cardN` ordering. Add a udev rule giving the two GPUs
-      colon-free symlinks and list those instead (see docs/nvidia.md). Needs
-      a relogin to validate, and a wrong rule means no session.
-- [ ] Nix (low): the NVIDIA/CUDA entries in `allowedUnfreePackageNames` have
-      no per-entry reason or host annotation, making cleanup triage harder.
-
-- [ ] Quickshell (medium): the Pointer pane's "Scrolling" slider writes
-      `input:scroll_factor`, which the touchpad ignores — the laptop's
-      `input:touchpad:scroll_factor` (0.25, in `hosts/laptop/input-devices.lua`)
-      is not reachable from any UI. Scroll speed inside the shell is now
-      consistent between panes and option strips, but if it still feels slow,
-      that hardcoded 0.25 is the knob and it wants a home in
-      `input-defaults.lua` with the rest.
-
-- [ ] GeoClue (medium): the IP source is disabled on both hosts (`Unknown IP
-      source method '(null)'`). The laptop still gets a fix — `where-am-i`
-      answers through the WiFi source's IP fallback, 25 km accuracy — which is
-      enough for `automatic-timezoned` and sun-schedule; the desktop resolves
-      nothing real and pins `time.timeZone` and `DESKTOPCTL_LOCATION` instead.
-      Either give GeoClue a working IP source or drop it for static
-      coordinates on the laptop too; if it goes, the laptop needs a different
-      timezone story and `location.provider`, `services.geoclue2`, and the
-      `where-am-i` path in `docs/sun-schedule.md` go with it.
-- [ ] desktopctl (low): the daemon logs `wallpaper warning: failed to apply
-      wallpaper ...: "none of the requested outputs are valid"` once at every
-      start. The autostart apply lands the wallpaper regardless, so this is
-      the daemon applying before awww knows its outputs — find which startup
-      path does it and either wait or drop the redundant apply.
+- [ ] Quickshell (medium): the Bluetooth pane, tile and service have no host
+      to run on — neither host enables `hardware.bluetooth`, so bluez is
+      absent and the native adapter path has never run. Enable it on the
+      laptop or delete the three.
+- [ ] Nix (low): `pkgs/reims-vgpu` still has `sed -i` in its build script;
+      changing it means rebuilding the QEMU fork to prove the script.
+- [ ] Nix (low): the patched Discord builds, but nobody has checked that the
+      `postInstall` replacing `discord_krisp` lands in what the FHS wrapper
+      actually runs.
+- [ ] desktopctl (low): `resolve_place_name` rewrites the location cache on
+      a pinned host too, which `docs/sun-schedule.md` says never happens. The
+      result is still treated as stale, so nothing breaks; the doc or the
+      write should change.
+- [ ] Hyprland (low): the Bitwarden popup rule matches
+      `chrome-nngceckbapebfimnlniiiahkandclblb-Default`; check with
+      `hyprctl clients` that Helium really gives the popup that class.
