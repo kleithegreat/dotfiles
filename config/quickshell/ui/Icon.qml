@@ -2,10 +2,7 @@ import QtQuick
 import QtQuick.Effects
 import qs
 
-// Icons are addressed by name, never by path. The old shell passed relative
-// paths between directories and then repaired them with string surgery at the
-// point of use; the name is the stable identifier and this is the only place
-// that knows where the files live.
+// Icons are addressed by name; this is the only place that knows where the files live.
 Item {
     id: root
 
@@ -21,8 +18,7 @@ Item {
         id: glyph
         anchors.fill: parent
         source: root.name === "" ? "" : Qt.resolvedUrl("../icons/" + root.name + ".svg")
-        // Rasterise at device pixels; an SVG scaled up from a smaller raster is
-        // the whole reason the old icons looked soft.
+        // Rasterise at device pixels.
         sourceSize.width: Math.round(root.size * Screen.devicePixelRatio)
         sourceSize.height: Math.round(root.size * Screen.devicePixelRatio)
         fillMode: Image.PreserveAspectFit

@@ -9,12 +9,11 @@ Ui.Scroll {
 
     contentHeight: body.height
 
-    // The scheme catalog lives beside the wallpapers the backend already
-    // reports, so the shell never carries a second copy of the repo layout.
     property bool saving: false
     property string removing: ""
     property var captured: ["scheme", "icons"]
 
+    // The scheme catalog sits beside the wallpaper directory the backend reports.
     readonly property string schemeDir: {
         const wallpapers = Sys.Appearance.value("wallpaper_dir", "");
         return wallpapers === "" ? "" : wallpapers.replace(/\/wallpapers\/?$/, "/colors");
@@ -96,7 +95,6 @@ Ui.Scroll {
 
                             implicitWidth: tag.implicitWidth + Metrics.s3 * 2
                             implicitHeight: Metrics.controlHeight
-                            radius: Metrics.rControl
                             active: aspect.chosen
                             onClicked: root.captured = aspect.chosen ? root.captured.filter(id => id !== aspect.modelData.id) : root.captured.concat([aspect.modelData.id])
 

@@ -25,10 +25,13 @@ Item {
 
     implicitHeight: Math.max(Metrics.knob, Metrics.controlHeight)
     implicitWidth: 120
-    opacity: interactive ? (pending ? 0.7 : 1.0) : 0.4
+    opacity: interactive ? (pending ? Theme.pendingAlpha : 1.0) : 0.4
 
     readonly property real _span: Math.max(0.0001, maximum - minimum)
-    readonly property real _fraction: Math.max(0, Math.min(1, (value - minimum) / _span))
+    property bool _dragging: false
+    property real _local: 0
+    readonly property real _shown: _dragging ? _local : value
+    readonly property real _fraction: Math.max(0, Math.min(1, (_shown - minimum) / _span))
     readonly property real _usable: width - Metrics.knob
 
     function _valueAt(px) {
@@ -41,7 +44,6 @@ Item {
     }
 
     Rectangle {
-        id: track
         anchors.verticalCenter: parent.verticalCenter
         anchors.left: parent.left
         anchors.right: parent.right
@@ -67,7 +69,6 @@ Item {
     }
 
     Rectangle {
-        id: handle
         x: root._fraction * root._usable
         anchors.verticalCenter: parent.verticalCenter
         width: Metrics.knob
@@ -101,8 +102,9 @@ Item {
         cursorShape: Qt.PointingHandCursor
 
         function apply(px) {
-            root.value = root._valueAt(px);
-            root.moved(root.value);
+            root._local = root._valueAt(px);
+            root._dragging = true;
+            root.moved(root._local);
         }
 
         onPressed: mouse => apply(mouse.x)
@@ -110,13 +112,17 @@ Item {
             if (pressed)
                 apply(mouse.x);
         }
-        onReleased: root.committed(root.value)
+        onReleased: {
+            root.committed(root._local);
+            root._dragging = false;
+        }
+        onCanceled: root._dragging = false
 
         onWheel: event => {
             const delta = event.angleDelta.y > 0 ? root.step : -root.step;
-            root.value = Math.max(root.minimum, Math.min(root.maximum, root.value + delta * root._span));
-            root.moved(root.value);
-            root.committed(root.value);
+            const next = Math.max(root.minimum, Math.min(root.maximum, root._shown + delta * root._span));
+            root.moved(next);
+            root.committed(next);
         }
     }
 }

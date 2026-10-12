@@ -6,8 +6,6 @@ import qs.ui as Ui
 import qs.services as Sys
 
 PanelWindow {
-    id: window
-
     anchors.bottom: true
     margins.bottom: Metrics.s6 - pill.shadowPad
     implicitWidth: Math.min(560, body.implicitWidth + Metrics.s5 * 2) + pill.shadowPad * 2
@@ -39,9 +37,7 @@ PanelWindow {
         y: Sys.Toast.showing ? pill.shadowPad : parent.height
 
         Behavior on opacity {
-            Ui.Anim {
-                duration: Motion.quick
-            }
+            Ui.Anim {}
         }
         Behavior on y {
             Ui.Anim {

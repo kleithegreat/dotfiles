@@ -9,9 +9,7 @@ Ui.Scroll {
 
     contentHeight: body.height
 
-    // Edits accumulate here and are applied as one chunk. Writing per control —
-    // or worse, per pointer move — can strand the session on a mode the display
-    // cannot show, with no way back.
+    // Staged edits, applied as one chunk; see docs/quickshell.md.
     property var edits: ({})
     readonly property bool dirty: Object.keys(edits).length > 0
 
@@ -41,8 +39,8 @@ Ui.Scroll {
             width: pendingFor(monitor, "width"),
             height: pendingFor(monitor, "height"),
             refreshRate: pendingFor(monitor, "refreshRate"),
-            x: root.pendingFor(monitor, "x"),
-            y: root.pendingFor(monitor, "y"),
+            x: pendingFor(monitor, "x"),
+            y: pendingFor(monitor, "y"),
             scale: pendingFor(monitor, "scale"),
             transform: pendingFor(monitor, "transform"),
             vrr: pendingFor(monitor, "vrr"),
@@ -50,40 +48,18 @@ Ui.Scroll {
         };
     }
 
-    // Every monitor goes in the chunk, not just the edited ones: a monitor left
-    // on `position = "auto"` re-resolves against the new geometry and slides
-    // somewhere nobody asked for the moment a neighbour moves.
+    // Every output goes in the chunk and the pane scrolls to the confirm card; see docs/quickshell.md.
     function apply() {
         if (!dirty)
             return;
 
-        const states = [];
-        for (let i = 0; i < Sys.Displays.monitors.length; i++)
-            states.push(stateFor(Sys.Displays.monitors[i]));
-
-        snapshot = [];
-        for (let i = 0; i < Sys.Displays.monitors.length; i++) {
-            const monitor = Sys.Displays.monitors[i];
-            snapshot.push({
-                name: monitor.name,
-                width: monitor.width,
-                height: monitor.height,
-                refreshRate: monitor.refreshRate,
-                x: monitor.x,
-                y: monitor.y,
-                scale: monitor.scale,
-                transform: monitor.transform,
-                vrr: monitor.vrr,
-                disabled: monitor.disabled
-            });
-        }
+        const states = Sys.Displays.monitors.map(monitor => stateFor(monitor));
 
         edits = ({});
+        snapshot = Sys.Displays.monitors.map(monitor => stateFor(monitor));
         Sys.Displays.apply(states);
         confirmLeft = 15;
         countdown.restart();
-        // The confirm card is the top of a pane you are almost certainly
-        // scrolled past -- a countdown nobody can see reverts every time.
         root.scrollTo(0);
     }
 
@@ -255,7 +231,6 @@ Ui.Scroll {
                 }
 
                 Ui.Choice {
-                    id: modes
                     Layout.fillWidth: true
                     Layout.leftMargin: Metrics.rowInset
                     Layout.rightMargin: Metrics.rowInset

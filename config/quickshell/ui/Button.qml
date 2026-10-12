@@ -15,7 +15,6 @@ Pressable {
 
     implicitWidth: strip.implicitWidth + Metrics.s4 * 2
     implicitHeight: Metrics.controlHeight
-    radius: Metrics.rControl
     showFill: variant === "plain"
     opacity: interactive ? 1.0 : 0.4
 

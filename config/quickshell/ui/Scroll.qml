@@ -1,10 +1,7 @@
 import QtQuick
 import qs
 
-// Wheel scrolling glides to a target instead of teleporting by a few pixels per
-// notch, and the indicator is present only while it is telling you something.
-// Both wheels reach it through the same glide `Choice` uses sideways, at the
-// same step: two scroll speeds in one pane read as one of them being broken.
+// Wheel input glides to a target at the same step as `Choice`; see docs/quickshell.md.
 Flickable {
     id: root
 
@@ -12,9 +9,7 @@ Flickable {
 
     clip: true
     contentWidth: width
-    // Dragging past an edge stretches and springs back rather than stopping
-    // dead; the wheel gets the same treatment below, by hand, because the
-    // wheel never reaches Flickable's own bounds handling.
+    // The wheel stretches past an edge by hand below; see docs/quickshell.md.
     boundsBehavior: Flickable.DragAndOvershootBounds
     pixelAligned: true
 
@@ -43,8 +38,7 @@ Flickable {
         recoil.restart();
     }
 
-    // Springs back once the input stops, not while it continues -- holding a
-    // scroll against the end should stay stretched.
+    // Springs back once the input stops; holding against the end stays stretched.
     Timer {
         id: recoil
         interval: 110

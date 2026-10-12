@@ -88,7 +88,7 @@ Ui.Scroll {
 
         Ui.Group {
             title: "Blur"
-            footnote: "The shell's panels are translucent. With blur off they fall back to opaque, because translucency over an unblurred desktop is unreadable rather than atmospheric."
+            footnote: "Blur affects the bar and the modal scrim."
 
             Ui.ListRow {
                 Layout.fillWidth: true

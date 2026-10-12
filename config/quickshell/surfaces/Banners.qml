@@ -116,7 +116,7 @@ PanelWindow {
 
                         Ui.Icon {
                             name: "close"
-                            size: Metrics.iconSm - 2
+                            size: Metrics.iconSm
                             color: Theme.textQuaternary
                         }
                     }

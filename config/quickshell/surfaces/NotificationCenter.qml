@@ -5,13 +5,10 @@ import qs.ui as Ui
 import qs.services as Sys
 
 Popover {
-    id: root
-
     required property ShellState state
 
     shown: state.isOpen("notifications")
     anchor: state.anchor
-    panelWidth: Metrics.panelWide
     panelHeight: Math.min(520, Math.max(136, header.height + Metrics.s3 + column.implicitHeight + Metrics.panelInset * 2))
 
     ColumnLayout {
@@ -107,13 +104,12 @@ Popover {
                                     id: dismiss
                                     implicitWidth: Metrics.s5
                                     implicitHeight: Metrics.s5
-                                    radius: Metrics.rControl
                                     onClicked: Sys.Notifications.forget(entry.entryId)
 
                                     Ui.Icon {
                                         anchors.centerIn: parent
                                         name: "close"
-                                        size: Metrics.iconSm - 2
+                                        size: Metrics.iconSm
                                         color: dismiss.hovered ? Theme.text : Theme.textQuaternary
                                     }
                                 }

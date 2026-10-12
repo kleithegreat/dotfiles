@@ -7,7 +7,6 @@ Rectangle {
     property alias text: input.text
     property alias placeholder: hint.text
     property alias echo: input.echoMode
-    property alias focused: input.activeFocus
 
     signal accepted
 
@@ -21,10 +20,6 @@ Rectangle {
 
     Behavior on border.color {
         Tint {}
-    }
-
-    function claim() {
-        input.forceActiveFocus();
     }
 
     TextInput {

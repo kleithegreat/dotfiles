@@ -56,7 +56,7 @@ Item {
             }
             ctx.lineTo(width, height);
             ctx.closePath();
-            ctx.fillStyle = Qt.rgba(root.stroke.r, root.stroke.g, root.stroke.b, 0.14);
+            ctx.fillStyle = Theme.withAlpha(root.stroke, 0.14);
             ctx.fill();
 
             ctx.beginPath();

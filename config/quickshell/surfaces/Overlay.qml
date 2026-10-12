@@ -20,12 +20,7 @@ PanelWindow {
         right: true
     }
     color: "transparent"
-    // One property owns whether the layer surface exists. Binding `visible` to
-    // `open_` and extending it from a `currentChanged` handler cannot work: the
-    // binding re-evaluates in the pass that closes the surface, one pass before
-    // the handler can extend it, so the surface unmaps and immediately remaps
-    // and the compositor animates that second map in -- the panel flashing back
-    // for a moment after you dismissed it.
+    // One property owns visibility; see "extended by a signal handler" in docs/quickshell.md.
     property bool mapped: false
     visible: mapped
     exclusionMode: ExclusionMode.Ignore
@@ -33,11 +28,7 @@ PanelWindow {
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: state.open_ ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
-    // Everything below the bar dismisses on click; the bar strip is left out so
-    // its buttons keep working while a surface is open. Without that hole, the
-    // press that should toggle a surface closed is eaten by the overlay and the
-    // click that follows re-opens it — which is what the old shell's 100ms
-    // toggle debounce was really working around.
+    // The bar strip is left out so its buttons keep working while a surface is open.
     mask: Region {
         x: 0
         y: Metrics.barHeight + Metrics.barMargin
@@ -74,13 +65,7 @@ PanelWindow {
         onCleared: overlay.state.close()
     }
 
-    // Escape is handled here, owning the surfaces, rather than beside them.
-    // Key events travel up the parent chain from whatever holds focus, so a
-    // handler that is a *sibling* of the surfaces only ever sees the key while
-    // nothing inside one has taken focus -- and Ui.Field calls
-    // forceActiveFocus(), so opening a settings pane that carries a field is
-    // enough to strand Escape in a subtree the handler is not on the path of.
-    // Being an ancestor is what makes one handler dismiss every surface.
+    // Key events travel up from the focused item, so Escape must live on an ancestor of every surface.
     FocusScope {
         anchors.fill: parent
         focus: true

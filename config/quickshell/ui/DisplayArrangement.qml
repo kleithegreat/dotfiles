@@ -122,8 +122,7 @@ Item {
 
                 anchors.fill: parent
                 cursorShape: pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor
-                // A Flickable steals the grab from its children once a drag
-                // passes the threshold; without this the tiles only twitch.
+                // See "claimsDrag" in docs/quickshell.md.
                 preventStealing: true
 
                 property real grabX: 0

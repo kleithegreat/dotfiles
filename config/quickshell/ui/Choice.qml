@@ -14,8 +14,6 @@ Item {
     property var options: []
     property string current: ""
     property bool showsMissing: false
-    // What the fade resolves to; overridden when a Choice sits on glass.
-    property color ground: Theme.raised
 
     signal picked(string value)
 
@@ -54,7 +52,6 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     implicitWidth: caption.implicitWidth + Metrics.s3 * 2
                     implicitHeight: Metrics.controlHeight
-                    radius: Metrics.rControl
                     active: root.current === option.value
                     opacity: option.missing ? 0.4 : 1
                     onClicked: root.picked(option.value)
@@ -80,10 +77,7 @@ Item {
         glide.restart();
     }
 
-    // Both wheels move it: the vertical one because that is the wheel most
-    // people have under a finger, the horizontal one because the mice that
-    // have it expect it to work. Past either end it stretches and springs back,
-    // the same way and by the same amount a `Scroll` does vertically.
+    // Both wheel axes and both devices, stretching like `Scroll`; see docs/quickshell.md.
     WheelHandler {
         acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
         enabled: root.overflowing
@@ -130,9 +124,7 @@ Item {
         opacity: strip.moving || glide.running ? 1 : 0.55
 
         Behavior on opacity {
-            Anim {
-                duration: Motion.quick
-            }
+            Anim {}
         }
 
         Rectangle {
@@ -152,8 +144,8 @@ Item {
         visible: strip.contentX > 1
         gradient: Gradient {
             orientation: Gradient.Horizontal
-            GradientStop { position: 0.0; color: root.ground }
-            GradientStop { position: 1.0; color: Theme.withAlpha(root.ground, 0) }
+            GradientStop { position: 0.0; color: Theme.raised }
+            GradientStop { position: 1.0; color: Theme.withAlpha(Theme.raised, 0) }
         }
     }
 
@@ -165,8 +157,8 @@ Item {
         visible: strip.contentX < strip.contentWidth - strip.width - 1
         gradient: Gradient {
             orientation: Gradient.Horizontal
-            GradientStop { position: 0.0; color: Theme.withAlpha(root.ground, 0) }
-            GradientStop { position: 1.0; color: root.ground }
+            GradientStop { position: 0.0; color: Theme.withAlpha(Theme.raised, 0) }
+            GradientStop { position: 1.0; color: Theme.raised }
         }
     }
 }

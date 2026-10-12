@@ -7,8 +7,6 @@ import qs.ui as Ui
 import qs.services as Sys
 
 PanelWindow {
-    id: window
-
     anchors.top: true
     margins.top: Metrics.detachment - pill.shadowPad
     implicitWidth: 240 + pill.shadowPad * 2

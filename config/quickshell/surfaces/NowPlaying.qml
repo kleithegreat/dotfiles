@@ -11,7 +11,6 @@ Popover {
 
     shown: state.isOpen("media")
     anchor: state.anchor
-    panelWidth: Metrics.panelWide
     contentHeight: player_.implicitHeight
 
     readonly property MprisPlayer player: {
@@ -100,7 +99,6 @@ Popover {
             visible: root.player?.lengthSupported ?? false
 
             Ui.Slider {
-                id: seek
                 Layout.fillWidth: true
                 maximum: Math.max(1, root.player?.length ?? 1)
                 value: root.player?.position ?? 0
@@ -144,7 +142,6 @@ Popover {
             Ui.Pressable {
                 implicitWidth: Metrics.s8
                 implicitHeight: Metrics.s8 - Metrics.s1
-                radius: Metrics.rControl
                 interactive: root.player?.canGoPrevious ?? false
                 onClicked: root.player.previous()
 
@@ -185,7 +182,6 @@ Popover {
             Ui.Pressable {
                 implicitWidth: Metrics.s8
                 implicitHeight: Metrics.s8 - Metrics.s1
-                radius: Metrics.rControl
                 interactive: root.player?.canGoNext ?? false
                 onClicked: root.player.next()
 

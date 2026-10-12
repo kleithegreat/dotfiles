@@ -36,7 +36,6 @@ Pressable {
 
     implicitWidth: parent ? parent.width : 240
     implicitHeight: subtitle !== "" ? Metrics.rowHeightTall : Metrics.rowHeight
-    radius: Metrics.rControl
     active: selected
     pressScale: 1.0
     interactive: true

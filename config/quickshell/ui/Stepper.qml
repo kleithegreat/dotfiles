@@ -5,9 +5,8 @@ Row {
     id: root
 
     property int value: 0
-    property int minimum: -10
-    property int maximum: 40
-    property string suffix: ""
+    required property int minimum
+    required property int maximum
 
     signal changed(int value)
 
@@ -22,7 +21,6 @@ Row {
     Pressable {
         implicitWidth: Metrics.s6
         implicitHeight: Metrics.controlHeight
-        radius: Metrics.rControl
         interactive: root.value > root.minimum
         onClicked: root.nudge(-1)
 
@@ -37,7 +35,7 @@ Row {
     Label {
         anchors.verticalCenter: parent.verticalCenter
         width: Metrics.s8
-        text: root.value + root.suffix
+        text: root.value
         role: "callout"
         numeric: true
         horizontalAlignment: Text.AlignHCenter
@@ -46,7 +44,6 @@ Row {
     Pressable {
         implicitWidth: Metrics.s6
         implicitHeight: Metrics.controlHeight
-        radius: Metrics.rControl
         interactive: root.value < root.maximum
         onClicked: root.nudge(1)
 

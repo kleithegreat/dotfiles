@@ -37,7 +37,6 @@ Pressable {
         }
 
         Rectangle {
-            id: knob
             y: (parent.height - height) / 2
             x: root.checked ? parent.width - width - (parent.height - height) / 2 : (parent.height - height) / 2
             width: Metrics.toggleKnob

@@ -11,7 +11,6 @@ Popover {
 
     shown: state.isOpen("control")
     anchor: state.anchor
-    panelWidth: Metrics.panelWide
     contentHeight: stack.implicitHeight
 
     ColumnLayout {
@@ -115,7 +114,6 @@ Popover {
             Ui.Pressable {
                 implicitWidth: Metrics.s6
                 implicitHeight: Metrics.s6
-                radius: Metrics.rControl
                 onClicked: Sys.Audio.toggleMute()
 
                 Ui.Icon {
@@ -151,10 +149,7 @@ Popover {
             when: volume.pressed
         }
 
-        // The service rebuilds its device array on every write, so a Repeater
-        // bound to the array itself is destroyed and rebuilt mid-gesture —
-        // taking the MouseArea holding the pointer grab with it, which reduces
-        // the slider to click-only. Key the model on the count and index in.
+        // Keyed on the count, never the array; see docs/quickshell.md.
         Repeater {
             model: Sys.Brightness.devices.length
 
@@ -175,7 +170,6 @@ Popover {
                 }
 
                 Ui.Slider {
-                    id: level
                     Layout.fillWidth: true
                     minimum: 0.01
                     value: lamp.device ? lamp.device.fraction : 0
@@ -223,7 +217,6 @@ Popover {
 
                     implicitWidth: Metrics.s6 + Metrics.s1
                     implicitHeight: Metrics.controlHeight
-                    radius: Metrics.rControl
                     active: chip.chosen
                     opacity: chip.chosen && Sys.Power.switching ? Theme.pendingAlpha : 1
                     onClicked: Sys.Power.setProfile(chip.modelData.id)

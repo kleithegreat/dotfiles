@@ -123,7 +123,6 @@ Ui.Scroll {
                         Ui.Button {
                             required property var modelData
                             text: modelData.label
-                            variant: "plain"
                             onClicked: Sys.Network.setDns(modelData.value)
                         }
                     }

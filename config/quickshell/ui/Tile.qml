@@ -19,7 +19,7 @@ Pressable {
     radius: Metrics.rCard
     showFill: false
     pressScale: 0.98
-    opacity: pending ? 0.7 : 1.0
+    opacity: pending ? Theme.pendingAlpha : 1.0
 
     Behavior on opacity {
         Anim {}
@@ -94,7 +94,6 @@ Pressable {
     Pressable {
         width: Metrics.s5
         height: Metrics.s5
-        radius: Metrics.rControl
         visible: root.expandable
         anchors.right: parent.right
         anchors.rightMargin: Metrics.s1 + 2

@@ -21,7 +21,6 @@ Rectangle {
 
     signal clicked
     signal rightClicked
-    signal wheel(int delta)
 
     radius: Metrics.rControl
     color: !showFill ? "transparent" : root.active ? Theme.fillActive : pointer.pressed && interactive ? Theme.fillPress : pointer.containsMouse && interactive ? Theme.fillHover : "transparent"
@@ -52,11 +51,6 @@ Rectangle {
                 root.rightClicked();
             else
                 root.clicked();
-        }
-
-        onWheel: event => {
-            root.wheel(event.angleDelta.y);
-            event.accepted = false;
         }
     }
 }

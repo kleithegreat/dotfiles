@@ -92,10 +92,7 @@ Ui.Scroll {
                 Layout.preferredHeight: 92
                 spacing: Metrics.s2
 
-                // Keyed on the count, never on the array: the tracker rewrites
-                // its JSON every second, so binding the array itself destroys
-                // and rebuilds every bar once a second — which is visible as
-                // the whole chart replaying its grow animation on a heartbeat.
+                // Keyed on the count, never the array (see docs/quickshell.md): the tracker rewrites every second.
                 Repeater {
                     model: Sys.FocusTime.week.length
 

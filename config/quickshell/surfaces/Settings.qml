@@ -4,10 +4,7 @@ import qs
 import qs.ui as Ui
 import qs.services as Sys
 
-// One surface, one sidebar, one content column. The old settings drew the
-// sidebar and the content as two separate floating panels with a seam down the
-// middle and a list that clipped mid-row at the bottom edge — two objects
-// pretending to be one window.
+// One surface, one sidebar, one content column.
 Item {
     id: root
 
@@ -180,7 +177,6 @@ Item {
                     }
 
                     Loader {
-                        id: pane
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         asynchronous: true

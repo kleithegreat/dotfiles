@@ -2,8 +2,6 @@ import QtQuick
 import qs
 
 Text {
-    id: root
-
     // One of: display, title, headline, body, callout, caption, section, mono.
     property string role: "body"
     property bool numeric: false
