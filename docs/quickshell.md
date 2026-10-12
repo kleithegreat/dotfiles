@@ -8,8 +8,8 @@
   theming pipeline already guarantees that ramp's ordering and contrast floor
   ([[theming]]) and the shell does not get a second opinion. Only interaction
   states are computed, as alpha over the foreground, because no scheme ships
-  them. `Metrics` holds the space, radius and size scales; `Motion` holds four
-  durations and three curves. A constant that exactly one widget uses belongs at
+  them. `Metrics` holds the space, radius and size scales; `Motion` holds the
+  durations and curves. A constant that exactly one widget uses belongs at
   that widget or, far more often, nowhere. Widgets never reach for palette slots
   directly.
 - Panels are opaque, matching the compositor's own windows. Only the bar and the
@@ -139,8 +139,8 @@ against the *screen's* width rather than the strip's for the same reason.
 
 ### A missing binary fails to *start*, which never emits `exited`
 Backend probes must run in parallel and resolve by priority, never chain on each
-other's exit codes. `Power` probes `laptop-power-profile`, `powerprofilesctl`
-and the cpufreq governor at once: a chained version stalls forever on the first
+other's exit codes. `Power` probes `laptop-power-profile` and `powerprofilesctl`
+at once: a chained version stalls forever on the first
 backend that is not installed, and every later one is silently never tried —
 with no failing command to point at.
 

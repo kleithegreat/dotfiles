@@ -36,6 +36,16 @@ Open issues and pending validations. Delete entries when resolved.
       and confirm the screen dims and restores. Log out without rebooting and
       confirm `desktopctl.service` stops with the session.
 
+- [ ] Sliders after the rebuild: `ui/Slider.qml` no longer assigns its own
+      `value`, so drag the volume and brightness sliders and then use the
+      hotkeys — both must keep following. Seek in Now Playing and watch for
+      the bar flicking back before the player reports the new position; if it
+      does, the seek needs an optimistic position.
+- [ ] Laptop, after the rebuild: remove one enrolled fingerprint in Settings
+      → Security and confirm the others survive (`fprintd-delete --finger`
+      had never been exercised). Stop the daemon and confirm Screen Time says
+      the tracker is not reporting within a few seconds.
+
 - [ ] Session restore, end to end (needs a rebuild and a relogin; only the
       recorder, the placement dispatchers and the unit tests have run): with
       a terminal in some project directory, two Helium windows and VS Code
@@ -55,6 +65,44 @@ Open issues and pending validations. Delete entries when resolved.
       See `docs/macos-vm.md`.
 
 ## Open issues
+
+- [ ] desktopctl (low): `hypr animations save|clear` has no caller in the
+      repo — no pane, keybind or script. Either it is the intended manual
+      route to animation overrides, or it goes together with the override
+      file's seeding in `home/desktopctl.nix` and its Lua reader.
+- [ ] Quickshell (medium), structure the cleanup left alone because none of
+      it could be tried before a rebuild: `ui/Scroll.qml` and `ui/Choice.qml`
+      carry the same glide/overshoot engine twice; the icon button, the
+      label/slider/value row and the meter bar are each hand-built in
+      several surfaces with drifting sizes; `Appearance`/`Input` and
+      `Mullvad`/`Tailscale` are pairwise the same optimistic write queue; the
+      "last stderr line to a toast" idiom is pasted into a dozen services.
+- [ ] Quickshell (low): `shell.qml` exposes `audio`, `vpn`, `toast` and
+      `notifications` IPC targets, and `popups`/`settings` functions, that
+      no keybind calls. Kept as the published interface; delete them if
+      nothing outside the repo scripts them.
+- [ ] Theming (medium): the `command` assembly never carries a command (all
+      five targets return an empty batch), the orchestrator has three
+      spellings of "apply these targets", colour blending is implemented in
+      `schema.rs`, `color_utils.rs`, `opencode.rs`, `spicetify.rs` and
+      `starship.rs`, and the quickshell, hyprland and neovim targets emit
+      palette keys nothing reads. `wallpaper_dir` is a state key only QML
+      reads, and only to derive the colours directory from it by regex.
+- [ ] Daemon (medium): `night-light off` publishes its status right after
+      `pkill`, before hyprsunset has exited, so the event can still say
+      `running`; `NightLight.qml` papers over it with a 2s delayed re-read.
+      `sun status` rewrites the location cache to add a place name, which
+      refreshes the mtime the 6h freshness check reads, so a stale fix keeps
+      looking fresh for as long as the shell polls the weather.
+- [ ] Configs (low), unverified against upstream: `ltex.enabled` in
+      `config/nvim/lua/config/lsp.lua` lists `"spelling"`, which is not a
+      language id; `hyprexpo.gaps_in` in `config/hypr/plugins.lua` may not be
+      a key that plugin reads; `config/hypr/rules.lua` still matches
+      `google-chrome` incognito and a KDE portal class that nothing
+      installed produces.
+- [ ] Nix (low): `docs/nix.md` Intent says physical hosts run the stock
+      kernel, while `hosts/laptop/system.nix` carries a block of Kconfig
+      trims that a Quirk in the same doc describes. One of the two is stale.
 
 - [ ] NVIDIA (high): laptop `AQ_DRM_DEVICES` depends on hardcoded
       `/dev/dri/cardN` ordering. Add a udev rule giving the two GPUs
