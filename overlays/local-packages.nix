@@ -25,7 +25,6 @@ final: prev: {
     '';
   };
   desktopctl = final.callPackage ../desktopctl { };
-  discord-krisp = final.callPackage ../pkgs/discord-krisp { };
   # Shares comfyui's CUDA set rather than pulling the default one in beside it.
   gpu-burn = prev.gpu-burn.override {
     config = prev.config // { cudaSupport = true; };

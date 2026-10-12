@@ -85,7 +85,7 @@ let
     alacritty
     ghostty
     tmux
-    discord-krisp
+    discord
     obsidian
     slack
     thunderbird

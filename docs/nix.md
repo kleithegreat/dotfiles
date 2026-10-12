@@ -178,13 +178,6 @@ SDDM login, the same symptom as the `AQ_DRM_DEVICES` quirk in [[nvidia]].
 `~/.cache/hyprland/hyprlandCrashReport*.txt` log tails tell the two apart. The
 stack is built locally anyway (no Cachix), so the `follows` costs nothing.
 
-### Discord's Krisp module fails its signature check when Nix-packaged
-`pkgs/discord-krisp/` carries a local backport of the nixpkgs patcher: it
-patches the signature check, points `discord_voice` at the user-deployed
-module, and repairs it at launch if Discord's updater overwrites it. Remove
-once nixpkgs carries the fix upstream. After enabling, restart Discord and
-re-enable noise suppression if the profile had forced `vadUseKrisp = false`.
-
 ### Helium is not a normal Qt/Chromium package
 Upstream tarballs ship a dormant Qt5 shim with no runtime Qt5 (ignored via
 `autoPatchelfIgnoreMissingDeps`), launch through their own wrapper script
