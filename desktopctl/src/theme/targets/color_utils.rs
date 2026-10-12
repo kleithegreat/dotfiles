@@ -22,10 +22,7 @@ pub fn contrast_ratio(first: &str, second: &str) -> f64 {
     (lighter + 0.05) / (darker + 0.05)
 }
 
-/// CIE L*a*b* under D65, for perceptual distance. Contrast ratio alone cannot
-/// tell two plates apart: a saturated blue and a saturated purple of the same
-/// luminance have a contrast ratio of 1.0 against each other while still being
-/// obviously different colours, and vice versa.
+/// CIE L*a*b* under D65; contrast ratio cannot tell equal-luminance hues apart.
 pub fn cielab(hex_color: &str) -> (f64, f64, f64) {
     let red = srgb_channel_to_linear(u8::from_str_radix(&hex_color[1..3], 16).unwrap());
     let green = srgb_channel_to_linear(u8::from_str_radix(&hex_color[3..5], 16).unwrap());
@@ -67,14 +64,10 @@ pub fn blend(from: &str, to: &str, ratio: f64) -> String {
     format!("#{:02x}{:02x}{:02x}", channel(1), channel(3), channel(5))
 }
 
-/// WCAG AA for normal text; below this a label on a filled plate stops being
-/// readable rather than merely low-contrast.
+/// WCAG AA for normal text.
 const WCAG_AA_NORMAL_TEXT: f64 = 4.5;
 
-/// Text colour for a filled plate, preferring the scheme's own ends. Neither
-/// `fg` nor `bg` is safe on its own: on a light scheme the accent carries the
-/// body grey at ~1.6:1, and some accents clear AA against neither, which is
-/// what the black/white fallback is for.
+/// Label colour on a filled plate; see docs/theming.md.
 pub fn readable_on(plate: &str, background: &str, foreground: &str) -> String {
     let best = |first: &str, second: &str| -> String {
         if contrast_ratio(plate, first) >= contrast_ratio(plate, second) {

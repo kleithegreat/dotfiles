@@ -1,16 +1,9 @@
-//! The Kvantum theme, generated whole from the scheme.
-//!
-//! Kvantum draws every widget surface from SVG elements, so a borrowed SVG
-//! pins the desktop to whatever palette that theme was drawn in. Generating
-//! the SVG alongside the kvconfig is what lets an arbitrary scheme reach the
-//! pixels rather than only the text colours.
+//! The Kvantum theme, generated whole from the scheme; see docs/theming.md.
 
 use super::color_utils::blend;
 use crate::theme::schema::ColorScheme;
 
-/// Width of every painted border, in SVG units. Kvantum scales frame tiles to
-/// the configured frame size, so this stays 1 only because tile size equals
-/// the radius it is drawn for.
+/// Painted border width in SVG units; stays 1 only because tile size equals the radius.
 const BORDER: f64 = 1.0;
 
 /// Edge tiles are stretched along their length; the cross-axis is what matters.
@@ -639,16 +632,8 @@ pub fn svg(colors: &ColorScheme) -> String {
     )
 }
 
-/// `frame.expansion` is deliberately 0 everywhere: Kvantum's pill expansion
-/// overrides the radius the SVG was drawn at and reintroduces the rounding
-/// mismatch this generator exists to remove.
-fn widget(
-    section: &str,
-    element: &str,
-    frame_size: f64,
-    text: &[(&str, &str)],
-    extra: &[(&str, String)],
-) -> String {
+/// `frame.expansion` stays 0: Kvantum's pill expansion overrides the radius the SVG was drawn at.
+fn widget(section: &str, element: &str, frame_size: f64, extra: &[(&str, String)]) -> String {
     let mut out = format!("[{section}]\n");
     out.push_str("frame=true\n");
     out.push_str(&format!("frame.element={element}\n"));
@@ -658,9 +643,6 @@ fn widget(
     out.push_str("frame.expansion=0\n");
     out.push_str("interior=true\n");
     out.push_str(&format!("interior.element={element}\n"));
-    for (key, value) in text {
-        out.push_str(&format!("{key}={value}\n"));
-    }
     for (key, value) in extra {
         out.push_str(&format!("{key}={value}\n"));
     }
@@ -822,7 +804,6 @@ pub fn kvconfig(colors: &ColorScheme) -> String {
             ("text.toggle.color", color.to_owned()),
         ]
     };
-    let owned = |pairs: Vec<(&'static str, String)>| pairs;
 
     let mut out = general(colors, &palette);
 
@@ -830,8 +811,7 @@ pub fn kvconfig(colors: &ColorScheme) -> String {
         "PanelButtonCommand",
         "button",
         8.0,
-        &[],
-        &owned(vec![
+        &[
             ("text.normal.color", fg.to_owned()),
             ("text.focus.color", fg.to_owned()),
             ("text.press.color", fg.to_owned()),
@@ -843,15 +823,14 @@ pub fn kvconfig(colors: &ColorScheme) -> String {
             ("indicator.element", "arrow".to_owned()),
             ("indicator.size", "16".to_owned()),
             ("min_height", "+6".to_owned()),
-        ]),
+        ],
     ));
 
     out.push_str(&widget(
         "PanelButtonTool",
         "tbutton",
         7.0,
-        &[],
-        &owned(vec![
+        &[
             ("text.normal.color", fg.to_owned()),
             ("text.focus.color", fg.to_owned()),
             ("text.press.color", fg.to_owned()),
@@ -860,15 +839,14 @@ pub fn kvconfig(colors: &ColorScheme) -> String {
             ("text.margin.right", "6".to_owned()),
             ("indicator.element", "arrow".to_owned()),
             ("indicator.size", "16".to_owned()),
-        ]),
+        ],
     ));
 
     out.push_str(&widget(
         "LineEdit",
         "lineedit",
         8.0,
-        &[],
-        &owned(vec![
+        &[
             ("text.normal.color", fg.to_owned()),
             ("text.focus.color", fg.to_owned()),
             ("text.margin.top", "3".to_owned()),
@@ -876,19 +854,18 @@ pub fn kvconfig(colors: &ColorScheme) -> String {
             ("text.margin.left", "6".to_owned()),
             ("text.margin.right", "6".to_owned()),
             ("min_height", "+6".to_owned()),
-        ]),
+        ],
     ));
 
-    out.push_str(&widget("GenericFrame", "common", 8.0, &[], &[]));
-    out.push_str(&widget("TabFrame", "tabframe", 8.0, &[], &[]));
-    out.push_str(&widget("GroupBox", "group", 10.0, &[], &plain(fg)));
+    out.push_str(&widget("GenericFrame", "common", 8.0, &[]));
+    out.push_str(&widget("TabFrame", "tabframe", 8.0, &[]));
+    out.push_str(&widget("GroupBox", "group", 10.0, &plain(fg)));
 
     out.push_str(&widget(
         "ItemView",
         "itemview",
         6.0,
-        &[],
-        &owned(vec![
+        &[
             ("text.normal.color", fg.to_owned()),
             ("text.focus.color", fg.to_owned()),
             ("text.press.color", on_accent.to_owned()),
@@ -898,15 +875,14 @@ pub fn kvconfig(colors: &ColorScheme) -> String {
             ("indicator.element", "arrow".to_owned()),
             ("indicator.size", "16".to_owned()),
             ("min_height", "+4".to_owned()),
-        ]),
+        ],
     ));
 
     out.push_str(&widget(
         "MenuItem",
         "menuitem",
         7.0,
-        &[],
-        &owned(vec![
+        &[
             ("text.normal.color", fg.to_owned()),
             ("text.focus.color", on_accent.to_owned()),
             ("text.margin.top", "4".to_owned()),
@@ -915,37 +891,34 @@ pub fn kvconfig(colors: &ColorScheme) -> String {
             ("text.margin.right", "12".to_owned()),
             ("indicator.element", "arrow".to_owned()),
             ("indicator.size", "16".to_owned()),
-        ]),
+        ],
     ));
 
     out.push_str(&widget(
         "MenuBarItem",
         "menubaritem",
         7.0,
-        &[],
-        &owned(vec![
+        &[
             ("text.normal.color", fg.to_owned()),
             ("text.focus.color", fg.to_owned()),
             ("text.press.color", on_accent.to_owned()),
             ("text.margin.left", "8".to_owned()),
             ("text.margin.right", "8".to_owned()),
-        ]),
+        ],
     ));
 
     out.push_str(&widget(
         "Menu",
         "menu",
         12.0,
-        &[],
-        &owned(vec![("text.normal.color", fg.to_owned())]),
+        &[("text.normal.color", fg.to_owned())],
     ));
 
     out.push_str(&widget(
         "Tab",
         "tab",
         7.0,
-        &[],
-        &owned(vec![
+        &[
             ("text.normal.color", fg3.to_owned()),
             ("text.focus.color", fg.to_owned()),
             ("text.toggle.color", fg.to_owned()),
@@ -953,15 +926,14 @@ pub fn kvconfig(colors: &ColorScheme) -> String {
             ("text.margin.right", "10".to_owned()),
             ("text.margin.top", "3".to_owned()),
             ("text.margin.bottom", "3".to_owned()),
-        ]),
+        ],
     ));
 
     out.push_str(&widget(
         "HeaderSection",
         "header",
         1.0,
-        &[],
-        &owned(vec![
+        &[
             ("text.normal.color", fg2.to_owned()),
             ("text.focus.color", fg.to_owned()),
             ("text.toggle.color", fg.to_owned()),
@@ -969,84 +941,78 @@ pub fn kvconfig(colors: &ColorScheme) -> String {
             ("text.margin.right", "6".to_owned()),
             ("indicator.element", "arrow".to_owned()),
             ("indicator.size", "12".to_owned()),
-        ]),
+        ],
     ));
 
-    out.push_str(&widget("Toolbar", "toolbar", 1.0, &[], &plain(fg)));
-    out.push_str(&widget("TitleBar", "titlebar", 1.0, &[], &plain(fg)));
-    out.push_str(&widget("Dock", "dock", 1.0, &[], &plain(fg)));
-    out.push_str(&widget("DockTitle", "dock", 1.0, &[], &plain(fg)));
-    out.push_str(&widget("StatusBar", "statusbar", 1.0, &[], &plain(fg)));
-    out.push_str(&widget("Window", "toolbar", 1.0, &[], &[]));
+    out.push_str(&widget("Toolbar", "toolbar", 1.0, &plain(fg)));
+    out.push_str(&widget("TitleBar", "titlebar", 1.0, &plain(fg)));
+    out.push_str(&widget("Dock", "dock", 1.0, &plain(fg)));
+    out.push_str(&widget("DockTitle", "dock", 1.0, &plain(fg)));
+    out.push_str(&widget("StatusBar", "statusbar", 1.0, &plain(fg)));
+    out.push_str(&widget("Window", "toolbar", 1.0, &[]));
 
     out.push_str(&widget(
         "ToolTip",
         "tooltip",
         10.0,
-        &[],
-        &owned(vec![
+        &[
             ("text.normal.color", fg.to_owned()),
             ("text.margin.top", "4".to_owned()),
             ("text.margin.bottom", "4".to_owned()),
             ("text.margin.left", "8".to_owned()),
             ("text.margin.right", "8".to_owned()),
-        ]),
+        ],
     ));
 
-    out.push_str(&widget("Progressbar", "progress", 3.0, &[], &plain(fg)));
+    out.push_str(&widget("Progressbar", "progress", 3.0, &plain(fg)));
     out.push_str(&widget(
         "ProgressbarContents",
         "progress-pattern",
         3.0,
-        &[],
         &plain(on_accent),
     ));
-    out.push_str(&widget("Slider", "slider", 2.0, &[], &[]));
-    out.push_str(&widget("SliderCursor", "slidercursor", 9.0, &[], &[]));
-    out.push_str(&widget("ScrollbarGroove", "scrollbargroove", 5.0, &[], &[]));
-    out.push_str(&widget("ScrollbarSlider", "scrollbarslider", 5.0, &[], &[]));
+    out.push_str(&widget("Slider", "slider", 2.0, &[]));
+    out.push_str(&widget("SliderCursor", "slidercursor", 9.0, &[]));
+    out.push_str(&widget("ScrollbarGroove", "scrollbargroove", 5.0, &[]));
+    out.push_str(&widget("ScrollbarSlider", "scrollbarslider", 5.0, &[]));
     out.push_str(&widget(
         "ScrollbarTransientSlider",
         "scrollbarslider",
         5.0,
         &[],
-        &[],
     ));
-    out.push_str(&widget("Splitter", "splitter", 1.0, &[], &[]));
-    out.push_str(&widget("SizeGrip", "splitter", 1.0, &[], &[]));
+    out.push_str(&widget("Splitter", "splitter", 1.0, &[]));
+    out.push_str(&widget("SizeGrip", "splitter", 1.0, &[]));
 
     out.push_str(&widget(
         "ComboBox",
         "button",
         8.0,
-        &[],
-        &owned(vec![
+        &[
             ("text.normal.color", fg.to_owned()),
             ("text.focus.color", fg.to_owned()),
             ("text.margin.left", "10".to_owned()),
             ("text.margin.right", "6".to_owned()),
             ("min_height", "+6".to_owned()),
-        ]),
+        ],
     ));
     out.push_str(&widget(
         "DropDownButton",
         "tbutton",
         7.0,
-        &[],
-        &owned(vec![
+        &[
             ("indicator.element", "arrow".to_owned()),
             ("indicator.size", "16".to_owned()),
-        ]),
+        ],
     ));
     out.push_str(&widget(
         "IndicatorSpinBox",
         "tbutton",
         7.0,
-        &[],
-        &owned(vec![
+        &[
             ("indicator.element", "arrow".to_owned()),
             ("indicator.size", "14".to_owned()),
-        ]),
+        ],
     ));
 
     for (section, element) in [("CheckBox", "checkbox"), ("RadioButton", "radio")] {

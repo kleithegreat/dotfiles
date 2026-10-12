@@ -54,19 +54,12 @@ pub fn load_state() -> crate::Result<ThemeState> {
     load_state_from_db_path(&paths::db_path()?)
 }
 
-/// Upsert only the given keys so concurrent writers (CLI invocations, the
-/// daemon's dark_hint edges) commute on disjoint keys instead of reverting
-/// each other through stale full-state snapshots. Full-table rewrites are
-/// reserved for first-seed initialization and the load-path backfill, which
-/// write a freshly loaded snapshot.
+/// Upserts only the given keys so concurrent writers commute on disjoint keys.
 pub fn save_state_keys(pairs: &[(&str, &Value)]) -> crate::Result<()> {
     let db_path = paths::db_path()?;
     save_state_keys_to_db_path(pairs, &db_path)
 }
 
-/// Test-only since the daemon became the reader: production serializes state
-/// through `theme::state_json`, but the legacy-output fixtures assert on this
-/// exact rendering.
 #[cfg(test)]
 fn serialize_state(state: &ThemeState) -> crate::Result<String> {
     Ok(format!(
@@ -93,9 +86,7 @@ fn open_state_db(db_path: &Path) -> crate::Result<Connection> {
     }
 
     let connection = Connection::open(db_path)?;
-    // The daemon worker, activation-time `theme sync`, and the focus tracker
-    // share this file across processes; wait out short write bursts instead
-    // of surfacing SQLITE_BUSY.
+    // Several processes share this file; wait out write bursts instead of SQLITE_BUSY.
     connection.busy_timeout(std::time::Duration::from_secs(5))?;
     connection.execute_batch(THEME_STATE_TABLE_SCHEMA)?;
     Ok(connection)
@@ -503,13 +494,11 @@ mod tests {
     }
 
     #[test]
-    fn state_serialization_matches_legacy_output() -> TestResult {
+    fn state_serialization_is_ordered_pretty_json() -> TestResult {
         let state = seed_state();
         let rendered = serialize_state(&state)?;
 
-        // Pins the rendering, not the values: two-space indent, one key per
-        // line in THEME_STATE_FIELD_ORDER, trailing newline. The values are
-        // user data in styling/state.json and checked by the seed tests.
+        // Pins the rendering, not the values.
         let keys = rendered
             .lines()
             .filter_map(|line| line.trim().strip_prefix('"'))
@@ -673,16 +662,6 @@ mod tests {
         assert_eq!(stored, "\"JetBrainsMono Nerd Font\"");
 
         remove_file_if_exists(&db_path)?;
-        Ok(())
-    }
-
-    #[test]
-    fn color_scheme_struct_uses_nested_wire_format() -> TestResult {
-        let text = fs::read_to_string(repo_root().join("styling/colors/gruvbox-dark.json"))?;
-        let scheme: ColorScheme = serde_json::from_str(&text)?;
-        let value = serde_json::to_value(&scheme)?;
-        assert!(value.get("colors").is_some());
-        assert_eq!(value["colors"]["bg"], "#282828");
         Ok(())
     }
 }

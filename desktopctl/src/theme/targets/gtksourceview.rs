@@ -10,8 +10,7 @@ use std::{collections::HashSet, fs, path::Path, process::Command};
 
 pub const METADATA: TargetMetadata =
     TargetMetadata::new("gtksourceview", Assembly::Standalone, &["color_scheme"])
-        .output("~/.local/share/libgedit-gtksourceview-300/styles/desktopctl-current.xml")
-        .managed_paths(&["~/.local/share/libgedit-gtksourceview-300/styles/desktopctl-*.xml"]);
+        .output("~/.local/share/libgedit-gtksourceview-300/styles/desktopctl-current.xml");
 
 const STYLES_DIR: &str = "~/.local/share/libgedit-gtksourceview-300/styles";
 const CURRENT_FILE_NAME: &str = "desktopctl-current.xml";

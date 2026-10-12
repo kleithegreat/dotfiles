@@ -20,17 +20,7 @@ pub const METADATA: TargetMetadata = TargetMetadata::new(
         "qt_mono_font_size_offset",
     ],
 )
-.output("~/.config/qt6ct/colors/current.conf")
-.managed_paths(&[
-    "~/.config/qt6ct/qt6ct.conf",
-    "~/.config/kdeglobals",
-    "~/.local/share/color-schemes/current.colors",
-    "~/.config/fontconfig/conf.d/50-desktopctl.conf",
-    "~/.config/Kvantum/kvantum.kvconfig",
-    "~/.config/Kvantum/GeneratedTheme/",
-    "~/.config/katerc",
-    "~/.config/kwriterc",
-]);
+.output("~/.config/qt6ct/colors/current.conf");
 
 const QT6CT_CONF: &str = "~/.config/qt6ct/qt6ct.conf";
 const KDEGLOBALS: &str = "~/.config/kdeglobals";
@@ -104,11 +94,7 @@ pub fn persist(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
     Ok(())
 }
 
-/// Qt apps read the palette once at startup, so a long-lived one keeps
-/// whatever scheme was current when it launched. hyprpolkitagent is the only
-/// such app here that is both permanently resident and purely QtQuick — its
-/// dialog takes every colour from `QQuickSystemPalette`, which the platform
-/// theme fills in at startup and never revisits.
+/// Restarts hyprpolkitagent, which reads the palette once at startup; see docs/theming.md.
 pub fn on_apply(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
     let active = Command::new("systemctl")
         .args(["--user", "--quiet", "is-active", POLKIT_AGENT_UNIT])
@@ -202,7 +188,7 @@ fn update_qt6ct_config(state: &ThemeState) -> crate::Result<()> {
     if let Some(parent) = conf_path.parent() {
         fs::create_dir_all(parent)?;
     }
-    atomic_write(&conf_path, config.to_string_with_header("").as_bytes())?;
+    atomic_write(&conf_path, config.render().as_bytes())?;
     Ok(())
 }
 
@@ -443,9 +429,7 @@ fn apply_kde_colors(config: &mut IniFile, colors: &ColorScheme) {
 
     config.ensure_section("KDE");
     config.set("KDE", "contrast", "4");
-    // KStyleManager::initStyle() runs in every KDE app and falls back to an
-    // uninstalled Breeze, dropping the app to Qt's default style, unless the
-    // style it reads from here names one that exists.
+    // Without this KDE apps fall back to an uninstalled Breeze; see docs/theming.md.
     config.set("KDE", "widgetStyle", "kvantum");
 
     config.ensure_section("WM");
@@ -498,7 +482,7 @@ fn update_kdeglobals(colors: &ColorScheme, state: &ThemeState) -> crate::Result<
     if let Some(parent) = conf_path.parent() {
         fs::create_dir_all(parent)?;
     }
-    atomic_write(&conf_path, config.to_string_with_header("").as_bytes())?;
+    atomic_write(&conf_path, config.render().as_bytes())?;
     Ok(())
 }
 
@@ -509,7 +493,7 @@ fn write_kcolorscheme(colors: &ColorScheme) -> crate::Result<()> {
     if let Some(parent) = conf_path.parent() {
         fs::create_dir_all(parent)?;
     }
-    atomic_write(&conf_path, config.to_string_with_header("").as_bytes())?;
+    atomic_write(&conf_path, config.render().as_bytes())?;
     Ok(())
 }
 
@@ -518,10 +502,6 @@ fn kde_icon_theme(theme: &str) -> &str {
         "Neuwaita" => "Neuwaita-KDE",
         _ => theme,
     }
-}
-
-fn ktexteditor_color_theme(colors: &ColorScheme) -> &str {
-    colors.ktexteditor_theme_name()
 }
 
 fn sync_ktexteditor_config(
@@ -539,23 +519,19 @@ fn sync_ktexteditor_config(
     config.set(
         "KTextEditor Renderer",
         "Color Theme",
-        ktexteditor_color_theme(colors),
+        colors.ktexteditor_theme_name(),
     );
 
     if clear_filetree_shading && config.has_section("filetree") {
         config.set("filetree", "shadingEnabled", "false");
-        if config.has_option("filetree", "editShade") {
-            config.remove_option("filetree", "editShade");
-        }
-        if config.has_option("filetree", "viewShade") {
-            config.remove_option("filetree", "viewShade");
-        }
+        config.remove_option("filetree", "editShade");
+        config.remove_option("filetree", "viewShade");
     }
 
     if let Some(parent) = conf_path.parent() {
         fs::create_dir_all(parent)?;
     }
-    atomic_write(conf_path, config.to_string_with_header("").as_bytes())?;
+    atomic_write(conf_path, config.render().as_bytes())?;
     Ok(())
 }
 
@@ -684,17 +660,6 @@ impl IniFile {
             .unwrap_or(false)
     }
 
-    fn has_option(&self, section: &str, key: &str) -> bool {
-        self.section(section)
-            .map(|section| {
-                section
-                    .items
-                    .iter()
-                    .any(|(existing_key, _)| existing_key == key)
-            })
-            .unwrap_or(false)
-    }
-
     fn set(&mut self, section: &str, key: &str, value: &str) {
         let index = self.ensure_section(section);
         self.set_by_index(index, key, value);
@@ -721,9 +686,8 @@ impl IniFile {
         }
     }
 
-    fn to_string_with_header(&self, header: &str) -> String {
+    fn render(&self) -> String {
         let mut output = String::new();
-        output.push_str(header);
         for section in &self.sections {
             output.push('[');
             output.push_str(&section.name);
@@ -752,7 +716,7 @@ impl IniFile {
 
 #[cfg(test)]
 mod tests {
-    use super::{kde_icon_theme, ktexteditor_color_theme, ui_colors};
+    use super::{kde_icon_theme, ui_colors};
     use crate::test_support::repo_root;
     use crate::theme::{
         resolve,
@@ -767,35 +731,32 @@ mod tests {
     #[test]
     fn ktexteditor_theme_uses_declared_theme_metadata_or_appearance() {
         assert_eq!(
-            ktexteditor_color_theme(&load_repo_colors("gruvbox-dark")),
+            load_repo_colors("gruvbox-dark").ktexteditor_theme_name(),
             "gruvbox Dark"
         );
         assert_eq!(
-            ktexteditor_color_theme(&load_repo_colors("gruvbox-light")),
+            load_repo_colors("gruvbox-light").ktexteditor_theme_name(),
             "gruvbox Light"
         );
         assert_eq!(
-            ktexteditor_color_theme(&load_repo_colors("tokyo-night")),
+            load_repo_colors("tokyo-night").ktexteditor_theme_name(),
             "Tokyo Night"
         );
         assert_eq!(
-            ktexteditor_color_theme(&load_repo_colors("tokyo-night-light")),
+            load_repo_colors("tokyo-night-light").ktexteditor_theme_name(),
             "Tokyo Night Light"
         );
         assert_eq!(
-            ktexteditor_color_theme(&load_repo_colors("rose-pine")),
+            load_repo_colors("rose-pine").ktexteditor_theme_name(),
             "Breeze Dark"
         );
         assert_eq!(
-            ktexteditor_color_theme(&load_repo_colors("rose-pine-dawn")),
+            load_repo_colors("rose-pine-dawn").ktexteditor_theme_name(),
             "Breeze Light"
         );
     }
 
-    // Both ui_colors tests resolve the scheme catalog through
-    // `resolve::colors_dir()`, which reads DESKTOPCTL_REPO — it must be
-    // scoped here (like the vicinae pairing tests), not inherited by luck
-    // from whichever env-setting test happens to be running concurrently.
+    // ui_colors reads the catalog via DESKTOPCTL_REPO, so these tests must scope it.
     #[test]
     fn ui_colors_follows_dark_hint_with_same_family_pair() {
         let _lock = crate::test_support::env_lock();

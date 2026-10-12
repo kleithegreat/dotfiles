@@ -21,8 +21,7 @@ pub const METADATA: TargetMetadata = TargetMetadata::new(
         "mono_font_size",
         "gtk_mono_font_size_offset",
     ],
-)
-.managed_paths(&[GTK3_SETTINGS, GTK4_SETTINGS]);
+);
 
 fn dconf_set(key: &str, value: &str) -> crate::Result<()> {
     let output = Command::new("dconf")

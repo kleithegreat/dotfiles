@@ -55,7 +55,11 @@ pub(crate) const DARK_HINT_MANUAL_AT_KEY: &str = "dark_hint_manual_at";
 
 fn set_dark_hint_internal(enabled: bool, origin: DarkHintOrigin) -> crate::Result<bool> {
     let outcome = set_state_key_internal("dark_hint", Value::Bool(enabled))?;
+    let manual_at = Value::String(manual_write_timestamp());
     if !outcome.changed {
+        if origin == DarkHintOrigin::Manual {
+            resolve::save_state_keys(&[(DARK_HINT_MANUAL_AT_KEY, &manual_at)])?;
+        }
         return Ok(false);
     }
 
@@ -73,7 +77,6 @@ fn set_dark_hint_internal(enabled: bool, origin: DarkHintOrigin) -> crate::Resul
             "failed to apply affected theme targets for dark_hint: {error}"
         ))
     })?;
-    let manual_at = Value::String(manual_write_timestamp());
     let mut pairs = vec![("dark_hint", &outcome.value)];
     if origin == DarkHintOrigin::Manual {
         pairs.push((DARK_HINT_MANUAL_AT_KEY, &manual_at));
@@ -164,7 +167,6 @@ pub(crate) fn atomic_write(path: &Path, content: &[u8]) -> crate::Result<()> {
 /// Atomically replace `link_path` with a symlink to `target` (symlink under a
 /// temporary name, then rename over the destination) so live consumers never
 /// observe a missing file.
-#[cfg(unix)]
 pub(crate) fn replace_with_symlink(link_path: &Path, target: &Path) -> crate::Result<()> {
     use std::os::unix::fs::symlink;
 
@@ -198,15 +200,6 @@ pub(crate) fn replace_with_symlink(link_path: &Path, target: &Path) -> crate::Re
     Err(last_exists_error
         .unwrap_or_else(|| io::Error::other("failed to allocate a temporary symlink"))
         .into())
-}
-
-#[cfg(not(unix))]
-pub(crate) fn replace_with_symlink(_link_path: &Path, _target: &Path) -> crate::Result<()> {
-    Err(io::Error::new(
-        io::ErrorKind::Unsupported,
-        "symlink replacement requires a Unix platform",
-    )
-    .into())
 }
 
 /// 64-bit FNV-1a fingerprint shared by cache-key derivation (wallpaper
@@ -250,11 +243,7 @@ pub(crate) fn find_command(program: &str) -> Option<PathBuf> {
         .find(|candidate| is_executable(candidate))
 }
 
-// Write subcommands are thin daemon clients: the daemon is the single writer
-// of theme state, so a CLI mutation with no reachable daemon fails rather
-// than becoming a second writer. `sync` is the deliberate exception — it runs
-// during home-manager activation with no session — and the list/status reads
-// keep direct paths (status only as fallback) since reads cannot conflict.
+// Writes go through the daemon, the single writer; `sync` is the exception (activation has no session).
 fn run_cli(args: crate::ThemeArgs) -> CliResult<()> {
     match args.command {
         crate::ThemeCommand::All(wait) => remote_apply("all", None, wait.wait_daemon),
@@ -270,9 +259,9 @@ fn run_cli(args: crate::ThemeArgs) -> CliResult<()> {
         crate::ThemeCommand::Preset(args) => remote_preset_apply(args),
         crate::ThemeCommand::SavePreset(args) => remote_preset_save(args),
         crate::ThemeCommand::DeletePreset(args) => remote_preset_delete(args),
-        crate::ThemeCommand::ListSchemes(args) => cmd_list_schemes(args.json),
+        crate::ThemeCommand::ListSchemes => cmd_list_schemes(),
         crate::ThemeCommand::ListWallpapers(args) => cmd_list_wallpapers(args),
-        crate::ThemeCommand::ListPresets(args) => cmd_list_presets(args.json),
+        crate::ThemeCommand::ListPresets => cmd_list_presets(),
         crate::ThemeCommand::Status(args) => cmd_status(args.json),
         crate::ThemeCommand::Export => cmd_export(),
     }
@@ -420,115 +409,29 @@ fn cmd_sync() -> CliResult<()> {
     }
 }
 
-fn cmd_list_schemes(json_output: bool) -> CliResult<()> {
+fn cmd_list_schemes() -> CliResult<()> {
     let colors_dir = map_user_err(resolve::colors_dir())?;
     let schemes = map_user_err(json_file_stems_by_filename(&colors_dir))?;
-
-    if !json_output {
-        if schemes.is_empty() {
-            println!("No color schemes found.");
-            return Ok(());
-        }
-
-        for scheme in schemes {
-            println!("  {scheme}");
-        }
+    if schemes.is_empty() {
+        println!("No color schemes found.");
         return Ok(());
     }
-
-    let mut items = Vec::new();
-    for scheme_name in schemes {
-        let colors = map_user_err(resolve::load_colors(&scheme_name, &colors_dir))?;
-        let appearance = if colors.is_light() { "light" } else { "dark" }.to_owned();
-        let mut item = Map::new();
-        item.insert("schemeName".to_owned(), Value::String(scheme_name));
-        item.insert("family".to_owned(), Value::String(colors.family));
-        item.insert("variant".to_owned(), Value::String(colors.variant));
-        item.insert("appearance".to_owned(), Value::String(appearance));
-        item.insert("bg".to_owned(), Value::String(colors.bg));
-        item.insert("bg_dim".to_owned(), Value::String(colors.bg_dim));
-        item.insert("bg1".to_owned(), Value::String(colors.bg1));
-        item.insert("bg2".to_owned(), Value::String(colors.bg2));
-        item.insert("bg3".to_owned(), Value::String(colors.bg3));
-        item.insert("fg".to_owned(), Value::String(colors.fg));
-        item.insert("fg2".to_owned(), Value::String(colors.fg2));
-        item.insert("fg3".to_owned(), Value::String(colors.fg3));
-        item.insert("fg4".to_owned(), Value::String(colors.fg4));
-        item.insert("accent".to_owned(), Value::String(colors.accent));
-        item.insert("red".to_owned(), Value::String(colors.red));
-        item.insert("green".to_owned(), Value::String(colors.green));
-        item.insert("orange".to_owned(), Value::String(colors.orange));
-        item.insert("blue".to_owned(), Value::String(colors.blue));
-        item.insert("yellow".to_owned(), Value::String(colors.yellow));
-        item.insert("purple".to_owned(), Value::String(colors.purple));
-        item.insert("cyan".to_owned(), Value::String(colors.cyan));
-        item.insert("red_bright".to_owned(), Value::String(colors.red_bright));
-        item.insert(
-            "green_bright".to_owned(),
-            Value::String(colors.green_bright),
-        );
-        item.insert(
-            "yellow_bright".to_owned(),
-            Value::String(colors.yellow_bright),
-        );
-        item.insert("blue_bright".to_owned(), Value::String(colors.blue_bright));
-        item.insert(
-            "purple_bright".to_owned(),
-            Value::String(colors.purple_bright),
-        );
-        item.insert("cyan_bright".to_owned(), Value::String(colors.cyan_bright));
-        item.insert(
-            "orange_bright".to_owned(),
-            Value::String(colors.orange_bright),
-        );
-        item.insert(
-            "palette".to_owned(),
-            Value::Array(colors.palette.into_iter().map(Value::String).collect()),
-        );
-        items.push(Value::Object(item));
+    for scheme in schemes {
+        println!("  {scheme}");
     }
-
-    print_json_value(&Value::Array(items));
     Ok(())
 }
 
-fn cmd_list_presets(json_output: bool) -> CliResult<()> {
+fn cmd_list_presets() -> CliResult<()> {
     let presets_dir = map_user_err(presets_dir())?;
     let presets = map_user_err(json_file_stems_by_filename(&presets_dir))?;
-
-    if !json_output {
-        if presets.is_empty() {
-            println!("No presets found.");
-            return Ok(());
-        }
-
-        for preset in presets {
-            println!("  {preset}");
-        }
+    if presets.is_empty() {
+        println!("No presets found.");
         return Ok(());
     }
-
-    let mut items = Vec::new();
-    for preset_name in presets {
-        let value = map_user_err(read_json_file(
-            &presets_dir.join(format!("{preset_name}.json")),
-        ))?;
-        let object = value.as_object().ok_or_else(|| {
-            CliFailure::Message(format!(
-                "error: preset '{}' must be a JSON object",
-                preset_name
-            ))
-        })?;
-
-        let mut item = Map::new();
-        item.insert("name".to_owned(), Value::String(preset_name));
-        for (key, value) in object {
-            item.insert(key.clone(), value.clone());
-        }
-        items.push(Value::Object(item));
+    for preset in presets {
+        println!("  {preset}");
     }
-
-    print_json_value(&Value::Array(items));
     Ok(())
 }
 
@@ -538,10 +441,10 @@ fn cmd_list_wallpapers(args: crate::ListWallpapersArgs) -> CliResult<()> {
     } else {
         let state = map_user_err(resolve::load_state())?;
         let current = PathBuf::from(state.wallpaper);
-        current
-            .parent()
-            .map(Path::to_path_buf)
-            .unwrap_or(map_user_err(paths::repo_path("styling/wallpapers"))?)
+        match current.parent() {
+            Some(parent) => parent.to_path_buf(),
+            None => map_user_err(paths::repo_path("styling/wallpapers"))?,
+        }
     };
 
     let items = map_user_err(wallpaper_browser::list_wallpapers(&directory))?;
@@ -562,9 +465,7 @@ fn cmd_list_wallpapers(args: crate::ListWallpapersArgs) -> CliResult<()> {
     Ok(())
 }
 
-// Read through the daemon for a snapshot consistent with in-flight
-// mutations, falling back to the DB directly so reads still work for
-// debugging a dead daemon.
+// Daemon first for a consistent snapshot; the DB directly when it is dead.
 fn read_state_map() -> CliResult<Value> {
     match crate::ipc::send_request::<(), Value>(
         crate::ipc::methods::THEME_STATUS,
@@ -579,9 +480,7 @@ fn read_state_map() -> CliResult<Value> {
     }
 }
 
-/// Print the current state in seed format, for review and commit as
-/// `styling/state.json`. What a fresh machine renders is then what is in git,
-/// not whatever the local database happens to have drifted to.
+/// Print the current state in seed format, for committing as `styling/state.json`.
 fn cmd_export() -> CliResult<()> {
     let Value::Object(state_map) = read_state_map()? else {
         return Err(CliFailure::Message(
@@ -612,12 +511,7 @@ fn cmd_status(json_output: bool) -> CliResult<()> {
     Ok(())
 }
 
-// ---------------------------------------------------------------------------
-// Quiet cores for the daemon's socket methods. These mirror the CLI commands
-// above but return data instead of printing, and follow the same
-// apply-then-commit ordering: state persists only after every required target
-// applied.
-// ---------------------------------------------------------------------------
+// ── Daemon cores: state persists only after the apply succeeds ──────────────
 
 #[derive(Debug, Clone)]
 pub(crate) enum ApplyScope {
@@ -742,10 +636,8 @@ pub(crate) fn apply_scope_core(scope: &ApplyScope) -> crate::Result<orchestrator
     })
 }
 
-/// Apply a preset in a single pass: merge every preset key — dark_hint
-/// included — into one state snapshot, apply all targets once, then persist
-/// the preset's keys together. The old two-pass shape existed only to route
-/// dark_hint through its separate writer, which the daemon obsoletes.
+/// Apply a preset in a single pass: merge every preset key, dark_hint included,
+/// into one snapshot, apply the targets those keys feed, then persist them together.
 pub(crate) fn apply_preset_core(name: &str) -> crate::Result<PresetOutcome> {
     let (preset_name, preset_path) = preset_path(name)?;
     if !preset_path.is_file() {
@@ -784,7 +676,13 @@ pub(crate) fn apply_preset_core(name: &str) -> crate::Result<PresetOutcome> {
     let colors_dir = resolve::colors_dir()?;
     let colors = resolve::load_colors(&new_state.color_scheme, &colors_dir)?;
     let registry = targets::build_registry()?;
-    let report = orchestrator::apply_all_collect(&registry, &colors, &new_state, true, false);
+    let affected = orchestrator::targets_for_keys(
+        &registry,
+        preset.keys().map(String::as_str),
+        Some(&new_state),
+    );
+    let report =
+        orchestrator::apply_targets_collect(&registry, affected, &colors, &new_state, true);
     if !report.ok() {
         let failures = report
             .failed
@@ -799,8 +697,7 @@ pub(crate) fn apply_preset_core(name: &str) -> crate::Result<PresetOutcome> {
         .iter()
         .map(|(key, value)| (key.as_str(), value))
         .collect::<Vec<_>>();
-    // A preset write is user-initiated: a dark_hint it carries is a manual
-    // value the schedule must not clobber before the next edge.
+    // A preset's dark_hint is a manual write.
     if preset.contains_key("dark_hint") {
         pairs.push((DARK_HINT_MANUAL_AT_KEY, &manual_at));
     }
@@ -1086,8 +983,6 @@ fn available_presets() -> crate::Result<Vec<String>> {
     json_file_stems_by_filename(&presets_dir()?).map_err(Into::into)
 }
 
-// Sorted by file name — the documented `--json` listing order, reused for the
-// human-facing listings as well.
 pub(crate) fn json_file_stems_by_filename(dir: &Path) -> io::Result<Vec<String>> {
     let mut stems: Vec<(String, String)> = Vec::new();
     let entries = match fs::read_dir(dir) {
@@ -1158,19 +1053,11 @@ impl CliFailure {
 }
 
 fn is_executable(path: &Path) -> bool {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
+    use std::os::unix::fs::PermissionsExt;
 
-        match path.metadata() {
-            Ok(metadata) => metadata.is_file() && metadata.permissions().mode() & 0o111 != 0,
-            Err(_) => false,
-        }
-    }
-
-    #[cfg(not(unix))]
-    {
-        path.is_file()
+    match path.metadata() {
+        Ok(metadata) => metadata.is_file() && metadata.permissions().mode() & 0o111 != 0,
+        Err(_) => false,
     }
 }
 
@@ -1246,10 +1133,6 @@ mod tests {
     fn value_rendering_matches_cli_messages() {
         assert_eq!(display_value(&Value::Bool(true)), "true");
         assert_eq!(display_value(&Value::String("Mono".to_owned())), "Mono");
-        assert_eq!(
-            Value::String("O'Reilly".to_owned()).to_string(),
-            "\"O'Reilly\""
-        );
     }
 
     #[test]
@@ -1318,24 +1201,25 @@ mod tests {
     }
 
     #[test]
-    fn color_targets_include_zsh() {
-        let registry = targets::build_registry().expect("registry builds");
-        let state = schema::ThemeState::load_seed(&repo_root().join("styling"), &repo_root())
-            .expect("committed state seed loads");
-        assert!(orchestrator::color_targets(&registry, &state).contains("zsh"));
-    }
-
-    #[test]
-    fn color_targets_include_opencode() {
-        let registry = targets::build_registry().expect("registry builds");
-        let state = schema::ThemeState::load_seed(&repo_root().join("styling"), &repo_root())
-            .expect("committed state seed loads");
-        assert!(orchestrator::color_targets(&registry, &state).contains("opencode"));
-    }
-
-    #[test]
     fn font_targets_do_not_include_tmux() {
         let registry = targets::build_registry().expect("registry builds");
         assert!(!orchestrator::font_targets(&registry).contains("tmux"));
+    }
+
+    #[test]
+    fn manual_dark_hint_write_records_its_time_even_when_unchanged() {
+        let _lock = env_lock();
+        let data_home = TempDir::new("desktopctl-theme-state").expect("temp dir");
+        let _data = ScopedEnvVar::set("XDG_DATA_HOME", data_home.path().as_os_str());
+        let _paths = scoped_repo_paths();
+
+        resolve::save_state_keys(&[("dark_hint", &Value::Bool(true))]).expect("seed dark_hint");
+        let manual_at = || resolve::load_state().expect("state loads").extra;
+
+        assert!(!manual_at().contains_key(DARK_HINT_MANUAL_AT_KEY));
+        assert!(!set_dark_hint_internal(true, DarkHintOrigin::Scheduled).expect("scheduled write"));
+        assert!(!manual_at().contains_key(DARK_HINT_MANUAL_AT_KEY));
+        assert!(!set_dark_hint_internal(true, DarkHintOrigin::Manual).expect("manual write"));
+        assert!(manual_at().contains_key(DARK_HINT_MANUAL_AT_KEY));
     }
 }

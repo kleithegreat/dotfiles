@@ -254,7 +254,10 @@ where
         .map(|(name, _)| name.to_owned())
         .collect::<BTreeSet<_>>();
 
+    let wallpaper_keyed =
+        state_keys.contains(&"wallpaper") || state_keys.contains(&"filter_wallpaper");
     if state_keys.contains(&"color_scheme")
+        && !wallpaper_keyed
         && matches!(state, Some(state) if !state.filter_wallpaper)
     {
         targets.remove("wallpaper");
@@ -672,6 +675,21 @@ mod tests {
         let state = dummy_state(false);
         let targets = targets_for_key(&registry, "color_scheme", Some(&state));
         assert!(!targets.contains("wallpaper"));
+    }
+
+    #[test]
+    fn multi_key_fanout_is_the_union_and_keeps_an_explicitly_set_wallpaper() {
+        let registry = registry();
+        let state = dummy_state(false);
+        let theme_and_hint =
+            targets_for_keys(&registry, ["color_scheme", "dark_hint"], Some(&state));
+        assert!(theme_and_hint.contains("qt"));
+        assert!(theme_and_hint.contains("opencode"));
+        assert!(!theme_and_hint.contains("wallpaper"));
+
+        let with_wallpaper =
+            targets_for_keys(&registry, ["color_scheme", "wallpaper"], Some(&state));
+        assert!(with_wallpaper.contains("wallpaper"));
     }
 
     #[test]

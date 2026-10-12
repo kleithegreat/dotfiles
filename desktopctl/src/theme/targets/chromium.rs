@@ -13,8 +13,7 @@ pub const METADATA: TargetMetadata = TargetMetadata::new(
     "chromium",
     Assembly::Command,
     &["system_font", "mono_font", "dark_hint"],
-)
-.managed_paths(&["~/.config/chromium/<profile>/Preferences"]);
+);
 
 const CHROMIUM_CONFIG_DIR: &str = "~/.config/chromium";
 const DEFAULT_PROFILE_NAME: &str = "Default";

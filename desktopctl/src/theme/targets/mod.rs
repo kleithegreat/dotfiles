@@ -65,7 +65,6 @@ pub struct TargetMetadata {
     pub assembly: Assembly,
     pub output_path: Option<&'static str>,
     pub base_path: Option<&'static str>,
-    pub managed_paths: &'static [&'static str],
     pub state_keys: &'static [&'static str],
     pub reload_cmd: Option<&'static [&'static str]>,
     pub comment: Option<&'static str>,
@@ -83,7 +82,6 @@ impl TargetMetadata {
             assembly,
             output_path: None,
             base_path: None,
-            managed_paths: &[],
             state_keys,
             reload_cmd: None,
             comment: None,
@@ -101,13 +99,6 @@ impl TargetMetadata {
     pub const fn base(self, base_path: &'static str) -> Self {
         Self {
             base_path: Some(base_path),
-            ..self
-        }
-    }
-
-    pub const fn managed_paths(self, managed_paths: &'static [&'static str]) -> Self {
-        Self {
-            managed_paths,
             ..self
         }
     }
@@ -548,58 +539,6 @@ mod tests {
                 .metadata()
                 .sync_safe
         );
-
-        assert_eq!(
-            registry
-                .get("chromium")
-                .expect("chromium target")
-                .metadata()
-                .managed_paths,
-            &["~/.config/chromium/<profile>/Preferences"]
-        );
-        assert_eq!(
-            registry
-                .get("gtk")
-                .expect("gtk target")
-                .metadata()
-                .managed_paths,
-            &[
-                "~/.config/gtk-3.0/settings.ini",
-                "~/.config/gtk-4.0/settings.ini"
-            ]
-        );
-        assert_eq!(
-            registry
-                .get("helium")
-                .expect("helium target")
-                .metadata()
-                .managed_paths,
-            &["~/.config/net.imput.helium/<profile>/Preferences"]
-        );
-        assert_eq!(
-            registry
-                .get("opencode")
-                .expect("opencode target")
-                .metadata()
-                .managed_paths,
-            &["~/.config/opencode/themes/desktopctl.json"]
-        );
-        assert_eq!(
-            registry
-                .get("vscode")
-                .expect("vscode target")
-                .metadata()
-                .managed_paths,
-            &["~/.config/Code/User/globalStorage/state.vscdb"]
-        );
-        assert_eq!(
-            registry
-                .get("where_is_my_sddm_theme")
-                .expect("where_is_my_sddm_theme target")
-                .metadata()
-                .managed_paths,
-            &["/tmp/desktopctl-where-is-my-sddm-theme/background"]
-        );
     }
 
     #[test]
@@ -656,7 +595,10 @@ mod tests {
         assert!(output.contains("background = \"dark\","), "{output}");
         assert!(output.contains("accent = \"#3366ff\","), "{output}");
         assert!(output.contains("fg_faint = \"#484848\","), "{output}");
-        assert!(output.contains("terminal = {\n    \"#000000\","), "{output}");
+        assert!(
+            output.contains("terminal = {\n    \"#000000\","),
+            "{output}"
+        );
 
         let output = text(neovim::generate(&rose_pine_dawn_colors(), &dummy_state()));
         assert!(output.contains("background = \"light\","), "{output}");

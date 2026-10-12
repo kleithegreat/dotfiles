@@ -14,7 +14,6 @@ pub const METADATA: TargetMetadata = TargetMetadata::new(
     &["color_scheme", "mono_font", "system_font"],
 )
 .output("~/.config/hypr/colors.lua")
-.managed_paths(&["~/.config/hypr/colors.conf"])
 .reload_cmd(RELOAD_CMD)
 .comment("--");
 
@@ -30,8 +29,6 @@ fn rgba(hex_color: &str, alpha: &str) -> String {
     format!("rgba({}{alpha})", &hex_color[1..])
 }
 
-/// Quote a value as a Lua string literal. Colors are generated from a fixed
-/// palette, but font names come from user config and can contain anything.
 pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<GeneratedContent> {
     Ok(GeneratedContent::text(format!(
         concat!(

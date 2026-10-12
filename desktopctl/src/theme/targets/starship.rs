@@ -19,18 +19,11 @@ const WCAG_AA_NON_TEXT: f64 = 3.0;
 /// reads as a seam rather than as one continuous bar.
 const MIN_PLATE_SEPARATION: f64 = 20.0;
 
-/// The two trailing plates are neutral surfaces mixed from the scheme's own
-/// background towards its own foreground rather than lifted from its `bg1` /
-/// `bg3` slots. Those slots are authored as *panel* surfaces: across the
-/// fourteen schemes here `bg1` sits between 1.07 and 1.37 contrast from `bg`,
-/// which on a panel is a deliberate whisper and on a powerline plate is an
-/// invisible one. Mixing guarantees the same visible step in every scheme.
+/// Neutral plates mix `bg` toward `fg` instead of reusing `bg1`/`bg3`, which are too close to `bg`.
 const TOOL_PLATE_MIX: f64 = 0.18;
 const TIME_PLATE_MIX: f64 = 0.38;
 
-/// Readable ink for a plate, preferring colours the scheme already contains so
-/// the prompt stays inside its own palette. Pure black/white is the last resort
-/// for plates no palette entry clears AA against.
+/// Ink from the scheme's own colours; black/white only when none clears AA.
 fn readable_on(plate: &str, colors: &ColorScheme) -> String {
     let candidates = [
         colors.fg.as_str(),
@@ -58,13 +51,7 @@ fn readable_on(plate: &str, colors: &ColorScheme) -> String {
     }
 }
 
-/// First candidate far enough from every plate already placed, falling back to
-/// whichever candidate is furthest from its nearest neighbour.
-///
-/// The rainbow's hues cannot be taken straight from the palette, because
-/// schemes disagree about how many distinct hues they even have: rose-pine
-/// defines its orange and its yellow as one colour, so the first two plates
-/// would be a single bar with an invisible chevron down the middle.
+/// First candidate far enough from every placed plate, else the furthest one; see docs/theming.md.
 fn distinct_plate(candidates: &[&str], placed: &[String]) -> String {
     let separation = |candidate: &str| {
         placed
@@ -88,14 +75,7 @@ fn distinct_plate(candidates: &[&str], placed: &[String]) -> String {
     best.to_owned()
 }
 
-/// The prompt character sits on the terminal background rather than on a plate,
-/// so it keeps the base hue while that hue is legible and only reaches for the
-/// bright variant when it is not.
-///
-/// Preferring whichever variant simply carries further would misname the
-/// colour: solarized defines its bright red as an orange, so a
-/// highest-contrast rule turns the error prompt orange in a scheme whose red is
-/// perfectly readable.
+/// Base hue while legible on `bg`, else the bright variant; never the higher-contrast one (solarized's bright red is orange).
 fn on_background<'a>(base: &'a str, bright: &'a str, colors: &ColorScheme) -> &'a str {
     if contrast_ratio(base, &colors.bg) >= WCAG_AA_NON_TEXT {
         return base;
@@ -118,8 +98,7 @@ struct Plates {
 }
 
 fn plates(colors: &ColorScheme) -> Plates {
-    // Identity resolves against the yellow the path plate intends to take, not
-    // against nothing: it is the warm pair that collides ([[theming]]).
+    // Identity resolves against the yellow the path plate will take; see docs/theming.md.
     let identity = distinct_plate(
         &[
             &colors.orange,

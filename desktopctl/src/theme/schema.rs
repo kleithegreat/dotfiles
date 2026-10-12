@@ -1,5 +1,5 @@
 use crate::paths;
-use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
+use serde::{Deserialize, Deserializer, Serialize, de};
 use serde_json::{Map, Value};
 use std::{borrow::Cow, fs, io, path::Path};
 
@@ -101,30 +101,17 @@ pub const THEME_STATE_BOOL_FIELDS: [&str; 4] = [
     "hypr_animations_enabled",
 ];
 
-/// Committed default state, relative to the theming data directory. It is the
-/// only source of defaults — there is deliberately no compiled fallback, so
-/// the desktop a fresh checkout produces is the one under review in git.
+/// The only source of defaults; there is no compiled fallback.
 pub const STATE_SEED_RELATIVE_PATH: &str = "state.json";
 
-/// Keys the seed does not carry, because no committed value can be right for
-/// them: the wallpaper library is gitignored, so a seeded path would name a
-/// file that does not exist on a fresh machine. `theme export` drops them for
-/// the same reason.
+/// Keys the seed omits because the wallpaper library is gitignored.
 pub const MACHINE_LOCAL_FIELDS: [&str; 2] = ["wallpaper", "wallpaper_dir"];
 
 pub const DEFAULT_WALLPAPER_RELATIVE_PATH: &str = "styling/wallpapers/lmao.png";
-/// Directory the wallpaper picker browses. Held separately from `wallpaper` so
-/// that browsing to a directory survives without also selecting a wallpaper
-/// from it — deriving it from the current wallpaper's parent loses the choice
-/// as soon as the picker closes. No target consumes it.
+/// Picker browse directory, kept apart from `wallpaper` so browsing does not select.
 pub const DEFAULT_WALLPAPER_DIR_RELATIVE_PATH: &str = "styling/wallpapers";
 
-/// Project a state map onto the seed format: the known fields in declaration
-/// order, minus the machine-local ones, so that
-/// `theme export > styling/state.json` round-trips through
-/// [`ThemeState::load_seed`]. Unknown keys carried by [`ThemeState::extra`]
-/// are dropped — whatever they are, they are not part of the committed schema
-/// and must not be seeded onto a fresh machine.
+/// Known fields in declaration order minus machine-local ones; `extra` keys are dropped.
 pub fn seed_json_map(state: &Map<String, Value>) -> Map<String, Value> {
     THEME_STATE_FIELD_ORDER
         .iter()
@@ -146,7 +133,7 @@ pub fn canonicalize_theme_string_value<'a>(key: &str, value: &'a str) -> Cow<'a,
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ColorSchemeAppearance {
     #[default]
@@ -154,57 +141,34 @@ pub enum ColorSchemeAppearance {
     Dark,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 #[serde(default)]
 pub struct ColorSchemeAppThemes {
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub bat: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub ktexteditor: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub snappy_switcher: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub vicinae: Option<VicinaeThemeNames>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub vscode: Option<VscodeThemeNames>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub zed: Option<String>,
 }
 
-impl ColorSchemeAppThemes {
-    fn is_empty(&self) -> bool {
-        self.bat.is_none()
-            && self.ktexteditor.is_none()
-            && self.snappy_switcher.is_none()
-            && self.vicinae.is_none()
-            && self.vscode.is_none()
-            && self.zed.is_none()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct VicinaeThemeNames {
     pub name: String,
     pub light_name: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct VscodeThemeNames {
     pub name: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub extension_id: Option<String>,
-    /// File icon theme id contributed by an extension — note this is the icon
-    /// theme's own id (`catppuccin-mocha`), not the extension id. Schemes that
-    /// have no matching icon set leave it unset and get the neutral fallback
-    /// tinted with the scheme accent.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The icon theme's own id (`catppuccin-mocha`), not the extension id.
+    #[serde(default)]
     pub icon_theme: Option<String>,
 }
 
-/// Fractions of the way from `fg` toward `bg` for each dimmed step. Fitted to
-/// the schemes whose hand-transcribed ramps were already ordered correctly, so
-/// those barely move; the ordering itself is guaranteed by the fractions being
-/// strictly increasing.
+/// Blend fractions from `fg` toward `bg`; strictly increasing, so prominence falls monotonically.
 const DIM_RAMP_STEPS: [f64; 4] = [0.15, 0.30, 0.42, 0.70];
 
 pub struct DimRamp {
@@ -214,13 +178,7 @@ pub struct DimRamp {
     pub fg_faint: String,
 }
 
-/// Derive the dimmed foreground ramp by blending `fg` toward `bg`.
-///
-/// Upstream palettes disagree about what their secondary foreground slots mean
-/// — Solarized's `base1` is *emphasized* text and Nord's `nord5` is brighter
-/// than `nord4` — so transcribing them left four schemes rendering secondary
-/// text more prominent than primary. Blending removes the question: prominence
-/// falls monotonically because the blend fraction rises monotonically.
+/// Dimmed foreground ramp; see "The fg ramp is derived" in docs/theming.md.
 pub fn dim_ramp(fg: &str, bg: &str) -> Result<DimRamp, String> {
     let fg = parse_hex(fg)?;
     let bg = parse_hex(bg)?;
@@ -274,9 +232,7 @@ pub struct ColorScheme {
     pub bg2: String,
     pub bg3: String,
     pub fg: String,
-    /// Dimmed foreground ramp, derived from `fg` and `bg` by [`dim_ramp`] rather
-    /// than transcribed per scheme, so prominence always decreases fg > fg2 >
-    /// fg3 > fg4 > fg_faint no matter what an upstream palette calls its slots.
+    /// Derived by [`dim_ramp`], never authored.
     pub fg2: String,
     pub fg3: String,
     pub fg4: String,
@@ -299,7 +255,7 @@ pub struct ColorScheme {
     pub palette: [String; 16],
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 struct NamedColors {
     bg: String,
     bg_dim: String,
@@ -324,14 +280,14 @@ struct NamedColors {
     orange_bright: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 struct ColorSchemeWire {
     family: String,
     variant: String,
     appearance: ColorSchemeAppearance,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     dark_scheme: Option<String>,
-    #[serde(default, skip_serializing_if = "ColorSchemeAppThemes::is_empty")]
+    #[serde(default)]
     app_themes: ColorSchemeAppThemes,
     colors: NamedColors,
     palette: [String; 16],
@@ -427,46 +383,6 @@ impl ColorScheme {
     }
 }
 
-impl Serialize for ColorScheme {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let wire = ColorSchemeWire {
-            family: self.family.clone(),
-            variant: self.variant.clone(),
-            appearance: self.appearance,
-            dark_scheme: self.dark_scheme.clone(),
-            app_themes: self.app_themes.clone(),
-            colors: NamedColors {
-                bg: self.bg.clone(),
-                bg_dim: self.bg_dim.clone(),
-                bg1: self.bg1.clone(),
-                bg2: self.bg2.clone(),
-                bg3: self.bg3.clone(),
-                fg: self.fg.clone(),
-                red: self.red.clone(),
-                green: self.green.clone(),
-                yellow: self.yellow.clone(),
-                blue: self.blue.clone(),
-                purple: self.purple.clone(),
-                cyan: self.cyan.clone(),
-                orange: self.orange.clone(),
-                accent: self.accent.clone(),
-                red_bright: self.red_bright.clone(),
-                green_bright: self.green_bright.clone(),
-                yellow_bright: self.yellow_bright.clone(),
-                blue_bright: self.blue_bright.clone(),
-                purple_bright: self.purple_bright.clone(),
-                cyan_bright: self.cyan_bright.clone(),
-                orange_bright: self.orange_bright.clone(),
-            },
-            palette: self.palette.clone(),
-        };
-        wire.serialize(serializer)
-    }
-}
-
 impl<'de> Deserialize<'de> for ColorScheme {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -551,10 +467,7 @@ impl ThemeState {
         Self::load_seed(&paths::data_dir()?, &paths::repo_root()?)
     }
 
-    /// Load the committed default state, filling the machine-local wallpaper
-    /// keys from the checkout. A missing, malformed or incomplete seed is
-    /// fatal by design: falling back to compiled values would restore exactly
-    /// the invisible second set of defaults this seed replaced.
+    /// A missing, malformed or incomplete seed is fatal by design.
     pub fn load_seed(data_dir: &Path, repo_root: &Path) -> crate::Result<Self> {
         let path = data_dir.join(STATE_SEED_RELATIVE_PATH);
         let text = fs::read_to_string(&path).map_err(|error| {
@@ -651,10 +564,7 @@ impl ThemeState {
     }
 
     pub fn to_ordered_json_map(&self) -> Map<String, Value> {
-        // serde_json's preserve_order feature keeps struct declaration order,
-        // which matches THEME_STATE_FIELD_ORDER; flattened `extra` keys land
-        // after the typed fields. The exact output is pinned by the
-        // state_serialization_matches_legacy_output test.
+        // preserve_order keeps declaration order (THEME_STATE_FIELD_ORDER); `extra` lands last.
         match serde_json::to_value(self) {
             Ok(Value::Object(map)) => map,
             _ => unreachable!("ThemeState serializes to a JSON object"),
@@ -731,8 +641,6 @@ mod dim_ramp_tests {
     #[test]
     fn workspace_pill_states_stay_distinguishable_in_every_scheme() {
         // Workspaces.qml paints occupied pills fg2 and empty pills fg_faint.
-        // Both ride the derived ramp precisely so this gap cannot collapse the
-        // way fg4-against-bg3 did in nord, solarized, and tokyo-night.
         for (name, scheme) in every_scheme() {
             let separation = contrast(&scheme.fg2, &scheme.fg_faint);
             assert!(
@@ -770,9 +678,7 @@ mod seed_tests {
         }
     }
 
-    /// The compiler used to guarantee that every field had a default. With the
-    /// defaults in data, this test is what stops a new `ThemeState` field from
-    /// shipping without a committed value.
+    /// Stops a new `ThemeState` field from shipping without a seed value.
     #[test]
     fn seed_covers_exactly_the_non_machine_local_fields() {
         let object = seed_object();

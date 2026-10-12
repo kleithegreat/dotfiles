@@ -9,8 +9,7 @@ use std::path::Path;
 pub const METADATA: TargetMetadata =
     TargetMetadata::new("opencode", Assembly::Concat, &["color_scheme"])
         .output("~/.config/opencode/tui.json")
-        .base("bases/opencode.json")
-        .managed_paths(&["~/.config/opencode/themes/desktopctl.json"]);
+        .base("bases/opencode.json");
 
 const THEME_NAME: &str = "desktopctl";
 const THEME_OUTPUT_PATH: &str = "~/.config/opencode/themes/desktopctl.json";

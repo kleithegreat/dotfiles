@@ -19,8 +19,7 @@ pub const METADATA: TargetMetadata = TargetMetadata::new(
     Assembly::Import,
     &["color_scheme", "system_font", "icon_theme"],
 )
-.output("~/.config/vicinae/settings.theme.json")
-.managed_paths(&["~/.local/share/vicinae/themes/*.toml"]);
+.output("~/.config/vicinae/settings.theme.json");
 
 const THEME_OUTPUT_DIR: &str = "vicinae/themes";
 

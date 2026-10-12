@@ -8,8 +8,7 @@ pub const METADATA: TargetMetadata = TargetMetadata::new(
     "helium",
     Assembly::Command,
     &["system_font", "mono_font", "dark_hint"],
-)
-.managed_paths(&["~/.config/net.imput.helium/<profile>/Preferences"]);
+);
 
 const HELIUM_CONFIG_DIR: &str = "~/.config/net.imput.helium";
 

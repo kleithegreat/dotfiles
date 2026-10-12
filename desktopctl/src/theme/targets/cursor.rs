@@ -12,11 +12,6 @@ pub const METADATA: TargetMetadata = TargetMetadata::new(
     &["cursor_theme", "cursor_size"],
 )
 .output("~/.local/share/icons/default/index.theme.generated")
-.managed_paths(&[
-    "~/.config/hypr/cursor-theme.lua",
-    "~/.local/share/icons/default/index.theme",
-    "~/.icons/default/index.theme",
-])
 .comment("#");
 
 const HYPR_CURSOR_LUA: &str = "~/.config/hypr/cursor-theme.lua";
@@ -63,8 +58,7 @@ fn run(command: &[String], env_overrides: Option<&BTreeMap<String, String>>) -> 
     Err(std::io::Error::other(message).into())
 }
 
-// BreezeX-RosePine-Linux is an XCursor theme; its hyprcursor build is the
-// separate rose-pine-hyprcursor package installed via home/packages.nix.
+// BreezeX-RosePine-Linux has a separate hyprcursor build (rose-pine-hyprcursor).
 fn hyprctl_cursor_theme(cursor_theme: &str) -> &str {
     match cursor_theme {
         "BreezeX-RosePine-Linux" => "rose-pine-hyprcursor",
@@ -185,8 +179,7 @@ pub fn persist(_colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
 }
 
 pub fn on_apply(_colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
-    // Collect failures instead of early-returning so a missing dconf or
-    // hyprctl does not prevent the remaining runtime updates from applying.
+    // Collect failures so one missing tool does not skip the other updates.
     let mut failures = Vec::new();
     let mut attempt = |result: crate::Result<()>| {
         if let Err(error) = result {

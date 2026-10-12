@@ -8,7 +8,6 @@ use std::fs;
 pub const METADATA: TargetMetadata =
     TargetMetadata::new("spicetify", Assembly::Standalone, &["color_scheme"])
         .output("~/.config/spicetify/Themes/ApplyTheme/color.ini")
-        .managed_paths(&["~/.config/spicetify/Themes/ApplyTheme/user.css"])
         .comment(";");
 
 const THEME_DIR: &str = "~/.config/spicetify/Themes/ApplyTheme";

@@ -1,5 +1,4 @@
 {
-    "workbench.iconTheme": "gruvbox-material-icon-theme",
     "files.autoSave": "afterDelay",
     "markdownlint.config": {
         "MD024": false

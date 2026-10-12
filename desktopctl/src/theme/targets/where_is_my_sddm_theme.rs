@@ -9,8 +9,7 @@ pub const METADATA: TargetMetadata = TargetMetadata::new(
     "where_is_my_sddm_theme",
     Assembly::Command,
     &["color_scheme", "wallpaper", "filter_wallpaper"],
-)
-.managed_paths(&["/tmp/desktopctl-where-is-my-sddm-theme/background"]);
+);
 
 const STAGED_BACKGROUND_PATH: &str = "/tmp/desktopctl-where-is-my-sddm-theme/background";
 const STAGED_BACKGROUND_ENV: &str = "DESKTOPCTL_SDDM_THEME_STAGE_PATH";

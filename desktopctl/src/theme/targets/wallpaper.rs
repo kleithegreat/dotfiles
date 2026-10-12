@@ -21,8 +21,6 @@ pub const METADATA: TargetMetadata = TargetMetadata::new(
 )
 .sync_safe(false);
 
-// v2: cache key digest switched from SHA-256 to the shared FNV-1a fingerprint;
-// v1 entries are simply never matched again and regenerate on demand.
 const CACHE_VERSION: &str = "lutgen-apply-v2";
 
 fn awww_command(path: &str) -> Vec<String> {
@@ -149,9 +147,7 @@ fn warn(message: &str) {
     eprintln!("  wallpaper warning: {message}");
 }
 
-/// awww's client exits immediately when the daemon socket is missing, and the
-/// daemon binds that socket a moment after it spawns. Logins race the two, so
-/// wait on the socket itself rather than assuming a fixed head start.
+/// awww's client exits at once if the daemon socket is missing; wait for the socket at login.
 fn wait_for_awww_socket() {
     const TIMEOUT: Duration = Duration::from_secs(5);
     const POLL_INTERVAL: Duration = Duration::from_millis(25);
