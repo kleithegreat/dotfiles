@@ -1,16 +1,9 @@
 {
     "workbench.iconTheme": "gruvbox-material-icon-theme",
     "files.autoSave": "afterDelay",
-    "gitlens.gitCommands.skipConfirmations": [
-        "fetch:command",
-        "stash-push:command",
-        "switch:command",
-        "push:command"
-    ],
     "markdownlint.config": {
         "MD024": false
     },
-    "tabnine.experimentalAutoImports": true,
     "workbench.startupEditor": "none",
     "catppuccin.accentColor": "blue",
     "editor.accessibilitySupport": "off",
@@ -48,11 +41,6 @@
     "editor.multiCursorModifier": "ctrlCmd",
     "svelte.enable-ts-plugin": true,
     "liveServer.settings.donotShowInfoMsg": true,
-    "remote.SSH.remotePlatform": {
-        "linux.cse.tamu.edu": "linux",
-        "10.0.0.245": "linux",
-        "192.168.8.153": "linux"
-    },
     "github.copilot.editor.enableAutoCompletions": true,
     "csv-preview.capitalizeHeaders": false,
     "terminal.integrated.inheritEnv": false,
