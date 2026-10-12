@@ -1,22 +1,22 @@
-use super::{Assembly, GeneratedContent, TargetMetadata};
+use super::Target;
 use crate::theme::schema::{ColorScheme, ThemeState};
 
-pub const METADATA: TargetMetadata = TargetMetadata::new(
+pub const TARGET: Target = Target::standalone(
     "neovide",
-    Assembly::Standalone,
     &[
         "mono_font",
         "mono_font_size",
         "neovide_mono_font_size_offset",
     ],
+    "~/.config/nvim/lua/neovide-theme.lua",
+    generate,
 )
-.output("~/.config/nvim/lua/neovide-theme.lua")
 .comment("--");
 
-pub fn generate(_colors: &ColorScheme, state: &ThemeState) -> crate::Result<GeneratedContent> {
-    Ok(GeneratedContent::text(format!(
+pub fn generate(_colors: &ColorScheme, state: &ThemeState) -> crate::Result<String> {
+    Ok(format!(
         "vim.o.guifont = \"{}:h{}\"\n",
         state.mono_font,
-        state.mono_font_size_for(METADATA.name)?,
-    )))
+        state.mono_font_size_for(TARGET.name)?,
+    ))
 }

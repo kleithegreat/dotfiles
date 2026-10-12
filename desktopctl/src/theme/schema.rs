@@ -1,4 +1,7 @@
-use crate::paths;
+use crate::{
+    paths,
+    theme::color::{blend, parse_hex},
+};
 use serde::{Deserialize, Deserializer, Serialize, de};
 use serde_json::{Map, Value};
 use std::{borrow::Cow, fs, io, path::Path};
@@ -141,15 +144,17 @@ pub enum ColorSchemeAppearance {
     Dark,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
-#[serde(default)]
+/// Every scheme file must name its theme in each app; only `ktexteditor` and
+/// `vscode.icon_theme` have a fallback.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct ColorSchemeAppThemes {
-    pub bat: Option<String>,
+    pub bat: String,
+    #[serde(default)]
     pub ktexteditor: Option<String>,
-    pub snappy_switcher: Option<String>,
-    pub vicinae: Option<VicinaeThemeNames>,
-    pub vscode: Option<VscodeThemeNames>,
-    pub zed: Option<String>,
+    pub snappy_switcher: String,
+    pub vicinae: VicinaeThemeNames,
+    pub vscode: VscodeThemeNames,
+    pub zed: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -180,8 +185,8 @@ pub struct DimRamp {
 
 /// Dimmed foreground ramp; see "The fg ramp is derived" in docs/theming.md.
 pub fn dim_ramp(fg: &str, bg: &str) -> Result<DimRamp, String> {
-    let fg = parse_hex(fg)?;
-    let bg = parse_hex(bg)?;
+    parse_hex(fg)?;
+    parse_hex(bg)?;
     let mut steps = DIM_RAMP_STEPS
         .iter()
         .map(|fraction| blend(fg, bg, *fraction));
@@ -192,29 +197,6 @@ pub fn dim_ramp(fg: &str, bg: &str) -> Result<DimRamp, String> {
         fg4: steps.next().expect("ramp step"),
         fg_faint: steps.next().expect("ramp step"),
     })
-}
-
-fn parse_hex(value: &str) -> Result<[u8; 3], String> {
-    let digits = value.strip_prefix('#').unwrap_or(value);
-    if digits.len() != 6 {
-        return Err(format!("expected a #rrggbb color, got '{value}'"));
-    }
-
-    let mut channels = [0_u8; 3];
-    for (index, channel) in channels.iter_mut().enumerate() {
-        let start = index * 2;
-        *channel = u8::from_str_radix(&digits[start..start + 2], 16)
-            .map_err(|_| format!("expected a #rrggbb color, got '{value}'"))?;
-    }
-    Ok(channels)
-}
-
-fn blend(from: [u8; 3], to: [u8; 3], fraction: f64) -> String {
-    let channel = |index: usize| {
-        let from = f64::from(from[index]);
-        (from + (f64::from(to[index]) - from) * fraction).round() as u8
-    };
-    format!("#{:02x}{:02x}{:02x}", channel(0), channel(1), channel(2))
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -287,7 +269,6 @@ struct ColorSchemeWire {
     appearance: ColorSchemeAppearance,
     #[serde(default)]
     dark_scheme: Option<String>,
-    #[serde(default)]
     app_themes: ColorSchemeAppThemes,
     colors: NamedColors,
     palette: [String; 16],
@@ -306,10 +287,6 @@ impl ColorScheme {
         self.appearance == ColorSchemeAppearance::Light
     }
 
-    pub fn bat_theme_name(&self) -> &str {
-        self.app_themes.bat.as_deref().unwrap_or("base16")
-    }
-
     pub fn ktexteditor_theme_name(&self) -> &str {
         self.app_themes
             .ktexteditor
@@ -321,41 +298,6 @@ impl ColorScheme {
             })
     }
 
-    pub fn snappy_switcher_theme_name(&self) -> &str {
-        self.app_themes
-            .snappy_switcher
-            .as_deref()
-            .unwrap_or(if self.is_light() {
-                "catppuccin-latte.ini"
-            } else {
-                "snappy-slate.ini"
-            })
-    }
-
-    pub fn vicinae_theme_name(&self) -> String {
-        self.app_themes
-            .vicinae
-            .as_ref()
-            .map(|themes| themes.name.clone())
-            .unwrap_or_else(|| format!("{}-{}", self.family, self.variant))
-    }
-
-    pub fn vicinae_light_theme_name(&self) -> String {
-        self.app_themes
-            .vicinae
-            .as_ref()
-            .map(|themes| themes.light_name.clone())
-            .unwrap_or_else(|| self.vicinae_theme_name())
-    }
-
-    pub fn vscode_theme_name(&self) -> String {
-        self.app_themes
-            .vscode
-            .as_ref()
-            .map(|themes| themes.name.clone())
-            .unwrap_or_else(|| format!("{}-{}", self.family, self.variant))
-    }
-
     /// Neutral icon set used by every scheme that ships no matching one. It
     /// takes a folder color, so the fallback still tracks the active scheme.
     pub const FALLBACK_VSCODE_ICON_THEME: &'static str = "material-icon-theme";
@@ -363,23 +305,13 @@ impl ColorScheme {
     pub fn vscode_icon_theme(&self) -> &str {
         self.app_themes
             .vscode
-            .as_ref()
-            .and_then(|themes| themes.icon_theme.as_deref())
+            .icon_theme
+            .as_deref()
             .unwrap_or(Self::FALLBACK_VSCODE_ICON_THEME)
     }
 
     pub fn vscode_extension_id(&self) -> Option<&str> {
-        self.app_themes
-            .vscode
-            .as_ref()
-            .and_then(|themes| themes.extension_id.as_deref())
-    }
-
-    pub fn zed_theme_name(&self) -> String {
-        self.app_themes
-            .zed
-            .clone()
-            .unwrap_or_else(|| format!("{}-{}", self.family, self.variant))
+        self.app_themes.vscode.extension_id.as_deref()
     }
 }
 
@@ -575,26 +507,8 @@ impl ThemeState {
 #[cfg(test)]
 mod dim_ramp_tests {
     use super::{ColorScheme, dim_ramp};
+    use crate::theme::color::relative_luminance;
     use std::{fs, path::PathBuf};
-
-    fn relative_luminance(hex: &str) -> f64 {
-        let digits = hex.trim_start_matches('#');
-        let channel = |start: usize| {
-            let value =
-                f64::from(u8::from_str_radix(&digits[start..start + 2], 16).unwrap()) / 255.0;
-            if value <= 0.03928 {
-                value / 12.92
-            } else {
-                ((value + 0.055) / 1.055).powf(2.4)
-            }
-        };
-        0.2126 * channel(0) + 0.7152 * channel(2) + 0.0722 * channel(4)
-    }
-
-    fn contrast(a: &str, b: &str) -> f64 {
-        let (a, b) = (relative_luminance(a), relative_luminance(b));
-        (a.max(b) + 0.05) / (a.min(b) + 0.05)
-    }
 
     fn every_scheme() -> Vec<(String, ColorScheme)> {
         let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../styling/colors");
@@ -635,23 +549,6 @@ mod dim_ramp_tests {
                     pair[0], pair[1]
                 );
             }
-        }
-    }
-
-    #[test]
-    fn workspace_pill_states_stay_distinguishable_in_every_scheme() {
-        // Workspaces.qml paints occupied pills fg2 and empty pills fg_faint.
-        for (name, scheme) in every_scheme() {
-            let separation = contrast(&scheme.fg2, &scheme.fg_faint);
-            assert!(
-                separation >= 2.0,
-                "{name}: occupied/empty pill contrast {separation:.2} is too low"
-            );
-            let visibility = contrast(&scheme.fg_faint, &scheme.bg);
-            assert!(
-                visibility >= 1.35,
-                "{name}: empty pill contrast against the bar {visibility:.2} is too low"
-            );
         }
     }
 

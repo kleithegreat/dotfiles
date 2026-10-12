@@ -1,13 +1,16 @@
-use super::{Assembly, GeneratedContent, TargetMetadata};
+use super::Target;
 use crate::theme::schema::{ColorScheme, ColorSchemeAppearance, ThemeState};
 use std::fmt::Write;
 
-pub const METADATA: TargetMetadata =
-    TargetMetadata::new("neovim", Assembly::Standalone, &["color_scheme"])
-        .output("~/.config/nvim/lua/theme-colors.lua")
-        .comment("--");
+pub const TARGET: Target = Target::standalone(
+    "neovim",
+    &["color_scheme"],
+    "~/.config/nvim/lua/theme-colors.lua",
+    generate,
+)
+.comment("--");
 
-pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<GeneratedContent> {
+pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<String> {
     let background = match colors.appearance {
         ColorSchemeAppearance::Dark => "dark",
         ColorSchemeAppearance::Light => "light",
@@ -32,13 +35,7 @@ pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<Gene
         ("cyan", &colors.cyan),
         ("orange", &colors.orange),
         ("accent", &colors.accent),
-        ("red_bright", &colors.red_bright),
-        ("green_bright", &colors.green_bright),
-        ("yellow_bright", &colors.yellow_bright),
         ("blue_bright", &colors.blue_bright),
-        ("purple_bright", &colors.purple_bright),
-        ("cyan_bright", &colors.cyan_bright),
-        ("orange_bright", &colors.orange_bright),
     ];
 
     let mut lua = String::new();
@@ -56,5 +53,5 @@ pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<Gene
     writeln!(lua, "  }},")?;
     writeln!(lua, "}}")?;
 
-    Ok(GeneratedContent::text(lua))
+    Ok(lua)
 }

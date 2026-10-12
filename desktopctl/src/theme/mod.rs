@@ -2,14 +2,15 @@ use crate::paths;
 use serde_json::{Map, Value};
 use std::io::Write;
 use std::{
-    env,
     fs::{self, OpenOptions},
     io,
     path::{Path, PathBuf},
-    process::{self, Command},
+    process,
     time::{SystemTime, UNIX_EPOCH},
 };
 
+pub mod color;
+mod command;
 pub mod json;
 pub mod orchestrator;
 pub mod resolve;
@@ -29,7 +30,6 @@ struct StateUpdateOutcome {
     value: Value,
     new_state: schema::ThemeState,
     affected_targets: std::collections::BTreeSet<String>,
-    registry: targets::TargetRegistry,
 }
 
 pub fn run(args: crate::ThemeArgs) -> crate::Result<()> {
@@ -65,13 +65,13 @@ fn set_dark_hint_internal(enabled: bool, origin: DarkHintOrigin) -> crate::Resul
 
     let colors_dir = resolve::colors_dir()?;
     let colors = resolve::load_colors(&outcome.new_state.color_scheme, &colors_dir)?;
-    orchestrator::apply_targets_quiet(
-        &outcome.registry,
+    orchestrator::apply(
         outcome.affected_targets.iter(),
         &colors,
         &outcome.new_state,
         true,
     )
+    .into_result()
     .map_err(|error| {
         io::Error::other(format!(
             "failed to apply affected theme targets for dark_hint: {error}"
@@ -213,36 +213,6 @@ pub(crate) fn fnv1a_fingerprint(text: &str) -> String {
     format!("{hash:016x}")
 }
 
-pub(crate) fn run_command(command: &[&str]) -> crate::Result<()> {
-    if command.is_empty() {
-        return Err(io::Error::new(io::ErrorKind::InvalidInput, "Command cannot be empty").into());
-    }
-
-    let output = Command::new(command[0]).args(&command[1..]).output();
-    command_result(output, command[0])
-}
-
-pub(crate) fn run_owned_command(command: &[String]) -> crate::Result<()> {
-    if command.is_empty() {
-        return Err(io::Error::new(io::ErrorKind::InvalidInput, "Command cannot be empty").into());
-    }
-
-    let output = Command::new(&command[0]).args(&command[1..]).output();
-    command_result(output, &command[0])
-}
-
-pub(crate) fn find_command(program: &str) -> Option<PathBuf> {
-    if program.contains(std::path::MAIN_SEPARATOR) {
-        let path = PathBuf::from(program);
-        return is_executable(&path).then_some(path);
-    }
-
-    let path_var = env::var_os("PATH")?;
-    env::split_paths(&path_var)
-        .map(|dir| dir.join(program))
-        .find(|candidate| is_executable(candidate))
-}
-
 // Writes go through the daemon, the single writer; `sync` is the exception (activation has no session).
 fn run_cli(args: crate::ThemeArgs) -> CliResult<()> {
     match args.command {
@@ -302,31 +272,12 @@ fn remote_apply(scope: &str, target: Option<String>, wait_secs: u64) -> CliResul
         crate::ipc::APPLY_TIMEOUT,
     )?;
 
-    if let Some(skipped) = report["skipped"].as_array()
-        && !skipped.is_empty()
-    {
-        let names = skipped
-            .iter()
-            .filter_map(Value::as_str)
-            .collect::<Vec<_>>()
-            .join(", ");
-        println!("  (skipping unregistered: {names})");
-    }
-    for name in report["applied"].as_array().into_iter().flatten() {
-        if let Some(name) = name.as_str() {
-            println!("  {name}: ok");
-        }
-    }
+    finish_apply(serde_json::from_value(report).map_err(CliFailure::from_error)?)
+}
 
-    let failed = report["failed"].as_array().cloned().unwrap_or_default();
-    for failure in &failed {
-        eprintln!(
-            "  {}: FAILED — {}",
-            failure["target"].as_str().unwrap_or("?"),
-            failure["error"].as_str().unwrap_or("unknown error")
-        );
-    }
-    if failed.is_empty() {
+fn finish_apply(report: orchestrator::ApplyReport) -> CliResult<()> {
+    report.print();
+    if report.ok() {
         Ok(())
     } else {
         Err(CliFailure::Reported)
@@ -396,17 +347,12 @@ fn remote_preset_delete(args: crate::NamedArg) -> CliResult<()> {
 }
 
 fn cmd_sync() -> CliResult<()> {
-    let registry = map_user_err(targets::build_registry())?;
     let (state, colors) = load_state_and_colors()?;
     println!(
         "Syncing theme-managed config ({}-{})...",
         colors.family, colors.variant
     );
-    if orchestrator::apply_all(&registry, &colors, &state, false, true) {
-        Ok(())
-    } else {
-        Err(CliFailure::Reported)
-    }
+    finish_apply(orchestrator::apply_all(&colors, &state, false, true))
 }
 
 fn cmd_list_schemes() -> CliResult<()> {
@@ -588,13 +534,13 @@ pub(crate) fn set_theme_key_core(
 
     let colors_dir = resolve::colors_dir()?;
     let colors = resolve::load_colors(&outcome.new_state.color_scheme, &colors_dir)?;
-    orchestrator::apply_targets_quiet(
-        &outcome.registry,
+    orchestrator::apply(
         outcome.affected_targets.iter(),
         &colors,
         &outcome.new_state,
         true,
-    )?;
+    )
+    .into_result()?;
     resolve::save_state_keys(&[(key, &outcome.value)])?;
     Ok(SetKeyOutcome {
         changed: true,
@@ -603,36 +549,22 @@ pub(crate) fn set_theme_key_core(
 }
 
 pub(crate) fn apply_scope_core(scope: &ApplyScope) -> crate::Result<orchestrator::ApplyReport> {
-    let registry = targets::build_registry()?;
     let colors_dir = resolve::colors_dir()?;
     let state = resolve::load_state()?;
     let colors = resolve::load_colors(&state.color_scheme, &colors_dir)?;
+    let run = |names: Vec<&str>| orchestrator::apply(names, &colors, &state, true);
 
     Ok(match scope {
-        ApplyScope::All => orchestrator::apply_all_collect(&registry, &colors, &state, true, false),
-        ApplyScope::Colors => orchestrator::apply_targets_collect(
-            &registry,
-            orchestrator::color_targets(&registry, &state),
-            &colors,
-            &state,
-            true,
-        ),
-        ApplyScope::Wallpaper => {
-            orchestrator::apply_targets_collect(&registry, ["wallpaper"], &colors, &state, true)
+        ApplyScope::All => orchestrator::apply_all(&colors, &state, true, false),
+        ApplyScope::Colors => {
+            orchestrator::apply(orchestrator::color_targets(&state), &colors, &state, true)
         }
-        ApplyScope::Cursor => {
-            orchestrator::apply_targets_collect(&registry, ["cursor"], &colors, &state, true)
+        ApplyScope::Wallpaper => run(vec!["wallpaper"]),
+        ApplyScope::Cursor => run(vec!["cursor"]),
+        ApplyScope::Fonts => {
+            orchestrator::apply(orchestrator::font_targets(), &colors, &state, true)
         }
-        ApplyScope::Fonts => orchestrator::apply_targets_collect(
-            &registry,
-            orchestrator::font_targets(&registry),
-            &colors,
-            &state,
-            true,
-        ),
-        ApplyScope::Target(name) => {
-            orchestrator::apply_targets_collect(&registry, [name.as_str()], &colors, &state, true)
-        }
+        ApplyScope::Target(name) => run(vec![name.as_str()]),
     })
 }
 
@@ -675,22 +607,9 @@ pub(crate) fn apply_preset_core(name: &str) -> crate::Result<PresetOutcome> {
 
     let colors_dir = resolve::colors_dir()?;
     let colors = resolve::load_colors(&new_state.color_scheme, &colors_dir)?;
-    let registry = targets::build_registry()?;
-    let affected = orchestrator::targets_for_keys(
-        &registry,
-        preset.keys().map(String::as_str),
-        Some(&new_state),
-    );
-    let report =
-        orchestrator::apply_targets_collect(&registry, affected, &colors, &new_state, true);
-    if !report.ok() {
-        let failures = report
-            .failed
-            .iter()
-            .map(|(target, error)| format!("{target}: {error}"))
-            .collect::<Vec<_>>();
-        return Err(io::Error::other(failures.join("; ")).into());
-    }
+    let affected =
+        orchestrator::targets_for_keys(preset.keys().map(String::as_str), Some(&new_state));
+    orchestrator::apply(affected, &colors, &new_state, true).into_result()?;
 
     let manual_at = Value::String(manual_write_timestamp());
     let mut pairs = preset
@@ -774,18 +693,15 @@ fn set_state_key_internal(key: &str, raw_value: Value) -> crate::Result<StateUpd
             value,
             new_state: state,
             affected_targets: std::collections::BTreeSet::new(),
-            registry: targets::TargetRegistry::new(),
         });
     }
-    let registry = targets::build_registry()?;
-    let affected_targets = orchestrator::targets_for_key(&registry, key, Some(&new_state));
+    let affected_targets = orchestrator::targets_for_key(key, Some(&new_state));
 
     Ok(StateUpdateOutcome {
         changed: true,
         value,
         new_state,
         affected_targets,
-        registry,
     })
 }
 
@@ -1052,43 +968,6 @@ impl CliFailure {
     }
 }
 
-fn is_executable(path: &Path) -> bool {
-    use std::os::unix::fs::PermissionsExt;
-
-    match path.metadata() {
-        Ok(metadata) => metadata.is_file() && metadata.permissions().mode() & 0o111 != 0,
-        Err(_) => false,
-    }
-}
-
-fn command_result(output: io::Result<std::process::Output>, program: &str) -> crate::Result<()> {
-    let output = match output {
-        Ok(output) => output,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => {
-            return Err(
-                io::Error::new(io::ErrorKind::NotFound, format!("{program:?} not found")).into(),
-            );
-        }
-        Err(error) => return Err(error.into()),
-    };
-
-    if output.status.success() {
-        return Ok(());
-    }
-
-    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_owned();
-    let message = if !stderr.is_empty() {
-        stderr
-    } else if !stdout.is_empty() {
-        stdout
-    } else {
-        format!("command exited with status {}", output.status)
-    };
-
-    Err(io::Error::other(message).into())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1202,8 +1081,7 @@ mod tests {
 
     #[test]
     fn font_targets_do_not_include_tmux() {
-        let registry = targets::build_registry().expect("registry builds");
-        assert!(!orchestrator::font_targets(&registry).contains("tmux"));
+        assert!(!orchestrator::font_targets().contains("tmux"));
     }
 
     #[test]

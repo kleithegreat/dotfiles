@@ -1,21 +1,21 @@
-use super::{Assembly, GeneratedContent, TargetMetadata};
+use super::Target;
 use crate::theme::schema::{ColorScheme, ThemeState};
 
-pub const METADATA: TargetMetadata = TargetMetadata::new(
+pub const TARGET: Target = Target::standalone(
     "alacritty",
-    Assembly::Import,
     &[
         "color_scheme",
         "mono_font",
         "mono_font_size",
         "alacritty_mono_font_size_offset",
     ],
+    "~/.config/alacritty/theme.toml",
+    generate,
 )
-.output("~/.config/alacritty/theme.toml")
 .comment("#");
 
-pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<GeneratedContent> {
-    Ok(GeneratedContent::text(format!(
+pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<String> {
+    Ok(format!(
         concat!(
             "[font]\n",
             "normal = {{ family = \"{}\" }}\n",
@@ -46,7 +46,7 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Gener
             "white   = \"{}\"\n",
         ),
         state.mono_font,
-        state.mono_font_size_for(METADATA.name)?,
+        state.mono_font_size_for(TARGET.name)?,
         colors.bg,
         colors.fg,
         colors.palette[0],
@@ -65,5 +65,5 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Gener
         colors.palette[13],
         colors.palette[14],
         colors.palette[15],
-    )))
+    ))
 }

@@ -1,6 +1,6 @@
-use super::{Assembly, GeneratedContent, TargetMetadata};
+use super::Target;
 use crate::theme::{
-    find_command,
+    command::find_command,
     schema::{ColorScheme, ThemeState},
 };
 use std::{
@@ -8,22 +8,23 @@ use std::{
     process::{Command, Stdio},
 };
 
-pub const METADATA: TargetMetadata = TargetMetadata::new(
+pub const TARGET: Target = Target::concat(
     "snappy_switcher",
-    Assembly::Concat,
     &["color_scheme", "system_font", "icon_theme", "font_size"],
+    "~/.config/snappy-switcher/config.ini",
+    "bases/snappy-switcher.ini",
+    generate,
 )
-.output("~/.config/snappy-switcher/config.ini")
-.base("bases/snappy-switcher.ini")
-.comment("#");
+.comment("#")
+.on_apply(on_apply);
 
 fn rgba(hex_color: &str, alpha: &str) -> String {
     format!("{hex_color}{alpha}")
 }
 
-pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<GeneratedContent> {
+pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<String> {
     let title_size = (state.font_size - 1).max(1);
-    Ok(GeneratedContent::text(format!(
+    Ok(format!(
         concat!(
             "[theme]\n",
             "name = {}\n",
@@ -48,7 +49,7 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Gener
             "weight = Bold\n",
             "title_size = {}\n",
         ),
-        colors.snappy_switcher_theme_name(),
+        colors.app_themes.snappy_switcher,
         rgba(&colors.bg, "ff"),
         rgba(&colors.bg1, "ff"),
         rgba(&colors.bg2, "ff"),
@@ -61,7 +62,7 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Gener
         state.icon_theme,
         state.system_font,
         title_size,
-    )))
+    ))
 }
 
 pub fn on_apply(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {

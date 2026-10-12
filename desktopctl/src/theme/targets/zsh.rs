@@ -1,10 +1,16 @@
-use super::{Assembly, GeneratedContent, TargetMetadata, color_utils::contrast_ratio};
-use crate::theme::schema::{ColorScheme, ThemeState};
+use super::Target;
+use crate::theme::{
+    color::contrast_ratio,
+    schema::{ColorScheme, ThemeState},
+};
 
-pub const METADATA: TargetMetadata =
-    TargetMetadata::new("zsh", Assembly::Import, &["color_scheme"])
-        .output("~/.config/zsh/theme-colors")
-        .comment("#");
+pub const TARGET: Target = Target::standalone(
+    "zsh",
+    &["color_scheme"],
+    "~/.config/zsh/theme-colors",
+    generate,
+)
+.comment("#");
 
 const MIN_HINT_CONTRAST: f64 = 3.0;
 
@@ -25,11 +31,11 @@ fn autosuggest_color(colors: &ColorScheme) -> &str {
     colors.fg.as_str()
 }
 
-pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<GeneratedContent> {
-    Ok(GeneratedContent::text(format!(
+pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<String> {
+    Ok(format!(
         "ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg={}'\n",
         autosuggest_color(colors)
-    )))
+    ))
 }
 
 #[cfg(test)]

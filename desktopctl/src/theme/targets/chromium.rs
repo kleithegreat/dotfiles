@@ -1,4 +1,4 @@
-use super::{Assembly, GeneratedContent, TargetMetadata};
+use super::Target;
 use crate::theme::{
     atomic_write, expand_user_path, json,
     schema::{ColorScheme, ThemeState},
@@ -9,21 +9,14 @@ use std::{
     path::{Component, Path},
 };
 
-pub const METADATA: TargetMetadata = TargetMetadata::new(
-    "chromium",
-    Assembly::Command,
-    &["system_font", "mono_font", "dark_hint"],
-);
+pub const TARGET: Target =
+    Target::hooks("chromium", &["system_font", "mono_font", "dark_hint"]).persist(persist);
 
 const CHROMIUM_CONFIG_DIR: &str = "~/.config/chromium";
 const DEFAULT_PROFILE_NAME: &str = "Default";
 const LOCAL_STATE_FILE_NAME: &str = "Local State";
 const PREFERENCES_FILE_NAME: &str = "Preferences";
 const COMMON_SCRIPT: &str = "Zyyy";
-
-pub fn generate(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<GeneratedContent> {
-    Ok(GeneratedContent::commands(Vec::new()))
-}
 
 pub fn persist(_colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
     write_active_preferences(&expand_user_path(CHROMIUM_CONFIG_DIR)?, state)

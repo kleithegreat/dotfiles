@@ -1,46 +1,25 @@
-use super::{Assembly, GeneratedContent, TargetMetadata};
+use super::Target;
 use crate::theme::{
-    atomic_write, expand_user_path, find_command, run_owned_command,
+    atomic_write,
+    color::blend_rounded,
+    command::{find_command, run},
+    expand_user_path,
     schema::{ColorScheme, ThemeState},
 };
 use std::fs;
 
-pub const METADATA: TargetMetadata =
-    TargetMetadata::new("spicetify", Assembly::Standalone, &["color_scheme"])
-        .output("~/.config/spicetify/Themes/ApplyTheme/color.ini")
-        .comment(";");
+pub const TARGET: Target = Target::standalone(
+    "spicetify",
+    &["color_scheme"],
+    "~/.config/spicetify/Themes/ApplyTheme/color.ini",
+    generate,
+)
+.comment(";")
+.persist(persist)
+.on_apply(on_apply);
 
 const THEME_DIR: &str = "~/.config/spicetify/Themes/ApplyTheme";
 const USER_CSS_PATH: &str = "~/.config/spicetify/Themes/ApplyTheme/user.css";
-
-fn python_round(value: f64) -> i64 {
-    let floor = value.floor();
-    let diff = value - floor;
-    if diff < 0.5 {
-        floor as i64
-    } else if diff > 0.5 {
-        floor as i64 + 1
-    } else {
-        let floor_int = floor as i64;
-        if floor_int % 2 == 0 {
-            floor_int
-        } else {
-            floor_int + 1
-        }
-    }
-}
-
-fn blend(first: &str, second: &str, factor: f64) -> String {
-    let factor = factor.clamp(0.0, 1.0);
-    let mut channels = Vec::with_capacity(3);
-    for offset in [1, 3, 5] {
-        let start = i64::from(u8::from_str_radix(&first[offset..offset + 2], 16).unwrap());
-        let end = i64::from(u8::from_str_radix(&second[offset..offset + 2], 16).unwrap());
-        let blended = python_round(start as f64 + (end - start) as f64 * factor);
-        channels.push(blended as u8);
-    }
-    format!("#{:02x}{:02x}{:02x}", channels[0], channels[1], channels[2])
-}
 
 fn spice_hex(hex_color: &str) -> &str {
     &hex_color[1..]
@@ -55,7 +34,7 @@ fn shadow(colors: &ColorScheme) -> String {
 }
 
 fn button_active(colors: &ColorScheme) -> String {
-    blend(&colors.accent, &colors.fg, 0.18)
+    blend_rounded(&colors.accent, &colors.fg, 0.18, f64::round_ties_even)
 }
 
 fn button_disabled(colors: &ColorScheme) -> String {
@@ -66,7 +45,7 @@ fn button_disabled(colors: &ColorScheme) -> String {
     }
 }
 
-pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<GeneratedContent> {
+pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<String> {
     let mapping = [
         ("text", colors.fg.clone()),
         ("subtext", colors.fg3.clone()),
@@ -92,7 +71,7 @@ pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<Gene
             .map(|(key, value)| format!("{key} = {}", spice_hex(&value))),
     );
 
-    Ok(GeneratedContent::text(format!("{}\n", lines.join("\n"))))
+    Ok(format!("{}\n", lines.join("\n")))
 }
 
 pub fn persist(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
@@ -114,6 +93,5 @@ pub fn on_apply(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()>
         return Ok(());
     }
 
-    let command = vec!["spicetify".to_owned(), "update".to_owned()];
-    run_owned_command(&command)
+    run(&["spicetify", "update"])
 }

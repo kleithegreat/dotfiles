@@ -1,6 +1,6 @@
 //! The Kvantum theme, generated whole from the scheme; see docs/theming.md.
 
-use super::color_utils::blend;
+use crate::theme::color::{blend, readable_on_ends};
 use crate::theme::schema::ColorScheme;
 
 /// Painted border width in SVG units; stays 1 only because tile size equals the radius.
@@ -36,7 +36,7 @@ impl Palette {
             track: blend(&window, &colors.fg, 0.13),
             thumb: blend(&window, &colors.fg, 0.32),
             accent: colors.accent.clone(),
-            on_accent: super::color_utils::readable_on(&colors.accent, &colors.bg, &colors.fg),
+            on_accent: readable_on_ends(&colors.accent, &colors.bg, &colors.fg),
             button,
             window,
         }

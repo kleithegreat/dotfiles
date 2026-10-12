@@ -1,8 +1,10 @@
-use super::{Assembly, GeneratedContent, TargetMetadata, scheme_pair};
+use super::{Target, scheme_pair};
 use crate::{
     paths,
     theme::{
-        atomic_write, find_command, json, resolve,
+        atomic_write,
+        command::find_command,
+        json, resolve,
         schema::{ColorScheme, ColorSchemeAppearance, ThemeState},
     },
 };
@@ -14,16 +16,18 @@ use std::{
     process::{Command, Stdio},
 };
 
-pub const METADATA: TargetMetadata = TargetMetadata::new(
+pub const TARGET: Target = Target::standalone(
     "vicinae",
-    Assembly::Import,
     &["color_scheme", "system_font", "icon_theme"],
+    "~/.config/vicinae/settings.theme.json",
+    generate,
 )
-.output("~/.config/vicinae/settings.theme.json");
+.persist(persist)
+.on_apply(on_apply);
 
 const THEME_OUTPUT_DIR: &str = "vicinae/themes";
 
-pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<GeneratedContent> {
+pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<String> {
     let mut font = Map::new();
     let mut normal = Map::new();
     normal.insert(
@@ -37,7 +41,7 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Gener
     let mut appearance = Map::new();
     appearance.insert(
         "name".to_owned(),
-        Value::String(colors.vicinae_theme_name()),
+        Value::String(colors.app_themes.vicinae.name.clone()),
     );
     appearance.insert(
         "icon_theme".to_owned(),
@@ -55,9 +59,7 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Gener
     root.insert("font".to_owned(), Value::Object(font));
     root.insert("theme".to_owned(), Value::Object(theme));
 
-    Ok(GeneratedContent::text(json::format_pretty_value(
-        &Value::Object(root),
-    )))
+    Ok(json::format_pretty_value(&Value::Object(root)))
 }
 
 pub fn persist(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
@@ -65,9 +67,12 @@ pub fn persist(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
     // first is named by `generate`; the others are what populate the launcher's
     // own theme picker with the rest of the family, so switching from inside
     // vicinae finds them already rendered.
-    let mut candidates = vec![(colors.vicinae_theme_name(), Cow::Borrowed(colors))];
+    let mut candidates = vec![(
+        colors.app_themes.vicinae.name.clone(),
+        Cow::Borrowed(colors),
+    )];
 
-    let light_theme_name = colors.vicinae_light_theme_name();
+    let light_theme_name = colors.app_themes.vicinae.light_name.clone();
     if light_theme_name != candidates[0].0 {
         let light_colors = resolve::load_colors(&light_theme_name, &paths::data_path("colors")?)?;
         candidates.push((light_theme_name, Cow::Owned(light_colors)));
@@ -75,7 +80,10 @@ pub fn persist(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
 
     for appearance in [ColorSchemeAppearance::Light, ColorSchemeAppearance::Dark] {
         if let Some(companion) = appearance_companion(colors, appearance)? {
-            candidates.push((companion.vicinae_theme_name(), Cow::Owned(companion)));
+            candidates.push((
+                companion.app_themes.vicinae.name.clone(),
+                Cow::Owned(companion),
+            ));
         }
     }
 
@@ -243,11 +251,8 @@ mod tests {
     };
     use std::fs;
 
-    fn text(content: crate::Result<GeneratedContent>) -> String {
-        match content.expect("target generation succeeds") {
-            GeneratedContent::Text(text) => text,
-            GeneratedContent::Commands(_) => panic!("expected text content"),
-        }
+    fn text(content: crate::Result<String>) -> String {
+        content.expect("target generation succeeds")
     }
 
     #[test]

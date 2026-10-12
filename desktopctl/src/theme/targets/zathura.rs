@@ -1,13 +1,16 @@
-use super::{Assembly, GeneratedContent, TargetMetadata};
+use super::Target;
 use crate::theme::schema::{ColorScheme, ThemeState};
 
-pub const METADATA: TargetMetadata =
-    TargetMetadata::new("zathura", Assembly::Import, &["color_scheme"])
-        .output("~/.config/zathura/colors")
-        .comment("#");
+pub const TARGET: Target = Target::standalone(
+    "zathura",
+    &["color_scheme"],
+    "~/.config/zathura/colors",
+    generate,
+)
+.comment("#");
 
-pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<GeneratedContent> {
-    Ok(GeneratedContent::text(format!(
+pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<String> {
+    Ok(format!(
         concat!(
             "set default-bg \"{}\"\n",
             "set default-fg \"{}\"\n",
@@ -52,5 +55,5 @@ pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<Gene
         colors.bg,
         colors.bg,
         colors.fg,
-    )))
+    ))
 }

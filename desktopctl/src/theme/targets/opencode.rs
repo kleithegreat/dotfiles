@@ -1,27 +1,31 @@
-use super::{Assembly, GeneratedContent, TargetMetadata};
+use super::Target;
 use crate::theme::{
-    atomic_write, expand_user_path, json,
+    atomic_write,
+    color::blend,
+    expand_user_path, json,
     schema::{ColorScheme, ThemeState},
 };
 use serde_json::{Map, Value};
 use std::path::Path;
 
-pub const METADATA: TargetMetadata =
-    TargetMetadata::new("opencode", Assembly::Concat, &["color_scheme"])
-        .output("~/.config/opencode/tui.json")
-        .base("bases/opencode.json");
+pub const TARGET: Target = Target::concat(
+    "opencode",
+    &["color_scheme"],
+    "~/.config/opencode/tui.json",
+    "bases/opencode.json",
+    generate,
+)
+.persist(persist);
 
 const THEME_NAME: &str = "desktopctl";
 const THEME_OUTPUT_PATH: &str = "~/.config/opencode/themes/desktopctl.json";
 const THEME_SCHEMA_URL: &str = "https://opencode.ai/theme.json";
 
-pub fn generate(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<GeneratedContent> {
+pub fn generate(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<String> {
     let mut root = Map::new();
     root.insert("theme".to_owned(), Value::String(THEME_NAME.to_owned()));
 
-    Ok(GeneratedContent::text(json::format_pretty_value(
-        &Value::Object(root),
-    )))
+    Ok(json::format_pretty_value(&Value::Object(root)))
 }
 
 pub fn persist(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
@@ -78,11 +82,11 @@ fn render_theme(colors: &ColorScheme) -> String {
     );
     theme.insert(
         "diffAddedBg".to_owned(),
-        Value::String(blend_hex(&colors.bg, &colors.green, diff_alpha)),
+        Value::String(blend(&colors.bg, &colors.green, diff_alpha)),
     );
     theme.insert(
         "diffRemovedBg".to_owned(),
-        Value::String(blend_hex(&colors.bg, &colors.red, diff_alpha)),
+        Value::String(blend(&colors.bg, &colors.red, diff_alpha)),
     );
     theme.insert(
         "diffContextBg".to_owned(),
@@ -94,11 +98,11 @@ fn render_theme(colors: &ColorScheme) -> String {
     );
     theme.insert(
         "diffAddedLineNumberBg".to_owned(),
-        Value::String(blend_hex(&colors.bg1, &colors.green, diff_line_alpha)),
+        Value::String(blend(&colors.bg1, &colors.green, diff_line_alpha)),
     );
     theme.insert(
         "diffRemovedLineNumberBg".to_owned(),
-        Value::String(blend_hex(&colors.bg1, &colors.red, diff_line_alpha)),
+        Value::String(blend(&colors.bg1, &colors.red, diff_line_alpha)),
     );
     theme.insert("markdownText".to_owned(), Value::String(colors.fg.clone()));
     theme.insert(
@@ -195,29 +199,6 @@ fn render_theme(colors: &ColorScheme) -> String {
     root.insert("theme".to_owned(), Value::Object(theme));
 
     format!("{}\n", json::format_pretty_value(&Value::Object(root)))
-}
-
-fn blend_hex(base: &str, overlay: &str, alpha: f64) -> String {
-    let (base_r, base_g, base_b) = parse_hex(base);
-    let (overlay_r, overlay_g, overlay_b) = parse_hex(overlay);
-    format!(
-        "#{:02x}{:02x}{:02x}",
-        blend_channel(base_r, overlay_r, alpha),
-        blend_channel(base_g, overlay_g, alpha),
-        blend_channel(base_b, overlay_b, alpha),
-    )
-}
-
-fn parse_hex(value: &str) -> (u8, u8, u8) {
-    (
-        u8::from_str_radix(&value[1..3], 16).expect("validated red channel"),
-        u8::from_str_radix(&value[3..5], 16).expect("validated green channel"),
-        u8::from_str_radix(&value[5..7], 16).expect("validated blue channel"),
-    )
-}
-
-fn blend_channel(base: u8, overlay: u8, alpha: f64) -> u8 {
-    ((base as f64) + ((overlay as f64) - (base as f64)) * alpha).round() as u8
 }
 
 #[cfg(test)]

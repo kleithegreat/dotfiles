@@ -1,16 +1,18 @@
-use super::{Assembly, GeneratedContent, TargetMetadata};
+use super::Target;
 use crate::theme::{
-    expand_user_path, run_owned_command,
+    command::run,
+    expand_user_path,
     schema::{ColorScheme, ThemeState},
 };
 
-pub const METADATA: TargetMetadata =
-    TargetMetadata::new("tmux", Assembly::Import, &["color_scheme"])
-        .output("~/.config/tmux/colors.conf")
-        .comment("#");
+const OUTPUT_PATH: &str = "~/.config/tmux/colors.conf";
 
-pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<GeneratedContent> {
-    Ok(GeneratedContent::text(format!(
+pub const TARGET: Target = Target::standalone("tmux", &["color_scheme"], OUTPUT_PATH, generate)
+    .comment("#")
+    .on_apply(on_apply);
+
+pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<String> {
+    Ok(format!(
         concat!(
             "set -g status-style \"bg={},fg={}\"\n",
             "set -g status-left \"#[fg={},bg={},bold] #S #[bg={}] \"\n",
@@ -30,15 +32,14 @@ pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<Gene
         colors.green,
         colors.bg1,
         colors.accent,
-    )))
+    ))
 }
 
 pub fn on_apply(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
-    let output_path = expand_user_path(METADATA.output_path.expect("tmux output path"))?;
-    let command = vec![
-        "tmux".to_owned(),
-        "source-file".to_owned(),
-        output_path.display().to_string(),
-    ];
-    run_owned_command(&command)
+    let output_path = expand_user_path(OUTPUT_PATH)?;
+    run(&[
+        "tmux".as_ref(),
+        "source-file".as_ref(),
+        output_path.as_os_str(),
+    ])
 }

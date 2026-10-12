@@ -1,11 +1,10 @@
-use super::{Assembly, GeneratedContent, TargetMetadata};
+use super::Target;
 use crate::theme::schema::{ColorScheme, ThemeState};
 
 const RELOAD_CMD: &[&str] = &["hyprctl", "reload"];
 
-pub const METADATA: TargetMetadata = TargetMetadata::new(
+pub const TARGET: Target = Target::standalone(
     "hypr_appearance",
-    Assembly::Standalone,
     &[
         "hypr_gaps_in",
         "hypr_gaps_out",
@@ -16,8 +15,9 @@ pub const METADATA: TargetMetadata = TargetMetadata::new(
         "hypr_blur_passes",
         "hypr_animations_enabled",
     ],
+    "~/.config/hypr/appearance-theme.lua",
+    generate,
 )
-.output("~/.config/hypr/appearance-theme.lua")
 .reload_cmd(RELOAD_CMD)
 .comment("--");
 
@@ -25,8 +25,8 @@ fn bool_word(value: bool) -> &'static str {
     if value { "true" } else { "false" }
 }
 
-pub fn generate(_colors: &ColorScheme, state: &ThemeState) -> crate::Result<GeneratedContent> {
-    Ok(GeneratedContent::text(format!(
+pub fn generate(_colors: &ColorScheme, state: &ThemeState) -> crate::Result<String> {
+    Ok(format!(
         concat!(
             "return {{\n",
             "    gaps_in            = {},\n",
@@ -47,5 +47,5 @@ pub fn generate(_colors: &ColorScheme, state: &ThemeState) -> crate::Result<Gene
         state.hypr_blur_size,
         state.hypr_blur_passes,
         bool_word(state.hypr_animations_enabled),
-    )))
+    ))
 }

@@ -1,13 +1,14 @@
-use super::{Assembly, GeneratedContent, TargetMetadata, color_utils, kvantum, scheme_pair};
+use super::{Target, kvantum, scheme_pair};
 use crate::theme::{
-    atomic_write, expand_user_path,
+    atomic_write, color, expand_user_path,
     schema::{ColorScheme, ColorSchemeAppearance, ThemeState},
 };
 use std::{borrow::Cow, fs, path::Path, process::Command};
 
-pub const METADATA: TargetMetadata = TargetMetadata::new(
+const OUTPUT_PATH: &str = "~/.config/qt6ct/colors/current.conf";
+
+pub const TARGET: Target = Target::standalone(
     "qt",
-    Assembly::Standalone,
     &[
         "color_scheme",
         "dark_hint",
@@ -19,8 +20,11 @@ pub const METADATA: TargetMetadata = TargetMetadata::new(
         "mono_font_size",
         "qt_mono_font_size_offset",
     ],
+    OUTPUT_PATH,
+    generate,
 )
-.output("~/.config/qt6ct/colors/current.conf");
+.persist(persist)
+.on_apply(on_apply);
 
 const QT6CT_CONF: &str = "~/.config/qt6ct/qt6ct.conf";
 const KDEGLOBALS: &str = "~/.config/kdeglobals";
@@ -32,9 +36,9 @@ const KVANTUM_THEME_DIR: &str = "~/.config/Kvantum/GeneratedTheme";
 const KATERC: &str = "~/.config/katerc";
 const KWRITERC: &str = "~/.config/kwriterc";
 
-pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<GeneratedContent> {
+pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<String> {
     let colors = ui_colors(colors, state)?;
-    let on_accent = color_utils::readable_on(&colors.accent, &colors.bg, &colors.fg);
+    let on_accent = color::readable_on_ends(&colors.accent, &colors.bg, &colors.fg);
     let active = vec![
         argb(&colors.fg),
         argb(&colors.bg1),
@@ -66,7 +70,7 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Gener
 
     let inactive = active.clone();
     let separator = ", ";
-    Ok(GeneratedContent::text(format!(
+    Ok(format!(
         concat!(
             "[ColorScheme]\n",
             "active_colors={}\n",
@@ -76,7 +80,7 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Gener
         active.join(separator),
         disabled.join(separator),
         inactive.join(separator),
-    )))
+    ))
 }
 
 const POLKIT_AGENT_UNIT: &str = "hyprpolkitagent.service";
@@ -145,12 +149,8 @@ fn argb_alpha(hex_color: &str, alpha: &str) -> String {
 }
 
 fn rgb(hex_color: &str) -> String {
-    format!(
-        "{},{},{}",
-        u8::from_str_radix(&hex_color[1..3], 16).unwrap(),
-        u8::from_str_radix(&hex_color[3..5], 16).unwrap(),
-        u8::from_str_radix(&hex_color[5..7], 16).unwrap()
-    )
+    let [red, green, blue] = color::parse_hex(hex_color).expect("scheme colors are validated");
+    format!("{red},{green},{blue}")
 }
 
 /// `QFont::toString()`'s 16-field form. A field count Qt cannot parse makes
@@ -161,7 +161,7 @@ fn qfont(family: &str, size: i64) -> String {
 
 fn update_qt6ct_config(state: &ThemeState) -> crate::Result<()> {
     let conf_path = expand_user_path(QT6CT_CONF)?;
-    let scheme_path = expand_user_path(METADATA.output_path.expect("qt6ct output path"))?;
+    let scheme_path = expand_user_path(OUTPUT_PATH)?;
 
     let mut config = IniFile::from_path(&conf_path)?;
     for (key, value) in [
@@ -177,12 +177,12 @@ fn update_qt6ct_config(state: &ThemeState) -> crate::Result<()> {
     config.set(
         "Fonts",
         "general",
-        &qfont(&state.system_font, state.font_size_for(METADATA.name)?),
+        &qfont(&state.system_font, state.font_size_for(TARGET.name)?),
     );
     config.set(
         "Fonts",
         "fixed",
-        &qfont(&state.mono_font, state.mono_font_size_for(METADATA.name)?),
+        &qfont(&state.mono_font, state.mono_font_size_for(TARGET.name)?),
     );
 
     if let Some(parent) = conf_path.parent() {
@@ -330,7 +330,7 @@ fn apply_kde_colors(config: &mut IniFile, colors: &ColorScheme) {
 
     let fg = rgb(&colors.fg);
     let fg_dim = rgb(&colors.fg4);
-    let on_accent = color_utils::readable_on(&colors.accent, &colors.bg, &colors.fg);
+    let on_accent = color::readable_on_ends(&colors.accent, &colors.bg, &colors.fg);
 
     write_kde_color_states(
         config,

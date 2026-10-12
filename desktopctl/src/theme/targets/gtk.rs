@@ -1,16 +1,16 @@
-use super::{Assembly, GeneratedContent, TargetMetadata};
+use super::Target;
 use crate::theme::{
-    atomic_write, expand_user_path,
+    atomic_write,
+    command::{GNOME_INTERFACE_DCONF_DIR, dconf_write},
+    expand_user_path,
     schema::{ColorScheme, ThemeState},
 };
-use std::process::Command;
 
 const GTK3_SETTINGS: &str = "~/.config/gtk-3.0/settings.ini";
 const GTK4_SETTINGS: &str = "~/.config/gtk-4.0/settings.ini";
 
-pub const METADATA: TargetMetadata = TargetMetadata::new(
+pub const TARGET: Target = Target::hooks(
     "gtk",
-    Assembly::Command,
     &[
         "dark_hint",
         "system_font",
@@ -21,35 +21,9 @@ pub const METADATA: TargetMetadata = TargetMetadata::new(
         "mono_font_size",
         "gtk_mono_font_size_offset",
     ],
-);
-
-fn dconf_set(key: &str, value: &str) -> crate::Result<()> {
-    let output = Command::new("dconf")
-        .args([
-            "write",
-            &format!("/org/gnome/desktop/interface/{key}"),
-            value,
-        ])
-        .output();
-    let output = output?;
-    if output.status.success() {
-        return Ok(());
-    }
-    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_owned();
-    let message = if !stderr.is_empty() {
-        stderr
-    } else if !stdout.is_empty() {
-        stdout
-    } else {
-        format!("command exited with status {}", output.status)
-    };
-    Err(std::io::Error::other(message).into())
-}
-
-pub fn generate(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<GeneratedContent> {
-    Ok(GeneratedContent::commands(Vec::new()))
-}
+)
+.persist(persist)
+.on_apply(on_apply);
 
 fn gtk_theme(state: &ThemeState) -> &'static str {
     if state.dark_hint {
@@ -79,7 +53,7 @@ fn settings_ini(state: &ThemeState) -> crate::Result<String> {
         gtk_theme(state),
         state.icon_theme,
         state.system_font,
-        state.font_size_for(METADATA.name)?,
+        state.font_size_for(TARGET.name)?,
         if state.dark_hint { "true" } else { "false" },
     ))
 }
@@ -93,24 +67,21 @@ pub fn persist(_colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
 }
 
 pub fn on_apply(_colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
-    dconf_set("gtk-theme", &format!("'{}'", gtk_theme(state)))?;
-    dconf_set("color-scheme", &format!("'{}'", color_preference(state)))?;
-    dconf_set(
-        "font-name",
-        &format!(
-            "'{} {}'",
-            state.system_font,
-            state.font_size_for(METADATA.name)?,
+    let font = |family: &str, size: i64| format!("'{family} {size}'");
+    for (key, value) in [
+        ("gtk-theme", format!("'{}'", gtk_theme(state))),
+        ("color-scheme", format!("'{}'", color_preference(state))),
+        (
+            "font-name",
+            font(&state.system_font, state.font_size_for(TARGET.name)?),
         ),
-    )?;
-    dconf_set(
-        "monospace-font-name",
-        &format!(
-            "'{} {}'",
-            state.mono_font,
-            state.mono_font_size_for(METADATA.name)?,
+        (
+            "monospace-font-name",
+            font(&state.mono_font, state.mono_font_size_for(TARGET.name)?),
         ),
-    )?;
-    dconf_set("icon-theme", &format!("'{}'", state.icon_theme))?;
+        ("icon-theme", format!("'{}'", state.icon_theme)),
+    ] {
+        dconf_write(&format!("{GNOME_INTERFACE_DCONF_DIR}/{key}"), &value)?;
+    }
     Ok(())
 }

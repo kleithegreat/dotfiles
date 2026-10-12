@@ -1,22 +1,18 @@
-use super::{Assembly, GeneratedContent, TargetMetadata, wallpaper::selected_wallpaper_path};
+use super::{Target, wallpaper::selected_wallpaper_path};
 use crate::theme::{
     atomic_write,
     schema::{ColorScheme, ThemeState},
 };
 use std::{env, fs, path::PathBuf};
 
-pub const METADATA: TargetMetadata = TargetMetadata::new(
+pub const TARGET: Target = Target::hooks(
     "where_is_my_sddm_theme",
-    Assembly::Command,
     &["color_scheme", "wallpaper", "filter_wallpaper"],
-);
+)
+.persist(persist);
 
 const STAGED_BACKGROUND_PATH: &str = "/tmp/desktopctl-where-is-my-sddm-theme/background";
 const STAGED_BACKGROUND_ENV: &str = "DESKTOPCTL_SDDM_THEME_STAGE_PATH";
-
-pub fn generate(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<GeneratedContent> {
-    Ok(GeneratedContent::commands(Vec::new()))
-}
 
 pub fn persist(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
     let source = match selected_wallpaper_path(colors, state) {
@@ -71,17 +67,6 @@ mod tests {
         theme::targets::testsupport::{dummy_colors, dummy_state},
     };
     use std::fs;
-
-    #[test]
-    fn generate_returns_no_commands() {
-        let GeneratedContent::Commands(commands) =
-            generate(&dummy_colors(), &dummy_state()).expect("generate succeeds")
-        else {
-            panic!("expected command output");
-        };
-
-        assert!(commands.is_empty());
-    }
 
     #[test]
     fn persist_stages_current_wallpaper_bytes() {

@@ -1,4 +1,4 @@
-use super::{Assembly, GeneratedContent, TargetMetadata};
+use super::Target;
 use crate::theme::{
     expand_user_path, json,
     schema::{ColorScheme, ThemeState},
@@ -6,18 +6,19 @@ use crate::theme::{
 use rusqlite::{Connection, params};
 use serde_json::{Map, Value};
 
-pub const METADATA: TargetMetadata = TargetMetadata::new(
+pub const TARGET: Target = Target::concat(
     "vscode",
-    Assembly::Concat,
     &[
         "color_scheme",
         "mono_font",
         "mono_font_size",
         "vscode_mono_font_size_offset",
     ],
+    "~/.config/Code/User/settings.json",
+    "bases/vscode.json",
+    generate,
 )
-.output("~/.config/Code/User/settings.json")
-.base("bases/vscode.json");
+.persist(persist);
 
 const STATE_DB: &str = "~/.config/Code/User/globalStorage/state.vscdb";
 
@@ -37,13 +38,13 @@ fn terminal_font_family(name: &str) -> String {
     }
 }
 
-pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<GeneratedContent> {
-    let font_size = state.mono_font_size_for(METADATA.name)?;
+pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<String> {
+    let font_size = state.mono_font_size_for(TARGET.name)?;
 
     let mut root = Map::new();
     root.insert(
         "workbench.colorTheme".to_owned(),
-        Value::String(colors.vscode_theme_name()),
+        Value::String(colors.app_themes.vscode.name.clone()),
     );
     root.insert(
         "workbench.iconTheme".to_owned(),
@@ -69,9 +70,7 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Gener
         Value::from(font_size),
     );
 
-    Ok(GeneratedContent::text(json::format_pretty_value(
-        &Value::Object(root),
-    )))
+    Ok(json::format_pretty_value(&Value::Object(root)))
 }
 
 pub fn persist(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
@@ -139,11 +138,7 @@ mod tests {
 
     fn settings(scheme_name: &str) -> serde_json::Value {
         let colors = load_repo_colors(scheme_name);
-        let crate::theme::targets::GeneratedContent::Text(text) =
-            generate(&colors, &dummy_state()).expect("vscode settings generate")
-        else {
-            panic!("vscode target generates text");
-        };
+        let text = generate(&colors, &dummy_state()).expect("vscode settings generate");
         serde_json::from_str(&text).expect("generated settings are JSON")
     }
 

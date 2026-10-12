@@ -1,42 +1,28 @@
 use super::{
-    Assembly, GeneratedContent, TargetMetadata,
+    Target,
     scheme_pair::{self, SchemeEntry},
 };
 use crate::theme::{
-    atomic_write, expand_user_path,
+    atomic_write,
+    command::dconf_write,
+    expand_user_path,
     schema::{ColorScheme, ColorSchemeAppearance, ThemeState},
 };
-use std::{collections::HashSet, fs, path::Path, process::Command};
+use std::{collections::HashSet, fs, path::Path};
 
-pub const METADATA: TargetMetadata =
-    TargetMetadata::new("gtksourceview", Assembly::Standalone, &["color_scheme"])
-        .output("~/.local/share/libgedit-gtksourceview-300/styles/desktopctl-current.xml");
+pub const TARGET: Target = Target::standalone(
+    "gtksourceview",
+    &["color_scheme"],
+    "~/.local/share/libgedit-gtksourceview-300/styles/desktopctl-current.xml",
+    generate,
+)
+.persist(persist)
+.on_apply(on_apply);
 
 const STYLES_DIR: &str = "~/.local/share/libgedit-gtksourceview-300/styles";
 const CURRENT_FILE_NAME: &str = "desktopctl-current.xml";
 const CURRENT_SCHEME_ID: &str = "desktopctl-current";
 const GENERATED_FILE_PREFIX: &str = "desktopctl-";
-
-fn dconf_set(path: &str, value: &str) -> crate::Result<()> {
-    let output = Command::new("dconf")
-        .args(["write", path, value])
-        .output()?;
-    if output.status.success() {
-        return Ok(());
-    }
-
-    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_owned();
-    let message = if !stderr.is_empty() {
-        stderr
-    } else if !stdout.is_empty() {
-        stdout
-    } else {
-        format!("command exited with status {}", output.status)
-    };
-
-    Err(std::io::Error::other(message).into())
-}
 
 fn style_scheme_id(scheme_name: &str) -> String {
     format!("{GENERATED_FILE_PREFIX}{scheme_name}")
@@ -211,11 +197,8 @@ fn style_scheme_id_for_appearance(
     }
 }
 
-pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<GeneratedContent> {
-    Ok(GeneratedContent::text(render_current_style_scheme(
-        &state.color_scheme,
-        colors,
-    )))
+pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<String> {
+    Ok(render_current_style_scheme(&state.color_scheme, colors))
 }
 
 pub fn persist(_colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
@@ -249,11 +232,11 @@ pub fn on_apply(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> 
     let light_scheme_id =
         style_scheme_id_for_appearance(&catalog, colors, ColorSchemeAppearance::Light);
 
-    dconf_set(
+    dconf_write(
         "/org/gnome/gedit/preferences/editor/style-scheme-for-dark-theme-variant",
         &format!("'{}'", dark_scheme_id),
     )?;
-    dconf_set(
+    dconf_write(
         "/org/gnome/gedit/preferences/editor/style-scheme-for-light-theme-variant",
         &format!("'{}'", light_scheme_id),
     )?;
@@ -334,10 +317,7 @@ mod tests {
 
     #[test]
     fn generate_uses_desktopctl_current_alias_and_palette() {
-        let output = match generate(&dummy_colors(), &dummy_state()).expect("generate succeeds") {
-            GeneratedContent::Text(value) => value,
-            GeneratedContent::Commands(_) => panic!("expected text output"),
-        };
+        let output = generate(&dummy_colors(), &dummy_state()).expect("generate succeeds");
 
         assert!(output.contains("style-scheme id=\"desktopctl-current\""));
         assert!(output.contains("_name=\"Desktopctl Current (Gruvbox Dark)\""));

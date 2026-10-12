@@ -1,25 +1,25 @@
-use super::{Assembly, GeneratedContent, TargetMetadata};
+use super::Target;
 use crate::{
     paths,
     theme::{
-        expand_user_path, find_command, fnv1a_fingerprint,
+        command::{self, find_command},
+        expand_user_path, fnv1a_fingerprint,
         schema::{ColorScheme, ThemeState},
     },
 };
 use std::{
-    env, fs, io,
+    fs, io,
     path::{Path, PathBuf},
-    process::Command,
     thread,
     time::{Duration, Instant, UNIX_EPOCH},
 };
 
-pub const METADATA: TargetMetadata = TargetMetadata::new(
+pub const TARGET: Target = Target::hooks(
     "wallpaper",
-    Assembly::Command,
     &["color_scheme", "wallpaper", "filter_wallpaper"],
 )
-.sync_safe(false);
+.sync_safe(false)
+.on_apply(on_apply);
 
 const CACHE_VERSION: &str = "lutgen-apply-v2";
 
@@ -36,11 +36,7 @@ fn awww_command(path: &str) -> Vec<String> {
 }
 
 fn cache_root() -> crate::Result<PathBuf> {
-    match std::env::var("XDG_CACHE_HOME") {
-        Ok(base) => Ok(PathBuf::from(base).join("apply-theme").join("wallpaper")),
-        Err(std::env::VarError::NotPresent) => expand_user_path("~/.cache/apply-theme/wallpaper"),
-        Err(error) => Err(io::Error::new(io::ErrorKind::InvalidInput, error).into()),
-    }
+    Ok(paths::xdg_cache_home()?.join("apply-theme/wallpaper"))
 }
 
 fn cache_key(colors: &ColorScheme, wallpaper: &Path) -> crate::Result<String> {
@@ -68,7 +64,7 @@ pub(crate) fn filtered_wallpaper_path(
     colors: &ColorScheme,
     state: &ThemeState,
 ) -> crate::Result<PathBuf> {
-    let wallpaper = PathBuf::from(&state.wallpaper).expanduser()?;
+    let wallpaper = expand_user_path(&state.wallpaper)?;
     let stem = sanitize_stem(
         wallpaper
             .file_stem()
@@ -86,7 +82,7 @@ pub(crate) fn selected_wallpaper_path(
     colors: &ColorScheme,
     state: &ThemeState,
 ) -> crate::Result<PathBuf> {
-    let source = PathBuf::from(&state.wallpaper).expanduser()?;
+    let source = expand_user_path(&state.wallpaper)?;
     if !state.filter_wallpaper {
         return Ok(source);
     }
@@ -120,63 +116,34 @@ fn sanitize_stem(value: &str) -> String {
     }
 }
 
-fn run_command(command: &[String]) -> (bool, String) {
-    let output = Command::new(&command[0]).args(&command[1..]).output();
-    match output {
-        Ok(output) if output.status.success() => (true, String::new()),
-        Ok(output) => {
-            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
-            let stdout = String::from_utf8_lossy(&output.stdout).trim().to_owned();
-            let message = if !stderr.is_empty() {
-                stderr
-            } else if !stdout.is_empty() {
-                stdout
-            } else {
-                output.status.to_string()
-            };
-            (false, message)
-        }
-        Err(error) if error.kind() == io::ErrorKind::NotFound => {
-            (false, format!("{:?} not found", command[0]))
-        }
-        Err(error) => (false, error.to_string()),
-    }
-}
-
 fn warn(message: &str) {
     eprintln!("  wallpaper warning: {message}");
 }
 
-/// awww's client exits at once if the daemon socket is missing; wait for the socket at login.
-fn wait_for_awww_socket() {
+/// awww accepts connections before it has registered an output, and `img` fails with "none of the
+/// requested outputs are valid" until it has; `awww query` prints one line per registered output.
+fn wait_for_awww_output() {
     const TIMEOUT: Duration = Duration::from_secs(5);
-    const POLL_INTERVAL: Duration = Duration::from_millis(25);
+    const POLL_INTERVAL: Duration = Duration::from_millis(50);
 
-    let Some(socket) = awww_socket_path() else {
+    if find_command("awww").is_none() {
         return;
-    };
+    }
 
     let deadline = Instant::now() + TIMEOUT;
-    while !socket.exists() {
-        if Instant::now() >= deadline {
+    while Instant::now() < deadline {
+        if command::output(&["awww", "query"]).is_ok_and(|outputs| !outputs.trim().is_empty()) {
             return;
         }
         thread::sleep(POLL_INTERVAL);
     }
 }
 
-fn awww_socket_path() -> Option<PathBuf> {
-    let display = env::var_os("WAYLAND_DISPLAY")?;
-    let runtime_dir = paths::xdg_runtime_dir().ok()?;
-    Some(runtime_dir.join(format!("{}-awww-daemon.sock", display.to_string_lossy())))
-}
-
 fn apply_wallpaper(path: &Path) {
-    wait_for_awww_socket();
-    let (ok, message) = run_command(&awww_command(&path.display().to_string()));
-    if !ok {
+    wait_for_awww_output();
+    if let Err(error) = command::run(&awww_command(&path.display().to_string())) {
         warn(&format!(
-            "failed to apply wallpaper {}: {message}",
+            "failed to apply wallpaper {}: {error}",
             path.display()
         ));
     }
@@ -187,12 +154,8 @@ fn fallback_to_source(source: &Path, reason: &str) {
     apply_wallpaper(source);
 }
 
-pub fn generate(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<GeneratedContent> {
-    Ok(GeneratedContent::commands(Vec::new()))
-}
-
 pub fn on_apply(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
-    let source = PathBuf::from(&state.wallpaper).expanduser()?;
+    let source = expand_user_path(&state.wallpaper)?;
     if !source.is_file() {
         warn(&format!(
             "source wallpaper does not exist: {}",
@@ -233,24 +196,21 @@ pub fn on_apply(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
                     return Ok(());
                 }
 
-                let (ok, message) = run_command(&{
-                    let mut command = vec![
-                        "lutgen".to_owned(),
-                        "apply".to_owned(),
-                        "--cache".to_owned(),
-                        "-o".to_owned(),
-                        filtered.display().to_string(),
-                        source.display().to_string(),
-                        "--".to_owned(),
-                    ];
-                    command.extend(colors.palette.iter().cloned());
-                    command
-                });
-                if !ok {
+                let mut lutgen = vec![
+                    "lutgen".to_owned(),
+                    "apply".to_owned(),
+                    "--cache".to_owned(),
+                    "-o".to_owned(),
+                    filtered.display().to_string(),
+                    source.display().to_string(),
+                    "--".to_owned(),
+                ];
+                lutgen.extend(colors.palette.iter().cloned());
+                if let Err(error) = command::run(&lutgen) {
                     let _ = fs::remove_file(&filtered);
                     fallback_to_source(
                         &source,
-                        &format!("could not generate filtered wallpaper with lutgen: {message}"),
+                        &format!("could not generate filtered wallpaper with lutgen: {error}"),
                     );
                     return Ok(());
                 }
@@ -264,41 +224,4 @@ pub fn on_apply(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
     }
 
     Ok(())
-}
-
-trait ExpandUserPath {
-    fn expanduser(self) -> crate::Result<PathBuf>;
-}
-
-impl ExpandUserPath for PathBuf {
-    fn expanduser(self) -> crate::Result<PathBuf> {
-        let text = self.to_string_lossy().to_string();
-        expand_user_path(&text)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::awww_socket_path;
-    use crate::test_support::{ScopedEnvVar, env_lock};
-
-    #[test]
-    fn socket_path_follows_the_awww_daemon_naming_convention() {
-        let _env_guard = env_lock();
-        let _runtime = ScopedEnvVar::set("XDG_RUNTIME_DIR", "/run/user/1000");
-        let _display = ScopedEnvVar::set("WAYLAND_DISPLAY", "wayland-1");
-
-        assert_eq!(
-            awww_socket_path().expect("socket path resolves"),
-            std::path::PathBuf::from("/run/user/1000/wayland-1-awww-daemon.sock")
-        );
-    }
-
-    #[test]
-    fn socket_path_is_unavailable_outside_wayland() {
-        let _env_guard = env_lock();
-        let _display = ScopedEnvVar::unset("WAYLAND_DISPLAY");
-
-        assert!(awww_socket_path().is_none());
-    }
 }

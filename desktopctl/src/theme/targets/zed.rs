@@ -1,13 +1,12 @@
-use super::{Assembly, GeneratedContent, TargetMetadata};
+use super::Target;
 use crate::theme::{
     json,
     schema::{ColorScheme, ThemeState},
 };
 use serde_json::{Map, Value};
 
-pub const METADATA: TargetMetadata = TargetMetadata::new(
+pub const TARGET: Target = Target::concat(
     "zed",
-    Assembly::Concat,
     &[
         "color_scheme",
         "system_font",
@@ -16,15 +15,19 @@ pub const METADATA: TargetMetadata = TargetMetadata::new(
         "mono_font_size",
         "zed_mono_font_size_offset",
     ],
-)
-.output("~/.config/zed/settings.json")
-.base("bases/zed.json");
+    "~/.config/zed/settings.json",
+    "bases/zed.json",
+    generate,
+);
 
-pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<GeneratedContent> {
-    let buffer_font_size = state.mono_font_size_for(METADATA.name)?;
+pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<String> {
+    let buffer_font_size = state.mono_font_size_for(TARGET.name)?;
 
     let mut root = Map::new();
-    root.insert("theme".to_owned(), Value::String(colors.zed_theme_name()));
+    root.insert(
+        "theme".to_owned(),
+        Value::String(colors.app_themes.zed.clone()),
+    );
     root.insert(
         "buffer_font_family".to_owned(),
         Value::String(state.mono_font.clone()),
@@ -36,7 +39,5 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Gener
     );
     root.insert("ui_font_size".to_owned(), Value::from(state.font_size));
 
-    Ok(GeneratedContent::text(json::format_pretty_value(
-        &Value::Object(root),
-    )))
+    Ok(json::format_pretty_value(&Value::Object(root)))
 }

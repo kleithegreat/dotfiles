@@ -1,20 +1,13 @@
-use super::{Assembly, GeneratedContent, TargetMetadata, chromium};
+use super::{Target, chromium};
 use crate::theme::{
     expand_user_path,
     schema::{ColorScheme, ThemeState},
 };
 
-pub const METADATA: TargetMetadata = TargetMetadata::new(
-    "helium",
-    Assembly::Command,
-    &["system_font", "mono_font", "dark_hint"],
-);
+pub const TARGET: Target =
+    Target::hooks("helium", &["system_font", "mono_font", "dark_hint"]).persist(persist);
 
 const HELIUM_CONFIG_DIR: &str = "~/.config/net.imput.helium";
-
-pub fn generate(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<GeneratedContent> {
-    Ok(GeneratedContent::commands(Vec::new()))
-}
 
 pub(crate) fn mark_clean_exit() -> crate::Result<()> {
     chromium::mark_clean_exit(&expand_user_path(HELIUM_CONFIG_DIR)?)

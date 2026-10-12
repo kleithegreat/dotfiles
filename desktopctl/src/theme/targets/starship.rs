@@ -1,16 +1,18 @@
-use super::{
-    Assembly, GeneratedContent, TargetMetadata,
-    color_utils::{blend, color_difference, contrast_ratio},
+use super::Target;
+use crate::theme::{
+    color::{self, blend, color_difference, contrast_ratio},
+    schema::{ColorScheme, ThemeState},
 };
-use crate::theme::schema::{ColorScheme, ThemeState};
 
-pub const METADATA: TargetMetadata =
-    TargetMetadata::new("starship", Assembly::Concat, &["color_scheme"])
-        .output("~/.config/starship.toml")
-        .base("bases/starship.toml")
-        .comment("#");
+pub const TARGET: Target = Target::concat(
+    "starship",
+    &["color_scheme"],
+    "~/.config/starship.toml",
+    "bases/starship.toml",
+    generate,
+)
+.comment("#");
 
-const WCAG_AA_NORMAL_TEXT: f64 = 4.5;
 /// The prompt character is a glyph, not a run of text, so it is held to the
 /// non-text contrast bar rather than the reading one.
 const WCAG_AA_NON_TEXT: f64 = 3.0;
@@ -25,30 +27,20 @@ const TIME_PLATE_MIX: f64 = 0.38;
 
 /// Ink from the scheme's own colours; black/white only when none clears AA.
 fn readable_on(plate: &str, colors: &ColorScheme) -> String {
-    let candidates = [
-        colors.fg.as_str(),
-        colors.bg.as_str(),
-        colors.fg2.as_str(),
-        colors.fg3.as_str(),
-        colors.fg4.as_str(),
-        colors.bg_dim.as_str(),
-        colors.bg1.as_str(),
-        colors.bg2.as_str(),
-        colors.bg3.as_str(),
-    ];
-    for candidate in candidates {
-        if contrast_ratio(plate, candidate) >= WCAG_AA_NORMAL_TEXT {
-            return candidate.to_owned();
-        }
-    }
-
-    let black = "#000000";
-    let white = "#ffffff";
-    if contrast_ratio(plate, black) >= contrast_ratio(plate, white) {
-        black.to_owned()
-    } else {
-        white.to_owned()
-    }
+    color::readable_on(
+        plate,
+        &[
+            &colors.fg,
+            &colors.bg,
+            &colors.fg2,
+            &colors.fg3,
+            &colors.fg4,
+            &colors.bg_dim,
+            &colors.bg1,
+            &colors.bg2,
+            &colors.bg3,
+        ],
+    )
 }
 
 /// First candidate far enough from every placed plate, else the furthest one; see docs/theming.md.
@@ -145,10 +137,10 @@ fn plates(colors: &ColorScheme) -> Plates {
     }
 }
 
-pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<GeneratedContent> {
+pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<String> {
     let plates = plates(colors);
 
-    Ok(GeneratedContent::text(format!(
+    Ok(format!(
         concat!(
             "\n[palettes.current]\n",
             "color_identity = '{}'\n",
@@ -184,12 +176,13 @@ pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<Gene
         on_background(&colors.red, &colors.red_bright, colors),
         on_background(&colors.yellow, &colors.yellow_bright, colors),
         on_background(&colors.purple, &colors.purple_bright, colors),
-    )))
+    ))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::theme::color::WCAG_AA_NORMAL_TEXT;
     use crate::{
         test_support::{ScopedEnvVar, env_lock, repo_root},
         theme::targets::testsupport::load_repo_colors,

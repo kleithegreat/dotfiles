@@ -14,8 +14,10 @@
   schema fields only, minus the two machine-local wallpaper paths, which stay
   derived because the wallpaper library is gitignored. A `ThemeState` field
   added without a seed value fails `seed_covers_exactly_the_non_machine_local_fields`.
-- Every target declares one assembly strategy — `import`, `concat`,
-  `standalone`, or `command` — plus the `ThemeState` keys it consumes.
+- Every target declares one assembly strategy — `standalone` (the generated
+  text is the whole file), `concat` (appended to or merged into a base), or
+  `hooks` (no output file; only `persist` and `on_apply` act) — plus the
+  `ThemeState` keys it consumes.
   Fanout for `theme colors`/`theme fonts`/per-key applies derives from those
   declared `state_keys`, never from hand-maintained target lists. The one
   exception: `wallpaper` is dropped from `color_scheme` fanout when
@@ -26,7 +28,9 @@
 - `appearance` on the scheme is the canonical dark/light polarity; variant
   strings are not binary and must not be pattern-matched. App-specific theme
   names and extension IDs live in scheme data (`app_themes`), never in
-  target-local match arms. Same-family light/dark resolution is shared through
+  target-local match arms or derived from family and variant. A scheme file
+  must declare every one of them (only `ktexteditor` and `vscode.icon_theme`
+  have a fallback), so a missing name fails at load rather than guessing. Same-family light/dark resolution is shared through
   one resolver (`scheme_pair.rs`, used by `qt`, `gtksourceview`, `vicinae`):
   explicit `dark_scheme` pairing wins, then variant-preference ranking.
 - All theme mutations route through the daemon's theme controller, which
@@ -44,6 +48,11 @@
 - `theme sync` is the activation-safe subset (no runtime reload hooks);
   Home Manager activation runs it so generated fragments exist before the
   first session. No generated output is ever committed to the repo.
+- A target that emits a palette for one consumer (`quickshell`, `hyprland`,
+  `neovim`) emits only the keys that consumer reads. Reading a new key in
+  `Theme.qml`, `plugins.lua`, `hyprlock.conf` or `desktopctl.lua` means adding
+  it to the target in the same change; the unread remainder of the palette is
+  deliberately not exported.
 - The dimmed foreground ramp (`fg2`/`fg3`/`fg4`/`fg_faint`) is derived by
   `dim_ramp()` blending `fg` toward `bg` at rising fractions; scheme files
   must not author it.
@@ -64,7 +73,7 @@
   to red there recovers each family's canonical rainbow (rose-pine lands on
   love, gold, pine, iris) instead of forcing a hue the scheme does not have.
 - Label colours that land on an accent fill — selected text, a toggled
-  button, a checkbox tick — come from `color_utils::readable_on`, never from
+  button, a checkbox tick — come from `color::readable_on`, never from
   `fg`: pairing the scheme's body grey with its own accent drops light schemes
   to about 1.6:1. It prefers the scheme's own ends and falls back to
   black/white when neither clears WCAG AA, because some accents clear it
@@ -75,9 +84,9 @@
 ### The fg ramp is derived because upstream palettes lie
 Transcribed `fg2`/`fg3` values made secondary text *brighter* than primary on
 nord and solarized (solarized's `base1` is emphasized text; `nord5` outranks
-`nord4`), and `fg4 == bg3` collapsed workspace-pill contrast on several
+`nord4`), and `fg4 == bg3` collapsed the contrast between adjacent tiers on several
 schemes. Derivation makes the inversion unrepresentable and tests in
-`schema.rs` enforce ordering plus a pill-contrast floor. Remaining rule: never
+`schema.rs` enforce the ordering. Remaining rule: never
 pair foreground tiers against *background* tiers when a guaranteed gap is
 needed — the ramps are independent, and solarized-light's `bg3` sits exactly
 on its `fg`→`bg` line.
@@ -209,6 +218,13 @@ The `chromium` and `helium` targets patch each *active* profile's
 `dark_hint`. A live browser can rewrite the file on exit — rerun the target
 after closing the browser if changes vanished, and open an inactive profile
 once to get it patched.
+
+### awww accepts connections before it has any output
+`awww-daemon` binds its socket before it has registered an output, and
+`awww img` in that window fails with "none of the requested outputs are
+valid" — a bad-wallpaper-looking error from a daemon that is merely not ready.
+The wallpaper target therefore waits until `awww query` (one line per
+registered output) is non-empty, bounded, rather than for the socket path.
 
 ### The SDDM wallpaper handoff is a hardened two-stage bridge
 SDDM cannot read the 0700 home directory, so the

@@ -1,14 +1,10 @@
-use super::{Assembly, GeneratedContent, TargetMetadata};
+use super::Target;
 use crate::theme::schema::{ColorScheme, ThemeState};
 
-pub const METADATA: TargetMetadata =
-    TargetMetadata::new("bat", Assembly::Standalone, &["color_scheme"])
-        .output("~/.config/bat/config");
+pub const TARGET: Target =
+    Target::standalone("bat", &["color_scheme"], "~/.config/bat/config", generate);
 
-pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<GeneratedContent> {
+pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<String> {
     // bat splits config lines shell-style; half the bundled theme names hold a space.
-    Ok(GeneratedContent::text(format!(
-        "--theme=\"{}\"\n",
-        colors.bat_theme_name()
-    )))
+    Ok(format!("--theme=\"{}\"\n", colors.app_themes.bat))
 }

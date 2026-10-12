@@ -24,7 +24,6 @@ let
     "hypr/input.lua" = dotfilesSource "config/hypr/input.lua";
     "hypr/input-defaults.lua" = dotfilesSource "config/hypr/input-defaults.lua";
     "hypr/keybinds.lua" = dotfilesSource "config/hypr/keybinds.lua";
-    "hypr/animations-override.lua" = dotfilesSource "config/hypr/animations-override.lua";
     "hypr/rules.lua" = dotfilesSource "config/hypr/rules.lua";
     "hypr/plugins.lua" = dotfilesSource "config/hypr/plugins.lua";
     "hypr/session.lua" = dotfilesSource "config/hypr/session.lua";
