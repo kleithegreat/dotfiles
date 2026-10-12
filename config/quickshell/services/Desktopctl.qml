@@ -9,7 +9,14 @@ import Quickshell.Io
 QtObject {
     id: root
 
-    readonly property bool ready: socket.connected
+    readonly property bool ready: link.item !== null && link.item.connected
+
+    onReadyChanged: {
+        if (!ready)
+            return;
+        link.item.write(JSON.stringify({ method: "subscribe" }) + "\n");
+        link.item.flush();
+    }
 
     signal themeChanged(var state, var changedKeys)
     signal presetsChanged(var presets)
@@ -17,8 +24,6 @@ QtObject {
     signal brightnessChanged(var payload)
     signal inputChanged(var state)
     signal monitorsChanged(var status)
-
-    property int _retryMs: 500
 
     function _dispatch(line) {
         const text = String(line).trim();
@@ -59,32 +64,26 @@ QtObject {
         }
     }
 
-    readonly property Socket _socket: Socket {
-        id: socket
-        path: Quickshell.env("XDG_RUNTIME_DIR") + "/desktopctl.sock"
-        connected: true
-        parser: SplitParser {
-            onRead: data => root._dispatch(data)
-        }
-        onConnectionStateChanged: {
-            if (connected) {
-                root._retryMs = 500;
-                write(JSON.stringify({ method: "subscribe" }) + "\n");
-                flush();
-            } else {
-                retry.interval = root._retryMs;
-                root._retryMs = Math.min(root._retryMs * 2, 5000);
-                retry.restart();
+    readonly property Loader _link: Loader {
+        id: link
+        sourceComponent: Socket {
+            path: Quickshell.env("XDG_RUNTIME_DIR") + "/desktopctl.sock"
+            connected: true
+            parser: SplitParser {
+                onRead: data => root._dispatch(data)
             }
         }
     }
 
+    // A Socket whose connect failed never connects again, so each attempt
+    // gets a fresh one ([[quickshell]]).
     readonly property Timer _retry: Timer {
-        id: retry
-        interval: 500
+        interval: 1000
+        repeat: true
+        running: !root.ready
         onTriggered: {
-            if (!socket.connected)
-                socket.connected = true;
+            link.active = false;
+            link.active = true;
         }
     }
 }

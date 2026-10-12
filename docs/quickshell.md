@@ -45,8 +45,8 @@
   slider does not wait on DDC enumeration ([[desktopctl]]) — and change events
   after each commit, so external changes (hotkeys, terminal) reach the shell
   without polling.
-  Reconnect-with-backoff in that service is load-bearing — the daemon and the
-  shell start concurrently, and the shell restarts alone. Services keep a
+  Reconnecting in that service is load-bearing — the daemon and the shell
+  start concurrently, and each restarts alone. Services keep a
   one-shot startup status read as the degraded path while the daemon is down.
 - The IPC target and function names are a published interface, not internal
   naming: `config/hypr/keybinds.lua` calls them, and that file reaches the
@@ -57,6 +57,16 @@
   imposed on chrome beyond Escape closing the open surface.
 
 ## Quirks
+
+### A `Socket` whose connect failed is dead for good
+Quickshell keeps the failed `QLocalSocket` around, and both `connected = true`
+and `connected = false` are no-ops while one exists, so a retry that sets the
+property again does nothing and emits nothing — the shell just stays
+disconnected after the daemon restarts, or forever if it lost the startup
+race. `Desktopctl` therefore recreates the Socket per attempt. A local socket
+also connects synchronously, inside the `connected: true` assignment and
+before the object's own `onConnectionStateChanged` is wired, which is why the
+subscribe is written from `ready` rather than from that handler.
 
 ### A `var` array model resets its Repeater and kills in-flight drags
 Reassigning a `var` array bound as a Repeater model cannot be diffed, so
