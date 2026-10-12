@@ -36,8 +36,8 @@ SDDM accepting the password and bouncing straight back to the greeter.
 `hosts/laptop/env.lua` therefore hardcodes `/dev/dri/card2:/dev/dri/card1` on
 the laptop. Card numbering is not stable across kernel/driver changes; if the
 laptop session dies at login after an update, re-check the card numbers before
-anything else. Revisit by-path only when Aquamarine can represent embedded
-colons (tracked in `TODO.md`).
+anything else. Aquamarine canonicalizes each entry, so a colon-free symlink to
+the same device is accepted (tracked in `TODO.md`).
 
 ### CUDA capabilities are pinned shared, not per host
 `cudaCapabilities` is the one piece of GPU policy in the shared baseline rather

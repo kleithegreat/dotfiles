@@ -8,10 +8,6 @@ Open issues and pending validations. Delete entries when resolved.
       (see `docs/nvidia.md`). Until a real cycle passes, keep
       `kernelSuspendNotifier = false`, the `/var/tmp` VRAM path, and the
       sleep-freeze workaround.
-- [ ] Laptop `e-core-only` profile on the real XPS 15 9520: run
-      `laptop-power-profile set e-core-only`, check `cpu*/online`, confirm
-      `get` reports the mode and the Quickshell tile doesn't snap back.
-- [ ] Laptop VA-API: verify `vainfo` picks up `iHD` via `intel-media-driver`.
 - [ ] Displays subsystem, multi-monitor half (needs an external display
       attached): plug and unplug one and confirm the wallpaper lands on it,
       the bar and every surface move to it, and workspaces 1-10 follow — then
@@ -24,35 +20,25 @@ Open issues and pending validations. Delete entries when resolved.
       scale persisting across reloads, and the auto fallback to `eDP-1` when
       the external went away.
 
-- [ ] Quickshell live smoke test after the rewrite: slider drags end to end
-      (OSD suppression across a volume drag, night-light commit-on-release,
-      brightness drag vs pushed events), Wi-Fi join forms including
-      enterprise, Display staged apply and its revert countdown, tray menus
-      via QsMenuAnchor, and the Bluetooth pane on the laptop — the desktop has
-      no bluez running, so the native adapter path is untested on real
-      hardware.
-- [ ] Daemon-owned-state migration smoke test (after rebuild; restart the
-      daemon before the shell): terminal `desktopctl theme set color_scheme`
-      updates an open settings pane; brightness slider tracks Super+F6/F7 and
-      OSD appears (event-driven); Super+F8 night-light toggle updates the tile
-      promptly; `pkill -x desktopctl` then `theme set` prints the strict
-      daemon-unavailable error while `theme status` still prints, and the
-      shell reconnects when the daemon returns (verify the QML Socket
-      reconnect-by-resetting-`connected` actually retriggers — fall back to a
-      Loader-recreated Socket if not); manual `theme set dark_hint true` in
-      daytime survives a daemon restart and the schedule reasserts at the next
-      edge; hypridle dim/restore restores the original level with no pid file;
-      relogin applies the wallpaper through `--wait-daemon` and the laptop
-      lid-switch works with the daemon absent. Note the daemon is now a user
-      unit: use `systemctl --user stop desktopctl` to test the absent-daemon
-      paths, since `pkill` is answered by `Restart=on-failure`.
-
-- [ ] desktopctl user unit (needs a real login): confirm the daemon starts with
-      `graphical-session.target` and inherits `WAYLAND_DISPLAY` /
-      `HYPRLAND_INSTANCE_SIGNATURE` (the focus tracker and hyprctl calls need
-      them), that `systemctl --user stop graphical-session.target` on
-      `hyprland.shutdown` takes it down, and that killing an auxiliary
-      subsystem no longer takes the socket with it.
+- [ ] Quickshell live smoke test after the rewrite (needs hands on the UI):
+      slider drags end to end (OSD suppression across a volume drag,
+      night-light commit-on-release, brightness drag vs pushed events), Wi-Fi
+      join forms including enterprise, Display staged apply and its revert
+      countdown, tray menus via QsMenuAnchor, and the Bluetooth pane on the
+      laptop — the desktop has no bluez running, so the native adapter path is
+      untested on real hardware. Daemon-pushed state, same session: terminal
+      `desktopctl theme set color_scheme` updates an open settings pane;
+      brightness slider tracks Super+F6/F7 and the OSD appears; Super+F8
+      updates the night-light tile promptly; a manual `dark_hint` is
+      reasserted by the schedule at the next 23:00/06:00 edge.
+- [ ] After the next rebuild: `systemctl --user restart desktopctl` and
+      confirm the shell resubscribes (`ss -x | grep desktopctl.sock` shows a
+      connection again within a second or two, and a settings pane tracks a
+      terminal `theme set`) — the recreate-the-Socket reconnect was proven
+      only in a throwaway Quickshell instance. Leave the laptop idle 5 minutes
+      and confirm the screen dims and restores: hypridle's unit could not find
+      `desktopctl` before its PATH was fixed. Log out without rebooting and
+      confirm `desktopctl.service` stops with the session.
 
 - [ ] macOS VM, end to end (needs a guest install): nothing in it has been
       booted. `macos-vm fetch` → `install` → `run`, then check that the
@@ -64,25 +50,16 @@ Open issues and pending validations. Delete entries when resolved.
 
 ## Open issues
 
-- [ ] Quickshell (low): the animation bezier editor was not rebuilt, by
-      decision rather than oversight — overrides remain reachable through
-      `desktopctl hypr animations`. Revisit only if editing them by hand starts
-      to hurt. (The keybind capture/editor and its whole override layer are
-      gone: keybinds live in `config/hypr/keybinds.lua` and nothing else.)
-
 - [ ] NVIDIA (high): laptop `AQ_DRM_DEVICES` depends on hardcoded
       `/dev/dri/cardN` ordering, which can shift across boots/updates.
-      Blocked on Aquamarine supporting by-path selectors (colons split the
-      list); revisit on Aquamarine updates.
-- [ ] Nix (medium): drop the EOL Electron insecure exceptions
-      (`electron-39.8.10` for bitwarden-desktop, `electron-40.10.5` for
-      winboat) once nixpkgs moves those packages to supported Electron.
-- [ ] Neovim (medium): the 0.12 Treesitter path only sets `install_dir` and
-      is much thinner than the active 0.11 path; activating it would change
-      behavior materially.
-- [ ] Zsh (low): `compinit -C` skips the new-functions and security checks
-      once the dump exists — accepted for startup speed, reconsider if
-      completion behaves oddly after adding completions.
+      Aquamarine 0.15 still splits the list on colons, so by-path names stay
+      out, but it now canonicalizes each entry: a udev rule giving the two
+      GPUs colon-free symlinks would make the list stable. Needs a relogin
+      to validate, and a wrong rule means no session.
+- [ ] Neovim (medium): the legacy `nvim-treesitter.configs` path is still
+      the one that runs (on 0.12.5, via the pinned `master` branch); the
+      modern path behind it only sets `install_dir`, so losing the pin would
+      change behavior materially.
 - [ ] Nix (low): the NVIDIA/CUDA entries in `allowedUnfreePackageNames` have
       no per-entry reason or host annotation, making cleanup triage harder.
 
@@ -94,28 +71,17 @@ Open issues and pending validations. Delete entries when resolved.
       that hardcoded 0.25 is the knob and it wants a home in
       `input-defaults.lua` with the rest.
 
-- [ ] GeoClue (medium): it resolves no real location on either host — the IP
-      source is disabled (`Unknown IP source method '(null)'`) and the WiFi
-      source lost its backend when Mozilla Location Service shut down in 2024,
-      so `where-am-i` returns a fallback rather than an answer. On the desktop
-      this set the timezone to Denver and left sun-schedule's cache stuck at
-      `39.6002,-104.89` (Greenwood Village CO), which is why that host now pins
-      both `time.timeZone` and `DESKTOPCTL_LOCATION`; the laptop still trusts
-      GeoClue via `automatic-timezoned`. The desktop's pin outranks the cache,
-      so nothing needs deleting there, but delete
-      `$XDG_CACHE_HOME/sun-schedule/location.json` on the laptop once the source
-      works, since a stale cache is preferred over a live lookup for 6h and is
-      the fourth fallback after that. Either give GeoClue a working IP source or
-      drop it for static coordinates on the laptop too; if it goes,
-      the laptop needs a different timezone story and `location.provider`,
-      `services.geoclue2`, and the `where-am-i` path in `docs/sun-schedule.md`
-      go with it.
-
-## Owner questions
-
-- [ ] VS Code `config/vscode/base.json` carries settings for uninstalled
-      extensions (gitlens, tabnine, copilot, ...) and a `remote.SSH` host
-      list (`linux.cse.tamu.edu` + two LAN IPs) — confirm what the laptop
-      uses and which hosts are live.
-- [ ] Solaar asymmetry: laptop autostart sets `scroll-ratchet Ratcheted` +
-      `smart-shift 50`, desktop only `smart-shift 50` — intended?
+- [ ] GeoClue (medium): the IP source is disabled on both hosts (`Unknown IP
+      source method '(null)'`). The laptop still gets a fix — `where-am-i`
+      answers through the WiFi source's IP fallback, 25 km accuracy — which is
+      enough for `automatic-timezoned` and sun-schedule; the desktop resolves
+      nothing real and pins `time.timeZone` and `DESKTOPCTL_LOCATION` instead.
+      Either give GeoClue a working IP source or drop it for static
+      coordinates on the laptop too; if it goes, the laptop needs a different
+      timezone story and `location.provider`, `services.geoclue2`, and the
+      `where-am-i` path in `docs/sun-schedule.md` go with it.
+- [ ] desktopctl (low): the daemon logs `wallpaper warning: failed to apply
+      wallpaper ...: "none of the requested outputs are valid"` once at every
+      start. The autostart apply lands the wallpaper regardless, so this is
+      the daemon applying before awww knows its outputs — find which startup
+      path does it and either wait or drop the redundant apply.

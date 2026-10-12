@@ -40,6 +40,7 @@ in
     completionInit = /* bash */ ''
       autoload -Uz compinit
       mkdir --parents "$XDG_CACHE_HOME/zsh"
+      # -C trusts an existing dump: delete it if a new completion goes missing.
       compinit -C -d "$XDG_CACHE_HOME/zsh/zcompdump"
     '';
     autosuggestion = {

@@ -43,13 +43,10 @@
 
 ## Quirks
 
-### Narrow unfree/insecure predicates must cover transitive closures
+### A narrow unfree predicate must cover transitive closures
 `allowUnfreePredicate` must list not just chosen apps but names pulled in by
 modules (`fonts.packages`, Steam, CUDA closures — `steam-unwrapped`, `sf-pro`,
-`symbola`, the CUDA userspace set). Similarly, `bitwarden-desktop` and
-`winboat` currently need exact-version EOL Electron insecure exceptions in
-`system/configuration.nix`; drop each when nixpkgs moves them off EOL Electron
-(`TODO.md`).
+`symbola`, the CUDA userspace set).
 
 ### Laptop Kconfig parent trims need child-symbol unsets
 Disabling a parent subsystem (Nouveau, Hyper-V DRM, AMD SEV) makes nixpkgs'

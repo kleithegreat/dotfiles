@@ -96,12 +96,6 @@ in
   # Both hosts are sm_86. Widening this OOMs libnvshmem (see docs/nix.md); add
   # a capability only when a host actually gets a different GPU.
   nixpkgs.config.cudaCapabilities = [ "8.6" ];
-  nixpkgs.config.permittedInsecurePackages = [
-    # Required by nixpkgs' bitwarden-desktop 2026.6.1 package on this input.
-    "electron-39.8.10"
-    # Required by nixpkgs' winboat 0.9.0 package on this input.
-    "electron-40.10.5"
-  ];
   # ── Networking ───────────────────────────────────────────────
   networking.hostName = host.name;
   networking.networkmanager.enable = true;
@@ -116,6 +110,8 @@ in
 
   # hyprlock — also auto-creates security.pam.services.hyprlock
   programs.hyprlock.enable = true;
+  # hyprlock's module runs hypridle as a user unit; hypridle.conf calls desktopctl.
+  systemd.user.services.hypridle.path = [ pkgs.optimized.desktopctl ];
 
   # ── Fonts ────────────────────────────────────────────────────
   fonts.packages = with pkgs; [
