@@ -25,7 +25,6 @@ Ui.Scroll {
                 iconInteractive: true
                 value: Sys.Audio.volume
                 caption: Sys.Audio.percent + "%"
-                suppressOsd: true
                 onIconClicked: Sys.Audio.toggleMute()
                 onMoved: level => Sys.Audio.setVolume(level)
             }

@@ -11,14 +11,7 @@ QtObject {
     property string label: ""
     property real value: 0
 
-    // Held while a gesture drives the underlying value itself — dragging the
-    // volume slider must not summon the OSD on top of the slider.
-    property bool suppressed: false
-
     function show(iconName, fraction, text) {
-        if (suppressed)
-            return;
-
         icon = iconName;
         value = Math.max(0, Math.min(1, fraction));
         label = text;

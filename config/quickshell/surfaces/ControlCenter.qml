@@ -115,7 +115,6 @@ Popover {
             value: Sys.Audio.volume
             caption: Sys.Audio.percent + "%"
             claimsDrag: false
-            suppressOsd: true
             onIconClicked: Sys.Audio.toggleMute()
             onMoved: level => Sys.Audio.setVolume(level)
         }

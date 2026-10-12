@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
 import qs
-import qs.services as Sys
 
 // [leading icon button or label] slider [caption]. `value` is passed down as a
 // binding and never written: the slider shows its own in-drag value itself.
@@ -13,7 +12,6 @@ RowLayout {
     property color iconColor: Theme.textSecondary
     property bool iconInteractive: false
     property string caption: ""
-    property bool suppressOsd: false
 
     property alias value: slider.value
     property alias minimum: slider.minimum
@@ -58,13 +56,5 @@ RowLayout {
         numeric: true
         horizontalAlignment: Text.AlignRight
         Layout.preferredWidth: Metrics.s8 + Metrics.s2
-    }
-
-    // While the pointer owns the value, the OSD would be a second, worse copy of the control under the cursor.
-    Binding {
-        target: Sys.Osd
-        property: "suppressed"
-        value: true
-        when: root.suppressOsd && slider.pressed
     }
 }

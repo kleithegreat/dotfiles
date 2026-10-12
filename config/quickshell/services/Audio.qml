@@ -21,13 +21,17 @@ QtObject {
     readonly property string icon: muted || percent === 0 ? "volume-mute" : percent > 50 ? "volume-high" : "volume-low"
 
     function setVolume(value) {
-        if (sink?.audio)
-            sink.audio.volume = Math.max(0, Math.min(1, value));
+        if (!sink?.audio)
+            return;
+        _wrote = Date.now();
+        sink.audio.volume = Math.max(0, Math.min(1, value));
     }
 
     function toggleMute() {
-        if (sink?.audio)
-            sink.audio.muted = !muted;
+        if (!sink?.audio)
+            return;
+        _wrote = Date.now();
+        sink.audio.muted = !muted;
     }
 
     function toggleSourceMute() {
@@ -35,7 +39,14 @@ QtObject {
             source.audio.muted = !sourceMuted;
     }
 
+    // The shell's own writes come back as change events a moment later, after
+    // the control that made them has let go; only changes from outside it
+    // (keys, other apps) are worth an OSD.
+    property real _wrote: 0
+
     function announce() {
+        if (Date.now() - _wrote < 400)
+            return;
         Osd.show(icon, muted ? 0 : volume, muted ? "Muted" : percent + "%");
     }
 
