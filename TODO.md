@@ -28,33 +28,17 @@ Open issues and pending validations. Delete entries when resolved.
       brightness slider tracks Super+F6/F7 and the OSD appears; Super+F8
       updates the night-light tile promptly; a manual `dark_hint` is
       reasserted by the schedule at the next 23:00/06:00 edge.
-- [ ] After the next rebuild: `systemctl --user restart desktopctl` and
-      confirm the shell resubscribes (`ss -x | grep desktopctl.sock` shows a
-      connection again within a second or two, and a settings pane tracks a
-      terminal `theme set`) — the recreate-the-Socket reconnect was proven
-      only in a throwaway Quickshell instance. Leave the laptop idle 5 minutes
-      and confirm the screen dims and restores. Log out without rebooting and
-      confirm `desktopctl.service` stops with the session.
-
-- [ ] Sliders after the rebuild: `ui/Slider.qml` no longer assigns its own
-      `value`, so drag the volume and brightness sliders and then use the
-      hotkeys — both must keep following. Seek in Now Playing and watch for
-      the bar flicking back before the player reports the new position; if it
-      does, the seek needs an optimistic position.
-- [ ] Laptop, after the rebuild: remove one enrolled fingerprint in Settings
-      → Security and confirm the others survive (`fprintd-delete --finger`
-      had never been exercised). Stop the daemon and confirm Screen Time says
-      the tracker is not reporting within a few seconds.
-
-- [ ] Session restore, end to end (needs a rebuild and a relogin; only the
-      recorder, the placement dispatchers and the unit tests have run): with
-      a terminal in some project directory, two Helium windows and VS Code
-      spread over workspaces, reboot and confirm each comes back on its
-      workspace and the terminal in its directory. Turn "Restore windows at
-      login" off in Settings → Window, reboot, confirm nothing reopens and the
-      power menu offers "Restore Windows" once. Check Helium really reopens
-      its windows when launched bare, and that `desktopctl session status`
-      reports `restorable = 0` after either path.
+- [ ] After the next rebuild and reboot, with Helium open beforehand: it
+      should come back with its tabs instead of a blank window offering to
+      restore (session restore now marks its profile as cleanly exited first).
+      Then turn "Restore windows at login" off, reboot, and confirm nothing
+      reopens and the power menu offers "Restore Windows" once.
+- [ ] Laptop, after the rebuild: remove one fingerprint in Settings →
+      Fingerprint and confirm no password prompt appears and the others
+      survive; add one and confirm the card fills per touch on the real
+      reader (it has only been driven by a fake `fprintd-enroll`).
+- [ ] Log out without rebooting and confirm `desktopctl.service` stops with
+      the session.
 
 - [ ] macOS VM, end to end (needs a guest install): nothing in it has been
       booted. `macos-vm fetch` → `install` → `run`, then check that the

@@ -143,7 +143,9 @@ in {
 
   security.polkit.extraConfig = /* javascript */ ''
     polkit.addRule(function(action, subject) {
-      if (action.id === "net.reactivated.fprint.device.enroll" &&
+      // fprintd-delete names its user, which fprintd treats as setusername.
+      if ((action.id === "net.reactivated.fprint.device.enroll" ||
+           action.id === "net.reactivated.fprint.device.setusername") &&
           subject.user === "kevin" && subject.local && subject.active) {
         return polkit.Result.YES;
       }

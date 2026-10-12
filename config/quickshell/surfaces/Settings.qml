@@ -40,7 +40,7 @@ Item {
             items: [
                 { id: "Window", label: "Windows", icon: "layout", shown: true },
                 { id: "ScreenTime", label: "Screen Time", icon: "hourglass", shown: true },
-                { id: "Security", label: "Fingerprint", icon: "certificate", shown: Sys.Host.fingerprint }
+                { id: "Security", label: "Fingerprint", icon: "fingerprint", shown: Sys.Host.fingerprint }
             ]
         }
     ]

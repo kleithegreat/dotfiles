@@ -215,6 +215,16 @@ registered module. `surfaces/settings/` is only ever reached through
 trap above and is not it. A shared component belongs in `ui/`; the panes are
 leaves.
 
+### A polkit prompt raised from a shell surface cannot be answered
+Settings and the popovers are layer surfaces above every window, and the
+polkit agent's dialog is a window: it opens underneath, the surface keeps the
+pointer, and the action just hangs until it times out. Nothing in the shell
+may need interactive authentication. Every privileged call it makes is granted
+to the local active user by a polkit rule in the host module, and a new one
+needs its rule in the same change. `fprintd-delete` was the one that slipped
+through: naming a user, even your own, is a separate action
+(`setusername`) from the `enroll` one the rule covered.
+
 ### Platform menus need QApplication mode, so tray menus are drawn here
 The platform route, `QsMenuAnchor.open()`, refuses to run unless the shell was
 started with `//@ pragma UseQApplication`, and what it opens is a Qt widget menu
