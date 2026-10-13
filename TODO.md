@@ -32,10 +32,11 @@ Open issues and pending validations. Delete entries when resolved.
       check the edge snap and the countdown's revert with two outputs.
 
 - [ ] macOS VM: `nvidia-offload macos-vm run` on the laptop boots the
-      installed Ventura guest to a rendered desktop on the 3050. Still
-      unchecked: the desktop host (the device's Vulkan window there),
-      `--console` showing OpenCore, and `fetch` → `install` from nothing
-      with the current package. See `docs/macos-vm.md`.
+      installed Ventura guest to a rendered desktop on the 3050, and `fetch
+      tahoe` + `install` reach the Tahoe recovery in `~/vm/macos-tahoe`.
+      Still unchecked: finishing that Tahoe install and booting it on the
+      reims device (upstream reports guest panics on some Tahoe boots), the
+      desktop host, and `--console`. See `docs/macos-vm.md`.
 
 ## Open issues
 

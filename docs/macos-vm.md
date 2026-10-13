@@ -76,6 +76,14 @@ composite. Missing translation still shows the transition and then refuses every
 draw; a guest that never composites at all never transitions, and no host-side
 switch can cause that.
 
+### The OpenCore identity stays `iMac19,1`, Tahoe included
+Tahoe's supported-hardware list has no 2019 iMac on it, which reads as a
+reason to give the guest a listed model before installing. It is not: OSX-KVM's
+stock `iMac19,1` boots the Tahoe recovery as it is, and switching
+`SystemProductName` to `MacPro7,1` makes the recovery kernel reset straight
+after `HANDOFF TO XNU` — the window returns to the boot picker with nothing on
+screen to say why.
+
 ### `fetch` writes to the working directory
 `fetch-macOS-v2.py` ignores `--outdir` on its menu path and hardcodes `.`, so
 `macos-vm fetch` changes directory into the VM directory first. Handing the
