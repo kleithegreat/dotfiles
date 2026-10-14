@@ -27,7 +27,7 @@
   Subscribers therefore merge snapshot events by device rather than
   replacing. Quickshell subscribes instead of polling ([[quickshell]]). Write subcommands accept
   `--wait-daemon` for autostart call sites that race the daemon's own spawn.
-- Versioned theming data — scheme catalog, presets, concat bases, the state
+- Versioned theming data — scheme catalog, concat bases, the state
   seed — resolves from `DESKTOPCTL_DATA`, which the package wraps to its own
   store copy. A deployed session therefore never reads the working tree, and a
   `git checkout` cannot change what it renders. The fallback,

@@ -369,14 +369,8 @@ fn cmd_list_schemes() -> CliResult<()> {
 }
 
 fn cmd_list_presets() -> CliResult<()> {
-    let presets_dir = map_user_err(presets_dir())?;
-    let presets = map_user_err(json_file_stems_by_filename(&presets_dir))?;
-    if presets.is_empty() {
-        println!("No presets found.");
-        return Ok(());
-    }
-    for preset in presets {
-        println!("  {preset}");
+    for preset in map_user_err(resolve::preset_names())? {
+        println!("{preset}");
     }
     Ok(())
 }
@@ -571,9 +565,9 @@ pub(crate) fn apply_scope_core(scope: &ApplyScope) -> crate::Result<orchestrator
 /// Apply a preset in a single pass: merge every preset key, dark_hint included,
 /// into one snapshot, apply the targets those keys feed, then persist them together.
 pub(crate) fn apply_preset_core(name: &str) -> crate::Result<PresetOutcome> {
-    let (preset_name, preset_path) = preset_path(name)?;
-    if !preset_path.is_file() {
-        let available = available_presets()?;
+    let preset_name = normalize_preset_name(name)?;
+    let Some(preset_value) = resolve::load_preset(&preset_name)? else {
+        let available = resolve::preset_names()?;
         return Err(io::Error::new(
             io::ErrorKind::NotFound,
             format!(
@@ -587,9 +581,8 @@ pub(crate) fn apply_preset_core(name: &str) -> crate::Result<PresetOutcome> {
             ),
         )
         .into());
-    }
+    };
 
-    let preset_value = read_json_file(&preset_path)?;
     let preset = normalize_theme_patch(preset_value, &format!("preset '{}'", preset_name))?;
     if preset.is_empty() {
         return Ok(PresetOutcome {
@@ -629,7 +622,7 @@ pub(crate) fn apply_preset_core(name: &str) -> crate::Result<PresetOutcome> {
 }
 
 pub(crate) fn save_preset_core(name: &str, payload: Value) -> crate::Result<usize> {
-    let (preset_name, preset_path) = preset_path(name)?;
+    let preset_name = normalize_preset_name(name)?;
     let preset = normalize_theme_patch(payload, &format!("preset '{}'", preset_name))?;
 
     if preset.is_empty() {
@@ -640,32 +633,25 @@ pub(crate) fn save_preset_core(name: &str, payload: Value) -> crate::Result<usiz
         .into());
     }
 
-    if let Some(parent) = preset_path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-
-    let ordered = ordered_theme_mapping(&preset);
-    let rendered = format!("{}\n", json::format_pretty_value(&Value::Object(ordered)));
-    atomic_write(&preset_path, rendered.as_bytes())?;
-    Ok(preset.len())
+    let fields = preset.len();
+    resolve::save_preset(&preset_name, &Value::Object(preset))?;
+    Ok(fields)
 }
 
-pub(crate) fn delete_preset_core(name: &str) -> crate::Result<String> {
-    let (preset_name, preset_path) = preset_path(name)?;
-    if !preset_path.is_file() {
+pub(crate) fn delete_preset_core(name: &str) -> crate::Result<()> {
+    let preset_name = normalize_preset_name(name)?;
+    if !resolve::delete_preset(&preset_name)? {
         return Err(io::Error::new(
             io::ErrorKind::NotFound,
             format!("preset '{}' not found", preset_name),
         )
         .into());
     }
-
-    fs::remove_file(&preset_path)?;
-    Ok(preset_name)
+    Ok(())
 }
 
 pub(crate) fn preset_names() -> crate::Result<Vec<String>> {
-    available_presets()
+    resolve::preset_names()
 }
 
 fn load_state_and_colors() -> CliResult<(schema::ThemeState, schema::ColorScheme)> {
@@ -856,47 +842,14 @@ fn coerce_theme_value(key: &str, value: Value) -> crate::Result<Value> {
     Ok(value)
 }
 
-fn presets_dir() -> io::Result<PathBuf> {
-    paths::data_path("presets")
-}
-
-fn preset_path(name: &str) -> crate::Result<(String, PathBuf)> {
-    let preset_name = normalize_preset_name(name)?;
-    Ok((
-        preset_name.clone(),
-        presets_dir()?.join(format!("{preset_name}.json")),
-    ))
-}
-
 fn normalize_preset_name(name: &str) -> crate::Result<String> {
-    let mut normalized = name.trim().to_owned();
-    if normalized.to_ascii_lowercase().ends_with(".json") {
-        normalized.truncate(normalized.len() - 5);
-    }
-
+    let normalized = name.trim();
     if normalized.is_empty() {
         return Err(
             io::Error::new(io::ErrorKind::InvalidInput, "preset name must not be empty").into(),
         );
     }
-
-    if normalized == "."
-        || normalized == ".."
-        || normalized.contains('/')
-        || normalized.contains('\\')
-    {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            format!("invalid preset name {}", Value::String(name.to_owned())),
-        )
-        .into());
-    }
-
-    Ok(normalized)
-}
-
-fn available_presets() -> crate::Result<Vec<String>> {
-    json_file_stems_by_filename(&presets_dir()?).map_err(Into::into)
+    Ok(normalized.to_owned())
 }
 
 pub(crate) fn json_file_stems_by_filename(dir: &Path) -> io::Result<Vec<String>> {
@@ -925,11 +878,6 @@ pub(crate) fn json_file_stems_by_filename(dir: &Path) -> io::Result<Vec<String>>
 
     stems.sort_by(|left, right| left.0.cmp(&right.0));
     Ok(stems.into_iter().map(|(_, stem)| stem).collect())
-}
-
-fn read_json_file(path: &Path) -> crate::Result<Value> {
-    let text = fs::read_to_string(path)?;
-    parse_json_value(&text)
 }
 
 fn print_json_value(value: &Value) {

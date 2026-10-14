@@ -20,7 +20,7 @@ rustPlatform.buildRustPackage {
     # are gitignored user assets and resolve through DESKTOPCTL_REPO.
     mkdir --parents "$out/share/desktopctl/styling"
     cp --recursive \
-      ../styling/colors ../styling/presets ../styling/bases ../styling/state.json \
+      ../styling/colors ../styling/bases ../styling/state.json \
       "$out/share/desktopctl/styling/"
 
     wrapProgram "$out/bin/desktopctl" \

@@ -2,11 +2,11 @@
 
 ## Intent
 
-- One mutable theme state (the `theme_state` table in `desktopctl.db`) over
-  version-controlled data in `styling/`: the scheme catalog (`colors/*.json`),
-  preset patches (`presets/*.json`), concat bases (`bases/*`) and the default
-  state (`state.json`). Generated outputs contain only theming data; base
-  config is never overwritten.
+- Mutable theme state (the `theme_state` and `theme_presets` tables in
+  `desktopctl.db`) over version-controlled data in `styling/`: the scheme
+  catalog (`colors/*.json`), concat bases (`bases/*`) and the default state
+  (`state.json`). Generated outputs contain only theming data; base config is
+  never overwritten.
 - `styling/state.json` is the *only* source of defaults — there is no compiled
   fallback, so the desktop a fresh machine renders is the one under review in
   git rather than whatever the local database drifted to. `theme export`
@@ -22,7 +22,9 @@
   declared `state_keys`, never from hand-maintained target lists. The one
   exception: `wallpaper` is dropped from `color_scheme` fanout when
   `filter_wallpaper` is false.
-- Presets are partial patches, not full-state snapshots. Any mutation that
+- Presets are partial patches, not full-state snapshots. They are runtime
+  state the settings UI saves and deletes, so they never live in `styling/`:
+  that copy is the read-only store closure. Any mutation that
   changes `color_scheme` preserves the current `dark_hint` unless the same
   mutation sets it explicitly.
 - `appearance` on the scheme is the canonical dark/light polarity; variant

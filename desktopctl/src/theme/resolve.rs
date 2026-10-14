@@ -1,6 +1,6 @@
 use crate::paths;
 use crate::theme::schema::{ColorScheme, ThemeState, canonicalize_theme_string_value};
-use rusqlite::{Connection, params};
+use rusqlite::{Connection, OptionalExtension, params};
 use serde_json::{Map, Value};
 use std::{
     fs, io,
@@ -8,10 +8,14 @@ use std::{
 };
 
 const HEX_COLOR_LEN: usize = 7;
-const THEME_STATE_TABLE_SCHEMA: &str = "
+const THEME_TABLES_SCHEMA: &str = "
     CREATE TABLE IF NOT EXISTS theme_state (
         key   TEXT PRIMARY KEY,
         value TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS theme_presets (
+        name  TEXT PRIMARY KEY,
+        patch TEXT NOT NULL
     );
 ";
 
@@ -60,6 +64,49 @@ pub fn save_state_keys(pairs: &[(&str, &Value)]) -> crate::Result<()> {
     save_state_keys_to_db_path(pairs, &db_path)
 }
 
+pub fn preset_names() -> crate::Result<Vec<String>> {
+    let connection = open_state_db(&paths::db_path()?)?;
+    let mut statement = connection.prepare("SELECT name FROM theme_presets ORDER BY name")?;
+    let names = statement
+        .query_map([], |row| row.get::<_, String>(0))?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(names)
+}
+
+pub fn load_preset(name: &str) -> crate::Result<Option<Value>> {
+    let connection = open_state_db(&paths::db_path()?)?;
+    let patch = connection
+        .query_row(
+            "SELECT patch FROM theme_presets WHERE name = ?",
+            [name],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()?;
+    patch
+        .map(|text| {
+            serde_json::from_str(&text).map_err(|error| {
+                invalid_data(format!("preset '{name}': invalid JSON: {error}")).into()
+            })
+        })
+        .transpose()
+}
+
+pub fn save_preset(name: &str, patch: &Value) -> crate::Result<()> {
+    let connection = open_state_db(&paths::db_path()?)?;
+    connection.execute(
+        "INSERT INTO theme_presets (name, patch) VALUES (?, ?) \
+         ON CONFLICT(name) DO UPDATE SET patch = excluded.patch",
+        params![name, serde_json::to_string(patch)?],
+    )?;
+    Ok(())
+}
+
+/// Returns whether a preset by that name existed.
+pub fn delete_preset(name: &str) -> crate::Result<bool> {
+    let connection = open_state_db(&paths::db_path()?)?;
+    Ok(connection.execute("DELETE FROM theme_presets WHERE name = ?", [name])? > 0)
+}
+
 #[cfg(test)]
 fn serialize_state(state: &ThemeState) -> crate::Result<String> {
     Ok(format!(
@@ -88,7 +135,7 @@ fn open_state_db(db_path: &Path) -> crate::Result<Connection> {
     let connection = Connection::open(db_path)?;
     // Several processes share this file; wait out write bursts instead of SQLITE_BUSY.
     connection.busy_timeout(std::time::Duration::from_secs(5))?;
-    connection.execute_batch(THEME_STATE_TABLE_SCHEMA)?;
+    connection.execute_batch(THEME_TABLES_SCHEMA)?;
     Ok(connection)
 }
 
@@ -415,7 +462,7 @@ fn invalid_data(message: String) -> io::Error {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_support::{env_lock, repo_root, scoped_repo_paths};
+    use crate::test_support::{ScopedEnvVar, TempDir, env_lock, repo_root, scoped_repo_paths};
     use std::error::Error;
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -658,6 +705,24 @@ mod tests {
         assert_eq!(stored, "\"JetBrainsMono Nerd Font\"");
 
         remove_file_if_exists(&db_path)?;
+        Ok(())
+    }
+
+    #[test]
+    fn presets_round_trip_through_the_database() -> TestResult {
+        let _lock = env_lock();
+        let data_home = TempDir::new("presets-db")?;
+        let _data_home = ScopedEnvVar::set("XDG_DATA_HOME", data_home.path());
+        let patch = serde_json::json!({ "color_scheme": "gruvbox-dark" });
+
+        save_preset("gruvbox", &patch)?;
+        assert_eq!(preset_names()?, vec!["gruvbox".to_owned()]);
+        assert_eq!(load_preset("gruvbox")?, Some(patch));
+
+        assert!(delete_preset("gruvbox")?);
+        assert!(!delete_preset("gruvbox")?);
+        assert_eq!(load_preset("gruvbox")?, None);
+        assert!(preset_names()?.is_empty());
         Ok(())
     }
 }

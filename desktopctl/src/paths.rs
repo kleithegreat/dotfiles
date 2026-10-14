@@ -3,8 +3,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
-/// Return the versioned theming data directory: color schemes, presets,
-/// concat bases and the state seed.
+/// Return the versioned theming data directory: color schemes, concat bases
+/// and the state seed.
 ///
 /// The package wraps the binary with `DESKTOPCTL_DATA` pointing at its own
 /// store copy, so a deployed desktop never depends on the working tree — a
