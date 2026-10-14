@@ -1,4 +1,4 @@
-{ pkgs, lib, ... }:
+{ config, pkgs, lib, ... }:
 
 {
   # Hardware — from nixos-generate-config
@@ -104,6 +104,46 @@
       echo on > /sys/bus/pci/devices/0000:00:15.1/power/control
     '';
 
+  # ── Power profiles ──────────────────────────────────────────
+  # Everything here follows power-profiles-daemon's active profile; see
+  # docs/laptop-power.md.
+  boot.kernelParams = [ "pcie_aspm.policy=powersupersave" ];
+
+  services.scx = {
+    enable = true;
+    scheduler = "scx_lavd";
+    extraArgs = [ "--autopower" ];
+  };
+
+  systemd.services.power-profile-follower = {
+    description = "Apply the power-profile settings power-profiles-daemon does not own";
+    wantedBy = [ "power-profiles-daemon.service" ];
+    after = [ "power-profiles-daemon.service" ];
+    partOf = [ "power-profiles-daemon.service" ];
+    path = [ pkgs.glib config.services.power-profiles-daemon.package ];
+    serviceConfig.Restart = "always";
+    script = /* bash */ ''
+      apply() {
+        # 115 W is the firmware's own PL1. The MSR limit is left alone: the
+        # lower of the two applies, so the MMIO one is enough to cap.
+        case "$(powerprofilesctl get)" in
+          power-saver) pl1=15000000 boost=0 ;;
+          balanced) pl1=115000000 boost=0 ;;
+          performance) pl1=115000000 boost=1 ;;
+        esac
+        echo "$pl1" > /sys/class/powercap/intel-rapl-mmio:0/constraint_0_power_limit_uw
+        echo "$boost" > /sys/devices/system/cpu/intel_pstate/hwp_dynamic_boost
+      }
+
+      # The first line is the subscription coming up, every later one a change;
+      # applying is idempotent, so each line just re-applies.
+      gdbus monitor --system \
+        --dest org.freedesktop.UPower.PowerProfiles \
+        --object-path /org/freedesktop/UPower/PowerProfiles |
+        while read -r _; do apply; done
+    '';
+  };
+
   # Covers the BIOS/EC regions and the Goodix fingerprint sensor. It will not
   # enumerate the ELAN touchpad, which is expected — see docs/nix.md.
   services.fwupd.enable = true;
@@ -153,12 +193,6 @@
       if (action.id === "org.freedesktop.policykit.exec" &&
           /\/smbios-battery-ctl$/.test(action.lookup("program")) &&
           /^\S*\/smbios-battery-ctl\s+(--get-charging-cfg|--set-charging-mode=(primarily_ac|adaptive|custom|standard|express)(\s+--set-custom-charge-interval\s+[0-9]+\s+[0-9]+)?)\s*$/.test(action.lookup("command_line")) &&
-          subject.user === "kevin" && subject.local && subject.active) {
-        return polkit.Result.YES;
-      }
-
-      if (action.id === "org.freedesktop.policykit.exec" &&
-          /\/laptop-power-profile$/.test(action.lookup("program")) &&
           subject.user === "kevin" && subject.local && subject.active) {
         return polkit.Result.YES;
       }
@@ -223,8 +257,5 @@
     interface = "wlp0s20f3";
   };
 
-  environment.systemPackages = with pkgs; [
-    libsmbios
-    laptop-power-profile
-  ];
+  environment.systemPackages = [ pkgs.libsmbios ];
 }

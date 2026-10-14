@@ -138,17 +138,11 @@ the `enabled:` on those Behaviors is load-bearing, and the position clamps
 against the *screen's* width rather than the strip's for the same reason.
 
 ### A missing binary fails to *start*, which never emits `exited`
-Backend probes must run in parallel and resolve by priority, never chain on each
-other's exit codes. `Power` probes `laptop-power-profile` and `powerprofilesctl`
-at once: a chained version stalls forever on the first
-backend that is not installed, and every later one is silently never tried —
-with no failing command to point at.
-
-`laptop-power-profile` ships on every host (it is part of `desktopctl`), so
-the `laptop-helper` backend is selected by the probe printing a profile, not
-by the binary existing. On non-hybrid CPUs it exits non-zero with empty
-stdout, leaving `_helperProfile` empty so the `ppctl` backend wins and the
-"Efficiency Cores" tile stays hidden.
+A probe whose binary is not installed never reaches `onExited`, so the state it
+would set must default to "absent" — `Host.powerProfiles` starts `false` for
+this reason. Never chain a fallback probe on another one's exit code: the chain
+stalls on the first missing binary, and every later probe is silently never
+tried, with no failing command to point at.
 
 ### Heater mode on, machine idle: the client's own state, not the shell
 The toggle reports the `heater` unit, and the unit being active does not mean

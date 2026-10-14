@@ -38,7 +38,6 @@ Ui.Scroll {
         Ui.Group {
             title: "Performance"
             visible: Sys.Host.profileSwitching
-            footnote: "Backend: " + Sys.Power.backend
 
             Repeater {
                 model: Sys.Power.profiles

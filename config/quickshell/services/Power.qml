@@ -33,16 +33,7 @@ QtObject {
 
     // ── Profile ────────────────────────────────────────────────────────────
 
-    // Backends are probed in parallel and resolved by specificity. Chaining them
-    // — run the next one when the previous exits non-zero — looks tidier and is
-    // wrong: a binary that is not installed fails to *start*, which never emits
-    // an exit, so the chain stalls on the first absent backend and every later
-    // one is silently never tried.
-    property string _helperProfile: ""
-    property string _ppctlProfile: ""
-
-    readonly property string backend: _helperProfile !== "" ? "laptop-helper" : _ppctlProfile !== "" ? "ppctl" : "none"
-    readonly property string reported: _helperProfile !== "" ? _helperProfile : _ppctlProfile !== "" ? _ppctlProfile : "unknown"
+    property string reported: "unknown"
 
     // A write takes a second and a half to come back. `profile` is the one the
     // shell shows: the requested one from the click until the backend confirms
@@ -53,28 +44,17 @@ QtObject {
     readonly property bool switching: pendingProfile !== "" && pendingProfile !== reported
     readonly property string profile: switching ? pendingProfile : reported
 
-    readonly property var profiles: {
-        const list = [{ id: "performance", label: "Performance", icon: "flame" }, { id: "balanced", label: "Balanced", icon: "speed" }, { id: "power-saver", label: "Power Saver", icon: "leaf" }];
-        if (backend === "laptop-helper")
-            list.push({ id: "e-core-only", label: "Efficiency Cores", icon: "leaf-filled" });
-        return list;
-    }
+    readonly property var profiles: [{ id: "performance", label: "Performance", icon: "flame" }, { id: "balanced", label: "Balanced", icon: "speed" }, { id: "power-saver", label: "Power Saver", icon: "leaf" }]
 
     onReportedChanged: pendingProfile = ""
 
     function detect() {
-        helper.running = true;
         ppctl.running = true;
     }
 
     function setProfile(id) {
         pendingProfile = id;
-
-        if (backend === "laptop-helper")
-            profileWriter.command = ["pkexec", "laptop-power-profile", "set", id];
-        else
-            profileWriter.command = ["powerprofilesctl", "set", id];
-
+        profileWriter.command = ["powerprofilesctl", "set", id];
         profileWriter.running = true;
         settle.restart();
         abandon.restart();
@@ -129,19 +109,11 @@ QtObject {
 
     // ── Processes ──────────────────────────────────────────────────────────
 
-    readonly property Process _helper: Process {
-        id: helper
-        command: ["laptop-power-profile", "get"]
-        stdout: StdioCollector {
-            onStreamFinished: root._helperProfile = this.text.trim()
-        }
-    }
-
     readonly property Process _ppctl: Process {
         id: ppctl
         command: ["powerprofilesctl", "get"]
         stdout: StdioCollector {
-            onStreamFinished: root._ppctlProfile = this.text.trim()
+            onStreamFinished: root.reported = this.text.trim() || "unknown"
         }
     }
 

@@ -1,4 +1,4 @@
-{ lib, rustPlatform, makeWrapper, coreutils, geoclue2-with-demo-agent, power-profiles-daemon }:
+{ lib, rustPlatform, makeWrapper, coreutils, geoclue2-with-demo-agent }:
 
 rustPlatform.buildRustPackage {
   pname = "desktopctl";
@@ -27,10 +27,6 @@ rustPlatform.buildRustPackage {
       --set-default DESKTOPCTL_DATA "$out/share/desktopctl/styling" \
       --prefix PATH : ${lib.makeBinPath [ coreutils ]} \
       --prefix PATH : ${geoclue2-with-demo-agent}/libexec/geoclue-2.0/demos
-
-    # pkexec resets PATH, and the laptop host invokes this one through it.
-    wrapProgram "$out/bin/laptop-power-profile" \
-      --prefix PATH : ${lib.makeBinPath [ power-profiles-daemon ]}
   '';
 
   meta = with lib; {

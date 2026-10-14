@@ -32,17 +32,6 @@ final: prev: {
   };
   helium = final.callPackage ../pkgs/helium { };
   kernel-oom-notifier = final.callPackage ../pkgs/kernel-oom-notifier { };
-  # `desktopctl` implements the profile switch (desktopctl/src/bin/
-  # laptop-power-profile), but arrives through home-manager. Expose just that
-  # one binary system-wide: the polkit rule in hosts/laptop/system.nix grants
-  # passwordless pkexec by program path, so keeping the privileged entry point
-  # in its own package is what stops that grant reaching every other desktopctl
-  # subcommand.
-  laptop-power-profile = final.runCommand "laptop-power-profile" { } /* bash */ ''
-    mkdir --parents "$out/bin"
-    ln --symbolic ${final.lib.getExe' final.optimized.desktopctl "laptop-power-profile"} \
-      "$out/bin/laptop-power-profile"
-  '';
   lmstudio = final.callPackage ../pkgs/lmstudio {
     upstreamLmstudio = prev.lmstudio;
   };

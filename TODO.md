@@ -37,6 +37,16 @@ Open issues and pending validations. Delete entries when resolved.
       Still unchecked: finishing that Tahoe install and booting it on the
       reims device (upstream reports guest panics on some Tahoe boots), the
       desktop host, and `--console`. See `docs/macos-vm.md`.
+- [ ] Laptop power profiles, after the rebuild (`docs/laptop-power.md`):
+      `systemctl status scx power-profile-follower` both active; on
+      power-saver `intel-rapl-mmio:0/constraint_0_power_limit_uw` reads
+      15000000 and `sudo turbostat --quiet --show PkgWatt --interval 5`
+      settles near 15 W under a build, while performance reads 115000000 with
+      `hwp_dynamic_boost` 1. Compare power-saver's idle `PkgWatt` and
+      `BAT0/power_now` against the old `e-core-only` (before this change in
+      git); if lavd loses clearly, that is the case for bringing it back.
+      With ASPM `powersupersave`: NVMe, Wi-Fi, and an `nvidia-offload` run
+      plus suspend/resume all still work.
 
 ## Open issues
 
