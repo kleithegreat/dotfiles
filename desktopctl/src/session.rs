@@ -53,10 +53,11 @@ const APPS: &[App] = &[
 ];
 
 /// How long a relaunched app's window count must hold still before its
-/// windows are sorted, and how long to wait for that at all.
+/// windows are sorted when they cannot be told apart, and how long to wait
+/// for that at all.
 const SETTLE: Duration = Duration::from_secs(2);
 const SETTLE_DEADLINE: Duration = Duration::from_secs(30);
-const SETTLE_POLL: Duration = Duration::from_millis(500);
+const SETTLE_POLL: Duration = Duration::from_millis(200);
 
 /// Where a relaunched app's windows wait, unseen, until they are sorted.
 const PARKING: &str = "special:restoring";
@@ -197,7 +198,7 @@ pub(crate) fn restore(windows: &[Window]) -> Result<()> {
 
 fn relaunch(windows: &[Window]) -> Result<()> {
     let open = hypr::query_windows()?;
-    let mut sorting = Vec::new();
+    let mut parked = Vec::new();
 
     for app in APPS {
         let saved: Vec<&Window> = windows
@@ -222,17 +223,18 @@ fn relaunch(windows: &[Window]) -> Result<()> {
                     eprintln!("desktopctl: preparing {} failed: {error}", app.class);
                 }
                 hypr::eval(&parking_rule(app.class, true))?;
-                sorting.push((app.class, saved));
+                parked.push(Parked {
+                    class: app.class,
+                    saved,
+                    count: 0,
+                    changed: Instant::now(),
+                });
                 hypr::dispatch(&hypr::exec_dispatcher(app.command))?;
             }
         }
     }
 
-    if sorting.is_empty() {
-        return Ok(());
-    }
-    let classes: Vec<&str> = sorting.iter().map(|(class, _)| *class).collect();
-    sort_parked(&classes, sorting)
+    sort_parked(parked)
 }
 
 /// Stop parking new windows of these classes. Also run when the daemon
@@ -263,22 +265,69 @@ fn parking_rule(class: &str, enabled: bool) -> String {
     )
 }
 
-fn sort_parked(classes: &[&str], sorting: Vec<(&str, Vec<&Window>)>) -> Result<()> {
-    let opened = settled_windows(classes)?;
-    for (class, saved) in sorting {
-        let opened: Vec<&hypr::WindowInfo> = opened
-            .iter()
-            .filter(|window| window.class == class)
-            .collect();
-        for (address, workspace) in assign(&saved, &opened) {
-            hypr::dispatch(&format!(
-                "hl.dsp.window.move({{ workspace = {}, silent = true, window = {} }})",
-                workspace_selector(workspace),
-                hypr::lua_str(&format!("address:{address}")),
-            ))?;
+/// A relaunched app whose windows wait in `PARKING` to be sorted.
+struct Parked<'a> {
+    class: &'static str,
+    saved: Vec<&'a Window>,
+    count: usize,
+    changed: Instant,
+}
+
+/// Sort each app's windows as soon as its own are ready, so a slow app never
+/// keeps a fast one's windows hidden. Past the deadline, whatever is open is
+/// sorted.
+fn sort_parked(mut parked: Vec<Parked>) -> Result<()> {
+    let deadline = Instant::now() + SETTLE_DEADLINE;
+
+    while !parked.is_empty() {
+        let windows = hypr::query_windows()?;
+        let now = Instant::now();
+        let mut waiting = Vec::new();
+        for mut app in parked {
+            let opened: Vec<&hypr::WindowInfo> = windows
+                .iter()
+                .filter(|window| window.class == app.class)
+                .collect();
+            if opened.len() != app.count {
+                app.count = opened.len();
+                app.changed = now;
+            }
+            let settled = !opened.is_empty() && now - app.changed >= SETTLE;
+            if !(determined(&app.saved, &opened) || settled || now >= deadline) {
+                waiting.push(app);
+                continue;
+            }
+            // Unpark first: a window that maps in between should land in view, not stay hidden.
+            unpark(&[app.class]);
+            for (address, workspace) in assign(&app.saved, &opened) {
+                hypr::dispatch(&format!(
+                    "hl.dsp.window.move({{ workspace = {}, silent = true, window = {} }})",
+                    workspace_selector(workspace),
+                    hypr::lua_str(&format!("address:{address}")),
+                ))?;
+            }
+        }
+        parked = waiting;
+        if !parked.is_empty() {
+            thread::sleep(SETTLE_POLL);
         }
     }
     Ok(())
+}
+
+/// Whether waiting longer can no longer change how `assign` pairs windows:
+/// every saved window has reopened, and at most one of them has to be told
+/// apart by order rather than title.
+fn determined(saved: &[&Window], opened: &[&hypr::WindowInfo]) -> bool {
+    let untitled = saved
+        .iter()
+        .filter(|saved| {
+            !opened
+                .iter()
+                .any(|window| saved.title.as_deref() == Some(window.title.as_str()))
+        })
+        .count();
+    opened.len() == saved.len() && untitled <= 1
 }
 
 fn exec_on_workspace(app: &App, window: &Window) -> String {
@@ -301,33 +350,6 @@ fn workspace_selector(name: &str) -> String {
     match name.parse::<i64>() {
         Ok(id) => id.to_string(),
         Err(_) => hypr::lua_str(name),
-    }
-}
-
-/// Wait for the relaunched apps to finish reopening their windows: every class
-/// has at least one and the total has stopped changing. Past the deadline,
-/// whatever is open is sorted.
-fn settled_windows(classes: &[&str]) -> Result<Vec<hypr::WindowInfo>> {
-    let deadline = Instant::now() + SETTLE_DEADLINE;
-    let mut stable_since = Instant::now();
-    let mut count = 0;
-
-    loop {
-        let windows: Vec<hypr::WindowInfo> = hypr::query_windows()?
-            .into_iter()
-            .filter(|window| classes.contains(&window.class.as_str()))
-            .collect();
-        if windows.len() != count {
-            count = windows.len();
-            stable_since = Instant::now();
-        }
-        let all_present = classes
-            .iter()
-            .all(|class| windows.iter().any(|window| window.class == *class));
-        if (all_present && stable_since.elapsed() >= SETTLE) || Instant::now() >= deadline {
-            return Ok(windows);
-        }
-        thread::sleep(SETTLE_POLL);
     }
 }
 
@@ -465,6 +487,25 @@ mod tests {
             assign(&saved, &opened),
             vec![("0xa".to_owned(), "3"), ("0xb".to_owned(), "3")]
         );
+    }
+
+    #[test]
+    fn determined_once_every_window_is_open_and_titles_leave_no_doubt() {
+        let saved = [saved("1", "Mail"), saved("4", "Docs")];
+        let saved: Vec<&Window> = saved.iter().collect();
+        let loading = [
+            opened("0xa", PARKING, "New Tab"),
+            opened("0xb", PARKING, "New Tab"),
+        ];
+        let loaded = [
+            opened("0xa", PARKING, "Mail"),
+            opened("0xb", PARKING, "New Tab"),
+        ];
+
+        assert!(!determined(&saved, &[&loaded[0]]));
+        assert!(!determined(&saved, &loading.iter().collect::<Vec<_>>()));
+        assert!(determined(&saved, &loaded.iter().collect::<Vec<_>>()));
+        assert!(determined(&saved[..1], &[&loading[0]]));
     }
 
     #[test]

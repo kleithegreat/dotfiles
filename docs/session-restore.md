@@ -47,10 +47,11 @@ Helium and VS Code reopen all their windows from one process, and Hyprland's
 exec rules place only what that launch maps first, so there is no saying
 up front where each window goes. For the length of a restore a named window
 rule sends every new window of the app to the hidden `special:restoring`
-workspace, and once the window count has held still for two seconds each is
-moved to its own workspace and the rule is switched off. A restore that
-looks like it did nothing for a few seconds is this wait; windows that never
-appear are still parked, which `hyprctl clients` shows. The daemon switches
+workspace. Each app's windows are moved and its rule switched off as soon as
+every saved window has reopened and titles leave at most one to pair by order;
+failing that, once its window count has held still for two seconds. A restore
+that looks like it did nothing for a few seconds is this wait; windows that
+never appear are still parked, which `hyprctl clients` shows. The daemon switches
 the rules off again whenever it starts, because a rule left on would swallow
 every later window of that app. A browser that opens a single window is its
 own "continue where you left off" setting being off, which nothing here can
