@@ -62,12 +62,11 @@ async fn run_async() -> crate::Result<()> {
     }
     auxiliary.spawn({
         let night_light = night_light.clone();
-        let theme = theme.clone();
         let shutdown_rx = shutdown_rx.clone();
         async move {
             (
                 "solar scheduler",
-                solar::run(night_light, theme, shutdown_rx).await,
+                solar::run(night_light, shutdown_rx).await,
             )
         }
     });
@@ -77,6 +76,15 @@ async fn run_async() -> crate::Result<()> {
             report_auxiliary_exit(task);
         }
     });
+
+    {
+        let theme = theme.clone();
+        match tokio::task::spawn_blocking(move || solar::boot_catch_up(&theme)).await {
+            Ok(Err(error)) => eprintln!("desktopctl: dark-hint boot catch-up failed: {error}"),
+            Err(error) => eprintln!("desktopctl: dark-hint boot catch-up did not run: {error}"),
+            Ok(Ok(())) => {}
+        }
+    }
 
     let mut server = tokio::spawn({
         let context = server::ServerContext {

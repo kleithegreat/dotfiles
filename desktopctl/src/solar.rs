@@ -200,12 +200,18 @@ pub fn status_for_now(now: DateTime<Local>, location: Coordinates) -> SolarStatu
         sunrise,
         sunset,
         is_night: now < sunrise || now >= sunset,
-        is_dark: now >= dark_on_today || now < dark_off_today,
+        is_dark: in_dark_window(now),
         next_sunrise,
         next_sunset,
         next_dark_on,
         next_dark_off,
     }
+}
+
+/// Whether `now` is inside the 23:00-06:00 dark-hint window. The clock alone
+/// decides it, so it is known before any location is.
+pub fn in_dark_window(now: DateTime<Local>) -> bool {
+    now.hour() >= DARK_ON_HOUR || now.hour() < DARK_OFF_HOUR
 }
 
 /// Start of the schedule window `now` falls in. Windows switch at the
@@ -470,6 +476,20 @@ fn duration_from_hours(hours: f64) -> Duration {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dark_window_runs_from_23_00_to_06_00() {
+        let at = |hour, minute| {
+            Local
+                .with_ymd_and_hms(2026, 10, 14, hour, minute, 0)
+                .single()
+                .expect("unambiguous local time")
+        };
+        assert!(in_dark_window(at(23, 0)));
+        assert!(in_dark_window(at(5, 59)));
+        assert!(!in_dark_window(at(6, 0)));
+        assert!(!in_dark_window(at(22, 59)));
+    }
     use crate::test_support::{ScopedEnvVar, TempDir, env_lock};
 
     #[test]

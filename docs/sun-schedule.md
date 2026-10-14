@@ -19,7 +19,9 @@
   `dark_hint_manual_at` state row. A daemon restart never clobbers a manual
   value: the scheduler acts on edges only, plus a once-per-boot catch-up that
   applies the schedule value only when no manual write is recorded for the
-  current window (covering machines that were off across an edge).
+  current window (covering machines that were off across an edge). The
+  catch-up depends on the clock alone and finishes before the daemon serves
+  its socket, so apps restored at login start with the settled value.
 - Coordinate resolution order: `DESKTOPCTL_LOCATION` pin → cached location
   fresh within 6 hours → GeoClue (`where-am-i`) → stale-but-parseable cache →
   hardcoded fallback `30.6280, -96.3344` (College Station, TX). Degradation

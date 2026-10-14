@@ -13,21 +13,15 @@ use tokio::{
     sync::watch,
 };
 
-pub async fn run(
-    controller: Controller,
-    theme: ThemeController,
-    mut shutdown: watch::Receiver<bool>,
-) -> crate::Result<()> {
+pub async fn run(controller: Controller, mut shutdown: watch::Receiver<bool>) -> crate::Result<()> {
     let mut sigusr1 = signal(SignalKind::user_defined1())?;
-    // Runs once, on the first tick: covers an edge crossed while the machine was off.
-    let mut boot_catch_up = Some(theme);
 
     loop {
         if *shutdown.borrow() {
             return Ok(());
         }
 
-        let next_event = solar_tick(controller.clone(), boot_catch_up.take()).await?;
+        let next_event = solar_tick(controller.clone()).await?;
 
         let event_sleep = tokio::time::sleep(duration_until(next_event));
         let recompute_sleep = tokio::time::sleep(StdDuration::from_secs(2 * 60 * 60));
@@ -48,20 +42,11 @@ pub async fn run(
 }
 
 /// Run one blocking solar recompute/reconcile cycle off the async runtime.
-async fn solar_tick(
-    controller: Controller,
-    boot_catch_up: Option<ThemeController>,
-) -> crate::Result<DateTime<Local>> {
+async fn solar_tick(controller: Controller) -> crate::Result<DateTime<Local>> {
     tokio::task::spawn_blocking(move || {
         let location = solar::resolve_location()?;
         let status = solar::status_for_now(chrono::Local::now(), location);
         let next_event = solar::next_event(&status);
-
-        if let Some(theme) = boot_catch_up
-            && let Err(error) = run_boot_catch_up(&status, &theme)
-        {
-            eprintln!("dark-hint boot catch-up failed: {error}");
-        }
 
         controller.update_solar_status(status)?;
         if let Err(error) = controller.reconcile() {
@@ -74,18 +59,25 @@ async fn solar_tick(
     .map_err(|error| io::Error::other(format!("solar tick task join failed: {error}")))?
 }
 
-fn run_boot_catch_up(status: &solar::SolarStatus, theme: &ThemeController) -> crate::Result<()> {
+/// Apply a dark-hint edge crossed while the machine was off. It runs before
+/// the daemon serves anything, so apps the session restores launch with the
+/// right value instead of the one they were closed with.
+pub fn boot_catch_up(theme: &ThemeController) -> crate::Result<()> {
     let state = crate::theme::resolve::load_state()?;
     let manual_at = state
         .extra
         .get(crate::theme::DARK_HINT_MANUAL_AT_KEY)
         .and_then(|value| value.as_str())
         .and_then(parse_manual_timestamp);
-    let window_start = solar::dark_window_start(chrono::Local::now());
+    let now = chrono::Local::now();
+    let window_start = solar::dark_window_start(now);
 
-    if let Some(enabled) =
-        catch_up_decision(state.dark_hint, manual_at, window_start, status.is_dark)
-    {
+    if let Some(enabled) = catch_up_decision(
+        state.dark_hint,
+        manual_at,
+        window_start,
+        solar::in_dark_window(now),
+    ) {
         theme.request_blocking(ThemeJob::Set {
             key: "dark_hint".to_owned(),
             value: serde_json::Value::Bool(enabled),
