@@ -77,7 +77,10 @@ in
     systemd.tmpfiles.rules = [ "d /var/tmp/nix-daemon 0755 root root -" ];
 
     networking.useDHCP = lib.mkDefault true;
-    zramSwap.enable = true;
+    zramSwap = {
+      enable = true;
+      memoryPercent = 100;
+    };
 
     hardware.enableRedistributableFirmware = true;
     hardware.i2c.enable = true;
