@@ -239,4 +239,13 @@ keep the tmpfiles rule in sync with the target's staging path and do not relax
 the mode. The sync service *consumes* (deletes) the staged file; see the
 `PathExists` quirk in [[nix]].
 
+### Claude Code's `auto` theme does not follow a scheme switch
+`"theme": "auto"` picks light or dark once from the terminal background and
+re-checks only on a terminal colour-change notification (mode 2031), which
+Alacritty did not deliver: a session started on solarized-light kept drawing
+its light palette on gruvbox-dark. The `claude_code` target writes
+`~/.claude/themes/desktopctl.json` instead, which running sessions watch and
+re-render from within about two seconds — but only while
+`~/.claude/settings.json` selects `"theme": "custom:desktopctl"`.
+
 Related: [[desktopctl]], [[tools]], [[quickshell]], [[hyprland]], [[nix]], [[sun-schedule]]
