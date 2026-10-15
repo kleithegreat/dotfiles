@@ -7,6 +7,7 @@ let
   allowedUnfreePackageNames = [
     # Applications — home.packages
     "bambu-studio"
+    "claude-desktop"
     "discord"
     "discord-unwrapped"
     "lmstudio"

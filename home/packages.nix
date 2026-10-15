@@ -96,6 +96,7 @@ let
     vscode
     zed-editor
     lmstudio
+    claude-desktop
     comfyui
     helium
     imv
