@@ -2,7 +2,6 @@
 
 {
   config = lib.mkIf host.isPhysical {
-    boot.kernelPackages = pkgs.linuxPackages;
     boot.kernelParams = [
       "mitigations=off"
       "transparent_hugepage=madvise"

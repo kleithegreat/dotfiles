@@ -2,6 +2,18 @@
 
 {
   boot.initrd.availableKernelModules = [ "xhci_pci" "thunderbolt" "vmd" "nvme" "rtsx_pci_sdmmc" ];
+  programs.ccache.enable = true;
+  nix.settings.extra-sandbox-paths = [ config.programs.ccache.cacheDir ];
+  boot.kernelPackages = pkgs.linuxPackagesFor (pkgs.linuxPackages.kernel.override {
+    stdenv = pkgs.ccacheStdenv.override {
+      extraConfig = /* bash */ ''
+        export CCACHE_DIR=${config.programs.ccache.cacheDir}
+        export CCACHE_UMASK=007
+        # Without the sandbox mount (first build, remote builder) compile uncached rather than fail.
+        [ -w "$CCACHE_DIR" ] || export CCACHE_DISABLE=1
+      '';
+    };
+  });
   boot.kernelPatches = [
     {
       name = "laptop-intel-only-kernel-config";

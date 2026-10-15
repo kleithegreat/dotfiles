@@ -21,7 +21,7 @@
   (Clang/LTO/CachyOS, forced initrd lists) already caused an undebuggable
   no-journal boot failure; runtime policy goes in `kernelParams`, sysctls and
   services. Only the laptop carries Kconfig trims, each its own boot-validated
-  change.
+  change; they cost it every substitution, so it compiles through ccache.
 - `pkgs.optimized.<name>` namespaces native builds and never shadows
   `pkgs.<name>`, so nothing that was not opted in loses cache hits. `zstd`,
   `lz4` and texlive stay out: the first two cascade rebuilds through
