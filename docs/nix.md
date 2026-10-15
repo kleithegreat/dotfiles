@@ -242,9 +242,9 @@ Hyprland is unreachable so it still works from a TTY/SSH.
 ### MGLRU `min_ttl_ms` is the working-set protection, not `vm.*` sysctls
 `system/physical-host.nix` applies thrash protection through
 `systemd.services.mglru-tuning` writing `/sys/kernel/mm/lru_gen/min_ttl_ms`.
-Don't go looking for LE9-style `vm.anon_min_kbytes` knobs, and don't add
-low-swappiness values: swap is zram-only, where the kernel default of 60 is
-the right policy — the desktop deliberately keeps only the writeback sysctls.
+Don't go looking for LE9-style `vm.anon_min_kbytes` knobs, and don't lower
+`vm.swappiness` from 180: swap is zram-only, so swapping out compresses into
+RAM, which is cheaper than evicting page cache that must be re-read from disk.
 
 ### Only the laptop resolves its location
 `automatic-timezoned` runs on the laptop alone; the desktop pins

@@ -30,6 +30,8 @@ in
       "kernel.sched_autogroup_enabled" = 1;
       "net.core.default_qdisc" = "fq";
       "net.ipv4.tcp_congestion_control" = "bbr";
+      # zram-only swap: swapping is cheaper than dropping page cache; see docs/nix.md.
+      "vm.swappiness" = 180;
     };
 
     systemd.services.mglru-tuning = {

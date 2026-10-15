@@ -2,8 +2,6 @@
 
 {
   boot.initrd.availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usbhid" "usb_storage" "sd_mod" ];
-  # Writeback tuning only: swappiness/vfs_cache_pressure stay at kernel
-  # defaults, which suit the shared zram-only swap policy.
   boot.kernel.sysctl = {
     "vm.dirty_ratio" = 10;
     "vm.dirty_background_ratio" = 5;
