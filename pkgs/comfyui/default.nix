@@ -73,7 +73,6 @@ let
       sqlalchemy
       tokenizers
       torch
-      torchaudio
       torchsde
       torchvision
       tqdm
@@ -85,13 +84,13 @@ let
 in
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "comfyui";
-  version = "0.34.0";
+  version = "0.40.0";
 
   src = fetchFromGitHub {
     owner = "comfyanonymous";
     repo = "ComfyUI";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-pW02gtrtWkoPabYe6Q/gicNRM65JRYsc7vtaY1m6H1M=";
+    hash = "sha256-kBtI5Xb824isc/A//e4U1kvAZTay+1j0Z3RsBGZfkvU=";
   };
 
   dontConfigure = true;

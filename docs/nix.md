@@ -192,11 +192,9 @@ shares the ID list with `programs.chromium.extensions`).
 - PyTorch must come from the `-bin` wheels under `cudaPackages_13_3`
   (`pkgs/comfyui/python-packages.nix`): default nixpkgs torch with
   `cudaSupport` is an uncached hours-long source build, and `torch-bin` on the
-  default CUDA 12 set is marked broken. The plain `torch`/`torchvision`/
-  `torchaudio` attrs are aliased to the `-bin` packages so every downstream
-  consumer shares one PyTorch. Do not silence the broken-package check
-  instead. Related pins: `torchaudio-bin`'s `src` is repointed at upstream's
-  cu130 wheel (nixpkgs pairs a cu130 torch with a cu128 torchaudio), and
+  default CUDA 12 set is marked broken. The plain `torch`/`torchvision`
+  attrs are aliased to the `-bin` packages so every downstream consumer shares
+  one PyTorch. Do not silence the broken-package check instead. Related pin:
   `torch-bin` gets `pythonRelaxDeps = [ "setuptools" ]` for its `<82` cap
   (guards only `torch.utils.cpp_extension`, unused here).
 - The first build compiles NCCL and NVSHMEM from source for a long time —
@@ -204,9 +202,9 @@ shares the ID list with `programs.chromium.extensions`).
 - `--base-directory` neither seeds the tree nor covers the database:
   `comfyui.sh` creates the directory skeleton (generated in `installPhase`
   from the upstream tree) and passes an explicit `--database-url`.
-- `comfyui-workflow-templates` is a metapackage over seven independently
-  versioned sub-distributions; a partial install silently yields an empty
-  template browser. Re-read its `requires_dist` on bumps.
+- `comfyui-workflow-templates` is a metapackage over independently versioned
+  sub-distributions, and it adds new ones; a partial install silently yields
+  an empty template browser. Re-read its `requires_dist` on bumps.
 - Custom nodes can't pip-install into the read-only store interpreter; declare
   extra deps via the `extraPythonPackages` override. Python is pinned to 3.13
   deliberately (upstream custom-node support), not drifting with `python3`.
