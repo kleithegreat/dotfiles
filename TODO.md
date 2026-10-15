@@ -12,10 +12,9 @@ Open issues and pending validations. Delete entries when resolved.
       own volume writes for 400 ms); night-light commit-on-release; Wi-Fi join forms
       including enterprise; Display staged apply and its revert countdown;
       tray menus.
-- [ ] Laptop Bluetooth, after the rebuild: the adapter should be off at
-      boot; turn it on from the Control Center tile, pair something in
-      Settings → Bluetooth, and confirm audio routes to it. The shell's
-      native adapter path has never run against a real bluez.
+- [ ] Laptop Bluetooth: turn the adapter on from the Control Center tile,
+      pair something in Settings → Bluetooth, and confirm audio routes to it.
+      The shell's native adapter path has never run against a real bluez.
 - [ ] Log out without rebooting and confirm `desktopctl.service` stops with
       the session.
 - [ ] Desktop suspend/resume: validate the post-overlay-removal resume stack
@@ -37,16 +36,12 @@ Open issues and pending validations. Delete entries when resolved.
       Still unchecked: finishing that Tahoe install and booting it on the
       reims device (upstream reports guest panics on some Tahoe boots), the
       desktop host, and `--console`. See `docs/macos-vm.md`.
-- [ ] Laptop power profiles, after the rebuild (`docs/laptop-power.md`):
-      `systemctl status scx power-profile-follower` both active; on
-      power-saver `intel-rapl-mmio:0/constraint_0_power_limit_uw` reads
-      15000000 and `sudo turbostat --quiet --show PkgWatt --interval 5`
-      settles near 15 W under a build, while performance reads 115000000 with
-      `hwp_dynamic_boost` 1. Compare power-saver's idle `PkgWatt` and
-      `BAT0/power_now` against the old `e-core-only` (before this change in
-      git); if lavd loses clearly, that is the case for bringing it back.
-      With ASPM `powersupersave`: NVMe, Wi-Fi, and an `nvidia-offload` run
-      plus suspend/resume all still work.
+- [ ] Laptop power-saver on battery (`docs/laptop-power.md`): compare idle
+      package power and battery draw against the old `e-core-only` (before
+      56c2f99); if lavd loses clearly, that is the case for bringing it back.
+      `intel-rapl:0/energy_uj` is world-readable, so no turbostat or sudo is
+      needed; `BAT0` has no `power_now`, so draw is `current_now` ×
+      `voltage_now`.
 
 ## Open issues
 

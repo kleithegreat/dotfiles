@@ -107,8 +107,6 @@
   # ── Power profiles ──────────────────────────────────────────
   # Everything here follows power-profiles-daemon's active profile; see
   # docs/laptop-power.md.
-  boot.kernelParams = [ "pcie_aspm.policy=powersupersave" ];
-
   services.scx = {
     enable = true;
     scheduler = "scx_lavd";

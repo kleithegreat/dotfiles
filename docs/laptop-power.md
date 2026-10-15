@@ -41,3 +41,11 @@ journal simply stops mid-entry and the next boot looks like a hardware fault.
 
 If a rebuild dies silently under sustained load, check `pwm1_enable` before
 suspecting the battery or the charger.
+
+### PCIe ASPM policy parameters are silently ignored
+`pcie_aspm.policy=powersupersave` looks like a free idle-power win and boots
+without complaint, but the 9520's FADT declares ASPM unsupported, so the
+kernel leaves the firmware's link states alone and
+`/sys/module/pcie_aspm/parameters/policy` stays at `[default]`. Only the boot
+log says so ("FADT indicates ASPM is unsupported"). Overriding that takes
+`pcie_aspm=force`, which is a different and riskier decision.
