@@ -2,7 +2,7 @@
   writeShellApplication,
   runCommand,
   fetchFromGitHub,
-  reims-vgpu,
+  qemu-reims-vgpu,
   dmg2img,
   python3,
 }:
@@ -29,7 +29,7 @@ writeShellApplication {
   name = "macos-vm";
 
   runtimeInputs = [
-    reims-vgpu
+    qemu-reims-vgpu
     dmg2img
     python3
   ];
@@ -52,13 +52,12 @@ writeShellApplication {
       cat <<'EOF'
     usage: macos-vm fetch [RELEASE] | install | run [--console]
 
-      fetch    download Apple's recovery image (default RELEASE: ventura, what
-               reims-vgpu is developed against) and unpack it for the installer
+      fetch    download Apple's recovery image (default RELEASE: ventura) and unpack
+               it for the installer
       install  create the system disk and boot the recovery installer
       run      boot the installed guest on the reims-vgpu device, which opens
                its own Vulkan window; --console boots it on vmware-svga in a
-               QEMU window instead, which is what shows OpenCore and anything
-               before AppleParavirtGPU loads
+               QEMU window instead
 
     MACOS_VM_DIR=~/vm/macos  MACOS_VM_RAM=8G  MACOS_VM_CPUS=8
     MACOS_VM_DISK=128G  MACOS_VM_SSH_PORT=2222
@@ -121,13 +120,13 @@ writeShellApplication {
     vgpu_display() {
       # The device carries the only display: its UEFI GOP lives on the same PCI
       # function, and a second VGA would give the guest a second screen.
-      # REIMS_VGPU_WINDOW makes the staticlib open the Vulkan window itself, so
+      # Under `-display none` the library opens a window per display itself, so
       # QEMU owns no UI.
-      export REIMS_VGPU_WINDOW=1
       args+=(
         -vga none
-        -device "pci-bridge,chassis_nr=5,id=pci.5,bus=pcie.0,addr=1e.0"
-        -device "reims-vgpu-pci,id=reimsvgpu,bus=pci.5,addr=00.0"
+        -device apple-gfx-pci,id=gfx
+        # A guest woken from S3 never gets the device's display back.
+        -global ICH9-LPC.disable_s3=1
         -display none
       )
     }

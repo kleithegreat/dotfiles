@@ -37,6 +37,7 @@ final: prev: {
   };
   macos-vm = final.callPackage ../pkgs/macos-vm { };
   neuwaita = final.callPackage ../pkgs/neuwaita { };
+  qemu-reims-vgpu = final.callPackage ../pkgs/qemu-reims-vgpu { };
   reims-vgpu = final.callPackage ../pkgs/reims-vgpu { };
   sddm-theme = final.callPackage ../pkgs/sddm-theme { };
   sf-pro = final.callPackage ../pkgs/sf-pro { };

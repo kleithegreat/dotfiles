@@ -30,12 +30,12 @@ Open issues and pending validations. Delete entries when resolved.
       monitor still auto-selects. Drag a display in the arrangement canvas and
       check the edge snap and the countdown's revert with two outputs.
 
-- [ ] macOS VM: `nvidia-offload macos-vm run` on the laptop boots the
-      installed Ventura guest to a rendered desktop on the 3050, and `fetch
-      tahoe` + `install` reach the Tahoe recovery in `~/vm/macos-tahoe`.
-      Still unchecked: finishing that Tahoe install and booting it on the
-      reims device (upstream reports guest panics on some Tahoe boots), the
-      desktop host, and `--console`. See `docs/macos-vm.md`.
+- [ ] macOS VM, after the move to upstream's `apple-gfx-pci` and its option
+      ROM: `nvidia-offload macos-vm run` on the laptop boots the installed
+      Ventura guest to a rendered desktop on the 3050, and OpenCore's picker
+      now shows in the device's own window. Still unchecked: the Tahoe
+      install in `~/vm/macos-tahoe` booted on the device, the desktop host,
+      and `--console`. See `docs/macos-vm.md`.
 - [ ] Laptop power-saver on battery (`docs/laptop-power.md`): compare idle
       package power and battery draw against the old `e-core-only` (before
       56c2f99); if lavd loses clearly, that is the case for bringing it back.

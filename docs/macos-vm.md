@@ -6,12 +6,14 @@
   installs itself from Apple's recovery media, so `~/vm/macos` is state the
   config seeds once and then leaves alone — system disk, OpenCore's boot disk,
   the OVMF variable store. None of it belongs in the repo or the store.
-- `pkgs/reims-vgpu` is upstream's QEMU fork with the device's Rust half linked
-  in, configured the way upstream's own `scripts/qemu-build` configures it: one
-  backend, chosen at configure time (`vulkan` here; `metal` is Apple-only). The
-  four pins in that file are a single set. Upstream promises no ABI
-  compatibility between revisions, so bumping one without the others links a
-  device that cannot speak to the driver it is paired with.
+- `pkgs/reims-vgpu` is upstream's library and option ROM, built by upstream's
+  own `cargo xtask dist` on its Vulkan platform (Metal is Apple-only);
+  `pkgs/qemu-reims-vgpu` is upstream's QEMU fork linking it through
+  pkg-config, as upstream's `make qemu` does. The library's rev, the QEMU rev
+  its `vendor/qemu` names, and the keycodemapdb rev that QEMU's wrap names are
+  a single set. Upstream promises no ABI compatibility between revisions, so
+  bumping one without the others links a device that cannot speak to the
+  driver it is paired with.
 - `pkgs/macos-vm` owns the whole lifecycle: fetch, install, boot. Upstream's
   `vm/boot-x86.sh` is an agent-testing harness — snapshot rails, timed kills,
   clones thrown away on exit — and none of that is wanted for a workstation
@@ -30,13 +32,15 @@
 
 ## Quirks
 
-### The QEMU tree has to sit inside the reims-vgpu tree
-`hw/display/meson.build` builds the Rust staticlib by reaching
-`meson.global_source_root() / '..' / '..'`, so QEMU belongs at `vendor/qemu`
-inside the outer checkout. `sourceRoot` is therefore the outer tree — which is
-also where `cargoSetupHook` looks for `Cargo.lock` — and the build descends in
-`preConfigure`. Pointing `sourceRoot` at the QEMU directory reads as the
-obvious cleanup and breaks both halves.
+### Upstream's Cargo.lock is incomplete on purpose
+The committed lock lists the `metal2vulkan` git crates with no `source`, and
+upstream's own build lets cargo write them back in from the network (its
+installer restores the committed file before every pull). The build has no
+network to do that, so `cargo-lock-git-sources.patch` carries the missing
+lines.
+On a bump, regenerate it: run `cargo metadata` in the new tree and diff
+`Cargo.lock` — anything beyond `source` lines means upstream changed more than
+this.
 
 ### Meson wraps have to arrive as sources
 QEMU resolves keycodemapdb through a wrap, which downloads, and a git checkout
@@ -47,34 +51,6 @@ missing wrap into a configure error rather than a fetch that cannot succeed.
 QEMU's softfloat tests, which want two further wraps, and every guest this
 binary exists for runs under KVM. Turning TCG back on brings the download error
 back with it.
-
-### Nothing renders before AppleParavirtGPU attaches
-The device's UEFI GOP lives in a PCI option ROM built from
-`crates/reims-vgpu-efi`, a crate with no lockfile to vendor, so this package
-does not build it. `macos-vm run` shows an empty window through OpenCore and
-early boot, and only comes alive once the guest driver loads. That is not a
-hang — `macos-vm run --console` is how anything at the firmware or OpenCore
-level gets seen. A window that is *still* black a minute in is a different
-fault, and the next quirk is the one that has caused it.
-
-### The device shells out to `llvm-dis` and `spirv-val`
-`metal2vulkan` translates each uncached guest shader by spawning both, so they
-have to be on QEMU's own PATH — `shaderTools` in `pkgs/reims-vgpu` is what puts
-them there. Without them every translation refuses, every draw is skipped, and
-the guest scans out a surface nothing ever drew into: an attached, healthy,
-fully booted guest behind a permanently black window. Nothing about that
-presents as a missing build tool, and the quirk above supplies a ready
-explanation for it, so read `/tmp/reims-vgpu-fail.log` before believing either.
-That log is always on and unconditional; `host_window_cadence ... direct=0` for
-the whole run says no guest frame ever arrived, and the refusal naming the tool
-is above it.
-
-`direct=0` has a second cause that looks identical from the window, so read
-`display_enable_mask` before blaming the host: the guest publishes that mask and
-the host only reads it, so `0xc -> 0xd` is macOS arming vblank and starting to
-composite. Missing translation still shows the transition and then refuses every
-draw; a guest that never composites at all never transitions, and no host-side
-switch can cause that.
 
 ### The OpenCore identity stays `iMac19,1`, Tahoe included
 Tahoe's supported-hardware list has no 2019 iMac on it, which reads as a
@@ -95,8 +71,8 @@ hangs in `StorageNode::init`. Raising `MACOS_VM_CPUS` past 8 buys a boot that
 stops with no error rather than a faster guest.
 
 ### The Vulkan and windowing libraries are dlopened
-`ash` and `winit` load `libvulkan.so.1`, wayland and X11 by name at runtime, so
-nothing names them in the binary's RUNPATH and the wrapper's `LD_LIBRARY_PATH`
+`ash` and SDL3 load `libvulkan.so.1`, wayland and xkbcommon by name at
+runtime, so nothing names them in the binary's RUNPATH and the wrapper's `LD_LIBRARY_PATH`
 is what makes the device work at all. Drop it and QEMU still links, still
 starts, and dies when the device initialises.
 
