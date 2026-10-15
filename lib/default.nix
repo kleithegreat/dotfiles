@@ -1,7 +1,4 @@
-# Extends nixpkgs `lib` with every other file in this directory, so helpers are
-# reachable as `lib.<namespace>.<name>` from any module without being threaded
-# through as arguments. Each sibling file takes `{ self }` -- the fully extended
-# lib -- and returns the attrset to merge in.
+# Merges every sibling `{ self }: { ... }` file into nixpkgs `lib`.
 lib:
 let
   inherit (lib.attrsets) recursiveUpdate;

@@ -9,7 +9,6 @@
     pkgs.neuwaita
   ];
 
-  # ── dconf / GNOME settings ───────────────────────────────────
   dconf.settings = {
     "org/gnome/desktop/interface" = {
       clock-format = "12h";

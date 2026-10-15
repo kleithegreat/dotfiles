@@ -31,7 +31,7 @@ fn capture<S: AsRef<OsStr>>(
     env: &BTreeMap<String, String>,
 ) -> crate::Result<String> {
     let Some((program, args)) = command.split_first() else {
-        return Err(io::Error::new(io::ErrorKind::InvalidInput, "Command cannot be empty").into());
+        return Err(crate::invalid_input("Command cannot be empty").into());
     };
     let program = program.as_ref();
 

@@ -16,10 +16,8 @@ appimageTools.wrapType2 {
 
   extraPkgs = pkgs: [ pkgs.ocl-icd ];
 
-  # The desktop file must point at an absolute shell-parent launcher, not the
-  # AppImage/FHS wrapper, or Vicinae's detached launch loses the app.
-  # Upstream names the entry after its appId; keep the desktop ID stable as
-  # lm-studio.desktop so launcher state survives the rename.
+  # Shell-parent launcher (docs/nix.md); the desktop ID stays lm-studio so
+  # launcher state survives upstream's rename to its appId.
   extraInstallCommands = /* bash */ ''
     install -D --mode=444 ${appimageContents}/ai.elementlabs.lmstudio.desktop \
       $out/share/applications/lm-studio.desktop

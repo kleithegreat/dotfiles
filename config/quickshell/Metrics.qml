@@ -2,9 +2,7 @@ pragma Singleton
 
 import QtQuick
 
-// Layout scales. A value earns a place here only if it encodes a system rule or
-// is shared by more than one surface — a number used by exactly one widget
-// belongs at that widget, not in a global bucket.
+// Layout scales: system rules and values shared by several surfaces only.
 QtObject {
     // ── Space: a 4pt grid ──────────────────────────────────────────────────
     readonly property int s1: 4
@@ -79,10 +77,7 @@ QtObject {
 
     readonly property int wheelStep: 165
 
-    // How far past an edge a wheel may stretch content, and the curve that gets
-    // it there: diminishing returns, asymptotic to `overshoot`, so pushing
-    // harder against the end never runs away. One home, because two scrollers
-    // that stretch differently read as one of them being broken.
+    // Wheel overscroll: diminishing returns, asymptotic to `overshoot`, shared by every scroller.
     readonly property int overshoot: 72
 
     function resist(past) {

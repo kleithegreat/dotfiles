@@ -6,10 +6,7 @@ if not ok or type(runtime) ~= "table" or type(runtime.outputs) ~= "table" then
     return
 end
 
--- Every field, every time. Through `hyprctl eval` a partial spec merges onto
--- the live monitor, but here it is a *separate rule* from the baseline above,
--- and every field it leaves out falls back to that field's default -- `scale`
--- to `auto`, which quietly rescaled the built-in panel on the next reload.
+-- Every field, every time: here an omitted field resets; see docs/hyprland.md.
 for selector, spec in pairs(runtime.outputs) do
     if spec.disabled then
         hl.monitor({ output = selector, disabled = true })

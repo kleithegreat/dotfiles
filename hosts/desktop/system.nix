@@ -6,8 +6,7 @@
     "vm.dirty_ratio" = 10;
     "vm.dirty_background_ratio" = 5;
   };
-  # Preserve VRAM across suspend/resume on this dedicated NVIDIA desktop.
-  # /tmp is tmpfs-backed in shared config, so use disk-backed /var/tmp instead.
+  # Preserved VRAM must survive suspend, and /tmp is tmpfs; without it resumes garble.
   boot.extraModprobeConfig = ''
     options nvidia NVreg_TemporaryFilePath=/var/tmp
   '';
@@ -26,12 +25,9 @@
   fileSystems."/mnt/shared" = {
     device = "/dev/disk/by-uuid/426244fd-2b88-4eae-81fe-3466fc631d43";
     fsType = "ext4";
-    # Secondary data disk: never block boot on it.
     options = [ "nofail" "x-systemd.device-timeout=10s" ];
   };
 
-  # Keep this desktop pinned to the top performance profile whenever the daemon
-  # comes up, including later restarts.
   systemd.services.power-profiles-daemon.postStart = /* bash */ ''
     ${lib.getExe' config.services.power-profiles-daemon.package "powerprofilesctl"} set performance
   '';
@@ -41,28 +37,20 @@
     modesetting.enable = true;
     open = true;
     powerManagement.enable = true;
-    # Keep the legacy sleep-unit path while the no-overlay resume stack remains
-    # unvalidated on the real desktop hardware.
+    # Held until the resume validation in TODO.md passes.
     powerManagement.kernelSuspendNotifier = false;
   };
   services.xserver.videoDrivers = [ "nvidia" ];
 
-  # Work around systemd 256+ failing to freeze user sessions on suspend,
-  # which can cause a black screen on resume (nixpkgs #371058).
+  # Freezing user sessions on suspend black-screens resume (nixpkgs #371058).
   systemd.services.systemd-suspend.environment.SYSTEMD_SLEEP_FREEZE_USER_SESSIONS = "false";
 
-  # Load both the NVIDIA and Mesa EGL ICDs on this dedicated-GPU desktop.
   environment.sessionVariables.__EGL_VENDOR_LIBRARY_FILENAMES =
     "/run/opengl-driver/share/glvnd/egl_vendor.d/10_nvidia.json:/run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json";
 
-  # ── Locale ────────────────────────────────────────────────────
-  # Stationary host: declare where it is rather than geolocating it. The zone
-  # and the coordinates travel together — GeoClue resolves nothing real here
-  # (see TODO.md), so sun-schedule would otherwise run on a stale fix from
-  # wherever the cache was last written.
+  # ── Location ──────────────────────────────────────────────────
+  # Stationary: pinned, not geolocated (docs/sun-schedule.md). Ithaca, NY.
   time.timeZone = "America/New_York";
-  # Ithaca, NY. Read by desktopctl's solar scheduler; outranks GeoClue and the
-  # location cache.
   environment.sessionVariables.DESKTOPCTL_LOCATION = "42.4440,-76.5019";
 
   # ── Heater ────────────────────────────────────────────────────
@@ -76,8 +64,7 @@
       Restart = "on-failure";
     };
   };
-  # Folding@home's servers do not always have GPU work, and the card is most of
-  # the heat. This covers the gaps and yields as soon as a GPU core is running.
+  # Covers gaps in Folding@home's GPU work, yielding once a GPU core runs.
   systemd.user.services.heater-gpu-fallback = {
     description = "Burn the GPU while Folding@home has no work for it";
     partOf = [ "heater.service" ];

@@ -1,5 +1,5 @@
-# claude-code moves faster than the nixos-unstable channel, so it is taken from
-# a separate nixpkgs input pinned to master.
+# Model-support releases reach nixpkgs master before nixos-unstable. Keep it
+# nixpkgs-sourced: a repo-local npm pin broke against the moving builder.
 { nixpkgs-claude }:
 
 final: _prev:

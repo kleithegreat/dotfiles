@@ -15,7 +15,7 @@ pub const TARGET: Target = Target::standalone(
 .comment("#");
 
 pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<String> {
-    Ok(format!(
+    let mut out = format!(
         concat!(
             "[font]\n",
             "normal = {{ family = \"{}\" }}\n",
@@ -24,46 +24,23 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Strin
             "[colors.primary]\n",
             "background = \"{}\"\n",
             "foreground = \"{}\"\n",
-            "\n",
-            "[colors.normal]\n",
-            "black   = \"{}\"\n",
-            "red     = \"{}\"\n",
-            "green   = \"{}\"\n",
-            "yellow  = \"{}\"\n",
-            "blue    = \"{}\"\n",
-            "magenta = \"{}\"\n",
-            "cyan    = \"{}\"\n",
-            "white   = \"{}\"\n",
-            "\n",
-            "[colors.bright]\n",
-            "black   = \"{}\"\n",
-            "red     = \"{}\"\n",
-            "green   = \"{}\"\n",
-            "yellow  = \"{}\"\n",
-            "blue    = \"{}\"\n",
-            "magenta = \"{}\"\n",
-            "cyan    = \"{}\"\n",
-            "white   = \"{}\"\n",
         ),
         state.mono_font,
         state.mono_font_size_for(TARGET.name)?,
         colors.bg,
         colors.fg,
-        colors.palette[0],
-        colors.palette[1],
-        colors.palette[2],
-        colors.palette[3],
-        colors.palette[4],
-        colors.palette[5],
-        colors.palette[6],
-        colors.palette[7],
-        colors.palette[8],
-        colors.palette[9],
-        colors.palette[10],
-        colors.palette[11],
-        colors.palette[12],
-        colors.palette[13],
-        colors.palette[14],
-        colors.palette[15],
-    ))
+    );
+    for (section, offset) in [("normal", 0), ("bright", 8)] {
+        out.push_str(&format!("\n[colors.{section}]\n"));
+        let names = [
+            "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white",
+        ];
+        for (index, name) in names.into_iter().enumerate() {
+            out.push_str(&format!(
+                "{name:<7} = \"{}\"\n",
+                colors.palette[offset + index]
+            ));
+        }
+    }
+    Ok(out)
 }

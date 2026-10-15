@@ -4,7 +4,6 @@ use crate::theme::{
     atomic_write, expand_user_path,
     schema::{ColorScheme, ThemeState},
 };
-use std::fs;
 
 const RELOAD_CMD: &[&str] = &["hyprctl", "reload"];
 
@@ -86,11 +85,10 @@ fn hyprlock_colors_text(colors: &ColorScheme, state: &ThemeState) -> String {
 }
 
 pub fn persist(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
-    let path = expand_user_path(HYPRLOCK_COLORS_CONF)?;
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    atomic_write(&path, hyprlock_colors_text(colors, state).as_bytes())
+    atomic_write(
+        &expand_user_path(HYPRLOCK_COLORS_CONF)?,
+        hyprlock_colors_text(colors, state).as_bytes(),
+    )
 }
 
 #[cfg(test)]

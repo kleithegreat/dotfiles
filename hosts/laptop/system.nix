@@ -1,20 +1,17 @@
 { config, pkgs, lib, ... }:
 
 {
-  # Hardware — from nixos-generate-config
   boot.initrd.availableKernelModules = [ "xhci_pci" "thunderbolt" "vmd" "nvme" "rtsx_pci_sdmmc" ];
   boot.kernelPatches = [
     {
       name = "laptop-intel-only-kernel-config";
       patch = null;
       structuredExtraConfig = {
-        # Keep the laptop on voluntary preemption for its mobile hybrid-GPU path.
         PREEMPT_DYNAMIC = lib.mkForce lib.kernel.no;
         PREEMPT = lib.mkForce lib.kernel.no;
         PREEMPT_LAZY = lib.mkForce lib.kernel.no;
         PREEMPT_VOLUNTARY = lib.mkForce lib.kernel.yes;
 
-        # Keep Intel KVM host support, but drop AMD-only host features.
         KVM_AMD = lib.mkForce lib.kernel.no;
         X86_AMD_PLATFORM_DEVICE = lib.mkForce lib.kernel.no;
         AMD_MEM_ENCRYPT = lib.mkForce lib.kernel.no;
@@ -23,15 +20,12 @@
         AMD_PMC = lib.mkForce lib.kernel.no;
         AMD_IOMMU = lib.mkForce lib.kernel.no;
 
-        # This host only runs on bare metal, so guest-hypervisor support is dead
-        # weight even though it still hosts local KVM guests.
         XEN = lib.mkForce lib.kernel.no;
         HYPERV = lib.mkForce lib.kernel.no;
         DRM_HYPERV = lib.mkForce lib.kernel.unset;
         FB_HYPERV = lib.mkForce lib.kernel.unset;
         KVM_GUEST = lib.mkForce lib.kernel.no;
 
-        # The laptop uses the NVIDIA stack, so Nouveau is unused.
         DRM_NOUVEAU = lib.mkForce lib.kernel.no;
         DRM_NOUVEAU_SVM = lib.mkForce lib.kernel.unset;
       };
@@ -49,11 +43,9 @@
     options = [ "fmask=0077" "dmask=0077" ];
   };
 
-  # NVIDIA hybrid graphics (Intel Iris Xe + RTX 3050 Mobile)
   hardware.graphics = {
     enable = true;
-    # Mesa does not ship iHD_drv_video.so; intel-media-driver backs the
-    # LIBVA_DRIVER_NAME=iHD selection in hosts/laptop/env.lua.
+    # Backs LIBVA_DRIVER_NAME=iHD in env.lua; Mesa ships no iHD driver.
     extraPackages = [ pkgs.intel-media-driver ];
   };
   hardware.nvidia = {
@@ -76,37 +68,27 @@
   # GTK's Vulkan renderer wakes the dGPU on every launch; see docs/nvidia.md.
   environment.sessionVariables.GSK_RENDERER = "gl";
 
-  # Only this host travels, so only this host tracks the timezone by
-  # location; the desktop pins `time.timeZone` instead.
   services.automatic-timezoned.enable = true;
 
-  # Laptop overrides — disable laptop-only remote login.
   services.openssh.enable = lib.mkForce false;
 
-  # Runs `powertop --auto-tune` at boot to enable runtime PM on devices that
-  # don't default to it (NVMe, audio codec, sensor hub, etc.)
   powerManagement.powertop.enable = true;
 
-  # Touchpad: pin its I2C controller out of runtime PM, against powertop. Both
-  # mechanisms are needed; see docs/nix.md before dropping either.
-  # GPUs: colon-free names for the two card nodes, because Aquamarine's
-  # AQ_DRM_DEVICES cannot take by-path names; see docs/nvidia.md before editing.
+  # Touchpad runtime-PM pin (docs/nix.md) and colon-free GPU names (docs/nvidia.md).
   services.udev.extraRules = /* udev */ ''
     ACTION=="add|change", SUBSYSTEM=="pci", KERNEL=="0000:00:15.1", ATTR{power/control}="on"
     SUBSYSTEM=="drm", ENV{DEVTYPE}=="drm_minor", KERNEL=="card[0-9]*", SUBSYSTEMS=="pci", DRIVERS=="i915", SYMLINK+="dri/intel-gpu"
     SUBSYSTEM=="drm", ENV{DEVTYPE}=="drm_minor", KERNEL=="card[0-9]*", SUBSYSTEMS=="pci", DRIVERS=="nvidia", SYMLINK+="dri/nvidia-gpu"
   '';
 
-  # Must hang off powertop.service itself: a separate unit cannot be ordered
-  # after it without systemd deleting the job to break a cycle.
+  # Must hang off powertop.service itself; see docs/nix.md.
   systemd.services.powertop.serviceConfig.ExecStartPost =
     pkgs.writeShellScript "touchpad-i2c-pin-runtime-pm" /* bash */ ''
       echo on > /sys/bus/pci/devices/0000:00:15.1/power/control
     '';
 
   # ── Power profiles ──────────────────────────────────────────
-  # Everything here follows power-profiles-daemon's active profile; see
-  # docs/laptop-power.md.
+  # Everything here follows power-profiles-daemon; see docs/laptop-power.md.
   services.scx = {
     enable = true;
     scheduler = "scx_lavd";
@@ -133,8 +115,7 @@
         echo "$boost" > /sys/devices/system/cpu/intel_pstate/hwp_dynamic_boost
       }
 
-      # The first line is the subscription coming up, every later one a change;
-      # applying is idempotent, so each line just re-applies.
+      # Every line, the subscription's first included, re-applies idempotently.
       gdbus monitor --system \
         --dest org.freedesktop.UPower.PowerProfiles \
         --object-path /org/freedesktop/UPower/PowerProfiles |
@@ -142,39 +123,34 @@
     '';
   };
 
-  # Covers the BIOS/EC regions and the Goodix fingerprint sensor. It will not
-  # enumerate the ELAN touchpad, which is expected — see docs/nix.md.
+  # Will not enumerate the ELAN touchpad, by design; see docs/nix.md.
   services.fwupd.enable = true;
 
-  # Present but off until switched on from the shell.
   hardware.bluetooth = {
     enable = true;
     powerOnBoot = false;
   };
 
   # ── Fingerprint auth ────────────────────────────────────────
-  # Goodix 27c6:63ac is supported by upstream libfprint, so keep TOD disabled.
+  # Goodix 27c6:63ac is in upstream libfprint; no TOD.
   services.fprintd = {
     enable = true;
     tod.enable = false;
   };
 
   security.pam.services = {
-    # SDDM authenticates through the `login` PAM stack. Keep fingerprint auth
-    # off there so the greeter always preserves password login.
+    # SDDM uses `login`; the greeter must always accept a password.
     login.fprintAuth = false;
 
     sudo.fprintAuth = true;
     polkit-1.fprintAuth = true;
 
-    # Hyprlock uses its native fprintd integration for parallel fingerprint
-    # unlock, while PAM remains password-only as a fallback path.
+    # hyprlock talks to fprintd natively; its PAM path stays password-only.
     hyprlock.fprintAuth = false;
   };
 
   # ── Polkit — local fingerprint management + Dell battery control ─
-  # Without the wrapper every pkexec call below fails "pkexec must be setuid
-  # root"; nixpkgs stopped installing it by default.
+  # Otherwise every pkexec call fails "pkexec must be setuid root".
   security.polkit.enablePkexecWrapper = true;
 
   security.polkit.extraConfig = /* javascript */ ''
@@ -198,23 +174,10 @@
   '';
 
   # ── Wi-Fi power management ──────────────────────────────────
-  # Off, not for throughput: NM's default leaves iwlwifi powersave on, which
-  # stalls packets above the radio. Measured on this host — 30% loss and
-  # 38-1221 ms RTT to the first hop on an *idle* link, while the radio's own
-  # tx retry rate stayed at 0.8%. Costs some idle battery; keep it false.
+  # iwlwifi powersave measured 30% loss and up to 1.2s RTT to the first hop on an idle link.
   networking.networkmanager.wifi.powersave = false;
 
   # ── Cornell eduroam ─────────────────────────────────────────
-  # `domain-suffix-match` is the load-bearing line. Cornell's RADIUS server
-  # presents a publicly-trusted Sectigo chain, so trusting the CA store alone
-  # would accept any valid web certificate a rogue `eduroam` could buy; pinning
-  # the server name is what stops one harvesting the MSCHAPv2 exchange and
-  # cracking the NetID password offline.
-  # `ca-cert` must name the bundle file, never `system-ca-certs = true`: that
-  # sends wpa_supplicant an OpenSSL `ca_path`, which resolves issuers only via
-  # c_rehash `<hash>.0` symlinks, and NixOS ships `/etc/ssl/certs` with the two
-  # bundle files and no symlinks. Every root is then unfindable and the
-  # handshake dies at the root with `unable to get local issuer certificate`.
   networking.networkmanager.ensureProfiles = {
     environmentFiles = [ "/etc/nm-secrets/eduroam.env" ];
     profiles.eduroam = {
@@ -227,16 +190,16 @@
         mode = "infrastructure";
       };
       wifi-security.key-mgmt = "wpa-eap";
-      # The outer identity stays anonymous so the NetID is never broadcast in
-      # the clear; the realm is all Cornell's RADIUS needs to route on.
       "802-1x" = {
         eap = "peap";
         phase2-auth = "mschapv2";
-        anonymous-identity = "anonymous@cornell.edu";
+        anonymous-identity = "anonymous@cornell.edu"; # the NetID never goes out in the clear
         identity = "kl2344@cornell.edu";
         password = "$CORNELL_NETID_PASSWORD";
         password-flags = 0;
+        # Never `system-ca-certs`: its OpenSSL ca_path needs c_rehash links NixOS doesn't ship.
         ca-cert = "/etc/ssl/certs/ca-certificates.crt";
+        # Load-bearing: the server's public Sectigo chain alone would accept any bought cert.
         domain-suffix-match = "network-access.it.cornell.edu";
       };
       ipv4.method = "auto";
@@ -246,10 +209,6 @@
 
   systemd.tmpfiles.rules = [ "d /etc/nm-secrets 0700 root root -" ];
 
-  # ── Captive Portal Browser ──────────────────────────────────
-  # Dedicated Chromium instance for logging into captive portals
-  # (hotel/airport WiFi) without messing with your DNS settings.
-  # Uses NetworkManager to auto-detect DNS — just run `captive-browser`.
   programs.captive-browser = {
     enable = true;
     interface = "wlp0s20f3";

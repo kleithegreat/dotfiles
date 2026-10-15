@@ -14,7 +14,6 @@ let
 in
 
 {
-  # ── Zsh ──────────────────────────────────────────────────────
   programs.zsh = {
     enable = true;
     package = pkgs.zsh-share-only;
@@ -68,16 +67,13 @@ in
     ];
 
     initContent = /* bash */ ''
-      # ── Options ──────────────────────────────────────────────
       setopt INTERACTIVE_COMMENTS
       setopt NO_BEEP
       setopt GLOB_DOTS
       setopt HIST_REDUCE_BLANKS
 
-      # ── Emacs keybindings ────────────────────────────────────
       bindkey -e
 
-      # ── Completion styles ────────────────────────────────────
       zstyle ':completion:*' menu select
       zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}'
       zstyle ':completion:*' list-colors "''${(s.:.)LS_COLORS}"
@@ -85,22 +81,18 @@ in
       zstyle ':completion:*' group-name '''
       zstyle ':completion:*:descriptions' format '%B%d%b'
 
-      # ── Autosuggestion config ────────────────────────────────
       [[ -f "$ZDOTDIR/theme-colors" ]] && source "$ZDOTDIR/theme-colors"
       ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
 
-      # ── Key bindings ─────────────────────────────────────────
-      # History substring search
       bindkey '^[[A' history-substring-search-up
       bindkey '^[[B' history-substring-search-down
 
-      # Standard keys
       bindkey '^[[H'  beginning-of-line
       bindkey '^[[F'  end-of-line
       bindkey '^[[3~' delete-char
       bindkey '^H'    backward-kill-word
 
-      # Fish-style path-segment accept (Ctrl+Right)
+      # Ctrl+Right accepts one path segment, fish-style.
       _forward_word_path() {
           local WORDCHARS="''${WORDCHARS:s#/#}"
           zle forward-word
@@ -108,7 +100,6 @@ in
       zle -N _forward_word_path
       bindkey '^[[1;5C' _forward_word_path
 
-      # ── Functions ────────────────────────────────────────────
       dps() {
           podman ps -a --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}" | awk '
               NR==1 { printf "\033[1;34m%s\033[0m\n", $0; next }
@@ -123,14 +114,8 @@ in
           mkdir --parents "$1" && cd "$1"
       }
 
-      # nixos-rebuild wrapper. Activating actions swap the ~/.config/hypr symlinks
-      # one at a time, and each swap trips Hyprland's config watcher, so the
-      # watcher is muted for the duration and its prior value restored even on
-      # Ctrl-C. The Hyprland-owned Vicinae server caches desktop entries across
-      # generations (docs/nix.md), so a successful activation replaces it, and
-      # Quickshell is restarted when its files moved: a reload cannot see a new
-      # QML file (docs/quickshell.md).
-      # A non-empty $watcher means "activating, and Hyprland is reachable".
+      # Mutes Hyprland's config watcher during activation, then refreshes Vicinae
+      # and Quickshell; see docs/nix.md. Non-empty $watcher: activating, Hyprland reachable.
       nrs() {
           local action=switch
           case "$1" in
@@ -166,32 +151,26 @@ in
           return $rc
       }
 
-      # ── bat as manpager ──────────────────────────────────────
       export MANPAGER="sh -c 'col --no-backspaces --spaces | bat --language=man --plain'"
       export MANROFFOPT="-c"
 
-      # ── SSH agent (GCR socket, managed by gcr-ssh-agent.socket) ──
+      # gcr-ssh-agent.socket
       export SSH_AUTH_SOCK="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/gcr/ssh"
 
-      # ── Secrets (never committed) ───────────────────────────
       [[ -f "$XDG_STATE_HOME/zsh/secrets.zsh" ]] && source "$XDG_STATE_HOME/zsh/secrets.zsh"
 
-      # ── Local overrides (machine-specific) ──────────────────
       [[ -f "$ZDOTDIR/local.zsh" ]] && source "$ZDOTDIR/local.zsh"
     '';
   };
 
-  # ── Session variables (.zshenv equivalent) ───────────────────
   home.sessionVariables = {
     EDITOR = "nvim";
     VISUAL = "nvim";
     BROWSER = "helium";
     PAGER = "less";
 
-    # XDG path redirects
     GOPATH = "${config.xdg.dataHome}/go";
 
-    # XDG history redirects
     PYTHON_HISTORY = "${config.xdg.stateHome}/python/history";
     NODE_REPL_HISTORY = "${config.xdg.stateHome}/node/history";
     PSQL_HISTORY = "${config.xdg.stateHome}/psql/history";
@@ -204,27 +183,23 @@ in
     "$HOME/.cargo/bin"
   ];
 
-  # ── Starship ─────────────────────────────────────────────────
   programs.starship = {
     enable = true;
     enableZshIntegration = true;
   };
 
-  # ── Zoxide (replaces cd) ─────────────────────────────────────
   programs.zoxide = {
     enable = true;
     enableZshIntegration = true;
     options = [ "--cmd" "cd" ];
   };
 
-  # ── direnv ───────────────────────────────────────────────────
   programs.direnv = {
     enable = true;
     enableZshIntegration = true;
     nix-direnv.enable = true;
   };
 
-  # ── fzf ──────────────────────────────────────────────────────
   programs.fzf = {
     enable = true;
     enableZshIntegration = true;
@@ -234,7 +209,6 @@ in
     defaultOptions = [ "--height=40%" "--layout=reverse" "--border" ];
   };
 
-  # ── eza ─────────────────────────────────────────────────────
   programs.eza = {
     enable = true;
     enableZshIntegration = false;
@@ -242,19 +216,13 @@ in
     git = true;
   };
 
-  # ── bat ──────────────────────────────────────────────────────
   programs.bat.enable = true;
 
-  # ── fastfetch ────────────────────────────────────────────────
   programs.fastfetch = {
     enable = true;
     settings = {
-      logo = {
-        type = "small";
-      };
-      display = {
-        separator = "  ";
-      };
+      logo.type = "small";
+      display.separator = "  ";
       modules = [
         "os"
         "host"
@@ -272,7 +240,6 @@ in
     };
   };
 
-  # ── Git ──────────────────────────────────────────────────────
   programs.git = {
     enable = true;
     package = pkgs.gitFull;

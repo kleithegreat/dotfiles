@@ -1,8 +1,5 @@
-# Hyprland comes from its own flake input rather than nixpkgs, and every piece
-# of it — compositor, portal, plugins — has to be built against the same
-# patched compositor or the plugin ABI check rejects it at load time. Keeping
-# the set namespaced under `hypr` rather than shadowing `pkgs.hyprland` is the
-# same reasoning as `pkgs.optimized`: no unrelated dependant gets rebuilt.
+# Portal and plugins must build against this same patched compositor or the
+# plugin ABI check rejects them; namespaced like `pkgs.optimized`.
 { inputs }:
 
 final: _prev:
@@ -22,12 +19,8 @@ let
       '';
     });
 
-  # Hyprland 0.56.2 asks for `find_package(glaze 7...<8)` while nixpkgs has
-  # moved on to glaze 8, so CMake falls back to fetching glaze v7.2.0 over the
-  # network and dies in the sandbox. Keep a 7.x around for Hyprland only,
-  # mirroring the SSL/interop toggles from the flake's own glaze-hyprland
-  # overlay. Drop once the Hyprland input carries upstream's unbounded
-  # find_package.
+  # Hyprland 0.56.2 wants glaze 7 and nixpkgs has 8, so CMake would fetch it
+  # in the sandbox. Drop once the input's find_package is unbounded.
   glazeVersion = "7.9.1";
   glaze =
     (final.glaze.override {

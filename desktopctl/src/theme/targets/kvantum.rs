@@ -46,6 +46,7 @@ impl Palette {
 /// One drawn surface: a rounded rect with an optional hairline border.
 /// `fill`/`border` of `None` paint nothing, which is how flat and transparent
 /// states are expressed without a second code path.
+#[derive(Clone)]
 struct Surface {
     radius: f64,
     fill: Option<String>,
@@ -219,6 +220,17 @@ struct States {
     focused: Surface,
     pressed: Surface,
     toggled: Surface,
+}
+
+impl States {
+    fn uniform(surface: Surface) -> Self {
+        Self {
+            normal: surface.clone(),
+            focused: surface.clone(),
+            pressed: surface.clone(),
+            toggled: surface,
+        }
+    }
 }
 
 fn element(name: &str, states: &States) -> String {
@@ -438,12 +450,7 @@ fn elements(palette: &Palette) -> Vec<(&'static str, States)> {
         ),
         (
             "menu",
-            States {
-                normal: Surface::bordered(12.0, &palette.window, &palette.line_soft),
-                focused: Surface::bordered(12.0, &palette.window, &palette.line_soft),
-                pressed: Surface::bordered(12.0, &palette.window, &palette.line_soft),
-                toggled: Surface::bordered(12.0, &palette.window, &palette.line_soft),
-            },
+            States::uniform(Surface::bordered(12.0, &palette.window, &palette.line_soft)),
         ),
         (
             "menuitem",
@@ -474,48 +481,23 @@ fn elements(palette: &Palette) -> Vec<(&'static str, States)> {
         ),
         (
             "tabframe",
-            States {
-                normal: Surface::outline(8.0, &palette.line_soft),
-                focused: Surface::outline(8.0, &palette.line_soft),
-                pressed: Surface::outline(8.0, &palette.line_soft),
-                toggled: Surface::outline(8.0, &palette.line_soft),
-            },
+            States::uniform(Surface::outline(8.0, &palette.line_soft)),
         ),
         (
             "toolbar",
-            States {
-                normal: Surface::flat(1.0, &palette.window),
-                focused: Surface::flat(1.0, &palette.window),
-                pressed: Surface::flat(1.0, &palette.window),
-                toggled: Surface::flat(1.0, &palette.window),
-            },
+            States::uniform(Surface::flat(1.0, &palette.window)),
         ),
         (
             "tooltip",
-            States {
-                normal: Surface::bordered(10.0, &palette.window, &palette.line_soft),
-                focused: Surface::bordered(10.0, &palette.window, &palette.line_soft),
-                pressed: Surface::bordered(10.0, &palette.window, &palette.line_soft),
-                toggled: Surface::bordered(10.0, &palette.window, &palette.line_soft),
-            },
+            States::uniform(Surface::bordered(10.0, &palette.window, &palette.line_soft)),
         ),
         (
             "progress",
-            States {
-                normal: Surface::flat(3.0, &palette.track),
-                focused: Surface::flat(3.0, &palette.track),
-                pressed: Surface::flat(3.0, &palette.track),
-                toggled: Surface::flat(3.0, &palette.track),
-            },
+            States::uniform(Surface::flat(3.0, &palette.track)),
         ),
         (
             "progress-pattern",
-            States {
-                normal: Surface::flat(3.0, &palette.accent),
-                focused: Surface::flat(3.0, &palette.accent),
-                pressed: Surface::flat(3.0, &palette.accent),
-                toggled: Surface::flat(3.0, &palette.accent),
-            },
+            States::uniform(Surface::flat(3.0, &palette.accent)),
         ),
         (
             "slider",
@@ -535,15 +517,7 @@ fn elements(palette: &Palette) -> Vec<(&'static str, States)> {
                 toggled: Surface::bordered(9.0, &palette.base, &palette.line),
             },
         ),
-        (
-            "scrollbargroove",
-            States {
-                normal: Surface::empty(5.0),
-                focused: Surface::empty(5.0),
-                pressed: Surface::empty(5.0),
-                toggled: Surface::empty(5.0),
-            },
-        ),
+        ("scrollbargroove", States::uniform(Surface::empty(5.0))),
         (
             "scrollbarslider",
             States {
@@ -555,12 +529,7 @@ fn elements(palette: &Palette) -> Vec<(&'static str, States)> {
         ),
         (
             "group",
-            States {
-                normal: Surface::outline(10.0, &palette.line_soft),
-                focused: Surface::outline(10.0, &palette.line_soft),
-                pressed: Surface::outline(10.0, &palette.line_soft),
-                toggled: Surface::outline(10.0, &palette.line_soft),
-            },
+            States::uniform(Surface::outline(10.0, &palette.line_soft)),
         ),
         (
             "header",
@@ -573,30 +542,12 @@ fn elements(palette: &Palette) -> Vec<(&'static str, States)> {
         ),
         (
             "titlebar",
-            States {
-                normal: Surface::flat(1.0, &palette.window),
-                focused: Surface::flat(1.0, &palette.window),
-                pressed: Surface::flat(1.0, &palette.window),
-                toggled: Surface::flat(1.0, &palette.window),
-            },
+            States::uniform(Surface::flat(1.0, &palette.window)),
         ),
-        (
-            "dock",
-            States {
-                normal: Surface::flat(1.0, &palette.window),
-                focused: Surface::flat(1.0, &palette.window),
-                pressed: Surface::flat(1.0, &palette.window),
-                toggled: Surface::flat(1.0, &palette.window),
-            },
-        ),
+        ("dock", States::uniform(Surface::flat(1.0, &palette.window))),
         (
             "statusbar",
-            States {
-                normal: Surface::flat(1.0, &palette.window),
-                focused: Surface::flat(1.0, &palette.window),
-                pressed: Surface::flat(1.0, &palette.window),
-                toggled: Surface::flat(1.0, &palette.window),
-            },
+            States::uniform(Surface::flat(1.0, &palette.window)),
         ),
         (
             "splitter",
@@ -633,7 +584,7 @@ pub fn svg(colors: &ColorScheme) -> String {
 }
 
 /// `frame.expansion` stays 0: Kvantum's pill expansion overrides the radius the SVG was drawn at.
-fn widget(section: &str, element: &str, frame_size: f64, extra: &[(&str, String)]) -> String {
+fn widget(section: &str, element: &str, frame_size: f64, extra: &[(&str, &str)]) -> String {
     let mut out = format!("[{section}]\n");
     out.push_str("frame=true\n");
     out.push_str(&format!("frame.element={element}\n"));
@@ -796,12 +747,12 @@ pub fn kvconfig(colors: &ColorScheme) -> String {
     let fg3 = colors.fg3.as_str();
     let on_accent = palette.on_accent.as_str();
 
-    let plain = |color: &str| -> Vec<(&'static str, String)> {
-        vec![
-            ("text.normal.color", color.to_owned()),
-            ("text.focus.color", color.to_owned()),
-            ("text.press.color", color.to_owned()),
-            ("text.toggle.color", color.to_owned()),
+    let plain = |color| {
+        [
+            ("text.normal.color", color),
+            ("text.focus.color", color),
+            ("text.press.color", color),
+            ("text.toggle.color", color),
         ]
     };
 
@@ -812,17 +763,17 @@ pub fn kvconfig(colors: &ColorScheme) -> String {
         "button",
         8.0,
         &[
-            ("text.normal.color", fg.to_owned()),
-            ("text.focus.color", fg.to_owned()),
-            ("text.press.color", fg.to_owned()),
-            ("text.toggle.color", on_accent.to_owned()),
-            ("text.margin.top", "3".to_owned()),
-            ("text.margin.bottom", "3".to_owned()),
-            ("text.margin.left", "10".to_owned()),
-            ("text.margin.right", "10".to_owned()),
-            ("indicator.element", "arrow".to_owned()),
-            ("indicator.size", "16".to_owned()),
-            ("min_height", "+6".to_owned()),
+            ("text.normal.color", fg),
+            ("text.focus.color", fg),
+            ("text.press.color", fg),
+            ("text.toggle.color", on_accent),
+            ("text.margin.top", "3"),
+            ("text.margin.bottom", "3"),
+            ("text.margin.left", "10"),
+            ("text.margin.right", "10"),
+            ("indicator.element", "arrow"),
+            ("indicator.size", "16"),
+            ("min_height", "+6"),
         ],
     ));
 
@@ -831,14 +782,14 @@ pub fn kvconfig(colors: &ColorScheme) -> String {
         "tbutton",
         7.0,
         &[
-            ("text.normal.color", fg.to_owned()),
-            ("text.focus.color", fg.to_owned()),
-            ("text.press.color", fg.to_owned()),
-            ("text.toggle.color", on_accent.to_owned()),
-            ("text.margin.left", "6".to_owned()),
-            ("text.margin.right", "6".to_owned()),
-            ("indicator.element", "arrow".to_owned()),
-            ("indicator.size", "16".to_owned()),
+            ("text.normal.color", fg),
+            ("text.focus.color", fg),
+            ("text.press.color", fg),
+            ("text.toggle.color", on_accent),
+            ("text.margin.left", "6"),
+            ("text.margin.right", "6"),
+            ("indicator.element", "arrow"),
+            ("indicator.size", "16"),
         ],
     ));
 
@@ -847,13 +798,13 @@ pub fn kvconfig(colors: &ColorScheme) -> String {
         "lineedit",
         8.0,
         &[
-            ("text.normal.color", fg.to_owned()),
-            ("text.focus.color", fg.to_owned()),
-            ("text.margin.top", "3".to_owned()),
-            ("text.margin.bottom", "3".to_owned()),
-            ("text.margin.left", "6".to_owned()),
-            ("text.margin.right", "6".to_owned()),
-            ("min_height", "+6".to_owned()),
+            ("text.normal.color", fg),
+            ("text.focus.color", fg),
+            ("text.margin.top", "3"),
+            ("text.margin.bottom", "3"),
+            ("text.margin.left", "6"),
+            ("text.margin.right", "6"),
+            ("min_height", "+6"),
         ],
     ));
 
@@ -866,15 +817,15 @@ pub fn kvconfig(colors: &ColorScheme) -> String {
         "itemview",
         6.0,
         &[
-            ("text.normal.color", fg.to_owned()),
-            ("text.focus.color", fg.to_owned()),
-            ("text.press.color", on_accent.to_owned()),
-            ("text.toggle.color", on_accent.to_owned()),
-            ("text.margin.left", "4".to_owned()),
-            ("text.margin.right", "4".to_owned()),
-            ("indicator.element", "arrow".to_owned()),
-            ("indicator.size", "16".to_owned()),
-            ("min_height", "+4".to_owned()),
+            ("text.normal.color", fg),
+            ("text.focus.color", fg),
+            ("text.press.color", on_accent),
+            ("text.toggle.color", on_accent),
+            ("text.margin.left", "4"),
+            ("text.margin.right", "4"),
+            ("indicator.element", "arrow"),
+            ("indicator.size", "16"),
+            ("min_height", "+4"),
         ],
     ));
 
@@ -883,14 +834,14 @@ pub fn kvconfig(colors: &ColorScheme) -> String {
         "menuitem",
         7.0,
         &[
-            ("text.normal.color", fg.to_owned()),
-            ("text.focus.color", on_accent.to_owned()),
-            ("text.margin.top", "4".to_owned()),
-            ("text.margin.bottom", "4".to_owned()),
-            ("text.margin.left", "8".to_owned()),
-            ("text.margin.right", "12".to_owned()),
-            ("indicator.element", "arrow".to_owned()),
-            ("indicator.size", "16".to_owned()),
+            ("text.normal.color", fg),
+            ("text.focus.color", on_accent),
+            ("text.margin.top", "4"),
+            ("text.margin.bottom", "4"),
+            ("text.margin.left", "8"),
+            ("text.margin.right", "12"),
+            ("indicator.element", "arrow"),
+            ("indicator.size", "16"),
         ],
     ));
 
@@ -899,33 +850,28 @@ pub fn kvconfig(colors: &ColorScheme) -> String {
         "menubaritem",
         7.0,
         &[
-            ("text.normal.color", fg.to_owned()),
-            ("text.focus.color", fg.to_owned()),
-            ("text.press.color", on_accent.to_owned()),
-            ("text.margin.left", "8".to_owned()),
-            ("text.margin.right", "8".to_owned()),
+            ("text.normal.color", fg),
+            ("text.focus.color", fg),
+            ("text.press.color", on_accent),
+            ("text.margin.left", "8"),
+            ("text.margin.right", "8"),
         ],
     ));
 
-    out.push_str(&widget(
-        "Menu",
-        "menu",
-        12.0,
-        &[("text.normal.color", fg.to_owned())],
-    ));
+    out.push_str(&widget("Menu", "menu", 12.0, &[("text.normal.color", fg)]));
 
     out.push_str(&widget(
         "Tab",
         "tab",
         7.0,
         &[
-            ("text.normal.color", fg3.to_owned()),
-            ("text.focus.color", fg.to_owned()),
-            ("text.toggle.color", fg.to_owned()),
-            ("text.margin.left", "10".to_owned()),
-            ("text.margin.right", "10".to_owned()),
-            ("text.margin.top", "3".to_owned()),
-            ("text.margin.bottom", "3".to_owned()),
+            ("text.normal.color", fg3),
+            ("text.focus.color", fg),
+            ("text.toggle.color", fg),
+            ("text.margin.left", "10"),
+            ("text.margin.right", "10"),
+            ("text.margin.top", "3"),
+            ("text.margin.bottom", "3"),
         ],
     ));
 
@@ -934,13 +880,13 @@ pub fn kvconfig(colors: &ColorScheme) -> String {
         "header",
         1.0,
         &[
-            ("text.normal.color", fg2.to_owned()),
-            ("text.focus.color", fg.to_owned()),
-            ("text.toggle.color", fg.to_owned()),
-            ("text.margin.left", "6".to_owned()),
-            ("text.margin.right", "6".to_owned()),
-            ("indicator.element", "arrow".to_owned()),
-            ("indicator.size", "12".to_owned()),
+            ("text.normal.color", fg2),
+            ("text.focus.color", fg),
+            ("text.toggle.color", fg),
+            ("text.margin.left", "6"),
+            ("text.margin.right", "6"),
+            ("indicator.element", "arrow"),
+            ("indicator.size", "12"),
         ],
     ));
 
@@ -956,11 +902,11 @@ pub fn kvconfig(colors: &ColorScheme) -> String {
         "tooltip",
         10.0,
         &[
-            ("text.normal.color", fg.to_owned()),
-            ("text.margin.top", "4".to_owned()),
-            ("text.margin.bottom", "4".to_owned()),
-            ("text.margin.left", "8".to_owned()),
-            ("text.margin.right", "8".to_owned()),
+            ("text.normal.color", fg),
+            ("text.margin.top", "4"),
+            ("text.margin.bottom", "4"),
+            ("text.margin.left", "8"),
+            ("text.margin.right", "8"),
         ],
     ));
 
@@ -989,30 +935,24 @@ pub fn kvconfig(colors: &ColorScheme) -> String {
         "button",
         8.0,
         &[
-            ("text.normal.color", fg.to_owned()),
-            ("text.focus.color", fg.to_owned()),
-            ("text.margin.left", "10".to_owned()),
-            ("text.margin.right", "6".to_owned()),
-            ("min_height", "+6".to_owned()),
+            ("text.normal.color", fg),
+            ("text.focus.color", fg),
+            ("text.margin.left", "10"),
+            ("text.margin.right", "6"),
+            ("min_height", "+6"),
         ],
     ));
     out.push_str(&widget(
         "DropDownButton",
         "tbutton",
         7.0,
-        &[
-            ("indicator.element", "arrow".to_owned()),
-            ("indicator.size", "16".to_owned()),
-        ],
+        &[("indicator.element", "arrow"), ("indicator.size", "16")],
     ));
     out.push_str(&widget(
         "IndicatorSpinBox",
         "tbutton",
         7.0,
-        &[
-            ("indicator.element", "arrow".to_owned()),
-            ("indicator.size", "14".to_owned()),
-        ],
+        &[("indicator.element", "arrow"), ("indicator.size", "14")],
     ));
 
     for (section, element) in [("CheckBox", "checkbox"), ("RadioButton", "radio")] {

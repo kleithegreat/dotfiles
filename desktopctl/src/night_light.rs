@@ -5,14 +5,13 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
-    fs,
     io::{self, BufReader, Read, Write},
     net::Shutdown,
     os::unix::net::UnixStream,
-    path::{Path, PathBuf},
+    path::PathBuf,
     process::Command,
     thread,
-    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant},
 };
 
 pub const NIGHT_LIGHT_MIN_TEMP: i32 = 3000;
@@ -81,8 +80,8 @@ pub(crate) struct HyprsunsetProcessState {
     pub temperature: Option<i32>,
 }
 
-pub fn run(args: crate::NightLightArgs) -> crate::Result<()> {
-    match args.command {
+pub fn run(command: crate::NightLightCommand) -> crate::Result<()> {
+    match command {
         crate::NightLightCommand::Status(args) => cmd_status(args.json),
         crate::NightLightCommand::On(args) => cmd_set_mode(NightLightMode::On, args.temp),
         crate::NightLightCommand::Off(args) => cmd_set_mode(NightLightMode::Off, args.temp),
@@ -122,13 +121,10 @@ pub fn request_toggle() -> crate::Result<NightLightStatus> {
 pub(crate) fn normalize_temperature(value: i32) -> crate::Result<i32> {
     let rounded = ((value + 50) / 100) * 100;
     if !(NIGHT_LIGHT_MIN_TEMP..=NIGHT_LIGHT_MAX_TEMP).contains(&rounded) {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            format!(
-                "night-light temperature must be between {}K and {}K",
-                NIGHT_LIGHT_MIN_TEMP, NIGHT_LIGHT_MAX_TEMP
-            ),
-        )
+        return Err(crate::invalid_input(format!(
+            "night-light temperature must be between {}K and {}K",
+            NIGHT_LIGHT_MIN_TEMP, NIGHT_LIGHT_MAX_TEMP
+        ))
         .into());
     }
 
@@ -333,10 +329,8 @@ fn hyprsunset_socket_path() -> crate::Result<PathBuf> {
         return Ok(fallback_path);
     }
 
-    if let Some(path) = find_hyprsunset_socket_candidates(&root)?
-        .into_iter()
-        .max_by_key(|(modified, _)| *modified)
-        .map(|(_, path)| path)
+    if let Some(path) =
+        hypr::newest_instance_socket(std::slice::from_ref(&root), ".hyprsunset.sock")?
     {
         return Ok(path);
     }
@@ -348,36 +342,11 @@ fn hyprsunset_socket_path() -> crate::Result<PathBuf> {
     Ok(fallback_path)
 }
 
-fn find_hyprsunset_socket_candidates(root: &Path) -> io::Result<Vec<(SystemTime, PathBuf)>> {
-    let entries = match fs::read_dir(root) {
-        Ok(entries) => entries,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
-        Err(error) => return Err(error),
-    };
-
-    let mut candidates = Vec::new();
-    for entry in entries {
-        let entry = entry?;
-        let path = entry.path().join(".hyprsunset.sock");
-        if !path.exists() {
-            continue;
-        }
-
-        let modified = fs::metadata(&path)
-            .and_then(|metadata| metadata.modified())
-            .unwrap_or(UNIX_EPOCH);
-        candidates.push((modified, path));
-    }
-
-    Ok(candidates)
-}
-
 fn parse_temperature_reply(reply: &str) -> crate::Result<i32> {
     reply.trim().parse::<i32>().map_err(|error| {
-        io::Error::new(
-            io::ErrorKind::InvalidData,
-            format!("invalid hyprsunset IPC temperature reply '{reply}': {error}"),
-        )
+        crate::invalid_data(format!(
+            "invalid hyprsunset IPC temperature reply '{reply}': {error}"
+        ))
         .into()
     })
 }

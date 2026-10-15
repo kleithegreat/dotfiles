@@ -2,47 +2,21 @@
 
 let
   dotfilesSource = path: "${dotfilesPath}/${path}";
-  # Deploy nvim from the store minus lazy-lock.json, which is instead a
-  # writable out-of-store symlink into the repo checkout below so
-  # `:Lazy update` writes the committed lock directly (review + commit the
-  # diff afterward). Assumes the checkout lives at ~/repos/dotfiles, same as
-  # desktopctl's DESKTOPCTL_REPO fallback.
+  # lazy-lock.json is instead a writable link into the checkout, below.
   nvimSource = lib.cleanSourceWith {
     name = "nvim-config";
     src = "${dotfilesPath}/config/nvim";
     filter = path: _type: baseNameOf path != "lazy-lock.json";
   };
-  staticConfigSources = lib.mapAttrs (_: source: { inherit source; }) {
-    # Hyprland itself is configured in Lua (hyprlang was deprecated in 0.55).
-    # hypridle/hyprlock are separate apps and still take hyprlang .conf.
-    "hypr/hyprland.lua" = dotfilesSource "config/hypr/hyprland.lua";
-    "hypr/appearance.lua" = dotfilesSource "config/hypr/appearance.lua";
-    "hypr/env.lua" = dotfilesSource "config/hypr/env.lua";
-    "hypr/autostart.lua" = dotfilesSource "config/hypr/autostart.lua";
-    "hypr/cursor.lua" = dotfilesSource "config/hypr/cursor.lua";
-    "hypr/displays.lua" = dotfilesSource "config/hypr/displays.lua";
-    "hypr/input.lua" = dotfilesSource "config/hypr/input.lua";
-    "hypr/input-defaults.lua" = dotfilesSource "config/hypr/input-defaults.lua";
-    "hypr/keybinds.lua" = dotfilesSource "config/hypr/keybinds.lua";
-    "hypr/rules.lua" = dotfilesSource "config/hypr/rules.lua";
-    "hypr/plugins.lua" = dotfilesSource "config/hypr/plugins.lua";
-    "hypr/session.lua" = dotfilesSource "config/hypr/session.lua";
-    "hypr/hypridle.conf" = dotfilesSource "config/hypr/hypridle.conf";
-    "hypr/hyprlock.conf" = dotfilesSource "config/hypr/hyprlock.conf";
-    "alacritty/alacritty.toml" = dotfilesSource "config/alacritty/alacritty.toml";
-    "ghostty/config" = dotfilesSource "config/ghostty/config";
-    "tmux/tmux.conf" = dotfilesSource "config/tmux/tmux.conf";
-    "git/ignore" = dotfilesSource "config/git/ignore";
-    "vicinae/settings.json" = dotfilesSource "config/vicinae/settings.json";
-    "zathura/zathurarc" = dotfilesSource "config/zathura/zathurarc";
-  };
-  recursiveConfigSources = lib.mapAttrs (_: source: {
-    inherit source;
-    recursive = true;
-  }) {
-    quickshell = dotfilesSource "config/quickshell";
-    nvim = nvimSource;
-  };
+  # Linked file by file, so generated files can sit beside the repo's.
+  repoConfigSources =
+    builtins.readDir "${dotfilesPath}/config"
+    |> lib.mapAttrs (
+      name: _: {
+        source = if name == "nvim" then nvimSource else dotfilesSource "config/${name}";
+        recursive = true;
+      }
+    );
   mkHostConfigFile = key: fallback:
     let
       relativePath = host.hyprland.${key};
@@ -52,13 +26,8 @@ let
     else
       { source = dotfilesSource relativePath; };
 
-  # Mask noisy per-format / per-backend launchers that show up as duplicates in
-  # Nautilus's "Open With" picker. `NoDisplay=true` is ignored by GTK4's all-apps
-  # list, so we use `Hidden=true` (XDG: treat as if deleted) via user-level
-  # shadows of the system desktop files.
+  # Duplicates in "Open With"; GTK4's all-apps list ignores `NoDisplay`, not `Hidden`.
   hiddenDesktopFiles = [
-    # Krita ships one launcher per supported file format, all named "Krita".
-    # Keep `org.kde.krita.desktop` as the canonical entry.
     "krita_brush.desktop"
     "krita_csv.desktop"
     "krita_exr.desktop"
@@ -83,13 +52,10 @@ let
     "krita_tiff.desktop"
     "krita_webp.desktop"
     "krita_xcf.desktop"
-    # Zathura ships one launcher per backend, all named "Zathura". Keep
-    # `org.pwmt.zathura.desktop` as the canonical entry.
     "org.pwmt.zathura-cb.desktop"
     "org.pwmt.zathura-djvu.desktop"
     "org.pwmt.zathura-pdf-mupdf.desktop"
     "org.pwmt.zathura-ps.desktop"
-    # VS Code's URL-handler launcher only exists to claim vscode:// links.
     "code-url-handler.desktop"
   ];
   hiddenDesktopEntries =
@@ -104,7 +70,7 @@ let
     |> lib.listToAttrs;
 in
 {
-  xdg.configFile = staticConfigSources // recursiveConfigSources // {
+  xdg.configFile = repoConfigSources // {
     "nvim/lazy-lock.json".source =
       config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/repos/dotfiles/config/nvim/lazy-lock.json";
 
@@ -115,17 +81,14 @@ in
         "hl.monitor({ output = \"\", mode = \"preferred\", position = \"auto\", scale = \"auto\" })\n";
     "hypr/env-host.lua" = mkHostConfigFile "env" "";
 
-    # Keep the user-level portal config aligned with the NixOS portal selection;
-    # this prevents stale user config from forcing Chromium-family file pickers
-    # through the KDE backend after Home Manager activation.
+    # Mirrors the NixOS portal selection so no stale user config forces the KDE picker.
     "xdg-desktop-portal/portals.conf".text = ''
       [preferred]
       default = hyprland;gtk
       org.freedesktop.impl.portal.FileChooser = gtk
     '';
 
-    # Snappy Switcher config.ini is generated by desktopctl; only the packaged
-    # themes stay symlinked.
+    # config.ini is generated by desktopctl.
     "snappy-switcher/themes".source = "${pkgs.snappy-switcher}/share/snappy-switcher/themes";
 
     "wireplumber/wireplumber.conf.d/50-bluetooth.conf".text = ''
@@ -138,9 +101,7 @@ in
   };
 
   xdg.dataFile = hiddenDesktopEntries // {
-    # User-local desktop files win over profile entries; keep Bambu's entry
-    # aligned with the package so stale AppImage integration metadata cannot
-    # shadow the fixed Exec/StartupWMClass values.
+    # Shadows any stale AppImage-integration entry, which would win over the profile's.
     "applications/BambuStudio.desktop" = {
       source = "${pkgs.bambu-studio}/share/applications/BambuStudio.desktop";
       force = true;

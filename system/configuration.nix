@@ -1,9 +1,8 @@
 { lib, pkgs, host, inputs, ... }:
 
 let
-  # Every name either host's closure asks the predicate about, grouped by what
-  # pulls it in. `cuda_compat` is also asked (an availability probe) and stays
-  # refused.
+  # Exactly what either closure asks about; a CUDA bump that splits out a new
+  # package fails evaluation naming it. `cuda_compat` is a probe and stays refused.
   allowedUnfreePackageNames = [
     # Applications — home.packages
     "bambu-studio"
@@ -69,16 +68,9 @@ in
 
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" "pipe-operators" ];
-    # Lets the flake's own `nixConfig` block apply; without it nix ignores
-    # every setting there as untrusted.
+    # Without it nix ignores the flake's `nixConfig` as untrusted.
     trusted-users = [ "root" "@wheel" ];
     system-features = lib.mkIf pkgs.optimize.enabled (lib.mkAfter [ pkgs.optimize.hostFeature ]);
-    substituters = [
-      "https://cache.nixos.org"
-    ];
-    trusted-public-keys = [
-      "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
-    ];
     auto-optimise-store = true;
   };
   nix.gc = {
@@ -90,15 +82,12 @@ in
     nixpkgs.flake = inputs.nixpkgs;
     hyprland.flake = inputs.hyprland;
   };
-  # Home Manager reuses the system package set in this flake, so keep the
-  # unfree allowlist on the shared `pkgs` instance rather than duplicating it
-  # in multiple module layers.
   nixpkgs.config.allowUnfreePredicate = pkg:
     builtins.elem (lib.getName pkg) allowedUnfreePackageNames;
-  # Both hosts are sm_86. Widening this OOMs libnvshmem (see docs/nix.md); add
+  # Both hosts are sm_86. Widening this OOMs libnvshmem (see docs/nvidia.md); add
   # a capability only when a host actually gets a different GPU.
   nixpkgs.config.cudaCapabilities = [ "8.6" ];
-  # ── Networking ───────────────────────────────────────────────
+
   networking.hostName = host.name;
   networking.networkmanager.enable = true;
 
@@ -109,9 +98,8 @@ in
     portalPackage = pkgs.hypr.portal;
   };
 
-  # hyprlock — also auto-creates security.pam.services.hyprlock
   programs.hyprlock.enable = true;
-  # hyprlock's module runs hypridle as a user unit; hypridle.conf calls desktopctl.
+  # hypridle.conf calls desktopctl.
   systemd.user.services.hypridle.path = [ pkgs.optimized.desktopctl ];
 
   # ── Fonts ────────────────────────────────────────────────────
@@ -139,16 +127,12 @@ in
   ];
 
   fonts.fontconfig = {
-    # Most panels are standard RGB and SF Pro looks noticeably softer with the
-    # default grayscale-only stack.
     subpixel.rgba = "rgb";
     localConf = ''
   <?xml version='1.0'?>
   <!DOCTYPE fontconfig SYSTEM 'urn:fontconfig:fonts.dtd'>
   <fontconfig>
-    <!-- Prefer the small-text optical cut when apps request the generic
-         SF Pro family; otherwise fontconfig resolves to Apple's catch-all
-         variable face first. -->
+    <!-- Otherwise generic "SF Pro" resolves to the soft variable catch-all face. -->
     <match target="pattern">
       <test name="family" qual="any">
         <string>SF Pro</string>
@@ -161,31 +145,14 @@ in
     '';
   };
 
-  # ── Session variables ────────────────────────────────────────
-  # Electron apps: use Wayland backend
   environment.sessionVariables.NIXOS_OZONE_WL = "1";
   environment.sessionVariables.HYPR_PLUGIN_DIR = pkgs.hypr.pluginDir;
 
-  # ── Man pages ────────────────────────────────────────────────
-  documentation.dev.enable = true;  # development man pages
+  documentation.dev.enable = true;
 
-  # ── Locale ───────────────────────────────────────────────────
-  # Timezone is per-host: the laptop tracks it via GeoClue, the desktop pins
-  # it. Locale and keyboard defaults stay US English everywhere.
+  # Static on purpose; only the time zone is per host.
   i18n.defaultLocale = "en_US.UTF-8";
-  i18n.extraLocaleSettings = {
-    LC_ADDRESS        = "en_US.UTF-8";
-    LC_IDENTIFICATION = "en_US.UTF-8";
-    LC_MEASUREMENT    = "en_US.UTF-8";
-    LC_MONETARY       = "en_US.UTF-8";
-    LC_NAME           = "en_US.UTF-8";
-    LC_NUMERIC        = "en_US.UTF-8";
-    LC_PAPER          = "en_US.UTF-8";
-    LC_TELEPHONE      = "en_US.UTF-8";
-    LC_TIME           = "en_US.UTF-8";
-  };
 
-  # ── System packages (bare minimum — user tools go in home-manager) ──
   environment.systemPackages = with pkgs; [
     vim
     wget

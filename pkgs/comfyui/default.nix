@@ -5,19 +5,13 @@
   fetchFromGitHub,
   python313,
   cudaPackages_13_3,
-  # Custom node packs that need Python dependencies beyond ComfyUI's own
-  # requirements get them from here — the store-resident interpreter cannot
-  # pip-install at runtime.
+  # The store interpreter cannot pip-install custom nodes' dependencies.
   extraPythonPackages ? (ps: [ ]),
 }:
 
 let
-  # nixpkgs hardcodes NVSHMEM_BUILD_TESTS/EXAMPLES on, so libnvshmem — a full
-  # nvcc build we reach only as a torch dependency — also compiles its perftest
-  # and example device binaries. Nothing here runs them, and dropping them takes
-  # a large slice off a build that is otherwise heavy enough to OOM the laptop.
-  # NVSHMEM itself is only used for multi-GPU symmetric memory, which no host
-  # here has, but torch links it, so it cannot be dropped outright.
+  # nixpkgs hardcodes libnvshmem's tests and examples on; they are a large slice
+  # of a build heavy enough to OOM the laptop. torch links it, so it stays.
   disableCmakeBool =
     flag: lib.replaceStrings [ "-D${flag}:BOOL=TRUE" ] [ "-D${flag}:BOOL=FALSE" ];
 
@@ -32,8 +26,7 @@ let
     }
   );
 
-  # 3.14 is the nixpkgs default, but upstream only calls 3.13 "very well
-  # supported" and warns that custom nodes break on 3.14.
+  # Upstream warns custom nodes break on 3.14, the nixpkgs default.
   python = python313.override {
     self = python;
     packageOverrides = import ./python-packages.nix {

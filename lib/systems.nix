@@ -1,8 +1,5 @@
 { self }:
 {
-  # Builds one `nixosConfigurations` entry from a host attrset. Everything the
-  # modules need is reachable through `pkgs` (via the host's overlays) or the
-  # `host` special argument; nothing else is threaded in.
   systems.nixosHost =
     { inputs, flake }:
     host:

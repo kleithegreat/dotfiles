@@ -80,8 +80,6 @@ stdenv.mkDerivation {
     makeWrapper
   ];
 
-  # Determined from the shipped ELF NEEDED entries in the upstream tarball,
-  # plus the Qt6 shim that Helium bundles for desktop integration.
   buildInputs = [
     alsa-lib
     atk

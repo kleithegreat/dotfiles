@@ -46,7 +46,7 @@ pub fn load_colors(scheme_name: &str, colors_dir: &Path) -> crate::Result<ColorS
     let value = parse_json_file(&path)?;
     validate_color_scheme(&value, &path)?;
     serde_json::from_value(value).map_err(|error| {
-        invalid_data(format!(
+        crate::invalid_data(format!(
             "Invalid color scheme in {}: {error}",
             path.display()
         ))
@@ -85,7 +85,7 @@ pub fn load_preset(name: &str) -> crate::Result<Option<Value>> {
     patch
         .map(|text| {
             serde_json::from_str(&text).map_err(|error| {
-                invalid_data(format!("preset '{name}': invalid JSON: {error}")).into()
+                crate::invalid_data(format!("preset '{name}': invalid JSON: {error}")).into()
             })
         })
         .transpose()
@@ -169,7 +169,7 @@ fn load_state_from_connection(
         for row in rows {
             let (key, raw_value) = row?;
             let value = serde_json::from_str(&raw_value).map_err(|error| {
-                invalid_data(format!(
+                crate::invalid_data(format!(
                     "{}: invalid JSON for key '{}': {error}",
                     theme_state_label(db_path),
                     key
@@ -182,7 +182,7 @@ fn load_state_from_connection(
     let label = theme_state_label(db_path);
     let (value, backfilled_keys) = normalize_theme_state_value(Value::Object(map), &label)?;
     let state: ThemeState = serde_json::from_value(value)
-        .map_err(|error| invalid_data(format!("Invalid theme state in {label}: {error}")))?;
+        .map_err(|error| crate::invalid_data(format!("Invalid theme state in {label}: {error}")))?;
 
     if !backfilled_keys.is_empty() {
         save_state_to_connection(&state, connection)?;
@@ -226,7 +226,9 @@ fn normalize_theme_state_value(value: Value, label: &str) -> crate::Result<(Valu
     let mut object = match value {
         Value::Object(object) => object,
         _ => {
-            return Err(invalid_data(format!("{label}: expected top-level JSON object")).into());
+            return Err(
+                crate::invalid_data(format!("{label}: expected top-level JSON object")).into(),
+            );
         }
     };
 
@@ -298,7 +300,7 @@ fn theme_state_label(db_path: &Path) -> String {
 fn parse_json_file(path: &Path) -> crate::Result<Value> {
     let text = fs::read_to_string(path)?;
     serde_json::from_str(&text).map_err(|error| {
-        invalid_data(format!("Invalid JSON in {}: {error}", path.display())).into()
+        crate::invalid_data(format!("Invalid JSON in {}: {error}", path.display())).into()
     })
 }
 
@@ -307,7 +309,7 @@ fn validate_color_scheme(value: &Value, path: &Path) -> crate::Result<()> {
 
     for key in ["family", "variant", "appearance", "colors", "palette"] {
         if !object.contains_key(key) {
-            return Err(invalid_data(format!(
+            return Err(crate::invalid_data(format!(
                 "{}: missing required top-level key '{key}'",
                 path.display()
             ))
@@ -318,7 +320,9 @@ fn validate_color_scheme(value: &Value, path: &Path) -> crate::Result<()> {
     let colors = object
         .get("colors")
         .and_then(Value::as_object)
-        .ok_or_else(|| invalid_data(format!("{}: 'colors' must be an object", path.display())))?;
+        .ok_or_else(|| {
+            crate::invalid_data(format!("{}: 'colors' must be an object", path.display()))
+        })?;
 
     let mut missing = ColorScheme::known_color_fields()
         .iter()
@@ -327,7 +331,7 @@ fn validate_color_scheme(value: &Value, path: &Path) -> crate::Result<()> {
         .collect::<Vec<_>>();
     missing.sort_unstable();
     if !missing.is_empty() {
-        return Err(invalid_data(format!(
+        return Err(crate::invalid_data(format!(
             "{}: missing color keys: {}",
             path.display(),
             missing.join(", ")
@@ -343,20 +347,20 @@ fn validate_color_scheme(value: &Value, path: &Path) -> crate::Result<()> {
     }
 
     let palette = object.get("palette").ok_or_else(|| {
-        invalid_data(format!(
+        crate::invalid_data(format!(
             "{}: missing required top-level key 'palette'",
             path.display()
         ))
     })?;
     let Some(entries) = palette.as_array() else {
-        return Err(invalid_data(format!(
+        return Err(crate::invalid_data(format!(
             "{}: 'palette' must be a list of exactly 16 hex colors",
             path.display()
         ))
         .into());
     };
     if entries.len() != 16 {
-        return Err(invalid_data(format!(
+        return Err(crate::invalid_data(format!(
             "{}: 'palette' must be a list of exactly 16 hex colors",
             path.display()
         ))
@@ -380,7 +384,7 @@ fn validate_theme_state(value: &Value, label: &str) -> crate::Result<()> {
         .collect::<Vec<_>>();
     missing.sort_unstable();
     if !missing.is_empty() {
-        return Err(invalid_data(format!(
+        return Err(crate::invalid_data(format!(
             "{label}: missing required keys: {}",
             missing.join(", ")
         ))
@@ -392,9 +396,10 @@ fn validate_theme_state(value: &Value, label: &str) -> crate::Result<()> {
     for name in string_fields {
         let value = object.get(name).expect("validated string field exists");
         if !matches!(value, Value::String(text) if !text.is_empty()) {
-            return Err(
-                invalid_data(format!("{label}: '{name}' must be a non-empty string")).into(),
-            );
+            return Err(crate::invalid_data(format!(
+                "{label}: '{name}' must be a non-empty string"
+            ))
+            .into());
         }
     }
 
@@ -403,7 +408,9 @@ fn validate_theme_state(value: &Value, label: &str) -> crate::Result<()> {
     for name in int_fields {
         let value = object.get(name).expect("validated int field exists");
         if !matches!(value, Value::Number(number) if number.as_i64().is_some()) {
-            return Err(invalid_data(format!("{label}: '{name}' must be an integer")).into());
+            return Err(
+                crate::invalid_data(format!("{label}: '{name}' must be an integer")).into(),
+            );
         }
     }
 
@@ -412,7 +419,7 @@ fn validate_theme_state(value: &Value, label: &str) -> crate::Result<()> {
     for name in bool_fields {
         let value = object.get(name).expect("validated bool field exists");
         if !matches!(value, Value::Bool(_)) {
-            return Err(invalid_data(format!("{label}: '{name}' must be a boolean")).into());
+            return Err(crate::invalid_data(format!("{label}: '{name}' must be a boolean")).into());
         }
     }
 
@@ -420,14 +427,14 @@ fn validate_theme_state(value: &Value, label: &str) -> crate::Result<()> {
 }
 
 fn expect_object(value: &Value, label: String) -> crate::Result<&Map<String, Value>> {
-    value
-        .as_object()
-        .ok_or_else(|| invalid_data(format!("{label}: expected top-level JSON object")).into())
+    value.as_object().ok_or_else(|| {
+        crate::invalid_data(format!("{label}: expected top-level JSON object")).into()
+    })
 }
 
 fn check_hex(value: &Value, label: &str) -> crate::Result<()> {
     let Some(text) = value.as_str() else {
-        return Err(invalid_data(format!(
+        return Err(crate::invalid_data(format!(
             "{label}: expected '#rrggbb' hex color, got {}",
             json_repr(value)
         ))
@@ -443,7 +450,7 @@ fn check_hex(value: &Value, label: &str) -> crate::Result<()> {
     if is_hex {
         Ok(())
     } else {
-        Err(invalid_data(format!(
+        Err(crate::invalid_data(format!(
             "{label}: expected '#rrggbb' hex color, got {}",
             json_repr(value)
         ))
@@ -453,10 +460,6 @@ fn check_hex(value: &Value, label: &str) -> crate::Result<()> {
 
 fn json_repr(value: &Value) -> String {
     value.to_string()
-}
-
-fn invalid_data(message: String) -> io::Error {
-    io::Error::new(io::ErrorKind::InvalidData, message)
 }
 
 #[cfg(test)]

@@ -2,323 +2,127 @@
 
 ## Intent
 
-- One flake, one explicit `nixosConfigurations.<host>` output per machine.
-  `lib.systems.nixosHost` is shared plumbing only — module stack, `host` fact
-  record, Home Manager embedding — and must not hide host policy, hardware
-  choices, or package selection.
-- Modules gate behavior on explicit host facts (`host.isPhysical`,
-  `host.hyprland.*`), not by string-matching host names.
-- Layer boundaries: `system/*.nix` owns shared privileged policy;
-  `hosts/<name>/` owns hardware and host-only overrides; `home/*.nix` owns
-  user packages, XDG deployment, and session glue; `config/` owns
-  repo-authored application config that Home Manager deploys; `styling/` owns
-  the theming data desktopctl deploys at apply time ([[theming]]); `lib/` owns
-  helpers that are merged into `lib` and reachable everywhere. Installing a
-  tool (Nix) and configuring it (`config/`) are separate responsibilities, and
-  so are the two deployers: everything under `config/` reaches `~/.config` on
-  rebuild, everything under `styling/` only on a theme apply. A file whose
-  content desktopctl merges — the concat bases — belongs in `styling/bases`,
-  never in `config/`, so the owner is legible from the path.
-- Modules never receive packages or computed values as extra function
-  arguments. What a module needs reaches it through `pkgs` (via an overlay),
-  through `config`, or through a `specialArgs` entry that every module gets.
-- `xdg.configFile` deploys base files and static trees only — never generated
-  theme outputs, which must stay writable outside the store ([[theming]]).
-  The recursive `quickshell/` and `nvim/` trees coexist with writable
-  generated sibling files as a deliberate special case.
-- GUI apps that need system D-Bus services or polkit actions must be installed
-  through NixOS (`environment.systemPackages` or a NixOS module), not
-  `home.packages` — user-profile packages never register system-scoped
-  helpers. Current examples: partition-manager, bitwarden-desktop.
-- Every physical host runs the stock nixpkgs kernel package. A custom
-  boot-critical kernel closure (Clang/LTO/CachyOS patches, forced initrd lists)
-  already caused an undebuggable no-journal boot failure (desktop generation
-  73); keep runtime policy in `kernelParams`/sysctls/services. The laptop alone
-  carries Kconfig trims, because it boots on them daily; every new trim is its
-  own change and is boot-validated before anything else rides along with it.
-- Intentional exceptions that audits keep flagging: `mitigations=off` on
-  physical hosts (performance tradeoff), `max-jobs = 2` local build
-  concurrency, and the checked-in `users.users.kevin.initialPassword` — a
-  deliberate reproducible bootstrap login (SSH password auth stays disabled);
-  don't remove it silently.
+- One flake, one `nixosConfigurations.<host>` per machine. `lib.systems.nixosHost`
+  is plumbing only (module stack, `host` facts, Home Manager) and never hides
+  host policy, hardware or package choice. Modules gate on host facts
+  (`host.isPhysical`, `host.hyprland.*`), never on host names.
+- Layers: `system/` shared privileged policy; `hosts/<name>/` hardware and
+  host-only overrides; `home/` user packages and session glue; `config/`
+  app config Home Manager deploys on rebuild; `styling/` theming data
+  desktopctl deploys on theme apply ([[theming]]) — a file desktopctl merges
+  lives in `styling/bases`, never `config/`; `lib/` helpers merged into `lib`.
+- `xdg.configFile` deploys static files only, never generated theme outputs,
+  which must stay writable outside the store. Trees are linked file by file so
+  generated siblings can sit beside them.
+- GUI apps needing system D-Bus services or polkit actions install through
+  NixOS, not `home.packages`, which never registers system helpers
+  (partition-manager, bitwarden-desktop).
+- Every host runs the stock nixpkgs kernel. A custom boot-critical kernel
+  (Clang/LTO/CachyOS, forced initrd lists) already caused an undebuggable
+  no-journal boot failure; runtime policy goes in `kernelParams`, sysctls and
+  services. Only the laptop carries Kconfig trims, each its own boot-validated
+  change.
+- `pkgs.optimized.<name>` namespaces native builds and never shadows
+  `pkgs.<name>`, so nothing that was not opted in loses cache hits. `zstd`,
+  `lz4` and texlive stay out: the first two cascade rebuilds through
+  libarchive/cmake/llvm and systemd/nix, and optimized texlive turned seven
+  substitutions into ~1600 source builds from an unreliable mirror for code
+  that is I/O-bound anyway.
+- Deliberate, whatever audits say: `mitigations=off`, `max-jobs = 2`, and the
+  checked-in `initialPassword` (bootstrap login; SSH password auth is off).
 
 ## Quirks
 
-### A narrow unfree predicate must cover transitive closures
-`allowUnfreePredicate` must list not just chosen apps but names pulled in by
-modules (`fonts.packages`, Steam, CUDA closures — `steam-unwrapped`, `sf-pro`,
-`symbola`, the CUDA userspace set). The list in `system/configuration.nix` is
-exactly what the two toplevels ask the predicate about, so a bumped CUDA
-component that gains a new split-out package fails evaluation naming it; add
-that name. `cuda_compat` is asked too but is an availability probe, and staying
-refused is correct.
-
 ### Laptop Kconfig parent trims need child-symbol unsets
-Disabling a parent subsystem (Nouveau, Hyper-V DRM, AMD SEV) makes nixpkgs'
-mandatory child settings unreachable, and the kernel config builder errors
-with `unused option`. Pair every parent trim in `hosts/laptop/system.nix` with
-`lib.kernel.unset` for the orphaned children; do not reach for
-`ignoreConfigErrors`, which hides real drift.
+Disabling a parent (Nouveau, Hyper-V DRM, AMD SEV) orphans nixpkgs' mandatory
+children and the config builder fails with `unused option`. Pair each trim with
+`lib.kernel.unset` for the children; never reach for `ignoreConfigErrors`.
 
-### Home Manager's release must track the evaluated nixpkgs release
-When `nixos-unstable` advances to a new cycle before Home Manager cuts the
-matching `release-*` branch, the old branch warns on every switch. The flake
-tracks HM `master` (with `inputs.nixpkgs.follows`) until `release-26.11`
-exists; move to the branch then, rather than disabling
+### Home Manager tracks `master` until `release-26.11` exists
+An older release branch warns on every switch once nixos-unstable starts a new
+cycle. Move to the branch when it exists; don't disable
 `home.enableNixpkgsReleaseCheck`.
 
 ### `texlive.combined.scheme-medium` recurses on this pin
-`scheme-medium` pulls `asymptote` through `collection-binextra` and evaluation
-blows up. `home/packages.nix` builds `scheme-small` plus explicit extras. That
-list is not a dependency closure: a texlive package pulls only what its tlpdb
-entry declares, and those declarations are incomplete, so a `.sty` the added
-package `\RequirePackage`s can still be missing at compile time. Add the
-package, then compile *every* document that loads it -- one passing template
-proves nothing about its siblings -- and add whatever the logs name next.
+It pulls `asymptote` and evaluation blows up, so `home/packages.nix` uses
+`scheme-small` plus extras. tlpdb dependencies are incomplete: after adding a
+package, compile *every* document that loads it and add what the logs name.
 
-### `cantarell-fonts` variable-OTF autohinting is broken on this pin
-The default build fails in `otfautohint`. The overlay passes Meson flags
-`-Dbuildvf=false -Dbuildstatics=true`; remove after a nixpkgs update proves
-the default build works.
-
-### Apple rotates `SF-Pro.dmg` behind a stable URL
-The fixed-output hash eventually stops matching upstream bytes — refresh the
-version date and `src.hash` in `pkgs/sf-pro/default.nix`. The inner layout
-moves too (the inner package name has changed across rotations; `7z x` walks
-the dmg/hfs/pkg/gzip chain by itself and drops a bare cpio `Payload~` in the
-build directory). Re-check the unpack against `7z l` on the new DMG, not just
-the hash.
-
-### The native overlay namespaces, it never shadows
-Rewriting the global `pkgs` set gives every transitive consumer a new
-derivation path and kills cache hits for packages that were never opted in.
-`overlays/native-optimized.nix` therefore publishes `pkgs.optimized.<name>`
-and leaves `pkgs.<name>` stock, which is also why it deliberately skips
-`zstd`/`lz4` — optimizing low-level libraries pulls enormous rebuild cascades
-through `libarchive`/`llvm`/`systemd`.
-
-The trap the namespacing creates: a package resolves its dependencies from the
-*unshadowed* set, so `wireplumber` and `quickshell` would each link stock
-`pipewire` and drag a second copy of it into the closure. Cross-dependencies
-inside `pkgs.optimized` are wired by hand with `.override`, and a new entry
-that depends on another optimized package must be too.
-
-### `pipe-operators` has to be bootstrapped by hand once
-The config is written with `|>`, so evaluating it needs the feature that the
-config itself turns on. A machine whose `/etc/nix/nix.conf` predates that
-cannot evaluate its way to the rebuild that would install it. Break the loop
-once, per machine:
-
-    nrs --option experimental-features "nix-command flakes pipe-operators"
-
-`nixos-rebuild` rejects `--extra-experimental-features` outright — it only
-forwards `--option` — while a bare `nix eval` takes either. The flake's own
-`nixConfig` block does not help: nix parses the file before reading it, and
-ignores the whole block anyway until the user is in `trusted-users`.
+### `pipe-operators` has to be bootstrapped by hand once per machine
+The config needs the feature it turns on. Break the loop with
+`nrs --option experimental-features "nix-command flakes pipe-operators"`;
+`nixos-rebuild` rejects `--extra-experimental-features`, and the flake's
+`nixConfig` is ignored until the user is trusted.
 
 ### Native builds are fenced by per-host `requiredSystemFeatures`
-`-march=native` output depends on the builder CPU, so identical flag strings
-are not a safe cache boundary across hosts. Native derivations carry
-`requiredSystemFeatures = [ "native-optimized-<host>" ]` and the host
-advertises that feature in `nix.settings.system-features` *only while*
-`pkgs.optimize.enabled` (`host.nativeOptimizations`) is on — unconditional
-advertisement changes scheduling/cacheability even when the overlay is off.
-Flake-input packages (the Hyprland family) go through
-`pkgs.optimize.cc` from `lib/optimize.nix`, the same helper the overlay uses,
-so they cannot diverge from the overlay policy. Bootstrap wrinkle: the switch that first enables the feature runs
-through a daemon that doesn't advertise it yet, so the `nrs` wrapper passes
-the target `system-features` to `sudo nixos-rebuild` directly (plain user
-`--option system-features` is rejected as a restricted setting).
-
-### Neuwaita's upstream no longer exists — the vendored tarball is the only copy
-The `RusticBard` GitHub account was deleted outright; the pinned rev is
-unreachable from every remote, no fork carries it, Software Heritage never
-archived it, and the fixed-output path is not on cache.nixos.org. The theme
-was recovered from a surviving local build and vendored as
-`pkgs/neuwaita/neuwaita-112525b2.tar.xz`. Treat that tarball as irreplaceable;
-there is nowhere to re-fetch from. (KDE recoloring wrapper: see [[theming]].)
+`-march=native` output depends on the builder CPU, so native derivations
+require `native-optimized-<host>`, advertised only while
+`host.nativeOptimizations` is on. The switch that first enables it runs through
+a daemon that doesn't advertise it yet, hence `nrs` passing `system-features`
+to `sudo nixos-rebuild` (a plain user `--option system-features` is refused).
 
 ### AppImage apps need shell-parent launchers for Vicinae
-Vicinae's detached launcher can treat an AppImage/FHS wrapper handoff as a
-successful launch and lose the real app. The `pkgs/lmstudio` and
-`pkgs/bambu-studio` packages wrap the upstream AppImages and rewrite their
-desktop files to absolute `$out/bin/<app>-desktop` launchers that invoke the
-binary *without* `exec`. Only `pkgs/bambu-studio` normalizes `StartupWMClass`;
-LM Studio's upstream value already matches the class Hyprland reports.
-After switching, refresh the long-lived Vicinae server (`nrs` does this via
-`vicinae server --replace`) so it drops cached desktop entries. Bambu-specific:
-stay on the stable Ubuntu AppImage (the nixpkgs source package is an untested
-public beta; the Fedora AppImage links removed WebKitGTK 4.0), and if it opens
-with locale errors, delete the stale `language` key from
-`~/.config/BambuStudio/BambuStudio.conf`.
+Vicinae's detached launch can take an AppImage/FHS wrapper handoff as success
+and lose the app, so `pkgs/lmstudio` and `pkgs/bambu-studio` point their
+desktop files at `$out/bin/<app>-desktop`, which runs the binary *without*
+`exec`. Bambu stays on the Ubuntu AppImage (the nixpkgs source build is an
+untested beta; the Fedora one links removed WebKitGTK 4.0); locale errors on
+start mean a stale `language` key in `~/.config/BambuStudio/BambuStudio.conf`.
 
 ### Vicinae server has exactly one owner: Hyprland autostart
-`home/packages.nix` installs `pkgs.vicinae` but leaves `services.vicinae`
-disabled; `autostart.lua` starts the server. Re-enabling the HM service
-creates a second competing server. The server caches desktop entries across
-profile switches, hence the `--replace` refresh in `nrs`.
-
-### Claude Code comes from a narrow `nixpkgs-claude` input
-Model-support releases land in nixpkgs master before `nixos-unstable`
-advances, so `flake.nix` carries a `nixpkgs-claude` input on master feeding
-`overlays/claude-code.nix`. Keep it nixpkgs-sourced; a repo-local npm pin already
-broke once against the moving upstream builder shape.
-
-### Haruna must share the session Qt/KDE package set
-`QT_QPA_PLATFORMTHEME=qt6ct` loads a platform-theme plugin built against the
-session's Qt ABI; pinning Haruna to a different nixpkgs makes it load a
-mismatched plugin and abort at startup with no media loaded.
-
-### Hyprland must follow the system nixpkgs
-Hyprland dlopens the system Mesa from `/run/opengl-driver` for its GBM
-allocator, so it must share the system's glibc. With its own nixpkgs pin, a
-system update that bumped glibc made `libgallium` fail to load (`GLIBC_2.43'
-not found`), Aquamarine found no allocator, and Hyprland aborted right after
-SDDM login, the same symptom as the `AQ_DRM_DEVICES` quirk in [[nvidia]].
-`~/.cache/hyprland/hyprlandCrashReport*.txt` log tails tell the two apart. The
-stack is built locally anyway (no Cachix), so the `follows` costs nothing.
-
-### Helium is not a normal Qt/Chromium package
-Upstream tarballs ship a dormant Qt5 shim with no runtime Qt5 (ignored via
-`autoPatchelfIgnoreMissingDeps`), launch through their own wrapper script
-(`dontWrapQtApps`, `makeWrapper`), and dlopen GTK file-chooser libraries that
-never appear as `NEEDED` entries, so the launcher is prefixed with
-GTK3/GTK4/media/GL paths by hand. Helium's user-data-dir is
-`~/.config/net.imput.helium/`, not `~/.config/helium/` — External Extensions
-JSON must be generated there (`heliumExtensionFiles` in `home/default.nix`
-shares the ID list with `programs.chromium.extensions`).
-
-### ComfyUI packaging traps
-- PyTorch must come from the `-bin` wheels under `cudaPackages_13_3`
-  (`pkgs/comfyui/python-packages.nix`): default nixpkgs torch with
-  `cudaSupport` is an uncached hours-long source build, and `torch-bin` on the
-  default CUDA 12 set is marked broken. The plain `torch`/`torchvision`
-  attrs are aliased to the `-bin` packages so every downstream consumer shares
-  one PyTorch. Do not silence the broken-package check instead. Related pin:
-  `torch-bin` gets `pythonRelaxDeps = [ "setuptools" ]` for its `<82` cap
-  (guards only `torch.utils.cpp_extension`, unused here).
-- The first build compiles NCCL and NVSHMEM from source for a long time —
-  unavoidable link deps of the wheel, cached afterwards, per host.
-- `--base-directory` neither seeds the tree nor covers the database:
-  `comfyui.sh` creates the directory skeleton (generated in `installPhase`
-  from the upstream tree) and passes an explicit `--database-url`.
-- `comfyui-workflow-templates` is a metapackage over independently versioned
-  sub-distributions, and it adds new ones; a partial install silently yields
-  an empty template browser. Re-read its `requires_dist` on bumps.
-- Custom nodes can't pip-install into the read-only store interpreter; declare
-  extra deps via the `extraPythonPackages` override. Python is pinned to 3.13
-  deliberately (upstream custom-node support), not drifting with `python3`.
-
-### A `PathExists` unit must consume the file it triggers on
-`PathExists` is level-triggered: the path unit re-arms the moment the service
-exits and fires again while the file exists, spinning until the start limiter
-fails both units — with the service itself exiting 0, which makes it look
-healthy. The SDDM wallpaper sync consumes its staging file via
-`trap 'rm -f ...' EXIT` (failure included, deliberately: desktopctl re-stages
-on every theme apply). Any future `PathExists` unit needs the same discipline
-or `PathChanged`.
-
-### Stock `services.fstrim` would trim the Windows NVMe
-The stock unit trims every mounted filesystem, including the shared EFI
-partition mounted from the Windows drive. `system/services.nix` replaces it
-with `fstrim-root.service`/`.timer` pinned to `/`.
-
-### Chromium-family file pickers use the GTK portal
-`xdg.portal.config` exposes only the Hyprland and GTK backends with GTK as
-FileChooser, and `home/xdg.nix` writes the same user-level `portals.conf` so a
-stale HM symlink can't force the brittle KDE backend back (which broke
-first-login file pickers). Session-side env-import ordering matters too — see
-[[hyprland]].
+`services.vicinae` stays disabled; enabling it starts a second, competing
+server. The server caches desktop entries across switches, so `nrs` replaces it.
 
 ### `nrs` mutes Hyprland's config watcher during activation
-Home Manager swaps `~/.config/hypr/` symlinks one at a time and Hyprland's
-watcher treats each swap as a config change, reloading mid-activation against
-momentarily missing `require`d files. `nrs` sets `misc:disable_autoreload`
-for the rebuild and restores the prior value via `trap ... EXIT INT TERM` —
-EXIT alone does not run when SIGINT kills zsh, which would strand autoreload
-off for the session. It skips the guard (and the Vicinae refresh) when
-Hyprland is unreachable so it still works from a TTY/SSH.
+Home Manager swaps `~/.config/hypr/` links one at a time and each swap triggers
+a reload against momentarily missing files. The restore trap covers
+`EXIT INT TERM` because EXIT alone does not run when SIGINT kills zsh.
 
-### MGLRU `min_ttl_ms` is the working-set protection, not `vm.*` sysctls
-`system/physical-host.nix` applies thrash protection through
-`systemd.services.mglru-tuning` writing `/sys/kernel/mm/lru_gen/min_ttl_ms`.
-Don't go looking for LE9-style `vm.anon_min_kbytes` knobs, and don't lower
-`vm.swappiness` from 180: swap is zram-only, so swapping out compresses into
-RAM, which is cheaper than evicting page cache that must be re-read from disk.
+### Hyprland must follow the system nixpkgs
+It dlopens the system Mesa for its GBM allocator; with its own glibc a system
+bump broke `libgallium` and Hyprland aborted right after SDDM login, the same
+symptom as the `AQ_DRM_DEVICES` quirk in [[nvidia]]. Crash reports in
+`~/.cache/hyprland/` tell them apart. No Cachix: the stack is patched and
+native-built, so the public cache can never hit.
 
-### Only the laptop resolves its location
-`automatic-timezoned` runs on the laptop alone; the desktop pins
-`time.timeZone` and `DESKTOPCTL_LOCATION` (the sun-schedule coordinates)
-because a stationary host gains nothing from geolocation and
-loses correctness when GeoClue guesses wrong. On the laptop the daemon only
-acts when GeoClue returns coordinates, so after travel check `where-am-i`
-under the user session and `journalctl -u geoclue.service` before debugging
-the timezone service. Locale and keymap are static on purpose everywhere.
+### Haruna must share the session Qt/KDE package set
+`QT_QPA_PLATFORMTHEME=qt6ct` loads a plugin built for the session's Qt ABI;
+Haruna from another nixpkgs aborts at startup.
 
-### `tailscaled` can stall shutdown
-Intermittent wgengine teardown races can eat most of systemd's 90s stop
-timeout. Physical hosts cap `TimeoutStopSec=15s` on tailscaled.
+### Helium is not a normal Chromium package
+It dlopens GTK file-chooser libraries that are never `NEEDED`, hence the
+hand-built `LD_LIBRARY_PATH`. Its user-data-dir is `~/.config/net.imput.helium/`,
+so External Extensions JSON is generated there, not under `helium/`.
+
+### ComfyUI packaging traps
+- PyTorch comes from the `-bin` wheels on `cudaPackages_13_3`; source torch is
+  an uncached hours-long build and `torch-bin` on CUDA 12 is marked broken.
+  Don't silence the broken check instead. First builds still compile NCCL and
+  NVSHMEM for a long time, per host.
+- `comfyui-workflow-templates` is a metapackage that keeps adding
+  sub-distributions; a partial set yields an empty template browser. Re-read
+  its `requires_dist` on bumps.
+- Custom nodes can't pip-install into the store; use `extraPythonPackages`.
+
+### MGLRU `min_ttl_ms` is the working-set protection
+There are no LE9-style `vm.*` knobs to find. Don't lower `vm.swappiness` from
+180: swap is zram-only, so swapping is cheaper than dropping page cache.
 
 ### Mission Center's "Run Additional Setup" is a dead end
-The button fails with `Error executing /tmp/missioncenter-magpie-setup: No such
-file or directory`. The script is there; its `#!/bin/bash` interpreter is not,
-and ENOENT on a shebang reads as the *script* being missing. Do not chase the
-path. Even patched, every line of it is inert here: it `setcap`s a read-only
-`/nix/store` path, writes `/etc/udev/rules.d/99-powercap.rules` into an
-`/etc` NixOS owns, calls a `/usr/bin/chmod` that does not exist, and runs
-`sensors-detect --auto` to persist modules that `boot.kernelModules` already
-declares. `system/physical-host.nix` installs the two effects declaratively:
-a `security.wrappers.nethogs` carrying the capabilities magpie's per-process
-network readout needs (magpie resolves `nethogs` off PATH, and
-`/run/wrappers/bin` precedes the profiles), and a powercap udev rule for CPU
-power draw. That rule deliberately re-opens `intel-rapl*/energy_uj`, which the
-kernel restricted to root against PLATYPUS (CVE-2020-8694) — the side channel
-is the price of the reading, so weigh that before copying it elsewhere.
+`Error executing /tmp/missioncenter-magpie-setup: No such file` means its
+`#!/bin/bash` is missing, not the script — and every line of it is inert on
+NixOS anyway. `system/physical-host.nix` installs its two effects declaratively.
+The powercap rule re-opens `energy_uj`, a known side channel (PLATYPUS,
+CVE-2020-8694); weigh that before copying it.
 
 ### The laptop touchpad needs its I2C controller pinned out of runtime PM
-`powertop --auto-tune` sets `power/control=auto` on *every* PCI device, 00:15.1
-included — the Alder Lake LPSS I2C controller the ELAN touchpad hangs off
-(`.../0000:00:15.1/i2c_designware.1/i2c-2/i2c-VEN_04F3:00`). The designware
-adapter is slow to leave runtime suspend, so the first reports after an idle
-stretch arrive late and the cursor stutters before catching up. Upstream hit
-the same wall and removed runtime PM from i2c-hid outright, measuring "little
-to none" energy saved.
+`powertop --auto-tune` puts 00:15.1, the I2C controller under the ELAN
+touchpad, into runtime PM, and the cursor stutters after idle. A udev rule
+covers probe; an `ExecStartPost` on `powertop.service` covers boot. A separate
+unit ordered after powertop forms a cycle that systemd breaks by silently
+deleting the job, so the pin looks fine after a switch and is dead every boot.
 
-Two mechanisms pin it and neither covers the other's case: a udev rule catches
-probe and re-probe, and an `ExecStartPost` re-asserts the value at boot, where
-powertop runs long after udev has settled. That re-assert has to hang off
-`powertop.service` itself. A separate unit cannot win: `powertop.service` is
-both `WantedBy=` and `After=multi-user.target`, so anything `WantedBy` that
-target must start before it, and `After=powertop.service` closes a cycle
-systemd breaks by silently deleting the job (`Found ordering cycle ... deleted
-to break ordering cycle`) — leaving the pin dead at every boot while looking
-fine right after a `switch`.
-
-### fwupd will not enumerate the ELAN touchpad, and that is not a bug
-The elantp plugin is Ready and `i2c_dev` is loaded, but fwupd 2.1.6's quirk DB
-carries 30 ELAN entries and 04F3:311C is not one of them, so nothing claims the
-device. 311C is the part with the documented firmware bug — 0x000b stalls into
-an "inertia" lag every few minutes, which libinput reports as rate-limited
-"Touch jump detected and discarded" — and there is no LVFS path to 0x000c for
-it. Reaching it would mean hand-writing a quirk and flashing an unofficial blob
-meant for the 9510/5560, which is exactly what bricked this same part into
-bootloader mode (04F3:0400) in fwupd#5281. Don't. The runtime-PM pin above is
+### fwupd will not enumerate the ELAN touchpad, and must not be made to
+04F3:311C is absent from fwupd's quirk DB and has no LVFS firmware. Forcing an
+unofficial blob is what bricked this part in fwupd#5281. The runtime-PM pin is
 the supported lever.
-
-### Generic `SF Pro` looks soft without fontconfig tuning
-Fontconfig could pick the variable catch-all face over the `SF Pro Text`
-optical cut and defaulted to grayscale AA. The shared config sets
-`subpixel.rgba = "rgb"` and prepends `SF Pro Text` for generic `SF Pro`
-requests; if a monitor fringes, set the panel's real subpixel order.
-
-### Nautilus thumbnails need explicit helper packages
-`glib` (for `gsettings`) and `gdk-pixbuf` (thumbnailer + metadata) must be in
-`home.packages` alongside `nautilus`; after adding them, `nautilus -q` and
-clear `~/.cache/thumbnails/fail/`.
-
-### Hyprland's Cachix is intentionally not configured
-The compositor/plugin stack is locally patched and native-built, so its store
-paths can't exist in the public cache; the substituter only added noisy
-negative lookups. Re-add only if the stack returns to unpatched upstream.
-
-Related: [[hyprland]], [[nvidia]], [[theming]], [[tools]], [[grub]]

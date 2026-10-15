@@ -26,7 +26,7 @@ struct Request {
     params: serde_json::Value,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 struct SubscribeParams {
     #[serde(default)]
     topics: Vec<String>,
@@ -229,302 +229,183 @@ async fn handle_client(stream: UnixStream, context: ServerContext) -> io::Result
             }
         };
 
-        match request.method.as_str() {
-            methods::PING => {
-                write_ok(&mut writer, serde_json::json!({ "pong": true })).await?;
-            }
-            methods::SUBSCRIBE => {
-                let params = if request.params.is_null() {
-                    Ok(SubscribeParams { topics: Vec::new() })
-                } else {
-                    serde_json::from_value::<SubscribeParams>(request.params)
-                };
-                let params = match params {
-                    Ok(params) => params,
-                    Err(error) => {
-                        write_error(
-                            &mut writer,
-                            format!("invalid params for {}: {error}", methods::SUBSCRIBE),
-                        )
-                        .await?;
-                        continue;
-                    }
-                };
+        if request.method == methods::SUBSCRIBE {
+            let params = match parse_params_or_default::<SubscribeParams>(
+                request.params,
+                methods::SUBSCRIBE,
+            ) {
+                Ok(params) => params,
+                Err(message) => {
+                    write_error(&mut writer, message).await?;
+                    continue;
+                }
+            };
+            let topics = resolve_topics(params.topics);
+            // Subscribe before confirming so an event published right
+            // after the client sees the reply cannot be lost.
+            let receiver = context.events.receiver();
+            write_ok(&mut writer, serde_json::json!({ "subscribed": topics })).await?;
+            return run_subscription(&mut writer, &mut lines, topics, context, receiver).await;
+        }
 
-                let topics = resolve_topics(params.topics);
-                // Subscribe before confirming so an event published right
-                // after the client sees the reply cannot be lost.
-                let receiver = context.events.receiver();
-                write_ok(&mut writer, serde_json::json!({ "subscribed": topics })).await?;
-                return run_subscription(&mut writer, &mut lines, topics, context, receiver).await;
-            }
-            methods::NIGHT_LIGHT_STATUS => {
-                let controller = context.night_light.clone();
-                let result = tokio::task::spawn_blocking(move || controller.status()).await;
-                write_join_result(&mut writer, result).await?;
-            }
-            methods::NIGHT_LIGHT_SET => {
-                let params = match serde_json::from_value::<NightLightSetParams>(request.params) {
-                    Ok(params) => params,
-                    Err(error) => {
-                        write_error(
-                            &mut writer,
-                            format!("invalid params for {}: {error}", methods::NIGHT_LIGHT_SET),
-                        )
-                        .await?;
-                        continue;
-                    }
-                };
-
-                let controller = context.night_light.clone();
-                let result = tokio::task::spawn_blocking(move || {
-                    controller.set_mode(params.mode, params.temperature)
-                })
-                .await;
-                write_join_result(&mut writer, result).await?;
-            }
-            methods::NIGHT_LIGHT_TOGGLE => {
-                let controller = context.night_light.clone();
-                let result = tokio::task::spawn_blocking(move || controller.toggle()).await;
-                write_join_result(&mut writer, result).await?;
-            }
-            methods::THEME_STATUS => {
-                let result = tokio::task::spawn_blocking(|| {
-                    crate::theme::resolve::load_state()
-                        .map(|state| crate::theme::state_json(&state))
-                })
-                .await;
-                write_join_result(&mut writer, result).await?;
-            }
-            methods::THEME_SET => {
-                match parse_params::<ThemeSetParams>(request.params, methods::THEME_SET) {
-                    Err(message) => write_error(&mut writer, message).await?,
-                    Ok(params) => {
-                        let job = ThemeJob::Set {
-                            key: params.key,
-                            value: params.value,
-                            // User-initiated; the schedule bypasses this method.
-                            origin: DarkHintOrigin::Manual,
-                        };
-                        write_result(&mut writer, context.theme.request(job).await).await?;
-                    }
-                }
-            }
-            methods::THEME_APPLY => {
-                match parse_params::<ThemeApplyParams>(request.params, methods::THEME_APPLY) {
-                    Err(message) => write_error(&mut writer, message).await?,
-                    Ok(params) => match ApplyScope::parse(&params.scope, params.target) {
-                        Err(error) => write_error(&mut writer, error.to_string()).await?,
-                        Ok(scope) => {
-                            let job = ThemeJob::Apply { scope };
-                            write_result(&mut writer, context.theme.request(job).await).await?;
-                        }
-                    },
-                }
-            }
-            methods::THEME_PRESET_APPLY => {
-                match parse_params::<NamedParams>(request.params, methods::THEME_PRESET_APPLY) {
-                    Err(message) => write_error(&mut writer, message).await?,
-                    Ok(params) => {
-                        let job = ThemeJob::PresetApply { name: params.name };
-                        write_result(&mut writer, context.theme.request(job).await).await?;
-                    }
-                }
-            }
-            methods::THEME_PRESET_SAVE => {
-                match parse_params::<PresetSaveParams>(request.params, methods::THEME_PRESET_SAVE) {
-                    Err(message) => write_error(&mut writer, message).await?,
-                    Ok(params) => {
-                        let job = ThemeJob::PresetSave {
-                            name: params.name,
-                            payload: params.payload,
-                        };
-                        write_result(&mut writer, context.theme.request(job).await).await?;
-                    }
-                }
-            }
-            methods::THEME_PRESET_DELETE => {
-                match parse_params::<NamedParams>(request.params, methods::THEME_PRESET_DELETE) {
-                    Err(message) => write_error(&mut writer, message).await?,
-                    Ok(params) => {
-                        let job = ThemeJob::PresetDelete { name: params.name };
-                        write_result(&mut writer, context.theme.request(job).await).await?;
-                    }
-                }
-            }
-            methods::HYPR_INPUT_STATUS => {
-                let hypr = context.hypr.clone();
-                let result = tokio::task::spawn_blocking(move || hypr.input_status()).await;
-                write_join_result(&mut writer, result).await?;
-            }
-            methods::HYPR_INPUT_SET => {
-                match parse_params::<KeyValueParams>(request.params, methods::HYPR_INPUT_SET) {
-                    Err(message) => write_error(&mut writer, message).await?,
-                    Ok(params) => {
-                        let hypr = context.hypr.clone();
-                        let result = tokio::task::spawn_blocking(move || {
-                            hypr.input_set(&params.key, &params.value)
-                        })
-                        .await;
-                        write_join_result(&mut writer, result).await?;
-                    }
-                }
-            }
-            methods::HYPR_MONITORS_STATUS => {
-                let hypr = context.hypr.clone();
-                let result = tokio::task::spawn_blocking(move || hypr.monitors_status()).await;
-                write_join_result(&mut writer, result).await?;
-            }
-            methods::HYPR_MONITORS_PRIMARY => {
-                match parse_params::<MonitorsPrimaryParams>(
-                    request.params,
-                    methods::HYPR_MONITORS_PRIMARY,
-                ) {
-                    Err(message) => write_error(&mut writer, message).await?,
-                    Ok(params) => {
-                        let hypr = context.hypr.clone();
-                        let result = tokio::task::spawn_blocking(move || {
-                            hypr.monitors_primary(&params.selector)
-                        })
-                        .await;
-                        write_join_result(&mut writer, result).await?;
-                    }
-                }
-            }
-            methods::HYPR_MONITORS_LAYOUT => {
-                match parse_params::<MonitorsLayoutParams>(
-                    request.params,
-                    methods::HYPR_MONITORS_LAYOUT,
-                ) {
-                    Err(message) => write_error(&mut writer, message).await?,
-                    Ok(params) => {
-                        let hypr = context.hypr.clone();
-                        let result = tokio::task::spawn_blocking(move || {
-                            hypr.monitors_layout(&params.outputs)
-                        })
-                        .await;
-                        write_join_result(&mut writer, result).await?;
-                    }
-                }
-            }
-            methods::SESSION_STATUS => {
-                write_result(&mut writer, context.session.status()).await?;
-            }
-            methods::SESSION_AUTOMATIC => {
-                match parse_params::<SessionAutomaticParams>(
-                    request.params,
-                    methods::SESSION_AUTOMATIC,
-                ) {
-                    Err(message) => write_error(&mut writer, message).await?,
-                    Ok(params) => {
-                        let result = context.session.set_automatic(params.automatic);
-                        write_result(&mut writer, result).await?;
-                    }
-                }
-            }
-            methods::SESSION_RESTORE => {
-                match parse_params_or_default::<SessionRestoreParams>(
-                    request.params,
-                    methods::SESSION_RESTORE,
-                ) {
-                    Err(message) => write_error(&mut writer, message).await?,
-                    Ok(params) => {
-                        let session = context.session.clone();
-                        let result = tokio::task::spawn_blocking(move || {
-                            session.restore(params.if_automatic)
-                        })
-                        .await;
-                        write_join_result(&mut writer, result).await?;
-                    }
-                }
-            }
-            methods::BRIGHTNESS_STATUS => {
-                let brightness = context.brightness.clone();
-                let result = tokio::task::spawn_blocking(move || brightness.status()).await;
-                write_join_result(&mut writer, result).await?;
-            }
-            methods::BRIGHTNESS_SET => {
-                match parse_params::<BrightnessSetParams>(request.params, methods::BRIGHTNESS_SET) {
-                    Err(message) => write_error(&mut writer, message).await?,
-                    Ok(params) => {
-                        let brightness = context.brightness.clone();
-                        let result = tokio::task::spawn_blocking(move || {
-                            brightness.set(params.device.as_deref(), params.percent)
-                        })
-                        .await;
-                        write_join_result(&mut writer, result).await?;
-                    }
-                }
-            }
-            methods::BRIGHTNESS_STEP => {
-                match parse_params::<BrightnessStepParams>(request.params, methods::BRIGHTNESS_STEP)
-                {
-                    Err(message) => write_error(&mut writer, message).await?,
-                    Ok(params) => {
-                        let direction = match params.direction.as_str() {
-                            "up" => 1.0,
-                            "down" => -1.0,
-                            other => {
-                                write_error(
-                                    &mut writer,
-                                    format!("invalid step direction '{other}'"),
-                                )
-                                .await?;
-                                continue;
-                            }
-                        };
-                        let brightness = context.brightness.clone();
-                        let result = tokio::task::spawn_blocking(move || {
-                            brightness.step(params.device.as_deref(), direction)
-                        })
-                        .await;
-                        write_join_result(&mut writer, result).await?;
-                    }
-                }
-            }
-            methods::BRIGHTNESS_DIM => {
-                match parse_params_or_default::<BrightnessDeviceParams>(
-                    request.params,
-                    methods::BRIGHTNESS_DIM,
-                ) {
-                    Err(message) => write_error(&mut writer, message).await?,
-                    Ok(params) => {
-                        let brightness = context.brightness.clone();
-                        let result = tokio::task::spawn_blocking(move || {
-                            brightness.dim(params.device.as_deref())
-                        })
-                        .await;
-                        write_join_result(&mut writer, result).await?;
-                    }
-                }
-            }
-            methods::BRIGHTNESS_RESTORE => {
-                match parse_params_or_default::<BrightnessDeviceParams>(
-                    request.params,
-                    methods::BRIGHTNESS_RESTORE,
-                ) {
-                    Err(message) => write_error(&mut writer, message).await?,
-                    Ok(params) => {
-                        let brightness = context.brightness.clone();
-                        let result = tokio::task::spawn_blocking(move || {
-                            brightness.restore(params.device.as_deref())
-                        })
-                        .await;
-                        write_join_result(&mut writer, result).await?;
-                    }
-                }
-            }
-            _ => {
-                write_error(
-                    &mut writer,
-                    format!("unsupported method: {}", request.method),
-                )
-                .await?;
-            }
+        match respond(&request.method, request.params, &context).await {
+            Ok(data) => write_ok(&mut writer, data).await?,
+            Err(message) => write_error(&mut writer, message).await?,
         }
     }
 
     Ok(())
+}
+
+async fn respond(
+    method: &str,
+    params: serde_json::Value,
+    context: &ServerContext,
+) -> Result<serde_json::Value, String> {
+    match method {
+        methods::PING => Ok(serde_json::json!({ "pong": true })),
+        methods::NIGHT_LIGHT_STATUS => {
+            let controller = context.night_light.clone();
+            blocking(move || controller.status()).await
+        }
+        methods::NIGHT_LIGHT_SET => {
+            let params: NightLightSetParams = parse_params(params, method)?;
+            let controller = context.night_light.clone();
+            blocking(move || controller.set_mode(params.mode, params.temperature)).await
+        }
+        methods::NIGHT_LIGHT_TOGGLE => {
+            let controller = context.night_light.clone();
+            blocking(move || controller.toggle()).await
+        }
+        methods::THEME_STATUS => {
+            blocking(|| {
+                crate::theme::resolve::load_state().map(|state| crate::theme::state_json(&state))
+            })
+            .await
+        }
+        methods::THEME_SET => {
+            let params: ThemeSetParams = parse_params(params, method)?;
+            let job = ThemeJob::Set {
+                key: params.key,
+                value: params.value,
+                // User-initiated; the schedule bypasses this method.
+                origin: DarkHintOrigin::Manual,
+            };
+            to_value(context.theme.request(job).await)
+        }
+        methods::THEME_APPLY => {
+            let params: ThemeApplyParams = parse_params(params, method)?;
+            let scope = ApplyScope::parse(&params.scope, params.target)
+                .map_err(|error| error.to_string())?;
+            to_value(context.theme.request(ThemeJob::Apply { scope }).await)
+        }
+        methods::THEME_PRESET_APPLY => {
+            let params: NamedParams = parse_params(params, method)?;
+            to_value(
+                context
+                    .theme
+                    .request(ThemeJob::PresetApply { name: params.name })
+                    .await,
+            )
+        }
+        methods::THEME_PRESET_SAVE => {
+            let params: PresetSaveParams = parse_params(params, method)?;
+            let job = ThemeJob::PresetSave {
+                name: params.name,
+                payload: params.payload,
+            };
+            to_value(context.theme.request(job).await)
+        }
+        methods::THEME_PRESET_DELETE => {
+            let params: NamedParams = parse_params(params, method)?;
+            to_value(
+                context
+                    .theme
+                    .request(ThemeJob::PresetDelete { name: params.name })
+                    .await,
+            )
+        }
+        methods::HYPR_INPUT_STATUS => {
+            let hypr = context.hypr.clone();
+            blocking(move || hypr.input_status()).await
+        }
+        methods::HYPR_INPUT_SET => {
+            let params: KeyValueParams = parse_params(params, method)?;
+            let hypr = context.hypr.clone();
+            blocking(move || hypr.input_set(&params.key, &params.value)).await
+        }
+        methods::HYPR_MONITORS_STATUS => {
+            let hypr = context.hypr.clone();
+            blocking(move || hypr.monitors_status()).await
+        }
+        methods::HYPR_MONITORS_PRIMARY => {
+            let params: MonitorsPrimaryParams = parse_params(params, method)?;
+            let hypr = context.hypr.clone();
+            blocking(move || hypr.monitors_primary(&params.selector)).await
+        }
+        methods::HYPR_MONITORS_LAYOUT => {
+            let params: MonitorsLayoutParams = parse_params(params, method)?;
+            let hypr = context.hypr.clone();
+            blocking(move || hypr.monitors_layout(&params.outputs)).await
+        }
+        methods::SESSION_STATUS => to_value(context.session.status()),
+        methods::SESSION_AUTOMATIC => {
+            let params: SessionAutomaticParams = parse_params(params, method)?;
+            to_value(context.session.set_automatic(params.automatic))
+        }
+        methods::SESSION_RESTORE => {
+            let params: SessionRestoreParams = parse_params_or_default(params, method)?;
+            let session = context.session.clone();
+            blocking(move || session.restore(params.if_automatic)).await
+        }
+        methods::BRIGHTNESS_STATUS => {
+            let brightness = context.brightness.clone();
+            blocking(move || brightness.status()).await
+        }
+        methods::BRIGHTNESS_SET => {
+            let params: BrightnessSetParams = parse_params(params, method)?;
+            let brightness = context.brightness.clone();
+            blocking(move || brightness.set(params.device.as_deref(), params.percent)).await
+        }
+        methods::BRIGHTNESS_STEP => {
+            let params: BrightnessStepParams = parse_params(params, method)?;
+            let direction = match params.direction.as_str() {
+                "up" => 1.0,
+                "down" => -1.0,
+                other => return Err(format!("invalid step direction '{other}'")),
+            };
+            let brightness = context.brightness.clone();
+            blocking(move || brightness.step(params.device.as_deref(), direction)).await
+        }
+        methods::BRIGHTNESS_DIM => {
+            let params: BrightnessDeviceParams = parse_params_or_default(params, method)?;
+            let brightness = context.brightness.clone();
+            blocking(move || brightness.dim(params.device.as_deref())).await
+        }
+        methods::BRIGHTNESS_RESTORE => {
+            let params: BrightnessDeviceParams = parse_params_or_default(params, method)?;
+            let brightness = context.brightness.clone();
+            blocking(move || brightness.restore(params.device.as_deref())).await
+        }
+        _ => Err(format!("unsupported method: {method}")),
+    }
+}
+
+async fn blocking<T, F>(task: F) -> Result<serde_json::Value, String>
+where
+    T: serde::Serialize + Send + 'static,
+    F: FnOnce() -> crate::Result<T> + Send + 'static,
+{
+    tokio::task::spawn_blocking(task)
+        .await
+        .map_err(|error| error.to_string())
+        .and_then(to_value)
+}
+
+fn to_value<T: serde::Serialize>(result: crate::Result<T>) -> Result<serde_json::Value, String> {
+    result
+        .map_err(|error| error.to_string())
+        .and_then(|data| serde_json::to_value(data).map_err(|error| error.to_string()))
 }
 
 /// Like [`parse_params`], but a missing/null params object means defaults.
@@ -538,31 +419,11 @@ where
     parse_params(params, method)
 }
 
-async fn write_join_result<T: serde::Serialize, W: AsyncWrite + Unpin>(
-    writer: &mut W,
-    result: Result<crate::Result<T>, tokio::task::JoinError>,
-) -> io::Result<()> {
-    match result {
-        Ok(result) => write_result(writer, result).await,
-        Err(error) => write_error(writer, error.to_string()).await,
-    }
-}
-
 fn parse_params<T: serde::de::DeserializeOwned>(
     params: serde_json::Value,
     method: &str,
 ) -> Result<T, String> {
     serde_json::from_value(params).map_err(|error| format!("invalid params for {method}: {error}"))
-}
-
-async fn write_result<T: serde::Serialize, W: AsyncWrite + Unpin>(
-    writer: &mut W,
-    result: crate::Result<T>,
-) -> io::Result<()> {
-    match result {
-        Ok(data) => write_ok(writer, data).await,
-        Err(error) => write_error(writer, error.to_string()).await,
-    }
 }
 
 fn resolve_topics(requested: Vec<String>) -> Vec<String> {
@@ -630,81 +491,52 @@ async fn push_snapshots<W: AsyncWrite + Unpin>(
     context: &ServerContext,
 ) -> io::Result<()> {
     for topic in topics {
-        match topic.as_str() {
+        let snapshot = match topic.as_str() {
             "night_light" => {
                 let controller = context.night_light.clone();
-                if let Ok(Ok(status)) =
-                    tokio::task::spawn_blocking(move || controller.status()).await
-                {
-                    let event = EventEnvelope {
-                        event: "night_light.changed".to_owned(),
-                        data: serde_json::to_value(status).unwrap_or(serde_json::Value::Null),
-                    };
-                    write_event(writer, &event).await?;
-                }
+                blocking(move || controller.status()).await
             }
             "theme" => {
-                if let Ok(Ok(state)) = tokio::task::spawn_blocking(|| {
-                    crate::theme::resolve::load_state()
-                        .map(|state| crate::theme::state_json(&state))
+                blocking(|| {
+                    crate::theme::resolve::load_state().map(|state| {
+                        serde_json::json!({
+                            "state": crate::theme::state_json(&state),
+                            "changed_keys": [],
+                        })
+                    })
                 })
                 .await
-                {
-                    let event = EventEnvelope {
-                        event: "theme.changed".to_owned(),
-                        data: serde_json::json!({ "state": state, "changed_keys": [] }),
-                    };
-                    write_event(writer, &event).await?;
-                }
             }
             "hypr_input" => {
                 let hypr = context.hypr.clone();
-                if let Ok(Ok(state)) =
-                    tokio::task::spawn_blocking(move || hypr.input_status()).await
-                {
-                    let event = EventEnvelope {
-                        event: "hypr_input.changed".to_owned(),
-                        data: state,
-                    };
-                    write_event(writer, &event).await?;
-                }
+                blocking(move || hypr.input_status()).await
             }
             "hypr_monitors" => {
                 let hypr = context.hypr.clone();
-                if let Ok(Ok(status)) =
-                    tokio::task::spawn_blocking(move || hypr.monitors_status()).await
-                {
-                    let event = EventEnvelope {
-                        event: "hypr_monitors.changed".to_owned(),
-                        data: status,
-                    };
-                    write_event(writer, &event).await?;
-                }
+                blocking(move || hypr.monitors_status()).await
             }
-            "session" => {
-                if let Ok(status) = context.session.status() {
-                    let event = EventEnvelope {
-                        event: "session.changed".to_owned(),
-                        data: status,
-                    };
-                    write_event(writer, &event).await?;
-                }
-            }
+            "session" => to_value(context.session.status()),
             "brightness" => {
-                if let Ok(Ok(devices)) =
-                    tokio::task::spawn_blocking(crate::brightness::backlight_snapshot).await
-                {
+                if let Ok(devices) = blocking(crate::brightness::backlight_snapshot).await {
                     write_brightness_snapshot(writer, devices).await?;
                 }
+                continue;
             }
-            _ => {}
+            _ => continue,
+        };
+        if let Ok(data) = snapshot {
+            let event = EventEnvelope {
+                event: format!("{topic}.changed"),
+                data,
+            };
+            write_event(writer, &event).await?;
         }
     }
 
     // The DDC half enumerates I2C buses (~1s); it follows the cheap topics so
     // nothing waits on it. Subscribers merge snapshot events by device.
     if topics.iter().any(|topic| topic == "brightness")
-        && let Ok(Ok(devices)) = tokio::task::spawn_blocking(crate::brightness::ddc_snapshot).await
+        && let Ok(devices) = blocking(crate::brightness::ddc_snapshot).await
     {
         write_brightness_snapshot(writer, devices).await?;
     }

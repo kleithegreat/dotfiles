@@ -9,8 +9,7 @@ in
 {
   systemd.tmpfiles.rules = [
     "d ${sddmThemeBackgroundDir} 0755 root root - -"
-    # Pre-create the staging dir in world-writable /tmp as kevin-owned 0700 so
-    # no other local user can plant a symlink for the root-run sync to follow.
+    # kevin-owned 0700 so no other user can plant a symlink for the root-run sync.
     "d ${sddmThemeStagingDir} 0700 kevin kevin - -"
   ];
 
@@ -34,8 +33,8 @@ in
           exit 0
         fi
 
-        # Must consume the file on every exit, failure included, or the
-        # level-triggered path unit spins; see docs/nix.md.
+        # Consume on every exit, failure included: PathExists is level-triggered
+        # and would respawn this until the start limiter fails both units.
         trap 'rm --force "${sddmThemeStagingPath}"' EXIT
 
         install -D --mode=0644 "${sddmThemeStagingPath}" "${sddmThemeBackgroundPath}"
@@ -77,12 +76,7 @@ in
   services.displayManager.sddm = {
     enable = true;
     wayland.enable = true;
-    # SDDM opens one greeter window per connected output. Weston's kiosk shell
-    # assigns every toplevel to a single output (whichever holds the pointer),
-    # so both greeter windows pile onto the laptop panel and the external
-    # monitor is left showing nothing but kiosk-shell's black background
-    # surface. KWin honours the per-output placement, so each display gets its
-    # own correctly-sized greeter.
+    # Weston's kiosk shell piles every per-output greeter onto one display.
     wayland.compositor = "kwin";
     theme = "where_is_my_sddm_theme";
     extraPackages = [
@@ -93,40 +87,11 @@ in
 
   services.upower.enable = true;
 
-  # `/boot/efi` is mounted from the Windows NVMe on dual-boot hosts, so the
-  # stock `services.fstrim` unit is too broad here. Trim only the Linux root
-  # filesystem.
-  services.fstrim.enable = false;
-  systemd.services.fstrim-root = {
-    description = "Discard unused blocks on the Linux root filesystem";
-    serviceConfig = {
-      Type = "oneshot";
-      ExecStart = "${lib.getExe' pkgs.util-linux "fstrim"} --verbose /";
-      PrivateDevices = false;
-      PrivateNetwork = true;
-      PrivateUsers = false;
-      ProtectKernelTunables = true;
-      ProtectKernelModules = true;
-      ProtectControlGroups = true;
-      MemoryDenyWriteExecute = true;
-      SystemCallFilter = [ "@default" "@file-system" "@basic-io" "@system-service" ];
-    };
-  };
-  systemd.timers.fstrim-root = {
-    description = "Discard unused blocks on the Linux root filesystem once a week";
-    wantedBy = [ "timers.target" ];
-    unitConfig = {
-      ConditionVirtualization = "!container";
-      ConditionPathExists = "!/etc/initrd-release";
-    };
-    timerConfig = {
-      OnCalendar = "weekly";
-      AccuracySec = "1h";
-      Persistent = true;
-      RandomizedDelaySec = "100min";
-      Unit = "fstrim-root.service";
-    };
-  };
+  # The stock unit would also trim the Windows NVMe's EFI partition.
+  systemd.services.fstrim.serviceConfig.ExecStart = [
+    ""
+    "${lib.getExe' pkgs.util-linux "fstrim"} --verbose /"
+  ];
 
   services.pipewire = {
     enable = true;
@@ -177,7 +142,6 @@ in
     enable = true;
     extraSetFlags = [ "--operator=kevin" ];
   };
-  # `package` is the daemon (`pkgs.mullvad`); the desktop app is `gui.enable`.
   services.mullvad-vpn = {
     enable = true;
     gui.enable = true;

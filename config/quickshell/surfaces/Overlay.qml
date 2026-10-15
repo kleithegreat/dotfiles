@@ -20,7 +20,7 @@ PanelWindow {
         right: true
     }
     color: "transparent"
-    // One property owns visibility; see "extended by a signal handler" in docs/quickshell.md.
+    // One property owns visibility; see "one property nothing else can drive false" in docs/quickshell.md.
     property bool mapped: false
     visible: mapped
     exclusionMode: ExclusionMode.Ignore

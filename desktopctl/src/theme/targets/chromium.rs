@@ -5,7 +5,7 @@ use crate::theme::{
 };
 use serde_json::{Map, Value};
 use std::{
-    fs, io,
+    fs,
     path::{Component, Path},
 };
 
@@ -107,17 +107,14 @@ fn load_preferences(path: &Path) -> crate::Result<Value> {
     }
 
     let value: Value = serde_json::from_str(&text).map_err(|error| {
-        io::Error::new(
-            io::ErrorKind::InvalidData,
-            format!("Invalid JSON in {}: {error}", path.display()),
-        )
+        crate::invalid_data(format!("Invalid JSON in {}: {error}", path.display()))
     })?;
 
     if !value.is_object() {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            format!("{}: expected top-level JSON object", path.display()),
-        )
+        return Err(crate::invalid_data(format!(
+            "{}: expected top-level JSON object",
+            path.display()
+        ))
         .into());
     }
 

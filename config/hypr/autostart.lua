@@ -1,7 +1,4 @@
--- Autostart
-
-local session = require("./session")
-local exec = session.exec
+local exec = require("./session").exec
 
 hl.on("hyprland.start", function()
     -- Export the environment (SSH_AUTH_SOCK at the home/shell.nix fallback path) before the
@@ -16,7 +13,6 @@ hl.on("hyprland.start", function()
     -- Both daemons start alongside; each wait is handled by the wallpaper target.
     exec([[sh -c 'awww-daemon & desktopctl theme wallpaper --wait-daemon 15']])
 
-    -- Window switcher
     exec("snappy-switcher --daemon")
 
     exec("solaar -w hide")
@@ -29,5 +25,4 @@ hl.on("hyprland.shutdown", function()
     hl.exec_cmd("systemctl --user stop nixos-fake-graphical-session.target")
 end)
 
--- Host-specific autostart hooks
 require("./autostart-host")

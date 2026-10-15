@@ -35,26 +35,25 @@ enum TopLevelCommand {
     /// Start the desktop daemon in the foreground.
     Daemon,
     /// Apply and inspect desktop theme state.
-    Theme(ThemeArgs),
+    #[command(subcommand)]
+    Theme(ThemeCommand),
     /// Control brightness helpers and display state.
-    Brightness(BrightnessArgs),
+    #[command(subcommand)]
+    Brightness(BrightnessCommand),
     /// Run Hyprland helper commands.
-    Hypr(HyprArgs),
+    #[command(subcommand)]
+    Hypr(HyprCommand),
     /// Export cursor variables and launch Quickshell.
     LaunchQuickshell,
     /// Inspect and control night-light override state.
-    NightLight(NightLightArgs),
-    /// Restore the previous session's windows.
-    Session(SessionArgs),
-    /// Inspect solar scheduling state.
-    Sun(SunArgs),
-}
-
-#[derive(Debug, Args)]
-#[command(arg_required_else_help = true, subcommand_required = true)]
-struct ThemeArgs {
     #[command(subcommand)]
-    command: ThemeCommand,
+    NightLight(NightLightCommand),
+    /// Restore the previous session's windows.
+    #[command(subcommand)]
+    Session(SessionCommand),
+    /// Inspect solar scheduling state.
+    #[command(subcommand)]
+    Sun(SunCommand),
 }
 
 #[derive(Debug, Subcommand)]
@@ -157,13 +156,6 @@ struct JsonOutputArgs {
     json: bool,
 }
 
-#[derive(Debug, Args)]
-#[command(arg_required_else_help = true, subcommand_required = true)]
-struct BrightnessArgs {
-    #[command(subcommand)]
-    command: BrightnessCommand,
-}
-
 #[derive(Debug, Subcommand)]
 enum BrightnessCommand {
     /// Print the currently selected brightness device and value.
@@ -196,13 +188,6 @@ struct BrightnessSetArgs {
     device: Option<String>,
 }
 
-#[derive(Debug, Args)]
-#[command(arg_required_else_help = true, subcommand_required = true)]
-struct HyprArgs {
-    #[command(subcommand)]
-    command: HyprCommand,
-}
-
 #[derive(Debug, Subcommand)]
 enum HyprCommand {
     /// Toggle floating and recenter when promoting a tiled window.
@@ -212,9 +197,11 @@ enum HyprCommand {
     /// Focus the numbered workspace set when its pins target an absent monitor.
     ReclaimWorkspaces,
     /// Inspect and update managed Hyprland input settings.
-    Input(HyprInputArgs),
+    #[command(subcommand)]
+    Input(HyprInputCommand),
     /// Inspect and update the display topology: primary output and arrangement.
-    Monitors(HyprMonitorsArgs),
+    #[command(subcommand)]
+    Monitors(HyprMonitorsCommand),
 }
 
 #[derive(Debug, Args)]
@@ -227,13 +214,6 @@ struct HyprLidSwitchArgs {
     /// Hyprland monitor spec used when the lid opens.
     #[arg(long, default_value = "preferred,auto,1", value_name = "SPEC")]
     open_spec: String,
-}
-
-#[derive(Debug, Args)]
-#[command(arg_required_else_help = true, subcommand_required = true)]
-struct HyprInputArgs {
-    #[command(subcommand)]
-    command: HyprInputCommand,
 }
 
 #[derive(Debug, Subcommand)]
@@ -251,13 +231,6 @@ struct HyprInputSetArgs {
     /// New value for the provided setting.
     #[arg(allow_hyphen_values = true)]
     value: String,
-}
-
-#[derive(Debug, Args)]
-#[command(arg_required_else_help = true, subcommand_required = true)]
-struct HyprMonitorsArgs {
-    #[command(subcommand)]
-    command: HyprMonitorsCommand,
 }
 
 #[derive(Debug, Subcommand)]
@@ -286,13 +259,6 @@ struct HyprJsonPayloadArgs {
     payload: String,
 }
 
-#[derive(Debug, Args)]
-#[command(arg_required_else_help = true, subcommand_required = true)]
-struct NightLightArgs {
-    #[command(subcommand)]
-    command: NightLightCommand,
-}
-
 #[derive(Debug, Subcommand)]
 enum NightLightCommand {
     /// Show daemon-controlled night-light status.
@@ -312,13 +278,6 @@ struct NightLightTempArgs {
     /// Override the target temperature in Kelvin.
     #[arg(long, value_name = "K")]
     temp: Option<i32>,
-}
-
-#[derive(Debug, Args)]
-#[command(arg_required_else_help = true, subcommand_required = true)]
-struct SessionArgs {
-    #[command(subcommand)]
-    command: SessionCommand,
 }
 
 #[derive(Debug, Subcommand)]
@@ -346,13 +305,6 @@ struct SessionRestoreArgs {
     wait: WaitDaemonArgs,
 }
 
-#[derive(Debug, Args)]
-#[command(arg_required_else_help = true, subcommand_required = true)]
-struct SunArgs {
-    #[command(subcommand)]
-    command: SunCommand,
-}
-
 #[derive(Debug, Subcommand)]
 enum SunCommand {
     /// Print sunrise/sunset times, the current state, and next events.
@@ -360,6 +312,14 @@ enum SunCommand {
 }
 
 pub(crate) type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
+
+pub(crate) fn invalid_input(message: impl Into<String>) -> std::io::Error {
+    std::io::Error::new(std::io::ErrorKind::InvalidInput, message.into())
+}
+
+pub(crate) fn invalid_data(message: impl Into<String>) -> std::io::Error {
+    std::io::Error::new(std::io::ErrorKind::InvalidData, message.into())
+}
 
 fn main() -> ExitCode {
     match run() {
@@ -378,21 +338,21 @@ fn run() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        TopLevelCommand::Brightness(args) => run_brightness(args),
-        TopLevelCommand::Hypr(args) => run_hypr(args),
+        TopLevelCommand::Brightness(command) => run_brightness(command),
+        TopLevelCommand::Hypr(command) => run_hypr(command),
         TopLevelCommand::LaunchQuickshell => launch::run(),
-        TopLevelCommand::NightLight(args) => night_light::run(args),
+        TopLevelCommand::NightLight(command) => night_light::run(command),
         TopLevelCommand::Daemon => daemon::run(),
-        TopLevelCommand::Session(args) => session::run(args),
-        TopLevelCommand::Theme(args) => theme::run(args),
-        TopLevelCommand::Sun(args) => run_sun(args),
+        TopLevelCommand::Session(command) => session::run(command),
+        TopLevelCommand::Theme(command) => theme::run(command),
+        TopLevelCommand::Sun(SunCommand::Status) => solar::print_status(),
     }
 }
 
 // Writes are daemon-routed and hard-fail when it is unreachable: the daemon
 // owns the dim/restore state, so a direct write would be a second writer.
-fn run_brightness(args: BrightnessArgs) -> Result<()> {
-    match args.command {
+fn run_brightness(command: BrightnessCommand) -> Result<()> {
+    match command {
         BrightnessCommand::Status(args) => run_brightness_status(args.json),
         BrightnessCommand::Set(args) => strict_request(
             ipc::methods::BRIGHTNESS_SET,
@@ -448,21 +408,21 @@ fn strict_request(method: &str, params: serde_json::Value) -> Result<()> {
         .map(|_response| ())
 }
 
-fn run_hypr(args: HyprArgs) -> Result<()> {
-    match args.command {
+fn run_hypr(command: HyprCommand) -> Result<()> {
+    match command {
         HyprCommand::ToggleFloat => hypr::toggle_float(),
         HyprCommand::LidSwitch(args) => {
             let state = hypr::LidSwitchState::parse(&args.state)?;
             hypr::handle_lid_switch(state, &args.internal, &args.open_spec)
         }
         HyprCommand::ReclaimWorkspaces => hypr::reclaim_workspaces(),
-        HyprCommand::Input(args) => run_hypr_input(args),
-        HyprCommand::Monitors(args) => run_hypr_monitors(args),
+        HyprCommand::Input(command) => run_hypr_input(command),
+        HyprCommand::Monitors(command) => run_hypr_monitors(command),
     }
 }
 
-fn run_hypr_input(args: HyprInputArgs) -> Result<()> {
-    match args.command {
+fn run_hypr_input(command: HyprInputCommand) -> Result<()> {
+    match command {
         HyprInputCommand::Status(args) => {
             match ipc::send_request::<(), hypr::InputState>(
                 ipc::methods::HYPR_INPUT_STATUS,
@@ -483,8 +443,8 @@ fn run_hypr_input(args: HyprInputArgs) -> Result<()> {
     }
 }
 
-fn run_hypr_monitors(args: HyprMonitorsArgs) -> Result<()> {
-    match args.command {
+fn run_hypr_monitors(command: HyprMonitorsCommand) -> Result<()> {
+    match command {
         HyprMonitorsCommand::Status(args) => {
             match ipc::send_request::<(), serde_json::Value>(
                 ipc::methods::HYPR_MONITORS_STATUS,
@@ -509,12 +469,6 @@ fn run_hypr_monitors(args: HyprMonitorsArgs) -> Result<()> {
     }
 }
 
-fn run_sun(args: SunArgs) -> Result<()> {
-    match args.command {
-        SunCommand::Status => solar::print_status(),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -525,13 +479,9 @@ mod tests {
             Cli::try_parse_from(["desktopctl", "hypr", "input", "set", "sensitivity", "-0.1"])
                 .expect("cli should parse");
 
-        let TopLevelCommand::Hypr(hypr_args) = cli.command else {
-            panic!("expected hypr command");
-        };
-        let HyprCommand::Input(input_args) = hypr_args.command else {
-            panic!("expected hypr input command");
-        };
-        let HyprInputCommand::Set(set_args) = input_args.command else {
+        let TopLevelCommand::Hypr(HyprCommand::Input(HyprInputCommand::Set(set_args))) =
+            cli.command
+        else {
             panic!("expected hypr input set command");
         };
         assert_eq!(set_args.key, "sensitivity");
@@ -543,10 +493,7 @@ mod tests {
         let cli = Cli::try_parse_from(["desktopctl", "brightness", "set", "300"])
             .expect("cli should parse clamped brightness values");
 
-        let TopLevelCommand::Brightness(brightness_args) = cli.command else {
-            panic!("expected brightness command");
-        };
-        let BrightnessCommand::Set(set_args) = brightness_args.command else {
+        let TopLevelCommand::Brightness(BrightnessCommand::Set(set_args)) = cli.command else {
             panic!("expected brightness set command");
         };
         assert_eq!(set_args.percent, 300);

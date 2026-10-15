@@ -155,11 +155,9 @@ pub(crate) fn set_primary(selector: &str) -> Result<DisplayStatus> {
             .iter()
             .any(|monitor| monitor.matches_selector(selector))
     {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            format!("no connected monitor matches '{selector}'"),
-        )
-        .into());
+        return Err(
+            crate::invalid_input(format!("no connected monitor matches '{selector}'")).into(),
+        );
     }
 
     let mut state = load_state()?;
@@ -180,20 +178,16 @@ pub(crate) fn save_layout(outputs: BTreeMap<String, OutputState>) -> Result<Disp
             continue;
         }
         if parse_position(&output.position).is_none() {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                format!(
-                    "position '{}' for '{selector}' is not '<x>x<y>'",
-                    output.position
-                ),
-            )
+            return Err(crate::invalid_input(format!(
+                "position '{}' for '{selector}' is not '<x>x<y>'",
+                output.position
+            ))
             .into());
         }
         if output.mode.trim().is_empty() {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                format!("'{selector}' has no mode; a partial spec resets everything it omits"),
-            )
+            return Err(crate::invalid_input(format!(
+                "'{selector}' has no mode; a partial spec resets everything it omits"
+            ))
             .into());
         }
     }

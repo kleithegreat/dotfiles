@@ -1,7 +1,6 @@
 { self }:
 {
-  # Overlay stack for one host. `local-packages` must come first: the
-  # native-optimized overlay reads `desktopctl` and friends out of it.
+  # `local-packages` first: native-optimized reads `desktopctl` out of it.
   overlays.forHost =
     { inputs, host }:
     [

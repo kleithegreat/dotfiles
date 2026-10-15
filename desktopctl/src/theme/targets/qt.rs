@@ -185,9 +185,6 @@ fn update_qt6ct_config(state: &ThemeState) -> crate::Result<()> {
         &qfont(&state.mono_font, state.mono_font_size_for(TARGET.name)?),
     );
 
-    if let Some(parent) = conf_path.parent() {
-        fs::create_dir_all(parent)?;
-    }
     atomic_write(&conf_path, config.render().as_bytes())?;
     Ok(())
 }
@@ -214,15 +211,8 @@ fn write_fontconfig(state: &ThemeState) -> crate::Result<()> {
         state.system_font, state.mono_font,
     );
 
-    if let Some(parent) = conf_path.parent() {
-        fs::create_dir_all(parent)?;
-    }
     atomic_write(&conf_path, contents.as_bytes())?;
     Ok(())
-}
-
-fn kde_state_section(section: &str, state: &str) -> String {
-    format!("{section}][{state}")
 }
 
 fn clear_managed_kde_sections(config: &mut IniFile) {
@@ -256,15 +246,9 @@ fn clear_managed_kde_sections(config: &mut IniFile) {
     }
 }
 
-fn kde_color_group(
-    config: &mut IniFile,
-    section: &str,
-    bg: String,
-    bg_alt: String,
-    fg: String,
-    fg_inactive: String,
-    colors: &ColorScheme,
-) {
+/// `[bg, bg_alt, fg, fg_inactive]` plus the roles every group shares.
+fn kde_color_group(config: &mut IniFile, section: &str, roles: [String; 4], colors: &ColorScheme) {
+    let [bg, bg_alt, fg, fg_inactive] = roles;
     config.ensure_section(section);
     for (key, value) in [
         ("BackgroundNormal", bg),
@@ -284,143 +268,42 @@ fn kde_color_group(
     }
 }
 
-#[derive(Clone)]
-struct KdeColorState {
-    bg: String,
-    bg_alt: String,
-    fg: String,
-    fg_inactive: String,
-}
-
-fn write_kde_color_states(
-    config: &mut IniFile,
-    section: &str,
-    colors: &ColorScheme,
-    active: KdeColorState,
-    inactive: Option<KdeColorState>,
-) {
-    kde_color_group(
-        config,
-        section,
-        active.bg.clone(),
-        active.bg_alt.clone(),
-        active.fg.clone(),
-        active.fg_inactive.clone(),
-        colors,
-    );
-    let inactive = inactive.unwrap_or_else(|| KdeColorState {
-        bg: active.bg,
-        bg_alt: active.bg_alt,
-        fg: rgb(&colors.fg2),
-        fg_inactive: rgb(&colors.fg3),
-    });
-    kde_color_group(
-        config,
-        &kde_state_section(section, "Inactive"),
-        inactive.bg,
-        inactive.bg_alt,
-        inactive.fg,
-        inactive.fg_inactive,
-        colors,
-    );
-}
-
 fn apply_kde_colors(config: &mut IniFile, colors: &ColorScheme) {
     clear_managed_kde_sections(config);
 
     let fg = rgb(&colors.fg);
-    let fg_dim = rgb(&colors.fg4);
     let on_accent = color::readable_on_ends(&colors.accent, &colors.bg, &colors.fg);
-
-    write_kde_color_states(
-        config,
-        "Colors:Window",
-        colors,
-        KdeColorState {
-            bg: rgb(&colors.bg1),
-            bg_alt: rgb(&colors.bg2),
-            fg: fg.clone(),
-            fg_inactive: fg_dim.clone(),
-        },
-        None,
+    let normal = |bg: &str, bg_alt: &str| {
+        let active = [rgb(bg), rgb(bg_alt), fg.clone(), rgb(&colors.fg4)];
+        let inactive = [rgb(bg), rgb(bg_alt), rgb(&colors.fg2), rgb(&colors.fg3)];
+        (active, inactive)
+    };
+    let selection = (
+        [
+            rgb(&colors.accent),
+            rgb(&colors.accent),
+            rgb(&on_accent),
+            rgb(&colors.fg2),
+        ],
+        [
+            rgb(&colors.bg2),
+            rgb(&colors.bg2),
+            fg.clone(),
+            rgb(&colors.fg3),
+        ],
     );
-    write_kde_color_states(
-        config,
-        "Colors:View",
-        colors,
-        KdeColorState {
-            bg: rgb(&colors.bg),
-            bg_alt: rgb(&colors.bg),
-            fg: fg.clone(),
-            fg_inactive: fg_dim.clone(),
-        },
-        None,
-    );
-    write_kde_color_states(
-        config,
-        "Colors:Button",
-        colors,
-        KdeColorState {
-            bg: rgb(&colors.bg1),
-            bg_alt: rgb(&colors.bg2),
-            fg: fg.clone(),
-            fg_inactive: fg_dim.clone(),
-        },
-        None,
-    );
-    write_kde_color_states(
-        config,
-        "Colors:Selection",
-        colors,
-        KdeColorState {
-            bg: rgb(&colors.accent),
-            bg_alt: rgb(&colors.accent),
-            fg: rgb(&on_accent),
-            fg_inactive: rgb(&colors.fg2),
-        },
-        Some(KdeColorState {
-            bg: rgb(&colors.bg2),
-            bg_alt: rgb(&colors.bg2),
-            fg: fg.clone(),
-            fg_inactive: rgb(&colors.fg3),
-        }),
-    );
-    write_kde_color_states(
-        config,
-        "Colors:Tooltip",
-        colors,
-        KdeColorState {
-            bg: rgb(&colors.bg1),
-            bg_alt: rgb(&colors.bg),
-            fg: fg.clone(),
-            fg_inactive: fg_dim.clone(),
-        },
-        None,
-    );
-    write_kde_color_states(
-        config,
-        "Colors:Complementary",
-        colors,
-        KdeColorState {
-            bg: rgb(&colors.bg_dim),
-            bg_alt: rgb(&colors.bg),
-            fg: fg.clone(),
-            fg_inactive: fg_dim.clone(),
-        },
-        None,
-    );
-    write_kde_color_states(
-        config,
-        "Colors:Header",
-        colors,
-        KdeColorState {
-            bg: rgb(&colors.bg1),
-            bg_alt: rgb(&colors.bg2),
-            fg: fg.clone(),
-            fg_inactive: fg_dim.clone(),
-        },
-        None,
-    );
+    for (section, (active, inactive)) in [
+        ("Colors:Window", normal(&colors.bg1, &colors.bg2)),
+        ("Colors:View", normal(&colors.bg, &colors.bg)),
+        ("Colors:Button", normal(&colors.bg1, &colors.bg2)),
+        ("Colors:Selection", selection),
+        ("Colors:Tooltip", normal(&colors.bg1, &colors.bg)),
+        ("Colors:Complementary", normal(&colors.bg_dim, &colors.bg)),
+        ("Colors:Header", normal(&colors.bg1, &colors.bg2)),
+    ] {
+        kde_color_group(config, section, active, colors);
+        kde_color_group(config, &format!("{section}][Inactive"), inactive, colors);
+    }
 
     config.ensure_section("General");
     config.set("General", "ColorScheme", "Custom");
@@ -479,9 +362,6 @@ fn update_kdeglobals(colors: &ColorScheme, state: &ThemeState) -> crate::Result<
     apply_kde_colors(&mut config, colors);
     config.ensure_section("Icons");
     config.set("Icons", "Theme", kde_icon_theme(&state.icon_theme));
-    if let Some(parent) = conf_path.parent() {
-        fs::create_dir_all(parent)?;
-    }
     atomic_write(&conf_path, config.render().as_bytes())?;
     Ok(())
 }
@@ -490,9 +370,6 @@ fn write_kcolorscheme(colors: &ColorScheme) -> crate::Result<()> {
     let conf_path = expand_user_path(KCOLORSCHEME)?;
     let mut config = IniFile::default();
     apply_kde_colors(&mut config, colors);
-    if let Some(parent) = conf_path.parent() {
-        fs::create_dir_all(parent)?;
-    }
     atomic_write(&conf_path, config.render().as_bytes())?;
     Ok(())
 }
@@ -528,9 +405,6 @@ fn sync_ktexteditor_config(
         config.remove_option("filetree", "viewShade");
     }
 
-    if let Some(parent) = conf_path.parent() {
-        fs::create_dir_all(parent)?;
-    }
     atomic_write(conf_path, config.render().as_bytes())?;
     Ok(())
 }
@@ -543,7 +417,6 @@ fn sync_kde_app_configs(colors: &ColorScheme) -> crate::Result<()> {
 
 fn setup_kvantum(colors: &ColorScheme) -> crate::Result<()> {
     let theme_dir = expand_user_path(KVANTUM_THEME_DIR)?;
-    fs::create_dir_all(&theme_dir)?;
 
     atomic_write(
         &theme_dir.join(format!("{KVANTUM_THEME_NAME}.kvconfig")),
@@ -555,9 +428,6 @@ fn setup_kvantum(colors: &ColorScheme) -> crate::Result<()> {
     )?;
 
     let config_path = expand_user_path(KVANTUM_CONFIG)?;
-    if let Some(parent) = config_path.parent() {
-        fs::create_dir_all(parent)?;
-    }
     atomic_write(
         &config_path,
         format!("[General]\ntheme={KVANTUM_THEME_NAME}\n").as_bytes(),

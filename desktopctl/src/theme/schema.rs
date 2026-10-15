@@ -179,7 +179,7 @@ pub struct DimRamp {
     pub fg_faint: String,
 }
 
-/// Dimmed foreground ramp; see "The fg ramp is derived" in docs/theming.md.
+/// Dimmed foreground ramp; see `dim_ramp` in docs/theming.md.
 pub fn dim_ramp(fg: &str, bg: &str) -> Result<DimRamp, String> {
     parse_hex(fg)?;
     parse_hex(bg)?;
@@ -405,10 +405,10 @@ impl ThemeState {
         })?;
 
         let mut seed: Map<String, Value> = serde_json::from_str(&text).map_err(|error| {
-            io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("Invalid theme state seed {}: {error}", path.display()),
-            )
+            crate::invalid_data(format!(
+                "Invalid theme state seed {}: {error}",
+                path.display()
+            ))
         })?;
 
         seed.insert(
@@ -422,10 +422,10 @@ impl ThemeState {
         );
 
         serde_json::from_value(Value::Object(seed)).map_err(|error| {
-            io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("Invalid theme state seed {}: {error}", path.display()),
-            )
+            crate::invalid_data(format!(
+                "Invalid theme state seed {}: {error}",
+                path.display()
+            ))
             .into()
         })
     }
@@ -452,10 +452,9 @@ impl ThemeState {
             "gtk" => self.gtk_font_size_offset,
             "qt" => self.qt_font_size_offset,
             _ => {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    format!("Unknown font size target: {target_name}"),
-                )
+                return Err(crate::invalid_input(format!(
+                    "Unknown font size target: {target_name}"
+                ))
                 .into());
             }
         };
@@ -476,10 +475,9 @@ impl ThemeState {
             "vscode" => self.vscode_mono_font_size_offset,
             "zed" => self.zed_mono_font_size_offset,
             _ => {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    format!("Unknown mono font size target: {target_name}"),
-                )
+                return Err(crate::invalid_input(format!(
+                    "Unknown mono font size target: {target_name}"
+                ))
                 .into());
             }
         };

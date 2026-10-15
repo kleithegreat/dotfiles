@@ -255,31 +255,21 @@ fn resolve_base_path(path: &str) -> crate::Result<PathBuf> {
 fn concat_json(base_path: &Path, generated: &str) -> crate::Result<String> {
     let base_value: Value =
         serde_json::from_str(&fs::read_to_string(base_path)?).map_err(|error| {
-            io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("Invalid JSON in {}: {error}", base_path.display()),
-            )
+            crate::invalid_data(format!("Invalid JSON in {}: {error}", base_path.display()))
         })?;
     let generated_value: Value = serde_json::from_str(generated).map_err(|error| {
-        io::Error::new(
-            io::ErrorKind::InvalidData,
-            format!("Invalid generated JSON for concat target: {error}"),
-        )
+        crate::invalid_data(format!("Invalid generated JSON for concat target: {error}"))
     })?;
 
     let Value::Object(base_map) = base_value else {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            format!("{}: expected top-level JSON object", base_path.display()),
-        )
+        return Err(crate::invalid_data(format!(
+            "{}: expected top-level JSON object",
+            base_path.display()
+        ))
         .into());
     };
     let Value::Object(generated_map) = generated_value else {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "Generated concat JSON must be a top-level object",
-        )
-        .into());
+        return Err(crate::invalid_data("Generated concat JSON must be a top-level object").into());
     };
 
     let merged = merge_json_objects(base_map, generated_map);

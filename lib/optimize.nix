@@ -4,11 +4,7 @@ let
   inherit (self.strings) concatStringsSep;
 in
 {
-  # Host-native codegen flags, applied per package rather than package-set wide.
-  # Anything built through these loses binary cache hits -- the extra flags
-  # change its store path -- so each optimized derivation also carries a
-  # host-specific `requiredSystemFeatures` tag, which stops desktop and laptop
-  # from substituting each other's native outputs.
+  # Per package, never set-wide; the feature tag stops hosts sharing native outputs.
   optimize.forHost =
     host:
     let
@@ -17,8 +13,7 @@ in
 
       joinFlags = flags: flags |> filter (flag: flag != null && flag != "") |> concatStringsSep " ";
 
-      # Flags already on the derivation live in `env` on a structured-attrs
-      # build and at the top level otherwise; preserve whichever is present.
+      # Existing flags live in `env` under structured attrs, top level otherwise.
       existingFlags =
         old: name:
         if (old.env or { }) ? ${name} then

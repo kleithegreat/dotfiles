@@ -1,4 +1,4 @@
-{ config, pkgs, lib, ... }:
+{ pkgs, lib, ... }:
 
 let
   browserExtensions = [
@@ -27,21 +27,12 @@ in
     ./xdg.nix
   ];
 
-  home.username = "kevin";
-  home.homeDirectory = "/home/kevin";
-
   xdg = {
     enable = true;
     userDirs = {
       enable = true;
       setSessionVariables = true;
       createDirectories = true;
-      desktop = "${config.home.homeDirectory}/Desktop";
-      documents = "${config.home.homeDirectory}/Documents";
-      download = "${config.home.homeDirectory}/Downloads";
-      music = "${config.home.homeDirectory}/Music";
-      pictures = "${config.home.homeDirectory}/Pictures";
-      videos = "${config.home.homeDirectory}/Videos";
     };
   };
 

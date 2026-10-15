@@ -385,8 +385,8 @@ fn assign<'a>(saved: &[&'a Window], opened: &[&hypr::WindowInfo]) -> Vec<(String
         .collect()
 }
 
-pub fn run(args: crate::SessionArgs) -> Result<()> {
-    match args.command {
+pub fn run(command: crate::SessionCommand) -> Result<()> {
+    match command {
         crate::SessionCommand::Status(args) => {
             let status = match ipc::send_request::<(), serde_json::Value>(
                 ipc::methods::SESSION_STATUS,

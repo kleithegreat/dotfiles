@@ -2,29 +2,17 @@
 
 ## Intent
 
-- Biometric unlock is a polkit grant, not a PAM change. Bitwarden's "unlock
-  with system authentication" raises a polkit prompt that hyprpolkitagent
-  answers with fprintd, which is why the laptop only sets
-  `polkit-1.fprintAuth`. Do not add PAM stanzas for Bitwarden — if the prompt
-  stops working the fault is in the polkit agent or fprintd, not in PAM.
-- The vault's own configuration — server URL, browser integration, biometric
-  unlock, tray behavior — is app-internal state and stays that way. It is
-  deliberately not declarative: none of it is reachable from Nix, and nothing
-  in this repo should grow a module that pretends otherwise.
+- Biometric unlock is a polkit grant answered by hyprpolkitagent with fprintd
+  (`polkit-1.fprintAuth`), not a PAM change. Don't add PAM stanzas; a broken
+  prompt is the agent or fprintd.
+- The vault's own configuration is app-internal state and stays undeclared.
 
 ## Quirks
 
-### Browser integration must be enabled in the desktop app before the extension can pair
-The extension's "unlock with biometrics" toggle does nothing until the desktop
-app has registered its native messaging host, and the failure is silent from
-the extension's side. Enable Settings > App settings > "Allow browser
-integration" in the desktop app first, then the extension toggle, then accept
-the pairing prompt that the desktop app raises.
+### Browser integration must be enabled in the desktop app first
+The extension's biometrics toggle fails silently until the desktop app's
+"Allow browser integration" registers its native messaging host.
 
 ### "Browser integration not enabled" is usually a stale native messaging host
-The desktop app writes
-`~/.config/chromium/NativeMessagingHosts/com.8bit.bitwarden.json` pointing at a
-`desktop_proxy` binary in the Nix store. That path is not updated when the
-package is garbage-collected or upgraded, so the file can survive while the
-binary it names is gone. Check the `path` field resolves before debugging
-anything else.
+`~/.config/chromium/NativeMessagingHosts/com.8bit.bitwarden.json` names a
+store `desktop_proxy` that GC or an upgrade can remove; check its `path` first.

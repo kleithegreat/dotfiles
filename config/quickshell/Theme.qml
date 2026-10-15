@@ -4,9 +4,7 @@ import QtQuick
 import QtCore
 import Quickshell.Io
 
-// The design system's colour and type layer. Everything here is *derived* from
-// the generated scheme; nothing is hand-tuned per surface. Adding a constant
-// that only one widget uses belongs in Metrics or, more likely, nowhere.
+// Colour and type roles derived from the generated scheme; see docs/quickshell.md.
 QtObject {
     id: root
 
@@ -92,10 +90,7 @@ QtObject {
     readonly property real pendingAlpha: 0.65
 
     // ── Content ────────────────────────────────────────────────────────────
-    // The scheme's own colours, unmodified. The dimmed ramp is derived by the
-    // theming pipeline, which already guarantees its ordering and a contrast
-    // floor ([[theming]]); re-deriving it here would be a second opinion about
-    // colours the scheme has already decided.
+    // The scheme's own ramp, unmodified: the pipeline already guarantees it ([[theming]]).
 
     readonly property color text: _fg
     readonly property color textSecondary: _read("fg2", "#d5c4a1")
@@ -116,9 +111,7 @@ QtObject {
     readonly property color critical: _read("redBright", "#fb4934")
 
     // ── Materials ──────────────────────────────────────────────────────────
-    // Panels are opaque, like the compositor's own windows; only the bar keeps
-    // a hair of translucency. Hyprland blurs anything above `ignore_alpha` in
-    // config/hypr/rules.lua — keep the bar and the scrim above it.
+    // Bar and scrim alphas stay above `ignore_alpha` in config/hypr/rules.lua or lose blur.
 
     readonly property color glassBar: withAlpha(_bg, 0.97)
 
@@ -129,9 +122,6 @@ QtObject {
     readonly property color specularFade: Qt.rgba(1, 1, 1, dark ? 0.06 : 0.14)
     readonly property color rim: dark ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(0, 0, 0, 0.10)
     readonly property color shadow: Qt.rgba(0, 0, 0, dark ? 0.34 : 0.16)
-    // Above `ignore_alpha`, so the compositor blurs the desktop it dims. Below
-    // it the scrim is skipped by the blur pass entirely and the modal backdrop
-    // becomes a flat tint over a sharp desktop.
     readonly property color scrim: Qt.rgba(0, 0, 0, dark ? 0.42 : 0.30)
 
     // ── Type ───────────────────────────────────────────────────────────────

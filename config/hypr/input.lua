@@ -1,10 +1,5 @@
--- Input Configuration
--- Defaults live in input-defaults.lua so desktopctl can read them too;
--- input-runtime.lua is written by desktopctl when settings are changed live.
-
 local defaults = require("./input-defaults")
 
--- input-runtime.lua is absent until desktopctl first writes it.
 local ok, runtime = pcall(require, "./input-runtime")
 if not ok or type(runtime) ~= "table" then
     runtime = {}

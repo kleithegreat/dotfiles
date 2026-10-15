@@ -253,12 +253,10 @@ fn backlight_devices() -> Result<Vec<String>> {
     let mut devices = Vec::new();
     for entry in entries {
         let entry = entry?;
-        let name = entry.file_name().into_string().map_err(|_| {
-            io::Error::new(
-                io::ErrorKind::InvalidData,
-                "backlight device name is not valid UTF-8",
-            )
-        })?;
+        let name = entry
+            .file_name()
+            .into_string()
+            .map_err(|_| crate::invalid_data("backlight device name is not valid UTF-8"))?;
         devices.push(name);
     }
     devices.sort();
@@ -434,13 +432,10 @@ fn ddc_brightness_value(bus: Option<u32>) -> Result<(u64, u64)> {
     let output = ddcutil(bus, &["getvcp", DDC_BRIGHTNESS_VCP])?;
     let stdout = String::from_utf8(output.stdout)?;
     parse_ddc_brightness(&stdout).ok_or_else(|| {
-        io::Error::new(
-            io::ErrorKind::InvalidData,
-            format!(
-                "could not parse ddcutil brightness output: {}",
-                stdout.trim()
-            ),
-        )
+        crate::invalid_data(format!(
+            "could not parse ddcutil brightness output: {}",
+            stdout.trim()
+        ))
         .into()
     })
 }

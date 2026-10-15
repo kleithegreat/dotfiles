@@ -39,9 +39,7 @@ Scope {
         return null;
     }
 
-    // Services are created on first reference. The ones that poll or hold a
-    // subscription have to exist from the start, whether or not anything is
-    // currently looking at them.
+    // Load-bearing: singletons that poll or subscribe exist only once referenced.
     Component.onCompleted: {
         void Sys.Desktopctl.ready;
         void Sys.Network.label;
@@ -70,10 +68,7 @@ Scope {
         }
     }
 
-    // Every surface names the same screen. Left unset they default to
-    // Quickshell.screens[0], which is not the bar's output — and since popovers
-    // grow from a bar item's coordinates, a mismatch opens them at the right
-    // spot on the wrong display.
+    // Every surface names the bar's screen; see docs/quickshell.md.
     Surfaces.Overlay {
         screen: shell.primaryScreen
         state: shell.state
@@ -96,9 +91,7 @@ Scope {
         screen: shell.primaryScreen
     }
 
-    // These names are the shell's published interface: config/hypr/keybinds.lua
-    // calls them. Renaming them here silently breaks the keybinds until the next
-    // Home Manager rebuild, which is a long time to leave Super+T dead.
+    // Published interface: config/hypr/keybinds.lua calls these names.
     IpcHandler {
         target: "popups"
 

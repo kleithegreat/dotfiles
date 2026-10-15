@@ -1,5 +1,3 @@
--- Window Rules
-
 -- Float utility windows
 for _, class in ipairs({
     "org.pulseaudio.pavucontrol",

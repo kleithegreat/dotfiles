@@ -9,7 +9,6 @@ Item {
 
     property var samples: []
     property color stroke: Theme.accent
-    property bool lowerIsBetter: true
 
     implicitWidth: 84
     implicitHeight: 22

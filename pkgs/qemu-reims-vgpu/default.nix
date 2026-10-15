@@ -10,9 +10,7 @@
 }:
 
 let
-  # QEMU resolves this one through a meson wrap, which downloads. The build has
-  # no network, so it arrives as a source instead: the revision named by this
-  # tree's `subprojects/keycodemapdb.wrap`.
+  # The rev this tree's `subprojects/keycodemapdb.wrap` names; see docs/macos-vm.md.
   keycodemapdb = fetchFromGitLab {
     owner = "qemu-project";
     repo = "keycodemapdb";
@@ -20,8 +18,7 @@ let
     hash = "sha256-GbZ5mrUYLXMi0IX4IZzles0Oyc095ij2xAsiLNJwfKQ=";
   };
 
-  # `ash` and SDL3 reach these through dlopen, so no DT_NEEDED entry names
-  # them and nothing puts them in the binary's RUNPATH.
+  # dlopened by `ash` and SDL3, so absent from RUNPATH.
   runtimeLibs = [
     vulkan-loader
     wayland
@@ -61,12 +58,8 @@ in
       # `auto` would quietly build a QEMU without the device if pkg-config
       # missed the library.
       "--enable-pvg"
-      # Turns a wrap download into a configure error instead of a build that
-      # reaches for the network it does not have.
+      # Both keep wraps from reaching for the network; see docs/macos-vm.md.
       "--disable-download"
-      # Every guest this binary exists for runs under KVM, and dropping TCG
-      # takes QEMU's softfloat test suite with it — the last thing in the tree
-      # that wanted a wrap checked out by hand.
       "--disable-tcg"
     ];
 

@@ -1,6 +1,4 @@
--- Hyprland Configuration
--- Modular config — edit individual files, not this one
-
+-- The order is contract: later files override earlier ones.
 require("./monitors")
 require("./displays")
 require("./env")

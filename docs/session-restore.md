@@ -2,68 +2,39 @@
 
 ## Intent
 
-- Restoring a session means reopening apps and putting their windows back on
-  their workspaces. It never means restoring what is inside a window: tabs,
-  buffers and scrollback belong to the app. That is why this is a short list of
-  known apps — the `APPS` table in `desktopctl/src/session.rs` — with what each
-  one needs to come back, and not a generic "relaunch whatever was open".
-- An app is either relaunched per window (a terminal: one process each, started
-  on its workspace in its shell's working directory) or as a whole (browser,
-  editor: launched once, and the windows it reopens by itself are then sorted
-  onto workspaces by title). Adding an app is adding a row of one of those two
-  kinds, never a third mechanism.
-- Only the workspace is restored. Floating state, size, position and tiling
-  order are not: every app on the list lives tiled, and each of those would be
-  a second dispatcher per window for a state none of them is ever in.
-- The daemon records and restores; nothing else writes the files under
-  `$XDG_DATA_HOME/desktopctl/session/`. The running session is `recording.json`
-  and the previous one is `last` in `state.json`. They are separate on purpose:
-  the running session is recorded continuously, so the previous one has to live
-  somewhere the recorder cannot reach or "on demand" would have nothing left to
-  restore ten seconds after login.
-- A recording becomes "the last session" when the daemon starts under a
-  different Hyprland instance than the one that wrote it. A daemon restart
-  inside one session must not rotate.
-- Restoring consumes `last`. A second request — a double click, automatic
-  restore followed by the power-menu row — must find nothing to duplicate.
-- Automatic is the default. The mode is one flag in `state.json`; on demand
-  means the same restore, asked for from the power menu instead of by
-  `autostart.lua`.
+- Restoring means reopening apps and putting their windows back on their
+  workspaces — never what is inside a window. Hence a short list of known
+  apps (`APPS` in `desktopctl/src/session.rs`), each relaunched either per
+  window (a terminal, in its shell's cwd) or as a whole (browser, editor,
+  whose reopened windows are sorted by title). A new app is a row of one of
+  those two kinds, never a third mechanism.
+- Only the workspace is restored: every listed app lives tiled.
+- The daemon alone writes `$XDG_DATA_HOME/desktopctl/session/`. The running
+  session (`recording.json`) and the previous one (`last` in `state.json`) are
+  separate so continuous recording can't overwrite what on-demand restore
+  needs. A recording becomes `last` only when the daemon starts under a
+  different Hyprland instance.
+- Restoring consumes `last`, so a second request finds nothing to duplicate.
+- Automatic is the default; on demand is the same restore, asked for from the
+  power menu.
 
 ## Quirks
 
 ### The recorder writes only what two consecutive looks agree on
-A session going down closes its windows a moment before the daemon is told to
-stop, and nothing on Hyprland's event socket tells "the user closed
-everything" from "everything is being closed". Writing on change would
-therefore replace a full session with an empty one in the last second of every
-shutdown, and automatic restore would restore nothing. The ten-second
-agreement in `daemon/session.rs` is that guard, not a debounce to tune down:
-it has to stay longer than a session takes to die. The price is that the last
-ten to twenty seconds before a crash are not recorded.
+Shutdown closes windows before the daemon stops, and nothing distinguishes
+that from the user closing everything. The ten-second agreement in
+`daemon/session.rs` must outlast a dying session; it is not a debounce to
+tune. The price: the last 10–20s before a crash go unrecorded.
 
 ### A whole-app restore parks its windows before it can place them
-Helium and VS Code reopen all their windows from one process, and Hyprland's
-exec rules place only what that launch maps first, so there is no saying
-up front where each window goes. For the length of a restore a named window
-rule sends every new window of the app to the hidden `special:restoring`
-workspace. Each app's windows are moved and its rule switched off as soon as
-every saved window has reopened and titles leave at most one to pair by order;
-failing that, once its window count has held still for two seconds. A restore
-that looks like it did nothing for a few seconds is this wait; windows that
-never appear are still parked, which `hyprctl clients` shows. The daemon switches
-the rules off again whenever it starts, because a rule left on would swallow
-every later window of that app. A browser that opens a single window is its
-own "continue where you left off" setting being off, which nothing here can
-turn on.
+A named window rule sends the app's new windows to `special:restoring` until
+every saved window is back (or the count holds for two seconds), then they are
+moved and the rule switched off. Windows that never appear are still parked
+(`hyprctl clients`). The daemon clears these rules at start, since a stuck one
+swallows every later window. A browser restoring one window has its own
+"continue where you left off" off.
 
 ### A browser that went down with the session believes it crashed
-Chromium writes `exit_type: Crashed` into its profile while it runs and
-`Normal` only on a clean quit, and a reboot never gives it one. Launched like
-that, Helium opens one blank window with a "restore pages?" bubble — which
-looks exactly like the sorting above having lost the windows. The `prepare`
-step on its `APPS` row rewrites the flag before launch; an app added as
-`Whole` that restores after a manual quit but not after a reboot needs the
-same kind of step.
-
-Related: [[desktopctl]], [[hyprland]], [[quickshell]]
+Chromium leaves `exit_type: Crashed` after a reboot and opens one blank window
+with a restore bubble. Helium's `prepare` step rewrites the flag; a new
+`Whole` app that restores after a quit but not a reboot needs the same.

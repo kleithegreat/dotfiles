@@ -28,23 +28,11 @@ stdenv.mkDerivation {
     gdk-pixbuf
   ];
 
-  buildPhase = /* bash */ ''
-    runHook preBuild
-    make
-    runHook postBuild
-  '';
-
   installPhase = /* bash */ ''
     runHook preInstall
 
-    mkdir --parents $out/bin
-    mkdir --parents $out/share/snappy-switcher/themes
-    mkdir --parents $out/share/doc/snappy-switcher
-
-    install --mode=755 snappy-switcher $out/bin/
-    install --mode=644 themes/*.ini $out/share/snappy-switcher/themes/
-    install --mode=644 config.ini.example $out/share/doc/snappy-switcher/
-    install --mode=644 README.md $out/share/doc/snappy-switcher/ || true
+    install -D --mode=755 snappy-switcher --target-directory=$out/bin
+    install -D --mode=644 themes/*.ini --target-directory=$out/share/snappy-switcher/themes
 
     runHook postInstall
   '';

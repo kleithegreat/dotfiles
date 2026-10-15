@@ -8,7 +8,7 @@ use std::{
     process::{Command, Output},
     sync::atomic::{AtomicBool, Ordering},
     thread,
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::{Duration, UNIX_EPOCH},
 };
 
 use crate::Result;
@@ -62,11 +62,9 @@ impl LidSwitchState {
             "open" => Ok(Self::Open),
             "closed" => Ok(Self::Closed),
             "sync" => Ok(Self::Sync),
-            _ => Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "lid switch state must be 'open', 'closed', or 'sync'",
-            )
-            .into()),
+            _ => Err(
+                crate::invalid_input("lid switch state must be 'open', 'closed', or 'sync'").into(),
+            ),
         }
     }
 }
@@ -176,11 +174,9 @@ impl InputSetting {
             "accel_profile" => Ok(Self::AccelProfile),
             "scroll_factor" => Ok(Self::ScrollFactor),
             "touchpad_scroll_factor" => Ok(Self::TouchpadScrollFactor),
-            _ => Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                format!("unsupported Hyprland input setting '{key}'"),
-            )
-            .into()),
+            _ => Err(
+                crate::invalid_input(format!("unsupported Hyprland input setting '{key}'")).into(),
+            ),
         }
     }
 
@@ -306,9 +302,7 @@ pub(crate) fn eval(lua: &str) -> Result<()> {
 pub(crate) fn set_config(path: &str, lua_value: &str) -> Result<()> {
     let segments: Vec<&str> = path.split(':').filter(|s| !s.is_empty()).collect();
     if segments.is_empty() {
-        return Err(
-            io::Error::new(io::ErrorKind::InvalidInput, "config path must not be empty").into(),
-        );
+        return Err(crate::invalid_input("config path must not be empty").into());
     }
 
     eval(&config_expression(&segments, lua_value))
@@ -422,11 +416,7 @@ pub(crate) fn handle_lid_switch(
     let internal_monitor = internal_monitor.trim();
     validate_non_empty_field("internal monitor", internal_monitor)?;
     if internal_monitor.contains(',') {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "internal monitor must not contain commas",
-        )
-        .into());
+        return Err(crate::invalid_input("internal monitor must not contain commas").into());
     }
 
     let open_spec = open_spec.trim();
@@ -460,18 +450,14 @@ fn close_lid_monitor(internal_monitor: &str) -> Result<()> {
 fn monitor_enable_expression(output: &str, open_spec: &str) -> Result<String> {
     let fields: Vec<&str> = open_spec.split(',').map(str::trim).collect();
     let [mode, position, scale] = fields.as_slice() else {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            format!("open monitor spec must be '<mode>,<position>,<scale>', got '{open_spec}'"),
-        )
+        return Err(crate::invalid_input(format!(
+            "open monitor spec must be '<mode>,<position>,<scale>', got '{open_spec}'"
+        ))
         .into());
     };
 
     let scale: f64 = scale.parse().map_err(|_| {
-        io::Error::new(
-            io::ErrorKind::InvalidInput,
-            format!("monitor scale must be a number, got '{scale}'"),
-        )
+        crate::invalid_input(format!("monitor scale must be a number, got '{scale}'"))
     })?;
 
     // `disabled = false` is required, not implied: re-declaring a disabled
@@ -687,7 +673,11 @@ pub(crate) fn socket2_path() -> Result<PathBuf> {
         }
     }
 
-    if let Some(path) = discover_socket2_path()? {
+    let roots = [
+        paths::xdg_runtime_dir()?.join("hypr"),
+        PathBuf::from("/tmp/hypr"),
+    ];
+    if let Some(path) = newest_instance_socket(&roots, ".socket2.sock")? {
         return Ok(path);
     }
 
@@ -721,41 +711,33 @@ fn tmp_socket2_path(signature: &str) -> PathBuf {
         .join(".socket2.sock")
 }
 
-fn discover_socket2_path() -> Result<Option<PathBuf>> {
+/// The most recently touched `<root>/<instance>/<file_name>` across `roots`.
+pub(crate) fn newest_instance_socket(
+    roots: &[PathBuf],
+    file_name: &str,
+) -> io::Result<Option<PathBuf>> {
     let mut candidates = Vec::new();
-    candidates.extend(find_socket2_candidates(
-        &paths::xdg_runtime_dir()?.join("hypr"),
-    )?);
-    candidates.extend(find_socket2_candidates(&PathBuf::from("/tmp/hypr"))?);
+    for root in roots {
+        let entries = match fs::read_dir(root) {
+            Ok(entries) => entries,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
+            Err(error) => return Err(error),
+        };
+        for entry in entries {
+            let path = entry?.path().join(file_name);
+            if path.exists() {
+                let modified = fs::metadata(&path)
+                    .and_then(|metadata| metadata.modified())
+                    .unwrap_or(UNIX_EPOCH);
+                candidates.push((modified, path));
+            }
+        }
+    }
 
     Ok(candidates
         .into_iter()
         .max_by_key(|(modified, _)| *modified)
         .map(|(_, path)| path))
-}
-
-fn find_socket2_candidates(root: &PathBuf) -> io::Result<Vec<(SystemTime, PathBuf)>> {
-    let entries = match fs::read_dir(root) {
-        Ok(entries) => entries,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
-        Err(error) => return Err(error),
-    };
-
-    let mut candidates = Vec::new();
-    for entry in entries {
-        let entry = entry?;
-        let path = entry.path().join(".socket2.sock");
-        if !path.exists() {
-            continue;
-        }
-
-        let modified = fs::metadata(&path)
-            .and_then(|metadata| metadata.modified())
-            .unwrap_or(UNIX_EPOCH);
-        candidates.push((modified, path));
-    }
-
-    Ok(candidates)
 }
 
 pub(crate) fn input_runtime_path() -> Result<PathBuf> {
@@ -878,11 +860,7 @@ fn input_setting_lua_value(state: &InputState, setting: InputSetting) -> String 
 fn parse_sensitivity(value: &str) -> Result<f64> {
     let parsed = parse_finite_decimal(value, "sensitivity")?;
     if !(-1.0..=1.0).contains(&parsed) {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "sensitivity must be between -1.0 and 1.0",
-        )
-        .into());
+        return Err(crate::invalid_input("sensitivity must be between -1.0 and 1.0").into());
     }
 
     Ok(round_decimal(parsed))
@@ -890,11 +868,7 @@ fn parse_sensitivity(value: &str) -> Result<f64> {
 
 fn parse_accel_profile(value: &str) -> Result<AccelProfile> {
     AccelProfile::parse(value).ok_or_else(|| {
-        io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "accel_profile must be either 'adaptive' or 'flat'",
-        )
-        .into()
+        crate::invalid_input("accel_profile must be either 'adaptive' or 'flat'").into()
     })
 }
 
@@ -908,30 +882,20 @@ fn positive_decimal(value: &str) -> Option<f64> {
 fn parse_scroll_factor(value: &str, label: &str) -> Result<f64> {
     let parsed = parse_finite_decimal(value, label)?;
     if parsed <= 0.0 {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            format!("{label} must be greater than 0"),
-        )
-        .into());
+        return Err(crate::invalid_input(format!("{label} must be greater than 0")).into());
     }
 
     Ok(round_decimal(parsed))
 }
 
 fn parse_finite_decimal(value: &str, label: &str) -> Result<f64> {
-    let parsed = value.trim().parse::<f64>().map_err(|_| {
-        io::Error::new(
-            io::ErrorKind::InvalidInput,
-            format!("{label} must be a number"),
-        )
-    })?;
+    let parsed = value
+        .trim()
+        .parse::<f64>()
+        .map_err(|_| crate::invalid_input(format!("{label} must be a number")))?;
 
     if !parsed.is_finite() {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            format!("{label} must be finite"),
-        )
-        .into());
+        return Err(crate::invalid_input(format!("{label} must be finite")).into());
     }
 
     Ok(parsed)
@@ -958,18 +922,10 @@ fn format_decimal(value: f64) -> String {
 
 fn validate_non_empty_field(label: &str, value: &str) -> Result<()> {
     if value.contains('\n') || value.contains('\r') {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            format!("{label} must not contain newlines"),
-        )
-        .into());
+        return Err(crate::invalid_input(format!("{label} must not contain newlines")).into());
     }
     if value.trim().is_empty() {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            format!("{label} must not be empty"),
-        )
-        .into());
+        return Err(crate::invalid_input(format!("{label} must not be empty")).into());
     }
 
     Ok(())

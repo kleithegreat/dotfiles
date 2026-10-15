@@ -2,77 +2,42 @@
 
 ## Intent
 
-- Solar automation lives inside `desktopctl daemon` — not Quickshell, not
-  systemd timers. It must keep working when the shell restarts or is absent.
-- The daemon's night-light controller is the only live writer of the
-  `hyprsunset` process. Everything else (keybinds, Quickshell) requests changes
-  through `desktopctl night-light ...`.
-- The override mode (`auto`/`on`/`off`) is intentionally in-memory only: a
-  daemon restart returns to `auto`. Do not "fix" this by persisting it.
-- Schedule: `hyprsunset` on at 4500K from sunset to sunrise; `dark_hint`
-  enabled at 23:00 and disabled at 06:00 local time as one-shot edges.
-  Staying inside a window must not keep reapplying the same value.
-- `dark_hint` override policy: a manual write (theme set or preset) wins
-  until the next 23:00/06:00 edge, when the schedule reasserts. The daemon is
-  the single writer — scheduled edges route through the theme controller like
-  every other theme mutation — and manual writes record their time in the
-  `dark_hint_manual_at` state row. A daemon restart never clobbers a manual
-  value: the scheduler acts on edges only, plus a once-per-boot catch-up that
-  applies the schedule value only when no manual write is recorded for the
-  current window (covering machines that were off across an edge). The
-  catch-up depends on the clock alone and finishes before the daemon serves
-  its socket, so apps restored at login start with the settled value.
-- Coordinate resolution order: `DESKTOPCTL_LOCATION` pin → cached location
-  fresh within 6 hours → GeoClue (`where-am-i`) → stale-but-parseable cache →
-  hardcoded fallback `30.6280, -96.3344` (College Station, TX). Degradation
-  must be deterministic, never fatal — a malformed pin warns and falls through
-  rather than failing.
-- The pin is `"<latitude>,<longitude>"` and outranks every other source,
-  including a fresh cache: a host that declares where it is has said something
-  GeoClue cannot improve on, and a stale fix from elsewhere must not shadow it.
-  The desktop sets it in `hosts/desktop/system.nix` alongside `time.timeZone`;
-  the laptop travels and leaves it unset.
-- GeoClue reports coordinates, never a name for them, and the forecast API
-  answers coordinates alone — so a place name exists only where `solar.rs`
-  reverse-geocodes one. It is resolved lazily, on `sun status` and never on
-  the daemon's path, cached beside the coordinates it describes, and dropped
-  whenever they refresh: a name must never outlive the fix it belongs to. A
-  pinned host never rewrites the cache on resolve, so the cached name is also
-  checked against the coordinates it is about to be printed beside and ignored
-  when they differ.
+- Solar automation lives in `desktopctl daemon`, not Quickshell or timers, so
+  it survives the shell being absent. The daemon is the only writer of
+  `hyprsunset`; everything else asks through `desktopctl night-light`.
+- The override mode (`auto`/`on`/`off`) is in-memory on purpose: a restart
+  returns to `auto`. Don't persist it.
+- `hyprsunset` runs at 4500K from sunset to sunrise; `dark_hint` turns on at
+  23:00 and off at 06:00 as one-shot edges, never reapplied inside a window.
+- A manual `dark_hint` write wins until the next edge. Edges route through the
+  theme queue like any mutation. A once-per-boot catch-up applies the schedule
+  only when no manual write is recorded for the current window; it depends on
+  the clock alone and finishes before the socket serves, so restored apps
+  start with the settled value.
+- Coordinates: `DESKTOPCTL_LOCATION` pin → cache fresher than 6h → GeoClue
+  (`where-am-i`) → stale cache → College Station fallback. Degradation is
+  deterministic and never fatal; a malformed pin warns and falls through. A
+  pin outranks even a fresh cache. Only the laptop geolocates (and runs
+  `automatic-timezoned`); the desktop pins its zone and coordinates.
+- Place names come only from `solar.rs` reverse geocoding, lazily on
+  `sun status`, cached beside the coordinates and dropped when they refresh,
+  and ignored when they don't match the coordinates being printed.
 
 ## Quirks
 
 ### `where-am-i` exits only on its own timeout
-The helper watches for location updates until its `--timeout` fires and then
-exits 0. Wrapping it in `timeout` and gating on the exit status therefore
-discards every fix it ever produces: the wrapper kills it first, the status is
-124, and the good coordinates in stdout are thrown away as a failure. `solar.rs`
-passes the helper its own deadline and parses stdout regardless; any outer bound
-must be the longer of the two. This is what pinned the whole desktop to the
-College Station fallback while GeoClue was working perfectly.
+Wrapping it in `timeout` and gating on status throws away every fix (status
+124). Pass its own `--timeout`, parse stdout regardless, and keep any outer
+bound longer. This once pinned the desktop to the fallback with GeoClue fine.
 
 ### Wrong sunrise/sunset times usually mean silent coordinate fallback
-On a pinned host, check `DESKTOPCTL_LOCATION` first: the daemon inherits it
-from the session environment, so a pin added without restarting the session
-(or `systemctl --user restart desktopctl`) is not yet in effect.
-If GeoClue fails and the cache is missing or invalid, the scheduler silently
-uses the College Station fallback; if the cache is stale but parseable, it
-keeps the *last* resolved location indefinitely. Before debugging schedule
-math, check `desktopctl sun status` and whether `where-am-i` works under the
-user session, and inspect `$XDG_CACHE_HOME/sun-schedule/location.json`.
-
-### The `where-am-i` parser is format-sensitive
-`desktopctl/src/solar.rs` expects colon-delimited lines containing
-case-insensitive `latitude`/`longitude` and only strips a trailing degree sign.
-GeoClue "working manually" does not mean the scheduler parsed it.
+A new pin needs a session (or `desktopctl.service`) restart to reach the
+daemon. Otherwise check `desktopctl sun status`, `where-am-i` under the user
+session, `journalctl -u geoclue`, and
+`$XDG_CACHE_HOME/sun-schedule/location.json`. The parser wants colon-delimited
+`latitude`/`longitude` lines; GeoClue working by hand doesn't mean it parsed.
 
 ### Reconcile failures are non-fatal by design
-`solar reconcile failed (will retry at next event or repair tick)` in the
-daemon log is expected during e.g. compositor restarts — the pending state
-survives and self-heals at the next event, `SIGUSR1`, or 2-hour repair tick.
-Only repeated failures across repair ticks indicate a real problem; the daemon
-shells out to `timeout`, `where-am-i`, `hyprctl`, `hyprsunset`, `ps`, and
-`pkill` by name, so debug under the same session `PATH` Hyprland uses.
-
-Related: [[desktopctl]], [[theming]]
+`solar reconcile failed (will retry ...)` during compositor restarts
+self-heals at the next event, `SIGUSR1`, or 2-hour repair tick. The daemon
+shells out by name, so debug under the session's `PATH`.

@@ -1,6 +1,3 @@
--- Hyprland plugins
--- HYPR_PLUGIN_DIR is provided by the NixOS system configuration.
-
 local colors = require("./colors")
 
 local pluginDir = os.getenv("HYPR_PLUGIN_DIR")

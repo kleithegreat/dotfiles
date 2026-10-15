@@ -47,8 +47,7 @@ appimageTools.wrapType2 {
     webkitgtk_4_1
   ];
 
-  # Shell-parent launcher plus the real BambuStudio window class; see the
-  # AppImage/Vicinae quirk in docs/nix.md.
+  # Shell-parent launcher (docs/nix.md) plus the real window class.
   extraInstallCommands = /* bash */ ''
     install -D --mode=444 ${appimageContents}/BambuStudio.desktop \
       $out/share/applications/BambuStudio.desktop

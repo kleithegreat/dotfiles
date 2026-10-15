@@ -1,5 +1,3 @@
--- Keybinds
-
 local mainMod = "SUPER"
 local terminal = "alacritty"
 local fileManager = "nautilus"

@@ -9,7 +9,7 @@ Flickable {
 
     clip: true
     contentWidth: width
-    // The wheel stretches past an edge by hand below; see docs/quickshell.md.
+    // The wheel bypasses Flickable's bounds; see docs/quickshell.md.
     boundsBehavior: Flickable.DragAndOvershootBounds
     pixelAligned: true
 

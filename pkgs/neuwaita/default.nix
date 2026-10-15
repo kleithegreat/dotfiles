@@ -1,10 +1,7 @@
 { stdenvNoCC }:
 
-# Upstream (github.com/RusticBard/Neuwaita) was deleted along with its owner's
-# account, so rev 112525b2 is unfetchable and unarchived. The tarball vendored
-# here is recovered from the last local build of that rev and is now the only
-# copy of this theme; its index.theme already carries the comma-only Inherits
-# separators KDE's icon loader needs, so no normalization step is left to run.
+# Upstream's account was deleted and rev 112525b2 was never archived anywhere:
+# this tarball, recovered from a local build, is the only copy. Irreplaceable.
 stdenvNoCC.mkDerivation {
   pname = "neuwaita";
   version = "unstable-2026-03-18";

@@ -32,8 +32,8 @@ struct StateUpdateOutcome {
     affected_targets: std::collections::BTreeSet<String>,
 }
 
-pub fn run(args: crate::ThemeArgs) -> crate::Result<()> {
-    match run_cli(args) {
+pub fn run(command: crate::ThemeCommand) -> crate::Result<()> {
+    match run_cli(command) {
         Ok(()) => Ok(()),
         Err(CliFailure::Message(message)) => Err(io::Error::other(message).into()),
         Err(CliFailure::Reported) => Err(io::Error::other("").into()),
@@ -214,8 +214,8 @@ pub(crate) fn fnv1a_fingerprint(text: &str) -> String {
 }
 
 // Writes go through the daemon, the single writer; `sync` is the exception (activation has no session).
-fn run_cli(args: crate::ThemeArgs) -> CliResult<()> {
-    match args.command {
+fn run_cli(command: crate::ThemeCommand) -> CliResult<()> {
+    match command {
         crate::ThemeCommand::All(wait) => remote_apply("all", None, wait.wait_daemon),
         crate::ThemeCommand::Sync => cmd_sync(),
         crate::ThemeCommand::Colors(wait) => remote_apply("colors", None, wait.wait_daemon),
@@ -472,17 +472,9 @@ impl ApplyScope {
             "cursor" => Ok(Self::Cursor),
             "fonts" => Ok(Self::Fonts),
             "target" => target.map(Self::Target).ok_or_else(|| {
-                io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    "apply scope 'target' requires a target name",
-                )
-                .into()
+                crate::invalid_input("apply scope 'target' requires a target name").into()
             }),
-            other => Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                format!("unknown apply scope '{other}'"),
-            )
-            .into()),
+            other => Err(crate::invalid_input(format!("unknown apply scope '{other}'")).into()),
         }
     }
 }
@@ -626,11 +618,7 @@ pub(crate) fn save_preset_core(name: &str, payload: Value) -> crate::Result<usiz
     let preset = normalize_theme_patch(payload, &format!("preset '{}'", preset_name))?;
 
     if preset.is_empty() {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "preset must include at least one field",
-        )
-        .into());
+        return Err(crate::invalid_input("preset must include at least one field").into());
     }
 
     let fields = preset.len();
@@ -692,12 +680,9 @@ fn set_state_key_internal(key: &str, raw_value: Value) -> crate::Result<StateUpd
 }
 
 fn normalize_theme_patch(value: Value, label: &str) -> crate::Result<Map<String, Value>> {
-    let object = value.as_object().ok_or_else(|| {
-        io::Error::new(
-            io::ErrorKind::InvalidInput,
-            format!("{label} must be a JSON object"),
-        )
-    })?;
+    let object = value
+        .as_object()
+        .ok_or_else(|| crate::invalid_input(format!("{label} must be a JSON object")))?;
 
     let mut normalized = Map::new();
     for (key, value) in object {
@@ -718,10 +703,10 @@ fn validated_theme_state(
         .collect::<Vec<_>>();
 
     if !missing.is_empty() {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            format!("{label}: missing required keys: {}", missing.join(", ")),
-        )
+        return Err(crate::invalid_input(format!(
+            "{label}: missing required keys: {}",
+            missing.join(", ")
+        ))
         .into());
     }
 
@@ -739,11 +724,7 @@ fn validated_theme_state(
     }
 
     serde_json::from_value(Value::Object(normalized)).map_err(|error| {
-        io::Error::new(
-            io::ErrorKind::InvalidData,
-            format!("Invalid theme state in memory: {error}"),
-        )
-        .into()
+        crate::invalid_data(format!("Invalid theme state in memory: {error}")).into()
     })
 }
 
@@ -759,14 +740,11 @@ fn ordered_theme_mapping(data: &Map<String, Value>) -> Map<String, Value> {
 
 fn coerce_theme_value(key: &str, value: Value) -> crate::Result<Value> {
     if !schema::ThemeState::known_field_names().contains(&key) {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            format!(
-                "unknown key '{}'. Valid: {}",
-                key,
-                valid_theme_keys().join(", ")
-            ),
-        )
+        return Err(crate::invalid_input(format!(
+            "unknown key '{}'. Valid: {}",
+            key,
+            valid_theme_keys().join(", ")
+        ))
         .into());
     }
 
@@ -775,21 +753,20 @@ fn coerce_theme_value(key: &str, value: Value) -> crate::Result<Value> {
             Value::Number(number) if number.as_i64().is_some() => Ok(Value::Number(number)),
             Value::String(text) => match text.parse::<i64>() {
                 Ok(number) => Ok(Value::from(number)),
-                Err(_) => Err(io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    format!("'{}' must be an integer, got {}", key, Value::String(text)),
-                )
+                Err(_) => Err(crate::invalid_input(format!(
+                    "'{}' must be an integer, got {}",
+                    key,
+                    Value::String(text)
+                ))
                 .into()),
             },
-            Value::Bool(_) => Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                format!("'{}' must be an integer", key),
-            )
-            .into()),
-            other => Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                format!("'{}' must be an integer, got {}", key, other),
-            )
+            Value::Bool(_) => {
+                Err(crate::invalid_input(format!("'{}' must be an integer", key)).into())
+            }
+            other => Err(crate::invalid_input(format!(
+                "'{}' must be an integer, got {}",
+                key, other
+            ))
             .into()),
         };
     }
@@ -804,24 +781,18 @@ fn coerce_theme_value(key: &str, value: Value) -> crate::Result<Value> {
                 } else if matches!(lowered.as_str(), "false" | "off" | "light" | "no" | "0") {
                     Ok(Value::Bool(false))
                 } else {
-                    Err(io::Error::new(
-                        io::ErrorKind::InvalidInput,
-                        format!(
-                            "'{}' must be a boolean (true/false, on/off, dark/light), got {}",
-                            key,
-                            Value::String(text)
-                        ),
-                    )
+                    Err(crate::invalid_input(format!(
+                        "'{}' must be a boolean (true/false, on/off, dark/light), got {}",
+                        key,
+                        Value::String(text)
+                    ))
                     .into())
                 }
             }
-            other => Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                format!(
-                    "'{}' must be a boolean (true/false, on/off, dark/light), got {}",
-                    key, other
-                ),
-            )
+            other => Err(crate::invalid_input(format!(
+                "'{}' must be a boolean (true/false, on/off, dark/light), got {}",
+                key, other
+            ))
             .into()),
         };
     }
@@ -831,11 +802,7 @@ fn coerce_theme_value(key: &str, value: Value) -> crate::Result<Value> {
             Value::String(text) if !text.is_empty() => Ok(Value::String(
                 schema::canonicalize_theme_string_value(key, &text).into_owned(),
             )),
-            _ => Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                format!("'{}' must be a non-empty string", key),
-            )
-            .into()),
+            _ => Err(crate::invalid_input(format!("'{}' must be a non-empty string", key)).into()),
         };
     }
 
@@ -845,9 +812,7 @@ fn coerce_theme_value(key: &str, value: Value) -> crate::Result<Value> {
 fn normalize_preset_name(name: &str) -> crate::Result<String> {
     let normalized = name.trim();
     if normalized.is_empty() {
-        return Err(
-            io::Error::new(io::ErrorKind::InvalidInput, "preset name must not be empty").into(),
-        );
+        return Err(crate::invalid_input("preset name must not be empty").into());
     }
     Ok(normalized.to_owned())
 }
@@ -898,9 +863,8 @@ fn display_value(value: &Value) -> String {
 }
 
 fn parse_json_value(text: &str) -> crate::Result<Value> {
-    serde_json::from_str(text).map_err(|error| {
-        io::Error::new(io::ErrorKind::InvalidData, format!("invalid JSON: {error}")).into()
-    })
+    serde_json::from_str(text)
+        .map_err(|error| crate::invalid_data(format!("invalid JSON: {error}")).into())
 }
 
 fn map_user_err<T, E>(result: Result<T, E>) -> CliResult<T>

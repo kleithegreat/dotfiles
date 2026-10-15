@@ -1,7 +1,6 @@
 final: prev: {
   cantarell-fonts = prev.cantarell-fonts.overrideAttrs (old: {
-    # The variable OTF autohint step fails on the current nixpkgs pin; static
-    # OTFs preserve the family without depending on that broken target.
+    # The variable OTF fails in otfautohint on this pin; drop once a default build works.
     mesonFlags = (old.mesonFlags or []) ++ [
       "-Dbuildvf=false"
       "-Dbuildstatics=true"
@@ -12,8 +11,7 @@ final: prev: {
     upstreamBambuStudio = prev.bambu-studio;
   };
   comfyui = final.callPackage ../pkgs/comfyui { };
-  # Takes the files as real argv and shell-quotes them into the dispatch
-  # string: a desktop-entry field code cannot survive it ([[hyprland]]).
+  # A field code cannot survive the dispatch string; see docs/hyprland.md.
   code-hypr = final.writeShellApplication {
     name = "code-hypr";
     text = /* bash */ ''

@@ -149,19 +149,12 @@ where
 
     let response: ResponseEnvelope<T> =
         serde_json::from_str(response_line.trim_end()).map_err(|error| {
-            io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("invalid response from desktopctl daemon: {error}"),
-            )
+            crate::invalid_data(format!("invalid response from desktopctl daemon: {error}"))
         })?;
 
     if response.ok {
         return response.data.ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::InvalidData,
-                "desktopctl daemon returned success without data",
-            )
-            .into()
+            crate::invalid_data("desktopctl daemon returned success without data").into()
         });
     }
 

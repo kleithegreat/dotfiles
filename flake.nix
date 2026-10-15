@@ -46,9 +46,6 @@
 
       system = "x86_64-linux";
 
-      # `nativeOptimizations` rebuilds the targeted native-code packages from
-      # source with `-O3 -march=native` / `target-cpu=native` instead of using
-      # stock cached nixpkgs builds. See overlays/native-optimized.nix.
       hosts = {
         desktop = {
           inherit system;
@@ -78,8 +75,7 @@
       };
     in
     {
-      # Host-independent packages only; the native-optimized overlay is applied
-      # per host, inside lib/overlays.nix.
+      # Host-independent packages only.
       overlays.default =
         final: prev:
         import ./overlays/local-packages.nix final prev

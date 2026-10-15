@@ -1,5 +1,3 @@
--- Laptop-specific input settings
-
 hl.config({
     input = {
         touchpad = {

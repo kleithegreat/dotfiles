@@ -38,27 +38,9 @@ return {
     "nvim-telescope/telescope.nvim",
     cmd = "Telescope",
     keys = {
-      {
-        "<leader>ff",
-        function()
-          require("telescope.builtin").find_files()
-        end,
-        desc = "Find files",
-      },
-      {
-        "<leader>fg",
-        function()
-          require("telescope.builtin").live_grep()
-        end,
-        desc = "Live grep",
-      },
-      {
-        "<leader>fb",
-        function()
-          require("telescope.builtin").buffers()
-        end,
-        desc = "Find buffers",
-      },
+      { "<leader>ff", "<cmd>Telescope find_files<cr>", desc = "Find files" },
+      { "<leader>fg", "<cmd>Telescope live_grep<cr>", desc = "Live grep" },
+      { "<leader>fb", "<cmd>Telescope buffers<cr>", desc = "Find buffers" },
     },
     dependencies = {
       "nvim-lua/plenary.nvim",

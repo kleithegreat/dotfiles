@@ -1,7 +1,5 @@
 { config, lib, pkgs, host, ... }:
 
-let
-in
 {
   config = lib.mkIf host.isPhysical {
     boot.kernelPackages = pkgs.linuxPackages;
@@ -14,7 +12,7 @@ in
       enable = true;
       efiSupport = true;
       device = "nodev";
-      useOSProber = false;
+      useOSProber = false; # other EFI installs are chainloaded explicitly below, never discovered
       extraEntries = ''
         menuentry "Windows Boot Manager" {
           search --set=root --file /EFI/Microsoft/Boot/bootmgfw.efi
@@ -30,7 +28,7 @@ in
       "kernel.sched_autogroup_enabled" = 1;
       "net.core.default_qdisc" = "fq";
       "net.ipv4.tcp_congestion_control" = "bbr";
-      # zram-only swap: swapping is cheaper than dropping page cache; see docs/nix.md.
+      # zram-only swap: swapping is cheaper than dropping page cache.
       "vm.swappiness" = 180;
     };
 
@@ -43,8 +41,6 @@ in
         RemainAfterExit = true;
       };
       script = /* bash */ ''
-        # Use MGLRU's thrash-prevention knob as the MGLRU-friendly equivalent of
-        # LE9/LE10-style working-set and file-cache protection.
         if [ -w /sys/kernel/mm/lru_gen/enabled ]; then
           printf 'y' > /sys/kernel/mm/lru_gen/enabled
         fi
@@ -68,13 +64,8 @@ in
 
     nix.settings.max-jobs = 2;
 
-    # `boot.tmp.useTmpfs` makes /tmp RAM-backed, and nix-daemon builds in TMPDIR,
-    # so without this every build tree is charged against RAM alongside the
-    # compilers filling it. Large CUDA/CMake build trees then push the machine
-    # into OOM well before they run out of tmpfs. Keep the tmpfs /tmp for the
-    # session and put builds on disk.
-    # No age on the tmpfiles rule: nix removes its own build directories, and
-    # the ones that survive are `--keep-failed` trees somebody wants to inspect.
+    # On the tmpfs /tmp, large CUDA build trees OOM the machine. No age on the
+    # rule: survivors are `--keep-failed` trees somebody wants to inspect.
     systemd.services.nix-daemon.environment.TMPDIR = "/var/tmp/nix-daemon";
     systemd.tmpfiles.rules = [ "d /var/tmp/nix-daemon 0755 root root -" ];
 
@@ -86,15 +77,12 @@ in
 
     hardware.enableRedistributableFirmware = true;
     hardware.i2c.enable = true;
-    # Also turns on hardware.logitech.wireless (ltunify, logitech-udev-rules).
-    # The tray process itself is owned by Hyprland autostart, not
-    # programs.solaar.userService, so there is only ever one of it.
+    # The tray process is owned by Hyprland autostart, not `userService`.
     programs.solaar.enable = true;
     hardware.cpu.intel.updateMicrocode =
       lib.mkDefault config.hardware.enableRedistributableFirmware;
 
-    # Mission Center's in-app "Run Additional Setup" cannot work here; see
-    # docs/nix.md. These are the two things it would have installed.
+    # What Mission Center's inert "Run Additional Setup" would install; see docs/nix.md.
     security.wrappers.nethogs = {
       owner = "root";
       group = "root";
@@ -107,8 +95,7 @@ in
       SUBSYSTEM=="powercap", KERNEL=="intel-rapl*", RUN+="${lib.getExe' pkgs.coreutils "chmod"} a+r /sys%p/energy_uj"
     '';
 
-    # Bound rare upstream tailscaled shutdown hangs so reboot does not wait for
-    # the full systemd default stop timeout.
+    # wgengine teardown races can otherwise eat most of the 90s stop timeout.
     systemd.services.tailscaled.serviceConfig.TimeoutStopSec = "15s";
 
     services.power-profiles-daemon.enable = true;
@@ -117,7 +104,7 @@ in
       enable = true;
       remotePlay.openFirewall = true;
       localNetworkGameTransfers.openFirewall = true;
-      extest.enable = true; # X11→uinput translation for controllers on Wayland
+      extest.enable = true;
     };
   };
 }

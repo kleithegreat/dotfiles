@@ -1,9 +1,6 @@
 import QtQuick
 
-// Which surface is showing, and where it came from.
-//
-// Exclusivity is structural: one name can only hold one value, so "at most one
-// surface is open" needs no coordinator.
+// Which surface is showing, and where it came from. One name: exclusivity is structural.
 QtObject {
     id: root
 
@@ -13,9 +10,7 @@ QtObject {
     property var menu: null
     // Screen x of the control that opened it, so the surface can grow from there.
     property real anchor: 0
-    // Where each surface's bar control currently sits, so one opened from a
-    // keybind still grows from the button it belongs to rather than from the
-    // left edge of the screen.
+    // Where each surface's bar control sits, for surfaces opened from a keybind.
     property var origins: ({})
     property string pane: "Network"
 

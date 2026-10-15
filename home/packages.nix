@@ -36,22 +36,20 @@ let
     totpages
     xstring
   ]);
-
-  customPackages = [
-    pkgs.opencode
-    pkgs.optimized.fd
-    pkgs.optimized.ripgrep
-    pkgs.optimized.desktopctl
-    pkgs.optimized.p7zip
+in
+{
+  home.packages = with pkgs; [
+    opencode
+    optimized.fd
+    optimized.ripgrep
+    optimized.desktopctl
+    optimized.p7zip
     texlive
-    pkgs.optimized.lsp-plugins
-    pkgs.optimized.quickshell
-    pkgs.snappy-switcher
-    pkgs.macos-vm
-    pkgs.vicinae
-  ];
-
-  basePackages = with pkgs; [
+    optimized.lsp-plugins
+    optimized.quickshell
+    snappy-switcher
+    macos-vm
+    vicinae
     jq
     tree
     ncdu
@@ -101,7 +99,7 @@ let
     helium
     imv
     nautilus
-    glib
+    glib # gsettings and gdk-pixbuf: Nautilus thumbnails fail without them
     gdk-pixbuf
     gedit
     haruna
@@ -150,9 +148,7 @@ let
     claude-code
     codex
     t3code
-  ];
-
-  kdePackages = with pkgs.kdePackages; [
+  ] ++ (with kdePackages; [
     dolphin
     ark
     kate
@@ -165,9 +161,5 @@ let
     kompare
     kdenlive
     krdc
-  ];
-in
-{
-  home.packages = customPackages ++ basePackages ++ kdePackages;
-
+  ]);
 }

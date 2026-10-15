@@ -2,275 +2,139 @@
 
 ## Intent
 
-- The design system is *structural*, never authored per widget. `Theme` maps the
-  generated scheme onto named roles and hands them out unmodified — the scheme's
-  own `fg`/`fg2`/`fg3`/`fg4` ramp, its own accent, its own status hues; the
-  theming pipeline already guarantees that ramp's ordering and contrast floor
-  ([[theming]]) and the shell does not get a second opinion. Only interaction
-  states are computed, as alpha over the foreground, because no scheme ships
-  them. `Metrics` holds the space, radius and size scales; `Motion` holds the
-  durations and curves. A constant that exactly one widget uses belongs at
-  that widget or, far more often, nowhere. Widgets never reach for palette slots
-  directly.
-- Panels are opaque, matching the compositor's own windows. Only the bar and the
-  modal scrim stay translucent, and their alphas must stay above `ignore_alpha`
-  in `config/hypr/rules.lua` or the compositor skips blurring them. Dense content
-  sits on a raised card inside a panel, for elevation rather than to avoid
-  stacking translucency.
-- At most one managed surface is open, expressed as one name in `ShellState`.
-  Exclusivity is structural, not coordinated. The overlay owns focus, outside
-  click dismissal and the scrim; its input mask excludes the bar strip so bar
-  buttons keep working while a surface is open.
-- Surfaces grow from the control that summoned them: bar items report their
-  screen-centre x, and popovers and the bar's hover hint scale from that origin.
-- The shell occupies exactly one output, and every window it owns names that
-  same output. Which one it is comes from the daemon ([[desktopctl]]); the
-  shell has no second rule for it. Left unnamed a surface defaults to
-  `Quickshell.screens[0]`, and since popovers grow from bar-item coordinates a
-  mismatch opens them at the right spot on the wrong display.
-- Services own system state and expose values. They never compose display
-  sentences and never render; presentation composes text from service state. One
-  capability gets one write path.
-- Capability decides visibility. A control this host cannot support is absent,
-  not shown disabled.
-- QML never edits theme or Hyprland config files. Every mutation is a
-  `desktopctl` call on a single serialised queue — the Hyprland appearance
-  values *are* theme-state keys, so there is one queue, not two that cross-gate
-  — staged optimistically and rolled back on real completion. Backend failures
-  surface as toasts, never console lines. All `hyprctl` traffic goes through the
-  `Compositor` gateway, which exists because hyprctl reports failure on stdout
-  while exiting 0 ([[hyprland]]).
-- State flows the other way over the `Desktopctl` service's subscribed socket:
-  the daemon pushes a snapshot per topic — brightness's in two events, so the
-  slider does not wait on DDC enumeration ([[desktopctl]]) — and change events
-  after each commit, so external changes (hotkeys, terminal) reach the shell
-  without polling.
-  Reconnecting in that service is load-bearing — the daemon and the shell
-  start concurrently, and each restarts alone. Services keep a
-  one-shot startup status read as the degraded path while the daemon is down.
-- The IPC target and function names are a published interface, not internal
-  naming: `config/hypr/keybinds.lua` calls them, and that file reaches the
-  session through Home Manager, so a rename leaves the keybinds dead until the
-  next rebuild. Bar items publish where they sit (`ShellState.setOrigin`) so a
-  surface opened from a keybind still grows from the button it belongs to.
-- The shell is pointer-first. No tab-order or keyboard-activation contract is
-  imposed on chrome beyond Escape closing the open surface.
+- The design system is structural. `Theme` maps the scheme onto roles and
+  hands them out unmodified — the theming pipeline already guarantees the
+  ramp ([[theming]]); only interaction states are computed, as alpha over the
+  foreground. `Metrics` holds space, radius and size scales, `Motion`
+  durations and curves. A one-widget constant lives at that widget, or
+  nowhere. Widgets never reach for palette slots.
+- Panels are opaque. Only the bar and the modal scrim are translucent, and
+  their alphas stay above `ignore_alpha` in `config/hypr/rules.lua` or they
+  lose blur. Menus (the session menu) take no scrim.
+- At most one managed surface is open: one name in `ShellState`. The overlay
+  owns focus, outside-click dismissal and the scrim; its mask excludes the bar.
+- Surfaces grow from the control that summoned them. Bar items publish their
+  origin (`ShellState.setOrigin`), so a keybind-opened surface grows from its
+  button too.
+- The shell lives on exactly one output, chosen by the daemon
+  ([[desktopctl]]), and every window names it; an unnamed window defaults to
+  `screens[0]`.
+- Services own state and expose values; presentation composes text. One
+  capability, one write path. A control the host cannot support is absent,
+  not disabled.
+- QML never edits config files. Every mutation is a `desktopctl` call on one
+  serialised queue, staged optimistically and rolled back on real completion;
+  failures surface as toasts. All `hyprctl` goes through `Compositor`
+  ([[hyprland]]: failures exit 0).
+- State arrives over `Desktopctl`'s subscription, never by polling.
+  Reconnecting is load-bearing: daemon and shell start concurrently and
+  restart independently. A one-shot status read is the degraded path.
+- IPC target and function names are a published interface:
+  `config/hypr/keybinds.lua` calls them and only changes on rebuild.
+- Pointer-first: no keyboard contract beyond Escape closing the surface.
+- Monitor-button brightness changes are not watched; do not add a poll.
 
 ## Quirks
 
 ### A `Socket` whose connect failed is dead for good
-Quickshell keeps the failed `QLocalSocket` around, and both `connected = true`
-and `connected = false` are no-ops while one exists, so a retry that sets the
-property again does nothing and emits nothing — the shell just stays
-disconnected after the daemon restarts, or forever if it lost the startup
-race. `Desktopctl` therefore recreates the Socket per attempt. A local socket
-also connects synchronously, inside the `connected: true` assignment and
-before the object's own `onConnectionStateChanged` is wired, which is why the
-subscribe is written from `ready` rather than from that handler.
+Setting `connected` again is a no-op while the failed socket exists, so
+`Desktopctl` recreates the Socket per attempt. A local socket connects
+synchronously inside the assignment, before the handler is wired, so the
+subscribe is written from `ready`.
 
 ### A `var` array model resets its Repeater and kills in-flight drags
-Reassigning a `var` array bound as a Repeater model cannot be diffed, so
-`QQmlDelegateModel` destroys and recreates every delegate — taking the
-`MouseArea` holding the pointer grab with it. This made brightness sliders
-click-only: the service rebuilds its device array on every write, and the first
-`moved` emission destroyed the delegate mid-gesture. Any view over a service
-array rebuilt on write must key its model on the *count* and index into the
-array; binding the array itself silently breaks drags and all per-delegate
-state.
+A reassigned array can't be diffed; every delegate is recreated, taking the
+pointer grab with it. Views over arrays rebuilt on write key the model on the
+*count* and index into the array.
 
-### Scrolling past an edge stretches; the wheel needs that done by hand
-`boundsBehavior` governs dragging and flicking only. Wheel and touchpad input
-reaches `Scroll` and `Choice` through a `WheelHandler` that animates
-`contentY`/`contentX` directly, so it never touches Flickable's bounds logic
-at all — the rubber band there is computed by `Metrics.resist` and released by
-a timer once input stops, and holding a scroll against the end deliberately
-stays stretched. Both scrollers share that curve and accept the same devices; a device
-one handles and the other declines, or a different stretch, reads as one of
-them being broken.
+### Wheel scrolling bypasses Flickable's bounds
+`Scroll` and `Choice` animate `contentY`/`contentX` from a `WheelHandler`; the
+rubber band is `Metrics.resist`, released by a timer. Both must share the curve
+and devices, or one looks broken.
 
 ### Draggable controls inside a `Scroll` need `claimsDrag`
-`Flickable` filters child mouse events and steals the grab once a drag passes
-the threshold, reducing any child slider to click-to-set. `Slider.claimsDrag`
-sets `preventStealing`; every draggable control in a scroll view needs it — and
-plain buttons must *not*, since dragging across a button is a legitimate scroll
-gesture.
+Otherwise Flickable steals the grab and sliders become click-to-set. Buttons
+must not claim it: dragging across one is a legitimate scroll.
 
 ### Risky display changes are staged and batch-applied, never live
-The display pane accumulates edits and applies them as one `hyprctl eval` chunk
-covering *every* connected output (see [[hyprland]] on `position = "auto"`),
-then runs a confirm countdown that re-applies the captured snapshot if it
-expires. Do not reintroduce per-control or per-pointer-move writes — they can
-strand the session on a layout the display cannot show. The main-display toggle
-is deliberately outside that flow: it cannot leave you unable to see a screen,
-so there is nothing for a countdown to rescue.
+One `hyprctl eval` chunk covering every output, then a countdown that reverts
+unless kept. Per-control writes can strand the session on an unviewable
+layout. Applying scrolls to the confirm card: a countdown nobody sees always
+reverts, which reads as Keep being broken. The main-display toggle cannot
+blind you, so it skips the flow.
 
-Applying also scrolls the pane back to the top, because the confirm card is the
-first thing in it and the controls that trigger an apply are far below the fold.
-A countdown nobody can see reverts every single time, which reads as the Keep
-button being broken.
+### Bar lifetime follows Hyprland's monitor list, not `Quickshell.screens`
+Qt keeps placeholder `QScreen`s through output churn.
 
-### Bar lifetime follows Hyprland's monitor model, not `Quickshell.screens`
-Output churn (suspend, DPMS, hotplug) tears down the layer-shell surface while
-Qt keeps a placeholder `QScreen` alive, so `Quickshell.screens` is not a
-reliable "outputs gone" signal. `shell.qml` drives the bar through a Loader
-keyed on Hyprland's real monitor list (filtering `FALLBACK`).
-
-### A window whose `visible` is extended by a signal handler unmaps first
-`visible: open || linger.running`, with the linger restarted from a
-`currentChanged` handler, is a flicker, not a lifetime: the binding
-re-evaluates in the pass that closes the surface — one pass before the handler
-can extend it — so the layer surface unmaps and immediately remaps, and the
-compositor animates that second map in. It looks exactly like the panel
-popping back for a moment after you dismissed it, and it is visible on
-Hyprland's event socket as `closelayer` / `openlayer` on the same namespace.
-A window's visibility has to be one property that nothing else can drive
-false.
+### A window's visibility must be one property nothing else can drive false
+`visible: open || linger.running` with the linger restarted from a handler
+unmaps one pass before the handler runs, then remaps with animation — the
+panel pops back after dismissal (`closelayer`/`openlayer` on the event socket).
 
 ### A geometry animation on a window that unmaps replays when it maps
-`Hint`'s bubble is positioned by a binding on whichever bar item is hovered, and
-its window unmaps whenever no hint is up. A `Behavior` on that `x` therefore
-queues a move against a window nobody is looking at: it does not advance while
-the window is hidden, and it runs in full on the frame it maps — so every hint
-slid across the screen from wherever the previous one sat, or from the left edge
-if the surface had not been configured yet and the clamp had collapsed. Geometry
-on a surface that unmaps is placed while hidden and animated only while shown;
-the `enabled:` on those Behaviors is load-bearing, and the position clamps
-against the *screen's* width rather than the strip's for the same reason.
+A `Behavior` queued while hidden runs in full on map, so hints slid across the
+screen. Geometry is placed while hidden and animated only while shown; those
+`enabled:` guards are load-bearing, and the clamp uses the screen's width.
 
-### A missing binary fails to *start*, which never emits `exited`
-A probe whose binary is not installed never reaches `onExited`, so the state it
-would set must default to "absent" — `Host.powerProfiles` starts `false` for
-this reason. Never chain a fallback probe on another one's exit code: the chain
-stalls on the first missing binary, and every later probe is silently never
-tried, with no failing command to point at.
+### A missing binary never emits `exited`
+State a probe would set defaults to "absent", and probes never chain on
+another's exit code — the chain stalls silently at the first missing binary.
 
-### Heater mode on, machine idle: the client's own state, not the shell
-The toggle reports the `heater` unit, and the unit being active does not mean
-anything is folding. Folding@home keeps "paused" and the per-GPU enable in
-`client.db` under the unit's state directory, and a fresh one starts paused
-with every GPU off; neither is a command-line option. Both are set once from
-the client's web control and persist from then on.
+### Heater on, machine idle: the client's own state
+Folding@home keeps "paused" and per-GPU enables in `client.db`; a fresh one
+starts paused. Set once from its web control.
 
 ### Battery sysfs reports a charge interval even when the cap is off
-`/sys/class/power_supply/BAT0/charge_control_{start,end}_threshold` exposes the
-*stored* Dell custom interval whatever the active charging mode is: it reads
-`75`/`80` while the firmware sits in `primarily_ac` and happily charges to 100%.
-Whether the cap is actually engaged lives in the mode, which only
-`smbios-battery-ctl --get-charging-cfg` reports. That is why `Power` shells out
-for a value sysfs appears to hand over for free.
-
-### Monitor-button brightness changes have no event source
-Brightness state arrives as daemon events, and nothing watches the monitor's
-own OSD buttons. A change made on the monitor itself surfaces only at the next
-daemon-side brightness operation. Accepted trade-off — do not add a poll for it.
+The thresholds show the stored interval in any mode; only
+`smbios-battery-ctl --get-charging-cfg` says whether the cap is engaged.
 
 ### Singletons are constructed on first reference
-A service that polls or holds a subscription does not exist until something
-reads it, so it never starts if the only reader is a surface that has not been
-opened yet. `shell.qml` touches those services in `Component.onCompleted`; that
-block is load-bearing, not defensive.
+`shell.qml` touches polling/subscribing services in `Component.onCompleted`;
+that block is load-bearing.
 
-### A tray icon the theme lacks loads *successfully* as a magenta checkerboard
-`Image.status` reports `Ready` for the icon theme's missing-icon placeholder, so
-status cannot detect the failure — the bar renders a magenta and black grid.
-Themed names have to be tested with `Quickshell.iconPath(name, true)` before the
-image is requested, and fall back to a monogram.
+### A missing tray icon loads *successfully* as a magenta checkerboard
+`Image.status` is `Ready` for the placeholder; test names with
+`Quickshell.iconPath(name, true)` first and fall back to a monogram.
 
 ### The exclusive zone excludes the surface's own margin
-Layer-shell reserves `margin + exclusive_zone`, so a bar that sets its exclusive
-zone to height *plus* its top margin reserves that margin twice and leaves twice
-as much air below the bar as above it. The zone is the bar's height and nothing
-else; `hyprctl monitors -j` reports the total under `reserved`.
-
-### A scrim below `ignore_alpha` silently stops being blurred
-The layer rule gates blur on alpha, so dimming the modal backdrop past that
-threshold drops it out of the blur pass entirely and leaves a flat tint over a
-sharp desktop. Surfaces that are menus rather than modals — the session menu —
-take no scrim at all, so nothing behind them changes.
+Layer-shell reserves `margin + exclusive_zone`; the zone is the bar height only.
 
 ### Mapping functions in bindings never re-evaluate
-`mapToItem`/`mapToGlobal` are calls, not reactive expressions, so a property
-bound to one captures the geometry the item had while it was still being built:
-zero. Bar items therefore expose `anchorPoint()` and callers ask at click time.
-Bound instead, every surface silently opens at the far left of the screen.
+A binding on `mapToItem`/`mapToGlobal` captures zero; bar items expose
+`anchorPoint()` for callers to ask at click time.
 
-### A new QML file needs a restart, not a reload
-Hot reload re-reads files it already knows about; a file added to a directory
-module is not in the generated qmldir yet, so it reloads cleanly and then fails
-with "X is not a type" — after a rebuild as much as after an edit, which is
-why `nrs` restarts the shell whenever an activation moved its files. Started
-by hand (`nixos-rebuild switch` directly), restart it yourself.
+### Reload sees neither new files nor Loader-URL panes
+A new file is not in the generated qmldir until a restart (`nrs` restarts the
+shell when its files moved). Settings panes are reached through
+`Loader.source`, so their edits also need a restart.
 
-### A sibling type resolves only in a directory something imports as a module
-`ui/` files reference each other bare — `Group` uses `Label` and `Card` with no
-import — so bare sibling references look like a language feature. They are not:
-they work because `qs.ui` is imported elsewhere and the directory is therefore a
-registered module. `surfaces/settings/` is only ever reached through
-`Loader.source` URLs, so a new component dropped beside the panes fails with
-"X is not a type" *after a full restart*, which reads exactly like the reload
-trap above and is not it. A shared component belongs in `ui/`; the panes are
-leaves.
+### A sibling type resolves only in a directory imported as a module
+`ui/` files use siblings bare because `qs.ui` is imported elsewhere.
+`surfaces/settings/` is never imported, so a component added there fails with
+"X is not a type" even after a restart. Shared components go in `ui/`.
 
 ### A polkit prompt raised from a shell surface cannot be answered
-Settings and the popovers are layer surfaces above every window, and the
-polkit agent's dialog is a window: it opens underneath, the surface keeps the
-pointer, and the action just hangs until it times out. Nothing in the shell
-may need interactive authentication. Every privileged call it makes is granted
-to the local active user by a polkit rule in the host module, and a new one
-needs its rule in the same change. `fprintd-delete` was the one that slipped
-through: naming a user, even your own, is a separate action
-(`setusername`) from the `enroll` one the rule covered.
+The dialog opens under the layer surface and the action hangs. Every
+privileged call needs a polkit rule in the host module in the same change —
+`fprintd-delete` needs `setusername` as well as `enroll`.
 
-### Platform menus need QApplication mode, so tray menus are drawn here
-The platform route, `QsMenuAnchor.open()`, refuses to run unless the shell was
-started with `//@ pragma UseQApplication`, and what it opens is a Qt widget menu
-wearing whatever qt6ct hands it; do not switch to it. `TrayMenu` renders the same DBus model through
-`QsMenuOpener` with the shell's own rows instead, and drills into submenus in
-place rather than cascading.
+### Tray menus are drawn here
+`QsMenuAnchor.open()` needs `UseQApplication` and opens a qt6ct-styled widget
+menu; `TrayMenu` renders the model through `QsMenuOpener` instead.
 
-### A pane behind a Loader URL is outside the reload graph
-Hot reload re-reads the files it can see through imports. A settings pane is
-reached through `Loader.source`, so the engine keeps its cached component and
-edits to it appear to do nothing — the config reloads, cleanly, and the old pane
-comes back. Restart after editing a pane.
+### `ping` reports its summary on SIGINT, not SIGKILL
+The bufferbloat ping must be stopped with `kill -INT`.
 
-### `ping` reports its summary on SIGINT, not on SIGKILL
-The bufferbloat measurement pings the gateway *during* a transfer and reads the
-rtt line afterwards. A plain `kill` gets no summary at all, so the loaded
-latency silently reads as unmeasured and the ratio never appears; the background
-ping has to be stopped with `kill -INT`.
+### A layer surface's own buffer clips its shadow
+Windows holding a floating `Surface` reserve `Surface.shadowPad` and pull their
+margin back by it; `Metrics.shadowReach` derives from `elevation`. The bar
+uses the fixed `Metrics.barShadowPad`. The padding needs a `mask` or it eats
+desktop clicks.
 
-### A layer surface's own buffer clips the shadow off it too
-A window sized to the panel it holds has nowhere to put that panel's shadow: a
-`wl_surface` ends at its buffer, so the blur is cut off flat on every side it
-touches — most visibly as a shadow that exists above a toast and nowhere else.
-Every window holding a floating `Surface` reserves `Surface.shadowPad` around
-it and pulls its own layer-shell margin back by the same amount, so the panel
-lands where it always did. `Metrics.shadowReach` is the one place that says how
-far a shadow travels; it is derived from `elevation`, so raising a panel's
-elevation without re-reading it silently re-clips the shadow. The bar is the
-exception: its margin from the screen edge is all the room there is, and
-`Metrics.barShadowPad` is that fixed budget rather than a derived reach.
-
-The extra transparent margin is part of the input region unless something says
-otherwise, so a window that gains one also needs a `mask` over the panel alone
-or it starts eating clicks meant for the desktop.
-
-### A layer on a surface clips the shadow off it
-`Surface`'s `RectangularShadow` paints well outside the item it fills, so
-`layer.enabled` on the surface renders the panel into a texture its own size and
-the shadow is gone for as long as the layer is on — which, since the layer is
-there to hold `Label`'s `NativeRendering` glyphs still through a scale, is the
-whole entrance. It returns at full strength on the frame the animation ends,
-reading as a shadow that arrives after the panel. `Surface.flatten` layers the
-content instead. `layer.sourceRect` is not the fix: it widens the captured area
-but still maps it into the item's own rect, so the shadow lands inside the panel
-and darkens it.
+### `layer.enabled` on a `Surface` clips its shadow
+The layer renders at the item's size, so the shadow vanishes for the whole
+entrance animation. `Surface.flatten` layers the content instead;
+`layer.sourceRect` darkens the panel rather than fixing it.
 
 ### Popover content declares its own height
-`Popover.contentHeight` is set by each surface. Deriving it from the holder that
-the surface fills makes the holder's height depend on the panel that depends on
-the holder; QML resolves that by giving the panel a height of zero, which
-renders as content spilling out of a panel with no visible background.
-
-Related: [[theming]], [[hyprland]], [[desktopctl]], [[focus-time]]
+Deriving it from the holder is a binding loop QML resolves to zero height.

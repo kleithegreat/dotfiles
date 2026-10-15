@@ -8,15 +8,6 @@ local function map(bufnr, mode, lhs, rhs, desc)
   })
 end
 
-local function capabilities()
-  local base = vim.lsp.protocol.make_client_capabilities()
-  local ok, cmp_nvim_lsp = pcall(require, "cmp_nvim_lsp")
-  if ok then
-    return cmp_nvim_lsp.default_capabilities(base)
-  end
-  return base
-end
-
 local function on_attach(args)
   local client = vim.lsp.get_client_by_id(args.data.client_id)
   local bufnr = args.buf
@@ -60,10 +51,14 @@ function M.setup()
     callback = on_attach,
   })
 
-  local server_capabilities = capabilities()
+  local capabilities = vim.lsp.protocol.make_client_capabilities()
+  local ok, cmp_nvim_lsp = pcall(require, "cmp_nvim_lsp")
+  if ok then
+    capabilities = cmp_nvim_lsp.default_capabilities(capabilities)
+  end
+  vim.lsp.config("*", { capabilities = capabilities })
 
   vim.lsp.config("lua_ls", {
-    capabilities = server_capabilities,
     settings = {
       Lua = {
         diagnostics = {
@@ -76,16 +71,7 @@ function M.setup()
     },
   })
 
-  vim.lsp.config("pyright", {
-    capabilities = server_capabilities,
-  })
-
-  vim.lsp.config("texlab", {
-    capabilities = server_capabilities,
-  })
-
   vim.lsp.config("ltex", {
-    capabilities = server_capabilities,
     filetypes = { "tex", "plaintex" },
     settings = {
       ltex = {
@@ -97,10 +83,7 @@ function M.setup()
     },
   })
 
-  vim.lsp.enable("lua_ls")
-  vim.lsp.enable("pyright")
-  vim.lsp.enable("texlab")
-  vim.lsp.enable("ltex")
+  vim.lsp.enable({ "lua_ls", "pyright", "texlab", "ltex" })
 end
 
 return M
