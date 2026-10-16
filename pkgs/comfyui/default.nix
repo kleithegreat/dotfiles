@@ -10,27 +10,12 @@
 }:
 
 let
-  # nixpkgs hardcodes libnvshmem's tests and examples on; they are a large slice
-  # of a build heavy enough to OOM the laptop. torch links it, so it stays.
-  disableCmakeBool =
-    flag: lib.replaceStrings [ "-D${flag}:BOOL=TRUE" ] [ "-D${flag}:BOOL=FALSE" ];
-
-  cudaPackages = cudaPackages_13_3.overrideScope (
-    _final: prev: {
-      libnvshmem = prev.libnvshmem.overrideAttrs (old: {
-        cmakeFlags =
-          old.cmakeFlags
-          |> map (disableCmakeBool "NVSHMEM_BUILD_TESTS")
-          |> map (disableCmakeBool "NVSHMEM_BUILD_EXAMPLES");
-      });
-    }
-  );
-
   # Upstream warns custom nodes break on 3.14, the nixpkgs default.
   python = python313.override {
     self = python;
     packageOverrides = import ./python-packages.nix {
-      inherit lib cudaPackages;
+      inherit lib;
+      cudaPackages = cudaPackages_13_3;
     };
   };
 
