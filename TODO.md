@@ -43,6 +43,11 @@ Open issues and pending validations. Delete entries when resolved.
       needed; `BAT0` has no `power_now`, so draw is `current_now` ×
       `voltage_now`.
 
+- [ ] Laptop face auth: after `sudo linux-enable-ir-emitter configure`, add
+      and remove a face from Settings → Authentication (pkexec, no prompt),
+      then confirm `sudo` and hyprlock both unlock by face, and that
+      hyprlock's PAM thread (running as the user, not root) can read
+      `/var/lib/howdy/models`.
 - [ ] Under nftables: Tailscale, a podman container's network, and libvirt's
       default network all work.
 - [ ] Laptop greeter startup: every real SDDM greeter start spends 1.4–2.5s

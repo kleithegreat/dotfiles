@@ -11,6 +11,7 @@ QtObject {
 
     property bool laptop: false
     property bool fingerprint: false
+    property bool face: false
     property bool touchpad: false
     property bool powerProfiles: false
     property bool heater: false
@@ -63,5 +64,11 @@ QtObject {
         stdout: StdioCollector {
             onStreamFinished: root.fingerprint = this.text.indexOf("/net/reactivated/Fprint/Device/") !== -1
         }
+    }
+
+    readonly property Process _face: Process {
+        running: true
+        command: ["test", "-e", "/etc/howdy/config.ini"]
+        onExited: code => root.face = code === 0
     }
 }

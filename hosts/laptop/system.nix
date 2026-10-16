@@ -154,18 +154,39 @@
     tod.enable = false;
   };
 
+  # ── Face auth ───────────────────────────────────────────────
+  # IR stream of the Integrated_Webcam_HD; the bare /dev/videoN can renumber.
+  services.howdy = {
+    enable = true;
+    control = "sufficient";
+    settings.video.device_path = "/dev/v4l/by-path/pci-0000:00:14.0-usb-0:6:1.2-video-index0";
+  };
+  services.linux-enable-ir-emitter.enable = true;
+
+  # Otherwise howdy lands in every PAM service, the greeter included.
+  security.pam.howdy.enable = false;
+
   security.pam.services = {
     # SDDM uses `login`; the greeter must always accept a password.
     login.fprintAuth = false;
 
-    sudo.fprintAuth = true;
+    sudo = {
+      fprintAuth = true;
+      howdy.enable = true;
+      # Face gives up in seconds; the reader waits 30.
+      rules.auth.howdy.order = config.security.pam.services.sudo.rules.auth.fprintd.order - 1;
+    };
+    # polkit-agent-helper@.service runs with PrivateDevices, so no camera.
     polkit-1.fprintAuth = true;
 
-    # hyprlock talks to fprintd natively; its PAM path stays password-only.
-    hyprlock.fprintAuth = false;
+    # hyprlock talks to fprintd natively, in parallel with this PAM stack.
+    hyprlock = {
+      fprintAuth = false;
+      howdy.enable = true;
+    };
   };
 
-  # ── Polkit — local fingerprint management + Dell battery control ─
+  # ── Polkit — local biometric management + Dell battery control ─
   # Otherwise every pkexec call fails "pkexec must be setuid root".
   security.polkit.enablePkexecWrapper = true;
 
@@ -183,6 +204,14 @@
       if (action.id === "org.freedesktop.policykit.exec" &&
           /\/smbios-battery-ctl$/.test(action.lookup("program")) &&
           /^\S*\/smbios-battery-ctl\s+(--get-charging-cfg|--set-charging-mode=(primarily_ac|adaptive|custom|standard|express)(\s+--set-custom-charge-interval\s+[0-9]+\s+[0-9]+)?)\s*$/.test(action.lookup("command_line")) &&
+          subject.user === "kevin" && subject.local && subject.active) {
+        return polkit.Result.YES;
+      }
+
+      // Same for howdy: -U would act on another user's face models.
+      if (action.id === "org.freedesktop.policykit.exec" &&
+          /\/howdy$/.test(action.lookup("program")) &&
+          /^\S*\/howdy\s+(--plain\s+list|-y\s+--plain\s+(add|remove\s+[0-9]+))\s*$/.test(action.lookup("command_line")) &&
           subject.user === "kevin" && subject.local && subject.active) {
         return polkit.Result.YES;
       }

@@ -9,7 +9,9 @@ Ui.Scroll {
 
     contentHeight: body.height
 
-    readonly property string phase: Sys.Fingerprint.phase
+    // One enrolment card serves both; only one can run at a time.
+    readonly property bool faceShown: Sys.Face.phase !== ""
+    readonly property string phase: faceShown ? Sys.Face.phase : Sys.Fingerprint.phase
 
     readonly property var prompts: ({
         "": "Rest your finger on the sensor",
@@ -32,7 +34,23 @@ Ui.Scroll {
         return "";
     }
 
-    Component.onCompleted: Sys.Fingerprint.refresh()
+    function headline() {
+        if (faceShown)
+            return phase === "done" ? "Face added" : phase === "failed" ? Sys.Face.result || "Couldn't add your face" : "Look at the camera";
+        return phase === "done" ? "Fingerprint added" : prompts[Sys.Fingerprint.result] || (phase === "failed" ? "Couldn't add this fingerprint" : prompts[""]);
+    }
+
+    function caption() {
+        if (faceShown)
+            return phase === "scanning" ? "Hold still for a few seconds" : "";
+        return labelOf(Sys.Fingerprint.finger) + (phase === "scanning" && Sys.Fingerprint.stages > 0 ? " · " + Sys.Fingerprint.captured + " of " + Sys.Fingerprint.stages : "");
+    }
+
+    Component.onCompleted: {
+        Sys.Fingerprint.refresh();
+        if (Sys.Host.face)
+            Sys.Face.refresh();
+    }
 
     ColumnLayout {
         id: body
@@ -54,6 +72,7 @@ Ui.Scroll {
                     id: glyph
 
                     readonly property int size: Metrics.s8 * 2
+                    readonly property string icon: root.faceShown ? "face-id" : "fingerprint"
 
                     Layout.alignment: Qt.AlignHCenter
                     Layout.bottomMargin: Metrics.s2
@@ -61,7 +80,7 @@ Ui.Scroll {
                     implicitHeight: size
 
                     Ui.Icon {
-                        name: "fingerprint"
+                        name: glyph.icon
                         size: glyph.size
                         color: Theme.textQuaternary
                         opacity: 0.45
@@ -71,7 +90,7 @@ Ui.Scroll {
                         anchors.left: parent.left
                         anchors.right: parent.right
                         anchors.bottom: parent.bottom
-                        height: glyph.size * (root.phase === "failed" ? 1 : Sys.Fingerprint.fraction)
+                        height: glyph.size * (root.phase === "failed" || root.phase === "done" ? 1 : root.faceShown ? 0 : Sys.Fingerprint.fraction)
                         clip: true
 
                         Behavior on height {
@@ -82,7 +101,7 @@ Ui.Scroll {
 
                         Ui.Icon {
                             anchors.bottom: parent.bottom
-                            name: "fingerprint"
+                            name: glyph.icon
                             size: glyph.size
                             color: root.phase === "failed" ? Theme.critical : Theme.accent
                         }
@@ -96,6 +115,26 @@ Ui.Scroll {
                             property: "scale"
                             to: 1.07
                             duration: Motion.instant
+                        }
+                        Ui.Anim {
+                            target: glyph
+                            property: "scale"
+                            to: 1
+                            duration: Motion.settled
+                        }
+                    }
+
+                    // A face scan reports nothing until it ends, so it breathes instead.
+                    SequentialAnimation {
+                        running: root.faceShown && root.phase === "scanning"
+                        loops: Animation.Infinite
+                        alwaysRunToEnd: true
+
+                        Ui.Anim {
+                            target: glyph
+                            property: "scale"
+                            to: 1.07
+                            duration: Motion.settled
                         }
                         Ui.Anim {
                             target: glyph
@@ -119,7 +158,7 @@ Ui.Scroll {
                     horizontalAlignment: Text.AlignHCenter
                     wrapMode: Text.WordWrap
                     role: "headline"
-                    text: root.phase === "done" ? "Fingerprint added" : root.prompts[Sys.Fingerprint.result] || (root.phase === "failed" ? "Couldn't add this fingerprint" : root.prompts[""])
+                    text: root.headline()
                 }
 
                 Ui.Label {
@@ -127,21 +166,73 @@ Ui.Scroll {
                     horizontalAlignment: Text.AlignHCenter
                     role: "caption"
                     numeric: true
-                    text: root.labelOf(Sys.Fingerprint.finger) + (root.phase === "scanning" && Sys.Fingerprint.stages > 0 ? " · " + Sys.Fingerprint.captured + " of " + Sys.Fingerprint.stages : "")
+                    text: root.caption()
+                    visible: text !== ""
                 }
 
                 Ui.Button {
+                    readonly property bool cancels: root.phase === "scanning"
+
                     Layout.alignment: Qt.AlignHCenter
                     Layout.topMargin: Metrics.s2
-                    text: root.phase === "scanning" ? "Cancel" : "Done"
-                    variant: root.phase === "scanning" ? "plain" : "tinted"
-                    onClicked: root.phase === "scanning" ? Sys.Fingerprint.cancel() : Sys.Fingerprint.dismiss()
+                    visible: !(cancels && root.faceShown)
+                    text: cancels ? "Cancel" : "Done"
+                    variant: cancels ? "plain" : "tinted"
+                    onClicked: root.faceShown ? Sys.Face.dismiss() : cancels ? Sys.Fingerprint.cancel() : Sys.Fingerprint.dismiss()
+                }
+            }
+        }
+
+        Ui.Group {
+            title: "Face"
+            footnote: "Unlocks the lock screen and sudo. The login screen still takes your password."
+            visible: Sys.Host.face
+
+            Repeater {
+                model: Sys.Face.models
+
+                Ui.ListRow {
+                    id: face
+
+                    required property var modelData
+
+                    Layout.fillWidth: true
+                    icon: "face-id"
+                    iconColor: Theme.accent
+                    title: modelData.label
+                    subtitle: "Added " + Qt.formatDate(new Date(modelData.time.replace(" ", "T")), "d MMMM yyyy")
+                    interactive: false
+
+                    Ui.Button {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "Remove"
+                        variant: "plain"
+                        interactive: !Sys.Face.busy && root.phase === ""
+                        onClicked: Sys.Face.forget(face.modelData.id)
+                    }
+                }
+            }
+
+            Ui.ListRow {
+                Layout.fillWidth: true
+                icon: "face-id"
+                title: Sys.Face.models.length > 0 ? "Add another look" : "Add your face"
+                subtitle: Sys.Face.models.length > 0 ? "With glasses, say, or in different light" : ""
+                interactive: false
+
+                Ui.Button {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "Add"
+                    variant: "tinted"
+                    interactive: !Sys.Face.busy && root.phase === ""
+                    onClicked: Sys.Face.start()
                 }
             }
         }
 
         Ui.Group {
             title: "Fingerprints"
+            visible: Sys.Host.fingerprint
 
             Repeater {
                 model: Sys.Fingerprint.fingers
