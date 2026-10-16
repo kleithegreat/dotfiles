@@ -16,7 +16,7 @@
   generated siblings can sit beside them.
 - GUI apps needing system D-Bus services or polkit actions install through
   NixOS, not `home.packages`, which never registers system helpers
-  (partition-manager).
+  (partition-manager, bitwarden-desktop).
 - Every host runs the stock nixpkgs kernel. A custom boot-critical kernel
   (Clang/LTO/CachyOS, forced initrd lists) already caused an undebuggable
   no-journal boot failure; runtime policy goes in `kernelParams`, sysctls and

@@ -20,6 +20,7 @@ for _, class in ipairs({
     "org.gnome.World.Secrets",
     "org.kde.kcharselect",
     "org.kde.isoimagewriter",
+    "Bitwarden",
 }) do
     hl.window_rule({ match = { class = class }, float = true, center = true })
 end
