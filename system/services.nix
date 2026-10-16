@@ -162,6 +162,5 @@ in
 
   environment.systemPackages = [
     pkgs.sddm-theme
-    pkgs.bitwarden-desktop
   ];
 }
