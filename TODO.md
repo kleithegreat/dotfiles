@@ -15,8 +15,6 @@ Open issues and pending validations. Delete entries when resolved.
 - [ ] Laptop Bluetooth: turn the adapter on from the Control Center tile,
       pair something in Settings → Bluetooth, and confirm audio routes to it.
       The shell's native adapter path has never run against a real bluez.
-- [ ] Log out without rebooting and confirm `desktopctl.service` stops with
-      the session.
 - [ ] Desktop suspend/resume: validate the post-overlay-removal resume stack
       (see `docs/nvidia.md`). Until a real cycle passes, keep
       `kernelSuspendNotifier = false`, the `/var/tmp` VRAM path, and the
@@ -50,12 +48,25 @@ Open issues and pending validations. Delete entries when resolved.
       `/var/lib/howdy/models`.
 - [ ] Under nftables: Tailscale, a podman container's network, and libvirt's
       default network all work.
-- [ ] Laptop greeter startup: every real SDDM greeter start spends 1.4–2.5s
-      between `High-DPI autoscaling Enabled` and loading `Main.qml`, even
-      after a logout on an idle system; under a headless nested kwin it takes
-      ~0.1s. Neither the dGPU nor boot contention explains it.
+- [ ] Laptop greeter startup: every real SDDM greeter start waits 1.4–2.5s
+      for kwin to answer its first `wl_display.sync`, even after a logout on
+      an idle system. kwin's main thread stalls ~1.25s between its last
+      built-in effect and the first scripted one (`logout`); a headless
+      `--virtual` kwin, even on a private bus with a fresh home, does it in
+      ~13ms. Ruled out: the dGPU, boot contention, KGlobalAccelD, cold
+      caches. Next: profile a real greeter start (strace or perf on the
+      sddm user's `kwin_wayland`) across a logout.
 
 ## Open issues
+
+- [ ] Logout then relogin leaves the new session without `desktopctl`, so no
+      restore. Logout via logind `TerminateSession` skips the shutdown hook,
+      and a relogin inside the user manager's stop delay reuses it, old
+      desktopctl included. The start hook's `stop graphical-session.target`
+      takes desktopctl down, but a concurrent portal activation (its
+      `Requisite=`) replaces the pending stop, so the target never cycles and
+      nothing restarts desktopctl. Stopping then starting from inside a
+      session that is already starting things cannot be made race-free.
 
 - [ ] Hyprland (low): the Bitwarden popup rule matches
       `chrome-nngceckbapebfimnlniiiahkandclblb-Default`; check with
