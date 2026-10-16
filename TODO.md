@@ -43,13 +43,12 @@ Open issues and pending validations. Delete entries when resolved.
       needed; `BAT0` has no `power_now`, so draw is `current_now` ×
       `voltage_now`.
 
-- [ ] Faster boot to the greeter: after a reboot, the greeter still appears
-      on the laptop (`KWIN_DRM_DEVICES` pin, `docs/nvidia.md`), the dGPU stays
-      `suspended` through it, and `systemd-analyze critical-chain
-      display-manager.service` beats the old 8.1s since kernel start (greeter
-      view at 11.2s). Tapping Esc during POST still opens the hidden GRUB
-      menu. Under nftables: Tailscale, a podman container's network, and
-      libvirt's default network all work.
+- [ ] Under nftables: Tailscale, a podman container's network, and libvirt's
+      default network all work.
+- [ ] Laptop greeter startup: every real SDDM greeter start spends 1.4–2.5s
+      between `High-DPI autoscaling Enabled` and loading `Main.qml`, even
+      after a logout on an idle system; under a headless nested kwin it takes
+      ~0.1s. Neither the dGPU nor boot contention explains it.
 
 ## Open issues
 

@@ -26,10 +26,8 @@ against that before calling a cycle passed. Garbled resumes mean the
 It is colon-separated and by-path names contain colons; Hyprland finds no GPU
 and SDDM bounces back to the greeter. Laptop udev rules create colon-free
 `intel-gpu`/`nvidia-gpu` links, matched on the PCI parent's *driver* (the dGPU
-sits under an Intel root port) and `DEVTYPE=drm_minor`. The greeter's kwin is
-pinned to the same `intel-gpu` link through `KWIN_DRM_DEVICES`, so a driver
-swap or rule typo kills the login screen itself, not just login: boot the
-previous generation, or debug from a TTY with
+sits under an Intel root port) and `DEVTYPE=drm_minor`. A driver swap or rule
+typo kills login: boot the previous generation, or debug from a TTY with
 `udevadm info --attribute-walk --name=/dev/dri/cardN`. Never exercised through
 a real relogin.
 
