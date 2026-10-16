@@ -36,6 +36,13 @@ final: prev: {
   macos-vm = final.callPackage ../pkgs/macos-vm { };
   neuwaita = final.callPackage ../pkgs/neuwaita { };
   qemu-reims-vgpu = final.callPackage ../pkgs/qemu-reims-vgpu { };
+  # kdePackages.sddm is this scope's wrapper. Without the patch, logind's
+  # TerminateSession (Vicinae's Log Out) leaves no greeter; see docs/hyprland.md.
+  qt6Packages = prev.qt6Packages.overrideScope (qfinal: qprev: {
+    sddm-unwrapped = qprev.sddm-unwrapped.overrideAttrs (old: {
+      patches = (old.patches or [ ]) ++ [ ../patches/sddm/sddm-helper-signal-is-not-auth-error.patch ];
+    });
+  });
   reims-vgpu = final.callPackage ../pkgs/reims-vgpu { };
   sddm-theme = final.callPackage ../pkgs/sddm-theme { };
   sf-pro = final.callPackage ../pkgs/sf-pro { };

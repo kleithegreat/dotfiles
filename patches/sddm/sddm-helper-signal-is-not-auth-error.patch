@@ -1,0 +1,14 @@
+--- a/src/auth/Auth.cpp
++++ b/src/auth/Auth.cpp
+@@ -230,7 +230,10 @@
+         else
+             qWarning("Auth: sddm-helper exited with %d", exitCode);
+ 
+-        Q_EMIT qobject_cast<Auth*>(parent())->finished((Auth::HelperExitStatus)exitCode);
++        // A crash's exitCode is the signal number; SIGHUP would read as HELPER_AUTH_ERROR.
++        Q_EMIT qobject_cast<Auth*>(parent())->finished(exitStatus == QProcess::NormalExit
++                ? (Auth::HelperExitStatus)exitCode
++                : HELPER_OTHER_ERROR);
+     }
+ 
+     void Auth::Private::childError(QProcess::ProcessError error) {

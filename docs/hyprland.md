@@ -116,6 +116,15 @@ bumping these, check `hyprctl clients` with the window open.
 - Fingerprint auth is shared config; the desktop's fprintd D-Bus error at
   unlock is noise.
 
+### Terminating the logind session used to strand SDDM on a blinking cursor
+Vicinae's Log Out calls logind `TerminateSession`. The session scope sends
+SIGHUP, which kills `sddm-helper` outright; Qt reports the signal number as the
+exit code, and SIGHUP's 1 is `HELPER_AUTH_ERROR`, the one status after which
+SDDM keeps the old greeter instead of starting a new one. The SDDM patch in
+`overlays/local-packages.nix` maps any crash to `HELPER_OTHER_ERROR`. Without
+it, only logouts where Hyprland exits on its own (`hl.dsp.exit`) bring the
+greeter back.
+
 ### MX Master 2S smart-shift caps at 50
 50 *is* always-ratcheted; higher values fail.
 
