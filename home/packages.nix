@@ -117,6 +117,7 @@ in
     qbittorrent
     telegram-desktop
     pavucontrol
+    ableton-wine
     gnome-secrets
     bambu-studio
     pandoc

@@ -35,6 +35,10 @@
       url = "github:hyprwm/hyprland-plugins/v0.56.0";
       inputs.hyprland.follows = "hyprland";
     };
+    ableton-linux = {
+      url = "github:shibco/ableton-linux";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =

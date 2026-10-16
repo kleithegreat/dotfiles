@@ -9,7 +9,10 @@
       "transparent_hugepage=madvise"
     ];
     boot.consoleLogLevel = 3;
-    boot.kernelModules = [ "kvm-intel" ];
+    boot.kernelModules = [
+      "kvm-intel"
+      "ntsync" # ableton-wine's Wine requires /dev/ntsync
+    ];
     boot.loader.grub = {
       enable = true;
       efiSupport = true;

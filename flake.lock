@@ -1,5 +1,25 @@
 {
   "nodes": {
+    "ableton-linux": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1791056897,
+        "narHash": "sha256-be3tn4FY7Nl7ITw7+/XyjuR59q0uWrTLUQOtIyNGhNA=",
+        "owner": "shibco",
+        "repo": "ableton-linux",
+        "rev": "aceb236a81656c609274afbf27fd54eb5017e5e2",
+        "type": "github"
+      },
+      "original": {
+        "owner": "shibco",
+        "repo": "ableton-linux",
+        "type": "github"
+      }
+    },
     "aquamarine": {
       "inputs": {
         "hyprutils": [
@@ -76,11 +96,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1792085665,
-        "narHash": "sha256-X9iN67cdW9KqLuvbyyr9rdF4Zssk1uFHh1UC/GZH08s=",
+        "lastModified": 1792098797,
+        "narHash": "sha256-u4DIIZgznEGzByxXrxWCXK19VcMtTBmi/M9gZ7Jk9bM=",
         "owner": "nix-community",
         "repo": "home-manager",
-        "rev": "54ad640b81c5e9a32db1a29e7561fda628601117",
+        "rev": "640725978b99076e18e069f6e7d2959124584f8f",
         "type": "github"
       },
       "original": {
@@ -461,11 +481,11 @@
     },
     "nixpkgs-claude": {
       "locked": {
-        "lastModified": 1792095632,
-        "narHash": "sha256-y7kNI3z2XkdXVf08x1LDjc5jTT80RWY37tg/YEU8cpc=",
+        "lastModified": 1792178663,
+        "narHash": "sha256-vuwjfmCcwb/h4O2Zv2UKBluKI1k71fbEgBc0li5Tk8Q=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "f1e2193616e31b2be41260f17adbc79958955f3d",
+        "rev": "34915c94283ceb7ae7de97e0c944af133640c830",
         "type": "github"
       },
       "original": {
@@ -499,6 +519,7 @@
     },
     "root": {
       "inputs": {
+        "ableton-linux": "ableton-linux",
         "claude-desktop": "claude-desktop",
         "home-manager": "home-manager",
         "hyprland": "hyprland",
