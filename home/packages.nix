@@ -38,6 +38,8 @@ let
   ]);
 in
 {
+  programs.spicetify.enable = true;
+
   home.packages = with pkgs; [
     opencode
     optimized.fd
@@ -90,7 +92,6 @@ in
     slack
     thunderbird
     obs-studio
-    spotify
     zathura
     libreoffice
     vscode

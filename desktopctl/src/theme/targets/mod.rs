@@ -17,7 +17,6 @@ mod qt;
 mod quickshell;
 mod scheme_pair;
 mod snappy_switcher;
-mod spicetify;
 mod starship;
 mod t3code;
 mod tmux;
@@ -168,7 +167,6 @@ pub const TARGETS: &[Target] = &[
     qt::TARGET,
     quickshell::TARGET,
     snappy_switcher::TARGET,
-    spicetify::TARGET,
     starship::TARGET,
     t3code::TARGET,
     tmux::TARGET,

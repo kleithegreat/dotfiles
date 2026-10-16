@@ -80,15 +80,10 @@ pub fn color_difference(first: &str, second: &str) -> f64 {
 
 /// Mix two colours in sRGB at `ratio` (0 keeps `from`, 1 reaches `to`).
 pub fn blend(from: &str, to: &str, ratio: f64) -> String {
-    blend_rounded(from, to, ratio, f64::round)
-}
-
-/// [`blend`] with a chosen channel rounding; spicetify's tie-breaking is half-to-even.
-pub fn blend_rounded(from: &str, to: &str, ratio: f64, round: fn(f64) -> f64) -> String {
     let (from, to) = (channels(from), channels(to));
     let channel = |index: usize| {
         let start = f64::from(from[index]);
-        round(start + (f64::from(to[index]) - start) * ratio) as u8
+        (start + (f64::from(to[index]) - start) * ratio).round() as u8
     };
     format!("#{:02x}{:02x}{:02x}", channel(0), channel(1), channel(2))
 }

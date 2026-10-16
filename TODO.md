@@ -78,3 +78,7 @@ Open issues and pending validations. Delete entries when resolved.
 - [ ] Hyprland (low): the Bitwarden popup rule matches
       `chrome-nngceckbapebfimnlniiiahkandclblb-Default`; check with
       `hyprctl clients` that Helium really gives the popup that class.
+- [ ] Spotify does not follow the desktopctl scheme. spicetify-nix bakes
+      `color.ini` into the store at build time, so the old `spicetify`
+      target (runtime `spicetify update` against a mutable install) cannot
+      come back as it was; it is in git history.
