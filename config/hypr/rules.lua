@@ -48,7 +48,7 @@ hl.window_rule({
 
 -- Disable hyprbars on apps with client-side decorations
 hl.window_rule({ match = { title = "Discord Updater" }, ["hyprbars:no_bar"] = true })
-for _, class in ipairs({ "code", "obsidian", "org.gnome.Nautilus" }) do
+for _, class in ipairs({ "code", "obsidian", "org.gnome.Nautilus", "zoom" }) do
     hl.window_rule({ match = { class = class }, ["hyprbars:no_bar"] = true })
 end
 
