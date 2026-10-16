@@ -22,6 +22,7 @@ final: prev: {
       hyprctl dispatch "hl.dsp.exec_cmd([==[$cmd]==])"
     '';
   };
+  dd-cli = final.callPackage ../pkgs/dd-cli { };
   desktopctl = final.callPackage ../desktopctl { };
   # Shares comfyui's CUDA set rather than pulling the default one in beside it.
   gpu-burn = prev.gpu-burn.override {

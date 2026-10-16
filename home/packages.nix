@@ -49,6 +49,7 @@ in
     optimized.quickshell
     snappy-switcher
     macos-vm
+    dd-cli
     vicinae
     jq
     tree

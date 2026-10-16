@@ -7,6 +7,7 @@ let
     # Applications — home.packages
     "bambu-studio"
     "claude-desktop"
+    "dd-cli"
     "discord"
     "discord-unwrapped"
     "lmstudio"
