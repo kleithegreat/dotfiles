@@ -19,7 +19,7 @@
   fileSystems."/boot/efi" = {
     device = "/dev/disk/by-uuid/ECCF-6FDB";
     fsType = "vfat";
-    options = [ "fmask=0077" "dmask=0077" ];
+    options = [ "fmask=0077" "dmask=0077" "noauto" "x-systemd.automount" ];
   };
 
   fileSystems."/mnt/shared" = {

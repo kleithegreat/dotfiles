@@ -7,8 +7,11 @@
       "transparent_hugepage=madvise"
     ];
     boot.kernelModules = [ "kvm-intel" ];
+    # A keypress buffered during POST still opens the menu; tap Esc.
+    boot.loader.timeout = 0;
     boot.loader.grub = {
       enable = true;
+      timeoutStyle = "hidden";
       efiSupport = true;
       device = "nodev";
       useOSProber = false; # other EFI installs are chainloaded explicitly below, never discovered

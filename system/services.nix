@@ -55,6 +55,7 @@ in
     ../certs/homelab-ca.crt
   ];
 
+  networking.nftables.enable = true;
   networking.firewall = {
     allowedTCPPortRanges = [{ from = 1714; to = 1764; }];
     allowedUDPPorts = [ 5353 ];
@@ -117,6 +118,9 @@ in
       swtpm.enable = true;
     };
   };
+  # Socket-activated only; there are no guests to resume at boot.
+  systemd.services.libvirtd.wantedBy = lib.mkForce [ ];
+  systemd.services.libvirt-guests.wantedBy = lib.mkForce [ "libvirtd.service" ];
   programs.virt-manager.enable = true;
 
   location.provider = "geoclue2";

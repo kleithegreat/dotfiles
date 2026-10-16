@@ -54,7 +54,7 @@
   fileSystems."/boot/efi" = {
     device = "/dev/disk/by-uuid/D85B-8832";
     fsType = "vfat";
-    options = [ "fmask=0077" "dmask=0077" ];
+    options = [ "fmask=0077" "dmask=0077" "noauto" "x-systemd.automount" ];
   };
 
   hardware.graphics = {
@@ -81,6 +81,11 @@
     "/run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json";
   # GTK's Vulkan renderer wakes the dGPU on every launch; see docs/nvidia.md.
   environment.sessionVariables.GSK_RENDERER = "gl";
+  # Reaches SDDM's greeter kwin through PAM; unpinned, it wakes the dGPU at boot.
+  environment.sessionVariables.KWIN_DRM_DEVICES = "/dev/dri/intel-gpu";
+
+  # Restoring the keyboard backlight held sysinit.target for ~1.2s.
+  systemd.units."systemd-backlight@leds:dell::kbd_backlight.service".enable = false;
 
   services.automatic-timezoned.enable = true;
 
