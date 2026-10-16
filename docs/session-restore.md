@@ -2,10 +2,11 @@
 
 ## Intent
 
-- Restoring means reopening apps and putting their windows back on their
-  workspaces — never what is inside a window. Hence a short list of known
-  apps (`APPS` in `desktopctl/src/session.rs`), each relaunched either per
-  window (a terminal, in its shell's cwd) or as a whole (browser, editor,
+- Restoring means reopening a short list of known apps (`APPS` in
+  `desktopctl/src/session.rs`) and putting their windows back on their
+  workspaces, with what is inside a window where it can be brought back. Each
+  app relaunches either per window (a terminal, in its shell's cwd, resuming
+  the Claude Code session it was running) or as a whole (browser, editor,
   whose reopened windows are sorted by title). A new app is a row of one of
   those two kinds, never a third mechanism.
 - Only the workspace is restored: every listed app lives tiled.

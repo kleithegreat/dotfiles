@@ -6,7 +6,7 @@ use crate::{hypr, ipc, paths, theme};
 use serde::{Deserialize, Serialize};
 use std::{
     fs, io,
-    path::{Path, PathBuf},
+    path::PathBuf,
     thread,
     time::{Duration, Instant},
 };
@@ -72,6 +72,9 @@ pub(crate) struct Window {
     title: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     cwd: Option<PathBuf>,
+    /// The Claude Code session a terminal was running, resumed in it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    claude_session: Option<String>,
 }
 
 /// The windows of the running session, tagged with the Hyprland instance they
@@ -146,17 +149,23 @@ pub(crate) fn record() -> Result<Recording> {
         .filter_map(|window| {
             let app = APPS.iter().find(|app| app.class == window.class)?;
             Some(match app.relaunch {
-                Relaunch::PerWindow => Window {
-                    workspace: window.workspace.name,
-                    class: window.class,
-                    title: None,
-                    cwd: child_cwd(window.pid),
-                },
+                Relaunch::PerWindow => {
+                    let shell = children(window.pid).into_iter().next();
+                    Window {
+                        workspace: window.workspace.name,
+                        class: window.class,
+                        title: None,
+                        cwd: shell
+                            .and_then(|shell| fs::read_link(format!("/proc/{shell}/cwd")).ok()),
+                        claude_session: shell.and_then(claude_session),
+                    }
+                }
                 Relaunch::Whole => Window {
                     workspace: window.workspace.name,
                     class: window.class,
                     title: Some(window.title),
                     cwd: None,
+                    claude_session: None,
                 },
             })
         })
@@ -179,15 +188,36 @@ pub(crate) fn persist_recording(recording: &Recording) -> Result<()> {
     )
 }
 
-/// The working directory of a terminal's shell: its first child process.
-fn child_cwd(pid: i64) -> Option<PathBuf> {
+fn children(pid: i64) -> Vec<i64> {
     fs::read_dir(format!("/proc/{pid}/task"))
-        .ok()?
+        .into_iter()
+        .flatten()
         .filter_map(|task| fs::read_to_string(task.ok()?.path().join("children")).ok())
-        .find_map(|children| {
-            let child = children.split_whitespace().next()?;
-            fs::read_link(format!("/proc/{child}/cwd")).ok()
+        .flat_map(|children| {
+            children
+                .split_whitespace()
+                .filter_map(|child| child.parse().ok())
+                .collect::<Vec<_>>()
         })
+        .collect()
+}
+
+/// The session of a Claude Code process running under the shell. Claude Code
+/// keeps a file per live process; `--continue` would pick the latest session
+/// in the directory, not this one.
+fn claude_session(shell: i64) -> Option<String> {
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Live {
+        session_id: String,
+    }
+
+    let sessions = paths::home_dir().ok()?.join(".claude/sessions");
+    children(shell).into_iter().find_map(|child| {
+        let live: Live =
+            serde_json::from_slice(&fs::read(sessions.join(format!("{child}.json"))).ok()?).ok()?;
+        Some(live.session_id)
+    })
 }
 
 pub(crate) fn restore(windows: &[Window]) -> Result<()> {
@@ -333,7 +363,14 @@ fn determined(saved: &[&Window], opened: &[&hypr::WindowInfo]) -> bool {
 fn exec_on_workspace(app: &App, window: &Window) -> String {
     let mut command = app.command.to_owned();
     if let Some(cwd) = window.cwd.as_deref().filter(|cwd| cwd.is_dir()) {
-        command.push_str(&format!(" --working-directory {}", sh_quote(cwd)));
+        command.push_str(&format!(
+            " --working-directory {}",
+            sh_quote(&cwd.to_string_lossy())
+        ));
+    }
+    if let Some(session) = &window.claude_session {
+        let script = format!("claude --resume {}; exec \"$SHELL\"", sh_quote(session));
+        command.push_str(&format!(" --command sh -c {}", sh_quote(&script)));
     }
     format!(
         "hl.exec_cmd({}, {{ workspace = {} }})",
@@ -342,8 +379,8 @@ fn exec_on_workspace(app: &App, window: &Window) -> String {
     )
 }
 
-fn sh_quote(path: &Path) -> String {
-    format!("'{}'", path.to_string_lossy().replace('\'', r"'\''"))
+fn sh_quote(word: &str) -> String {
+    format!("'{}'", word.replace('\'', r"'\''"))
 }
 
 fn workspace_selector(name: &str) -> String {
@@ -442,6 +479,7 @@ mod tests {
             class: "helium".to_owned(),
             title: Some(title.to_owned()),
             cwd: None,
+            claude_session: None,
         }
     }
 
@@ -515,12 +553,28 @@ mod tests {
             class: "Alacritty".to_owned(),
             title: None,
             cwd: Some(PathBuf::from("/")),
+            claude_session: None,
         };
         assert_eq!(
             exec_on_workspace(&APPS[0], &window),
             r#"hl.exec_cmd("alacritty --working-directory '/'", { workspace = "special:scratch silent" })"#
         );
-        assert_eq!(sh_quote(Path::new("/a b/it's")), r"'/a b/it'\''s'");
+        assert_eq!(sh_quote("/a b/it's"), r"'/a b/it'\''s'");
+    }
+
+    #[test]
+    fn exec_resumes_a_claude_session_then_leaves_a_shell() {
+        let window = Window {
+            workspace: "2".to_owned(),
+            class: "Alacritty".to_owned(),
+            title: None,
+            cwd: None,
+            claude_session: Some("7e95341c".to_owned()),
+        };
+        assert_eq!(
+            exec_on_workspace(&APPS[0], &window),
+            r#"hl.exec_cmd("alacritty --command sh -c 'claude --resume '\\''7e95341c'\\''; exec \"$SHELL\"'", { workspace = "2 silent" })"#
+        );
     }
 
     #[test]

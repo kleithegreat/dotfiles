@@ -49,6 +49,10 @@ Open issues and pending validations. Delete entries when resolved.
       then confirm `sudo` and hyprlock both unlock by face, and that
       hyprlock's PAM thread (running as the user, not root) can read
       `/var/lib/howdy/models`.
+- [ ] Claude Code restore (`docs/session-restore.md`): after a relogin, each
+      terminal that was running `claude` reopens on its workspace inside
+      that session, a session that ran `/clear` comes back as the cleared
+      one, and quitting the resumed Claude leaves a zsh in the same cwd.
 - [ ] Under nftables: Tailscale, a podman container's network, and libvirt's
       default network all work.
 - [ ] Laptop greeter startup: every real SDDM greeter start waits 1.4–2.5s
