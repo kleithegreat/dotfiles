@@ -13,6 +13,8 @@
 The extension's biometrics toggle fails silently until the desktop app's
 "Allow browser integration" registers its native messaging host.
 
-### "Browser integration not enabled" is usually a stale native messaging host
-`~/.config/chromium/NativeMessagingHosts/com.8bit.bitwarden.json` names a
-store `desktop_proxy` that GC or an upgrade can remove; check its `path` first.
+### The desktop app registers Helium itself
+It writes its own manifest and proxy copy into
+`~/.config/net.imput.helium/NativeMessagingHosts/`, unlike Claude Code. A
+symlink to the Chromium manifest there gets written through, repointing
+Chromium at Helium's proxy.
