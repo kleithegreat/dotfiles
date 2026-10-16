@@ -124,7 +124,7 @@ writeShellApplication {
       # QEMU owns no UI.
       args+=(
         -vga none
-        -device apple-gfx-pci,id=gfx
+        -device "apple-gfx-pci,id=gfx"
         # A guest woken from S3 never gets the device's display back.
         -global ICH9-LPC.disable_s3=1
         -display none
