@@ -2,9 +2,12 @@
 
 {
   config = lib.mkIf host.isPhysical {
-    # SDDM shows VT 1's text for a moment when it hands off to the session.
+    # SDDM shows the console for a moment when it hands off to the session:
+    # keep it black, not boot text or GRUB's leftover framebuffer.
     boot.kernelParams = [
       "quiet"
+      "fbcon=nodefer"
+      "vt.global_cursor_default=0"
       "mitigations=off"
       "transparent_hugepage=madvise"
     ];
