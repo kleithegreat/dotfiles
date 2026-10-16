@@ -2,10 +2,13 @@
 
 {
   config = lib.mkIf host.isPhysical {
+    # SDDM shows VT 1's text for a moment when it hands off to the session.
     boot.kernelParams = [
+      "quiet"
       "mitigations=off"
       "transparent_hugepage=madvise"
     ];
+    boot.consoleLogLevel = 3;
     boot.kernelModules = [ "kvm-intel" ];
     boot.loader.grub = {
       enable = true;
