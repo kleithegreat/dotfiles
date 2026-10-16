@@ -31,6 +31,7 @@ final: prev: {
   };
   helium = final.callPackage ../pkgs/helium { };
   kernel-oom-notifier = final.callPackage ../pkgs/kernel-oom-notifier { };
+  linux-devmgmt = final.callPackage ../pkgs/linux-devmgmt { };
   lmstudio = final.callPackage ../pkgs/lmstudio {
     upstreamLmstudio = prev.lmstudio;
   };

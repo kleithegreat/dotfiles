@@ -50,6 +50,7 @@ in
     snappy-switcher
     macos-vm
     dd-cli
+    linux-devmgmt
     vicinae
     jq
     tree
