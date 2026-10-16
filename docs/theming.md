@@ -104,3 +104,11 @@ tmpfiles rule in sync with the staging path and never relax its mode.
 It re-checks only on a terminal colour notification Alacritty never sends. The
 `claude_code` target writes `~/.claude/themes/desktopctl.json`, which running
 sessions re-render from — only while settings select `"custom:desktopctl"`.
+
+### T3 Code shows the published palette only while it is selected
+The `t3code` target publishes `desktopctl` into `~/.t3/userdata/themes/`,
+which the server watches and streams to clients live, but nothing retints
+until that id is chosen in Settings or with `t3 theme set desktopctl`. A file
+the server rejects is dropped with only a log warning in
+`~/.t3/userdata/logs`, so validate output with `t3 theme set <file>
+--base-dir <scratch>` rather than trusting a silent app.

@@ -19,6 +19,7 @@ mod scheme_pair;
 mod snappy_switcher;
 mod spicetify;
 mod starship;
+mod t3code;
 mod tmux;
 mod vicinae;
 mod vscode;
@@ -169,6 +170,7 @@ pub const TARGETS: &[Target] = &[
     snappy_switcher::TARGET,
     spicetify::TARGET,
     starship::TARGET,
+    t3code::TARGET,
     tmux::TARGET,
     vicinae::TARGET,
     vscode::TARGET,
