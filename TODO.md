@@ -49,6 +49,10 @@ Open issues and pending validations. Delete entries when resolved.
       then confirm `sudo` and hyprlock both unlock by face, and that
       hyprlock's PAM thread (running as the user, not root) can read
       `/var/lib/howdy/models`.
+- [ ] Session anchor (`hyprland-session@`, `docs/hyprland.md`): log out with
+      Vicinae and log straight back in. The new session's `desktopctl` runs
+      and restores, `systemctl --user list-units 'hyprland-session@*'` shows
+      only the current instance, and the greeter-to-desktop gap is black.
 - [ ] Claude Code restore (`docs/session-restore.md`): after a relogin, each
       terminal that was running `claude` reopens on its workspace inside
       that session, a session that ran `/clear` comes back as the cleared
@@ -66,14 +70,6 @@ Open issues and pending validations. Delete entries when resolved.
 
 ## Open issues
 
-- [ ] Logout then relogin leaves the new session without `desktopctl`, so no
-      restore. Logout via logind `TerminateSession` skips the shutdown hook,
-      and a relogin inside the user manager's stop delay reuses it, old
-      desktopctl included. The start hook's `stop graphical-session.target`
-      takes desktopctl down, but a concurrent portal activation (its
-      `Requisite=`) replaces the pending stop, so the target never cycles and
-      nothing restarts desktopctl. Stopping then starting from inside a
-      session that is already starting things cannot be made race-free.
 
 - [ ] Hyprland (low): the Bitwarden popup rule matches
       `chrome-nngceckbapebfimnlniiiahkandclblb-Default`; check with

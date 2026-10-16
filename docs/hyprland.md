@@ -21,6 +21,11 @@
   Hyprland only through `hyprctl`/IPC; the daemon owns `hyprsunset`
   ([[sun-schedule]]); the wallpaper target owns `awww img`, autostart owns
   `awww-daemon`.
+- The session lives exactly as long as the Hyprland instance, enforced by
+  systemd, not by Hyprland hooks: a crash or a logind `TerminateSession` runs
+  no hook, and a quick relogin reuses the user manager. Each instance starts
+  `hyprland-session@<signature>`, which holds its event socket and binds
+  `graphical-session.target`. In-house rather than uwsm, by choice.
 - Output placement and the primary output are runtime state: host
   `monitors.lua` carries modes only, `displays.lua` applies what desktopctl
   recorded, and desktopctl pins the numbered workspaces live.

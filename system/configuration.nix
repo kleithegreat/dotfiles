@@ -99,6 +99,19 @@ in
     portalPackage = pkgs.hypr.portal;
   };
 
+  # The session is the Hyprland instance: the kernel closes its event socket
+  # however it ends, which ends the anchor and, with it, graphical-session.target.
+  systemd.user.services."hyprland-session@" = {
+    description = "Hyprland instance %i";
+    bindsTo = [ "graphical-session.target" ];
+    before = [ "graphical-session.target" ];
+    unitConfig.PropagatesStopTo = [ "graphical-session.target" ];
+    serviceConfig = {
+      ExecStart = "${lib.getExe pkgs.socat} -u UNIX-CONNECT:%t/hypr/%i/.socket2.sock STDOUT";
+      StandardOutput = "null";
+    };
+  };
+
   programs.hyprlock.enable = true;
   # hypridle.conf calls desktopctl.
   systemd.user.services.hypridle.path = [ pkgs.optimized.desktopctl ];

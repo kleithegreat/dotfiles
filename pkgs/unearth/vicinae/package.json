@@ -1,0 +1,25 @@
+{
+  "name": "unearth",
+  "title": "Unearth",
+  "description": "Search documents by what they say",
+  "icon": "icon.svg",
+  "author": "kevin",
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "search",
+      "title": "Search Documents",
+      "description": "Find documents by meaning, with keyword matches while the model loads",
+      "mode": "view"
+    }
+  ],
+  "scripts": {
+    "build": "vici build"
+  },
+  "dependencies": {
+    "@vicinae/api": "0.29.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24"
+  }
+}
