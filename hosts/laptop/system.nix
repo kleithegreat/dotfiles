@@ -3,6 +3,8 @@
 {
   boot.initrd.availableKernelModules = [ "xhci_pci" "thunderbolt" "vmd" "nvme" "rtsx_pci_sdmmc" ];
   programs.ccache.enable = true;
+  # Its stats helper wraps a Perl script, which security.wrappers now refuses.
+  security.wrappers.nix-ccache.enable = false;
   nix.settings.extra-sandbox-paths = [ config.programs.ccache.cacheDir ];
   boot.kernelPackages = pkgs.linuxPackagesFor (pkgs.linuxPackages.kernel.override {
     stdenv = pkgs.ccacheStdenv.override {

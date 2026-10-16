@@ -41,6 +41,8 @@ let
       ../patches/hyprland/hyprland-floating-top-decoration-rounding.patch
       ../patches/hyprland/hyprland-gcc15-designated-initializer-fix.patch
     ] (inputs.hyprland.packages.${system}.hyprland.override {
+      # security.wrappers needs an ELF to carry cap_sys_nice, not a shell script.
+      makeWrapper = final.makeBinaryWrapper;
       hyprland-guiutils = guiutils;
       glaze-hyprland = glaze;
     })
