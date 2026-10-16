@@ -30,6 +30,7 @@ in
     ./shell.nix
     ./gtk.nix
     ./packages.nix
+    ./unearth.nix
     ./xdg.nix
   ];
 

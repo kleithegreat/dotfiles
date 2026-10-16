@@ -31,6 +31,20 @@ final: prev: {
   };
   helium = final.callPackage ../pkgs/helium { };
   kernel-oom-notifier = final.callPackage ../pkgs/kernel-oom-notifier { };
+  # EmbeddingGemma 2 (unearth) needs v0.7.0; drop once nixpkgs has it.
+  llama-cpp = prev.llama-cpp.overrideAttrs (old: {
+    version = "0.7.0";
+    src = final.fetchFromGitHub {
+      owner = "ggml-org";
+      repo = "llama.cpp";
+      tag = "v0.7.0";
+      hash = "sha256-pEDYgI3AMTU+cekvRX7NNt5wddznydQSNuerswvEpsA=";
+    };
+    patches = [ ];
+    npmDepsHash = "sha256-hqYzdp1FwPhYkBP278fQXgY9NCKB6Q3P6Gko7BfP0m0=";
+    # Its fixture is the disabled, network-bound test-download-model.
+    disabledTests = old.disabledTests ++ [ "test-llama-context-model" ];
+  });
   linux-devmgmt = final.callPackage ../pkgs/linux-devmgmt { };
   lmstudio = final.callPackage ../pkgs/lmstudio {
     upstreamLmstudio = prev.lmstudio;
@@ -49,6 +63,8 @@ final: prev: {
   sddm-theme = final.callPackage ../pkgs/sddm-theme { };
   sf-pro = final.callPackage ../pkgs/sf-pro { };
   snappy-switcher = final.callPackage ../pkgs/snappy-switcher { };
+  unearth = final.callPackage ../pkgs/unearth { };
+  unearth-vicinae = final.callPackage ../pkgs/unearth/vicinae { };
   zsh-share-only = final.runCommand "zsh-share-only" { } /* bash */ ''
     mkdir --parents "$out/share"
     ln --symbolic ${final.zsh}/share/zsh "$out/share/zsh"
