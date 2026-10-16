@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 
 {
   programs.zsh.enable = true;
@@ -25,4 +25,7 @@
       KbdInteractiveAuthentication = false;
     };
   };
+
+  # Remote dev servers (VS Code, Zed) push generic-linux binaries over SSH.
+  programs.nix-ld.enable = config.services.openssh.enable;
 }
