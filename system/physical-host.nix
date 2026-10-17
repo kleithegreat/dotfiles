@@ -26,6 +26,9 @@
           search --set=root --file /EFI/Microsoft/Boot/bootmgfw.efi
           chainloader /EFI/Microsoft/Boot/bootmgfw.efi
         }
+        menuentry "UEFI Firmware Settings" {
+          fwsetup
+        }
       '';
     };
     boot.loader.efi = {
