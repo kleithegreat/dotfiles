@@ -1,10 +1,11 @@
-{ config, pkgs, ... }:
+{ config, lib, pkgs, ... }:
 
 {
   programs.zsh.enable = true;
 
   users.users.kevin = {
     isNormalUser = true;
+    uid = 1000;
     extraGroups = [
       "wheel"
       "networkmanager"
@@ -17,6 +18,10 @@
     initialPassword = "changeme";
     shell = pkgs.zsh;
   };
+
+  # Home Manager must finish before kevin's session starts, not before the greeter.
+  systemd.services.home-manager-kevin.before =
+    lib.mkForce [ "user@${toString config.users.users.kevin.uid}.service" ];
 
   services.openssh = {
     enable = true;
