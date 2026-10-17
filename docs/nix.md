@@ -21,7 +21,15 @@
   (Clang/LTO/CachyOS, forced initrd lists) already caused an undebuggable
   no-journal boot failure; runtime policy goes in `kernelParams`, sysctls and
   services. Only the laptop carries Kconfig trims, each its own boot-validated
-  change; they cost it every substitution, so it compiles through ccache.
+  change; they cost it every substitution.
+- Every derivation that cannot substitute (native, patched, trimmed,
+  unpackaged) compiles through a compiler cache: `pkgs.optimize.ccache` for
+  C/C++, `pkgs.optimize.sccache` for Rust; `optimize.cc` and `optimize.rust`
+  already apply them. Never on anything that would otherwise substitute: the
+  wrapper changes its hash, so it stops hitting the binary cache.
+- An override for one consumer is scoped to that consumer, never top-level:
+  top-level `llama-cpp` 0.7.0 for unearth silently made whisper-cpp,
+  ffmpeg-full and kdenlive local builds.
 - `pkgs.optimized.<name>` namespaces native builds and never shadows
   `pkgs.<name>`, so nothing that was not opted in loses cache hits. `zstd`,
   `lz4` and texlive stay out: the first two cascade rebuilds through

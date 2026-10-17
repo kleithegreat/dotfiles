@@ -31,21 +31,7 @@ final: prev: {
   };
   helium = final.callPackage ../pkgs/helium { };
   kernel-oom-notifier = final.callPackage ../pkgs/kernel-oom-notifier { };
-  # EmbeddingGemma 2 (unearth) needs v0.7.0; drop once nixpkgs has it.
-  llama-cpp = prev.llama-cpp.overrideAttrs (old: {
-    version = "0.7.0";
-    src = final.fetchFromGitHub {
-      owner = "ggml-org";
-      repo = "llama.cpp";
-      tag = "v0.7.0";
-      hash = "sha256-pEDYgI3AMTU+cekvRX7NNt5wddznydQSNuerswvEpsA=";
-    };
-    patches = [ ];
-    npmDepsHash = "sha256-hqYzdp1FwPhYkBP278fQXgY9NCKB6Q3P6Gko7BfP0m0=";
-    # Its fixture is the disabled, network-bound test-download-model.
-    disabledTests = old.disabledTests ++ [ "test-llama-context-model" ];
-  });
-  linux-devmgmt = final.callPackage ../pkgs/linux-devmgmt { };
+  linux-devmgmt = final.optimize.ccache (final.callPackage ../pkgs/linux-devmgmt { });
   lmstudio = final.callPackage ../pkgs/lmstudio {
     upstreamLmstudio = prev.lmstudio;
   };
@@ -55,15 +41,30 @@ final: prev: {
   # kdePackages.sddm is this scope's wrapper. Without the patch, logind's
   # TerminateSession (Vicinae's Log Out) leaves no greeter; see docs/hyprland.md.
   qt6Packages = prev.qt6Packages.overrideScope (qfinal: qprev: {
-    sddm-unwrapped = qprev.sddm-unwrapped.overrideAttrs (old: {
+    sddm-unwrapped = (final.optimize.ccache qprev.sddm-unwrapped).overrideAttrs (old: {
       patches = (old.patches or [ ]) ++ [ ../patches/sddm/sddm-helper-signal-is-not-auth-error.patch ];
     });
   });
-  reims-vgpu = final.callPackage ../pkgs/reims-vgpu { };
+  reims-vgpu = final.optimize.sccache (final.callPackage ../pkgs/reims-vgpu { });
   sddm-theme = final.callPackage ../pkgs/sddm-theme { };
   sf-pro = final.callPackage ../pkgs/sf-pro { };
-  snappy-switcher = final.callPackage ../pkgs/snappy-switcher { };
-  unearth = final.callPackage ../pkgs/unearth { };
+  snappy-switcher = final.optimize.ccache (final.callPackage ../pkgs/snappy-switcher { });
+  unearth = final.optimize.sccache (final.callPackage ../pkgs/unearth {
+    # EmbeddingGemma 2 needs v0.7.0; drop once nixpkgs has it.
+    llama-cpp = (final.optimize.ccache prev.llama-cpp).overrideAttrs (old: {
+      version = "0.7.0";
+      src = final.fetchFromGitHub {
+        owner = "ggml-org";
+        repo = "llama.cpp";
+        tag = "v0.7.0";
+        hash = "sha256-pEDYgI3AMTU+cekvRX7NNt5wddznydQSNuerswvEpsA=";
+      };
+      patches = [ ];
+      npmDepsHash = "sha256-hqYzdp1FwPhYkBP278fQXgY9NCKB6Q3P6Gko7BfP0m0=";
+      # Its fixture is the disabled, network-bound test-download-model.
+      disabledTests = old.disabledTests ++ [ "test-llama-context-model" ];
+    });
+  });
   unearth-vicinae = final.callPackage ../pkgs/unearth/vicinae { };
   zsh-share-only = final.runCommand "zsh-share-only" { } /* bash */ ''
     mkdir --parents "$out/share"

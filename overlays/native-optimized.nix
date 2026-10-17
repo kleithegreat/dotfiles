@@ -1,11 +1,10 @@
 # Host-native builds under `pkgs.optimized`; see docs/nix.md for what stays out.
 { lib, host }:
 
+final: prev:
 let
-  optimize = lib.optimize.forHost host;
-in
-_final: prev:
-let
+  optimize = lib.optimize.forHost host final;
+
   # Wired by hand, or wireplumber and quickshell link a second, stock pipewire.
   pipewire = optimize.cc prev.pipewire;
 in

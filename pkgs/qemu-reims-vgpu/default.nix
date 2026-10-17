@@ -1,5 +1,6 @@
 {
   lib,
+  optimize,
   qemu_kvm,
   fetchFromGitHub,
   fetchFromGitLab,
@@ -25,7 +26,7 @@ let
     libxkbcommon
   ];
 in
-(qemu_kvm.override {
+((optimize.ccache qemu_kvm).override {
   enableDocs = false;
   # macOS has no qemu-ga, and dropping it drops the one nixpkgs patch that
   # only it needed.
