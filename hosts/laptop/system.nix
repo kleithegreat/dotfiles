@@ -44,6 +44,11 @@
         DRM_NOUVEAU_SVM = lib.mkForce lib.kernel.unset;
       };
     }
+    {
+      # Otherwise the boot greeter power-cycles the eDP panel; see docs/hyprland.md.
+      name = "drm-max-bpc-change-is-a-mode-change";
+      patch = ../../patches/linux/drm-max-bpc-change-is-a-mode-change.patch;
+    }
   ];
 
   fileSystems."/" = {

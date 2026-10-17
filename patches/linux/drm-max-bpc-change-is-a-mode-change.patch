@@ -1,0 +1,14 @@
+--- a/drivers/gpu/drm/drm_atomic_helper.c
++++ b/drivers/gpu/drm/drm_atomic_helper.c
+@@ -733,9 +733,10 @@
+ 			    new_connector_state->link_status)
+ 				new_crtc_state->connectors_changed = true;
+ 
++			/* A mode change, so fastset can drop it when the pipe stays the same. */
+ 			if (old_connector_state->max_requested_bpc !=
+ 			    new_connector_state->max_requested_bpc)
+-				new_crtc_state->connectors_changed = true;
++				new_crtc_state->mode_changed = true;
+ 		}
+ 
+ 		if (funcs->atomic_check)

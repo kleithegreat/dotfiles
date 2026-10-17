@@ -79,6 +79,8 @@ in
     wayland.enable = true;
     # Weston's kiosk shell piles every per-output greeter onto one display.
     wayland.compositor = "kwin";
+    # Hyprland's max bpc, so switching to and from the greeter never modesets (docs/hyprland.md).
+    settings.General.GreeterEnvironment = "KWIN_DRM_PREFER_COLOR_DEPTH=24";
     theme = "where_is_my_sddm_theme";
     extraPackages = [
       pkgs.sddm-theme

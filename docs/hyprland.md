@@ -130,6 +130,18 @@ SDDM keeps the old greeter instead of starting a new one. The SDDM patch in
 it, only logouts where Hyprland exits on its own (`hl.dsp.exit`) bring the
 greeter back.
 
+### A `max bpc` change power-cycles the laptop panel
+Stock DRM treats any change to the connector's `max bpc` as a connector
+change. i915's fastset cannot drop that, so the commit is a full modeset even
+when the pipe ends up identical, and on eDP a full modeset is a ~1.3s panel
+power cycle. It looks like kwin is slow to start: its main thread blocks in
+one `DRM_IOCTL_MODE_ATOMIC`, and a headless kwin never shows it.
+`drm.debug=0x4` logs `PPS 0 turn panel power off` for each cycle. The boot
+default is 12, and kwin asks for 10 and Hyprland for 8. The laptop's kernel
+patch makes a change that leaves the pipe alone a fastset. On an output that
+can really do 10-bit, kwin's 10 changes the pipe, hence
+`KWIN_DRM_PREFER_COLOR_DEPTH=24` in SDDM's greeter environment.
+
 ### MX Master 2S smart-shift caps at 50
 50 *is* always-ratcheted; higher values fail.
 
