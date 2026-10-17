@@ -10,8 +10,7 @@
   are one set: upstream promises no ABI compatibility across revisions.
 - `pkgs/macos-vm` owns fetch, install and boot. Upstream's `boot-x86.sh` is an
   agent-testing harness, so the QEMU command line is reproduced, not vendored.
-- One package for both hosts; on the laptop, `nvidia-offload macos-vm run`
-  ([[nvidia]]).
+- Desktop only.
 - The reims device is the only display when present; `--console`
   (vmware-svga) covers before its driver attaches. Never both: a second VGA is
   a second screen.

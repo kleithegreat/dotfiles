@@ -50,7 +50,6 @@ in
     optimized.lsp-plugins
     optimized.quickshell
     snappy-switcher
-    macos-vm
     dd-cli
     linux-devmgmt
     vicinae

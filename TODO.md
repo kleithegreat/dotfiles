@@ -28,12 +28,10 @@ Open issues and pending validations. Delete entries when resolved.
       monitor still auto-selects. Drag a display in the arrangement canvas and
       check the edge snap and the countdown's revert with two outputs.
 
-- [ ] macOS VM, after the move to upstream's `apple-gfx-pci` and its option
-      ROM: `nvidia-offload macos-vm run` on the laptop boots the installed
-      Ventura guest to a rendered desktop on the 3050, and OpenCore's picker
-      now shows in the device's own window. Still unchecked: the Tahoe
-      install in `~/vm/macos-tahoe` booted on the device, the desktop host,
-      and `--console`. See `docs/macos-vm.md`.
+- [ ] macOS VM on the desktop host, after the move to upstream's
+      `apple-gfx-pci` and its option ROM (`docs/macos-vm.md`): boot a guest to
+      a rendered desktop on the device, then the Tahoe install, then
+      `--console`.
 - [ ] Ableton Live on the desktop host (`docs/ableton-live.md`): only tested
       on the laptop at scale 1 on the iGPU. Run upstream's `setup-prefix`,
       install Live, and re-test click targeting on the RTX 3080.

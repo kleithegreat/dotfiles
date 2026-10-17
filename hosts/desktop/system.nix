@@ -94,4 +94,6 @@
       RestartSec = 30;
     };
   };
+
+  environment.systemPackages = [ pkgs.macos-vm ];
 }
