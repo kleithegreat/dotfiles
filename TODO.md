@@ -49,24 +49,20 @@ Open issues and pending validations. Delete entries when resolved.
       then confirm `sudo` and hyprlock both unlock by face, and that
       hyprlock's PAM thread (running as the user, not root) can read
       `/var/lib/howdy/models`.
-- [ ] Session anchor (`hyprland-session@`, `docs/hyprland.md`): log out with
-      Vicinae and log straight back in. The new session's `desktopctl` runs
-      and restores, `systemctl --user list-units 'hyprland-session@*'` shows
-      only the current instance, and the greeter-to-desktop gap is black.
 - [ ] Claude Code restore (`docs/session-restore.md`): after a relogin, each
       terminal that was running `claude` reopens on its workspace inside
       that session, a session that ran `/clear` comes back as the cleared
       one, and quitting the resumed Claude leaves a zsh in the same cwd.
 - [ ] Under nftables: Tailscale, a podman container's network, and libvirt's
       default network all work.
-- [ ] Laptop greeter startup: every real SDDM greeter start waits 1.4–2.5s
-      for kwin to answer its first `wl_display.sync`, even after a logout on
-      an idle system. kwin's main thread stalls ~1.25s between its last
-      built-in effect and the first scripted one (`logout`); a headless
-      `--virtual` kwin, even on a private bus with a fresh home, does it in
-      ~13ms. Ruled out: the dGPU, boot contention, KGlobalAccelD, cold
-      caches. Next: profile a real greeter start (strace or perf on the
-      sddm user's `kwin_wayland`) across a logout.
+- [ ] Laptop panel power cycles (`docs/hyprland.md`): the boot greeter's
+      stall fell from ~2s to 0.88s with the kernel patch. Still to confirm: a
+      logout and login log no `PPS 0 turn panel power off` under
+      `drm.debug=0x4`.
+- [ ] Desktop: `id -u kevin` must print 1000 before its first rebuild with
+      the uid pinned in `system/users.nix`.
+- [ ] `tcp_bbr`/`sch_fq` preloaded (`system/physical-host.nix`):
+      `systemd-sysctl.service` takes well under 0.1s on every boot.
 
 ## Open issues
 

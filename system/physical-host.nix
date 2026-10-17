@@ -15,6 +15,9 @@
     boot.kernelModules = [
       "kvm-intel"
       "ntsync" # ableton-wine's Wine requires /dev/ntsync
+      # The sysctls below would autoload these behind every pending driver probe.
+      "tcp_bbr"
+      "sch_fq"
     ];
     boot.loader.grub = {
       enable = true;
