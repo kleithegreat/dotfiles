@@ -69,19 +69,19 @@ in
   };
 
   # A partial set of the metapackage's parts leaves the template browser empty.
-  comfyui-workflow-templates-core = workflowTemplates "core" "0.3.373" "sha256-KOhNOmiwGO5k+ttJd5s3dr6c4/BP4ZLQ4cVgDUVAdzY=";
-  comfyui-workflow-templates-json = workflowTemplates "json" "0.1.108" "sha256-W4mafHncAGTvUoLjkdEowTljqicmt1chaNXxf+aO+rI=";
+  comfyui-workflow-templates-core = workflowTemplates "core" "0.3.380" "sha256-PppQKYDqWjuGfIFei42cFdyJmtwMxL9TgyIyeq2Vzsw=";
+  comfyui-workflow-templates-json = workflowTemplates "json" "0.1.115" "sha256-Tm5gehoGCzLToo2lGFgIeWRwYzYJ4n2+zGQSI5GsI8U=";
   comfyui-workflow-templates-media-api = workflowTemplates "media_api" "0.3.84" "sha256-wtalmZrDnk839HriMcklV97+Wt2yzGq1wRQQtNWikQo=";
   comfyui-workflow-templates-media-video = workflowTemplates "media_video" "0.3.101" "sha256-YnD9YcjDkxtvADGrrH1MkM7WJN5seRi/+FuJ5sPXSTw=";
   comfyui-workflow-templates-media-image = workflowTemplates "media_image" "0.3.160" "sha256-1KXFVBxwiPatscfaQfXXwcFKA37aamHNi0t2wlH6qpM=";
   comfyui-workflow-templates-media-other = workflowTemplates "media_other" "0.3.229" "sha256-zj2Y+p2EuRTDNf5cm8kDz+++GTKxvDy2uu9/NxtL1DU=";
   comfyui-workflow-templates-media-assets-01 = workflowTemplates "media_assets_01" "0.1.48" "sha256-dzPtEoZ+lea4s5viC8xzV5wo6X5aRAhv+5d8wsHHjEM=";
-  comfyui-workflow-templates-media-assets-02 = workflowTemplates "media_assets_02" "0.1.14" "sha256-3pKIxa99S+XuPT24VE4xSJ8QjIrZ6skheOuvbhJNxk8=";
+  comfyui-workflow-templates-media-assets-02 = workflowTemplates "media_assets_02" "0.1.17" "sha256-UFFGjJKkYwFtVqkOzAPmflIpn6y0bnJGkIxFAYzdX+0=";
 
   comfyui-workflow-templates = fetchWheel {
     pname = "comfyui_workflow_templates";
-    version = "0.11.82";
-    hash = "sha256-DEy1bz5HGRy9nUl6CA3TWr7gj3U3LT2oai+dZ2WlcJY=";
+    version = "0.11.89";
+    hash = "sha256-1Y0qvWWKoqWZc2qw02by2buTLsjHdmtoBokJO0p5suI=";
     dependencies = with final; [
       comfyui-workflow-templates-core
       comfyui-workflow-templates-json
@@ -152,9 +152,9 @@ in
   # Optional: ComfyUI degrades to "no fp8/fp4 support" without it.
   comfy-kitchen = fetchWheel {
     pname = "comfy_kitchen";
-    version = "0.2.37";
+    version = "0.2.38";
     tag = "cp312-abi3-manylinux_2_27_x86_64.manylinux_2_28_x86_64";
-    hash = "sha256-A8yg0QwxSqoTv/j5Qi0Dl0Iho0QWKyPU8Q0n6yo10Og=";
+    hash = "sha256-PgYgsGkzhsRJ2Q8HdyMxnIcqKpghexX60Ac78EBgeR4=";
     nativeBuildInputs = with prev.pkgs; [
       autoPatchelfHook
       autoAddDriverRunpath
