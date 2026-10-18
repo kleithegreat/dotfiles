@@ -48,6 +48,34 @@
   environment.sessionVariables.__EGL_VENDOR_LIBRARY_FILENAMES =
     "/run/opengl-driver/share/glvnd/egl_vendor.d/10_nvidia.json:/run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json";
 
+  # ── GPU fans ──────────────────────────────────────────────────
+  services.lact.enable = true;
+  # Not `services.lact.settings`: lactd needs integer curve keys, which it can only emit as strings.
+  environment.etc."lact/config.yaml".text = /* yaml */ ''
+    version: 7
+    daemon:
+      log_level: info
+      admin_group: wheel
+    gpus:
+      10DE:2206-10DE:1467-0000:01:00.0:
+        fan_control_enabled: true
+        fan_control_settings:
+          mode: curve
+          static_speed: 1.0
+          temperature_key: GPU
+          interval_ms: 500
+          curve:
+            50: 0.40
+            60: 0.55
+            70: 0.75
+            78: 1.0
+          spindown_delay_ms: 5000
+          change_threshold: 2
+          # Manual mode can't stop the fans; below this the vBIOS's zero-RPM idle takes over.
+          auto_threshold: 45
+  '';
+  systemd.services.lactd.restartTriggers = [ config.environment.etc."lact/config.yaml".source ];
+
   # ── Location ──────────────────────────────────────────────────
   # Stationary: pinned, not geolocated (docs/sun-schedule.md). Ithaca, NY.
   time.timeZone = "America/New_York";
