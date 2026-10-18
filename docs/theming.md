@@ -91,9 +91,12 @@ the *selected* scheme because vicinae's own light/dark reading disagrees with
 everything else. Its custom themes in `~/.local/share/vicinae/themes/`
 override packaged ones of the same ID.
 
-### Chromium-family prefs are profile-local and not live-reloaded
-Only active profiles are patched, and a running browser can rewrite the file
-on exit: rerun the target after closing it.
+### Chromium-family prefs are not live; dark mode rides the portal
+A running browser never re-reads `Preferences` and writes its in-memory copy
+back over ours, so a per-hint `color_scheme2` was silently reverted. It is
+pinned to "Device" (0) and polarity reaches the browser live via the portal's
+`color-scheme`, i.e. the gtk target's dconf write. Fonts still need a restart;
+only active profiles are patched.
 
 ### The SDDM wallpaper handoff is a hardened two-stage bridge
 SDDM can't read the 0700 home, so the target stages into a tmpfiles-created

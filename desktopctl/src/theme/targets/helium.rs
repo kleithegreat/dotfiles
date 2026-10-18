@@ -4,8 +4,7 @@ use crate::theme::{
     schema::{ColorScheme, ThemeState},
 };
 
-pub const TARGET: Target =
-    Target::hooks("helium", &["system_font", "mono_font", "dark_hint"]).persist(persist);
+pub const TARGET: Target = Target::hooks("helium", &["system_font", "mono_font"]).persist(persist);
 
 const HELIUM_CONFIG_DIR: &str = "~/.config/net.imput.helium";
 
