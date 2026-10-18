@@ -53,6 +53,19 @@ in
   );
   torchvision-bin = prev.torchvision-bin.override { inherit cudaPackages; };
 
+  # nixpkgs makes libcuda_dirs() return a file path string, which Triton
+  # unpacks into one `-L` per character and fails its first kernel build.
+  triton-bin = prev.triton-bin.overridePythonAttrs (old: {
+    postFixup =
+      old.postFixup
+      + /* bash */ ''
+        substituteInPlace "$out/${final.python.sitePackages}/triton/backends/nvidia/driver.py" \
+          --replace-fail \
+            "return '${prev.pkgs.addDriverRunpath.driverLink}/lib/libcuda.so'" \
+            "return ['${prev.pkgs.addDriverRunpath.driverLink}/lib']"
+      '';
+  });
+
   torch = final.torch-bin;
   torchvision = final.torchvision-bin;
 
