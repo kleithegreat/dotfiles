@@ -114,15 +114,22 @@ in
           [ -w "$CCACHE_DIR" ] || export CCACHE_DISABLE=1
         '';
       };
-      sccacheHook = final.makeSetupHook { name = "sccache-hook"; } (
-        final.writeText "sccache-hook.sh" /* bash */ ''
-          if [ -w ${sccacheDir} ]; then
-            export RUSTC_WRAPPER=${lib.getExe final.sccache} SCCACHE_DIR=${sccacheDir}
-            # sccache has no umask setting; every nixbld user must be able to write its entries.
+      sccacheHook =
+        let
+          # sccache has no umask setting; every nixbld user must be able to write its entries.
+          # Never in the hook itself: a group-writable $out makes Nix reject the build.
+          sccache = final.writeShellScript "sccache" /* bash */ ''
             umask 007
-          fi
-        ''
-      );
+            exec ${lib.getExe final.sccache} "$@"
+          '';
+        in
+        final.makeSetupHook { name = "sccache-hook"; } (
+          final.writeText "sccache-hook.sh" /* bash */ ''
+            if [ -w ${sccacheDir} ]; then
+              export RUSTC_WRAPPER=${sccache} SCCACHE_DIR=${sccacheDir}
+            fi
+          ''
+        );
     })
   ];
 
