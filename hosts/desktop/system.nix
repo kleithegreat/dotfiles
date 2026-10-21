@@ -82,44 +82,32 @@
   environment.sessionVariables.DESKTOPCTL_LOCATION = "42.4440,-76.5019";
 
   # ── Heater ────────────────────────────────────────────────────
-  # Wanted by nothing: the shell's Power pane starts and stops it.
-  systemd.user.services.heater = {
-    description = "Folding@home as a space heater";
-    serviceConfig = {
-      ExecStart = lib.getExe pkgs.fahclient;
-      StateDirectory = "heater";
-      WorkingDirectory = "%S/heater";
-      Restart = "on-failure";
+  # Wanted by nothing: the shell's Power pane starts and stops it. Both miners
+  # pay this Kryptex account, which holds earnings as BTC.
+  systemd.user.targets.heater.description = "Mine on the GPU and every core as a space heater";
+  systemd.user.services = let
+    account = "kevvinlei89@gmail.com/%H";
+  in {
+    heater-gpu = {
+      description = "Mine Conflux on the GPU";
+      partOf = [ "heater.target" ];
+      requiredBy = [ "heater.target" ];
+      serviceConfig = {
+        ExecStart = "${lib.getExe pkgs.rigel} --algorithm octopus --url stratum+tcp://cfx-us.kryptex.network:7027 --username ${account} --no-tui";
+        Restart = "on-failure";
+        RestartSec = 30;
+      };
     };
-  };
-  # Covers gaps in Folding@home's GPU work, yielding once a GPU core runs.
-  systemd.user.services.heater-gpu-fallback = {
-    description = "Burn the GPU while Folding@home has no work for it";
-    partOf = [ "heater.service" ];
-    wantedBy = [ "heater.service" ];
-    serviceConfig = {
-      ExecStart = lib.getExe (pkgs.writeShellApplication {
-        name = "heater-gpu-fallback";
-        runtimeInputs = [
-          config.hardware.nvidia.package.bin
-          pkgs.coreutils
-          pkgs.gnugrep
-          pkgs.gpu-burn
-        ];
-        text = /* bash */ ''
-          while true; do
-            if nvidia-smi --query-compute-apps=name --format=csv,noheader | grep --quiet FahCore; then
-              sleep 30
-            else
-              # 1 GB already pins the card at full power. Without `-stts` every
-              # burst is followed by 30 idle seconds of waiting on its workers.
-              gpu_burn -stts 1 -m 1024 120 > /dev/null 2>&1
-            fi
-          done
-        '';
-      });
-      Restart = "on-failure";
-      RestartSec = 30;
+    heater-cpu = {
+      description = "Mine Monero on every core";
+      partOf = [ "heater.target" ];
+      requiredBy = [ "heater.target" ];
+      serviceConfig = {
+        ExecStart = "${lib.getExe pkgs.xmrig} --coin=XMR --url=xmr-us.kryptex.network:7029 --user=${account} --no-color";
+        CPUSchedulingPolicy = "idle";
+        Restart = "on-failure";
+        RestartSec = 30;
+      };
     };
   };
 

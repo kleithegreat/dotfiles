@@ -80,10 +80,6 @@ screen. Geometry is placed while hidden and animated only while shown; those
 State a probe would set defaults to "absent", and probes never chain on
 another's exit code — the chain stalls silently at the first missing binary.
 
-### Heater on, machine idle: the client's own state
-Folding@home keeps "paused" and per-GPU enables in `client.db`; a fresh one
-starts paused. Set once from its web control.
-
 ### Battery sysfs reports a charge interval even when the cap is off
 The thresholds show the stored interval in any mode; only
 `smbios-battery-ctl --get-charging-cfg` says whether the cap is engaged.

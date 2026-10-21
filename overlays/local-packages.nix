@@ -43,11 +43,6 @@ final: prev: {
   };
   dd-cli = final.callPackage ../pkgs/dd-cli { };
   desktopctl = final.callPackage ../desktopctl { };
-  # Shares comfyui's CUDA set rather than pulling the default one in beside it.
-  gpu-burn = prev.gpu-burn.override {
-    config = prev.config // { cudaSupport = true; };
-    cudaPackages = final.cudaPackages_13_3;
-  };
   helium = final.callPackage ../pkgs/helium { };
   kernel-oom-notifier = final.callPackage ../pkgs/kernel-oom-notifier { };
   linux-devmgmt = final.optimize.ccache (final.callPackage ../pkgs/linux-devmgmt { });
@@ -57,6 +52,7 @@ final: prev: {
   macos-vm = final.callPackage ../pkgs/macos-vm { };
   neuwaita = final.callPackage ../pkgs/neuwaita { };
   qemu-reims-vgpu = final.callPackage ../pkgs/qemu-reims-vgpu { };
+  rigel = final.callPackage ../pkgs/rigel { };
   # kdePackages.sddm is this scope's wrapper. Without the patch, logind's
   # TerminateSession (Vicinae's Log Out) leaves no greeter; see docs/hyprland.md.
   qt6Packages = prev.qt6Packages.overrideScope (qfinal: qprev: {

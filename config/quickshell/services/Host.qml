@@ -41,7 +41,7 @@ QtObject {
 
     readonly property Process _heater: Process {
         running: true
-        command: ["systemctl", "--user", "cat", "heater.service"]
+        command: ["systemctl", "--user", "cat", "heater.target"]
         onExited: code => root.heater = code === 0
     }
 

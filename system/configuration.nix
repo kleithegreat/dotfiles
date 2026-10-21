@@ -14,6 +14,7 @@ let
     "discord-unwrapped"
     "lmstudio"
     "obsidian"
+    "rigel"
     "slack"
     "spotify"
     "unrar"
@@ -32,7 +33,7 @@ let
     "nvidia-settings"
     "nvidia-x11"
 
-    # CUDA userspace — comfyui -> torch, gpu-burn
+    # CUDA userspace — comfyui -> torch
     "cccl"
     "cuda-bindings"
     "cuda_crt"

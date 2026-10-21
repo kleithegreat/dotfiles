@@ -42,6 +42,10 @@ Open issues and pending validations. Delete entries when resolved.
       needed; `BAT0` has no `power_now`, so draw is `current_now` ×
       `voltage_now`.
 
+- [ ] Desktop heater: toggle Heater mode and confirm both miners show up as
+      `desktop` workers on pool.kryptex.com, the 3080 holds full power, and
+      the desktop stays responsive while xmrig runs at idle priority.
+
 - [ ] Laptop face auth: after `sudo linux-enable-ir-emitter configure`, add
       and remove a face from Settings → Authentication (pkexec, no prompt),
       then confirm `sudo` and hyprlock both unlock by face, and that

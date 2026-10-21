@@ -3,7 +3,7 @@ pragma Singleton
 import QtQuick
 import Quickshell.Io
 
-// Heater mode is the `heater` user unit being active, nothing more.
+// Heater mode is the `heater` user target being active, nothing more.
 QtObject {
     id: root
 
@@ -19,13 +19,13 @@ QtObject {
         if (busy)
             return;
         active = enabled;
-        command.command = ["systemctl", "--user", enabled ? "start" : "stop", "heater.service"];
+        command.command = ["systemctl", "--user", enabled ? "start" : "stop", "heater.target"];
         command.running = true;
     }
 
     readonly property Process _status: Process {
         id: status
-        command: ["systemctl", "--user", "is-active", "--quiet", "heater.service"]
+        command: ["systemctl", "--user", "is-active", "--quiet", "heater.target"]
         onExited: code => root.active = code === 0
     }
 

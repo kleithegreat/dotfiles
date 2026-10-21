@@ -93,7 +93,7 @@ Ui.Scroll {
         Ui.Group {
             title: "Heater"
             visible: Sys.Host.heater
-            footnote: "Runs Folding@home on every core and the GPU."
+            footnote: "Mines Conflux on the GPU and Monero on every core."
 
             Ui.ListRow {
                 Layout.fillWidth: true
