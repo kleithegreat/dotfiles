@@ -2,16 +2,17 @@
 
 {
   config = lib.mkIf host.isPhysical {
-    # SDDM shows the console for a moment when it hands off to the session:
-    # keep it black, not boot text or GRUB's leftover framebuffer.
     boot.kernelParams = [
-      "quiet"
-      "fbcon=nodefer"
       "vt.global_cursor_default=0"
       "mitigations=off"
       "transparent_hugepage=madvise"
     ];
-    boot.consoleLogLevel = 3;
+    # SDDM shows its greeter's VT for a moment when it hands off to the
+    # session: wipe the boot log off VT 1 before the greeter takes it.
+    systemd.services.display-manager.serviceConfig = {
+      TTYPath = "/dev/tty1";
+      TTYVTDisallocate = true;
+    };
     boot.kernelModules = [
       "kvm-intel"
       "ntsync" # ableton-wine's Wine requires /dev/ntsync
