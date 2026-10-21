@@ -1,4 +1,23 @@
 final: prev: {
+  # nccl4py's export-subst file drifts the tag tarball's hash as the repo
+  # grows, like pikepdf's; drop once nixpkgs strips it.
+  _cuda = prev._cuda.extend (
+    _: prevAttrs: {
+      extensions = prevAttrs.extensions ++ [
+        (_: cudaPrev: {
+          nccl = cudaPrev.nccl.overrideAttrs (old: {
+            src = old.src.override {
+              hash = "sha256-dKFTjGtpu+efm9vajLinUCcOaSsYvVmkjZwtFbx0nyk=";
+              postFetch = /* bash */ ''
+                rm "$out/bindings/nccl4py/.git_archival.txt"
+              '';
+            };
+          });
+        })
+      ];
+    }
+  );
+
   cantarell-fonts = prev.cantarell-fonts.overrideAttrs (old: {
     # The variable OTF fails in otfautohint on this pin; drop once a default build works.
     mesonFlags = (old.mesonFlags or []) ++ [
