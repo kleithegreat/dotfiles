@@ -52,7 +52,7 @@ final: prev: {
   macos-vm = final.callPackage ../pkgs/macos-vm { };
   neuwaita = final.callPackage ../pkgs/neuwaita { };
   qemu-reims-vgpu = final.callPackage ../pkgs/qemu-reims-vgpu { };
-  rigel = final.callPackage ../pkgs/rigel { };
+  srbminer = final.callPackage ../pkgs/srbminer { };
   # kdePackages.sddm is this scope's wrapper. Without the patch, logind's
   # TerminateSession (Vicinae's Log Out) leaves no greeter; see docs/hyprland.md.
   qt6Packages = prev.qt6Packages.overrideScope (qfinal: qprev: {

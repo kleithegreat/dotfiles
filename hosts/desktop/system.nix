@@ -65,10 +65,10 @@
           temperature_key: GPU
           interval_ms: 500
           curve:
-            50: 0.40
-            60: 0.55
-            70: 0.75
-            78: 1.0
+            50: 0.50
+            60: 0.65
+            70: 0.85
+            75: 1.0
           spindown_delay_ms: 5000
           change_threshold: 2
           # Manual mode can't stop the fans; below this the vBIOS's zero-RPM idle takes over.
@@ -89,11 +89,16 @@
     account = "kevvinlei89@gmail.com/%H";
   in {
     heater-gpu = {
-      description = "Mine Conflux on the GPU";
+      description = "Mine Pearl on the GPU";
       partOf = [ "heater.target" ];
       requiredBy = [ "heater.target" ];
       serviceConfig = {
-        ExecStart = "${lib.getExe pkgs.rigel} --algorithm octopus --url stratum+tcp://cfx-us.kryptex.network:7027 --username ${account} --no-tui";
+        # Compute-bound on purpose: a DAG coin fills the 10 GB card and starves the desktop of VRAM.
+        # Without a TTY it prints nothing; the log file is the journal's only feed.
+        ExecStart = "${lib.getExe pkgs.srbminer} --disable-cpu --algorithm pearlhash --pool prl-us.kryptex.network:7048 --wallet ${account} --log-file /dev/stdout";
+        # Autotune results and compiled kernels land in the working directory.
+        StateDirectory = "heater";
+        WorkingDirectory = "%S/heater";
         Restart = "on-failure";
         RestartSec = 30;
       };
