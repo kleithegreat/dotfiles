@@ -82,6 +82,12 @@
     # On the tmpfs /tmp, large CUDA build trees OOM the machine. No age on the
     # rule: survivors are `--keep-failed` trees somebody wants to inspect.
     systemd.services.nix-daemon.environment.TMPDIR = "/var/tmp/nix-daemon";
+    # Builders inherit the score, so the kernel and oomd kill builds before the session.
+    systemd.services.nix-daemon.serviceConfig = {
+      OOMScoreAdjust = 1000;
+      ManagedOOMMemoryPressure = "kill";
+      ManagedOOMMemoryPressureLimit = "50%";
+    };
     systemd.tmpfiles.rules = [ "d /var/tmp/nix-daemon 0755 root root -" ];
 
     networking.useDHCP = lib.mkDefault true;
