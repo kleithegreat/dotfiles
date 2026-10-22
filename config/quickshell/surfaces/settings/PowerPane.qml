@@ -93,7 +93,7 @@ Ui.Scroll {
         Ui.Group {
             title: "Heater"
             visible: Sys.Host.heater
-            footnote: "Mines Conflux on the GPU and Monero on every core."
+            footnote: "Mines Pearl on the GPU and Monero on every core."
 
             Ui.ListRow {
                 Layout.fillWidth: true
