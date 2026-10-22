@@ -83,7 +83,14 @@ function M.setup()
     },
   })
 
-  vim.lsp.enable({ "lua_ls", "pyright", "texlab", "ltex" })
+  vim.filetype.add({ extension = { bend = "bend" } })
+  vim.lsp.config("bend2_lsp", {
+    cmd = { "bend2-lsp", "--stdio" },
+    filetypes = { "bend" },
+    root_markers = { ".git" },
+  })
+
+  vim.lsp.enable({ "lua_ls", "pyright", "texlab", "ltex", "bend2_lsp" })
 end
 
 return M

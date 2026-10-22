@@ -83,6 +83,7 @@ in
     pyright
     texlab
     ltex-ls
+    bend2-lsp
     alacritty
     ghostty
     tmux

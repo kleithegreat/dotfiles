@@ -26,6 +26,7 @@ final: prev: {
     ];
   });
 
+  bend2-lsp = final.callPackage ../pkgs/bend2-lsp { };
   bambu-studio = final.callPackage ../pkgs/bambu-studio {
     upstreamBambuStudio = prev.bambu-studio;
   };
