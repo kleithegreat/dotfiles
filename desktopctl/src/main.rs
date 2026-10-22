@@ -54,6 +54,9 @@ enum TopLevelCommand {
     /// Inspect solar scheduling state.
     #[command(subcommand)]
     Sun(SunCommand),
+    /// Start or stop the desktop host's heater miners.
+    #[command(subcommand)]
+    Heater(HeaterCommand),
 }
 
 #[derive(Debug, Subcommand)]
@@ -311,6 +314,14 @@ enum SunCommand {
     Status,
 }
 
+#[derive(Debug, Subcommand)]
+enum HeaterCommand {
+    /// Start mining on the GPU and every core.
+    On,
+    /// Stop both miners.
+    Off,
+}
+
 pub(crate) type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 pub(crate) fn invalid_input(message: impl Into<String>) -> std::io::Error {
@@ -346,6 +357,7 @@ fn run() -> Result<()> {
         TopLevelCommand::Session(command) => session::run(command),
         TopLevelCommand::Theme(command) => theme::run(command),
         TopLevelCommand::Sun(SunCommand::Status) => solar::print_status(),
+        TopLevelCommand::Heater(command) => run_heater(command),
     }
 }
 
@@ -466,6 +478,21 @@ fn run_hypr_monitors(command: HyprMonitorsCommand) -> Result<()> {
             ipc::methods::HYPR_MONITORS_LAYOUT,
             serde_json::json!({ "outputs": serde_json::from_str::<serde_json::Value>(&args.payload)? }),
         ),
+    }
+}
+
+fn run_heater(command: HeaterCommand) -> Result<()> {
+    let verb = match command {
+        HeaterCommand::On => "start",
+        HeaterCommand::Off => "stop",
+    };
+    let status = std::process::Command::new("systemctl")
+        .args(["--user", verb, "heater.target"])
+        .status()?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("systemctl --user {verb} heater.target: {status}").into())
     }
 }
 

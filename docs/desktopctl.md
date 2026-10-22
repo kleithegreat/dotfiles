@@ -7,9 +7,9 @@
   light, the window session). CLI write subcommands are socket clients that
   hard-fail when the daemon is unreachable — never a second writer.
 - Exceptions: `theme sync` runs in-process because Home Manager activation has
-  no session; `toggle-float`, `lid-switch` and `reclaim-workspaces` persist
-  nothing and must work with the session locked or the daemon dead. Status
-  reads prefer the daemon but fall back to direct reads.
+  no session; `toggle-float`, `lid-switch`, `reclaim-workspaces` and
+  `heater` persist nothing and must work with the session locked or the daemon
+  dead. Status reads prefer the daemon but fall back to direct reads.
 - Subscribers get a snapshot per topic, then change events after each commit.
   A snapshot may span events (brightness sends DDC devices after enumeration,
   so the slider never waits a second to exist), so subscribers merge by device.
