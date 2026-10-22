@@ -106,6 +106,8 @@ in
       source = "${pkgs.bambu-studio}/share/applications/BambuStudio.desktop";
       force = true;
     };
+    "nvim/site/parser/bend.so".source = "${pkgs.tree-sitter-bend2}/parser";
+    "nvim/site/queries/bend".source = "${pkgs.tree-sitter-bend2}/queries";
   };
 
   xdg.desktopEntries.code = {

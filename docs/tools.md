@@ -11,6 +11,9 @@
   generated fragment (zsh's `theme-colors`).
 - Zsh history is single and global: substring search and autosuggestions over
   one file. Per-directory history fights `history.share`.
+- `pkgs/tree-sitter-bend2` mirrors the parser in `bend2/bend.ts` of the Bend
+  release its `version` names, glue and column rules included, rather than
+  approximating the syntax. A Bend bump re-checks it against that release.
 
 ## Quirks
 
@@ -35,6 +38,10 @@ commit. Without the checkout there it dangles.
 ### auto-save.nvim is pinned to an archived upstream knowingly
 If it breaks, the drop-in fork is `okuuva/auto-save.nvim` (`trigger_events`
 becomes `immediate_save`/`defer_save`).
+
+### About 90 of Bend's own `.bend` files fail the Bend grammar by design
+They are tests whose expected output (`#|` lines) is an `Error:`. The grammar
+is right when every `.bend` file in the release without one parses cleanly.
 
 ### Vicinae provider paths stay literal
 `config/vicinae/settings.json` has absolute `/home/kevin/...` paths: there is

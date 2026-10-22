@@ -65,6 +65,7 @@ final: prev: {
   sddm-theme = final.callPackage ../pkgs/sddm-theme { };
   sf-pro = final.callPackage ../pkgs/sf-pro { };
   snappy-switcher = final.optimize.ccache (final.callPackage ../pkgs/snappy-switcher { });
+  tree-sitter-bend2 = final.callPackage ../pkgs/tree-sitter-bend2 { };
   unearth = final.optimize.sccache (final.callPackage ../pkgs/unearth {
     # EmbeddingGemma 2 needs v0.7.0; drop once nixpkgs has it.
     llama-cpp = (final.optimize.ccache prev.llama-cpp).overrideAttrs (old: {
