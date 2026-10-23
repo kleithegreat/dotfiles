@@ -116,6 +116,7 @@ in
 
       # Mutes Hyprland's config watcher during activation, then refreshes Vicinae
       # and Quickshell; see docs/nix.md. Non-empty $watcher: activating, Hyprland reachable.
+      # Also drops desktopctl's dev-only cargo cache, which Cargo never prunes.
       nrs() {
           local action=switch
           case "$1" in
@@ -133,6 +134,8 @@ in
               hyprctl eval 'hl.config({ misc = { disable_autoreload = true } })' >/dev/null
               trap "hyprctl eval 'hl.config({ misc = { disable_autoreload = $watcher } })' >/dev/null 2>&1" EXIT INT TERM
           fi
+
+          rm --recursive --force ~/repos/dotfiles/desktopctl/target
 
           sudo nixos-rebuild "$action" ${rebuildFlags} "$@"
           local rc=$?
