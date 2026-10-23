@@ -43,7 +43,11 @@ let
     };
 in
 {
-  cuda-bindings = prev.cuda-bindings.override { inherit cudaPackages; };
+  # cuda-bindings 13.3 pins cython<3.3.
+  cuda-bindings = prev.cuda-bindings.override {
+    inherit cudaPackages;
+    cython = final.cython_3_2;
+  };
 
   # The setuptools<82 cap guards only `torch.utils.cpp_extension`, unused here.
   torch-bin = (prev.torch-bin.override { inherit cudaPackages; }).overridePythonAttrs (
