@@ -2,7 +2,6 @@
 
 let
   browserExtensions = [
-    "ddkjiahejlhfcafbddmgiahcphecmpfh"
     "nngceckbapebfimnlniiiahkandclblb"
     "nkbihfbeogaeaoehlefnkodbefgpgknn"
     "bfnaelmomeimhlpmgjnjophhpkkoljpa"
@@ -14,7 +13,7 @@ let
     |> map (id: {
       name = ".config/net.imput.helium/External Extensions/${id}.json";
       value.text = builtins.toJSON {
-        external_update_url = "https://clients2.google.com/service/update2/crx";
+        external_update_url = "https://clients2.google.com/service/update2/crx?prodversion=${pkgs.helium.chromiumVersion}";
       };
     })
     |> lib.listToAttrs;

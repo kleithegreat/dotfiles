@@ -100,7 +100,11 @@ Haruna from another nixpkgs aborts at startup.
 ### Helium is not a normal Chromium package
 It dlopens GTK file-chooser libraries that are never `NEEDED`, hence the
 hand-built `LD_LIBRARY_PATH`. Its user-data-dir is `~/.config/net.imput.helium/`,
-so External Extensions JSON is generated there, not under `helium/`.
+so External Extensions JSON is generated there, not under `helium/`. Helium
+also drops `prodversion` from Web Store update checks, and the store answers
+`noupdate` without it, so a declared extension silently never installs unless
+`external_update_url` carries `prodversion` itself. Already-installed ones keep
+working, which hides this.
 
 ### ComfyUI packaging traps
 - PyTorch comes from the `-bin` wheels on `cudaPackages_13_3`; source torch is

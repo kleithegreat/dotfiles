@@ -145,6 +145,8 @@ stdenv.mkDerivation {
     runHook postInstall
   '';
 
+  passthru = { inherit (source) chromiumVersion; };
+
   meta = with lib; {
     description = "Private, fast, and honest web browser";
     homepage = "https://github.com/imputnet/helium-linux";
