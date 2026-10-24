@@ -107,6 +107,8 @@ in
     };
   };
   security.rtkit.enable = true;
+  # On with any graphical desktop; nothing here uses TTS, and mbrola's voices are ~650 MiB.
+  services.speechd.enable = false;
 
   virtualisation.podman = {
     enable = true;
