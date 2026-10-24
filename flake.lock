@@ -495,6 +495,26 @@
         "type": "github"
       }
     },
+    "owly": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1792824717,
+        "narHash": "sha256-tI+5wtLkUzaVmC7sSIV06++7vXAqHm7/6MIK2Sn2Kts=",
+        "owner": "t4t5",
+        "repo": "owly",
+        "rev": "7ff594a61e1e158fe56f22b9efb9d8ea88dd918b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "t4t5",
+        "repo": "owly",
+        "type": "github"
+      }
+    },
     "pre-commit-hooks": {
       "inputs": {
         "flake-compat": "flake-compat",
@@ -526,6 +546,7 @@
         "hyprland-plugins": "hyprland-plugins",
         "nixpkgs": "nixpkgs",
         "nixpkgs-claude": "nixpkgs-claude",
+        "owly": "owly",
         "spicetify-nix": "spicetify-nix"
       }
     },

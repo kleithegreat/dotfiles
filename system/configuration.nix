@@ -66,6 +66,7 @@ in
     ./qt.nix
     ./users.nix
     ./services.nix
+    inputs.owly.nixosModules.default
   ];
 
   boot.tmp.useTmpfs = true;

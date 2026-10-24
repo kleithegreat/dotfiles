@@ -43,6 +43,10 @@
       url = "github:Gerg-L/spicetify-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    owly = {
+      url = "github:t4t5/owly";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =

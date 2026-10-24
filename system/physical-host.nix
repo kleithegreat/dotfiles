@@ -91,6 +91,7 @@
     systemd.tmpfiles.rules = [ "d /var/tmp/nix-daemon 0755 root root -" ];
 
     networking.useDHCP = lib.mkDefault true;
+    services.owly.enable = true;
     zramSwap = {
       enable = true;
       memoryPercent = 100;
