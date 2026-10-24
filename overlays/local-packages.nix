@@ -30,6 +30,8 @@ final: prev: {
   bambu-studio = final.callPackage ../pkgs/bambu-studio {
     upstreamBambuStudio = prev.bambu-studio;
   };
+  # It only runs the host-arch qemu-system; full qemu is another ~1 GiB.
+  claude-desktop = prev.claude-desktop.override { qemu = final.qemu_kvm; };
   comfyui = final.callPackage ../pkgs/comfyui { };
   # A field code cannot survive the dispatch string; see docs/hyprland.md.
   code-hypr = final.writeShellApplication {

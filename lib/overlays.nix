@@ -1,12 +1,13 @@
 { self }:
 {
-  # `local-packages` first: native-optimized reads `desktopctl` out of it.
+  # Order matters: local-packages overrides `claude-desktop`, and
+  # native-optimized reads `desktopctl` out of local-packages.
   overlays.forHost =
     { inputs, host }:
     [
+      inputs.claude-desktop.overlays.default
       (import ../overlays/local-packages.nix)
       (import ../overlays/claude-code.nix { inherit (inputs) nixpkgs-claude; })
-      inputs.claude-desktop.overlays.default
       (final: _prev: {
         ableton-wine = inputs.ableton-linux.packages.${final.stdenv.hostPlatform.system}.default;
       })
