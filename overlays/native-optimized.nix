@@ -5,17 +5,18 @@ final: prev:
 let
   optimize = lib.optimize.forHost host final;
 
-  # Wired by hand, or wireplumber and quickshell link a second, stock pipewire.
+  # Wired by hand, or the consumers below link a second, stock copy.
   pipewire = optimize.cc prev.pipewire;
+  lsp-plugins = optimize.cc prev.lsp-plugins;
 in
 {
   inherit optimize;
 
   optimized = {
-    inherit pipewire;
+    inherit pipewire lsp-plugins;
 
+    easyeffects = optimize.cc (prev.easyeffects.override { inherit pipewire lsp-plugins; });
     wireplumber = optimize.cc (prev.wireplumber.override { inherit pipewire; });
-    lsp-plugins = optimize.cc prev.lsp-plugins;
     p7zip = optimize.cc prev.p7zip;
     quickshell = optimize.cc (prev.quickshell.override { inherit pipewire; });
 

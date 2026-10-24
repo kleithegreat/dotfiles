@@ -48,6 +48,7 @@ in
     optimized.p7zip
     texlive
     optimized.lsp-plugins
+    optimized.easyeffects
     optimized.quickshell
     snappy-switcher
     dd-cli
@@ -135,7 +136,6 @@ in
     slurp
     wl-clipboard
     playerctl
-    easyeffects
     nwg-look
     papirus-icon-theme
     rose-pine-cursor
