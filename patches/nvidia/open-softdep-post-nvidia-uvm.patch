@@ -1,0 +1,11 @@
+--- a/kernel-open/nvidia/libspdm_ecc.c
++++ b/kernel-open/nvidia/libspdm_ecc.c
+@@ -25,7 +25,7 @@
+ 
+ #ifdef USE_LKCA
+ #include <linux/module.h>
+-MODULE_SOFTDEP("pre: ecdh_generic,ecdsa_generic");
++MODULE_SOFTDEP("pre: ecdh_generic,ecdsa_generic post: nvidia-uvm");
+ 
+ #include <crypto/akcipher.h>
+ #include <crypto/ecdh.h>

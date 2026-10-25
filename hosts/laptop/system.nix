@@ -64,6 +64,14 @@
     open = true;
     powerManagement.enable = true;
     powerManagement.finegrained = true;
+    # The module's own softdep must carry nvidia-uvm; see docs/nvidia.md.
+    package = config.boot.kernelPackages.nvidiaPackages.stable.overrideAttrs (old: {
+      passthru = old.passthru // {
+        open = old.passthru.open.overrideAttrs (open: {
+          patches = open.patches ++ [ ../../patches/nvidia/open-softdep-post-nvidia-uvm.patch ];
+        });
+      };
+    });
     prime = {
       offload = {
         enable = true;
@@ -74,6 +82,13 @@
     };
   };
   services.xserver.videoDrivers = [ "modesetting" "nvidia" ];
+  # Interim: drops nixpkgs' eager nvidia_uvm, which udev now loads; see docs/nvidia.md.
+  environment.etc."modules-load.d/nixos.conf".source = lib.mkForce (
+    config.boot.kernelModules
+    |> lib.lists.remove "nvidia_uvm"
+    |> lib.strings.concatLines
+    |> pkgs.writeText "nixos.conf"
+  );
   environment.sessionVariables.__EGL_VENDOR_LIBRARY_FILENAMES =
     "/run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json";
   # GTK's Vulkan renderer wakes the dGPU on every launch; see docs/nvidia.md.

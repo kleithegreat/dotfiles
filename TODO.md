@@ -65,8 +65,12 @@ Open issues and pending validations. Delete entries when resolved.
       `drm.debug=0x4`.
 - [ ] Desktop: `id -u kevin` must print 1000 before its first rebuild with
       the uid pinned in `system/users.nix`.
-- [ ] `tcp_bbr`/`sch_fq` preloaded (`system/physical-host.nix`):
-      `systemd-sysctl.service` takes well under 0.1s on every boot.
+- [ ] Desktop: with `tcp_bbr`/`sch_fq` preloaded (`system/physical-host.nix`),
+      `systemd-sysctl.service` takes well under 0.1s (the laptop passes).
+- [ ] Laptop boot after the uvm softdep patch and initrd trim
+      (`docs/nvidia.md`): `systemd-modules-load` no longer waits on NVIDIA,
+      `lsmod` shows `nvidia_uvm`, a CUDA app runs, and login reaches Hyprland
+      (`AQ_DRM_DEVICES` needs `/dev/dri/nvidia-gpu` by then).
 
 ## Open issues
 

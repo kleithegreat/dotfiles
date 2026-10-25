@@ -105,6 +105,11 @@ Style rules. They are mechanical: either the code follows them or it doesn't.
   flags are for interactive use only.
 - Pipe operators (`|>`) for multi-step list and attrset transforms rather than
   nested calls. They are enabled through `nix.settings.experimental-features`.
+- A list item a nixpkgs module adds cannot be removed by another module. The
+  one sanctioned workaround is a `lib.mkForce` on the file that option
+  renders, filtered, under an `# Interim:` comment pointing at the domain doc
+  that names the upstream fix which deletes it. Never vendor the nixpkgs
+  module, and never `mkForce` the list itself with a hand-copied value.
 
 ## Tooling
 
