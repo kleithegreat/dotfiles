@@ -83,6 +83,11 @@ in
     dates = "weekly";
     options = "--delete-older-than 30d";
   };
+  services.journald.settings.Journal = {
+    SystemMaxUse = "500M";
+    MaxRetentionSec = "1month";
+  };
+  systemd.coredump.settings.Coredump.MaxUse = "1G";
   nix.registry = {
     nixpkgs.flake = inputs.nixpkgs;
     hyprland.flake = inputs.hyprland;
