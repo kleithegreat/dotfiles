@@ -38,6 +38,11 @@
     }
   ];
 
+  # The i7-12700H's blob alone; the full bundle is 15 MiB of every boot's initrd.
+  hardware.cpu.intel.microcodePackage = pkgs.microcode-intel.overrideAttrs {
+    preInstall = "find intel-ucode -type f ! -name 06-9a-03 -delete";
+  };
+
   fileSystems."/" = {
     device = "/dev/disk/by-uuid/b570af09-b288-4994-8373-f87cbe7ec964";
     fsType = "ext4";

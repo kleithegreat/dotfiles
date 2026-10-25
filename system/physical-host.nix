@@ -39,6 +39,11 @@
       canTouchEfiVariables = true;
       efiSysMountPoint = "/boot/efi";
     };
+    # Every root is plain ext4: stage 1 carries no TPM2, FIDO2, LVM or bcache stack.
+    boot.initrd.systemd.tpm2.enable = false;
+    boot.initrd.systemd.fido2.enable = false;
+    services.lvm.enable = false;
+    boot.bcache.enable = false;
     boot.kernel.sysctl = {
       "kernel.sched_autogroup_enabled" = 1;
       "net.core.default_qdisc" = "fq";
