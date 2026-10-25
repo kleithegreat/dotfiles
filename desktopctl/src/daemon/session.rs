@@ -1,6 +1,7 @@
 //! Owns the session-restore state and records the running session.
 
 use crate::{daemon::server::Events, session};
+use futures_util::StreamExt;
 use serde_json::Value;
 use std::{
     io, mem,
@@ -11,9 +12,7 @@ use std::{
     thread,
     time::Duration,
 };
-
-/// Seconds between looks at the window list.
-const RECORD_INTERVAL: u32 = 10;
+use tokio::sync::watch;
 
 #[derive(Clone)]
 pub struct SessionController {
@@ -68,34 +67,73 @@ impl SessionController {
     }
 }
 
-/// Write the window list down once two consecutive looks agree on it. A
-/// session shutting down closes its windows moments before this process is
-/// stopped, and a list that is still changing must never replace the one that
-/// was true while the session was whole.
-pub fn run(shutdown: Arc<AtomicBool>) -> crate::Result<()> {
-    let mut seen = None;
+/// Write the window list down whenever it changes, until logind announces a
+/// shutdown: windows that close after that are the system going down, not the
+/// user, and the list from just before must be the one that survives.
+pub fn run(shutdown: Arc<AtomicBool>, halted: Arc<Mutex<bool>>) -> crate::Result<()> {
     let mut written = None;
-    let mut tick = 0;
 
     while !shutdown.load(Ordering::SeqCst) {
         thread::sleep(Duration::from_secs(1));
-        tick += 1;
-        if tick % RECORD_INTERVAL != 0 {
+        let Ok(recording) = session::record() else {
+            continue;
+        };
+        // Held across the write, so no look outlives the announcement.
+        let halted = lock_halt(&halted)?;
+        if *halted || written.as_ref() == Some(&recording) {
             continue;
         }
-
-        let recording = session::record().ok();
-        if shutdown.load(Ordering::SeqCst) {
-            break;
-        }
-        if recording.is_some() && recording == seen && recording != written {
-            if let Some(recording) = &recording {
-                session::persist_recording(recording)?;
-            }
-            written = recording.clone();
-        }
-        seen = recording;
+        session::persist_recording(&recording)?;
+        written = Some(recording);
     }
 
     Ok(())
+}
+
+#[zbus::proxy(
+    interface = "org.freedesktop.login1.Manager",
+    default_service = "org.freedesktop.login1",
+    default_path = "/org/freedesktop/login1"
+)]
+trait Login {
+    fn inhibit(&self, what: &str, who: &str, why: &str, mode: &str) -> zbus::Result<zbus::OwnedFd>;
+
+    #[zbus(signal)]
+    fn prepare_for_shutdown(&self, start: bool) -> zbus::Result<()>;
+}
+
+/// Halt the recorder on logind's shutdown announcement, holding the shutdown
+/// back with a delay lock until it has. Helium and Code close their windows on
+/// the same announcement, so a fresh look then would already miss them.
+pub async fn halt_on_shutdown(
+    halted: Arc<Mutex<bool>>,
+    mut shutdown: watch::Receiver<bool>,
+) -> crate::Result<()> {
+    let connection = zbus::Connection::system().await?;
+    let login = LoginProxy::new(&connection).await?;
+    let mut announcements = login.receive_prepare_for_shutdown().await?;
+    let inhibit = || login.inhibit("shutdown", "desktopctl", "Recording the window session", "delay");
+    let mut _delay = Some(inhibit().await?);
+
+    loop {
+        let start = tokio::select! {
+            announcement = announcements.next() => match announcement {
+                Some(announcement) => announcement.args()?.start,
+                None => return Ok(()),
+            },
+            _ = shutdown.changed() => return Ok(()),
+        };
+        *lock_halt(&halted)? = start;
+        // A cancelled shutdown resumes recording and needs the lock back.
+        _delay = match start {
+            true => None,
+            false => Some(inhibit().await?),
+        };
+    }
+}
+
+fn lock_halt(halted: &Mutex<bool>) -> crate::Result<std::sync::MutexGuard<'_, bool>> {
+    halted
+        .lock()
+        .map_err(|_| io::Error::other("session halt lock poisoned").into())
 }

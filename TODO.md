@@ -7,6 +7,9 @@ Open issues and pending validations. Delete entries when resolved.
 - [ ] Session restore on demand: turn "Restore windows at login" off,
       reboot, and confirm nothing reopens and the power menu offers "Restore
       Windows" once.
+- [ ] Session restore after closing things: close a terminal and a Helium
+      window, then Shut Down within a few seconds; neither comes back. Same
+      for logging out with Super+M, which sends no shutdown announcement.
 - [ ] Quickshell, what a screenshot could not prove: no OSD while dragging
       the volume slider or right after letting go (it now ignores the shell's
       own volume writes for 400 ms); night-light commit-on-release; Wi-Fi join forms

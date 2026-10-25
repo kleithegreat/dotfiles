@@ -21,11 +21,14 @@
 
 ## Quirks
 
-### The recorder writes only what two consecutive looks agree on
-Shutdown closes windows before the daemon stops, and nothing distinguishes
-that from the user closing everything. The ten-second agreement in
-`daemon/session.rs` must outlast a dying session; it is not a debounce to
-tune. The price: the last 10–20s before a crash go unrecorded.
+### Recording halts on logind's announcement, not on a final look
+Shutdown closes windows before the daemon is stopped, and Helium and Code
+close theirs on `PrepareForShutdown` itself, so a look taken on the
+announcement or on SIGTERM already records a dying session. The recorder keeps
+the last look from before it; the `shutdown` delay lock (`desktopctl` in
+`systemd-inhibit --list`) is what guarantees the halt lands before anything is
+killed. Without the lock, or with the watch task failed, closed windows come
+back after a reboot.
 
 ### A whole-app restore parks its windows before it can place them
 A named window rule sends the app's new windows to `special:restoring` until

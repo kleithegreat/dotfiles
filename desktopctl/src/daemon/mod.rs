@@ -11,7 +11,7 @@ pub mod theme;
 use std::{
     io,
     sync::{
-        Arc,
+        Arc, Mutex,
         atomic::{AtomicBool, Ordering},
     },
 };
@@ -58,7 +58,18 @@ async fn run_async() -> crate::Result<()> {
     }
     {
         let shutdown = Arc::clone(&shutdown);
-        auxiliary.spawn_blocking(move || ("session recorder", session::run(shutdown)));
+        let halted = Arc::new(Mutex::new(false));
+        auxiliary.spawn({
+            let halted = halted.clone();
+            let shutdown_rx = shutdown_rx.clone();
+            async move {
+                (
+                    "session shutdown watch",
+                    session::halt_on_shutdown(halted, shutdown_rx).await,
+                )
+            }
+        });
+        auxiliary.spawn_blocking(move || ("session recorder", session::run(shutdown, halted)));
     }
     auxiliary.spawn({
         let night_light = night_light.clone();
