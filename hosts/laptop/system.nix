@@ -110,10 +110,9 @@
   '';
 
   # Must hang off powertop.service itself; see docs/nix.md.
-  systemd.services.powertop.serviceConfig.ExecStartPost =
-    pkgs.writeShellScript "touchpad-i2c-pin-runtime-pm" /* bash */ ''
-      echo on > /sys/bus/pci/devices/0000:00:15.1/power/control
-    '';
+  powerManagement.powertop.postStart = /* bash */ ''
+    echo on > /sys/bus/pci/devices/0000:00:15.1/power/control
+  '';
 
   # ── Power profiles ──────────────────────────────────────────
   # Everything here follows power-profiles-daemon; see docs/laptop-power.md.
