@@ -2,9 +2,9 @@
 
 ## Intent
 
-- Biometric unlock is a polkit grant answered by hyprpolkitagent with fprintd
-  (`polkit-1.fprintAuth`), not a PAM change. Don't add PAM stanzas; a broken
-  prompt is the agent or fprintd.
+- Biometric unlock is a polkit grant answered by hyprpolkitagent with howdy,
+  then fprintd (the laptop's `polkit-1` stack), not a Bitwarden-specific PAM
+  change. Don't add PAM stanzas; a broken prompt is the agent, howdy or fprintd.
 - The vault's own configuration is app-internal state and stays undeclared.
 
 ## Quirks

@@ -177,24 +177,29 @@
   # Otherwise howdy lands in every PAM service, the greeter included.
   security.pam.howdy.enable = false;
 
-  security.pam.services = {
-    # SDDM uses `login`; the greeter must always accept a password.
-    login.fprintAuth = false;
+  security.pam.services = lib.mkMerge [
+    {
+      # SDDM uses `login`; the greeter must always accept a password.
+      login.fprintAuth = false;
 
-    sudo = {
+      # hyprlock talks to fprintd natively, in parallel with this PAM stack.
+      hyprlock = {
+        fprintAuth = false;
+        howdy.enable = true;
+      };
+    }
+    (lib.attrsets.genAttrs [ "sudo" "polkit-1" ] (service: {
       fprintAuth = true;
       howdy.enable = true;
       # Face gives up in seconds; the reader waits 30.
-      rules.auth.howdy.order = config.security.pam.services.sudo.rules.auth.fprintd.order - 1;
-    };
-    # polkit-agent-helper@.service runs with PrivateDevices, so no camera.
-    polkit-1.fprintAuth = true;
+      rules.auth.howdy.order = config.security.pam.services.${service}.rules.auth.fprintd.order - 1;
+    }))
+  ];
 
-    # hyprlock talks to fprintd natively, in parallel with this PAM stack.
-    hyprlock = {
-      fprintAuth = false;
-      howdy.enable = true;
-    };
+  # nixpkgs' polkit module opens its sandbox for fprintd and u2f, not howdy.
+  systemd.services."polkit-agent-helper@".serviceConfig = {
+    PrivateDevices = false;
+    DeviceAllow = [ "char-video4linux rw" ];
   };
 
   # ── Polkit — local biometric management + Dell battery control ─
