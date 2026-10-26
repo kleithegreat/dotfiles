@@ -33,6 +33,14 @@ hl.window_rule({
     center = true,
 })
 
+-- Incognito shares Helium's class; only a fresh window's title tells them apart.
+hl.window_rule({
+    match = { class = "helium", title = "New Incognito Tab - Helium" },
+    float = true,
+    size = "monitor_w*0.6 monitor_h*0.7",
+    center = true,
+})
+
 -- Zoom
 hl.window_rule({
     match = { class = "zoom", title = "Zoom Meeting" },

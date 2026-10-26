@@ -108,7 +108,9 @@ A mouse ignoring the Mouse settings page is hitting an `hl.device` block.
 literally, hence the `code-hypr` wrapper that quotes real argv.
 
 ### Window-rule matches drift
-Polkit agent (title, no class), `Zoom Meeting`, Discord's updater: after
+Polkit agent (title, no class), `Zoom Meeting`, Discord's updater, Helium's
+`New Incognito Tab` (an incognito window opened onto a URL maps as
+`Untitled - Helium` and tiles; that path cannot be matched): after
 bumping these, check `hyprctl clients` with the window open.
 
 ### hyprlock
