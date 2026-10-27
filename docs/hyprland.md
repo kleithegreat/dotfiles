@@ -132,6 +132,16 @@ SDDM keeps the old greeter instead of starting a new one. The SDDM patch in
 it, only logouts where Hyprland exits on its own (`hl.dsp.exit`) bring the
 greeter back.
 
+### Closing a shell surface used to switch back to the workspace it opened on
+While an exclusive layer holds the keyboard, Hyprland refuses window focus, so
+a workspace change (hyprexpo, a keybind) leaves the old workspace's window as
+"last focused". When the overlay drops to keyboard `None` while still mapped,
+`refocusLastWindow` finds it under the cursor and focuses that stale window,
+and focusing a window on a hidden workspace switches to it. Empty workspaces
+had no window to restore, so they never jumped. The Hyprland patch in
+`overlays/hyprland.nix` falls back to the visible workspace's last window;
+upstream main still has the bug.
+
 ### A `max bpc` change power-cycles the laptop panel
 Stock DRM treats any change to the connector's `max bpc` as a connector
 change. i915's fastset cannot drop that, so the commit is a full modeset even

@@ -1,0 +1,16 @@
+diff --git a/src/managers/input/InputManager.cpp b/src/managers/input/InputManager.cpp
+index 187dbe8..1995750 100644
+--- a/src/managers/input/InputManager.cpp
++++ b/src/managers/input/InputManager.cpp
+@@ -1795,7 +1795,10 @@ bool CInputManager::refocusLastWindow(PHLMONITOR pMonitor) {
+         // otherwise fall back to a normal refocus.
+ 
+         if (foundSurface && !foundSurface->m_hlSurface->keyboardFocusable()) {
+-            const auto PLASTWINDOW = Desktop::focusState()->window();
++            auto PLASTWINDOW = Desktop::focusState()->window();
++            // focusing a window on a hidden workspace switches to that workspace
++            if (!PLASTWINDOW || !PLASTWINDOW->m_workspace || !PLASTWINDOW->m_workspace->isVisibleNotCovered())
++                PLASTWINDOW = pMonitor->m_activeWorkspace ? pMonitor->m_activeWorkspace->getLastFocusedWindow() : nullptr;
+             Desktop::focusState()->fullWindowFocus(PLASTWINDOW, Desktop::FOCUS_REASON_FFM);
+         }
+ 
