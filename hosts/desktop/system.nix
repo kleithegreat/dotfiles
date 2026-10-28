@@ -116,5 +116,38 @@
     };
   };
 
+  # ── Homelab compute ───────────────────────────────────────────
+  # An agent of the homelab cluster only while sweeps run (docs/homelab-agent.md).
+  services.k3s = {
+    enable = true;
+    role = "agent";
+    serverAddr = "https://k8s-api.home.lab:6443";
+    tokenFile = "/etc/k3s/join-token";
+    nodeIP = "192.168.8.131";
+    nodeTaint = [ "moneymachine/batch=true:NoSchedule" ];
+    extraFlags = [ "--flannel-iface=enp4s0" ];
+  };
+  systemd.services.k3s = {
+    wantedBy = lib.mkForce [ ];
+    # Stopping k3s alone leaves every container running.
+    serviceConfig.ExecStopPost = "${config.services.k3s.package}/bin/k3s-killall.sh";
+  };
+  security.polkit.extraConfig = /* javascript */ ''
+    polkit.addRule(function(action, subject) {
+      if (action.id === "org.freedesktop.systemd1.manage-units" &&
+          action.lookup("unit") === "k3s.service" &&
+          ["start", "stop"].indexOf(action.lookup("verb")) >= 0 &&
+          subject.user === "kevin") {
+        return polkit.Result.YES;
+      }
+    });
+  '';
+  networking.firewall.extraInputRules = ''
+    ip saddr { 192.168.8.153, 192.168.8.222, 192.168.8.229 } udp dport 8472 accept
+    ip saddr { 192.168.8.153, 192.168.8.222, 192.168.8.229, 10.42.0.0/16 } tcp dport { 9100, 10250 } accept
+  '';
+  # Its 192.168.8.0/24 subnet route would carry the wired LAN through the Brume.
+  services.tailscale.extraSetFlags = [ "--accept-routes=false" ];
+
   environment.systemPackages = [ pkgs.macos-vm ];
 }
