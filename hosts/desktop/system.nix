@@ -134,7 +134,7 @@
     # Stopping k3s alone leaves every container running.
     serviceConfig.ExecStopPost = "${config.services.k3s.package}/bin/k3s-killall.sh";
   };
-  # The Jobs' only data path: inputs read-only, results read-write, every client squashed to kevin.
+  # The Jobs' data path (inputs read-only, results read-write) and the live workloads' mirror, every client squashed to kevin.
   services.nfs.server = {
     enable = true;
     exports = let
@@ -143,11 +143,13 @@
     in ''
       /srv/moneymachine/inputs ${opts "ro"}
       /srv/moneymachine/results ${opts "rw"}
+      /srv/moneymachine/mirror ${opts "rw"}
     '';
   };
   systemd.tmpfiles.rules = [
     "d /srv/moneymachine/inputs 0755 kevin users -"
     "d /srv/moneymachine/results 0755 kevin users -"
+    "d /srv/moneymachine/mirror 0755 kevin users -"
   ];
   security.polkit.extraConfig = /* javascript */ ''
     polkit.addRule(function(action, subject) {
