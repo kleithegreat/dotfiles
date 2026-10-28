@@ -129,9 +129,26 @@
   };
   systemd.services.k3s = {
     wantedBy = lib.mkForce [ ];
+    # kubelet mounts the NFS volumes below for pods scheduled here.
+    path = [ pkgs.nfs-utils ];
     # Stopping k3s alone leaves every container running.
     serviceConfig.ExecStopPost = "${config.services.k3s.package}/bin/k3s-killall.sh";
   };
+  # The Jobs' only data path: inputs read-only, results read-write, every client squashed to kevin.
+  services.nfs.server = {
+    enable = true;
+    exports = let
+      nodes = [ "192.168.8.131" "192.168.8.153" "192.168.8.222" "192.168.8.229" ];
+      opts = mode: lib.concatMapStringsSep " " (n: "${n}(${mode},all_squash,anonuid=1000,anongid=100,no_subtree_check)") nodes;
+    in ''
+      /srv/moneymachine/inputs ${opts "ro"}
+      /srv/moneymachine/results ${opts "rw"}
+    '';
+  };
+  systemd.tmpfiles.rules = [
+    "d /srv/moneymachine/inputs 0755 kevin users -"
+    "d /srv/moneymachine/results 0755 kevin users -"
+  ];
   security.polkit.extraConfig = /* javascript */ ''
     polkit.addRule(function(action, subject) {
       if (action.id === "org.freedesktop.systemd1.manage-units" &&
@@ -145,6 +162,7 @@
   networking.firewall.extraInputRules = ''
     ip saddr { 192.168.8.153, 192.168.8.222, 192.168.8.229 } udp dport 8472 accept
     ip saddr { 192.168.8.153, 192.168.8.222, 192.168.8.229, 10.42.0.0/16 } tcp dport { 9100, 10250 } accept
+    ip saddr { 192.168.8.153, 192.168.8.222, 192.168.8.229 } tcp dport 2049 accept
   '';
   # Its 192.168.8.0/24 subnet route would carry the wired LAN through the Brume.
   services.tailscale.extraSetFlags = [ "--accept-routes=false" ];

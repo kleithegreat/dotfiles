@@ -13,6 +13,11 @@
 - It joins over the wired LAN (`enp4s0`, a DHCP reservation for
   `192.168.8.131`), never over Wi-Fi or Tailscale: node traffic must reach the
   servers without NAT.
+- The desktop's NFS exports are the Jobs' only data path:
+  `/srv/moneymachine/inputs` read-only and `/srv/moneymachine/results`
+  read-write, to the four cluster nodes only, every client squashed to
+  `kevin`. Jobs never open SQLite over NFS: they copy in, work locally, and
+  move finished files out atomically.
 - The join token in `/etc/k3s/join-token` (root, `0600`) is a revocable
   bootstrap token from `k3s token create`, never the servers' own token.
 
