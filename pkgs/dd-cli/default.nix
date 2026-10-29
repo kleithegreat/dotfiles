@@ -6,7 +6,7 @@
 }:
 
 let
-  version = "0.2.5";
+  version = "0.2.6";
   bundle = "dd-cli-v${version}-linux-amd64";
 in
 stdenv.mkDerivation {
@@ -15,7 +15,7 @@ stdenv.mkDerivation {
 
   src = fetchurl {
     url = "https://github.com/doordash-oss/doordash-cli/releases/download/v${version}/${bundle}.tar.gz";
-    hash = "sha256-yu+PNFCxHG6MD/yhbjNbf6dKbQvGc+NN3SI5UoyWYp0=";
+    hash = "sha256-tqutQMSIFYlhHTuH6PXmj6VHPxJGm9Kp1x23Bkxf8FE=";
   };
 
   nativeBuildInputs = [ autoPatchelfHook ];

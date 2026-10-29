@@ -34,14 +34,14 @@ in
 }).overrideAttrs
   (old: {
     pname = "qemu-reims-vgpu";
-    version = "11.1.50-unstable-2026-10-14";
+    version = "11.1.50-unstable-2026-10-28";
 
     # The commit `vendor/qemu` names in reims-vgpu's pinned rev.
     src = fetchFromGitHub {
       owner = "steelbrain";
       repo = "qemu-reims-vgpu";
-      rev = "fbda9c8b28351baab659dbd8e591914f44ee7fdb";
-      hash = "sha256-RYXypniM/Nn1t0q+r/v2TQ3nziEhKEVQ4Noi72paLQ8=";
+      rev = "1b41f5f5db4d1067d023973b9bd74c7b341e0d28";
+      hash = "sha256-wXy4+i/kwHxrMBkbUij5396DwbrIVzrcxV47YvehQnA=";
     };
 
     # nixpkgs' patches are cut against the 11.1.2 release; this fork is

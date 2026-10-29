@@ -1,31 +1,4 @@
 final: prev: {
-  # nccl4py's export-subst file drifts the tag tarball's hash as the repo
-  # grows, like pikepdf's; drop once nixpkgs strips it.
-  _cuda = prev._cuda.extend (
-    _: prevAttrs: {
-      extensions = prevAttrs.extensions ++ [
-        (_: cudaPrev: {
-          nccl = cudaPrev.nccl.overrideAttrs (old: {
-            src = old.src.override {
-              hash = "sha256-dKFTjGtpu+efm9vajLinUCcOaSsYvVmkjZwtFbx0nyk=";
-              postFetch = /* bash */ ''
-                rm "$out/bindings/nccl4py/.git_archival.txt"
-              '';
-            };
-          });
-        })
-      ];
-    }
-  );
-
-  cantarell-fonts = prev.cantarell-fonts.overrideAttrs (old: {
-    # The variable OTF fails in otfautohint on this pin; drop once a default build works.
-    mesonFlags = (old.mesonFlags or []) ++ [
-      "-Dbuildvf=false"
-      "-Dbuildstatics=true"
-    ];
-  });
-
   bend2-lsp = final.callPackage ../pkgs/bend2-lsp { };
   bambu-studio = final.callPackage ../pkgs/bambu-studio {
     upstreamBambuStudio = prev.bambu-studio;
@@ -68,22 +41,7 @@ final: prev: {
   sf-pro = final.callPackage ../pkgs/sf-pro { };
   snappy-switcher = final.optimize.ccache (final.callPackage ../pkgs/snappy-switcher { });
   tree-sitter-bend2 = final.callPackage ../pkgs/tree-sitter-bend2 { };
-  unearth = final.optimize.sccache (final.callPackage ../pkgs/unearth {
-    # EmbeddingGemma 2 needs v0.7.0; drop once nixpkgs has it.
-    llama-cpp = (final.optimize.ccache prev.llama-cpp).overrideAttrs (old: {
-      version = "0.7.0";
-      src = final.fetchFromGitHub {
-        owner = "ggml-org";
-        repo = "llama.cpp";
-        tag = "v0.7.0";
-        hash = "sha256-pEDYgI3AMTU+cekvRX7NNt5wddznydQSNuerswvEpsA=";
-      };
-      patches = [ ];
-      npmDepsHash = "sha256-hqYzdp1FwPhYkBP278fQXgY9NCKB6Q3P6Gko7BfP0m0=";
-      # Its fixture is the disabled, network-bound test-download-model.
-      disabledTests = old.disabledTests ++ [ "test-llama-context-model" ];
-    });
-  });
+  unearth = final.optimize.sccache (final.callPackage ../pkgs/unearth { });
   unearth-vicinae = final.callPackage ../pkgs/unearth/vicinae { };
   zsh-share-only = final.runCommand "zsh-share-only" { } /* bash */ ''
     mkdir --parents "$out/share"

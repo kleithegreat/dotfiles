@@ -43,11 +43,7 @@ let
     };
 in
 {
-  # cuda-bindings 13.3 pins cython<3.3.
-  cuda-bindings = prev.cuda-bindings.override {
-    inherit cudaPackages;
-    cython = final.cython_3_2;
-  };
+  cuda-bindings = prev.cuda-bindings.override { inherit cudaPackages; };
 
   # The setuptools<82 cap guards only `torch.utils.cpp_extension`, unused here.
   torch-bin = (prev.torch-bin.override { inherit cudaPackages; }).overridePythonAttrs (
@@ -57,26 +53,13 @@ in
   );
   torchvision-bin = prev.torchvision-bin.override { inherit cudaPackages; };
 
-  # nixpkgs makes libcuda_dirs() return a file path string, which Triton
-  # unpacks into one `-L` per character and fails its first kernel build.
-  triton-bin = prev.triton-bin.overridePythonAttrs (old: {
-    postFixup =
-      old.postFixup
-      + /* bash */ ''
-        substituteInPlace "$out/${final.python.sitePackages}/triton/backends/nvidia/driver.py" \
-          --replace-fail \
-            "return '${prev.pkgs.addDriverRunpath.driverLink}/lib/libcuda.so'" \
-            "return ['${prev.pkgs.addDriverRunpath.driverLink}/lib']"
-      '';
-  });
-
   torch = final.torch-bin;
   torchvision = final.torchvision-bin;
 
   comfyui-frontend-package = fetchWheel {
     pname = "comfyui_frontend_package";
-    version = "1.55.17";
-    hash = "sha256-2Qw19HDnVwzzVVKgzRYDR77uBsc4BfFuGPkqhlDtsAg=";
+    version = "1.57.4";
+    hash = "sha256-LERy1ZQ6wY+QmK81ZeMZxv/MHspdhz2l1ircQQ+PQ70=";
     pythonImportsCheck = [ "comfyui_frontend_package" ];
     meta = {
       description = "Prebuilt ComfyUI web frontend";
@@ -86,19 +69,19 @@ in
   };
 
   # A partial set of the metapackage's parts leaves the template browser empty.
-  comfyui-workflow-templates-core = workflowTemplates "core" "0.3.380" "sha256-PppQKYDqWjuGfIFei42cFdyJmtwMxL9TgyIyeq2Vzsw=";
-  comfyui-workflow-templates-json = workflowTemplates "json" "0.1.115" "sha256-Tm5gehoGCzLToo2lGFgIeWRwYzYJ4n2+zGQSI5GsI8U=";
+  comfyui-workflow-templates-core = workflowTemplates "core" "0.3.388" "sha256-2+QL5iR1ssC/4E7zSohjurf2VVuN2bc7S/F14jCg0/k=";
+  comfyui-workflow-templates-json = workflowTemplates "json" "0.1.123" "sha256-/DIZYM/E9S3dw+4RHzNImxZ+t5WAKOtban8/qIZaOF4=";
   comfyui-workflow-templates-media-api = workflowTemplates "media_api" "0.3.84" "sha256-wtalmZrDnk839HriMcklV97+Wt2yzGq1wRQQtNWikQo=";
   comfyui-workflow-templates-media-video = workflowTemplates "media_video" "0.3.101" "sha256-YnD9YcjDkxtvADGrrH1MkM7WJN5seRi/+FuJ5sPXSTw=";
   comfyui-workflow-templates-media-image = workflowTemplates "media_image" "0.3.160" "sha256-1KXFVBxwiPatscfaQfXXwcFKA37aamHNi0t2wlH6qpM=";
   comfyui-workflow-templates-media-other = workflowTemplates "media_other" "0.3.229" "sha256-zj2Y+p2EuRTDNf5cm8kDz+++GTKxvDy2uu9/NxtL1DU=";
   comfyui-workflow-templates-media-assets-01 = workflowTemplates "media_assets_01" "0.1.48" "sha256-dzPtEoZ+lea4s5viC8xzV5wo6X5aRAhv+5d8wsHHjEM=";
-  comfyui-workflow-templates-media-assets-02 = workflowTemplates "media_assets_02" "0.1.17" "sha256-UFFGjJKkYwFtVqkOzAPmflIpn6y0bnJGkIxFAYzdX+0=";
+  comfyui-workflow-templates-media-assets-02 = workflowTemplates "media_assets_02" "0.1.24" "sha256-3clPRtpJh+xumkztYAfqrKEmiZvupiQuznhuSc0UsGU=";
 
   comfyui-workflow-templates = fetchWheel {
     pname = "comfyui_workflow_templates";
-    version = "0.11.89";
-    hash = "sha256-1Y0qvWWKoqWZc2qw02by2buTLsjHdmtoBokJO0p5suI=";
+    version = "0.11.97";
+    hash = "sha256-81KaSSVIYhuA7zbR4qfZgXpQZsvboowNK/w3hvY2vuU=";
     dependencies = with final; [
       comfyui-workflow-templates-core
       comfyui-workflow-templates-json
@@ -115,8 +98,8 @@ in
 
   comfyui-embedded-docs = fetchWheel {
     pname = "comfyui_embedded_docs";
-    version = "0.5.14";
-    hash = "sha256-6ubCdSG2JDJQrdj6OfMmPfO1Ehc5ov5m/yePJRf0mek=";
+    version = "0.5.15";
+    hash = "sha256-cWfhOw8yioAYTmnNcF6h/yi4AyBlUX5O+Ck7CNXlKO4=";
     pythonImportsCheck = [ "comfyui_embedded_docs" ];
     meta = {
       description = "Per-node documentation served by the ComfyUI frontend";
@@ -149,9 +132,9 @@ in
   # dlopen the CUDA/ROCm driver rather than linking it.
   comfy-aimdo = fetchWheel {
     pname = "comfy_aimdo";
-    version = "0.5.6";
+    version = "0.6.0";
     tag = "cp39-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64";
-    hash = "sha256-AzK8M7ZFl6/xtPefa7dN89URhBjwjGYhBmWDS0q2JG4=";
+    hash = "sha256-M2qWoKq+aQxZVYE6ejAT22cKWGkQreeYzaxLCGTrIqw=";
     nativeBuildInputs = with prev.pkgs; [
       autoPatchelfHook
       autoAddDriverRunpath
@@ -169,9 +152,9 @@ in
   # Optional: ComfyUI degrades to "no fp8/fp4 support" without it.
   comfy-kitchen = fetchWheel {
     pname = "comfy_kitchen";
-    version = "0.2.38";
+    version = "0.2.40";
     tag = "cp312-abi3-manylinux_2_27_x86_64.manylinux_2_28_x86_64";
-    hash = "sha256-PgYgsGkzhsRJ2Q8HdyMxnIcqKpghexX60Ac78EBgeR4=";
+    hash = "sha256-63JmZMdyGJ5uznQodkh/E0mWWAi4VHQnkOkAHbt8D50=";
     nativeBuildInputs = with prev.pkgs; [
       autoPatchelfHook
       autoAddDriverRunpath

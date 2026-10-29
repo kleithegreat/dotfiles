@@ -13,19 +13,19 @@
 
 rustPlatform.buildRustPackage {
   pname = "reims-vgpu";
-  version = "0-unstable-2026-10-14";
+  version = "0-unstable-2026-10-28";
 
   src = fetchFromGitHub {
     owner = "steelbrain";
     repo = "reims-vgpu";
-    rev = "c099dd5a4d61107a5527efc64cf1d1ab2f3a9b85";
-    hash = "sha256-0yIGDFbLT8m8RdHZ9CzXp41YquWL0GLFqMszXsRf+Ok=";
+    rev = "97918140bb63a7dff0f56d053a259e60f70ad7c5";
+    hash = "sha256-ZTanjzG6ZxgBh9ReMXFouGiZNtkJMt3R5iVaCRhuHA8=";
   };
 
   # Upstream's committed Cargo.lock leaves out the `source` of its git
   # dependencies and lets cargo add them at build time. See docs/macos-vm.md.
   cargoPatches = [ ./cargo-lock-git-sources.patch ];
-  cargoHash = "sha256-Vetkev+s5aU/8WDfhJLdnoXUelbkePsjGUEgcGjgd/c=";
+  cargoHash = "sha256-L9IBVMsV4/vWZOQvmyaEIiXDK5QdH9NUjBUW4UARj6o=";
 
   nativeBuildInputs = [
     cmake

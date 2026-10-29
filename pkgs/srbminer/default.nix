@@ -8,11 +8,11 @@
 
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "srbminer";
-  version = "3.7.9";
+  version = "3.8.1";
 
   src = fetchzip {
     url = "https://github.com/doktor83/SRBMiner-Multi/releases/download/${finalAttrs.version}/SRBMiner-Multi-${lib.strings.replaceStrings [ "." ] [ "-" ] finalAttrs.version}-Linux.tar.gz";
-    hash = "sha256-wrlSSerPk8OrFI476MTk1mTjW8TEflWZu4grzYQXCpg=";
+    hash = "sha256-SSeQCVmxupAu1XLRhGSKo+nzUph1XfWweP5fsSWKaeg=";
   };
 
   nativeBuildInputs = [ makeWrapper ];

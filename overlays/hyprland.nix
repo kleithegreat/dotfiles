@@ -19,8 +19,9 @@ let
       '';
     });
 
-  # Hyprland 0.56.2 wants glaze 7 and nixpkgs has 8, so CMake would fetch it
-  # in the sandbox. Drop once the input's find_package is unbounded.
+  # Hyprland 0.56.2 wants glaze 7 and nixpkgs is newer, so CMake would fetch it
+  # in the sandbox; nixpkgs' patches target its own glaze. Drop once the
+  # input's find_package is unbounded.
   glazeVersion = "7.9.1";
   glaze =
     (final.glaze.override {
@@ -34,6 +35,7 @@ let
         tag = "v${glazeVersion}";
         hash = "sha256-NRRq5MGF2f5PW0teYnq58ELzson+U6KHVPaY6r30KLA=";
       };
+      patches = [ ];
     });
 
   hyprland = final.optimize.cc (
