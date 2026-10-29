@@ -168,6 +168,11 @@
   '';
   # Its 192.168.8.0/24 subnet route would carry the wired LAN through the Brume.
   services.tailscale.extraSetFlags = [ "--accept-routes=false" ];
+  # enp4s0 is an AP bridged to the homelab: internet prefers the Wi-Fi card and falls back here.
+  networking.networkmanager.settings.connection-homelab-bridge = {
+    match-device = "interface-name:enp4s0";
+    "ipv4.route-metric" = 700;
+  };
 
   environment.systemPackages = [ pkgs.macos-vm ];
 }
