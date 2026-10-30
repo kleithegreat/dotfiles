@@ -7,13 +7,17 @@ import fcntl
 import json
 import os
 import re
+import sqlite3
 import subprocess
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 PROJECTS = Path.home() / ".claude" / "projects"
-DATA = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "ctx"
+SHARE = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
+DATA = SHARE / "ctx"
+OPENCODE = SHARE / "opencode"
 SOFT, HARD = 16_000, 32_000
 IDLE = 3600
 EVENT_CAP = 6_000
@@ -21,7 +25,7 @@ RESULT_CAP = 300
 BATCH = 120_000
 SUMMARY_CAP = 2_000
 
-LEAF_PROMPT = """You index transcripts of Claude Code sessions for later retrieval. Each <chunk> is a contiguous stretch of one session: USER is the human, CLAUDE the agent, "> tool" its tool calls, "< result" the first and last bytes of their output.
+LEAF_PROMPT = """You index transcripts of Claude Code sessions for later retrieval. Each <chunk> is a contiguous stretch of one session: USER is the human, CLAUDE or GPT the agent, PROMPT what started a GPT session, "> tool" the agent's tool calls, "< result" the first and last bytes of their output.
 
 For each chunk write a summary of at most 1200 bytes:
 - First line: what this stretch was about, with the date.
@@ -91,19 +95,21 @@ class Project:
 # ── Extraction ─────────────────────────────────────────────────
 
 
-def tool_line(block):
-    inp = block.get("input") or {}
-    what = inp.get("description") or inp.get("command") or inp.get("file_path") or inp.get("pattern") or inp.get("prompt") or json.dumps(inp)
-    return f"> tool {block.get('name')}: {oneline(what, 200)}"
+def tool_line(name, inp):
+    what = next((inp[k] for k in ("description", "command", "file_path", "filePath", "path", "pattern", "prompt") if inp.get(k)), json.dumps(inp))
+    return f"> tool {name}: {oneline(what, 200)}"
 
 
-def result_line(block, full):
+def result_line(text, error, full):
+    flag = "[error] " if error else ""
+    return f"< result {flag}" + (text if full else oneline(clip(text, RESULT_CAP), RESULT_CAP + 40))
+
+
+def claude_result(block, full):
     content = block.get("content")
     if isinstance(content, list):
         content = "\n".join(x.get("text", "") for x in content if isinstance(x, dict))
-    text = str(content or "")
-    flag = "[error] " if block.get("is_error") else ""
-    return f"< result {flag}" + (text if full else oneline(clip(text, RESULT_CAP), RESULT_CAP + 40))
+    return result_line(str(content or ""), block.get("is_error"), full)
 
 
 def blocks(content):
@@ -121,10 +127,10 @@ def render(rec, full=False):
             if b.get("type") == "text" and b["text"].strip():
                 out.append(f"## CLAUDE {ts}\n" + (b["text"] if full else clip(b["text"], EVENT_CAP)))
             elif b.get("type") == "tool_use":
-                out.append(tool_line(b))
+                out.append(tool_line(b.get("name"), b.get("input") or {}))
         return "\n".join(out) or None
     if rec.get("toolUseResult") is not None:
-        out = [result_line(b, full) for b in blocks(msg.get("content")) if b.get("type") == "tool_result"]
+        out = [claude_result(b, full) for b in blocks(msg.get("content")) if b.get("type") == "tool_result"]
         return "\n".join(out) or None
     if rec.get("isCompactSummary"):
         return f"## COMPACTION {ts}"
@@ -172,75 +178,145 @@ def role_of(path):
     return "headless" if entry == "sdk-cli" else "interactive"
 
 
-def chunk_session(path, start, ended):
-    """Finalized chunks of a transcript from byte offset start, and the offset they reach."""
-    out, cur, size, t0, t1, c0 = [], [], 0, None, None, start
-
-    def cut(end):
-        nonlocal cur, size, t0, c0
-        out.append({"t0": t0, "t1": t1, "off": [c0, end], "text": "\n".join(cur)})
-        cur, size, t0, c0 = [], 0, None, end
-
-    prev = start
+def claude_events(path, start, full=False):
     for off, rec in records(path, start):
-        text = render(rec)
+        yield off, rec.get("timestamp"), render(rec, full)
+
+
+def iso(ms):
+    return datetime.fromtimestamp(ms / 1000, timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+
+
+def webchat_events(path, start, full=False):
+    """A claude.ai conversation export, one event per message."""
+    for k, m in enumerate(json.loads(Path(path).read_text()).get("chat_messages", [])):
+        if k >= start:
+            who = "USER" if m.get("sender") == "human" else "CLAUDE"
+            parts = [b.get("text", "") for b in m.get("content", []) if b.get("type") == "text"] or [m.get("text", "")]
+            text = "\n".join(parts).strip()
+            yield k + 1, m.get("created_at"), f"## {who} {stamp(m.get('created_at'))}\n" + (text if full else clip(text, EVENT_CAP))
+
+
+def gpt_block(kind, ts, text=None, name=None, inp=None, output="", error=False, full=False):
+    if kind == "tool":
+        return tool_line(name, inp or {}) + "\n" + result_line(output, error, full)
+    return f"## GPT {stamp(ts)}\n" + (text if full else clip(text, EVENT_CAP)) if (text or "").strip() else None
+
+
+def connect(db):
+    return sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+
+
+def is_v2(con):
+    return con.execute("select 1 from sqlite_master where name = 'session_v2'").fetchone() is not None
+
+
+def opencode_events(db, sid, start, full=False):
+    """A GPT session in either of opencode's schemas: a row per step with its content (v2), or per message with parts."""
+    con = connect(db)
+    if is_v2(con):
+        for row, ms, kind, data in con.execute("select rowid, time_created, type, data from session_message "
+                                               "where session_id = ? and rowid > ? order by rowid", (sid, start)):
+            ts, d = iso(ms), json.loads(data)
+            if kind == "assistant" and not d.get("time", {}).get("completed"):
+                return
+            out = []
+            if kind == "user":
+                out.append(f"## PROMPT {stamp(ts)}\n" + (d.get("text", "") if full else clip(d.get("text", ""), EVENT_CAP)))
+            for b in d.get("content") or [] if kind == "assistant" else []:
+                st = b.get("state") or {}
+                if b.get("type") == "tool":
+                    body = "\n".join(x.get("text", "") for x in st.get("content") or [] if isinstance(x, dict))
+                    out.append(gpt_block("tool", ts, name=b.get("name"), inp=st.get("input"), output=body or str(st.get("error", "")),
+                                         error=st.get("status") == "error", full=full))
+                elif b.get("type") == "text":
+                    out.append(gpt_block("text", ts, text=b.get("text"), full=full))
+            yield row, ts, "\n".join(filter(None, out)) or None
+        return
+    for row, mid, ms, data in con.execute("select rowid, id, time_created, data from message "
+                                          "where session_id = ? and rowid > ? order by rowid", (sid, start)):
+        ts, role, out = iso(ms), json.loads(data).get("role"), []
+        for (part,) in con.execute("select data from part where message_id = ? order by id", (mid,)):
+            b = json.loads(part)
+            st = b.get("state") or {}
+            if b.get("type") == "tool":
+                out.append(gpt_block("tool", ts, name=b.get("tool"), inp=st.get("input"), output=str(st.get("output") or st.get("error") or ""),
+                                     error=st.get("status") == "error", full=full))
+            elif b.get("type") == "text" and role == "assistant":
+                out.append(gpt_block("text", ts, text=b.get("text"), full=full))
+            elif b.get("type") == "text":
+                out.append(f"## PROMPT {stamp(ts)}\n" + (b.get("text", "") if full else clip(b.get("text", ""), EVENT_CAP)))
+        yield row, ts, "\n".join(filter(None, out)) or None
+
+
+def events_of(src, start, full=False):
+    if src.startswith("opencode:"):
+        _, db, sid = src.split(":", 2)
+        return opencode_events(db, sid, start, full)
+    return (webchat_events if src.endswith(".json") else claude_events)(src, start, full)
+
+
+def opencode_sessions(p):
+    """(src, role, done) of each session in a directory that `opencode-dirs` (lines of `<directory> <role>`) assigns."""
+    listed = p.dir / "opencode-dirs"
+    dirs = [line.split() for line in listed.read_text().splitlines() if line.strip()] if listed.exists() else []
+    for db in sorted(OPENCODE.glob("opencode*.db")) if dirs else []:
+        con = connect(db)
+        v2 = is_v2(con)
+        rows = con.execute(f"select id, directory, time_updated from {'session_v2' if v2 else 'session'}").fetchall()
+        for sid, directory, updated in rows:
+            role = next((r for d, r in dirs if directory == d or directory.startswith(d + "/")), None)
+            if role:
+                last = v2 and con.execute("select type from session_message where session_id = ? order by rowid desc limit 1", (sid,)).fetchone()
+                yield f"opencode:{db}:{sid}", role, sid, (last and last[0] == "idle") or time.time() - updated / 1000 > IDLE
+
+
+def chunk(events, start, ended):
+    """Finalized chunks of (position after, timestamp, text or None) events, and the position they reach."""
+    out, cur, size, t0, t1, c0, prev = [], [], 0, None, None, start, start
+
+    def cut():
+        nonlocal cur, size, t0, c0
+        out.append({"t0": t0, "t1": t1, "off": [c0, prev], "text": "\n".join(cur)})
+        cur, size, t0, c0 = [], 0, None, prev
+
+    for pos, ts, text in events:
         if text is not None:
             if cur and (size + len(text) > HARD or (size >= SOFT and text.startswith("## USER"))):
-                cut(prev)
+                cut()
             cur.append(text)
             size += len(text) + 1
-            t0 = t0 or rec.get("timestamp")
-            t1 = rec.get("timestamp") or t1
-        prev = off
+            t0 = t0 or ts
+            t1 = ts or t1
+        prev = pos
     if cur and (size >= SOFT or ended):
-        cut(prev)
+        cut()
     return out, c0 if cur else prev
-
-
-def webchat_chunks(path):
-    """A claude.ai conversation export as chunks, in the same text form."""
-    chat = json.loads(Path(path).read_text())
-    out, cur, size, t0, t1 = [], [], 0, None, None
-    for m in chat.get("chat_messages", []):
-        who = "USER" if m.get("sender") == "human" else "CLAUDE"
-        parts = [b.get("text", "") for b in m.get("content", []) if b.get("type") == "text"] or [m.get("text", "")]
-        text = f"## {who} {stamp(m.get('created_at'))}\n" + clip("\n".join(parts).strip(), EVENT_CAP)
-        if cur and (size + len(text) > HARD or (size >= SOFT and who == "USER")):
-            out.append({"t0": t0, "t1": t1, "text": "\n".join(cur)})
-            cur, size, t0 = [], 0, None
-        cur.append(text)
-        size += len(text) + 1
-        t0 = t0 or m.get("created_at")
-        t1 = m.get("created_at")
-    if cur:
-        out.append({"t0": t0, "t1": t1, "text": "\n".join(cur)})
-    return out
 
 
 def index(p, ended):
     """Append every newly finalized chunk, ordered by end time; tiny one-off sessions are skipped."""
     new = []
-    for path in sorted(p.src.glob("*.jsonl")):
-        key, st = str(path), path.stat()
-        start = p.state.get(key, 0)
-        if st.st_size <= start:
-            continue
-        done = key in ended or time.time() - st.st_mtime > IDLE
-        chunks, reached = chunk_session(path, start, done)
+
+    def take(src, session, role, done):
+        start = p.state.get(src, 0)
+        chunks, reached = chunk(events_of(src, start), start, done)
         if start == 0 and done and sum(len(c["text"]) for c in chunks) < 2_000:
             chunks = []
-        role = role_of(path) if chunks else None
+        who = role() if chunks and callable(role) else role
         for c in chunks:
-            c.update(session=path.stem, role=role, src=key)
-        new += chunks
-        p.state[key] = reached
+            c.update(session=session, role=who, src=src)
+        new.extend(chunks)
+        p.state[src] = reached
+
+    for path in sorted(p.src.glob("*.jsonl")):
+        src, st = str(path), path.stat()
+        if st.st_size > p.state.get(src, 0):
+            take(src, path.stem, lambda: role_of(path), src in ended or time.time() - st.st_mtime > IDLE)
     for path in sorted((p.dir / "imports").glob("*.json")):
-        key = str(path)
-        if key not in p.state:
-            for c in webchat_chunks(path):
-                c.update(session=path.stem, role="webchat", src=key)
-                new.append(c)
-            p.state[key] = path.stat().st_size
+        take(str(path), path.stem, "webchat", True)
+    for src, role, sid, done in opencode_sessions(p):
+        take(src, sid, role, done)
     new.sort(key=lambda c: c["t1"] or "")
     p.append_chunks(new)
     p.save_state()
@@ -433,12 +509,11 @@ def cmd_zoom(p, args):
         return
     c = p.chunks[i]
     print(f"[{args.ref}] {header(c)} {c['src']}\n")
-    if args.full and "off" in c:
+    if args.full:
         a, b = c["off"]
-        for off, rec in records(c["src"], a):
-            if off > b:
+        for pos, _, text in events_of(c["src"], a, True):
+            if pos > b:
                 break
-            text = render(rec, full=True)
             if text:
                 print(text)
     else:
