@@ -174,5 +174,5 @@
     "ipv4.route-metric" = 700;
   };
 
-  environment.systemPackages = [ pkgs.macos-vm ];
+  environment.systemPackages = [ pkgs.ctx pkgs.macos-vm ];
 }
