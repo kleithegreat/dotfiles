@@ -540,7 +540,7 @@ def cmd_hook(_, args):
     p = Project(path.parent.name)
     if p.exists():
         log = open(p.dir / "sync.log", "a")
-        subprocess.Popen([sys.argv[0], "--project", p.slug, "sync", "--ended", str(path)],
+        subprocess.Popen([sys.argv[0], f"--project={p.slug}", "sync", "--ended", str(path)],
                          stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True)
 
 
