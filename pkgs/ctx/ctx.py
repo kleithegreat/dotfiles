@@ -25,7 +25,7 @@ RESULT_CAP = 300
 BATCH = 120_000
 SUMMARY_CAP = 2_000
 
-LEAF_PROMPT = """You index transcripts of Claude Code sessions for later retrieval. Each <chunk> is a contiguous stretch of one session: USER is the human, CLAUDE or GPT the agent, PROMPT what started a GPT session, "> tool" the agent's tool calls, "< result" the first and last bytes of their output.
+LEAF_PROMPT = """You index transcripts of Claude Code sessions for later retrieval. Each <chunk> is a contiguous stretch of one session: USER is the human, CLAUDE or GPT the agent, PROMPT what started a GPT session or subagent, PEER a message from another agent, "> tool" the agent's tool calls, "< result" the first and last bytes of their output.
 
 For each chunk write a summary of at most 1200 bytes:
 - First line: what this stretch was about, with the date.
@@ -119,7 +119,7 @@ def blocks(content):
 def render(rec, full=False):
     """One transcript record as text, or None if it carries nothing worth indexing."""
     kind, msg, ts = rec.get("type"), rec.get("message") or {}, stamp(rec.get("timestamp"))
-    if rec.get("isSidechain") or kind not in ("user", "assistant"):
+    if kind not in ("user", "assistant"):
         return None
     if kind == "assistant":
         out = []
@@ -136,14 +136,13 @@ def render(rec, full=False):
         return f"## COMPACTION {ts}"
     origin = (rec.get("origin") or {}).get("kind")
     text = "\n".join(b.get("text", "") for b in blocks(msg.get("content")) if b.get("type") == "text").strip()
-    if origin == "human":
-        return f"## USER {ts}\n" + (text if full else clip(text, EVENT_CAP))
     if origin == "task-notification":
         m = re.search(r"<summary>(.*?)</summary>", text, re.S)
         return f"## NOTE {ts} {oneline(m.group(1) if m else text, 300)}"
-    if origin == "peer":
-        return f"## PEER {ts}\n" + oneline(text, 600 if not full else 10**9)
-    return None
+    label = {"human": "USER", "peer": "PEER", "coordinator": "PEER"}.get(origin)
+    if origin is None and rec.get("isSidechain") and rec.get("parentUuid") is None:
+        label = "PROMPT"
+    return label and f"## {label} {ts}\n" + (text if full else clip(text, EVENT_CAP))
 
 
 def records(path, start):
@@ -162,7 +161,11 @@ def records(path, start):
 
 
 def role_of(path):
-    """builder, advisor, headless or interactive: a session named "builder: …" or "advisor…" wins, then its kind."""
+    """builder, advisor, headless or interactive: a session named "builder: …" or "advisor…" wins, then its kind.
+    A subagent is "subagent: <its task description>"."""
+    if path.parent.name == "subagents":
+        meta = path.with_suffix(".meta.json")
+        return "subagent: " + (json.loads(meta.read_text()).get("description", "") if meta.exists() else "")
     name, kind, entry = "", None, None
     for _, r in records(path, 0):
         t = r.get("type")
@@ -309,7 +312,7 @@ def index(p, ended):
         new.extend(chunks)
         p.state[src] = reached
 
-    for path in sorted(p.src.glob("*.jsonl")):
+    for path in sorted([*p.src.glob("*.jsonl"), *p.src.glob("*/subagents/*.jsonl")]):
         src, st = str(path), path.stat()
         if st.st_size > p.state.get(src, 0):
             take(src, path.stem, lambda: role_of(path), src in ended or time.time() - st.st_mtime > IDLE)

@@ -18,6 +18,8 @@
   them. `~/.local/share/ctx/<project>/` holds only the index (`chunks.jsonl`),
   the summaries (`nodes.jsonl`), the read offsets, and `imports/` for claude.ai
   conversation exports. It is never committed: transcripts hold secrets.
+- Subagents' transcripts (`<session>/subagents/*.jsonl`) are indexed too, since
+  builders are often subagents; their role names the task they were given.
 - GPT's opencode sessions are transcripts too: `opencode-dirs` in that directory
   assigns a role to each directory whose sessions belong to the project.
 - Both data files are append-only, and chunk order is the order sessions'
