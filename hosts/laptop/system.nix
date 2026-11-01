@@ -36,6 +36,11 @@
       name = "drm-max-bpc-change-is-a-mode-change";
       patch = ../../patches/linux/drm-max-bpc-change-is-a-mode-change.patch;
     }
+    {
+      # Experiment against intermittent touchpad lag; see docs/nix.md.
+      name = "i2c-force-100khz-elan-04f3-311c";
+      patch = ../../patches/linux/i2c-force-100khz-elan-04f3-311c.patch;
+    }
   ];
 
   # The i7-12700H's blob alone; the full bundle is 15 MiB of every boot's initrd.
