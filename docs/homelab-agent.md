@@ -8,6 +8,9 @@
 - It joins only while moneymachine sweeps run. `k3s.service` is wanted by
   nothing; `systemctl start k3s` joins, `systemctl stop k3s` leaves, and the
   polkit rule lets `kevin` do both without sudo so the research agent can.
+  Every stop, reboot and shutdown included, deletes the Node object with the
+  batch runner's kubeconfig, so a desktop that is off never shows NotReady
+  and pages Alertmanager.
 - Its taint `moneymachine/batch=true:NoSchedule` keeps homelab workloads off
   it; only moneymachine Jobs tolerate it.
 - It joins over the wired LAN (`enp4s0`, a DHCP reservation for

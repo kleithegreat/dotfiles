@@ -131,8 +131,11 @@
     wantedBy = lib.mkForce [ ];
     # kubelet mounts the NFS volumes below for pods scheduled here.
     path = [ pkgs.nfs-utils ];
-    # Stopping k3s alone leaves every container running.
-    serviceConfig.ExecStopPost = "${config.services.k3s.package}/bin/k3s-killall.sh";
+    # Stopping k3s alone leaves every container running, and the Node object NotReady.
+    serviceConfig.ExecStopPost = [
+      "${config.services.k3s.package}/bin/k3s-killall.sh"
+      "-${lib.getExe pkgs.kubectl} --kubeconfig=${config.users.users.kevin.home}/.kube/moneymachine.yaml --request-timeout=10s delete node ${config.networking.hostName} --ignore-not-found --wait=false"
+    ];
   };
   # The Jobs' data path (inputs read-only, results read-write) and the live workloads' mirror, every client squashed to kevin.
   services.nfs.server = {
