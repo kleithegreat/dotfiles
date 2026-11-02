@@ -97,6 +97,11 @@
 
     networking.useDHCP = lib.mkDefault true;
     services.owly.enable = true;
+    # owly powers the adapter up for a send and back down after.
+    hardware.bluetooth = {
+      enable = true;
+      powerOnBoot = false;
+    };
     zramSwap = {
       enable = true;
       memoryPercent = 100;

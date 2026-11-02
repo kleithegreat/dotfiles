@@ -158,11 +158,6 @@
   # Will not enumerate the ELAN touchpad, by design; see docs/nix.md.
   services.fwupd.enable = true;
 
-  hardware.bluetooth = {
-    enable = true;
-    powerOnBoot = false;
-  };
-
   # ── Fingerprint auth ────────────────────────────────────────
   # Goodix 27c6:63ac is in upstream libfprint; no TOD.
   services.fprintd = {
