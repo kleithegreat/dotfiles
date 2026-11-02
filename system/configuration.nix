@@ -9,6 +9,7 @@ let
     # Applications — home.packages
     "bambu-studio"
     "claude-desktop"
+    "copilot-language-server"
     "dd-cli"
     "discord"
     "discord-unwrapped"

@@ -77,14 +77,7 @@ in
     iw
     netcat-openbsd
     mission-center
-    neovim
-    gcc # nvim treesitter parser compilation (:TSUpdate / ensure_installed)
     neovide
-    lua-language-server
-    pyright
-    texlab
-    ltex-ls
-    bend2-lsp
     alacritty
     ghostty
     tmux

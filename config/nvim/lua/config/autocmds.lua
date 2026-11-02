@@ -1,9 +1,0 @@
-local group = vim.api.nvim_create_augroup("user_core", { clear = true })
-
-vim.api.nvim_create_autocmd("TextYankPost", {
-  group = group,
-  desc = "Highlight yanked text",
-  callback = function()
-    vim.hl.on_yank({ timeout = 120 })
-  end,
-})

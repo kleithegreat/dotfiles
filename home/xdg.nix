@@ -2,11 +2,11 @@
 
 let
   dotfilesSource = path: "${dotfilesPath}/${path}";
-  # lazy-lock.json is instead a writable link into the checkout, below.
+  # spell/ is instead a writable link into the checkout, below.
   nvimSource = lib.cleanSourceWith {
     name = "nvim-config";
     src = "${dotfilesPath}/config/nvim";
-    filter = path: _type: baseNameOf path != "lazy-lock.json";
+    filter = path: _type: baseNameOf path != "spell";
   };
   # Linked file by file, so generated files can sit beside the repo's.
   repoConfigSources =
@@ -71,9 +71,6 @@ let
 in
 {
   xdg.configFile = repoConfigSources // {
-    "nvim/lazy-lock.json".source =
-      config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/repos/dotfiles/config/nvim/lazy-lock.json";
-
     "hypr/autostart-host.lua" = mkHostConfigFile "autostartHost" "";
     "hypr/input-devices.lua" = mkHostConfigFile "inputDevices" "";
     "hypr/monitors.lua" =
@@ -106,8 +103,8 @@ in
       source = "${pkgs.bambu-studio}/share/applications/BambuStudio.desktop";
       force = true;
     };
-    "nvim/site/parser/bend.so".source = "${pkgs.tree-sitter-bend2}/parser";
-    "nvim/site/queries/bend".source = "${pkgs.tree-sitter-bend2}/queries";
+    "nvim/site/spell".source =
+      config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/repos/dotfiles/config/nvim/spell";
   };
 
   xdg.desktopEntries.code = {

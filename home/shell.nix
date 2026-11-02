@@ -167,8 +167,6 @@ in
   };
 
   home.sessionVariables = {
-    EDITOR = "nvim";
-    VISUAL = "nvim";
     BROWSER = "helium";
     PAGER = "less";
 

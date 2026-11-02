@@ -28,6 +28,7 @@ in
     ./desktopctl.nix
     ./shell.nix
     ./gtk.nix
+    ./neovim.nix
     ./packages.nix
     ./unearth.nix
     ./xdg.nix

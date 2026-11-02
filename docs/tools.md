@@ -14,6 +14,10 @@
 - `pkgs/tree-sitter-bend2` mirrors the parser in `bend2/bend.ts` of the Bend
   release its `version` names, glue and column rules included, rather than
   approximating the syntax. A Bend bump re-checks it against that release.
+- Neovim's plugins, tree-sitter grammars and language servers all come from
+  `home/neovim.nix`; nothing is fetched or compiled at runtime. The Lua config
+  leans on Neovim's defaults (`gr*` LSP maps, `[d`/`]d`, `an`/`in`) and adds a
+  plugin only where the built-in falls short.
 
 ## Quirks
 
@@ -26,18 +30,9 @@ A history-aware plugin in `programs.zsh.plugins` silently uses
 friends come from `desktopctl theme sync` at activation. Don't add
 placeholders; `Theme.qml` has fallbacks for the window before it.
 
-### The Neovim spellfile is a read-only store symlink
-`zg`/`zw` fail with E510. Edit `config/nvim/spell/en.utf-8.add`, regenerate
-with `nvim -u NONE -c 'mkspell! config/nvim/spell/en.utf-8.add' -c q`, commit
-both.
-
-### `lazy-lock.json` is a writable out-of-store symlink on purpose
-`:Lazy update` writes the committed lock in `~/repos/dotfiles`; review and
-commit. Without the checkout there it dangles.
-
-### auto-save.nvim is pinned to an archived upstream knowingly
-If it breaks, the drop-in fork is `okuuva/auto-save.nvim` (`trigger_events`
-becomes `immediate_save`/`defer_save`).
+### The Neovim spell dir is a writable out-of-store symlink on purpose
+`zg`/`zw` write `config/nvim/spell/` in `~/repos/dotfiles`; commit both files.
+Without the checkout there it dangles.
 
 ### About 90 of Bend's own `.bend` files fail the Bend grammar by design
 They are tests whose expected output (`#|` lines) is an `Error:`. The grammar
