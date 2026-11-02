@@ -48,11 +48,6 @@ Open issues and pending validations. Delete entries when resolved.
 - [ ] Desktop heater: after a switch, toggle Heater mode from the Power pane
       and confirm Quickshell menus stay responsive while both miners run.
 
-- [ ] Laptop face auth: after `sudo linux-enable-ir-emitter configure`, add
-      and remove a face from Settings → Authentication (pkexec, no prompt),
-      then confirm `sudo` and hyprlock both unlock by face, and that
-      hyprlock's PAM thread (running as the user, not root) can read
-      `/var/lib/howdy/models`.
 - [ ] Claude Code restore (`docs/session-restore.md`): after a relogin, each
       terminal that was running `claude` reopens on its workspace inside
       that session, a session that ran `/clear` comes back as the cleared
