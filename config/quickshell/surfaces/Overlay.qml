@@ -28,12 +28,12 @@ PanelWindow {
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: state.open_ ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
-    // The bar strip is left out so its buttons keep working while a surface is open.
+    // Excludes the bar strip while open, and everything during the exit linger.
     mask: Region {
         x: 0
         y: Metrics.barHeight + Metrics.barMargin
         width: overlay.width
-        height: Math.max(0, overlay.height - Metrics.barHeight - Metrics.barMargin)
+        height: overlay.state.open_ ? Math.max(0, overlay.height - Metrics.barHeight - Metrics.barMargin) : 0
     }
 
     // The overlay outlives the close by one exit animation, so the surface it

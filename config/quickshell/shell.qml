@@ -1,5 +1,4 @@
 import Quickshell
-import Quickshell.Io
 import Quickshell.Hyprland
 import QtQuick
 import qs.bar as Bar
@@ -101,41 +100,15 @@ Scope {
         screen: shell.primaryScreen
     }
 
-    // Published interface: config/hypr/keybinds.lua calls these names.
-    IpcHandler {
-        target: "popups"
+    // Shortcut names are surface names; config/hypr/keybinds.lua binds them.
+    Variants {
+        model: ["session", "notifications", "settings"]
 
-        function togglePowerMenu(): void {
-            shell.state.open("session");
-        }
-        function toggleDrawer(): void {
-            shell.state.open("notifications");
-        }
-        function toggleControl(): void {
-            shell.state.open("control");
-        }
-        function toggleCalendar(): void {
-            shell.state.open("calendar");
-        }
-        function toggleMedia(): void {
-            shell.state.open("media");
-        }
-        function closeAll(): void {
-            shell.state.close();
-        }
-    }
+        GlobalShortcut {
+            required property string modelData
 
-    IpcHandler {
-        target: "settings"
-
-        function toggle(): void {
-            if (shell.state.isOpen("settings"))
-                shell.state.close();
-            else
-                shell.state.showSettings();
-        }
-        function pane(name: string): void {
-            shell.state.showSettings(name);
+            name: modelData
+            onPressed: shell.state.open(modelData)
         }
     }
 }

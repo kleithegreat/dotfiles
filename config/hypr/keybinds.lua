@@ -70,22 +70,10 @@ bind(mainMod .. " + F10", hl.dsp.exec_cmd("grim"), { description = "Screenshot f
 -- Lock
 bind(mainMod .. " + L", hl.dsp.exec_cmd("loginctl lock-session"), { description = "Lock session" })
 
-local function quickshellIpc(target, fn)
-    return hl.dsp.exec_cmd(
-        [[sh -lc 'qs -p "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell" ipc call ]] .. target .. " " .. fn .. "'")
-end
-
-bind(mainMod .. " + Escape",
-    quickshellIpc("popups", "togglePowerMenu"),
-    { description = "Toggle power menu" })
-bind(mainMod .. " + SHIFT + N",
-    quickshellIpc("popups", "toggleDrawer"),
-    { description = "Toggle notifications drawer" })
-
--- Settings panel
-bind(mainMod .. " + T",
-    quickshellIpc("settings", "toggle"),
-    { description = "Toggle settings" })
+-- Quickshell surfaces, by the names shell.qml registers.
+bind(mainMod .. " + Escape", hl.dsp.global("quickshell:session"), { description = "Toggle power menu" })
+bind(mainMod .. " + SHIFT + N", hl.dsp.global("quickshell:notifications"), { description = "Toggle notifications drawer" })
+bind(mainMod .. " + T", hl.dsp.global("quickshell:settings"), { description = "Toggle settings" })
 
 -- Restart Quickshell
 bind(mainMod .. " + SHIFT + Q",

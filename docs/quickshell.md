@@ -13,6 +13,10 @@
   lose blur. Menus (the session menu) take no scrim.
 - At most one managed surface is open: one name in `ShellState`. The overlay
   owns focus, outside-click dismissal and the scrim; its mask excludes the bar.
+- Motion is QML's alone: `quickshell:*` layers are `no_anim` in
+  `config/hypr/rules.lua`. Hyprland's unconfigured `layers` animation
+  inherits `global` (~800 ms) and stacks on every map and unmap, which reads
+  as the whole shell lagging.
 - Surfaces grow from the control that summoned them. Bar items publish their
   origin (`ShellState.setOrigin`), so a keybind-opened surface grows from its
   button too.
@@ -29,8 +33,10 @@
 - State arrives over `Desktopctl`'s subscription, never by polling.
   Reconnecting is load-bearing: daemon and shell start concurrently and
   restart independently. A one-shot status read is the degraded path.
-- IPC target and function names are a published interface:
-  `config/hypr/keybinds.lua` calls them and only changes on rebuild.
+- Keybinds reach the shell as Hyprland global shortcuts named after the
+  surface they toggle (`quickshell:<surface>`), never through a process per
+  keypress: a `qs ipc` client costs ~200 ms before anything moves. The names
+  are shared with `config/hypr/keybinds.lua`, which only changes on rebuild.
 - Pointer-first: no keyboard contract beyond Escape closing the surface.
 - Monitor-button brightness changes are not watched; do not add a poll.
 
