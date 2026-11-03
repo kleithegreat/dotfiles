@@ -24,6 +24,7 @@
     "bg2":          "#45475a",
     "bg3":          "#585b70",
     "fg":           "#cdd6f4",
+    "comment":      "#9399b2",
     "red":          "#f38ba8",
     "green":        "#a6e3a1",
     "yellow":       "#f9e2af",
@@ -39,11 +40,5 @@
     "purple_bright":"#f5c2e7",
     "cyan_bright":  "#94e2d5",
     "orange_bright":"#fab387"
-  },
-  "palette": [
-    "#45475a", "#f38ba8", "#a6e3a1", "#f9e2af",
-    "#89b4fa", "#f5c2e7", "#94e2d5", "#bac2de",
-    "#585b70", "#f38ba8", "#a6e3a1", "#f9e2af",
-    "#89b4fa", "#f5c2e7", "#94e2d5", "#a6adc8"
-  ]
+  }
 }

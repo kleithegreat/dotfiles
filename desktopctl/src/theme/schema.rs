@@ -8,13 +8,14 @@ use std::{borrow::Cow, fs, io, path::Path};
 
 /// Colors a scheme file must author. The dimmed foreground ramp is absent on
 /// purpose: it is derived by [`dim_ramp`], not transcribed.
-pub const COLOR_FIELD_NAMES: [&str; 21] = [
+pub const COLOR_FIELD_NAMES: [&str; 22] = [
     "bg",
     "bg_dim",
     "bg1",
     "bg2",
     "bg3",
     "fg",
+    "comment",
     "red",
     "green",
     "yellow",
@@ -215,6 +216,8 @@ pub struct ColorScheme {
     pub fg3: String,
     pub fg4: String,
     pub fg_faint: String,
+    /// The scheme's own comment colour, from its upstream style guide.
+    pub comment: String,
     pub red: String,
     pub green: String,
     pub yellow: String,
@@ -230,6 +233,7 @@ pub struct ColorScheme {
     pub purple_bright: String,
     pub cyan_bright: String,
     pub orange_bright: String,
+    /// Derived by [`terminal_palette`], never authored.
     pub palette: [String; 16],
 }
 
@@ -241,6 +245,7 @@ struct NamedColors {
     bg2: String,
     bg3: String,
     fg: String,
+    comment: String,
     red: String,
     green: String,
     yellow: String,
@@ -267,7 +272,31 @@ struct ColorSchemeWire {
     dark_scheme: Option<String>,
     app_themes: ColorSchemeAppThemes,
     colors: NamedColors,
-    palette: [String; 16],
+}
+
+/// ANSI slots by role rather than upstream's terminal port, which on solarized
+/// fills bright black with the background and the bright accents with greys.
+/// Polarity-relative: slot 0 is a background shade, 7 and 15 foreground shades.
+fn terminal_palette(colors: &NamedColors, fg2: &str) -> [String; 16] {
+    let slots: [&str; 16] = [
+        &colors.bg1,
+        &colors.red,
+        &colors.green,
+        &colors.yellow,
+        &colors.blue,
+        &colors.purple,
+        &colors.cyan,
+        fg2,
+        &colors.comment,
+        &colors.red_bright,
+        &colors.green_bright,
+        &colors.yellow_bright,
+        &colors.blue_bright,
+        &colors.purple_bright,
+        &colors.cyan_bright,
+        &colors.fg,
+    ];
+    slots.map(str::to_owned)
 }
 
 impl ColorScheme {
@@ -318,6 +347,7 @@ impl<'de> Deserialize<'de> for ColorScheme {
     {
         let wire = ColorSchemeWire::deserialize(deserializer)?;
         let ramp = dim_ramp(&wire.colors.fg, &wire.colors.bg).map_err(de::Error::custom)?;
+        let palette = terminal_palette(&wire.colors, &ramp.fg2);
         Ok(Self {
             family: wire.family,
             variant: wire.variant,
@@ -334,6 +364,7 @@ impl<'de> Deserialize<'de> for ColorScheme {
             fg4: ramp.fg4,
             fg_faint: ramp.fg_faint,
             fg: wire.colors.fg,
+            comment: wire.colors.comment,
             red: wire.colors.red,
             green: wire.colors.green,
             yellow: wire.colors.yellow,
@@ -349,7 +380,7 @@ impl<'de> Deserialize<'de> for ColorScheme {
             purple_bright: wire.colors.purple_bright,
             cyan_bright: wire.colors.cyan_bright,
             orange_bright: wire.colors.orange_bright,
-            palette: wire.palette,
+            palette,
         })
     }
 }

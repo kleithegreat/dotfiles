@@ -36,6 +36,12 @@
   it — upstream palettes made secondary text brighter than primary on nord and
   solarized. Never pair fg tiers against bg tiers for a guaranteed gap; the
   ramps are independent.
+- Schemes never author the 16 ANSI colours either; they are laid out by role
+  from the named colours. Upstream terminal ports are not role-faithful:
+  solarized's puts the background in bright black, which blanked htop's
+  meter text. Bright black is `comment`, copied from each upstream's own
+  style guide, not floored for contrast, so solarized and tokyo-night sit
+  near 2.5:1 by design.
 - The Kvantum theme, SVG included, is generated whole: borrowed SVG pins shape
   and colour to someone else's palette. Its visual language: flat fills,
   hairline borders, one radius per widget class, accent only for selection,

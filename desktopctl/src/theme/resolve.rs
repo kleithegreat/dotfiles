@@ -307,7 +307,7 @@ fn parse_json_file(path: &Path) -> crate::Result<Value> {
 fn validate_color_scheme(value: &Value, path: &Path) -> crate::Result<()> {
     let object = expect_object(value, path.display().to_string())?;
 
-    for key in ["family", "variant", "appearance", "colors", "palette"] {
+    for key in ["family", "variant", "appearance", "colors"] {
         if !object.contains_key(key) {
             return Err(crate::invalid_data(format!(
                 "{}: missing required top-level key '{key}'",
@@ -344,31 +344,6 @@ fn validate_color_scheme(value: &Value, path: &Path) -> crate::Result<()> {
     for name in color_names {
         let value = colors.get(name).expect("validated color key exists");
         check_hex(value, &format!("{} colors.{name}", path.display()))?;
-    }
-
-    let palette = object.get("palette").ok_or_else(|| {
-        crate::invalid_data(format!(
-            "{}: missing required top-level key 'palette'",
-            path.display()
-        ))
-    })?;
-    let Some(entries) = palette.as_array() else {
-        return Err(crate::invalid_data(format!(
-            "{}: 'palette' must be a list of exactly 16 hex colors",
-            path.display()
-        ))
-        .into());
-    };
-    if entries.len() != 16 {
-        return Err(crate::invalid_data(format!(
-            "{}: 'palette' must be a list of exactly 16 hex colors",
-            path.display()
-        ))
-        .into());
-    }
-
-    for (index, entry) in entries.iter().enumerate() {
-        check_hex(entry, &format!("{} palette[{index}]", path.display()))?;
     }
 
     Ok(())
@@ -539,7 +514,6 @@ mod tests {
         let scheme = load_colors("gruvbox-dark", &repo_root().join("styling/colors"))?;
         assert_eq!(scheme.family, "gruvbox");
         assert_eq!(scheme.variant, "dark");
-        assert_eq!(scheme.palette.len(), 16);
         Ok(())
     }
 

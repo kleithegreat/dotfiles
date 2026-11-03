@@ -234,6 +234,7 @@ pub(crate) mod testsupport {
                 "bg2": "#030303",
                 "bg3": "#040404",
                 "fg": "#f0f0f0",
+                "comment": "#888888",
                 "red": "#ff0000",
                 "green": "#00ff00",
                 "yellow": "#ffff00",
@@ -249,13 +250,7 @@ pub(crate) mod testsupport {
                 "purple_bright": "#ff11ff",
                 "cyan_bright": "#11ffff",
                 "orange_bright": "#ff9911"
-            },
-            "palette": [
-                "#000000", "#111111", "#222222", "#333333",
-                "#444444", "#555555", "#666666", "#777777",
-                "#888888", "#999999", "#aaaaaa", "#bbbbbb",
-                "#cccccc", "#dddddd", "#eeeeee", "#ffffff"
-            ]
+            }
         }))
         .expect("valid dummy colors")
     }
@@ -341,7 +336,7 @@ mod tests {
         let output = text(alacritty::generate(&dummy_colors(), &dummy_state()));
         assert_eq!(
             output,
-            "[font]\nnormal = { family = \"JetBrains Mono Nerd Font\" }\nsize = 11\n\n[colors.primary]\nbackground = \"#000000\"\nforeground = \"#f0f0f0\"\n\n[colors.normal]\nblack   = \"#000000\"\nred     = \"#111111\"\ngreen   = \"#222222\"\nyellow  = \"#333333\"\nblue    = \"#444444\"\nmagenta = \"#555555\"\ncyan    = \"#666666\"\nwhite   = \"#777777\"\n\n[colors.bright]\nblack   = \"#888888\"\nred     = \"#999999\"\ngreen   = \"#aaaaaa\"\nyellow  = \"#bbbbbb\"\nblue    = \"#cccccc\"\nmagenta = \"#dddddd\"\ncyan    = \"#eeeeee\"\nwhite   = \"#ffffff\"\n"
+            "[font]\nnormal = { family = \"JetBrains Mono Nerd Font\" }\nsize = 11\n\n[colors.primary]\nbackground = \"#000000\"\nforeground = \"#f0f0f0\"\n\n[colors.normal]\nblack   = \"#020202\"\nred     = \"#ff0000\"\ngreen   = \"#00ff00\"\nyellow  = \"#ffff00\"\nblue    = \"#0000ff\"\nmagenta = \"#ff00ff\"\ncyan    = \"#00ffff\"\nwhite   = \"#cccccc\"\n\n[colors.bright]\nblack   = \"#888888\"\nred     = \"#ff1111\"\ngreen   = \"#11ff11\"\nyellow  = \"#ffff11\"\nblue    = \"#1111ff\"\nmagenta = \"#ff11ff\"\ncyan    = \"#11ffff\"\nwhite   = \"#f0f0f0\"\n"
         );
     }
 
@@ -388,7 +383,7 @@ mod tests {
         assert!(output.contains("accent = \"#3366ff\","), "{output}");
         assert!(output.contains("fg_faint = \"#484848\","), "{output}");
         assert!(
-            output.contains("terminal = {\n    \"#000000\","),
+            output.contains("terminal = {\n    \"#020202\","),
             "{output}"
         );
 
@@ -419,7 +414,7 @@ mod tests {
         let output = text(ghostty::generate(&dummy_colors(), &dummy_state()));
         assert_eq!(
             output,
-            "font-family = JetBrains Mono Nerd Font\nfont-size = 11\nbackground = #000000\nforeground = #f0f0f0\nselection-background = #040404\nselection-foreground = #f0f0f0\ncursor-color = #f0f0f0\ncursor-text = #000000\npalette = 0=#000000\npalette = 1=#111111\npalette = 2=#222222\npalette = 3=#333333\npalette = 4=#444444\npalette = 5=#555555\npalette = 6=#666666\npalette = 7=#777777\npalette = 8=#888888\npalette = 9=#999999\npalette = 10=#aaaaaa\npalette = 11=#bbbbbb\npalette = 12=#cccccc\npalette = 13=#dddddd\npalette = 14=#eeeeee\npalette = 15=#ffffff\n"
+            "font-family = JetBrains Mono Nerd Font\nfont-size = 11\nbackground = #000000\nforeground = #f0f0f0\nselection-background = #040404\nselection-foreground = #f0f0f0\ncursor-color = #f0f0f0\ncursor-text = #000000\npalette = 0=#020202\npalette = 1=#ff0000\npalette = 2=#00ff00\npalette = 3=#ffff00\npalette = 4=#0000ff\npalette = 5=#ff00ff\npalette = 6=#00ffff\npalette = 7=#cccccc\npalette = 8=#888888\npalette = 9=#ff1111\npalette = 10=#11ff11\npalette = 11=#ffff11\npalette = 12=#1111ff\npalette = 13=#ff11ff\npalette = 14=#11ffff\npalette = 15=#f0f0f0\n"
         );
     }
 
