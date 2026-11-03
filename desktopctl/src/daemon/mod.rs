@@ -1,3 +1,5 @@
+pub mod airdrop;
+pub mod airpods;
 pub mod brightness;
 pub mod focus;
 pub mod hypr;
@@ -82,6 +84,20 @@ async fn run_async() -> crate::Result<()> {
         }
     });
 
+    let airdrop = airdrop::AirDropController::new(events.clone());
+    auxiliary.spawn({
+        let airdrop = airdrop.clone();
+        let shutdown_rx = shutdown_rx.clone();
+        async move { ("airdrop", airdrop::run(airdrop, shutdown_rx).await) }
+    });
+
+    let airpods = airpods::AirPodsController::new(events.clone());
+    auxiliary.spawn({
+        let airpods = airpods.clone();
+        let shutdown_rx = shutdown_rx.clone();
+        async move { ("airpods watcher", airpods::run(airpods, shutdown_rx).await) }
+    });
+
     let supervisor = tokio::spawn(async move {
         while let Some(task) = auxiliary.join_next().await {
             report_auxiliary_exit(task);
@@ -99,6 +115,8 @@ async fn run_async() -> crate::Result<()> {
 
     let mut server = tokio::spawn({
         let context = server::ServerContext {
+            airdrop,
+            airpods,
             night_light: night_light.clone(),
             theme: theme.clone(),
             hypr: hypr.clone(),

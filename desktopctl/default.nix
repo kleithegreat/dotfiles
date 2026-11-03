@@ -1,4 +1,4 @@
-{ lib, rustPlatform, makeWrapper, coreutils, geoclue2-with-demo-agent }:
+{ lib, rustPlatform, makeWrapper, coreutils, geoclue2-with-demo-agent, owly }:
 
 rustPlatform.buildRustPackage {
   pname = "desktopctl";
@@ -9,8 +9,10 @@ rustPlatform.buildRustPackage {
 
   nativeBuildInputs = [ makeWrapper ];
 
+  # `.owly` is the flake's owly input, so flake.lock is owly's only pin.
   postUnpack = /* bash */ ''
     cp --recursive ${../styling} $sourceRoot/../styling
+    ln --symbolic ${owly} $sourceRoot/.owly
   '';
 
   postInstall = /* bash */ ''

@@ -55,6 +55,17 @@ pub(crate) mod methods {
     pub const SESSION_STATUS: &str = "session.status";
     pub const SESSION_AUTOMATIC: &str = "session.automatic";
     pub const SESSION_RESTORE: &str = "session.restore";
+
+    pub const AIRDROP_STATUS: &str = "airdrop.status";
+    pub const AIRDROP_VISIBLE: &str = "airdrop.visible";
+    pub const AIRDROP_ANSWER: &str = "airdrop.answer";
+    pub const AIRDROP_SHARE: &str = "airdrop.share";
+    pub const AIRDROP_SEND: &str = "airdrop.send";
+    pub const AIRDROP_CANCEL: &str = "airdrop.cancel";
+
+    pub const AIRPODS_STATUS: &str = "airpods.status";
+    pub const AIRPODS_NOISE: &str = "airpods.noise";
+    pub const AIRPODS_AWARENESS: &str = "airpods.awareness";
 }
 
 /// Topics a subscriber can select; each event name is `<topic>.<what>`.
@@ -65,6 +76,8 @@ pub(crate) const TOPICS: &[&str] = &[
     "hypr_input",
     "hypr_monitors",
     "session",
+    "airpods",
+    "airdrop",
 ];
 
 #[derive(Debug, Serialize)]

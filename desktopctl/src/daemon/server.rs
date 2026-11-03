@@ -1,5 +1,7 @@
 use crate::{
     daemon::{
+        airdrop::AirDropController,
+        airpods::AirPodsController,
         brightness::BrightnessController,
         hypr::HyprController,
         night_light::Controller,
@@ -61,6 +63,8 @@ impl Events {
 /// Everything a client connection can reach.
 #[derive(Clone)]
 pub struct ServerContext {
+    pub airdrop: AirDropController,
+    pub airpods: AirPodsController,
     pub night_light: Controller,
     pub theme: ThemeController,
     pub hypr: HyprController,
@@ -109,6 +113,40 @@ struct SessionAutomaticParams {
 struct SessionRestoreParams {
     #[serde(default)]
     if_automatic: bool,
+}
+
+#[derive(Debug, Deserialize)]
+struct AirDropVisibleParams {
+    enabled: bool,
+}
+
+#[derive(Debug, Deserialize)]
+struct AirDropAnswerParams {
+    id: u64,
+    accept: bool,
+}
+
+#[derive(Debug, Deserialize)]
+struct AirDropShareParams {
+    #[serde(default)]
+    paths: Vec<std::path::PathBuf>,
+    #[serde(default)]
+    urls: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AirDropSendParams {
+    receiver: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct AirPodsNoiseParams {
+    mode: crate::airpods::NoiseMode,
+}
+
+#[derive(Debug, Deserialize)]
+struct AirPodsAwarenessParams {
+    enabled: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -387,6 +425,33 @@ async fn respond(
             let brightness = context.brightness.clone();
             blocking(move || brightness.restore(params.device.as_deref())).await
         }
+        methods::AIRDROP_STATUS => to_value(context.airdrop.status()),
+        methods::AIRDROP_VISIBLE => {
+            let params: AirDropVisibleParams = parse_params(params, method)?;
+            to_value(context.airdrop.visible(params.enabled).await)
+        }
+        methods::AIRDROP_ANSWER => {
+            let params: AirDropAnswerParams = parse_params(params, method)?;
+            to_value(context.airdrop.answer(params.id, params.accept).await)
+        }
+        methods::AIRDROP_SHARE => {
+            let params: AirDropShareParams = parse_params(params, method)?;
+            to_value(context.airdrop.share(params.paths, params.urls).await)
+        }
+        methods::AIRDROP_SEND => {
+            let params: AirDropSendParams = parse_params(params, method)?;
+            to_value(context.airdrop.send(params.receiver).await)
+        }
+        methods::AIRDROP_CANCEL => to_value(context.airdrop.cancel().await),
+        methods::AIRPODS_STATUS => to_value(context.airpods.status()),
+        methods::AIRPODS_NOISE => {
+            let params: AirPodsNoiseParams = parse_params(params, method)?;
+            to_value(context.airpods.set_noise(params.mode).await)
+        }
+        methods::AIRPODS_AWARENESS => {
+            let params: AirPodsAwarenessParams = parse_params(params, method)?;
+            to_value(context.airpods.set_awareness(params.enabled).await)
+        }
         _ => Err(format!("unsupported method: {method}")),
     }
 }
@@ -516,6 +581,8 @@ async fn push_snapshots<W: AsyncWrite + Unpin>(
                 blocking(move || hypr.monitors_status()).await
             }
             "session" => to_value(context.session.status()),
+            "airpods" => to_value(context.airpods.status()),
+            "airdrop" => to_value(context.airdrop.status()),
             "brightness" => {
                 if let Ok(devices) = blocking(crate::brightness::backlight_snapshot).await {
                     write_brightness_snapshot(writer, devices).await?;
@@ -693,6 +760,8 @@ mod tests {
     fn test_context() -> ServerContext {
         let events = Events::new();
         ServerContext {
+            airdrop: AirDropController::new(events.clone()),
+            airpods: AirPodsController::new(events.clone()),
             night_light: Controller::new(),
             theme: ThemeController::spawn(events.clone()),
             hypr: HyprController::new(events.clone()),
@@ -827,7 +896,9 @@ mod tests {
                 "brightness",
                 "hypr_input",
                 "hypr_monitors",
-                "session"
+                "session",
+                "airpods",
+                "airdrop"
             ]
         );
         assert_eq!(

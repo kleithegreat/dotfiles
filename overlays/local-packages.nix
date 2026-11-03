@@ -1,3 +1,5 @@
+{ owly }:
+
 final: prev: {
   bend2-lsp = final.callPackage ../pkgs/bend2-lsp { };
   bambu-studio = final.callPackage ../pkgs/bambu-studio {
@@ -19,7 +21,7 @@ final: prev: {
     '';
   };
   dd-cli = final.callPackage ../pkgs/dd-cli { };
-  desktopctl = final.callPackage ../desktopctl { };
+  desktopctl = final.callPackage ../desktopctl { inherit owly; };
   helium = final.callPackage ../pkgs/helium { };
   kernel-oom-notifier = final.callPackage ../pkgs/kernel-oom-notifier { };
   linux-devmgmt = final.optimize.ccache (final.callPackage ../pkgs/linux-devmgmt { });

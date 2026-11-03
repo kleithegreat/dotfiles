@@ -90,7 +90,7 @@
       # Host-independent packages only.
       overlays.default =
         final: prev:
-        import ./overlays/local-packages.nix final prev
+        import ./overlays/local-packages.nix { inherit (inputs) owly; } final prev
         // import ./overlays/claude-code.nix { inherit (inputs) nixpkgs-claude; } final prev;
 
       nixosConfigurations =
@@ -133,6 +133,10 @@
             pkg-config
             sqlite
           ];
+          # desktopctl builds owly-airdrop from the flake's own owly input.
+          shellHook = /* bash */ ''
+            ln --symbolic --force --no-dereference ${inputs.owly} "$(git rev-parse --show-toplevel)/desktopctl/.owly"
+          '';
         };
     };
 }

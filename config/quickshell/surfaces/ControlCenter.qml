@@ -52,6 +52,17 @@ Popover {
 
             Ui.Tile {
                 Layout.fillWidth: true
+                visible: Sys.AirDrop.available
+                icon: "airdrop"
+                title: "AirDrop"
+                detail: Sys.AirDrop.visible_ ? "Everyone · " + Sys.AirDrop.minutesLeft + " min" : Sys.AirDrop.pausesWifi ? "Off · pauses Wi-Fi" : "Off"
+                on: Sys.AirDrop.visible_
+                pending: Sys.AirDrop.busy
+                onClicked: Sys.AirDrop.setVisible(!Sys.AirDrop.visible_)
+            }
+
+            Ui.Tile {
+                Layout.fillWidth: true
                 icon: "shield-lock"
                 title: "Mullvad"
                 detail: Sys.Mullvad.connected ? Sys.Mullvad.location : Sys.Mullvad.state === "connecting" ? "Connecting" : "Off"
@@ -102,6 +113,37 @@ Popover {
                 detail: Sys.Idle.inhibited ? "On" : "Off"
                 on: Sys.Idle.inhibited
                 onClicked: Sys.Idle.toggle()
+            }
+        }
+
+        Ui.Divider {
+            visible: Sys.AirPods.connected
+        }
+
+        ColumnLayout {
+            Layout.fillWidth: true
+            visible: Sys.AirPods.connected
+            spacing: Metrics.s3
+
+            Ui.Label {
+                Layout.fillWidth: true
+                text: Sys.AirPods.link?.name ?? ""
+                role: "headline"
+                elide: Text.ElideRight
+            }
+
+            Ui.PodBattery {
+                Layout.fillWidth: true
+                battery: Sys.AirPods.battery
+            }
+
+            Ui.Choice {
+                Layout.fillWidth: true
+                // The modes the stems cycle through; Off lives in Settings, where the row has room.
+                visible: Sys.AirPods.hasNoise
+                options: Sys.AirPods.noiseModes.filter(mode => mode.value !== "off")
+                current: Sys.AirPods.noise
+                onPicked: mode => Sys.AirPods.setNoise(mode)
             }
         }
 

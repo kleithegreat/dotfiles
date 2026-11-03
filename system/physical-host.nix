@@ -101,6 +101,8 @@
     hardware.bluetooth = {
       enable = true;
       powerOnBoot = false;
+      # The AirPods card's advertisement monitor is experimental in BlueZ ([[airpods]]).
+      settings.General.Experimental = true;
     };
     zramSwap = {
       enable = true;

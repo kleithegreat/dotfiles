@@ -36,7 +36,7 @@ BarItem {
         Ui.Icon {
             anchors.verticalCenter: parent.verticalCenter
             size: Metrics.barIcon
-            name: Sys.Bluetooth.icon
+            name: Sys.AirPods.connected ? "airpods" : Sys.Bluetooth.icon
             visible: Sys.Bluetooth.available
             color: Sys.Bluetooth.connected.length > 0 ? Theme.accent : root.hovered ? Theme.text : Theme.textSecondary
         }

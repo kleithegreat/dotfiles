@@ -55,6 +55,8 @@ Scope {
         void Sys.SessionRestore.restorable;
         void Sys.Appearance.state;
         void Sys.Displays.primaryOutput;
+        void Sys.AirPods.connected;
+        void Sys.AirDrop.available;
         Sys.Idle.applyBootDefault();
     }
 
@@ -88,6 +90,14 @@ Scope {
     }
 
     Surfaces.Banners {
+        screen: shell.primaryScreen
+    }
+
+    Surfaces.Proximity {
+        screen: shell.primaryScreen
+    }
+
+    Surfaces.AirDrop {
         screen: shell.primaryScreen
     }
 

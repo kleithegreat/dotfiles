@@ -6,7 +6,7 @@
     { inputs, host }:
     [
       inputs.claude-desktop.overlays.default
-      (import ../overlays/local-packages.nix)
+      (import ../overlays/local-packages.nix { inherit (inputs) owly; })
       (import ../overlays/claude-code.nix { inherit (inputs) nixpkgs-claude; })
       (final: _prev: {
         ableton-wine = inputs.ableton-linux.packages.${final.stdenv.hostPlatform.system}.default;

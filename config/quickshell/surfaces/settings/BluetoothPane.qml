@@ -67,6 +67,49 @@ Ui.Scroll {
         }
 
         Ui.Group {
+            title: Sys.AirPods.link?.name ?? ""
+            visible: Sys.AirPods.connected
+
+            Ui.PodBattery {
+                Layout.fillWidth: true
+                Layout.margins: Metrics.rowInset
+                battery: Sys.AirPods.battery
+            }
+
+            Ui.ListRow {
+                Layout.fillWidth: true
+                visible: Sys.AirPods.hasNoise
+                title: "Noise control"
+                interactive: false
+            }
+
+            Ui.Choice {
+                Layout.fillWidth: true
+                Layout.leftMargin: Metrics.rowInset
+                Layout.rightMargin: Metrics.rowInset
+                Layout.bottomMargin: Metrics.rowInset
+                visible: Sys.AirPods.hasNoise
+                options: Sys.AirPods.noiseModes
+                current: Sys.AirPods.noise
+                onPicked: mode => Sys.AirPods.setNoise(mode)
+            }
+
+            Ui.ListRow {
+                Layout.fillWidth: true
+                visible: Sys.AirPods.hasAwareness
+                title: "Conversation awareness"
+                subtitle: "Lowers media and lets voices through when you speak"
+                interactive: false
+
+                Ui.Toggle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    checked: Sys.AirPods.awareness
+                    onToggled: Sys.AirPods.setAwareness(!Sys.AirPods.awareness)
+                }
+            }
+        }
+
+        Ui.Group {
             title: Sys.Bluetooth.discovering ? "Nearby · scanning" : "Nearby"
             visible: Sys.Bluetooth.powered
 

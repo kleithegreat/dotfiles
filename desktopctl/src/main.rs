@@ -1,8 +1,11 @@
+mod airdrop;
+mod airpods;
 mod brightness;
 mod daemon;
 mod displays;
 mod hypr;
 mod ipc;
+mod l2cap;
 mod launch;
 mod night_light;
 mod paths;
@@ -55,6 +58,12 @@ enum TopLevelCommand {
     #[command(subcommand)]
     Sun(SunCommand),
     /// Start or stop the desktop host's heater miners.
+    /// Receive from and share to iPhones over AirDrop.
+    #[command(subcommand, name = "airdrop")]
+    AirDrop(AirDropCommand),
+    /// Inspect and control connected AirPods.
+    #[command(subcommand, name = "airpods")]
+    AirPods(AirPodsCommand),
     #[command(subcommand)]
     Heater(HeaterCommand),
 }
@@ -315,6 +324,49 @@ enum SunCommand {
 }
 
 #[derive(Debug, Subcommand)]
+enum AirDropCommand {
+    /// Show visibility, incoming requests and the current share.
+    Status(JsonOutputArgs),
+    /// Be visible to everyone nearby for ten minutes, or stop.
+    Visible {
+        #[arg(action = clap::ArgAction::Set)]
+        enabled: bool,
+    },
+    /// Accept or decline an incoming request.
+    Answer {
+        id: u64,
+        #[arg(action = clap::ArgAction::Set)]
+        accept: bool,
+    },
+    /// Offer files, or links with --url, to receivers nearby.
+    Share {
+        paths: Vec<std::path::PathBuf>,
+        #[arg(long)]
+        url: Vec<String>,
+    },
+    /// Send the current share to one of its receivers.
+    Send { receiver: String },
+    /// End the current share.
+    Cancel,
+}
+
+#[derive(Debug, Subcommand)]
+enum AirPodsCommand {
+    /// Show the connected pair and the nearest open case.
+    Status(JsonOutputArgs),
+    /// Set the connected pair's listening mode.
+    Noise {
+        #[arg(value_enum)]
+        mode: airpods::NoiseMode,
+    },
+    /// Lower media and let voices through when you start speaking.
+    Awareness {
+        #[arg(action = clap::ArgAction::Set)]
+        enabled: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
 enum HeaterCommand {
     /// Start mining on the GPU and every core.
     On,
@@ -358,6 +410,8 @@ fn run() -> Result<()> {
         TopLevelCommand::Theme(command) => theme::run(command),
         TopLevelCommand::Sun(SunCommand::Status) => solar::print_status(),
         TopLevelCommand::Heater(command) => run_heater(command),
+        TopLevelCommand::AirDrop(command) => airdrop::run(command),
+        TopLevelCommand::AirPods(command) => airpods::run(command),
     }
 }
 

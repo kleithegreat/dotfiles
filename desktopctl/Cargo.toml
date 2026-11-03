@@ -7,8 +7,12 @@ edition = "2024"
 chrono = { version = "0.4", features = ["clock"] }
 clap = { version = "4.5", features = ["derive"] }
 futures-util = { version = "0.3", default-features = false }
+getrandom = "0.3"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+libc = "0.2"
+owly-airdrop = { path = ".owly/crates/owly-airdrop", features = ["mdns"] }
 rusqlite = { version = "0.37", features = ["bundled"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["preserve_order"] }
 tokio = { version = "1", features = [
@@ -21,4 +25,4 @@ tokio = { version = "1", features = [
     "sync",
     "time",
 ] }
-zbus = { version = "6.1", default-features = false, features = ["proxy", "tokio"] }
+zbus = { version = "6.1", default-features = false, features = ["object-manager", "proxy", "tokio"] }

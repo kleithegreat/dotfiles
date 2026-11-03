@@ -52,6 +52,23 @@ Open issues and pending validations. Delete entries when resolved.
       terminal that was running `claude` reopens on its workspace inside
       that session, a session that ran `/clear` comes back as the cleared
       one, and quitting the resumed Claude leaves a zsh in the same cwd.
+- [ ] AirPods (`docs/airpods.md`), after a switch and with Bluetooth on:
+      `busctl introspect org.bluez /org/bluez/hci0` lists
+      `AdvertisementMonitorManager1`. An unpaired case raises Connect when
+      opened, the setup-button step pairs and connects it, and closing the lid
+      dismisses the card. A paired case raises its charge, and only at roughly
+      arm's length (the RSSI thresholds in `daemon/airpods.rs` are a guess).
+      Connected: noise mode and conversation awareness change from the
+      Control Center and Settings and follow the stem, the three batteries
+      match iOS, and taking a pod out pauses playback while putting it back
+      resumes it.
+- [ ] AirDrop (`docs/airdrop.md`) with an iPhone: the Control Center tile
+      turns Everyone on (Wi-Fi drops on the laptop, since Owly runs exclusive
+      there) and off after 10 minutes. The laptop shows in the iPhone's share
+      sheet, an offer raises Accept/Decline, and accepted photos land in
+      Downloads with "Show in Files" working. "Open With → AirDrop" in Nautilus
+      lists the iPhone, sends, and shows Sent or Declined. Wi-Fi comes back
+      after each.
 - [ ] Under nftables: Tailscale, a podman container's network, and libvirt's
       default network all work.
 - [ ] Laptop panel power cycles (`docs/hyprland.md`): the boot greeter's

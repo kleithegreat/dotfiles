@@ -25,6 +25,10 @@ QtObject {
     signal inputChanged(var state)
     signal monitorsChanged(var status)
     signal sessionChanged(var status)
+    signal airpodsChanged(var status)
+    signal airdropChanged(var status)
+    signal airdropReceived(var data)
+    signal airdropFailed(var data)
 
     function _dispatch(line) {
         const text = String(line).trim();
@@ -64,6 +68,18 @@ QtObject {
             break;
         case "session.changed":
             sessionChanged(data);
+            break;
+        case "airpods.changed":
+            airpodsChanged(data);
+            break;
+        case "airdrop.changed":
+            airdropChanged(data);
+            break;
+        case "airdrop.received":
+            airdropReceived(data);
+            break;
+        case "airdrop.failed":
+            airdropFailed(data);
             break;
         }
     }
