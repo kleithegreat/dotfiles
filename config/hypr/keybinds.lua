@@ -21,7 +21,7 @@ bind(mainMod .. " + right", hl.dsp.focus({ direction = "right" }), { description
 bind(mainMod .. " + up",    hl.dsp.focus({ direction = "up" }),    { description = "Move focus up" })
 bind(mainMod .. " + down",  hl.dsp.focus({ direction = "down" }),  { description = "Move focus down" })
 
--- Workspaces (9 of them, to match the bar and the hyprexpo overview grid)
+-- Workspaces (9 of them, to match the bar)
 for i = 1, 9 do
     bind(mainMod .. " + " .. i, hl.dsp.focus({ workspace = i }),
         { description = "Switch to workspace " .. i })
@@ -99,7 +99,7 @@ bind("ALT + SHIFT + Tab", hl.dsp.exec_cmd("snappy-switcher prev --workspace --mo
     { description = "Previous item in switcher" })
 
 -- A closure bound here registers but never fires; route through `hyprctl eval`,
--- where `expo()` does work.
+-- where the plugin call does work.
 bind(mainMod .. " + grave",
-    hl.dsp.exec_cmd([[hyprctl eval 'hl.plugin.hyprexpo.expo("toggle")']]),
+    hl.dsp.exec_cmd([[hyprctl eval 'hl.plugin.overview.toggle()']]),
     { description = "Toggle workspace overview" })

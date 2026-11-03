@@ -12,7 +12,7 @@ hl.gesture({
     fingers = 3,
     direction = "up",
     action = function()
-        hl.plugin.hyprexpo.expo("toggle")
+        hl.plugin.overview.toggle()
     end,
 })
 

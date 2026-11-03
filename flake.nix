@@ -28,11 +28,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     hyprland = {
-      url = "github:hyprwm/Hyprland/v0.56.2";
+      url = "github:hyprwm/Hyprland/v0.57.0";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     hyprland-plugins = {
-      url = "github:hyprwm/hyprland-plugins/v0.56.0";
+      url = "github:hyprwm/hyprland-plugins/v0.57.0";
       inputs.hyprland.follows = "hyprland";
     };
     ableton-linux = {

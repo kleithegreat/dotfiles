@@ -1,5 +1,5 @@
-# Portal and plugins must build against this same patched compositor or the
-# plugin ABI check rejects them; namespaced like `pkgs.optimized`.
+# Plugins must build against this same patched compositor or the plugin ABI
+# check rejects them; namespaced like `pkgs.optimized`.
 { inputs }:
 
 final: _prev:
@@ -19,35 +19,12 @@ let
       '';
     });
 
-  # Hyprland 0.56.2 wants glaze 7 and nixpkgs is newer, so CMake would fetch it
-  # in the sandbox; nixpkgs' patches target its own glaze. Drop once the
-  # input's find_package is unbounded.
-  glazeVersion = "7.9.1";
-  glaze =
-    (final.glaze.override {
-      enableSSL = false;
-      enableInterop = false;
-    }).overrideAttrs (_: {
-      version = glazeVersion;
-      src = final.fetchFromGitHub {
-        owner = "stephenberry";
-        repo = "glaze";
-        tag = "v${glazeVersion}";
-        hash = "sha256-NRRq5MGF2f5PW0teYnq58ELzson+U6KHVPaY6r30KLA=";
-      };
-      patches = [ ];
-    });
-
   hyprland = final.optimize.cc (
     appendPatches [
       ../patches/hyprland/hyprland-floating-top-decoration-rounding.patch
-      ../patches/hyprland/hyprland-gcc15-designated-initializer-fix.patch
       ../patches/hyprland/hyprland-refocus-stays-on-visible-workspace.patch
     ] (inputs.hyprland.packages.${system}.hyprland.override {
-      # security.wrappers needs an ELF to carry cap_sys_nice, not a shell script.
-      makeWrapper = final.makeBinaryWrapper;
       hyprland-guiutils = guiutils;
-      glaze-hyprland = glaze;
     })
   );
 
@@ -63,11 +40,7 @@ in
   hypr = {
     inherit hyprland;
 
-    portal = final.optimize.cc (
-      inputs.hyprland.packages.${system}.xdg-desktop-portal-hyprland.override {
-        inherit hyprland;
-      }
-    );
+    portal = final.optimize.cc inputs.hyprland.packages.${system}.xdg-desktop-portal-hyprland;
 
     pluginDir = final.symlinkJoin {
       name = "hyprland-plugins";
@@ -76,10 +49,14 @@ in
           inherit hyprland;
           hyprlandPlugins = pluginHelpers;
         }))
-        (final.optimize.cc (final.callPackage ../pkgs/hyprland-plugins/hyprexpo {
-          inherit hyprland;
-          hyprlandPlugins = pluginHelpers;
-        }))
+        # Hyprspace's hyprpm.toml pins the commit matching each Hyprland release.
+        (final.optimize.cc (pluginHelpers.hyprspace.overrideAttrs (old: {
+          version = "0-unstable-2026-10-30";
+          src = old.src.override {
+            rev = "258b7b8bcea177e99da74946cf5cddd1dfe0e1ab";
+            hash = "sha256-ElVikNNXsbGHTn1ZuhIBwleF2YIXqV6kKrAKz3WGlIY=";
+          };
+        })))
       ];
     };
   };
