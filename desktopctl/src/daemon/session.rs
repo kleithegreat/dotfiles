@@ -112,7 +112,14 @@ pub async fn halt_on_shutdown(
     let connection = zbus::Connection::system().await?;
     let login = LoginProxy::new(&connection).await?;
     let mut announcements = login.receive_prepare_for_shutdown().await?;
-    let inhibit = || login.inhibit("shutdown", "desktopctl", "Recording the window session", "delay");
+    let inhibit = || {
+        login.inhibit(
+            "shutdown",
+            "desktopctl",
+            "Recording the window session",
+            "delay",
+        )
+    };
     let mut _delay = Some(inhibit().await?);
 
     loop {
