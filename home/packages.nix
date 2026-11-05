@@ -16,6 +16,8 @@ let
     ifoddpage
     relsize
     algorithms
+    bbold
+    bbold-type1
     cleveref
     eepic
     libertine
