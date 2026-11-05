@@ -29,6 +29,15 @@ monitor" and everything else (the AAP channel, Control Center, Settings) still
 works, so the card is the only symptom. The Bluetooth adapter is also off at
 boot; no card appears until it is on.
 
+### `Failed to Add Adv Patterns Monitor with status 0x0a` is a stale kernel add
+An add that fails while the adapter is off (status `0x03`) leaves its pending
+command behind in `__add_adv_patterns_monitor`, and every later add from anyone
+is Busy until the adapter powers off. Restarting desktopctl does not clear it,
+and `RegisterMonitor` still succeeds, so only bluetoothd's journal shows it.
+The laptop carries `bluetooth-mgmt-failed-monitor-add-leaves-no-pending.patch`;
+on the desktop's stock kernel, power-cycle the adapter. Delete the patch once
+upstream removes the pending command on that error path.
+
 ### The advert's address is not the pair's address
 The case advertises from a rotating random LE address. A paired pair is matched
 to it by product ID through BlueZ's `Modalias`, and an unpaired one is found

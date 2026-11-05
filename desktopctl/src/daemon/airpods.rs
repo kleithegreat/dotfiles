@@ -250,19 +250,28 @@ impl Watcher {
                 .keys()
                 .any(|name: &zbus::names::OwnedInterfaceName| name.as_str() == wanted)
         };
-        let adapter = objects
-            .iter()
-            .find(|(_, interfaces)| has(interfaces, ADAPTER))
-            .map(|(path, interfaces)| (path, has(interfaces, MONITOR_MANAGER)));
-        let key = adapter.map(|(path, _)| (owner.to_owned(), path.clone()));
-        if key != self.registered {
+        let adapter = objects.iter().find_map(|(path, interfaces)| {
+            let adapter = interfaces
+                .iter()
+                .find(|(name, _)| name.as_str() == ADAPTER)?
+                .1;
+            Some((
+                path,
+                flag(adapter, "Powered"),
+                has(interfaces, MONITOR_MANAGER),
+            ))
+        });
+        let key = adapter.map(|(path, ..)| (owner.to_owned(), path.clone()));
+        // bluetoothd drops a monitor added while the adapter is off ([[airpods]]).
+        let ready = adapter.is_none_or(|(_, powered, _)| powered);
+        if key != self.registered && ready {
             self.registered = key;
             let failure = match adapter {
-                Some((path, true)) => register(connection, path)
+                Some((path, _, true)) => register(connection, path)
                     .await
                     .err()
                     .map(|e| (path, e.to_string())),
-                Some((path, false)) => Some((
+                Some((path, _, false)) => Some((
                     path,
                     "bluetoothd is not running with Experimental = true".to_owned(),
                 )),

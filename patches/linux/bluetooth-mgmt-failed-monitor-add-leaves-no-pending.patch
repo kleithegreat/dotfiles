@@ -1,0 +1,10 @@
+--- a/net/bluetooth/mgmt.c
++++ b/net/bluetooth/mgmt.c
+@@ -5452,6 +5452,7 @@
+ 	err = hci_cmd_sync_queue(hdev, mgmt_add_adv_patterns_monitor_sync, cmd,
+ 				 mgmt_add_adv_patterns_monitor_complete);
+ 	if (err) {
++		mgmt_pending_remove(cmd);
+ 		if (err == -ENOMEM)
+ 			status = MGMT_STATUS_NO_RESOURCES;
+ 		else

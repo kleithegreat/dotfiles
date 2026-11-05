@@ -52,9 +52,9 @@ Open issues and pending validations. Delete entries when resolved.
       terminal that was running `claude` reopens on its workspace inside
       that session, a session that ran `/clear` comes back as the cleared
       one, and quitting the resumed Claude leaves a zsh in the same cwd.
-- [ ] AirPods (`docs/airpods.md`), after a switch and with Bluetooth on:
-      `busctl introspect org.bluez /org/bluez/hci0` lists
-      `AdvertisementMonitorManager1`. An unpaired case raises Connect when
+- [ ] AirPods (`docs/airpods.md`), after a reboot with Bluetooth turned on
+      only after login: bluetoothd's journal has no `Failed to Add Adv
+      Patterns Monitor`. An unpaired case raises Connect when
       opened, the setup-button step pairs and connects it, and closing the lid
       dismisses the card. A paired case raises its charge, and only at roughly
       arm's length (the RSSI thresholds in `daemon/airpods.rs` are a guess).

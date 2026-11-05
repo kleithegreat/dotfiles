@@ -41,6 +41,11 @@
       name = "i2c-force-100khz-elan-04f3-311c";
       patch = ../../patches/linux/i2c-force-100khz-elan-04f3-311c.patch;
     }
+    {
+      # Otherwise one failed monitor add makes every later one Busy; see docs/airpods.md.
+      name = "bluetooth-mgmt-failed-monitor-add-leaves-no-pending";
+      patch = ../../patches/linux/bluetooth-mgmt-failed-monitor-add-leaves-no-pending.patch;
+    }
   ];
 
   # The i7-12700H's blob alone; the full bundle is 15 MiB of every boot's initrd.
