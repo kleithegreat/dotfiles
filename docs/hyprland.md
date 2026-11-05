@@ -93,7 +93,7 @@ the env import come up broken. Hence autostart's first command: import, scrub,
 then start the session target and portals.
 
 ### Files required before `plugins.lua` cannot name `hl.plugin.*` at parse time
-The laptop overview gesture reaches Hyprspace from inside its callback.
+The laptop overview gestures reach Hyprspace from inside their callbacks.
 
 ### Host-selected fragments must be git-tracked before rebuilding
 An untracked `hosts/*/` file becomes a dangling Home Manager link that

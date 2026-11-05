@@ -12,7 +12,14 @@ hl.gesture({
     fingers = 3,
     direction = "up",
     action = function()
-        hl.plugin.overview.toggle()
+        hl.plugin.overview.open()
+    end,
+})
+hl.gesture({
+    fingers = 3,
+    direction = "down",
+    action = function()
+        hl.plugin.overview.close()
     end,
 })
 
