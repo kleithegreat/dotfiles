@@ -2,7 +2,7 @@
 # `https://github.com/imputnet/helium-linux/releases/download/${version}/helium-${version}-x86_64_linux.tar.xz`.
 # `chromiumVersion` is the release's Chromium base, as printed by `helium --version`.
 {
-  version = "0.20.2.1";
-  chromiumVersion = "156.0.8078.73";
-  sha256 = "sha256-upKssn7GzaNqi5SOIVQAmq7g1jMiKtJEviXnNqFD5vo=";
+  version = "0.21.1.1";
+  chromiumVersion = "157.0.8103.38";
+  sha256 = "sha256-bNfyQBU8ucDN+ie/GmZR3crnOomK/ESak90Q2oO0vUU=";
 }

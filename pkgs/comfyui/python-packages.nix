@@ -58,8 +58,8 @@ in
 
   comfyui-frontend-package = fetchWheel {
     pname = "comfyui_frontend_package";
-    version = "1.57.4";
-    hash = "sha256-LERy1ZQ6wY+QmK81ZeMZxv/MHspdhz2l1ircQQ+PQ70=";
+    version = "1.57.6";
+    hash = "sha256-WTrx15dnzvw1h8hi3Ts9kP8AUwxfgwcVIvj5gHwXU0Y=";
     pythonImportsCheck = [ "comfyui_frontend_package" ];
     meta = {
       description = "Prebuilt ComfyUI web frontend";
@@ -69,19 +69,19 @@ in
   };
 
   # A partial set of the metapackage's parts leaves the template browser empty.
-  comfyui-workflow-templates-core = workflowTemplates "core" "0.3.388" "sha256-2+QL5iR1ssC/4E7zSohjurf2VVuN2bc7S/F14jCg0/k=";
-  comfyui-workflow-templates-json = workflowTemplates "json" "0.1.123" "sha256-/DIZYM/E9S3dw+4RHzNImxZ+t5WAKOtban8/qIZaOF4=";
+  comfyui-workflow-templates-core = workflowTemplates "core" "0.3.392" "sha256-Q4cPrmXPuy0gnjArZfrEm7rc7T2rUPGLnW3JV25UU0Y=";
+  comfyui-workflow-templates-json = workflowTemplates "json" "0.1.127" "sha256-o9xSq8OShG0wGg+hKeI6dwsuaDeZVd2UE/gUvdA+w/4=";
   comfyui-workflow-templates-media-api = workflowTemplates "media_api" "0.3.84" "sha256-wtalmZrDnk839HriMcklV97+Wt2yzGq1wRQQtNWikQo=";
   comfyui-workflow-templates-media-video = workflowTemplates "media_video" "0.3.101" "sha256-YnD9YcjDkxtvADGrrH1MkM7WJN5seRi/+FuJ5sPXSTw=";
   comfyui-workflow-templates-media-image = workflowTemplates "media_image" "0.3.160" "sha256-1KXFVBxwiPatscfaQfXXwcFKA37aamHNi0t2wlH6qpM=";
   comfyui-workflow-templates-media-other = workflowTemplates "media_other" "0.3.229" "sha256-zj2Y+p2EuRTDNf5cm8kDz+++GTKxvDy2uu9/NxtL1DU=";
   comfyui-workflow-templates-media-assets-01 = workflowTemplates "media_assets_01" "0.1.48" "sha256-dzPtEoZ+lea4s5viC8xzV5wo6X5aRAhv+5d8wsHHjEM=";
-  comfyui-workflow-templates-media-assets-02 = workflowTemplates "media_assets_02" "0.1.24" "sha256-3clPRtpJh+xumkztYAfqrKEmiZvupiQuznhuSc0UsGU=";
+  comfyui-workflow-templates-media-assets-02 = workflowTemplates "media_assets_02" "0.1.27" "sha256-zEpHBgeEXe1tEkB++UtfL+1QCtAecnpgN83JEkqU+L8=";
 
   comfyui-workflow-templates = fetchWheel {
     pname = "comfyui_workflow_templates";
-    version = "0.11.97";
-    hash = "sha256-81KaSSVIYhuA7zbR4qfZgXpQZsvboowNK/w3hvY2vuU=";
+    version = "0.11.101";
+    hash = "sha256-zjMs0SZ84/ELgF7ZHc4d72nPxlt2pH2qCVTRORygqME=";
     dependencies = with final; [
       comfyui-workflow-templates-core
       comfyui-workflow-templates-json
@@ -98,8 +98,8 @@ in
 
   comfyui-embedded-docs = fetchWheel {
     pname = "comfyui_embedded_docs";
-    version = "0.5.15";
-    hash = "sha256-cWfhOw8yioAYTmnNcF6h/yi4AyBlUX5O+Ck7CNXlKO4=";
+    version = "0.5.16";
+    hash = "sha256-W+qE7qadY3DDe3Jel+2b43KaQXtB0OF6d3CQAcuVm5Y=";
     pythonImportsCheck = [ "comfyui_embedded_docs" ];
     meta = {
       description = "Per-node documentation served by the ComfyUI frontend";
