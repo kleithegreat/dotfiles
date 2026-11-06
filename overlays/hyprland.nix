@@ -12,7 +12,7 @@ let
     });
 
   guiutils =
-    (final.optimize.ccache inputs.hyprland.inputs.hyprland-guiutils.packages.${system}.hyprland-guiutils).overrideAttrs (old: {
+    inputs.hyprland.inputs.hyprland-guiutils.packages.${system}.hyprland-guiutils.overrideAttrs (old: {
       buildInputs = (old.buildInputs or []) ++ [ final.pango ];
       preConfigure = (old.preConfigure or "") + ''
         export NIX_CFLAGS_COMPILE="$NIX_CFLAGS_COMPILE $(pkg-config --cflags pango)"

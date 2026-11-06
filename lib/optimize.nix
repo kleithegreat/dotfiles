@@ -6,7 +6,7 @@ in
 {
   # Per package, never set-wide; the feature tag stops hosts sharing native outputs.
   optimize.forHost =
-    host: pkgs:
+    host:
     let
       enabled = host.nativeOptimizations;
       hostFeature = "native-optimized-${host.name}";
@@ -23,26 +23,12 @@ in
         else
           null;
 
-      # Keeps the package's own compiler; plugins and kernel modules inherit a wrapped stdenv.
-      ccache =
-        drv:
-        if drv.stdenv.cc.cc.isCcache or false then
-          drv
-        else
-          drv.override { stdenv = pkgs.ccacheStdenv.override { inherit (drv) stdenv; }; };
-
-      sccache =
-        drv:
-        drv.overrideAttrs (old: {
-          nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.sccacheHook ];
-        });
-
       optimizer =
-        name: flags: prepare: drv:
+        name: flags: drv:
         if !enabled then
           drv
         else
-          (prepare drv).overrideAttrs (old: {
+          drv.overrideAttrs (old: {
             requiredSystemFeatures = unique ((old.requiredSystemFeatures or [ ]) ++ [ hostFeature ]);
             env = (old.env or { }) // {
               ${name} = joinFlags [
@@ -53,16 +39,16 @@ in
           });
     in
     {
-      inherit enabled hostFeature ccache sccache;
+      inherit enabled hostFeature;
 
       cc = optimizer "NIX_CFLAGS_COMPILE" [
         "-O3"
         "-march=native"
-      ] ccache;
+      ];
 
       rust = optimizer "RUSTFLAGS" [
         "-C"
         "target-cpu=native"
-      ] sccache;
+      ];
     };
 }

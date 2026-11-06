@@ -24,7 +24,7 @@ final: prev: {
   desktopctl = final.callPackage ../desktopctl { inherit owly; };
   helium = final.callPackage ../pkgs/helium { };
   kernel-oom-notifier = final.callPackage ../pkgs/kernel-oom-notifier { };
-  linux-devmgmt = final.optimize.ccache (final.callPackage ../pkgs/linux-devmgmt { });
+  linux-devmgmt = final.callPackage ../pkgs/linux-devmgmt { };
   lmstudio = final.callPackage ../pkgs/lmstudio {
     upstreamLmstudio = prev.lmstudio;
   };
@@ -35,16 +35,16 @@ final: prev: {
   # kdePackages.sddm is this scope's wrapper. Without the patch, logind's
   # TerminateSession (Vicinae's Log Out) leaves no greeter; see docs/hyprland.md.
   qt6Packages = prev.qt6Packages.overrideScope (qfinal: qprev: {
-    sddm-unwrapped = (final.optimize.ccache qprev.sddm-unwrapped).overrideAttrs (old: {
+    sddm-unwrapped = qprev.sddm-unwrapped.overrideAttrs (old: {
       patches = (old.patches or [ ]) ++ [ ../patches/sddm/sddm-helper-signal-is-not-auth-error.patch ];
     });
   });
-  reims-vgpu = final.optimize.sccache (final.callPackage ../pkgs/reims-vgpu { });
+  reims-vgpu = final.callPackage ../pkgs/reims-vgpu { };
   sddm-theme = final.callPackage ../pkgs/sddm-theme { };
   sf-pro = final.callPackage ../pkgs/sf-pro { };
-  snappy-switcher = final.optimize.ccache (final.callPackage ../pkgs/snappy-switcher { });
+  snappy-switcher = final.callPackage ../pkgs/snappy-switcher { };
   tree-sitter-bend2 = final.callPackage ../pkgs/tree-sitter-bend2 { };
-  unearth = final.optimize.sccache (final.callPackage ../pkgs/unearth { });
+  unearth = final.callPackage ../pkgs/unearth { };
   unearth-vicinae = final.callPackage ../pkgs/unearth/vicinae { };
   zsh-share-only = final.runCommand "zsh-share-only" { } /* bash */ ''
     mkdir --parents "$out/share"

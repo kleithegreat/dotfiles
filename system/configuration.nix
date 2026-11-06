@@ -1,8 +1,6 @@
 { config, lib, pkgs, host, inputs, ... }:
 
 let
-  sccacheDir = "/var/cache/sccache";
-
   # Exactly what either closure asks about; a CUDA bump that splits out a new
   # package fails evaluation naming it. `cuda_compat` is a probe and stays refused.
   allowedUnfreePackageNames = [
@@ -101,45 +99,6 @@ in
 
   networking.hostName = host.name;
   networking.networkmanager.enable = true;
-
-  # ── Compiler caches ──────────────────────────────────────────
-  programs.ccache.enable = true;
-  # Its stats helper wraps a Perl script, which security.wrappers now refuses.
-  security.wrappers.nix-ccache.enable = false;
-  systemd.tmpfiles.rules = [ "d ${sccacheDir} 0770 root nixbld -" ];
-  nix.settings.extra-sandbox-paths = [
-    config.programs.ccache.cacheDir
-    sccacheDir
-  ];
-  # Without the sandbox mount (first build, remote builder) both compile uncached rather than fail.
-  nixpkgs.overlays = [
-    (final: prev: {
-      ccacheWrapper = prev.ccacheWrapper.override {
-        extraConfig = /* bash */ ''
-          export CCACHE_DIR=${config.programs.ccache.cacheDir}
-          export CCACHE_UMASK=007
-          export CCACHE_MAXSIZE=10G
-          [ -w "$CCACHE_DIR" ] || export CCACHE_DISABLE=1
-        '';
-      };
-      sccacheHook =
-        let
-          # sccache has no umask setting; every nixbld user must be able to write its entries.
-          # Never in the hook itself: a group-writable $out makes Nix reject the build.
-          sccache = final.writeShellScript "sccache" /* bash */ ''
-            umask 007
-            exec ${lib.getExe final.sccache} "$@"
-          '';
-        in
-        final.makeSetupHook { name = "sccache-hook"; } (
-          final.writeText "sccache-hook.sh" /* bash */ ''
-            if [ -w ${sccacheDir} ]; then
-              export RUSTC_WRAPPER=${sccache} SCCACHE_DIR=${sccacheDir}
-            fi
-          ''
-        );
-    })
-  ];
 
   # ── Hyprland ─────────────────────────────────────────────────
   programs.hyprland = {

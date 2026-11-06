@@ -2,7 +2,6 @@
 
 {
   boot.initrd.availableKernelModules = [ "xhci_pci" "thunderbolt" "vmd" "nvme" "rtsx_pci_sdmmc" ];
-  boot.kernelPackages = pkgs.linuxPackagesFor (pkgs.optimize.ccache pkgs.linuxPackages.kernel);
   boot.kernelPatches = [
     {
       name = "laptop-intel-only-kernel-config";

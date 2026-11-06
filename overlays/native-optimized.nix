@@ -3,7 +3,7 @@
 
 final: prev:
 let
-  optimize = lib.optimize.forHost host final;
+  optimize = lib.optimize.forHost host;
 
   # Wired by hand, or the consumers below link a second, stock copy.
   pipewire = optimize.cc prev.pipewire;
