@@ -29,7 +29,9 @@
 - Output placement and the primary output are runtime state: host
   `monitors.lua` carries modes only, `displays.lua` applies what desktopctl
   recorded, and desktopctl pins the numbered workspaces live.
-- Hyprland is pinned to a release tag. Advance it only when Hyprspace's
+- Hyprland is pinned to a release tag; hyprexpo comes from the maintained
+  `sandwichfarm/hyprexpo` fork (`pkgs/hyprland-plugins/hyprexpo/`) because the
+  official flake dropped it. Advance Hyprland only when the fork's
   `hyprpm.toml` pins a commit for that release, and re-pin `hyprland-plugins`
   with it.
 - `hyprlock.conf` must read under every scheme, light or dark, and hyprlang
@@ -93,7 +95,7 @@ the env import come up broken. Hence autostart's first command: import, scrub,
 then start the session target and portals.
 
 ### Files required before `plugins.lua` cannot name `hl.plugin.*` at parse time
-The laptop overview gestures reach Hyprspace from inside their callbacks.
+The laptop overview gestures reach hyprexpo from inside their callbacks.
 
 ### Host-selected fragments must be git-tracked before rebuilding
 An untracked `hosts/*/` file becomes a dangling Home Manager link that

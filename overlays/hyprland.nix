@@ -49,14 +49,10 @@ in
           inherit hyprland;
           hyprlandPlugins = pluginHelpers;
         }))
-        # Hyprspace's hyprpm.toml pins the commit matching each Hyprland release.
-        (final.optimize.cc (pluginHelpers.hyprspace.overrideAttrs (old: {
-          version = "0-unstable-2026-10-30";
-          src = old.src.override {
-            rev = "258b7b8bcea177e99da74946cf5cddd1dfe0e1ab";
-            hash = "sha256-ElVikNNXsbGHTn1ZuhIBwleF2YIXqV6kKrAKz3WGlIY=";
-          };
-        })))
+        (final.optimize.cc (final.callPackage ../pkgs/hyprland-plugins/hyprexpo {
+          inherit hyprland;
+          hyprlandPlugins = pluginHelpers;
+        }))
       ];
     };
   };

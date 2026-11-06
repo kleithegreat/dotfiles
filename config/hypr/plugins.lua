@@ -3,7 +3,7 @@ local colors = require("./colors")
 local pluginDir = os.getenv("HYPR_PLUGIN_DIR")
 
 hl.plugin.load(pluginDir .. "/lib/libhyprbars.so")
-hl.plugin.load(pluginDir .. "/lib/libhyprspace.so")
+hl.plugin.load(pluginDir .. "/lib/libhyprexpo.so")
 
 local function dispatch(expression)
     return "hyprctl dispatch '" .. expression .. "'"
@@ -26,12 +26,11 @@ hl.config({
             on_double_click = maximize,
         },
 
-        overview = {
-            panelColor = colors.bg_rgba,
-            workspaceActiveBorder = colors.fg_rgba,
-            workspaceInactiveBorder = colors.bg1_rgba,
-            -- The laptop's own 3-finger gestures drive it; its built-in swipe would double-fire.
-            disableGestures = true,
+        hyprexpo = {
+            columns = 3,
+            gaps_in = 5,
+            bg_col = colors.bg_rgba,
+            workspace_method = "first 1",
         },
     },
 })

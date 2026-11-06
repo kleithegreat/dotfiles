@@ -59,9 +59,9 @@ PanelWindow {
                 Glyph {
                     icon: "layout"
                     hint: "Workspace overview"
-                    // overview.toggle() returns a boolean, so the IPC needs a real
+                    // hyprexpo's expo() returns nil, so the IPC needs a real
                     // dispatcher handed back to it.
-                    onActivated: Hyprland.dispatch('(function() hl.plugin.overview.toggle() return hl.dsp.no_op() end)()')
+                    onActivated: Hyprland.dispatch('(function() hl.plugin.hyprexpo.expo("toggle") return hl.dsp.no_op() end)()')
                 }
             }
 

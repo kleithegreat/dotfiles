@@ -12,14 +12,14 @@ hl.gesture({
     fingers = 3,
     direction = "up",
     action = function()
-        hl.plugin.overview.open()
+        hl.plugin.hyprexpo.expo("on")
     end,
 })
 hl.gesture({
     fingers = 3,
     direction = "down",
     action = function()
-        hl.plugin.overview.close()
+        hl.plugin.hyprexpo.expo("off")
     end,
 })
 
