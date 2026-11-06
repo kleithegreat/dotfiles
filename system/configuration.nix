@@ -5,6 +5,7 @@ let
   # package fails evaluation naming it. `cuda_compat` is a probe and stays refused.
   allowedUnfreePackageNames = [
     # Applications — home.packages
+    "antigravity-cli"
     "bambu-studio"
     "claude-desktop"
     "copilot-language-server"

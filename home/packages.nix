@@ -145,6 +145,7 @@ in
     man-pages-posix
     claude-code
     codex
+    antigravity-cli
     t3code
   ] ++ (with kdePackages; [
     dolphin
