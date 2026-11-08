@@ -36,6 +36,12 @@
 
 ## Quirks
 
+### Neovide's missing `Cargo.lock` is a hash bug, not an absent lockfile
+The pinned package repeats Skia's hash for both Neovide's source and Cargo
+vendor tree, so fixed-output reuse supplies Skia instead of Neovide. Remove
+the `neovide` override in `overlays/local-packages.nix` once nixpkgs includes
+upstream fix `2cc8df2292378410e3026c1bb4df5f56144a5425`.
+
 ### Laptop Kconfig parent trims need child-symbol unsets
 Disabling a parent (Nouveau, Hyper-V DRM, AMD SEV) orphans nixpkgs' mandatory
 children and the config builder fails with `unused option`. Pair each trim with
