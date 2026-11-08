@@ -12,12 +12,14 @@ import subprocess
 import sys
 import time
 from datetime import datetime, timezone
+from fnmatch import fnmatch
 from pathlib import Path
 
 PROJECTS = Path.home() / ".claude" / "projects"
 SHARE = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
 DATA = SHARE / "ctx"
 OPENCODE = SHARE / "opencode"
+AGY = Path.home() / ".gemini" / "antigravity-cli" / "conversations"
 SOFT, HARD = 16_000, 32_000
 IDLE = 3600
 EVENT_CAP = 6_000
@@ -25,7 +27,7 @@ RESULT_CAP = 300
 BATCH = 120_000
 SUMMARY_CAP = 2_000
 
-LEAF_PROMPT = """You index transcripts of Claude Code sessions for later retrieval. Each <chunk> is a contiguous stretch of one session: USER is the human, CLAUDE or GPT the agent, PROMPT what started a GPT session or subagent, PEER a message from another agent, "> tool" the agent's tool calls, "< result" the first and last bytes of their output.
+LEAF_PROMPT = """You index transcripts of Claude Code sessions for later retrieval. Each <chunk> is a contiguous stretch of one session: USER is the human, CLAUDE, GPT or GEMINI the agent, PROMPT what started a GPT session or subagent, PEER a message from another agent, "> tool" the agent's tool calls, "< result" the first and last bytes of their output.
 
 For each chunk write a summary of at most 1200 bytes:
 - First line: what this stretch was about, with the date.
@@ -96,7 +98,7 @@ class Project:
 
 
 def tool_line(name, inp):
-    what = next((inp[k] for k in ("description", "command", "file_path", "filePath", "path", "pattern", "prompt") if inp.get(k)), json.dumps(inp))
+    what = next((inp[k] for k in ("description", "command", "CommandLine", "file_path", "filePath", "AbsolutePath", "Path", "path", "pattern", "prompt") if inp.get(k)), json.dumps(inp))
     return f"> tool {name}: {oneline(what, 200)}"
 
 
@@ -252,7 +254,100 @@ def opencode_events(db, sid, start, full=False):
         yield row, ts, "\n".join(filter(None, out)) or None
 
 
+def varint(buf, i):
+    n = shift = 0
+    while True:
+        c = buf[i]
+        i += 1
+        n |= (c & 127) << shift
+        shift += 7
+        if c < 128:
+            return n, i
+
+
+def fields(buf):
+    """The (field, value) pairs of a protobuf message: ints for varints, bytes for the rest. Raises on malformed input."""
+    out, i = [], 0
+    while i < len(buf):
+        key, i = varint(buf, i)
+        wire = key & 7
+        if wire == 0:
+            v, i = varint(buf, i)
+        elif wire == 2:
+            n, i = varint(buf, i)
+            v, i = buf[i : i + n], i + n
+        elif wire in (1, 5):
+            n = 8 if wire == 1 else 4
+            v, i = buf[i : i + n], i + n
+        else:
+            raise ValueError("wire type")
+        out.append((key >> 3, v))
+    return out
+
+
+def pb(buf, *path, default=b""):
+    """The first value at a path of field numbers through nested protobuf messages, or the default."""
+    for f in path:
+        try:
+            buf = next(v for k, v in fields(buf) if k == f)
+        except (StopIteration, ValueError, TypeError, IndexError):
+            return default
+    return buf
+
+
+def text_of(b):
+    return b.decode("utf-8", "replace") if isinstance(b, bytes) else ""
+
+
+def agy_events(db, start, full=False):
+    """A Gemini session run through the Antigravity CLI: a row per step whose payload is a protobuf message with the step type
+    at field 1. Decoded: 14 (the user's prompt), 15 (the model's reply), 132 (a tool call: name and JSON arguments at 5.4,
+    result at 140.2.1, failure at 31.2), 17 (an error), 101 (a parent agent's message). Skipped: checkpoint summaries (23),
+    the model's thinking, tool results beyond text, and unknown types."""
+    cap = (lambda t: t) if full else (lambda t: clip(t, EVENT_CAP))
+    for idx, status, payload in connect(db).execute("select idx, status, step_payload from steps where idx >= ? order by idx", (start,)):
+        if status < 3:
+            return
+        ts = iso(pb(payload, 5, 1, 1, default=0) * 1000 + pb(payload, 5, 1, 2, default=0) // 1_000_000)
+        kind, out = pb(payload, 1, default=0), None
+        if kind == 14:
+            out = f"## PROMPT {stamp(ts)}\n" + cap(text_of(pb(payload, 19, 2)))
+        elif kind == 15:
+            reply = text_of(pb(payload, 20, 1) or pb(payload, 20, 8))
+            out = f"## GEMINI {stamp(ts)}\n" + cap(reply) if reply.strip() else None
+        elif kind == 101:
+            out = f"## PEER {stamp(ts)}\n" + cap(text_of(pb(payload, 114, 2, 10, 1) or pb(payload, 114, 1)))
+        elif kind == 17:
+            out = f"## GEMINI {stamp(ts)}\n" + result_line(text_of(pb(payload, 24, 3, 2)), True, full)
+        elif kind == 132:
+            call = pb(payload, 5, 4)
+            try:
+                args = json.loads(text_of(pb(call, 3)))
+            except ValueError:
+                args = {}
+            err = text_of(pb(payload, 31, 2))
+            out = (tool_line(text_of(pb(call, 2)), args if isinstance(args, dict) else {}) + "\n"
+                   + result_line(err or text_of(pb(payload, 140, 2, 1)), bool(err), full))
+        yield idx + 1, ts, out
+
+
+def agy_sessions(p):
+    """(src, role, session, done) of each Antigravity conversation whose workspace matches a glob of `agy-dirs` (lines of
+    `<directory glob> <role>`), subdirectories included. A conversation is done once its files have idled."""
+    listed = p.dir / "agy-dirs"
+    dirs = [line.split() for line in listed.read_text().splitlines() if line.strip()] if listed.exists() else []
+    for db in sorted(AGY.glob("*.db")) if dirs else []:
+        meta = connect(db).execute("select data from trajectory_metadata_blob").fetchone()
+        directory = text_of(pb(meta[0], 1, 1)).removeprefix("file://") if meta else ""
+        role = next((r for d, r in dirs if fnmatch(directory, d) or fnmatch(directory, d + "/*")), None)
+        if role:
+            mtime = max(f.stat().st_mtime for f in AGY.glob(db.name + "*"))
+            yield f"agy:{db}", role, db.stem, time.time() - mtime > IDLE
+
+
 def events_of(src, start, full=False):
+    if src.startswith("agy:"):
+        return agy_events(src[4:], start, full)
     if src.startswith("opencode:"):
         _, db, sid = src.split(":", 2)
         return opencode_events(db, sid, start, full)
@@ -319,6 +414,8 @@ def index(p, ended):
     for path in sorted((p.dir / "imports").glob("*.json")):
         take(str(path), path.stem, "webchat", True)
     for src, role, sid, done in opencode_sessions(p):
+        take(src, sid, role, done)
+    for src, role, sid, done in agy_sessions(p):
         take(src, sid, role, done)
     new.sort(key=lambda c: c["t1"] or "")
     p.append_chunks(new)

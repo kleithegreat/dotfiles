@@ -22,6 +22,9 @@
   builders are often subagents; their role names the task they were given.
 - GPT's opencode sessions are transcripts too: `opencode-dirs` in that directory
   assigns a role to each directory whose sessions belong to the project.
+- Gemini sessions run through the Antigravity CLI (`~/.gemini/antigravity-cli/conversations/*.db`)
+  are too: `agy-dirs` in that directory lists `<directory glob> <role>` lines, matched
+  against each conversation's workspace (e.g. `/home/kevin/repos/mm-agy-* gemini-review`).
 - Both data files are append-only, and chunk order is the order sessions'
   stretches were finalized, so the tree only ever grows at its end.
 - A session's role comes from its name (`claude --name "builder: …"` or
@@ -50,6 +53,6 @@ An active session's last stretch is re-read every sync and finalized only once
 it reaches 16 KB, the session ends, or its file has been idle for an hour; a
 quiet session's newest work is absent from `view` until then.
 
-### GPT sessions reach the tree at the next sync
-opencode runs no Claude hook, so its sessions are indexed when a Claude session
+### GPT and Gemini sessions reach the tree at the next sync
+opencode and agy run no Claude hook, so its sessions are indexed when a Claude session
 next ends or someone runs `ctx sync`.
