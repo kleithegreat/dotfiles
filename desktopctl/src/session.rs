@@ -50,6 +50,12 @@ const APPS: &[App] = &[
         relaunch: Relaunch::Whole,
         prepare: None,
     },
+    App {
+        class: "spotify",
+        command: "spotify",
+        relaunch: Relaunch::Whole,
+        prepare: None,
+    },
 ];
 
 /// How long a relaunched app's window count must hold still before its
