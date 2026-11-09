@@ -125,10 +125,12 @@
 
   # ── Power profiles ──────────────────────────────────────────
   # Everything here follows power-profiles-daemon; see docs/laptop-power.md.
-  services.scx = {
+  services.scx-loader = {
     enable = true;
-    scheduler = "scx_lavd";
-    extraArgs = [ "--autopower" ];
+    config = {
+      default_sched = "scx_lavd";
+      scheds.scx_lavd.auto_mode = [ "--autopower" ];
+    };
   };
 
   systemd.services.power-profile-follower = {
