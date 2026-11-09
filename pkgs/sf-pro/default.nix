@@ -2,13 +2,13 @@
 
 stdenvNoCC.mkDerivation {
   pname = "sf-pro";
-  version = "2026-09-14";
+  version = "2026-11-04";
 
   # Apple rotates the bytes behind this URL: refresh version and hash together,
   # and re-check the unpack against `7z l`, since the inner layout moves too.
   src = fetchurl {
     url = "https://devimages-cdn.apple.com/design/resources/download/SF-Pro.dmg";
-    hash = "sha256-loqzuLH5LC2K9h6waA9cIiTE541ZuYa/AEUCp/wBKRg=";
+    hash = "sha256-sn/mYi8fqWpwfHPcpmZtQ5w1sxLVsdR+DimA5hjrSyg=";
   };
 
   nativeBuildInputs = [
