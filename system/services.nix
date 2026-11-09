@@ -156,6 +156,9 @@ in
   };
 
   services.gnome.gnome-keyring.enable = true;
+  # gcr's agent, set by PAM for every login so Hyprland and whatever it launches inherit it, not only
+  # interactive shells; pam_env runs before pam_systemd, so the path names the uid, not $XDG_RUNTIME_DIR.
+  environment.sessionVariables.SSH_AUTH_SOCK = "/run/user/${toString config.users.users.kevin.uid}/gcr/ssh";
   security.pam.services.sddm.enableGnomeKeyring = true;
   security.pam.services.login.enableGnomeKeyring = true;
   security.pam.services.hyprlock.enableGnomeKeyring = true;

@@ -157,9 +157,6 @@ in
       export MANPAGER="sh -c 'col --no-backspaces --spaces | bat --language=man --plain'"
       export MANROFFOPT="-c"
 
-      # gcr-ssh-agent.socket
-      export SSH_AUTH_SOCK="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/gcr/ssh"
-
       [[ -f "$XDG_STATE_HOME/zsh/secrets.zsh" ]] && source "$XDG_STATE_HOME/zsh/secrets.zsh"
 
       [[ -f "$ZDOTDIR/local.zsh" ]] && source "$ZDOTDIR/local.zsh"

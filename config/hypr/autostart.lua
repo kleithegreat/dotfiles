@@ -1,10 +1,10 @@
 local exec = require("./session").exec
 
 hl.on("hyprland.start", function()
-    -- Export the environment (SSH_AUTH_SOCK at the home/shell.nix fallback path) before the
-    -- session target; graphical-session.target refuses a manual start, so this instance's
-    -- anchor pulls it in, and ends it with the instance (system/configuration.nix).
-    exec([[sh -c 'export SSH_AUTH_SOCK="${XDG_RUNTIME_DIR}/gcr/ssh"; dbus-update-activation-environment --systemd --all; dbus-update-activation-environment HL_INITIAL_WORKSPACE_TOKEN= XDG_ACTIVATION_TOKEN= DESKTOP_STARTUP_ID=; systemctl --user unset-environment HL_INITIAL_WORKSPACE_TOKEN XDG_ACTIVATION_TOKEN DESKTOP_STARTUP_ID; systemctl --user start "hyprland-session@${HYPRLAND_INSTANCE_SIGNATURE}.service" xdg-desktop-portal.service xdg-desktop-portal-hyprland.service xdg-desktop-portal-gtk.service hyprpolkitagent; desktopctl session restore --if-automatic --wait-daemon 15']])
+    -- Export the environment before the session target; graphical-session.target refuses a
+    -- manual start, so this instance's anchor pulls it in, and ends it with the instance
+    -- (system/configuration.nix).
+    exec([[sh -c 'dbus-update-activation-environment --systemd --all; dbus-update-activation-environment HL_INITIAL_WORKSPACE_TOKEN= XDG_ACTIVATION_TOKEN= DESKTOP_STARTUP_ID=; systemctl --user unset-environment HL_INITIAL_WORKSPACE_TOKEN XDG_ACTIVATION_TOKEN DESKTOP_STARTUP_ID; systemctl --user start "hyprland-session@${HYPRLAND_INSTANCE_SIGNATURE}.service" xdg-desktop-portal.service xdg-desktop-portal-hyprland.service xdg-desktop-portal-gtk.service hyprpolkitagent; desktopctl session restore --if-automatic --wait-daemon 15']])
 
     -- `desktopctl.service` is pulled in by graphical-session.target above.
     exec("desktopctl launch-quickshell")
