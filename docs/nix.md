@@ -42,6 +42,16 @@ vendor tree, so fixed-output reuse supplies Skia instead of Neovide. Remove
 the `neovide` override in `overlays/local-packages.nix` once nixpkgs includes
 upstream fix `2cc8df2292378410e3026c1bb4df5f56144a5425`.
 
+### Rust `-sys` crates link system libraries, whatever `Cargo.toml` asks
+nixpkgs' cargo setup hook (`cargoUseSystemLibs`) exports
+`LIBSQLITE3_SYS_USE_PKG_CONFIG`, `AWS_LC_SYS_USE_SYSTEM`, `JEMALLOC_OVERRIDE`
+and friends in every `buildRustPackage`, so a `bundled` feature or vendored
+build is silently ignored and the failure surfaces as `cannot find -lsqlite3`
+or a missing `nixpkgs.XXXX/use/system/library` path. Give the derivation the
+library and `pkg-config` (`rust-jemalloc-sys` for tikv-jemalloc-sys). The
+`anki` and `codex` overrides in `overlays/local-packages.nix` copy nixpkgs
+`88f44a6257e0` and `16b463698a5b`; delete them once the pin includes those.
+
 ### Laptop Kconfig parent trims need child-symbol unsets
 Disabling a parent (Nouveau, Hyper-V DRM, AMD SEV) orphans nixpkgs' mandatory
 children and the config builder fails with `unused option`. Pair each trim with

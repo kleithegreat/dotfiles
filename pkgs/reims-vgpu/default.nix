@@ -9,6 +9,7 @@
   wayland-scanner,
   libxkbcommon,
   libGL,
+  rust-jemalloc-sys,
 }:
 
 rustPlatform.buildRustPackage {
@@ -38,12 +39,13 @@ rustPlatform.buildRustPackage {
   ];
 
   # SDL3 is built from source into the archive, Wayland-only: its Wayland check
-  # wants all three of these (egl.pc included), and with libx11 present it
-  # would demand every X11 extension too.
+  # wants wayland, libxkbcommon and libGL (egl.pc included), and with libx11
+  # present it would demand every X11 extension too.
   buildInputs = [
     wayland
     libxkbcommon
     libGL
+    rust-jemalloc-sys
   ];
 
   dontUseCmakeConfigure = true;

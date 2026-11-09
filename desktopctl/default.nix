@@ -1,4 +1,4 @@
-{ lib, rustPlatform, makeWrapper, coreutils, geoclue2-with-demo-agent, owly }:
+{ lib, rustPlatform, makeWrapper, pkg-config, sqlite, coreutils, geoclue2-with-demo-agent, owly }:
 
 rustPlatform.buildRustPackage {
   pname = "desktopctl";
@@ -7,7 +7,8 @@ rustPlatform.buildRustPackage {
   src = ./.;
   cargoLock.lockFile = ./Cargo.lock;
 
-  nativeBuildInputs = [ makeWrapper ];
+  nativeBuildInputs = [ makeWrapper pkg-config ];
+  buildInputs = [ sqlite ];
 
   # `.owly` is the flake's owly input, so flake.lock is owly's only pin.
   postUnpack = /* bash */ ''

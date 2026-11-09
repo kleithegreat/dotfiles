@@ -3,8 +3,10 @@
   fetchurl,
   llama-cpp,
   makeWrapper,
+  pkg-config,
   poppler-utils,
   rustPlatform,
+  sqlite,
 }:
 
 let
@@ -27,7 +29,11 @@ rustPlatform.buildRustPackage {
   };
   cargoLock.lockFile = ./Cargo.lock;
 
-  nativeBuildInputs = [ makeWrapper ];
+  nativeBuildInputs = [
+    makeWrapper
+    pkg-config
+  ];
+  buildInputs = [ sqlite ];
 
   postInstall = /* bash */ ''
     wrapProgram "$out/bin/unearth" \
