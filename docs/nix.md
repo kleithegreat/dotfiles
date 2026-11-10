@@ -48,9 +48,16 @@ nixpkgs' cargo setup hook (`cargoUseSystemLibs`) exports
 and friends in every `buildRustPackage`, so a `bundled` feature or vendored
 build is silently ignored and the failure surfaces as `cannot find -lsqlite3`
 or a missing `nixpkgs.XXXX/use/system/library` path. Give the derivation the
-library and `pkg-config` (`rust-jemalloc-sys` for tikv-jemalloc-sys). The
-`anki` and `codex` overrides in `overlays/local-packages.nix` copy nixpkgs
-`88f44a6257e0` and `16b463698a5b`; delete them once the pin includes those.
+library and `pkg-config` (`rust-jemalloc-sys` for tikv-jemalloc-sys).
+
+### A stock package compiling locally is usually a Hydra failure at this pin
+nixos-unstable advances only on its tested jobs, so it can sit on a commit
+whose codex or anki build failed, and the cache never gets those paths. Look
+the job up under `hydra.nixos.org/job/nixos/unstable/nixpkgs.<name>.x86_64-linux`;
+if a later eval built it, `nix flake lock --override-input nixpkgs
+github:NixOS/nixpkgs/<that rev>` keeps `nixos-unstable` in `flake.nix` and the
+next plain update moves past it. opencode is the exception: Hydra rejects it
+every time with "Output size limit exceeded", so it always builds here.
 
 ### Laptop Kconfig parent trims need child-symbol unsets
 Disabling a parent (Nouveau, Hyper-V DRM, AMD SEV) orphans nixpkgs' mandatory

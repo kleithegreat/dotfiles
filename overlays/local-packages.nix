@@ -1,31 +1,6 @@
 { owly }:
 
 final: prev: {
-  # Interim: nixpkgs' forced system libraries broke both; see docs/nix.md.
-  anki = prev.anki.overrideAttrs (old: {
-    nativeBuildInputs = old.nativeBuildInputs ++ [ final.pkg-config ];
-    buildInputs = old.buildInputs ++ [
-      final.sqlite
-      final.zstd
-    ];
-    env = old.env // {
-      UV_FIND_LINKS = final.symlinkJoin {
-        name = "uv-wheels";
-        paths = [
-          old.env.UV_FIND_LINKS
-          final.python3Packages.tomlkit.dist
-        ];
-      };
-    };
-  });
-  codex = prev.codex.overrideAttrs (old: {
-    buildInputs = old.buildInputs ++ [
-      final.aws-lc
-      final.oniguruma
-      final.sqlite
-      final.zstd
-    ];
-  });
   bend2-lsp = final.callPackage ../pkgs/bend2-lsp { };
   bambu-studio = final.callPackage ../pkgs/bambu-studio {
     upstreamBambuStudio = prev.bambu-studio;
