@@ -45,8 +45,10 @@ rustPlatform.buildRustPackage {
     wayland
     libxkbcommon
     libGL
-    rust-jemalloc-sys
   ];
+
+  # The generated reims-vgpu.pc names `-ljemalloc` for static consumers (QEMU).
+  propagatedBuildInputs = [ rust-jemalloc-sys ];
 
   dontUseCmakeConfigure = true;
 

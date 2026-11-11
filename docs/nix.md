@@ -48,7 +48,9 @@ nixpkgs' cargo setup hook (`cargoUseSystemLibs`) exports
 and friends in every `buildRustPackage`, so a `bundled` feature or vendored
 build is silently ignored and the failure surfaces as `cannot find -lsqlite3`
 or a missing `nixpkgs.XXXX/use/system/library` path. Give the derivation the
-library and `pkg-config` (`rust-jemalloc-sys` for tikv-jemalloc-sys).
+library and `pkg-config` (`rust-jemalloc-sys` for tikv-jemalloc-sys). A
+`staticlib` hands that library to its consumers through `Libs.private`, so
+the Rust build passes and the consumer's link fails; propagate it.
 
 ### A stock package compiling locally is usually a Hydra failure at this pin
 nixos-unstable advances only on its tested jobs, so it can sit on a commit
