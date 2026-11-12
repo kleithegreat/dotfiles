@@ -29,13 +29,6 @@ final: prev: {
     upstreamLmstudio = prev.lmstudio;
   };
   macos-vm = final.callPackage ../pkgs/macos-vm { };
-  # Wrong upstream hashes alias Neovide's source to Skia; see docs/nix.md.
-  neovide = prev.neovide.overrideAttrs (old: {
-    src = old.src.override {
-      hash = "sha256-trl/YctM/E9vIXeJfwBEZLfNK7LS5fEaWthTbeg7Ba0=";
-    };
-    cargoHash = "sha256-WS44afUizU6qhXQY77TayNRvlUoS6GrBZ/uaXk+gjU0=";
-  });
   neuwaita = final.callPackage ../pkgs/neuwaita { };
   qemu-reims-vgpu = final.callPackage ../pkgs/qemu-reims-vgpu { };
   srbminer = final.callPackage ../pkgs/srbminer { };

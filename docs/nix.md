@@ -36,12 +36,6 @@
 
 ## Quirks
 
-### Neovide's missing `Cargo.lock` is a hash bug, not an absent lockfile
-The pinned package repeats Skia's hash for both Neovide's source and Cargo
-vendor tree, so fixed-output reuse supplies Skia instead of Neovide. Remove
-the `neovide` override in `overlays/local-packages.nix` once nixpkgs includes
-upstream fix `2cc8df2292378410e3026c1bb4df5f56144a5425`.
-
 ### Rust `-sys` crates link system libraries, whatever `Cargo.toml` asks
 nixpkgs' cargo setup hook (`cargoUseSystemLibs`) exports
 `LIBSQLITE3_SYS_USE_PKG_CONFIG`, `AWS_LC_SYS_USE_SYSTEM`, `JEMALLOC_OVERRIDE`
