@@ -14,6 +14,8 @@ bind(mainMod .. " + R", hl.dsp.exec_cmd("vicinae open"), { description = "Open a
 bind(mainMod .. " + P", hl.dsp.window.pseudo(), { description = "Toggle pseudotile" })
 bind(mainMod .. " + J", hl.dsp.layout("togglesplit"), { description = "Toggle split orientation" })
 bind(mainMod .. " + N", hl.dsp.exec_cmd("neovide"), { description = "Open Neovide" })
+bind(mainMod .. " + SHIFT + A", hl.dsp.exec_cmd([[desktopctl airdrop share --text="$(wl-paste --primary --no-newline)"]]),
+    { description = "AirDrop the selected text" })
 
 -- Focus
 bind(mainMod .. " + left",  hl.dsp.focus({ direction = "left" }),  { description = "Move focus left" })

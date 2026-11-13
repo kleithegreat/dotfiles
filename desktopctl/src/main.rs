@@ -57,13 +57,13 @@ enum TopLevelCommand {
     /// Inspect solar scheduling state.
     #[command(subcommand)]
     Sun(SunCommand),
-    /// Start or stop the desktop host's heater miners.
     /// Receive from and share to iPhones over AirDrop.
     #[command(subcommand, name = "airdrop")]
     AirDrop(AirDropCommand),
     /// Inspect and control connected AirPods.
     #[command(subcommand, name = "airpods")]
     AirPods(AirPodsCommand),
+    /// Start or stop the desktop host's heater miners.
     #[command(subcommand)]
     Heater(HeaterCommand),
 }
@@ -338,11 +338,22 @@ enum AirDropCommand {
         #[arg(action = clap::ArgAction::Set)]
         accept: bool,
     },
-    /// Offer files, or links with --url, to receivers nearby.
+    /// Offer files, links with --url, or text with --text to receivers nearby.
+    /// Text that is one link goes as that link.
     Share {
         paths: Vec<std::path::PathBuf>,
         #[arg(long)]
         url: Vec<String>,
+        #[arg(long)]
+        text: Option<String>,
+    },
+    /// The browser extension's native messaging host: one `{text}` or `{url}`
+    /// in, one reply out.
+    #[command(hide = true)]
+    NativeHost {
+        /// The caller's origin and window, which Chromium always passes.
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        caller: Vec<String>,
     },
     /// Send the current share to one of its receivers.
     Send { receiver: String },

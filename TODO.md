@@ -2,6 +2,23 @@
 
 Open issues and pending validations. Delete entries when resolved.
 
+## Open
+
+- [ ] AirPods never pair from the shell: BlueZ answers "Authentication
+      Rejected" (2026-11-13). Likely cause: the adapter is not bondable
+      (`Pairable: no`) because nothing registers a pairing agent, and
+      Quickshell has none. If a retry with `Pairable` set by hand (busctl;
+      lasts until bluetoothd restarts) pairs, set
+      `hardware.bluetooth.settings.General.AlwaysPairable = true`, or give
+      desktopctl an agent that asks the shell, which changes `docs/airpods.md`
+      Intent.
+
+## Later
+
+- [ ] Audit `config/quickshell/` and `config/hypr/` against current upstream
+      Quickshell and Hyprland practice; both move fast and this config may
+      lag them.
+
 ## Pending validation (needs real hardware / live session)
 
 - [ ] Session restore on demand: turn "Restore windows at login" off,
@@ -66,9 +83,12 @@ Open issues and pending validations. Delete entries when resolved.
       turns Everyone on (Wi-Fi drops on the laptop, since Owly runs exclusive
       there) and off after 10 minutes. The laptop shows in the iPhone's share
       sheet, an offer raises Accept/Decline, and accepted photos land in
-      Downloads with "Show in Files" working. "Open With → AirDrop" in Nautilus
-      lists the iPhone, sends, and shows Sent or Declined. Wi-Fi comes back
-      after each.
+      Downloads with "Show in Files" working, and an offer shows the photo's
+      thumbnail (if not, desktopctl's journal logs the format's first
+      bytes). Wi-Fi comes back after. Sharing: AirDrop in Nautilus's and
+      Helium's right-click menus and Super+Shift+A each raise the share sheet
+      after a relogin; note how the iPhone takes a sentence (a .txt), and a lone link
+      as a link.
 - [ ] Under nftables: Tailscale, a podman container's network, and libvirt's
       default network all work.
 - [ ] Laptop panel power cycles (`docs/hyprland.md`): the boot greeter's

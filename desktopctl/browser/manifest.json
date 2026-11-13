@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "AirDrop",
+  "description": "Share the selection, a link or the page with iPhones nearby.",
+  "version": "1.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1egnjIfh+vTVlyfzfrcs1x6YS1NPW2gKC7Z+DKIoXPcWZjdEsFKpuz2OUcAacaNl87kAmFUvJjiTBZJgOhydk8N8QGdVqKuC5vQjlCswnyCgsYqmYLOEi9v+msiW8zQvQdjuHJVaPDcgskVsAAyPtYXrsc5m/YivftOeXCRG4L5+iJPfQ+oUBvjo7q0pvUGEmJQapBm726GkldAzyJ5YvfUbzUGfqywnNKUmMTcWzNKWGe3vy2yE55jTSWIWhMl7wd3OVX0G2GwRuWAZ8FMJe1WQ2gl3pvuaUPHEoIKayiSceFvlzNUomXyYLih16Vfg5WalEFqsZ9bNx7X3miVFnwIDAQAB",
+  "permissions": [
+    "contextMenus",
+    "nativeMessaging",
+    "activeTab",
+    "scripting"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
+}

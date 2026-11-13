@@ -71,10 +71,7 @@ enum Command {
         id: u64,
         accept: bool,
     },
-    Share {
-        payload: Payload,
-        items: Vec<String>,
-    },
+    Share(Outgoing),
     Send(String),
     Cancel,
 }
@@ -117,15 +114,23 @@ impl AirDropController {
         self.command(Command::Answer { id, accept }).await
     }
 
-    pub async fn share(&self, paths: Vec<PathBuf>, urls: Vec<String>) -> crate::Result<Value> {
-        let (payload, items) = match urls.is_empty() {
-            true => {
-                let items = paths.iter().map(|path| name_of(path)).collect();
-                (Payload::Files(paths), items)
+    pub async fn share(
+        &self,
+        paths: Vec<PathBuf>,
+        urls: Vec<String>,
+        text: Option<String>,
+    ) -> crate::Result<Value> {
+        let outgoing = match (paths.is_empty(), urls.is_empty(), text) {
+            (false, true, None) => Outgoing::files(paths),
+            (true, false, None) => Outgoing::links(urls),
+            (true, true, Some(text)) => Outgoing::text(&text)?,
+            _ => {
+                return Err(
+                    crate::invalid_input("share files, links or text, one kind at a time").into(),
+                );
             }
-            false => (Payload::Urls(urls.clone()), urls),
         };
-        self.command(Command::Share { payload, items }).await
+        self.command(Command::Share(outgoing)).await
     }
 
     pub async fn send(&self, receiver: String) -> crate::Result<Value> {
@@ -153,6 +158,114 @@ fn name_of(path: &std::path::Path) -> String {
     path.file_name()
         .map(|name| name.to_string_lossy().into_owned())
         .unwrap_or_else(|| path.display().to_string())
+}
+
+/// What a share offers, and what the shell shows of it.
+struct Outgoing {
+    payload: Payload,
+    kind: &'static str,
+    items: Vec<String>,
+    preview: Option<PathBuf>,
+    /// Holds the note that shared text travels as, for as long as it is offered.
+    _note: Option<Scratch>,
+}
+
+impl Outgoing {
+    fn files(paths: Vec<PathBuf>) -> Self {
+        Self {
+            kind: "files",
+            items: paths.iter().map(|path| name_of(path)).collect(),
+            preview: paths.first().cloned(),
+            payload: Payload::Files(paths),
+            _note: None,
+        }
+    }
+
+    fn links(urls: Vec<String>) -> Self {
+        Self {
+            kind: "links",
+            items: urls.clone(),
+            preview: None,
+            payload: Payload::Urls(urls),
+            _note: None,
+        }
+    }
+
+    /// Text that is one link goes as that link; anything else as a note.
+    fn text(text: &str) -> io::Result<Self> {
+        let text = text.trim();
+        if text.is_empty() {
+            return Err(crate::invalid_input("there is no text to share"));
+        }
+        if !text.contains(char::is_whitespace)
+            && (text.starts_with("https://") || text.starts_with("http://"))
+        {
+            return Ok(Self::links(vec![text.to_owned()]));
+        }
+        let note = Scratch::new()?;
+        let path = note.0.join(format!("{}.txt", note_title(text)));
+        std::fs::write(&path, text)?;
+        Ok(Self {
+            payload: Payload::Files(vec![path]),
+            kind: "text",
+            items: vec![text.chars().take(600).collect()],
+            preview: None,
+            _note: Some(note),
+        })
+    }
+}
+
+/// A note's file name: its first words, as a phone shows it.
+fn note_title(text: &str) -> String {
+    let title: String = text
+        .lines()
+        .find(|line| !line.trim().is_empty())
+        .unwrap_or_default()
+        .chars()
+        .filter(|c| !c.is_control() && *c != '/')
+        .take(40)
+        .collect();
+    match title.trim() {
+        "" => "Text".to_owned(),
+        title => title.to_owned(),
+    }
+}
+
+/// A directory of our own under the runtime dir, removed with this.
+struct Scratch(PathBuf);
+
+impl Scratch {
+    fn new() -> io::Result<Self> {
+        let mut bytes = [0u8; 8];
+        getrandom::fill(&mut bytes).map_err(|error| io::Error::other(error.to_string()))?;
+        let dir = crate::paths::xdg_runtime_dir()?
+            .join("desktopctl/airdrop")
+            .join(format!("{:016x}", u64::from_ne_bytes(bytes)));
+        std::fs::create_dir_all(&dir)?;
+        Ok(Self(dir))
+    }
+
+    /// Keeps an offer's thumbnail if it is a format the shell can draw.
+    fn picture(&self, id: u64, bytes: &[u8]) -> Option<PathBuf> {
+        let extension = match image::guess_format(bytes) {
+            Ok(image::ImageFormat::Jpeg) => "jpg",
+            Ok(image::ImageFormat::Png) => "png",
+            _ => {
+                let head: Vec<String> = bytes.iter().take(12).map(|b| format!("{b:02x}")).collect();
+                eprintln!("desktopctl: airdrop: offer thumbnail not drawable: {}", head.join(" "));
+                return None;
+            }
+        };
+        let path = self.0.join(format!("{id}.{extension}"));
+        std::fs::write(&path, bytes).ok()?;
+        Some(path)
+    }
+}
+
+impl Drop for Scratch {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
 }
 
 enum Internal {
@@ -192,6 +305,7 @@ impl Drop for Tasks {
 
 struct Receiving {
     _service: Registration,
+    icons: Scratch,
     _tasks: Tasks,
     /// Dropping one declines it.
     pending: HashMap<u64, Request>,
@@ -213,7 +327,7 @@ struct Actor {
     status: Status,
     name: String,
     want_visible: Option<Instant>,
-    want_share: Option<(Payload, Vec<String>)>,
+    want_share: Option<Outgoing>,
     lease: Option<Lease>,
     acquiring: bool,
     /// The lease being given back, until owlyd says it is idle.
@@ -349,18 +463,20 @@ impl Actor {
                     }
                 }
             }
-            Command::Share { payload, items } => {
+            Command::Share(outgoing) => {
                 self.status
                     .mode
                     .as_ref()
                     .ok_or("AirDrop has no radio it can use here")?;
                 self.sharing = None;
                 self.status.share = Some(Share {
-                    items: items.clone(),
+                    kind: outgoing.kind,
+                    items: outgoing.items.clone(),
+                    preview: outgoing.preview.clone(),
                     receivers: Vec::new(),
                     sending: None,
                 });
-                self.want_share = Some((payload, items));
+                self.want_share = Some(outgoing);
             }
             Command::Send(id) => {
                 let sharing = self.sharing.as_mut().ok_or("nothing is being shared")?;
@@ -491,6 +607,11 @@ impl Actor {
                     sender: request.ask.sender_computer_name.clone(),
                     files,
                     urls,
+                    icon: request
+                        .ask
+                        .file_icon
+                        .as_deref()
+                        .and_then(|bytes| receiving.icons.picture(request.id, bytes)),
                     accepted: false,
                 });
                 receiving.pending.insert(request.id, request);
@@ -578,10 +699,10 @@ impl Actor {
                 }
             }
         }
-        if let Some((payload, _)) = &self.want_share
+        if let Some(outgoing) = &self.want_share
             && self.sharing.is_none()
         {
-            match self.start_sharing(&lease, payload.clone()).await {
+            match self.start_sharing(&lease, outgoing.payload.clone()).await {
                 Ok(sharing) => self.sharing = Some(sharing),
                 Err(error) => self.give_up(&format!("Sharing failed: {error}")),
             }
@@ -624,6 +745,7 @@ impl Actor {
         });
         Ok(Receiving {
             _service: registration,
+            icons: Scratch::new()?,
             _tasks: Tasks(vec![tokio::spawn(receiver.run()), forward]),
             pending: HashMap::new(),
         })
@@ -962,5 +1084,24 @@ impl Advertising {
         {
             let _ = power.set_powered(false).await;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn text_that_is_one_link_goes_as_that_link() {
+        let outgoing = Outgoing::text("  https://example.com/a?b=c \n").expect("link");
+        assert_eq!(outgoing.kind, "links");
+        assert_eq!(outgoing.items, ["https://example.com/a?b=c"]);
+    }
+
+    #[test]
+    fn a_note_is_named_after_its_first_line() {
+        assert_eq!(note_title("\n  Groceries / list\nmilk"), "Groceries  list");
+        assert_eq!(note_title(&"x".repeat(60)), "x".repeat(40));
+        assert_eq!(note_title(" \u{7}"), "Text");
     }
 }

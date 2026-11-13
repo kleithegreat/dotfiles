@@ -132,6 +132,8 @@ struct AirDropShareParams {
     paths: Vec<std::path::PathBuf>,
     #[serde(default)]
     urls: Vec<String>,
+    #[serde(default)]
+    text: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -436,7 +438,7 @@ async fn respond(
         }
         methods::AIRDROP_SHARE => {
             let params: AirDropShareParams = parse_params(params, method)?;
-            to_value(context.airdrop.share(params.paths, params.urls).await)
+            to_value(context.airdrop.share(params.paths, params.urls, params.text).await)
         }
         methods::AIRDROP_SEND => {
             let params: AirDropSendParams = parse_params(params, method)?;

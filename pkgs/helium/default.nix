@@ -39,6 +39,7 @@
   systemd,
   wayland,
   xdg-utils,
+  commandLineArgs ? [ ],
 }:
 
 let
@@ -134,7 +135,8 @@ stdenv.mkDerivation {
     makeWrapper "$out/libexec/helium/helium-wrapper" "$out/bin/helium" \
       --prefix LD_LIBRARY_PATH : "${runtimeLibraryPath}" \
       --prefix XDG_DATA_DIRS : "${runtimeDataDirs}" \
-      --suffix PATH : "${lib.makeBinPath [ xdg-utils ]}"
+      --suffix PATH : "${lib.makeBinPath [ xdg-utils ]}" \
+      --add-flags "${lib.escapeShellArgs commandLineArgs}"
 
     install --mode=0644 "$out/libexec/helium/helium.desktop" \
       "$out/share/applications/helium.desktop"

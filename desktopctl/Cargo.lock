@@ -777,7 +777,7 @@ dependencies = [
 
 [[package]]
 name = "owly-airdrop"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "flate2",
  "getrandom 0.3.4",

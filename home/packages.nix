@@ -95,7 +95,8 @@ in
     lmstudio
     claude-desktop
     comfyui
-    helium
+    # The AirDrop context-menu entry ([[airdrop]]).
+    (helium.override { commandLineArgs = [ "--load-extension=${../desktopctl/browser}" ]; })
     imv
     nautilus
     glib # gsettings and gdk-pixbuf: Nautilus thumbnails fail without them

@@ -30,13 +30,20 @@ pub struct Ask {
     pub sender: String,
     pub files: Vec<String>,
     pub urls: Vec<String>,
+    /// The sender's thumbnail, when it is one the shell can draw.
+    pub icon: Option<PathBuf>,
     pub accepted: bool,
 }
 
 /// An outgoing share: what it holds, who can take it, and how sending goes.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Share {
+    /// `files` · `links` · `text`
+    pub kind: &'static str,
+    /// File names, the links, or the text itself.
     pub items: Vec<String>,
+    /// The first file, for a thumbnail.
+    pub preview: Option<PathBuf>,
     pub receivers: Vec<Receiver>,
     pub sending: Option<Sending>,
 }
@@ -110,19 +117,17 @@ pub fn run(command: crate::AirDropCommand) -> Result<()> {
             ipc::methods::AIRDROP_ANSWER,
             serde_json::json!({ "id": id, "accept": accept }),
         ),
-        Share { paths, url } => {
+        Share { paths, url, text } => {
             let paths = paths
                 .iter()
                 .map(std::path::absolute)
                 .collect::<std::io::Result<Vec<_>>>()?;
-            if paths.is_empty() == url.is_empty() {
-                return Err(crate::invalid_input("share either files or --url, not both").into());
-            }
             (
                 ipc::methods::AIRDROP_SHARE,
-                serde_json::json!({ "paths": paths, "urls": url }),
+                serde_json::json!({ "paths": paths, "urls": url, "text": text }),
             )
         }
+        NativeHost { .. } => return native_host(),
         Send { receiver } => (
             ipc::methods::AIRDROP_SEND,
             serde_json::json!({ "receiver": receiver }),
@@ -130,6 +135,40 @@ pub fn run(command: crate::AirDropCommand) -> Result<()> {
         Cancel => (ipc::methods::AIRDROP_CANCEL, serde_json::Value::Null),
     };
     ipc::mutate::<serde_json::Value>(method, params, ipc::DEFAULT_TIMEOUT, Duration::ZERO).map(drop)
+}
+
+/// Chromium's native messaging: a native-endian length, then that much JSON,
+/// each way.
+fn native_host() -> Result<()> {
+    use std::io::{Read, Write};
+
+    #[derive(serde::Deserialize)]
+    struct Message {
+        text: Option<String>,
+        url: Option<String>,
+    }
+
+    let mut stdin = std::io::stdin().lock();
+    let mut length = [0u8; 4];
+    stdin.read_exact(&mut length)?;
+    let mut body = vec![0u8; u32::from_ne_bytes(length) as usize];
+    stdin.read_exact(&mut body)?;
+    let message: Message = serde_json::from_slice(&body)?;
+    let outcome = ipc::mutate::<serde_json::Value>(
+        ipc::methods::AIRDROP_SHARE,
+        serde_json::json!({ "text": message.text, "urls": Vec::from_iter(message.url) }),
+        ipc::DEFAULT_TIMEOUT,
+        Duration::ZERO,
+    );
+    let reply = serde_json::to_vec(&match &outcome {
+        Ok(_) => serde_json::json!({ "ok": true }),
+        Err(error) => serde_json::json!({ "error": error.to_string() }),
+    })?;
+    let mut stdout = std::io::stdout().lock();
+    stdout.write_all(&u32::try_from(reply.len())?.to_ne_bytes())?;
+    stdout.write_all(&reply)?;
+    stdout.flush()?;
+    outcome.map(drop)
 }
 
 #[cfg(test)]

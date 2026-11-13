@@ -15,9 +15,11 @@
 - The radio is held only while visible or sharing. Where Owly runs exclusive,
   Wi-Fi is down for exactly that long, and the shell says so before you turn
   it on.
-- Sharing starts from "Open With → AirDrop" (`desktopctl airdrop share`). A
-  share turns Bluetooth on for the advert that wakes iPhones, and back off if
-  it was off.
+- Sharing starts from a context menu, as on a Mac: Nautilus's and Helium's
+  (the extension in `desktopctl/browser/`), or Super+Shift+A for the selection
+  anywhere. Text that is one link goes as that link, anything else as a note
+  that lives only as long as the share. A share turns Bluetooth on for the
+  advert that wakes iPhones, and back off if it was off.
 
 ## Quirks
 
