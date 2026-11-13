@@ -47,6 +47,9 @@
       url = "github:t4t5/owly";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    moneymachine = {
+      url = "git+file:///home/kevin/repos/moneymachine";
+    };
   };
 
   outputs =

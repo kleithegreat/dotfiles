@@ -460,18 +460,36 @@
         "type": "github"
       }
     },
+    "moneymachine": {
+      "inputs": {
+        "nixpkgs": "nixpkgs"
+      },
+      "locked": {
+        "lastModified": 1794556909,
+        "narHash": "sha256-wrPAooI4ZNkTz50J+dEJ+t8iErQEAKioXgXVJ5scGjA=",
+        "ref": "refs/heads/main",
+        "rev": "1c58d8e8e5e275655a3905d34f582d95bc76dcf9",
+        "revCount": 1054,
+        "type": "git",
+        "url": "file:///home/kevin/repos/moneymachine"
+      },
+      "original": {
+        "type": "git",
+        "url": "file:///home/kevin/repos/moneymachine"
+      }
+    },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1794386569,
-        "narHash": "sha256-x9sADJvoVG0L6RejZB+/BB4YiGZFBZrfTlhF4uBq1tQ=",
+        "lastModified": 1792295010,
+        "narHash": "sha256-F7meJtbqGttmUoMmYjRRgkVs42sn7bh7vvRvLPlUN98=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "d4f25a3e562008648d45bcf2d70bcc7422cad84e",
+        "rev": "8ce73368d1efd4d657e9064d29b144a52046b4e8",
         "type": "github"
       },
       "original": {
         "owner": "NixOS",
-        "ref": "nixos-unstable",
+        "ref": "nixos-26.05",
         "repo": "nixpkgs",
         "type": "github"
       }
@@ -488,6 +506,22 @@
       "original": {
         "owner": "NixOS",
         "ref": "master",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "nixpkgs_2": {
+      "locked": {
+        "lastModified": 1794386569,
+        "narHash": "sha256-x9sADJvoVG0L6RejZB+/BB4YiGZFBZrfTlhF4uBq1tQ=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "d4f25a3e562008648d45bcf2d70bcc7422cad84e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-unstable",
         "repo": "nixpkgs",
         "type": "github"
       }
@@ -541,7 +575,8 @@
         "home-manager": "home-manager",
         "hyprland": "hyprland",
         "hyprland-plugins": "hyprland-plugins",
-        "nixpkgs": "nixpkgs",
+        "moneymachine": "moneymachine",
+        "nixpkgs": "nixpkgs_2",
         "nixpkgs-claude": "nixpkgs-claude",
         "owly": "owly",
         "spicetify-nix": "spicetify-nix"

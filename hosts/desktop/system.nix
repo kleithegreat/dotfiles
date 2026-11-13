@@ -1,4 +1,4 @@
-{ config, lib, pkgs, ... }:
+{ config, inputs, lib, pkgs, ... }:
 
 {
   boot.initrd.availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usbhid" "usb_storage" "sd_mod" ];
@@ -115,6 +115,34 @@
       };
     };
   };
+
+  # ── Remote builders ───────────────────────────────────────────
+  # The homelab nodes build this PC's flake checks as the untrusted `nixremote`; this PC signs what they must accept
+  # (the Homelab role `nix-remote-builder`, the moneymachine audit/erasure deletion list).
+  nix.distributedBuilds = true;
+  nix.settings.builders-use-substitutes = true;
+  # nix key generate-secret --key-name desktop-builds-1
+  nix.settings.secret-key-files = [ "/etc/nix/desktop-builds.sec" ];
+  nix.buildMachines = map (m: m // {
+    protocol = "ssh-ng";
+    sshUser = "nixremote";
+    sshKey = "/etc/nix/remote-builder_ed25519";
+    systems = [ "x86_64-linux" ];
+    supportedFeatures = [ "big-parallel" ];
+  }) [
+    { hostName = "192.168.8.229"; maxJobs = 2; speedFactor = 1; } # prodesk5, 6 cores
+    { hostName = "192.168.8.153"; maxJobs = 2; speedFactor = 2; } # gmktec, 8 cores, also runs game servers
+    { hostName = "192.168.8.222"; maxJobs = 1; speedFactor = 1; } # prodesk7, inside mmtest.slice
+  ];
+  programs.ssh.knownHosts = {
+    # Each node's /etc/ssh/ssh_host_ed25519_key.pub, filled in by the human.
+    "192.168.8.229".publicKey = "PLACEHOLDER-prodesk5-ssh_host_ed25519_key.pub";
+    "192.168.8.153".publicKey = "PLACEHOLDER-gmktec-ssh_host_ed25519_key.pub";
+    "192.168.8.222".publicKey = "PLACEHOLDER-prodesk7-ssh_host_ed25519_key.pub";
+  };
+
+  # ── The moneymachine user timers (diskguard, OCI pull) ────────
+  home-manager.users.kevin.imports = [ inputs.moneymachine.homeManagerModules.default ];
 
   # ── Homelab compute ───────────────────────────────────────────
   # An agent of the homelab cluster only while sweeps run (docs/homelab-agent.md).
