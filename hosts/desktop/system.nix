@@ -136,9 +136,9 @@
   ];
   programs.ssh.knownHosts = {
     # Each node's /etc/ssh/ssh_host_ed25519_key.pub, filled in by the human.
-    "192.168.8.229".publicKey = "PLACEHOLDER-prodesk5-ssh_host_ed25519_key.pub";
-    "192.168.8.153".publicKey = "PLACEHOLDER-gmktec-ssh_host_ed25519_key.pub";
-    "192.168.8.222".publicKey = "PLACEHOLDER-prodesk7-ssh_host_ed25519_key.pub";
+    "192.168.8.229".publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILiiPONFXceOnj/Beb2hlGsk6PUrr2fk0qy9ZD0z9DpM";
+    "192.168.8.153".publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOob/yYh9OcZp82JqHi2p36lAzFZZad8EHL0gwKut4Sz";
+    "192.168.8.222".publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAnCkztjTq/OoQg/oxm0W7wyx73rHtaJIVuzRnHu2+dh";
   };
 
   # ── The moneymachine user timers (diskguard, OCI pull) ────────
