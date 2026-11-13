@@ -45,7 +45,7 @@ RowLayout {
                 Behavior on width {
                     Ui.Anim {
                         duration: Motion.quick
-                        easing.bezierCurve: Motion.enter
+                        easing.bezierCurve: Motion.spring
                     }
                 }
                 Behavior on color {

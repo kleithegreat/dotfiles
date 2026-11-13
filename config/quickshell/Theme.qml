@@ -115,11 +115,7 @@ QtObject {
 
     readonly property color glassBar: withAlpha(_bg, 0.97)
 
-    // One hairline that reads as light catching the top edge, and a shadow wide
-    // enough to be felt rather than seen. A bright inner stroke around the whole
-    // perimeter plus a hard dark outer stroke is the Aero look: it draws the
-    // panel's outline instead of its depth.
-    readonly property color specularFade: Qt.rgba(1, 1, 1, dark ? 0.06 : 0.14)
+    // A hairline rim and a shadow wide enough to be felt rather than seen.
     readonly property color rim: dark ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(0, 0, 0, 0.10)
     readonly property color shadow: Qt.rgba(0, 0, 0, dark ? 0.34 : 0.16)
     readonly property color scrim: Qt.rgba(0, 0, 0, dark ? 0.42 : 0.30)

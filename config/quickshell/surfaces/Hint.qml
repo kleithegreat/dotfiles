@@ -49,20 +49,19 @@ PanelWindow {
             origin.y: 0
         }
 
-        Behavior on emerge {
-            Ui.Anim {
-                id: emergeAnim
-                duration: Sys.Hint.showing ? Motion.quick : Motion.instant
-                easing.bezierCurve: Sys.Hint.showing ? Motion.enter : Motion.exit
-            }
+        Ui.Reveal on emerge {
+            id: emergeAnim
+            shownValue: 1
+            enterDuration: Motion.quick
+            exitDuration: Motion.instant
         }
 
-        Behavior on opacity {
-            Ui.Anim {
-                id: fadeAnim
-                duration: Sys.Hint.showing ? Motion.quick : Motion.instant
-                easing.bezierCurve: Sys.Hint.showing ? Motion.enter : Motion.exit
-            }
+        Ui.Reveal on opacity {
+            id: fadeAnim
+            shownValue: 1
+            enterDuration: Motion.quick
+            exitDuration: Motion.instant
+            enterCurve: Motion.standard
         }
 
         // Geometry is placed while the hint is down and animated only while it

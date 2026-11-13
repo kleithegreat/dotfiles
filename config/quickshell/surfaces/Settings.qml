@@ -64,12 +64,9 @@ Item {
             origin.y: panel.height / 2
         }
 
-        Behavior on emerge {
-            Ui.Anim {
-                id: rise
-                duration: Motion.settled
-                easing.bezierCurve: root.state.isOpen("settings") ? Motion.enter : Motion.exit
-            }
+        Ui.Reveal on emerge {
+            id: rise
+            shownValue: 1
         }
         Behavior on opacity {
             Ui.Anim {

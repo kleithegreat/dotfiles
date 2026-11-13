@@ -77,6 +77,12 @@ Qt keeps placeholder `QScreen`s through output churn.
 unmaps one pass before the handler runs, then remaps with animation — the
 panel pops back after dismissal (`closelayer`/`openlayer` on the event socket).
 
+### A Behavior starts before bindings on the flag that moved its property
+`duration: shown ? a : b` inside a `Behavior` still reads the old `shown`, so
+every entrance played the exit's timing and every exit the entrance's; it
+looked like choppy motion, not like a swap. Direction-dependent animations go
+through `Ui.Reveal`, which decides from its own `targetValue`.
+
 ### A geometry animation on a window that unmaps replays when it maps
 A `Behavior` queued while hidden runs in full on map, so hints slid across the
 screen. Geometry is placed while hidden and animated only while shown; those

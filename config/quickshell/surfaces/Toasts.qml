@@ -39,11 +39,8 @@ PanelWindow {
         Behavior on opacity {
             Ui.Anim {}
         }
-        Behavior on y {
-            Ui.Anim {
-                duration: Motion.settled
-                easing.bezierCurve: Sys.Toast.showing ? Motion.enter : Motion.exit
-            }
+        Ui.Reveal on y {
+            shownValue: pill.shadowPad
         }
 
         MouseArea {

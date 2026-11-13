@@ -31,16 +31,17 @@ PanelWindow {
         opacity: Sys.Osd.showing ? 1 : 0
         scale: Sys.Osd.showing ? 1 : 0.9
 
-        Behavior on opacity {
-            Ui.Anim {
-                duration: Sys.Osd.showing ? Motion.quick : Motion.settled
-            }
+        Ui.Reveal on opacity {
+            shownValue: 1
+            enterDuration: Motion.quick
+            exitDuration: Motion.settled
+            enterCurve: Motion.standard
+            exitCurve: Motion.standard
         }
-        Behavior on scale {
-            Ui.Anim {
-                duration: Sys.Osd.showing ? Motion.quick : Motion.settled
-                easing.bezierCurve: Sys.Osd.showing ? Motion.enter : Motion.exit
-            }
+        Ui.Reveal on scale {
+            shownValue: 1
+            enterDuration: Motion.quick
+            exitDuration: Motion.settled
         }
 
         RowLayout {

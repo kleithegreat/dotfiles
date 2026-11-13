@@ -52,11 +52,8 @@ PanelWindow {
                 duration: Motion.settled
             }
         }
-        Behavior on rise {
-            Ui.Anim {
-                duration: Motion.settled
-                easing.bezierCurve: window.shown ? Motion.enter : Motion.exit
-            }
+        Ui.Reveal on rise {
+            shownValue: 0
         }
 
         ColumnLayout {

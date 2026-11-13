@@ -48,7 +48,7 @@ Pressable {
             Behavior on x {
                 Anim {
                     duration: Motion.quick
-                    easing.bezierCurve: Motion.enter
+                    easing.bezierCurve: Motion.spring
                 }
             }
         }

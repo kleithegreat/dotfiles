@@ -40,7 +40,7 @@ PanelWindow {
     // holds can play one.
     Timer {
         id: linger
-        interval: Motion.settled
+        interval: Motion.quick
         onTriggered: overlay.mapped = false
     }
 
@@ -78,10 +78,10 @@ PanelWindow {
             opacity: overlay.scrimmed ? 1 : 0
             visible: opacity > 0.001
 
-            Behavior on opacity {
-                Ui.Anim {
-                    duration: overlay.scrimmed ? Motion.settled : Motion.quick
-                }
+            Ui.Reveal on opacity {
+                shownValue: 1
+                enterCurve: Motion.standard
+                exitCurve: Motion.standard
             }
         }
 

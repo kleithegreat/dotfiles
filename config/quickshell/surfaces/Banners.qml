@@ -76,14 +76,14 @@ PanelWindow {
                             property: "opacity"
                             to: 1
                             duration: Motion.settled
-                            easing.bezierCurve: Motion.enter
+                            easing.bezierCurve: Motion.standard
                         }
                         Ui.Anim {
                             target: card
                             property: "slide"
                             to: 0
                             duration: Motion.settled
-                            easing.bezierCurve: Motion.enter
+                            easing.bezierCurve: Motion.spring
                         }
                     }
                 }

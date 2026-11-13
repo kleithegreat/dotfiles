@@ -34,7 +34,7 @@ Row {
             Behavior on rotation {
                 Ui.Anim {
                     duration: Motion.quick
-                    easing.bezierCurve: Motion.enter
+                    easing.bezierCurve: Motion.spring
                 }
             }
         }
@@ -49,7 +49,7 @@ Row {
         Behavior on width {
             Ui.Anim {
                 duration: Motion.settled
-                easing.bezierCurve: Motion.enter
+                easing.bezierCurve: Motion.spring
             }
         }
 

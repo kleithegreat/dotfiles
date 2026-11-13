@@ -23,12 +23,6 @@ QtObject {
     readonly property int rPanel: 13
     readonly property int rPill: 999
 
-    // Concentric corners: an inset child must curve tighter than its parent by
-    // exactly the inset, or the gap between the two arcs visibly pinches.
-    function inner(outer, inset) {
-        return Math.max(3, outer - inset);
-    }
-
     // ── Icons ──────────────────────────────────────────────────────────────
     // Drawn on a 24px grid with a 2px stroke; sizes keep the stroke on or near a whole pixel.
     readonly property int iconSm: 16

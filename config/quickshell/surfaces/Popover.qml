@@ -47,20 +47,17 @@ Item {
             origin.y: 0
         }
 
-        Behavior on emerge {
-            Ui.Anim {
-                id: emergeAnim
-                duration: root.shown ? Motion.settled : Motion.quick
-                easing.bezierCurve: root.shown ? Motion.enter : Motion.exit
-            }
+        Ui.Reveal on emerge {
+            id: emergeAnim
+            shownValue: 1
         }
 
-        Behavior on opacity {
-            Ui.Anim {
-                id: fadeAnim
-                duration: root.shown ? Motion.quick : Motion.instant
-                easing.bezierCurve: root.shown ? Motion.enter : Motion.exit
-            }
+        Ui.Reveal on opacity {
+            id: fadeAnim
+            shownValue: 1
+            enterDuration: Motion.quick
+            exitDuration: Motion.instant
+            enterCurve: Motion.standard
         }
 
         // Content re-laying out under an open panel animates; the height the
