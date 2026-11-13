@@ -39,11 +39,109 @@ Card {
         }
     }
 
-    Ui.Icon {
+    // The case with its pods hovering over it. They settle in as the card
+    // rises, then drift, out of step with each other.
+    Item {
+        id: scene
+
         Layout.alignment: Qt.AlignHCenter
-        name: root.step === "hold" ? "airpods-case" : "airpods"
-        size: 72
-        color: root.step === "failed" ? Theme.textTertiary : Theme.text
+        implicitWidth: 132
+        implicitHeight: 112
+        opacity: root.step === "failed" ? 0.45 : 1
+        scale: root.shown ? 1 : 0.8
+
+        Ui.Reveal on scale {
+            shownValue: 1
+        }
+        Behavior on opacity {
+            Ui.Anim {}
+        }
+
+        Repeater {
+            model: [
+                { icon: "pod-left", x: 26, phase: 0 },
+                { icon: "pod-right", x: 70, phase: 700 }
+            ]
+
+            Ui.Icon {
+                id: pod
+
+                required property var modelData
+                property real drift: 0
+
+                x: pod.modelData.x
+                y: 4 + pod.drift
+                name: pod.modelData.icon
+                size: 36
+                color: Theme.text
+
+                SequentialAnimation on drift {
+                    running: root.shown
+                    loops: Animation.Infinite
+
+                    PauseAnimation {
+                        duration: pod.modelData.phase
+                    }
+                    NumberAnimation {
+                        from: 0
+                        to: -5
+                        duration: 1400
+                        easing.type: Easing.InOutSine
+                    }
+                    NumberAnimation {
+                        from: -5
+                        to: 0
+                        duration: 1400
+                        easing.type: Easing.InOutSine
+                    }
+                }
+            }
+        }
+
+        Ui.Icon {
+            id: caseIcon
+
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom
+            name: "airpods-case"
+            size: 64
+            color: Theme.text
+
+            // The status light: white and flashing while the button is held.
+            Rectangle {
+                x: parent.width / 2 - width / 2
+                y: parent.height * 0.62
+                width: 5
+                height: 5
+                radius: 2.5
+                color: "white"
+                visible: root.step === "hold"
+
+                SequentialAnimation on opacity {
+                    running: root.step === "hold"
+                    loops: Animation.Infinite
+
+                    NumberAnimation {
+                        to: 0.15
+                        duration: 450
+                    }
+                    NumberAnimation {
+                        to: 1
+                        duration: 450
+                    }
+                }
+            }
+        }
+
+        Ui.Ring {
+            anchors.centerIn: caseIcon
+            implicitWidth: 92
+            implicitHeight: 92
+            thickness: 3
+            busy: true
+            track: "transparent"
+            visible: root.step === "connecting"
+        }
     }
 
     Ui.PodBattery {

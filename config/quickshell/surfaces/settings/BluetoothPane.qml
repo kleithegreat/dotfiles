@@ -9,8 +9,8 @@ Ui.Scroll {
 
     contentHeight: body.height
 
-    Component.onCompleted: Sys.Bluetooth.setDiscovering(true)
-    Component.onDestruction: Sys.Bluetooth.setDiscovering(false)
+    Component.onCompleted: Sys.Bluetooth.seek("settings", true)
+    Component.onDestruction: Sys.Bluetooth.seek("settings", false)
 
     ColumnLayout {
         id: body

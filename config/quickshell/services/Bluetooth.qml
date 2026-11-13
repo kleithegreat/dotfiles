@@ -42,9 +42,20 @@ QtObject {
         setPowered(!powered);
     }
 
-    function setDiscovering(enabled) {
-        if (adapter)
-            adapter.discovering = enabled;
+    // Discovery runs while anyone wants it and the adapter is on. A one-shot
+    // write while the adapter is off is refused and never retried.
+    property var _seekers: []
+
+    function seek(who, wanted) {
+        const others = _seekers.filter(name => name !== who);
+        _seekers = wanted ? others.concat([who]) : others;
+    }
+
+    readonly property Binding _discovery: Binding {
+        target: root.adapter
+        property: "discovering"
+        value: root._seekers.length > 0 && root.powered
+        when: root.adapter !== null
     }
 
     function connect(device) {

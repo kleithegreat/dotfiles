@@ -49,7 +49,7 @@ QtObject {
         } else {
             _candidate = null;
             card = "hold";
-            Bluetooth.setDiscovering(true);
+            Bluetooth.seek("airpods", true);
         }
         deadline.restart();
     }
@@ -57,8 +57,7 @@ QtObject {
     function dismiss() {
         if (_candidate?.pairing)
             _candidate.cancelPair();
-        if (card === "hold" || card === "connecting")
-            Bluetooth.setDiscovering(false);
+        Bluetooth.seek("airpods", false);
         _candidate = null;
         card = "";
     }
@@ -83,7 +82,7 @@ QtObject {
     function _settle() {
         if (card !== "connecting" || !(connected || _candidate?.connected))
             return;
-        Bluetooth.setDiscovering(false);
+        Bluetooth.seek("airpods", false);
         deadline.stop();
         card = "done";
     }
@@ -159,7 +158,7 @@ QtObject {
         onTriggered: {
             if (root.card !== "hold" && root.card !== "connecting")
                 return;
-            Bluetooth.setDiscovering(false);
+            Bluetooth.seek("airpods", false);
             root.card = "failed";
         }
     }
