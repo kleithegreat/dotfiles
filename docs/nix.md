@@ -20,8 +20,10 @@
 - Every host runs the stock nixpkgs kernel. A custom boot-critical kernel
   (Clang/LTO/CachyOS, forced initrd lists) already caused an undebuggable
   no-journal boot failure; runtime policy goes in `kernelParams`, sysctls and
-  services. Only the laptop carries Kconfig trims, each its own boot-validated
-  change; they cost it every substitution.
+  services. Only the laptop carries Kconfig trims: hardware it can never have,
+  never what could be plugged in. Each family is its own `kernelPatches`
+  entry, so a bad boot bisects by dropping entries; they cost it every
+  substitution.
 - An override for one consumer is scoped to that consumer, never top-level:
   top-level `llama-cpp` 0.7.0 for unearth silently made whisper-cpp,
   ffmpeg-full and kdenlive local builds.
@@ -59,6 +61,9 @@ every time with "Output size limit exceeded", so it always builds here.
 Disabling a parent (Nouveau, Hyper-V DRM, AMD SEV) orphans nixpkgs' mandatory
 children and the config builder fails with `unused option`. Pair each trim with
 `lib.kernel.unset` for the children; never reach for `ignoreConfigErrors`.
+The builder reports them a layer at a time; mapping every option
+`common-config.nix` sets to the Kconfig file defining it finds them at once.
+The TV media switches are forced on until `MEDIA_SUPPORT_FILTER` is set.
 
 ### Home Manager tracks `master` until `release-26.11` exists
 An older release branch warns on every switch once nixos-unstable starts a new

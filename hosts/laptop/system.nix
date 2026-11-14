@@ -1,33 +1,118 @@
 { config, pkgs, lib, ... }:
 
+let
+  inherit (lib.attrsets) genAttrs;
+  # A Kconfig trim: parents off, and the children nixpkgs sets under them unset
+  # so its config check does not fail on them (docs/nix.md).
+  trim = { off, orphans ? [ ] }:
+    genAttrs off (_: lib.mkForce lib.kernel.no) // genAttrs orphans (_: lib.mkForce lib.kernel.unset);
+in
 {
   boot.initrd.availableKernelModules = [ "xhci_pci" "thunderbolt" "vmd" "nvme" "rtsx_pci_sdmmc" ];
   boot.kernelPatches = [
     {
-      name = "laptop-intel-only-kernel-config";
+      # Other GPUs, and display drivers for servers and VMs. i915 drives the
+      # iGPU; xe only autoloaded for its device ID.
+      name = "laptop-trim-gpus";
+      patch = null;
+      structuredExtraConfig = trim {
+        off = [
+          "DRM_AMDGPU" "DRM_RADEON" "DRM_XE" "DRM_GMA500"
+          "DRM_AST" "DRM_MGAG200" "DRM_QXL" "DRM_VBOXVIDEO" "DRM_VMWGFX"
+          "DRM_CIRRUS_QEMU" "DRM_BOCHS" "DRM_VIRTIO_GPU"
+        ];
+        orphans = [
+          "HSA_AMD" "HSA_AMD_P2P" "HMM_MIRROR"
+          "DRM_AMD_ACP" "DRM_AMD_DC_DCN" "DRM_AMD_DC_FP" "DRM_AMD_DC_HDCP" "DRM_AMD_DC_SI"
+          "DRM_AMD_ISP" "DRM_AMD_SECURE_DISPLAY" "DRM_AMDGPU_CIK" "DRM_AMDGPU_SI"
+          "DRM_AMDGPU_USERPTR"
+        ];
+      };
+    }
+    {
+      # TV tuners and PCI capture cards. UVC webcams are USB media, kept.
+      name = "laptop-trim-tv-capture";
+      patch = null;
+      structuredExtraConfig = trim {
+        off = [ "MEDIA_DIGITAL_TV_SUPPORT" "MEDIA_ANALOG_TV_SUPPORT" "MEDIA_PCI_SUPPORT" ];
+        orphans = [ "MEDIA_ATTACH" "DVB_DYNAMIC_MINORS" ];
+      } // {
+        # Without the filter the TV switches are forced on.
+        MEDIA_SUPPORT_FILTER = lib.mkForce lib.kernel.yes;
+      };
+    }
+    {
+      # Built-in Ethernet and Wi-Fi chips this laptop lacks. USB Ethernet is not
+      # under ETHERNET; Intel, MediaTek and Realtek stay for the AX211 and the
+      # USB adapters Owly runs a second card on (docs/airdrop.md).
+      name = "laptop-trim-network-chips";
+      patch = null;
+      structuredExtraConfig = trim {
+        off = [
+          "ETHERNET"
+          "WLAN_VENDOR_ADMTEK" "WLAN_VENDOR_ATH" "WLAN_VENDOR_ATMEL" "WLAN_VENDOR_BROADCOM"
+          "WLAN_VENDOR_INTERSIL" "WLAN_VENDOR_MARVELL" "WLAN_VENDOR_MICROCHIP"
+          "WLAN_VENDOR_PURELIFI" "WLAN_VENDOR_QUANTENNA" "WLAN_VENDOR_RALINK"
+          "WLAN_VENDOR_RSI" "WLAN_VENDOR_SILABS" "WLAN_VENDOR_ST" "WLAN_VENDOR_TI"
+          "WLAN_VENDOR_ZYDAS"
+        ];
+        orphans = [
+          "8139TOO_8129" "8139TOO_PIO" "MLX5_CORE_EN" "NET_VENDOR_MEDIATEK"
+          "RT2800USB_RT53XX" "RT2800USB_RT55XX"
+          "ATH9K_AHB" "ATH9K_PCI" "ATH9K_DFS_CERTIFIED" "ATH10K_DFS_CERTIFIED"
+          "B43_PHY_HT" "BRCMFMAC_PCIE" "BRCMFMAC_USB"
+        ];
+      };
+    }
+    {
+      # Hardware no laptop carries. SCSI_LOWLEVEL is the HBAs, RAID and Fibre
+      # Channel cards; sd_mod, usb-storage and UAS sit outside it.
+      name = "laptop-trim-server-hardware";
+      patch = null;
+      structuredExtraConfig = trim {
+        off = [ "SCSI_LOWLEVEL" "INFINIBAND" "ISDN" "ATM" "CAN" "HAMRADIO" "STAGING" ];
+        orphans = [
+          "MEGARAID_NEWGEN" "SCSI_LOWLEVEL_PCMCIA" "SCSI_IBMVSCSI" "AIC7XXX_DEBUG_ENABLE"
+          "AIC79XX_DEBUG_ENABLE" "AIC94XX_DEBUG" "INFINIBAND_IPOIB" "INFINIBAND_IPOIB_CM"
+          "AX25" "STAGING_MEDIA"
+        ];
+      };
+    }
+    {
+      # Cluster, network and historical filesystems. Btrfs, XFS, F2FS, exFAT,
+      # NTFS, HFS+, SquashFS (AppImages) and 9P stay.
+      name = "laptop-trim-filesystems";
+      patch = null;
+      structuredExtraConfig = trim {
+        off = [
+          "OCFS2_FS" "GFS2_FS" "CEPH_FS" "AFS_FS" "CODA_FS" "ORANGEFS_FS"
+          "NILFS2_FS" "JFS_FS" "ZONEFS_FS" "CRAMFS" "ROMFS_FS" "OMFS_FS"
+          "AFFS_FS" "BEFS_FS" "BFS_FS" "EFS_FS" "MINIX_FS" "QNX4FS_FS"
+          "QNX6FS_FS" "UFS_FS" "VXFS_FS" "HPFS_FS" "ADFS_FS"
+        ];
+        orphans = [ "CEPH_FSCACHE" "CEPH_FS_POSIX_ACL" "JFS_POSIX_ACL" "JFS_SECURITY" "OCFS2_DEBUG_MASKLOG" ];
+      };
+    }
+    {
+      name = "laptop-voluntary-preemption";
       patch = null;
       structuredExtraConfig = {
         PREEMPT_DYNAMIC = lib.mkForce lib.kernel.no;
         PREEMPT = lib.mkForce lib.kernel.no;
         PREEMPT_LAZY = lib.mkForce lib.kernel.no;
         PREEMPT_VOLUNTARY = lib.mkForce lib.kernel.yes;
-
-        KVM_AMD = lib.mkForce lib.kernel.no;
-        X86_AMD_PLATFORM_DEVICE = lib.mkForce lib.kernel.no;
-        AMD_MEM_ENCRYPT = lib.mkForce lib.kernel.no;
-        KVM_AMD_SEV = lib.mkForce lib.kernel.unset;
-        SEV_GUEST = lib.mkForce lib.kernel.unset;
-        AMD_PMC = lib.mkForce lib.kernel.no;
-        AMD_IOMMU = lib.mkForce lib.kernel.no;
-
-        XEN = lib.mkForce lib.kernel.no;
-        HYPERV = lib.mkForce lib.kernel.no;
-        DRM_HYPERV = lib.mkForce lib.kernel.unset;
-        FB_HYPERV = lib.mkForce lib.kernel.unset;
-        KVM_GUEST = lib.mkForce lib.kernel.no;
-
-        DRM_NOUVEAU = lib.mkForce lib.kernel.no;
-        DRM_NOUVEAU_SVM = lib.mkForce lib.kernel.unset;
+      };
+    }
+    {
+      # AMD platforms, hypervisor guests and Nouveau: an Intel laptop on NVIDIA's driver.
+      name = "laptop-trim-amd-guests-nouveau";
+      patch = null;
+      structuredExtraConfig = trim {
+        off = [
+          "KVM_AMD" "X86_AMD_PLATFORM_DEVICE" "AMD_MEM_ENCRYPT" "AMD_PMC" "AMD_IOMMU"
+          "XEN" "HYPERV" "KVM_GUEST" "DRM_NOUVEAU"
+        ];
+        orphans = [ "KVM_AMD_SEV" "SEV_GUEST" "DRM_HYPERV" "FB_HYPERV" "DRM_NOUVEAU_SVM" ];
       };
     }
     {
