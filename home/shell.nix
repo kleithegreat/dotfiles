@@ -123,8 +123,9 @@ in
               switch|boot|test|build|dry-build|dry-activate) action=$1; shift ;;
           esac
 
-          local watcher shell_before
-          shell_before=$(readlink "''${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/shell.qml" 2>/dev/null)
+          local config="''${XDG_CONFIG_HOME:-$HOME/.config}" watcher shell_before hypr_before
+          shell_before=$(readlink "$config/quickshell/shell.qml" 2>/dev/null)
+          hypr_before=$(cat "$config"/hypr/*.lua 2>/dev/null | sha256sum)
           if [[ $action == switch || $action == test ]]; then
               # Reported as `bool:`, not `int:`; the wrong prefix leaves it empty.
               watcher=$(hyprctl getoption misc:disable_autoreload 2>/dev/null | awk '/^bool:/ { print $2 }')
@@ -145,7 +146,11 @@ in
               hyprctl eval "hl.config({ misc = { disable_autoreload = $watcher } })" >/dev/null
               if (( rc == 0 )); then
                   hyprctl dispatch 'hl.dsp.exec_cmd("vicinae server --replace")' >/dev/null
-                  if [[ $(readlink "''${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/shell.qml" 2>/dev/null) != "$shell_before" ]]; then
+                  # Autoreload was off while the files changed, so it never saw them.
+                  if [[ $(cat "$config"/hypr/*.lua 2>/dev/null | sha256sum) != "$hypr_before" ]]; then
+                      hyprctl reload >/dev/null
+                  fi
+                  if [[ $(readlink "$config/quickshell/shell.qml" 2>/dev/null) != "$shell_before" ]]; then
                       hyprctl dispatch 'hl.dsp.exec_cmd("pkill quickshell || true; sleep 0.3; desktopctl launch-quickshell")' >/dev/null
                   fi
               fi
