@@ -152,6 +152,11 @@ struct AirPodsAwarenessParams {
 }
 
 #[derive(Debug, Deserialize)]
+struct AirPodsReachParams {
+    reach: crate::airpods::Reach,
+}
+
+#[derive(Debug, Deserialize)]
 struct MonitorsLayoutParams {
     outputs: serde_json::Value,
 }
@@ -438,7 +443,12 @@ async fn respond(
         }
         methods::AIRDROP_SHARE => {
             let params: AirDropShareParams = parse_params(params, method)?;
-            to_value(context.airdrop.share(params.paths, params.urls, params.text).await)
+            to_value(
+                context
+                    .airdrop
+                    .share(params.paths, params.urls, params.text)
+                    .await,
+            )
         }
         methods::AIRDROP_SEND => {
             let params: AirDropSendParams = parse_params(params, method)?;
@@ -453,6 +463,10 @@ async fn respond(
         methods::AIRPODS_AWARENESS => {
             let params: AirPodsAwarenessParams = parse_params(params, method)?;
             to_value(context.airpods.set_awareness(params.enabled).await)
+        }
+        methods::AIRPODS_REACH => {
+            let params: AirPodsReachParams = parse_params(params, method)?;
+            to_value(context.airpods.set_reach(params.reach))
         }
         _ => Err(format!("unsupported method: {method}")),
     }

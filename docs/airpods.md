@@ -14,8 +14,12 @@
   the lid. The only step that differs is the one iOS also shows for AirPods
   not on your Apple account: hold the setup button. Pairing without the button
   needs Apple account keys and is impossible here.
-- Only a case within roughly arm's length raises the card, so a stranger's
-  case across the room does not.
+- An advert cannot say whose case it is (that part is encrypted to the
+  owner's Apple account), and a paired pair is matched by model, so distance
+  is the only thing between you and a stranger's case. By default only a
+  case next to the computer raises the card, as an iPhone asks of a case it
+  does not know; Settings → Bluetooth widens it to arm's length or turns it
+  off.
 - Taking a pod out pauses whatever is playing; putting it back resumes only
   what that pause stopped.
 
@@ -28,6 +32,14 @@ it up: `systemctl restart bluetooth`. Without it the daemon logs "no proximity
 monitor" and everything else (the AAP channel, Control Center, Settings) still
 works, so the card is the only symptom. The Bluetooth adapter is also off at
 boot; no card appears until it is on.
+
+### Pairing that lasts until the first disconnect is an adapter that will not bond
+BlueZ leaves the adapter non-bondable while no pairing agent is registered,
+and nothing here registers one. The shell's pair then completes for the
+session only: audio plays, `Paired` stays false, the device vanishes from
+BlueZ on disconnect, and every reconnect fails with "Authentication Failed"
+because the AirPods kept their key. `AlwaysPairable` in
+`system/physical-host.nix` is what makes it bond.
 
 ### `Failed to Add Adv Patterns Monitor with status 0x0a` is a stale kernel add
 An add that fails while the adapter is off (status `0x03`) leaves its pending

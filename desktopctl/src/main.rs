@@ -375,6 +375,11 @@ enum AirPodsCommand {
         #[arg(action = clap::ArgAction::Set)]
         enabled: bool,
     },
+    /// How close an open case must be to raise its card.
+    Reach {
+        #[arg(value_enum)]
+        reach: airpods::Reach,
+    },
 }
 
 #[derive(Debug, Subcommand)]

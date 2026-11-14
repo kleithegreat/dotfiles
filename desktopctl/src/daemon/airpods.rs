@@ -2,7 +2,7 @@
 //! monitor, and a connected pair, which gets an AAP channel ([[airpods]]).
 
 use crate::{
-    airpods::{self, Link, Nearby, NoiseMode},
+    airpods::{self, Link, Nearby, NoiseMode, Reach},
     daemon::server::Events,
     l2cap::Channel,
 };
@@ -47,19 +47,29 @@ struct Shared {
     /// Devices the monitor last reported in reach.
     near: HashSet<OwnedObjectPath>,
     nearby: Option<Nearby>,
+    /// Cases that came inside the reach floor, held until the monitor loses them.
+    admitted: HashSet<OwnedObjectPath>,
+    reach: Reach,
     published: Value,
 }
 
 impl Shared {
     fn status(&self) -> Value {
-        serde_json::json!({ "link": self.link, "nearby": self.nearby })
+        serde_json::json!({ "link": self.link, "nearby": self.nearby, "reach": self.reach })
     }
 }
 
 impl AirPodsController {
     pub fn new(events: Events) -> Self {
+        let reach = load_reach().unwrap_or_else(|error| {
+            eprintln!("desktopctl: airpods: reading the reach setting: {error}");
+            Reach::default()
+        });
         Self {
-            shared: Arc::default(),
+            shared: Arc::new(Mutex::new(Shared {
+                reach,
+                ..Shared::default()
+            })),
             wake: Arc::default(),
             events,
         }
@@ -76,6 +86,14 @@ impl AirPodsController {
 
     pub async fn set_awareness(&self, enabled: bool) -> crate::Result<Value> {
         self.send(&airpods::set_awareness(enabled)).await
+    }
+
+    pub fn set_reach(&self, reach: Reach) -> crate::Result<Value> {
+        let saved = serde_json::to_vec(&serde_json::json!({ "reach": reach }))?;
+        crate::theme::atomic_write(&reach_path()?, &saved)?;
+        self.update(|shared| shared.reach = reach);
+        self.wake.notify_one();
+        Ok(Value::Object(Default::default()))
     }
 
     async fn send(&self, packet: &[u8]) -> crate::Result<Value> {
@@ -320,14 +338,24 @@ impl Watcher {
             })
             .collect();
         controller.update(|shared| {
-            shared.nearby = shared
+            let floor = shared.reach.floor();
+            let cases: Vec<(OwnedObjectPath, Nearby)> = shared
                 .near
                 .iter()
-                .filter_map(|path| devices.get(path))
-                .filter_map(|device| {
+                .filter_map(|path| {
+                    let device = devices.get(path)?;
                     let rssi = device.get("RSSI")?.downcast_ref::<i16>().ok()?;
-                    airpods::proximity(&manufacturer(device)?, rssi)
+                    Some((
+                        path.clone(),
+                        airpods::proximity(&manufacturer(device)?, rssi)?,
+                    ))
                 })
+                .filter(|(path, nearby)| admit(shared.admitted.contains(path), nearby.rssi, floor))
+                .collect();
+            shared.admitted = cases.iter().map(|(path, _)| path.clone()).collect();
+            shared.nearby = cases
+                .into_iter()
+                .map(|(_, nearby)| nearby)
                 .map(|nearby| Nearby {
                     paired: paired.get(&nearby.product).cloned(),
                     ..nearby
@@ -430,4 +458,43 @@ fn manufacturer(device: &HashMap<String, OwnedVariant>) -> Option<Vec<u8>> {
         <HashMap<u16, OwnedVariant>>::try_from(device.get("ManufacturerData")?.try_clone().ok()?)
             .ok()?;
     <Vec<u8>>::try_from(data.get(&airpods::APPLE)?.try_clone().ok()?).ok()
+}
+
+fn reach_path() -> io::Result<std::path::PathBuf> {
+    Ok(crate::paths::xdg_data_home()?.join("desktopctl/airpods.json"))
+}
+
+fn load_reach() -> crate::Result<Reach> {
+    #[derive(serde::Deserialize)]
+    struct Saved {
+        reach: Reach,
+    }
+    match std::fs::read(reach_path()?) {
+        Ok(contents) => Ok(serde_json::from_slice::<Saved>(&contents)?.reach),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(Reach::default()),
+        Err(error) => Err(error.into()),
+    }
+}
+
+/// A case shows once it comes inside the floor, and stays while the monitor
+/// holds it: adverts jitter by several dB, and a card must not flicker.
+fn admit(admitted: bool, rssi: i16, floor: Option<i16>) -> bool {
+    floor.is_some_and(|floor| admitted || rssi >= floor)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::admit;
+
+    #[test]
+    fn a_case_must_come_close_once_and_then_stays() {
+        assert!(!admit(false, -55, Some(-48)));
+        assert!(admit(false, -45, Some(-48)));
+        assert!(admit(true, -70, Some(-48)));
+    }
+
+    #[test]
+    fn off_admits_nothing() {
+        assert!(!admit(true, -30, None));
+    }
 }

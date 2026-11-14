@@ -102,7 +102,12 @@
       enable = true;
       powerOnBoot = false;
       # The AirPods card's advertisement monitor is experimental in BlueZ ([[airpods]]).
-      settings.General.Experimental = true;
+      settings.General = {
+        Experimental = true;
+        # Nothing here registers a pairing agent, and without one the adapter
+        # will not bond: pairings work until the first disconnect ([[airpods]]).
+        AlwaysPairable = true;
+      };
     };
     zramSwap = {
       enable = true;

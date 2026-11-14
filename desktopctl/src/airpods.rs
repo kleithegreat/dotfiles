@@ -39,6 +39,30 @@ pub enum NoiseMode {
     Adaptive,
 }
 
+/// How close an open case must be to raise its card. An advert does not say
+/// whose case it is, so distance is all that keeps a stranger's away.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, clap::ValueEnum)]
+#[serde(rename_all = "snake_case")]
+pub enum Reach {
+    Off,
+    /// Next to the laptop, as an iPhone asks of a case it does not know.
+    #[default]
+    Close,
+    /// Arm's length.
+    Near,
+}
+
+impl Reach {
+    /// The weakest advert that counts, in dBm.
+    pub fn floor(self) -> Option<i16> {
+        match self {
+            Self::Off => None,
+            Self::Close => Some(-48),
+            Self::Near => Some(-60),
+        }
+    }
+}
+
 impl NoiseMode {
     fn byte(self) -> u8 {
         match self {
@@ -253,6 +277,10 @@ pub fn run(command: crate::AirPodsCommand) -> Result<()> {
         crate::AirPodsCommand::Awareness { enabled } => (
             ipc::methods::AIRPODS_AWARENESS,
             serde_json::json!({ "enabled": enabled }),
+        ),
+        crate::AirPodsCommand::Reach { reach } => (
+            ipc::methods::AIRPODS_REACH,
+            serde_json::json!({ "reach": reach }),
         ),
     };
     ipc::mutate::<serde_json::Value>(

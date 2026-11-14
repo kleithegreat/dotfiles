@@ -110,6 +110,27 @@ Ui.Scroll {
         }
 
         Ui.Group {
+            title: "AirPods nearby"
+
+            Ui.ListRow {
+                Layout.fillWidth: true
+                title: "Show an open case"
+                subtitle: "A case can't say whose it is, only how close it is"
+                interactive: false
+            }
+
+            Ui.Choice {
+                Layout.fillWidth: true
+                Layout.leftMargin: Metrics.rowInset
+                Layout.rightMargin: Metrics.rowInset
+                Layout.bottomMargin: Metrics.rowInset
+                options: Sys.AirPods.reaches
+                current: Sys.AirPods.reach
+                onPicked: value => Sys.AirPods.setReach(value)
+            }
+        }
+
+        Ui.Group {
             title: Sys.Bluetooth.discovering ? "Nearby · scanning" : "Nearby"
             visible: Sys.Bluetooth.powered
 

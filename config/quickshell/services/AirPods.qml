@@ -11,6 +11,7 @@ QtObject {
 
     property var link: null
     property var nearby: null
+    property string _reach: "close"
 
     readonly property bool connected: link !== null
     readonly property var battery: link ? link.battery : nearby ? nearby.battery : null
@@ -19,6 +20,13 @@ QtObject {
     readonly property bool hasAwareness: (link?.awareness ?? null) !== null
     readonly property string noise: writes.value("noise", link?.noise ?? "")
     readonly property bool awareness: writes.value("awareness", link?.awareness ?? false)
+    // How close an open case must be to raise the card ([[airpods]]).
+    readonly property string reach: writes.value("reach", _reach)
+    readonly property var reaches: [
+        { value: "off", label: "Off" },
+        { value: "close", label: "Next to this computer" },
+        { value: "near", label: "Within reach" }
+    ]
 
     readonly property var noiseModes: [
         { value: "off", label: "Off" },
@@ -38,6 +46,10 @@ QtObject {
 
     function setAwareness(on) {
         writes.set("awareness", on, ["desktopctl", "airpods", "awareness", String(on)]);
+    }
+
+    function setReach(value) {
+        writes.set("reach", value, ["desktopctl", "airpods", "reach", value]);
     }
 
     function connectCase() {
@@ -67,7 +79,8 @@ QtObject {
         _ears(status.link);
         link = status.link;
         nearby = status.nearby;
-        writes.settle({ noise: link?.noise, awareness: link?.awareness });
+        _reach = status.reach ?? "close";
+        writes.settle({ noise: link?.noise, awareness: link?.awareness, reach: _reach });
 
         const open = nearby?.lid_open ?? false;
         if (open && !wasOpen && card === "") {

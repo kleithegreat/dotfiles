@@ -18,8 +18,7 @@ QtObject {
     readonly property var connected: devices.filter(device => device.connected)
     readonly property var paired: devices.filter(device => device.paired && !device.connected)
     // Anything unpaired and named. Address-only entries are beacons and clutter.
-    readonly property var discovered: devices.filter(device => !device.paired && device.name !== "" && device.name !== device.address)
-
+    readonly property var discovered: devices.filter(device => !device.paired && device.name !== "" && device.name.replace(/-/g, ":") !== device.address)
 
     readonly property string label: {
         if (!available)
