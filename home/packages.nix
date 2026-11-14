@@ -93,6 +93,7 @@ in
     vscode
     zed-editor
     lmstudio
+    chatgpt
     claude-desktop
     comfyui
     # The AirDrop context-menu entry ([[airdrop]]).

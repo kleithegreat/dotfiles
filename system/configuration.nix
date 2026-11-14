@@ -7,6 +7,7 @@ let
     # Applications — home.packages
     "antigravity-cli"
     "bambu-studio"
+    "chatgpt"
     "claude-desktop"
     "copilot-language-server"
     "dd-cli"
