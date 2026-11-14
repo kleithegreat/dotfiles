@@ -45,6 +45,11 @@
       name = "bluetooth-mgmt-failed-monitor-add-leaves-no-pending";
       patch = ../../patches/linux/bluetooth-mgmt-failed-monitor-add-leaves-no-pending.patch;
     }
+    {
+      # Otherwise dell-wmi drops Fn+Esc and nothing can announce the mode; see docs/desktopctl.md.
+      name = "dell-wmi-report-fn-lock-button";
+      patch = ../../patches/linux/dell-wmi-report-fn-lock-button.patch;
+    }
   ];
 
   # The i7-12700H's blob alone; the full bundle is 15 MiB of every boot's initrd.
@@ -112,12 +117,25 @@
 
   powerManagement.powertop.enable = true;
 
-  # Touchpad runtime-PM pin (docs/nix.md) and colon-free GPU names (docs/nvidia.md).
+  # Touchpad runtime-PM pin (docs/nix.md), colon-free GPU names (docs/nvidia.md),
+  # and the Fn-lock mode made readable once the firmware attributes exist (docs/desktopctl.md).
   services.udev.extraRules = /* udev */ ''
     ACTION=="add|change", SUBSYSTEM=="pci", KERNEL=="0000:00:15.1", ATTR{power/control}="on"
     SUBSYSTEM=="drm", ENV{DEVTYPE}=="drm_minor", KERNEL=="card[0-9]*", SUBSYSTEMS=="pci", DRIVERS=="i915", SYMLINK+="dri/intel-gpu"
     SUBSYSTEM=="drm", ENV{DEVTYPE}=="drm_minor", KERNEL=="card[0-9]*", SUBSYSTEMS=="pci", DRIVERS=="nvidia", SYMLINK+="dri/nvidia-gpu"
+    ACTION=="add", SUBSYSTEM=="firmware-attributes", KERNEL=="dell-wmi-sysman", TAG+="systemd", ENV{SYSTEMD_WANTS}+="fn-lock-readable.service"
   '';
+
+  systemd.services.fn-lock-readable = {
+    description = "Let desktopctl read the Fn-lock mode";
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${lib.getExe' pkgs.coreutils "chmod"} 0444 /sys/devices/virtual/firmware-attributes/dell-wmi-sysman/attributes/FnLockMode/current_value";
+      # The device appears before the driver adds its attributes under it.
+      Restart = "on-failure";
+      RestartSec = 1;
+    };
+  };
 
   # Must hang off powertop.service itself; see docs/nix.md.
   powerManagement.powertop.postStart = /* bash */ ''

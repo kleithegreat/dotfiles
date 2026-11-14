@@ -3,6 +3,7 @@ mod airpods;
 mod brightness;
 mod daemon;
 mod displays;
+mod fn_lock;
 mod hypr;
 mod ipc;
 mod l2cap;
@@ -66,6 +67,8 @@ enum TopLevelCommand {
     /// Start or stop the desktop host's heater miners.
     #[command(subcommand)]
     Heater(HeaterCommand),
+    /// Announce the laptop top row's mode; Hyprland runs this on Fn+Esc.
+    FnLock,
 }
 
 #[derive(Debug, Subcommand)]
@@ -428,6 +431,7 @@ fn run() -> Result<()> {
         TopLevelCommand::Heater(command) => run_heater(command),
         TopLevelCommand::AirDrop(command) => airdrop::run(command),
         TopLevelCommand::AirPods(command) => airpods::run(command),
+        TopLevelCommand::FnLock => fn_lock::run(),
     }
 }
 

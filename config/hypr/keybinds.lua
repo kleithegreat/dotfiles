@@ -48,6 +48,9 @@ bind(mainMod .. " + F6", hl.dsp.exec_cmd("desktopctl brightness down"),
 bind(mainMod .. " + F7", hl.dsp.exec_cmd("desktopctl brightness up"),
     { description = "Increase brightness", repeating = true })
 
+-- Fn+Esc: KEY_FN_ESC from the laptop's patched dell-wmi (docs/desktopctl.md).
+bind("code:473", hl.dsp.exec_cmd("desktopctl fn-lock"), { description = "Announce the Fn-lock mode" })
+
 -- Volume
 bind(mainMod .. " + F2", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"),
     { description = "Decrease volume", repeating = true })

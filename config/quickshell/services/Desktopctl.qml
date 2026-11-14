@@ -29,6 +29,7 @@ QtObject {
     signal airdropChanged(var status)
     signal airdropReceived(var data)
     signal airdropFailed(var data)
+    signal fnLockChanged(var data)
 
     function _dispatch(line) {
         const text = String(line).trim();
@@ -80,6 +81,9 @@ QtObject {
             break;
         case "airdrop.failed":
             airdropFailed(data);
+            break;
+        case "fn_lock.changed":
+            fnLockChanged(data);
             break;
         }
     }

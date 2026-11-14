@@ -63,6 +63,10 @@ QtObject {
         function onInputChanged(state) {
             root._ingest(state);
         }
+        // Fn+Esc flips the laptop's top row ([[desktopctl]]).
+        function onFnLockChanged(data) {
+            Osd.show("keyboard", null, data.media_keys ? "Media keys" : "Function keys");
+        }
     }
 
     readonly property Process _status: Process {

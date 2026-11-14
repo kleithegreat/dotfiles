@@ -67,6 +67,7 @@ pub(crate) mod methods {
     pub const AIRPODS_NOISE: &str = "airpods.noise";
     pub const AIRPODS_AWARENESS: &str = "airpods.awareness";
     pub const AIRPODS_REACH: &str = "airpods.reach";
+    pub const FN_LOCK_ANNOUNCE: &str = "fn_lock.announce";
 }
 
 /// Topics a subscriber can select; each event name is `<topic>.<what>`.

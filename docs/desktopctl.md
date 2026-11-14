@@ -64,3 +64,12 @@ through different hyprctl verbs.
 may have no output yet ("none of the requested outputs are valid"). The
 wallpaper target waits until `awww query` lists an output; a `sleep` in
 autostart is not a substitute.
+
+### Fn+Esc reaches desktopctl only through a kernel patch
+dell-wmi receives the press (WMI type `0x0012`, code `0xe035`) and marks it
+`KE_IGNORE`, and an ignored sparse-keymap entry cannot be remapped from
+userspace. `dell-wmi-report-fn-lock-button.patch` reports it as `KEY_FN_ESC`
+(Hyprland `code:473`). The press does not say the mode; the firmware's
+`FnLockMode` attribute does (`EnableSecondary` = media keys), and it is
+root-only until `fn-lock-readable.service` opens it. Delete the patch once
+upstream maps the key.

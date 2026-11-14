@@ -1,0 +1,11 @@
+--- a/drivers/platform/x86/dell/dell-wmi-base.c
++++ b/drivers/platform/x86/dell/dell-wmi-base.c
+@@ -382,7 +382,7 @@
+ 	{ KE_IGNORE, 0x000d, { KEY_RESERVED } },
+ 
+ 	/* Fn-lock button pressed */
+-	{ KE_IGNORE, 0xe035, { KEY_RESERVED } },
++	{ KE_KEY, 0xe035, { KEY_FN_ESC } },
+ };
+ 
+ static void dell_wmi_switch_event(struct input_dev **subdev,

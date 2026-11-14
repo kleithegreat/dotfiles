@@ -58,16 +58,21 @@ PanelWindow {
             Ui.Meter {
                 Layout.fillWidth: true
                 Layout.alignment: Qt.AlignVCenter
-                fraction: Sys.Osd.value
+                visible: Sys.Osd.value !== null
+                fraction: Sys.Osd.value ?? 0
                 fill: Theme.text
             }
 
+            // Beside a level it is the number; alone it is the message.
             Ui.Label {
+                readonly property bool alone: Sys.Osd.value === null
+
                 text: Sys.Osd.label
-                role: "caption"
-                numeric: true
-                horizontalAlignment: Text.AlignRight
-                Layout.preferredWidth: Metrics.s8 + Metrics.s2
+                role: alone ? "callout" : "caption"
+                numeric: !alone
+                horizontalAlignment: alone ? Text.AlignLeft : Text.AlignRight
+                Layout.fillWidth: alone
+                Layout.preferredWidth: alone ? -1 : Metrics.s8 + Metrics.s2
             }
         }
     }

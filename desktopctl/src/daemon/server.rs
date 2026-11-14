@@ -464,6 +464,17 @@ async fn respond(
             let params: AirPodsAwarenessParams = parse_params(params, method)?;
             to_value(context.airpods.set_awareness(params.enabled).await)
         }
+        methods::FN_LOCK_ANNOUNCE => to_value(
+            crate::fn_lock::media_keys()
+                .map(|media_keys| {
+                    context.events.publish(
+                        "fn_lock.changed",
+                        serde_json::json!({ "media_keys": media_keys }),
+                    );
+                    serde_json::Value::Object(Default::default())
+                })
+                .map_err(Into::into),
+        ),
         methods::AIRPODS_REACH => {
             let params: AirPodsReachParams = parse_params(params, method)?;
             to_value(context.airpods.set_reach(params.reach))

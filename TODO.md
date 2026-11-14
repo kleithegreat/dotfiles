@@ -2,13 +2,6 @@
 
 Open issues and pending validations. Delete entries when resolved.
 
-## Open
-
-- [ ] AirDrop receiving: the iPhone reports failure at once (2026-11-14,
-      lease 12:47:42–52). desktopctl now logs owly-airdrop's connection
-      errors; retry with `journalctl --user --unit desktopctl --follow` and
-      note whether an Accept/Decline card appeared on the laptop.
-
 ## Later
 
 - [ ] Audit `config/quickshell/` and `config/hypr/` against current upstream
@@ -17,6 +10,9 @@ Open issues and pending validations. Delete entries when resolved.
 
 ## Pending validation (needs real hardware / live session)
 
+- [ ] Fn lock on the laptop, after a reboot: each Fn+Esc raises "Function
+      keys" or "Media keys", naming the mode just switched to. If it names
+      the previous one, the firmware updates `FnLockMode` after the event.
 - [ ] Session restore on demand: turn "Restore windows at login" off,
       reboot, and confirm nothing reopens and the power menu offers "Restore
       Windows" once.
@@ -78,16 +74,13 @@ Open issues and pending validations. Delete entries when resolved.
       Control Center and Settings and follow the stem, the three batteries
       match iOS, and taking a pod out pauses playback while putting it back
       resumes it.
-- [ ] AirDrop (`docs/airdrop.md`) with an iPhone: the Control Center tile
-      turns Everyone on (Wi-Fi drops on the laptop, since Owly runs exclusive
-      there) and off after 10 minutes. The laptop shows in the iPhone's share
-      sheet, an offer raises Accept/Decline, and accepted photos land in
-      Downloads with "Show in Files" working, and an offer shows the photo's
-      thumbnail (if not, desktopctl's journal logs the format's first
-      bytes). Wi-Fi comes back after. Sharing: AirDrop in Nautilus's and
-      Helium's right-click menus and Super+Shift+A each raise the share sheet
-      after a relogin; note how the iPhone takes a sentence (a .txt), and a lone link
-      as a link.
+- [ ] AirDrop (`docs/airdrop.md`) with an iPhone; receiving a file and
+      sharing from Helium work. Still to see: Everyone turns off after 10
+      minutes and Wi-Fi comes back; "Show in Files" opens the file; a photo's
+      offer shows its thumbnail (if not, desktopctl's journal logs the
+      format's first bytes); Nautilus's entry and Super+Shift+A raise the
+      share sheet; how the iPhone takes a sentence (a .txt), and a lone link
+      arrives as a link.
 - [ ] Under nftables: Tailscale, a podman container's network, and libvirt's
       default network all work.
 - [ ] Laptop panel power cycles (`docs/hyprland.md`): the boot greeter's

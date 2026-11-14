@@ -56,6 +56,7 @@ Scope {
         void Sys.Displays.primaryOutput;
         void Sys.AirPods.connected;
         void Sys.AirDrop.available;
+        void Sys.Input.sensitivity;
         Sys.Idle.applyBootDefault();
     }
 
