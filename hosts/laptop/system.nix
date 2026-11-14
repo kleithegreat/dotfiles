@@ -105,7 +105,8 @@
   # Restoring the keyboard backlight held sysinit.target for ~1.2s.
   systemd.units."systemd-backlight@leds:dell::kbd_backlight.service".enable = false;
 
-  services.automatic-timezoned.enable = true;
+  # Pinned: IP geolocation places Spectrum's IPv4 addresses in Colorado.
+  time.timeZone = "America/New_York";
 
   services.openssh.enable = lib.mkForce false;
 

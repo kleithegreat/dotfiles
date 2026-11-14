@@ -17,8 +17,8 @@
 - Coordinates: `DESKTOPCTL_LOCATION` pin → cache fresher than 6h → GeoClue
   (`where-am-i`) → stale cache → College Station fallback. Degradation is
   deterministic and never fatal; a malformed pin warns and falls through. A
-  pin outranks even a fresh cache. Only the laptop geolocates (and runs
-  `automatic-timezoned`); the desktop pins its zone and coordinates.
+  pin outranks even a fresh cache. Only the laptop geolocates; both pin
+  their zone, and the desktop its coordinates too.
 - Place names come only from `solar.rs` reverse geocoding, lazily on
   `sun status`, cached beside the coordinates and dropped when they refresh,
   and ignored when they don't match the coordinates being printed.
