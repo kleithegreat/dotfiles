@@ -17,6 +17,15 @@ BarItem {
         anchors.centerIn: parent
         spacing: Metrics.s2 - 1
 
+        // Only while the top row sends media keys; F1–F12 is the quiet default.
+        Ui.Icon {
+            anchors.verticalCenter: parent.verticalCenter
+            size: Metrics.barIcon
+            name: "keyboard"
+            visible: Sys.Input.mediaKeys
+            color: root.hovered ? Theme.text : Theme.textSecondary
+        }
+
         Ui.Signal {
             anchors.verticalCenter: parent.verticalCenter
             size: Metrics.barIcon

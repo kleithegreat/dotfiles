@@ -48,6 +48,11 @@ impl Events {
     }
 
     pub fn publish(&self, event: &str, data: serde_json::Value) {
+        // Subscribers only receive listed topics; an unlisted one vanishes silently.
+        debug_assert!(
+            ipc::TOPICS.contains(&event.split('.').next().unwrap_or(event)),
+            "{event} is not in ipc::TOPICS"
+        );
         // A send error only means no subscriber is connected right now.
         let _ = self.sender.send(Arc::new(EventEnvelope {
             event: event.to_owned(),
@@ -469,7 +474,7 @@ async fn respond(
                 .map(|media_keys| {
                     context.events.publish(
                         "fn_lock.changed",
-                        serde_json::json!({ "media_keys": media_keys }),
+                        serde_json::json!({ "media_keys": media_keys, "osd": true }),
                     );
                     serde_json::Value::Object(Default::default())
                 })
@@ -610,6 +615,12 @@ async fn push_snapshots<W: AsyncWrite + Unpin>(
             "session" => to_value(context.session.status()),
             "airpods" => to_value(context.airpods.status()),
             "airdrop" => to_value(context.airdrop.status()),
+            // Absent on hosts without the firmware attribute, so no indicator there.
+            "fn_lock" => to_value(
+                crate::fn_lock::media_keys()
+                    .map(|media_keys| serde_json::json!({ "media_keys": media_keys }))
+                    .map_err(Into::into),
+            ),
             "brightness" => {
                 if let Ok(devices) = blocking(crate::brightness::backlight_snapshot).await {
                     write_brightness_snapshot(writer, devices).await?;
@@ -925,7 +936,8 @@ mod tests {
                 "hypr_monitors",
                 "session",
                 "airpods",
-                "airdrop"
+                "airdrop",
+                "fn_lock"
             ]
         );
         assert_eq!(

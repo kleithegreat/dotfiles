@@ -1,6 +1,7 @@
 //! Fn+Esc flips the laptop's top row between F1–F12 and media keys, and the
 //! firmware records which. Hyprland runs `desktopctl fn-lock` on each press;
-//! the daemon reads the mode and the shell announces it ([[desktopctl]]).
+//! the daemon reads the mode, the shell announces it, and the bar shows media
+//! keys while they are on ([[desktopctl]]).
 
 use crate::{Result, ipc};
 use std::{fs, io, time::Duration};

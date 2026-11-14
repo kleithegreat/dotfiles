@@ -80,6 +80,7 @@ pub(crate) const TOPICS: &[&str] = &[
     "session",
     "airpods",
     "airdrop",
+    "fn_lock",
 ];
 
 #[derive(Debug, Serialize)]

@@ -10,9 +10,8 @@ Open issues and pending validations. Delete entries when resolved.
 
 ## Pending validation (needs real hardware / live session)
 
-- [ ] Fn lock on the laptop, after a reboot: each Fn+Esc raises "Function
-      keys" or "Media keys", naming the mode just switched to. If it names
-      the previous one, the firmware updates `FnLockMode` after the event.
+- [ ] Fn lock on the laptop: the bar shows a keyboard while media keys are
+      on, from login onward, and none in function-keys mode or on the desktop.
 - [ ] Session restore on demand: turn "Restore windows at login" off,
       reboot, and confirm nothing reopens and the power menu offers "Restore
       Windows" once.

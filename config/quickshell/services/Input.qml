@@ -10,6 +10,8 @@ QtObject {
     id: root
 
     property real sensitivity: 0
+    // The laptop top row sends media keys without Fn; absent elsewhere.
+    property bool mediaKeys: false
     property string accelProfile: "flat"
     property real scrollFactor: 1
     property real touchpadScrollFactor: 0.25
@@ -63,9 +65,12 @@ QtObject {
         function onInputChanged(state) {
             root._ingest(state);
         }
-        // Fn+Esc flips the laptop's top row ([[desktopctl]]).
+        // Fn+Esc flips the laptop's top row ([[desktopctl]]). The subscribe
+        // snapshot carries no `osd`, so a shell restart does not announce it.
         function onFnLockChanged(data) {
-            Osd.show("keyboard", null, data.media_keys ? "Media keys" : "Function keys");
+            root.mediaKeys = data.media_keys;
+            if (data.osd)
+                Osd.show("keyboard", null, data.media_keys ? "Media keys" : "Function keys");
         }
     }
 
