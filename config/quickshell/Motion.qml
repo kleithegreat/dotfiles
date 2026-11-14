@@ -10,6 +10,8 @@ QtObject {
     readonly property int quick: 250
     // Surfaces arriving, content re-laying out.
     readonly property int settled: 450
+    // How far a part trails the surface it sits on.
+    readonly property int follow: 70
 
     // Easing.BezierSpline control points: [cx1, cy1, cx2, cy2, 1, 1]
 
@@ -26,5 +28,5 @@ QtObject {
     // Surfaces grow from the control that summoned them, not from their own
     // centre; the scale start is small enough to read as motion and large enough
     // not to read as a zoom.
-    readonly property real emergeScale: 0.94
+    readonly property real emergeScale: 0.92
 }

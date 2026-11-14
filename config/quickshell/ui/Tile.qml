@@ -64,7 +64,28 @@ Pressable {
         anchors.left: parent.left
         anchors.leftMargin: Metrics.s3
         anchors.verticalCenter: parent.verticalCenter
+
+        // Switching pops the glyph and lets it spring back.
+        SequentialAnimation on scale {
+            id: pop
+            running: false
+
+            NumberAnimation {
+                to: 1.22
+                duration: Motion.instant
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Motion.standard
+            }
+            NumberAnimation {
+                to: 1
+                duration: Motion.settled
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Motion.spring
+            }
+        }
     }
+
+    onOnChanged: pop.restart()
 
     Column {
         anchors.left: glyph.right

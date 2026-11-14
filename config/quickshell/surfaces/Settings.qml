@@ -166,18 +166,29 @@ Item {
                     }
 
                     Loader {
+                        id: pane
+
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         asynchronous: true
                         source: Qt.resolvedUrl("settings/" + root.state.pane + "Pane.qml")
 
-                        // Panes cross-fade rather than cutting, so switching
-                        // reads as one surface changing its mind.
+                        // Panes cross-fade and slide in rather than cutting, so
+                        // switching reads as one surface changing its mind.
                         opacity: status === Loader.Ready ? 1 : 0
+                        property real slide: status === Loader.Ready ? 0 : 16
+                        transform: Translate {
+                            x: pane.slide
+                        }
+
                         Behavior on opacity {
                             Ui.Anim {
                                 duration: Motion.instant
                             }
+                        }
+                        Ui.Reveal on slide {
+                            shownValue: 0
+                            exitDuration: 0
                         }
                     }
                 }

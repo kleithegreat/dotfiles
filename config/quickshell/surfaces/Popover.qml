@@ -75,6 +75,25 @@ Item {
             id: body
             anchors.fill: parent
             anchors.margins: root.padded ? Metrics.panelInset : 0
+
+            // The contents settle a beat after the panel, from just above.
+            opacity: root.shown ? 1 : 0
+            property real drop: root.shown ? 0 : -8
+            transform: Translate {
+                y: body.drop
+            }
+
+            Ui.Reveal on opacity {
+                shownValue: 1
+                enterDelay: Motion.follow
+                enterDuration: Motion.quick
+                enterCurve: Motion.standard
+                exitDuration: Motion.instant
+            }
+            Ui.Reveal on drop {
+                shownValue: 0
+                enterDelay: Motion.follow
+            }
         }
     }
 }

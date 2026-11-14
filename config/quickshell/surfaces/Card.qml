@@ -64,6 +64,24 @@ PanelWindow {
             anchors.top: parent.top
             anchors.margins: Metrics.s5
             spacing: Metrics.s4
+
+            // The contents rise a beat behind the card.
+            opacity: window.shown ? 1 : 0
+            property real lift: window.shown ? 0 : 12
+            transform: Translate {
+                y: body.lift
+            }
+
+            Ui.Reveal on opacity {
+                shownValue: 1
+                enterDelay: Motion.follow
+                enterDuration: Motion.quick
+                enterCurve: Motion.standard
+            }
+            Ui.Reveal on lift {
+                shownValue: 0
+                enterDelay: Motion.follow
+            }
         }
     }
 }

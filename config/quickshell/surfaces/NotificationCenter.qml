@@ -67,6 +67,31 @@ Popover {
                         Layout.fillWidth: true
                         implicitHeight: text.implicitHeight + Metrics.s3 * 2
 
+                        // A notification arriving slides in from the right.
+                        opacity: 0
+                        property real slide: 24
+                        transform: Translate {
+                            x: entry.slide
+                        }
+                        Component.onCompleted: arrive.start()
+
+                        ParallelAnimation {
+                            id: arrive
+
+                            Ui.Anim {
+                                target: entry
+                                property: "opacity"
+                                to: 1
+                            }
+                            Ui.Anim {
+                                target: entry
+                                property: "slide"
+                                to: 0
+                                duration: Motion.settled
+                                easing.bezierCurve: Motion.spring
+                            }
+                        }
+
                         ColumnLayout {
                             id: text
                             anchors.left: parent.left

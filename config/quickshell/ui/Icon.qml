@@ -26,7 +26,31 @@ Item {
         visible: false
     }
 
+    // A new glyph pops in rather than cutting. It animates the effect, not the
+    // icon, so a caller's own opacity binding survives.
+    onNameChanged: swap.restart()
+
+    ParallelAnimation {
+        id: swap
+
+        Anim {
+            target: face
+            property: "scale"
+            from: 0.6
+            to: 1
+            duration: Motion.settled
+            easing.bezierCurve: Motion.spring
+        }
+        Anim {
+            target: face
+            property: "opacity"
+            from: 0
+            to: 1
+        }
+    }
+
     MultiEffect {
+        id: face
         anchors.fill: glyph
         source: glyph
         brightness: 1.0

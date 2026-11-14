@@ -32,10 +32,13 @@ Rectangle {
         Tint {}
     }
 
-    Behavior on scale {
-        Anim {
-            duration: Motion.instant
-        }
+    // A press goes in at once; letting go springs back past rest.
+    Reveal on scale {
+        shownValue: root.pressScale
+        enterDuration: Motion.instant
+        enterCurve: Motion.standard
+        exitDuration: Motion.settled
+        exitCurve: Motion.spring
     }
 
     MouseArea {

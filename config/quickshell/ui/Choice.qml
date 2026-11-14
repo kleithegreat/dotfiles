@@ -33,6 +33,47 @@ Item {
         pixelAligned: true
         clip: true
 
+        // One selection that slides to the chosen option, rather than a fill
+        // that jumps between them.
+        Rectangle {
+            id: pill
+
+            // Set by the option that becomes chosen.
+            property Item target: null
+            // The first placement lands; only moves after it travel.
+            property bool placed: false
+
+            onTargetChanged: {
+                if (target)
+                    Qt.callLater(() => pill.placed = true);
+            }
+
+            visible: target !== null && target.chosen
+            x: target ? target.x : 0
+            y: target ? target.y : 0
+            width: target ? target.width : 0
+            height: target ? target.height : 0
+            radius: Metrics.rControl
+            color: Theme.fillActive
+
+            Behavior on x {
+                enabled: pill.placed
+
+                Anim {
+                    duration: Motion.settled
+                    easing.bezierCurve: Motion.spring
+                }
+            }
+            Behavior on width {
+                enabled: pill.placed
+
+                Anim {
+                    duration: Motion.settled
+                    easing.bezierCurve: Motion.spring
+                }
+            }
+        }
+
         Row {
             id: row
             height: parent.height
@@ -48,11 +89,20 @@ Item {
                     readonly property string value: modelData.value !== undefined ? modelData.value : modelData
                     readonly property string label: modelData.label !== undefined ? modelData.label : modelData
                     readonly property bool missing: root.showsMissing && !Catalog.available(option.value)
+                    readonly property bool chosen: root.current === option.value
+
+                    onChosenChanged: {
+                        if (chosen)
+                            pill.target = option;
+                    }
+                    Component.onCompleted: {
+                        if (chosen)
+                            pill.target = option;
+                    }
 
                     anchors.verticalCenter: parent.verticalCenter
                     implicitWidth: caption.implicitWidth + Metrics.s3 * 2
                     implicitHeight: Metrics.controlHeight
-                    active: root.current === option.value
                     opacity: option.missing ? 0.4 : 1
                     onClicked: root.picked(option.value)
 
@@ -61,8 +111,8 @@ Item {
                         anchors.centerIn: parent
                         text: option.label
                         role: "callout"
-                        font.weight: root.current === option.value ? Theme.weightMedium : Theme.weightRegular
-                        color: root.current === option.value ? Theme.text : Theme.textSecondary
+                        font.weight: option.chosen ? Theme.weightMedium : Theme.weightRegular
+                        color: option.chosen ? Theme.text : Theme.textSecondary
                     }
                 }
             }

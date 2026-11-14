@@ -88,7 +88,8 @@ Item {
 
         Behavior on scale {
             Anim {
-                duration: Motion.instant
+                duration: Motion.quick
+                easing.bezierCurve: Motion.spring
             }
         }
     }

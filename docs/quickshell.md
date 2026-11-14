@@ -107,6 +107,11 @@ that block is load-bearing.
 ### The exclusive zone excludes the surface's own margin
 Layer-shell reserves `margin + exclusive_zone`; the zone is the bar height only.
 
+### `Repeater.itemAt` in a binding never re-evaluates
+It reads as null while the delegates are being created and nothing notifies
+once they exist, not even through a `count` dependency. A delegate that must
+be found tells its finder itself (`Choice`'s pill).
+
 ### Mapping functions in bindings never re-evaluate
 A binding on `mapToItem`/`mapToGlobal` captures zero; bar items expose
 `anchorPoint()` for callers to ask at click time.
