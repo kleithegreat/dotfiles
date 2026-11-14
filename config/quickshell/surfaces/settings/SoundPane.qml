@@ -33,11 +33,25 @@ Ui.Scroll {
                 inset: Metrics.rowInset
             }
 
+            Repeater {
+                model: Sys.Audio.sinks
+
+                Ui.ListRow {
+                    required property var modelData
+
+                    Layout.fillWidth: true
+                    icon: modelData.description.indexOf("AirPods") >= 0 ? "airpods" : modelData.properties["device.api"] === "bluez5" ? "bluetooth-on" : "volume-high"
+                    title: modelData.description
+                    selected: modelData === Sys.Audio.sink
+                    onClicked: Sys.Audio.useSink(modelData)
+                }
+            }
+
             Ui.ListRow {
                 Layout.fillWidth: true
-                icon: "volume-high"
-                title: "Device"
-                subtitle: Sys.Audio.sinkName !== "" ? Sys.Audio.sinkName : "No output"
+                visible: Sys.Audio.sinks.length === 0
+                icon: "volume-mute"
+                title: "No output"
                 interactive: false
             }
 

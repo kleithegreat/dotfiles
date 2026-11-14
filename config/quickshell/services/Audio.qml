@@ -11,12 +11,18 @@ QtObject {
 
     readonly property real volume: sink?.audio?.volume ?? 0
     readonly property bool muted: sink?.audio?.muted ?? false
-    readonly property string sinkName: sink?.description ?? ""
 
     readonly property bool sourceMuted: source?.audio?.muted ?? false
     readonly property string sourceName: source?.description ?? ""
 
     readonly property int percent: Math.round(volume * 100)
+
+    // Devices, not application streams. A Bluetooth pair joins once connected.
+    readonly property var sinks: Pipewire.nodes.values.filter(node => node.isSink && !node.isStream && node.audio !== null)
+
+    function useSink(node) {
+        Pipewire.preferredDefaultAudioSink = node;
+    }
 
     readonly property string icon: muted || percent === 0 ? "volume-mute" : percent > 50 ? "volume-high" : "volume-low"
 
