@@ -67,10 +67,7 @@ trait Radio {
 
 enum Command {
     Visible(bool),
-    Answer {
-        id: u64,
-        accept: bool,
-    },
+    Answer { id: u64, accept: bool },
     Share(Outgoing),
     Send(String),
     Cancel,
@@ -252,7 +249,10 @@ impl Scratch {
             Ok(image::ImageFormat::Png) => "png",
             _ => {
                 let head: Vec<String> = bytes.iter().take(12).map(|b| format!("{b:02x}")).collect();
-                eprintln!("desktopctl: airdrop: offer thumbnail not drawable: {}", head.join(" "));
+                eprintln!(
+                    "desktopctl: airdrop: offer thumbnail not drawable: {}",
+                    head.join(" ")
+                );
                 return None;
             }
         };

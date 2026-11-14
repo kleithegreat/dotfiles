@@ -4,14 +4,10 @@ Open issues and pending validations. Delete entries when resolved.
 
 ## Open
 
-- [ ] AirPods never pair from the shell: BlueZ answers "Authentication
-      Rejected" (2026-11-13). Likely cause: the adapter is not bondable
-      (`Pairable: no`) because nothing registers a pairing agent, and
-      Quickshell has none. If a retry with `Pairable` set by hand (busctl;
-      lasts until bluetoothd restarts) pairs, set
-      `hardware.bluetooth.settings.General.AlwaysPairable = true`, or give
-      desktopctl an agent that asks the shell, which changes `docs/airpods.md`
-      Intent.
+- [ ] AirDrop receiving: the iPhone reports failure at once (2026-11-14,
+      lease 12:47:42–52). desktopctl now logs owly-airdrop's connection
+      errors; retry with `journalctl --user --unit desktopctl --follow` and
+      note whether an Accept/Decline card appeared on the laptop.
 
 ## Later
 
@@ -73,8 +69,11 @@ Open issues and pending validations. Delete entries when resolved.
       only after login: bluetoothd's journal has no `Failed to Add Adv
       Patterns Monitor`. An unpaired case raises Connect when
       opened, the setup-button step pairs and connects it, and closing the lid
-      dismisses the card. A paired case raises its charge, and only at roughly
-      arm's length (the RSSI thresholds in `daemon/airpods.rs` are a guess).
+      dismisses the card. A paired case raises its charge, only when next to the
+      laptop by default (`Reach::floor` in `airpods.rs` is a guess: in a
+      café, nobody else's case should raise it).
+      Paired from the card, they stay paired through a disconnect and a
+      reboot (`bluetoothctl info` says `Bonded: yes`).
       Connected: noise mode and conversation awareness change from the
       Control Center and Settings and follow the stem, the three batteries
       match iOS, and taking a pod out pauses playback while putting it back

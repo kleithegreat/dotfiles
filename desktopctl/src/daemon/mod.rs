@@ -25,6 +25,16 @@ use tokio::{
 };
 
 pub fn run() -> crate::Result<()> {
+    // owly-airdrop reports why a phone's connection ended only through tracing.
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "warn,owly_airdrop=debug".into()),
+        )
+        .with_ansi(false)
+        .without_time()
+        .with_writer(std::io::stderr)
+        .init();
     Builder::new_multi_thread()
         .enable_all()
         .build()?
