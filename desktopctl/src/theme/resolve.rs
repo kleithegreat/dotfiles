@@ -1,5 +1,5 @@
 use crate::paths;
-use crate::theme::schema::{ColorScheme, ThemeState, canonicalize_theme_string_value};
+use crate::theme::schema::{ColorScheme, ThemeState};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde_json::{Map, Value};
 use std::{
@@ -232,33 +232,10 @@ fn normalize_theme_state_value(value: Value, label: &str) -> crate::Result<(Valu
         }
     };
 
-    let mut changed_keys = backfill_missing_theme_state_keys(&mut object)?;
-    changed_keys.extend(canonicalize_theme_state_strings(&mut object));
-    changed_keys.sort_unstable();
-    changed_keys.dedup();
+    let changed_keys = backfill_missing_theme_state_keys(&mut object)?;
     let normalized = Value::Object(object);
     validate_theme_state(&normalized, label)?;
     Ok((normalized, changed_keys))
-}
-
-fn canonicalize_theme_state_strings(object: &mut Map<String, Value>) -> Vec<String> {
-    let mut changed = Vec::new();
-
-    for key in ThemeState::string_field_names() {
-        let Some(Value::String(value)) = object.get_mut(*key) else {
-            continue;
-        };
-
-        let canonical = canonicalize_theme_string_value(key, value);
-        if canonical == value.as_str() {
-            continue;
-        }
-
-        *value = canonical.into_owned();
-        changed.push((*key).to_owned());
-    }
-
-    changed
 }
 
 fn backfill_missing_theme_state_keys(
@@ -652,34 +629,6 @@ mod tests {
         assert_eq!(stored("font_size")?, "13");
         // Untouched keys keep their previous values.
         assert_eq!(stored("color_scheme")?, seeded_scheme);
-
-        remove_file_if_exists(&db_path)?;
-        Ok(())
-    }
-
-    #[test]
-    fn theme_state_load_canonicalizes_legacy_mono_font_aliases() -> TestResult {
-        let _lock = env_lock();
-        let _paths = scoped_repo_paths();
-        let db_path = temp_path("state-alias-db", "db");
-
-        let mut rows = seed_state().to_ordered_json_map();
-        rows.insert(
-            "mono_font".to_owned(),
-            Value::String("JetBrains Mono Nerd Font".to_owned()),
-        );
-        write_state_rows_to_db(&db_path, &rows)?;
-
-        let state = load_state_from_db_path(&db_path)?;
-        assert_eq!(state.mono_font, "JetBrainsMono Nerd Font");
-
-        let connection = open_state_db(&db_path)?;
-        let stored = connection.query_row(
-            "SELECT value FROM theme_state WHERE key = ?",
-            params!["mono_font"],
-            |row| row.get::<_, String>(0),
-        )?;
-        assert_eq!(stored, "\"JetBrainsMono Nerd Font\"");
 
         remove_file_if_exists(&db_path)?;
         Ok(())

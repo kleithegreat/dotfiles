@@ -15,7 +15,6 @@ in
 
   system.activationScripts.desktopctlSddmThemeBackground = {
     text = /* bash */ ''
-      mkdir --parents "${sddmThemeBackgroundDir}"
       if [ ! -e "${sddmThemeBackgroundPath}" ]; then
         install -D --mode=0644 ${../styling/wallpapers/lmao.png} "${sddmThemeBackgroundPath}"
       fi
@@ -33,8 +32,7 @@ in
           exit 0
         fi
 
-        # Consume on every exit, failure included: PathExists is level-triggered
-        # and would respawn this until the start limiter fails both units.
+        # Consume on every exit: PathExists would respawn this until both units fail.
         trap 'rm --force "${sddmThemeStagingPath}"' EXIT
 
         install -D --mode=0644 "${sddmThemeStagingPath}" "${sddmThemeBackgroundPath}"
@@ -156,8 +154,7 @@ in
   };
 
   services.gnome.gnome-keyring.enable = true;
-  # gcr's agent, set by PAM for every login so Hyprland and whatever it launches inherit it, not only
-  # interactive shells; pam_env runs before pam_systemd, so the path names the uid, not $XDG_RUNTIME_DIR.
+  # gcr's agent for every PAM login; pam_env runs before pam_systemd, so name the uid.
   environment.sessionVariables.SSH_AUTH_SOCK = "/run/user/${toString config.users.users.kevin.uid}/gcr/ssh";
   security.pam.services.sddm.enableGnomeKeyring = true;
   security.pam.services.login.enableGnomeKeyring = true;

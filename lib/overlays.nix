@@ -1,7 +1,6 @@
 { self }:
 {
-  # Order matters: local-packages overrides `claude-desktop`, and
-  # native-optimized reads `desktopctl` out of local-packages.
+  # Order matters: local-packages overrides claude-desktop, and native-optimized reads its desktopctl.
   overlays.forHost =
     { inputs, host }:
     [

@@ -1,9 +1,6 @@
 import QtQuick
 import qs
 
-// Recent history for one measurement. A number tells you where you are; this
-// tells you whether it is holding steady, which is the question a diagnostic is
-// usually being asked.
 Item {
     id: root
 
@@ -35,8 +32,7 @@ Item {
                 low = Math.min(low, points[i]);
                 high = Math.max(high, points[i]);
             }
-            // A flat series should read as flat and sit in the middle, not get
-            // amplified into noise or pinned to the top of the box.
+            // A flat series sits in the middle rather than amplified into noise.
             const flat = high - low < 0.0001;
             const spread = flat ? 1 : high - low;
             const pad = 2;

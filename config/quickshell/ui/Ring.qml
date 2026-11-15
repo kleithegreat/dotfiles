@@ -2,8 +2,7 @@ import QtQuick
 import QtQuick.Shapes
 import qs
 
-// A circular gauge filling clockwise from twelve o'clock, or, while `busy`, a
-// short arc circling for work with no measure yet.
+// Fills clockwise from twelve; while `busy`, an arc circles instead.
 Item {
     id: root
 

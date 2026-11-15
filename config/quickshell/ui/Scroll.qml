@@ -18,9 +18,7 @@ Flickable {
         flick: root
     }
 
-    // The indicator answers "where am I", so it lives exactly as long as that
-    // question does. Hover cannot drive it: rows accept hover themselves, so a
-    // handler on the Flickable never sees the pointer once it is over content.
+    // Hover cannot drive the indicator: rows take hover, so the Flickable never sees it.
     property bool _recent: false
 
     onContentYChanged: {
@@ -35,8 +33,7 @@ Flickable {
     }
 
     Rectangle {
-        // Caller content is appended after this, so without a z it paints over
-        // the indicator.
+        // Caller content is appended after this and would paint over it.
         z: 10
         anchors.right: parent.right
         anchors.rightMargin: 2

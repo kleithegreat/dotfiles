@@ -8,7 +8,7 @@ use std::{
     process::{Command, Output},
     sync::atomic::{AtomicBool, Ordering},
     thread,
-    time::{Duration, UNIX_EPOCH},
+    time::Duration,
 };
 
 use crate::Result;
@@ -103,8 +103,7 @@ impl MonitorInfo {
             return self.name == selector;
         };
 
-        // Hyprland strips commas from descriptions so that monitor rules can
-        // address displays whose EDID description contains one.
+        // Hyprland strips commas so monitor rules can address such descriptions.
         let description = strip_commas(description.trim());
         !description.is_empty()
             && (strip_commas(&self.description).starts_with(&description)
@@ -460,8 +459,7 @@ fn monitor_enable_expression(output: &str, open_spec: &str) -> Result<String> {
         crate::invalid_input(format!("monitor scale must be a number, got '{scale}'"))
     })?;
 
-    // `disabled = false` is required, not implied: re-declaring a disabled
-    // monitor leaves it disabled.
+    // `disabled = false` must be explicit (docs/hyprland.md).
     Ok(format!(
         "hl.monitor({{ output = {}, mode = {}, position = {}, scale = {}, disabled = false }})",
         lua_str(output),
@@ -613,7 +611,7 @@ where
     H: FnMut(&str),
 {
     while !shutdown.load(Ordering::SeqCst) {
-        let Ok(socket_path) = socket2_path() else {
+        let Ok(socket_path) = instance_socket(".socket2.sock") else {
             if !shutdown.load(Ordering::SeqCst) {
                 thread::sleep(EVENT_SOCKET_RETRY_DELAY);
             }
@@ -659,85 +657,45 @@ fn consume_socket_lines<H: FnMut(&str)>(buffer: &mut Vec<u8>, handler: &mut H) {
 }
 
 /// Return the Hyprland event-socket path used by the daemon watchers.
-pub(crate) fn socket2_path() -> Result<PathBuf> {
-    let signature = hyprland_signature();
-    if let Some(signature) = signature.as_deref() {
-        let runtime_path = runtime_socket2_path(signature)?;
-        if runtime_path.exists() {
-            return Ok(runtime_path);
-        }
-
-        let tmp_path = tmp_socket2_path(signature);
-        if tmp_path.exists() {
-            return Ok(tmp_path);
-        }
-    }
-
-    let roots = [
-        paths::xdg_runtime_dir()?.join("hypr"),
-        PathBuf::from("/tmp/hypr"),
-    ];
-    if let Some(path) = newest_instance_socket(&roots, ".socket2.sock")? {
-        return Ok(path);
-    }
-
-    if let Some(signature) = signature {
-        return Ok(runtime_socket2_path(&signature)?);
-    }
-
-    Err(io::Error::new(
-        io::ErrorKind::NotFound,
-        "unable to resolve Hyprland event socket path",
-    )
-    .into())
-}
-
 pub(crate) fn hyprland_signature() -> Option<String> {
     env::var("HYPRLAND_INSTANCE_SIGNATURE")
         .ok()
         .filter(|value| !value.is_empty())
 }
 
-fn runtime_socket2_path(signature: &str) -> io::Result<PathBuf> {
-    Ok(paths::xdg_runtime_dir()?
-        .join("hypr")
-        .join(signature)
-        .join(".socket2.sock"))
-}
-
-fn tmp_socket2_path(signature: &str) -> PathBuf {
-    PathBuf::from("/tmp/hypr")
-        .join(signature)
-        .join(".socket2.sock")
-}
-
-/// The most recently touched `<root>/<instance>/<file_name>` across `roots`.
-pub(crate) fn newest_instance_socket(
-    roots: &[PathBuf],
-    file_name: &str,
-) -> io::Result<Option<PathBuf>> {
-    let mut candidates = Vec::new();
-    for root in roots {
-        let entries = match fs::read_dir(root) {
-            Ok(entries) => entries,
-            Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
-            Err(error) => return Err(error),
-        };
-        for entry in entries {
-            let path = entry?.path().join(file_name);
-            if path.exists() {
-                let modified = fs::metadata(&path)
-                    .and_then(|metadata| metadata.modified())
-                    .unwrap_or(UNIX_EPOCH);
-                candidates.push((modified, path));
-            }
+/// `$XDG_RUNTIME_DIR/hypr/<instance>/<file_name>` for this session's instance,
+/// else the most recently touched instance that has one.
+pub(crate) fn instance_socket(file_name: &str) -> Result<PathBuf> {
+    let root = paths::xdg_runtime_dir()?.join("hypr");
+    if let Some(signature) = hyprland_signature() {
+        let path = root.join(signature).join(file_name);
+        if path.exists() {
+            return Ok(path);
         }
     }
 
-    Ok(candidates
-        .into_iter()
-        .max_by_key(|(modified, _)| *modified)
-        .map(|(_, path)| path))
+    let newest = match fs::read_dir(&root) {
+        Ok(entries) => entries
+            .filter_map(|entry| {
+                let path = entry.ok()?.path().join(file_name);
+                let modified = fs::metadata(&path).and_then(|m| m.modified()).ok()?;
+                Some((modified, path))
+            })
+            .max_by_key(|(modified, _)| *modified),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => None,
+        Err(error) => return Err(error.into()),
+    };
+
+    newest.map(|(_, path)| path).ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::NotFound,
+            format!(
+                "no Hyprland instance under {} has {file_name}",
+                root.display()
+            ),
+        )
+        .into()
+    })
 }
 
 pub(crate) fn input_runtime_path() -> Result<PathBuf> {
@@ -995,8 +953,7 @@ mod tests {
 
     #[test]
     fn dispatch_errors_are_read_off_stdout() {
-        // hyprctl still exits 0 when the dispatched Lua fails, so the `error:`
-        // line is the only thing separating success from silent breakage.
+        // hyprctl exits 0 on Lua errors; the `error:` line is the only signal.
         assert!(check_lua_output(b"ok\n", "cmd").is_ok());
         assert!(check_lua_output(b"ok\n\nok\n", "cmd").is_ok());
         assert!(check_lua_output(b"error: ')' expected near '2'\n", "cmd").is_err());

@@ -21,12 +21,8 @@ QtObject {
     readonly property var enter: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0]
     // Gets out of the way. Exits are never as slow as entrances.
     readonly property var exit: [0.3, 0.0, 0.8, 0.15, 1.0, 1.0]
-    // Arriving in place with a slight overshoot: surfaces, switches, pills.
-    // Position and scale only; on opacity it clamps and reads as a pop.
+    // Position and scale only: on opacity the overshoot clamps and reads as a pop.
     readonly property var spring: [0.38, 1.21, 0.22, 1.0, 1.0, 1.0]
 
-    // Surfaces grow from the control that summoned them, not from their own
-    // centre; the scale start is small enough to read as motion and large enough
-    // not to read as a zoom.
     readonly property real emergeScale: 0.92
 }

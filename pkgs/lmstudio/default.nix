@@ -16,8 +16,7 @@ appimageTools.wrapType2 {
 
   extraPkgs = pkgs: [ pkgs.ocl-icd ];
 
-  # Shell-parent launcher (docs/nix.md); the desktop ID stays lm-studio so
-  # launcher state survives upstream's rename to its appId.
+  # Shell-parent launcher (docs/nix.md); the desktop ID stays lm-studio across upstream's rename.
   extraInstallCommands = /* bash */ ''
     install -D --mode=444 ${appimageContents}/ai.elementlabs.lmstudio.desktop \
       $out/share/applications/lm-studio.desktop

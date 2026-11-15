@@ -1,8 +1,7 @@
 import QtQuick
 import qs
 
-// A Control Centre tile. Pressing the body toggles; the corner affordance opens
-// the full surface for that capability. One "on" treatment, used everywhere.
+// The body toggles; the corner opens the full surface.
 Pressable {
     id: root
 

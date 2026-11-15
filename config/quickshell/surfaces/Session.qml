@@ -5,9 +5,7 @@ import qs
 import qs.ui as Ui
 import qs.services as Sys
 
-// A menu, not a screen. Losing work to a mis-click is the only real risk here,
-// so the two actions that can do it ask once, in place, instead of firing on
-// the first press like the neighbouring harmless ones.
+// The two actions that can lose work ask once, in place.
 Popover {
     id: root
 

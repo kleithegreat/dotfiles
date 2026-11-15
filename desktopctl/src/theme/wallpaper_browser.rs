@@ -77,9 +77,7 @@ pub(crate) fn list_wallpapers(directory: &Path) -> crate::Result<Vec<WallpaperEn
     Ok(items)
 }
 
-// Previews are keyed by source path, size, and mtime, so renamed or edited
-// wallpapers leave orphaned cache files behind; drop everything the current
-// listing does not reference. Best-effort: eviction errors are ignored.
+// Best-effort: drops previews the current listing does not reference.
 fn evict_stale_previews(entries: &[WallpaperEntry]) {
     let expected = entries
         .iter()

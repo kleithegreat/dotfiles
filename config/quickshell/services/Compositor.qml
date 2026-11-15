@@ -4,13 +4,11 @@ import QtQuick
 import Quickshell.Io
 import Quickshell.Hyprland
 
-// The single gateway to hyprctl: it exits 0 on failure and `keyword` is inert
-// under the Lua parser, so both rules live here once ([[hyprland]]).
+// The single gateway to hyprctl, which exits 0 on failure ([[hyprland]]).
 QtObject {
     id: root
 
-    // Whether the compositor is actually blurring. Reported in settings; no
-    // surface's material depends on it.
+    // Reported in settings only; no material depends on it.
     property bool blurEnabled: false
 
     property var _queue: []
@@ -21,8 +19,7 @@ QtObject {
         _pump();
     }
 
-    // Apply several statements as one indivisible chunk, so a half-applied
-    // layout can never be observed.
+    // One chunk, so a half-applied layout is never observed.
     function runAll(expressions, done) {
         if (expressions.length === 0)
             return;

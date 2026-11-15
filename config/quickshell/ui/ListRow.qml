@@ -1,24 +1,19 @@
 import QtQuick
 import qs
 
-// The standard row: leading glyph, a title over an optional subtitle, and a
-// trailing slot. Every list in the shell is built from this, which is why they
-// all align to the same grid without anyone measuring.
 Pressable {
     id: root
 
     property string icon: ""
     property color iconColor: Theme.textSecondary
-    // For rows whose leading mark is not a single glyph. Anything set here
-    // replaces `icon`.
+    // Replaces `icon` for a leading mark that is not one glyph.
     property Component leading: null
     property string title: ""
     property string subtitle: ""
     property bool chevron: false
     property bool selected: false
     property int inset: Metrics.rowInset
-    // Children of a ListRow land in the trailing slot, so a row that needs a
-    // background of its own cannot simply declare one.
+    // Children land in the trailing slot, so a background cannot be declared as one.
     property color tint: "transparent"
 
     Rectangle {

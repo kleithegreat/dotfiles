@@ -2,8 +2,6 @@ import QtQuick
 import Quickshell.Io
 import qs
 
-// A colour scheme shown as its own colours. A list of scheme names asks the
-// reader to remember what "rose-pine-dawn" looks like.
 Pressable {
     id: root
 

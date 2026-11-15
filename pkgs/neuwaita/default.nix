@@ -1,7 +1,6 @@
 { stdenvNoCC }:
 
-# Upstream's account was deleted and rev 112525b2 was never archived anywhere:
-# this tarball, recovered from a local build, is the only copy. Irreplaceable.
+# The only copy: upstream's account is gone and rev 112525b2 was never archived.
 stdenvNoCC.mkDerivation {
   pname = "neuwaita";
   version = "unstable-2026-03-18";

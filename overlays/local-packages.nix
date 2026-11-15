@@ -35,8 +35,7 @@ final: prev: {
   neuwaita = final.callPackage ../pkgs/neuwaita { };
   qemu-reims-vgpu = final.callPackage ../pkgs/qemu-reims-vgpu { };
   srbminer = final.callPackage ../pkgs/srbminer { };
-  # kdePackages.sddm is this scope's wrapper. Without the patch, logind's
-  # TerminateSession (Vicinae's Log Out) leaves no greeter; see docs/hyprland.md.
+  # kdePackages.sddm wraps this scope's sddm; the patch keeps a greeter after TerminateSession (docs/hyprland.md).
   qt6Packages = prev.qt6Packages.overrideScope (qfinal: qprev: {
     sddm-unwrapped = qprev.sddm-unwrapped.overrideAttrs (old: {
       patches = (old.patches or [ ]) ++ [ ../patches/sddm/sddm-helper-signal-is-not-auth-error.patch ];

@@ -63,8 +63,7 @@ Ui.Scroll {
         root.scrollTo(0);
     }
 
-    // Only a layout the user kept is worth surviving a reload. Disabled outputs
-    // go in too: staying off is a setting like any other.
+    // Disabled outputs are kept too: staying off is a setting.
     function keep() {
         confirmLeft = 0;
         countdown.stop();
@@ -202,9 +201,6 @@ Ui.Scroll {
                     inset: Metrics.rowInset
                 }
 
-                // Applied immediately rather than staged: nothing about which
-                // display carries the bar can leave you unable to see a screen,
-                // so there is nothing for a countdown to rescue.
                 Ui.ListRow {
                     Layout.fillWidth: true
                     icon: "layout"

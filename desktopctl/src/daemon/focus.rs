@@ -331,7 +331,7 @@ fn tmp_state_path(state_path: &Path) -> PathBuf {
 
 fn is_screen_locked() -> bool {
     std::process::Command::new("pgrep")
-        .args(["-x", "hyprlock"])
+        .args(["--exact", "hyprlock"])
         .output()
         .map(|output| output.status.success())
         .unwrap_or(false)

@@ -150,8 +150,7 @@ mod tests {
         assert_eq!(catch_up_decision(false, inside, window_start, true), None);
         assert_eq!(catch_up_decision(true, inside, window_start, false), None);
 
-        // A manual write from an earlier window has been superseded by an
-        // edge; the schedule reasserts on disagreement.
+        // Superseded by an edge: the schedule reasserts on disagreement.
         assert_eq!(
             catch_up_decision(false, before, window_start, true),
             Some(true)

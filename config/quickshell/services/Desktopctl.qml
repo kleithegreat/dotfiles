@@ -4,8 +4,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 
-// Read side of the daemon link: subscribed socket in, `desktopctl` commands
-// out ([[quickshell]]).
+// The daemon link: subscription in, `desktopctl` commands out ([[quickshell]]).
 QtObject {
     id: root
 
@@ -99,8 +98,7 @@ QtObject {
         }
     }
 
-    // A Socket whose connect failed never connects again, so each attempt
-    // gets a fresh one ([[quickshell]]).
+    // A failed Socket never reconnects; each attempt gets a fresh one ([[quickshell]]).
     readonly property Timer _retry: Timer {
         interval: 1000
         repeat: true

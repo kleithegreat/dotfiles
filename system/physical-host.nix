@@ -7,8 +7,7 @@
       "mitigations=off"
       "transparent_hugepage=madvise"
     ];
-    # SDDM shows its greeter's VT for a moment when it hands off to the
-    # session: wipe the boot log off VT 1 before the greeter takes it.
+    # Wipe the boot log off VT 1 before SDDM's greeter briefly shows it.
     systemd.services.display-manager.serviceConfig = {
       TTYPath = "/dev/tty1";
       TTYVTDisallocate = true;
@@ -84,8 +83,7 @@
 
     nix.settings.max-jobs = 2;
 
-    # On the tmpfs /tmp, large CUDA build trees OOM the machine. No age on the
-    # rule: survivors are `--keep-failed` trees somebody wants to inspect.
+    # Off the tmpfs /tmp, where CUDA builds OOM; no age, since survivors are `--keep-failed` trees.
     systemd.services.nix-daemon.environment.TMPDIR = "/var/tmp/nix-daemon";
     # Builders inherit the score, so the kernel and oomd kill builds before the session.
     systemd.services.nix-daemon.serviceConfig = {
@@ -104,8 +102,7 @@
       # The AirPods card's advertisement monitor is experimental in BlueZ ([[airpods]]).
       settings.General = {
         Experimental = true;
-        # Nothing here registers a pairing agent, and without one the adapter
-        # will not bond: pairings work until the first disconnect ([[airpods]]).
+        # Nothing registers a pairing agent, without which the adapter will not bond ([[airpods]]).
         AlwaysPairable = true;
       };
     };

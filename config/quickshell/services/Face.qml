@@ -3,16 +3,14 @@ pragma Singleton
 import QtQuick
 import Quickshell.Io
 
-// Howdy face models. Every call is `pkexec howdy` in a form the laptop's
-// polkit rule grants; the CLI refuses to run without root.
+// Every call is `pkexec howdy` in a form the laptop's polkit rule grants.
 QtObject {
     id: root
 
     // [{ id, time, label }], `time` as howdy prints it.
     property var models: []
 
-    // A scan stays on show until dismissed: "scanning", "done" or "failed"
-    // ("" when idle). It runs as root, so it cannot be cancelled.
+    // "scanning", "done" or "failed" until dismissed, "" when idle; root-run, so uncancellable.
     property string phase: ""
     // howdy's last line on a failed scan, e.g. "No face detected, aborting".
     property string result: ""

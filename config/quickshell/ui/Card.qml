@@ -1,8 +1,6 @@
 import QtQuick
 import qs
 
-// Dense content sits on a raised card inside a panel, so a list or a grid
-// reads as one block lifted off the panel's own ground.
 Rectangle {
     radius: Metrics.rCard
     color: Theme.raised

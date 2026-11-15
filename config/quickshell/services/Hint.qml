@@ -2,9 +2,7 @@ pragma Singleton
 
 import QtQuick
 
-// The bar's hover hint. One shared surface, so one service: the text and the
-// point it belongs to, with the dwell that decides whether the pointer was
-// asking a question or just passing through.
+// The bar's hover hint, with the dwell that tells a question from a pass-through.
 QtObject {
     id: root
 
@@ -43,8 +41,7 @@ QtObject {
         onTriggered: root.showing = true
     }
 
-    // How long after a hint leaves the next item still counts as the same
-    // question rather than a new one.
+    // A hint within this window of the last one counts as the same question.
     readonly property Timer _grace: Timer {
         id: grace
         interval: 350

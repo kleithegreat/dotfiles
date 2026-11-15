@@ -20,8 +20,7 @@ PanelWindow {
     WlrLayershell.namespace: "quickshell:hint"
     WlrLayershell.layer: WlrLayer.Overlay
 
-    // The strip's own width is only right once the layer surface has been
-    // configured, which is one map behind the position the bubble needs.
+    // The strip's own width lags one map behind; the screen's does not.
     readonly property real span: window.screen ? window.screen.width : 0
 
     Ui.Surface {
@@ -37,9 +36,6 @@ PanelWindow {
         opacity: Sys.Hint.showing ? 1 : 0
         flatten: emergeAnim.running || fadeAnim.running || travelAnim.running
 
-        // The hint belongs to the item under the pointer, so it unfolds from
-        // that item's centre and hangs from its own top edge, the same
-        // entrance every other summoned surface makes ([[quickshell]]).
         property real emerge: Sys.Hint.showing ? 1 : Motion.emergeScale
 
         transform: Scale {
@@ -64,9 +60,7 @@ PanelWindow {
             enterCurve: Motion.standard
         }
 
-        // Geometry is placed while the hint is down and animated only while it
-        // is up: this window unmaps between hints, and a move queued against a
-        // window nobody can see runs in full once it maps ([[quickshell]]).
+        // Animated only while shown: a queued move replays on map ([[quickshell]]).
         Behavior on x {
             enabled: Sys.Hint.showing
 

@@ -1,5 +1,4 @@
--- Display topology written by desktopctl over monitors.lua; absent until first written.
--- Only the arrangement is applied; the primary output is re-pinned live by the daemon.
+-- Arrangement written by desktopctl; the daemon pins the primary output live.
 
 local ok, runtime = pcall(require, "./displays-runtime")
 if not ok or type(runtime) ~= "table" or type(runtime.outputs) ~= "table" then

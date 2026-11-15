@@ -66,8 +66,7 @@ QtObject {
     readonly property color _bg: _read("bg", "#282828")
     readonly property color _fg: _read("fg", "#ebdbb2")
 
-    // Polarity is measured, never declared. A scheme file that says "dark" while
-    // shipping a paper background would otherwise invert every derived role.
+    // Measured, never declared: a scheme's own "dark" label can lie.
     readonly property bool dark: luminance(_bg) < 0.28
 
     // ── Grounds ────────────────────────────────────────────────────────────
@@ -76,8 +75,7 @@ QtObject {
     readonly property color raised: _read("bg1", "#3c3836")
 
     // ── Interaction fills ──────────────────────────────────────────────────
-    // Alpha over whatever they sit on, so one ladder works on glass, on solid
-    // cards, and in both polarities.
+    // Alpha over whatever they sit on, so one ladder serves glass, cards and both polarities.
 
     readonly property color fillHover: withAlpha(_fg, dark ? 0.07 : 0.06)
     readonly property color fillPress: withAlpha(_fg, dark ? 0.12 : 0.10)
@@ -85,8 +83,7 @@ QtObject {
     readonly property color fillTrack: withAlpha(_fg, dark ? 0.14 : 0.13)
     readonly property color separator: withAlpha(_fg, dark ? 0.11 : 0.14)
 
-    // A control showing a value the backend has not confirmed yet. Far enough
-    // down to read as unsettled, not so far as to read as disabled.
+    // An unconfirmed backend value: dim enough to read as unsettled, not disabled.
     readonly property real pendingAlpha: 0.65
 
     // ── Content ────────────────────────────────────────────────────────────
@@ -101,8 +98,7 @@ QtObject {
 
     readonly property color accent: _read("accent", "#458588")
     readonly property color accentSoft: withAlpha(accent, dark ? 0.22 : 0.18)
-    // Accent over the opaque card it sits on. Cards are never translucent, so
-    // this composites to a flat colour rather than to mud.
+    // Cards are never translucent, so this composites to a flat colour.
     readonly property color accentSurface: mix(raised, accent, dark ? 0.28 : 0.20)
     readonly property color onAccent: luminance(accent) > 0.45 ? Qt.rgba(0, 0, 0, 0.92) : Qt.rgba(1, 1, 1, 0.96)
 
@@ -139,7 +135,6 @@ QtObject {
     readonly property int weightMedium: Font.Medium
     readonly property int weightSemi: Font.DemiBold
 
-    // Numerals that change in place — clocks, percentages, bitrates — must not
-    // reflow their neighbours as digits swap.
+    // Numerals that change in place must not reflow their neighbours.
     readonly property var tabular: ({ "tnum": 1 })
 }

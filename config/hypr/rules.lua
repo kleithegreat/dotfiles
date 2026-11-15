@@ -68,9 +68,8 @@ hl.window_rule({
 })
 
 -- Layer Rules
--- The threshold has to clear the bar (0.97) and the scrim (0.42) yet skip the
--- transparent window margins, or rounded corners pick up a blur halo.
--- no_anim: Quickshell owns its motion (docs/quickshell.md).
+-- The threshold clears the bar (0.97) and scrim (0.42) but not the transparent
+-- margins, whose blur would halo rounded corners; no_anim: docs/quickshell.md.
 hl.layer_rule({
     name = "quickshell",
     match = { namespace = "quickshell:.*" },

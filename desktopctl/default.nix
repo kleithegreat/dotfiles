@@ -22,10 +22,7 @@ craneLib.buildPackage (common // {
   '';
 
   postInstall = /* bash */ ''
-    # Versioned theming data travels in the closure so a running desktop never
-    # reads the working tree. `--set-default` leaves DESKTOPCTL_DATA free for
-    # authoring against a checkout. Wallpapers are deliberately absent: they
-    # are gitignored user assets and resolve through DESKTOPCTL_REPO.
+    # Theming data travels in the closure (docs/desktopctl.md); wallpapers resolve through DESKTOPCTL_REPO.
     mkdir --parents "$out/share/desktopctl/styling"
     # Writable: crane rewrites every installed file to drop toolchain references.
     cp --recursive --no-preserve=mode \

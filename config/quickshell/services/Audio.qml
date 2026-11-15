@@ -45,9 +45,7 @@ QtObject {
             source.audio.muted = !sourceMuted;
     }
 
-    // The shell's own writes come back as change events a moment later, after
-    // the control that made them has let go; only changes from outside it
-    // (keys, other apps) are worth an OSD.
+    // The shell's own writes echo back after the control lets go; only outside changes earn an OSD.
     property real _wrote: 0
 
     function announce() {
@@ -56,8 +54,7 @@ QtObject {
         Osd.show(icon, muted ? 0 : volume, muted ? "Muted" : percent + "%");
     }
 
-    // Pipewire emits a change when the default sink first binds; that is not a
-    // user action and must not flash the OSD at login.
+    // The default sink's first bind emits a change, which must not flash the OSD at login.
     property bool _bound: false
     onSinkChanged: _bound = false
 

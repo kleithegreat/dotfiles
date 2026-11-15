@@ -54,5 +54,5 @@ it reaches 16 KB, the session ends, or its file has been idle for an hour; a
 quiet session's newest work is absent from `view` until then.
 
 ### GPT and Gemini sessions reach the tree at the next sync
-opencode and agy run no Claude hook, so its sessions are indexed when a Claude session
-next ends or someone runs `ctx sync`.
+opencode and agy run no Claude hook, so their sessions are indexed when a Claude
+session next ends or someone runs `ctx sync`.

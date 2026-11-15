@@ -11,7 +11,7 @@ writeShellApplication {
   runtimeInputs = [ coreutils libnotify systemd util-linux ];
   text = /* bash */ ''
     notify_user=kevin
-    notify_uid="$(id -u "$notify_user")"
+    notify_uid="$(id --user "$notify_user")"
 
     journalctl --dmesg --follow --output=cat --since=now | while IFS= read -r line; do
       summary=""
@@ -43,7 +43,7 @@ writeShellApplication {
       esac
 
       if [ -S "/run/user/$notify_uid/bus" ]; then
-        runuser -u "$notify_user" -- env \
+        runuser --user="$notify_user" -- env \
           XDG_RUNTIME_DIR="/run/user/$notify_uid" \
           DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$notify_uid/bus" \
           notify-send \

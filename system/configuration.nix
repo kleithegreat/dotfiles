@@ -1,8 +1,7 @@
 { config, lib, pkgs, host, inputs, ... }:
 
 let
-  # Exactly what either closure asks about; a CUDA bump that splits out a new
-  # package fails evaluation naming it. `cuda_compat` is a probe and stays refused.
+  # Exactly what either closure asks for; `cuda_compat` is a probe and stays refused.
   allowedUnfreePackageNames = [
     # Applications — home.packages
     "antigravity-cli"
@@ -95,8 +94,7 @@ in
   };
   nixpkgs.config.allowUnfreePredicate = pkg:
     builtins.elem (lib.getName pkg) allowedUnfreePackageNames;
-  # Both hosts are sm_86. Widening this OOMs libnvshmem (see docs/nvidia.md); add
-  # a capability only when a host actually gets a different GPU.
+  # Both hosts are sm_86; widening this OOMs libnvshmem (docs/nvidia.md).
   nixpkgs.config.cudaCapabilities = [ "8.6" ];
 
   networking.hostName = host.name;
@@ -109,8 +107,7 @@ in
     portalPackage = pkgs.hypr.portal;
   };
 
-  # The session is the Hyprland instance: the kernel closes its event socket
-  # however it ends, which ends the anchor and, with it, graphical-session.target.
+  # The kernel closes the event socket however Hyprland ends, which ends the session.
   systemd.user.services."hyprland-session@" = {
     description = "Hyprland instance %i";
     bindsTo = [ "graphical-session.target" ];

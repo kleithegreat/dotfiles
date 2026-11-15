@@ -3,10 +3,7 @@ pragma Singleton
 import QtQuick
 import Quickshell.Services.Notifications
 
-// Banners are *rendered from* the server's tracked set rather than mirrored into
-// a parallel model: membership of `server.trackedNotifications` already is the
-// "closed behind our back" signal. History is our own list because it has to
-// outlive the notification.
+// Banners render from the server's tracked set; history is ours because it outlives them.
 QtObject {
     id: root
 
@@ -97,8 +94,6 @@ QtObject {
         _arm();
     }
 
-    // One timer for every banner, set to the nearest deadline, instead of one
-    // timer object per notification.
     function _arm() {
         let soonest = -1;
         const live = server.trackedNotifications.values;
@@ -156,8 +151,6 @@ QtObject {
         onTriggered: root._sweep()
     }
 
-    // Relative stamps only ever need minute resolution once anything is a minute
-    // old, and nothing in the drawer is watched closely enough to need better.
     readonly property Timer _restamper: Timer {
         interval: 30000
         running: history.count > 0

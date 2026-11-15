@@ -1,6 +1,4 @@
--- Input defaults.
--- desktopctl reads this file for the baseline it layers runtime overrides on,
--- so keep it a flat data table with one scalar field per line.
+-- desktopctl parses this as a flat table, one scalar field per line.
 
 return {
     kb_layout = "us",

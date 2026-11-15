@@ -1,15 +1,9 @@
-{ config, pkgs, lib, host, ... }:
+{ config, osConfig, pkgs, lib, host, ... }:
 
 let
-  rebuildSystemFeatures = [
-    "benchmark"
-    "big-parallel"
-    "kvm"
-    "nixos-test"
-  ] ++ lib.optional pkgs.optimize.enabled pkgs.optimize.hostFeature;
   rebuildFlags =
     lib.optionalString pkgs.optimize.enabled
-      "--option system-features ${lib.escapeShellArg (lib.concatStringsSep " " rebuildSystemFeatures)} "
+      "--option system-features ${lib.escapeShellArg (lib.concatStringsSep " " osConfig.nix.settings.system-features)} "
     + "--flake ~/repos/dotfiles#${host.name}";
 in
 
@@ -101,7 +95,7 @@ in
       bindkey '^[[1;5C' _forward_word_path
 
       dps() {
-          podman ps -a --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}" | awk '
+          podman ps --all --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}" | awk '
               NR==1 { printf "\033[1;34m%s\033[0m\n", $0; next }
               /Up/                       { c="\033[32m" }
               /Exited/                   { c="\033[31m" }
@@ -114,9 +108,7 @@ in
           mkdir --parents "$1" && cd "$1"
       }
 
-      # Mutes Hyprland's config watcher during activation, then refreshes Vicinae
-      # and Quickshell; see docs/nix.md. Non-empty $watcher: activating, Hyprland reachable.
-      # Also drops desktopctl's dev-only cargo cache, which Cargo never prunes.
+      # Mutes Hyprland's config watcher during activation (docs/nix.md); $watcher is non-empty only then.
       nrs() {
           local action=switch
           case "$1" in
@@ -136,6 +128,7 @@ in
               trap "hyprctl eval 'hl.config({ misc = { disable_autoreload = $watcher } })' >/dev/null 2>&1" EXIT INT TERM
           fi
 
+          # desktopctl's dev-only cargo cache, which Cargo never prunes.
           rm --recursive --force ~/repos/dotfiles/desktopctl/target
 
           sudo nixos-rebuild "$action" ${rebuildFlags} "$@"

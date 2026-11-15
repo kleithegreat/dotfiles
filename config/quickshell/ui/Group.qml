@@ -2,8 +2,6 @@ import QtQuick
 import QtQuick.Layouts
 import qs
 
-// A titled card of rows. Settings is nothing but these, which is what keeps
-// fourteen panes written at different times looking like one application.
 ColumnLayout {
     id: root
 

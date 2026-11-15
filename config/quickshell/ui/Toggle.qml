@@ -5,8 +5,7 @@ Pressable {
     id: root
 
     property bool checked: false
-    // A write that has been sent but not confirmed by the backend. The control
-    // shows the value it will have, dimmed, rather than snapping back.
+    // Sent but unconfirmed: shows the value it will have, dimmed.
     property bool pending: false
 
     signal toggled(bool value)

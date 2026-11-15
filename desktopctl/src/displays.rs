@@ -397,8 +397,7 @@ mod tests {
 
         let status = status_for(&monitors, state);
         assert_eq!(status.primary_output, "DP-4");
-        // The stored choice is kept, not overwritten by the fallback: plugging
-        // the BenQ back in has to restore it.
+        // The stored choice survives the fallback, so replugging the BenQ restores it.
         assert_eq!(status.primary, "desc:BNQ ZOWIE XL");
     }
 

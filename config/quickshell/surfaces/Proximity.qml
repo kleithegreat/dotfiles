@@ -5,8 +5,7 @@ import qs
 import qs.ui as Ui
 import qs.services as Sys
 
-// The card an open AirPods case raises, as on an iPhone: its charge when the
-// pair is known here, setup when it is not ([[airpods]]).
+// The card an open AirPods case raises ([[airpods]]).
 Card {
     id: root
 
@@ -39,8 +38,6 @@ Card {
         }
     }
 
-    // The case with its pods hovering over it. They settle in as the card
-    // rises, then drift, out of step with each other.
     Item {
         id: scene
 

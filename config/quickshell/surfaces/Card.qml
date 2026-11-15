@@ -5,8 +5,7 @@ import QtQuick.Layouts
 import qs
 import qs.ui as Ui
 
-// A card that rises from the bottom edge for something happening nearby: an
-// AirPods case opening, an AirDrop offer. Its content is laid out in a column.
+// Rises from the bottom edge for something nearby: an AirPods case, an AirDrop offer.
 PanelWindow {
     id: window
 

@@ -91,8 +91,7 @@ bind("ALT + Tab", hl.dsp.exec_cmd("snappy-switcher next --workspace --mod alt"),
 bind("ALT + SHIFT + Tab", hl.dsp.exec_cmd("snappy-switcher prev --workspace --mod alt"),
     { description = "Previous item in switcher" })
 
--- A closure bound here registers but never fires; route through `hyprctl eval`,
--- where `expo()` does work.
+-- A bound closure never fires; route through `hyprctl eval` (docs/hyprland.md).
 bind(mainMod .. " + grave",
     hl.dsp.exec_cmd([[hyprctl eval 'hl.plugin.hyprexpo.expo("toggle")']]),
     { description = "Toggle workspace overview" })

@@ -6,9 +6,7 @@ import Quickshell.Io
 QtObject {
     id: root
 
-    // Devices the user should currently be offered. The internal backlight is
-    // dropped when the internal panel is off — a slider for a dark display is
-    // worse than no slider.
+    // No slider for the internal backlight while its panel is off.
     readonly property var devices: {
         const usable = [];
         for (let i = 0; i < _all.length; i++) {
@@ -39,11 +37,7 @@ QtObject {
     property var _all: []
     property var _queued: ({})
 
-    // A status read samples DDC/I2C over roughly a second. Any brightness set
-    // while one is in flight makes its payload describe a pre-write world, so
-    // the epoch bumps on *intent* — not on dispatch, which a queued write defers
-    // — and a status landing on a stale epoch is discarded rather than allowed
-    // to overwrite what the user just set.
+    // Bumped on intent, not dispatch; a status read from a stale epoch is dropped ([[desktopctl]]).
     property int _writes: 0
     property int _reading: 0
 
@@ -123,8 +117,7 @@ QtObject {
         _all = (payload.devices || []).map(device => _entry(device)).filter(entry => entry !== null);
     }
 
-    // The subscribe-time snapshot arrives as one event per device class and per-write events
-    // carry just the written device, so merge by id rather than replacing.
+    // Snapshot and write events each carry some devices: merge by id.
     function _merge(listed) {
         const merged = _all.slice();
         for (let i = 0; i < listed.length; i++) {
@@ -141,8 +134,7 @@ QtObject {
         _all = merged;
     }
 
-    // Daemon-pushed: a snapshot on subscribe (backlights at once, DDC once enumerated), then
-    // one event per write. Hotkey steps carry osd: true and drive the overlay.
+    // Hotkey steps carry osd: true and drive the overlay.
     readonly property Connections _daemonEvents: Connections {
         target: Desktopctl
         function onBrightnessChanged(payload) {
@@ -155,9 +147,7 @@ QtObject {
         }
     }
 
-    // Re-enumeration for the two changes the daemon cannot push: a monitor
-    // appearing or leaving, and a write that failed so the optimistic value is
-    // a lie.
+    // For what the daemon cannot push: a monitor coming or going, or a failed write.
     readonly property Process _status: Process {
         id: status
         command: ["desktopctl", "brightness", "status", "--json"]

@@ -1,17 +1,10 @@
-{ pkgs, lib, ... }:
+{ config, pkgs, lib, ... }:
 
 let
-  browserExtensions = [
-    "nngceckbapebfimnlniiiahkandclblb"
-    "nkbihfbeogaeaoehlefnkodbefgpgknn"
-    "bfnaelmomeimhlpmgjnjophhpkkoljpa"
-    "fcoeoabgfenejglbffodgkkbkcdhcgfn"
-  ];
-
   heliumExtensionFiles =
-    browserExtensions
-    |> map (id: {
-      name = ".config/net.imput.helium/External Extensions/${id}.json";
+    config.programs.chromium.extensions
+    |> map (extension: {
+      name = ".config/net.imput.helium/External Extensions/${extension.id}.json";
       value.text = builtins.toJSON {
         external_update_url = "https://clients2.google.com/service/update2/crx?prodversion=${pkgs.helium.chromiumVersion}";
       };
@@ -19,7 +12,7 @@ let
     |> lib.listToAttrs;
 
   # Claude Code registers this host only for browsers it knows, which excludes Helium.
-  claudeChromeNativeHost = pkgs.writeShellScript "claude-chrome-native-host" ''
+  claudeChromeNativeHost = pkgs.writeShellScript "claude-chrome-native-host" /* bash */ ''
     exec ${lib.getExe pkgs.claude-code} --chrome-native-host
   '';
 in
@@ -48,7 +41,12 @@ in
 
   programs.chromium = {
     enable = true;
-    extensions = browserExtensions;
+    extensions = [
+      "nngceckbapebfimnlniiiahkandclblb"
+      "nkbihfbeogaeaoehlefnkodbefgpgknn"
+      "bfnaelmomeimhlpmgjnjophhpkkoljpa"
+      "fcoeoabgfenejglbffodgkkbkcdhcgfn"
+    ];
   };
 
   home.file = heliumExtensionFiles // {

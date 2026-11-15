@@ -3,8 +3,7 @@ pragma Singleton
 import QtQuick
 import Quickshell.Io
 
-// Window session restore. The daemon owns the state and pushes it over the
-// Desktopctl socket; there is no direct read ([[session-restore]]).
+// Pushed by the daemon, which owns this state; no direct read ([[session-restore]]).
 QtObject {
     id: root
 

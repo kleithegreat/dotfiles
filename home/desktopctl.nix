@@ -23,7 +23,7 @@
     builtins.toJSON {
       name = "desktopctl.airdrop";
       description = "AirDrop from the context menu";
-      path = pkgs.writeShellScript "airdrop-native-host" ''
+      path = pkgs.writeShellScript "airdrop-native-host" /* bash */ ''
         exec ${lib.getExe pkgs.optimized.desktopctl} airdrop native-host "$@"
       '';
       type = "stdio";
@@ -50,7 +50,7 @@
             return [item]
   '';
 
-  home.activation.applyTheme = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+  home.activation.applyTheme = lib.hm.dag.entryAfter [ "writeBoundary" ] /* bash */ ''
     PATH="${lib.makeBinPath [ pkgs.optimized.desktopctl ]}:$PATH"
     mkdir --parents "$HOME/.config/hypr"
     # Empty is the "no overrides" state the Lua appliers expect.

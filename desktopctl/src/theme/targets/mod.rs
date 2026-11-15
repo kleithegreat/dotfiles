@@ -453,9 +453,7 @@ mod tests {
                 .unwrap_or_else(|| panic!("{key} row"));
             assert_eq!(values.split(", ").count(), 21, "{key} role count");
 
-            // Index 13 is HighlightedText over index 12's Highlight. Pairing it
-            // with the scheme's body `fg` drops light schemes to ~1.6:1. The
-            // disabled row is exempt: dimmed selected text is the point there.
+            // HighlightedText sits on Highlight, so `readable_on` (docs/theming.md); dimmed selected text is the disabled row's point.
             if key == "disabled_colors" {
                 continue;
             }

@@ -3,9 +3,7 @@ pragma Singleton
 import QtQuick
 import Quickshell.Io
 
-// Connectivity state and the writes that change it. The whole picture is read
-// by *one* command emitting tagged lines: one read, one parse, one update, so
-// no field needs a staging twin to survive a multi-call barrier.
+// One command emits the whole picture as tagged lines: one read, one parse, one update.
 QtObject {
     id: root
 
@@ -86,8 +84,7 @@ QtObject {
             saved.running = true;
     }
 
-    // nmcli -t escapes field separators inside values; a network called
-    // "a:b" must not split into two fields.
+    // nmcli escapes field separators inside values (an SSID "a:b").
     function _split(line) {
         const fields = [];
         let current = "";
@@ -147,8 +144,7 @@ QtObject {
         setWifiRadio(!wifiRadio);
     }
 
-    // Returns what the caller must ask the user for: "" when the connection is
-    // already under way, otherwise "password" or "enterprise".
+    // Returns what to ask the user for: "", "password" or "enterprise".
     function connect(name, security) {
         if (isEnterprise(security))
             return "enterprise";
@@ -350,9 +346,9 @@ QtObject {
 
     // ── Processes ──────────────────────────────────────────────────────────
 
-    readonly property string _stateScript: 'dev=$(ip -o route show default 2>/dev/null | awk \'{for (i = 1; i <= NF; i++) if ($i == "dev") { print $(i + 1); exit } }\'); ' + 'if [ -z "$dev" ]; then dev=$(nmcli -t -f TYPE,STATE,DEVICE dev status 2>/dev/null | awk -F: \'$2 ~ /^connected/ && ($1 == "wifi" || $1 == "ethernet") { print $3; exit }\'); fi; ' + 'echo "RADIO $(nmcli radio wifi 2>/dev/null)"; ' + 'echo "CONNECTIVITY $(nmcli networking connectivity check 2>/dev/null)"; ' + 'echo "DEVICE $dev"; ' + '[ -n "$dev" ] || exit 0; ' + 'nmcli -t -f GENERAL.TYPE,GENERAL.CONNECTION,GENERAL.CON-UUID,IP4.ADDRESS,IP4.GATEWAY,IP4.DNS dev show "$dev" 2>/dev/null | sed "s/^/INFO /"; ' + 'kind=$(nmcli -t -f GENERAL.TYPE dev show "$dev" 2>/dev/null | cut -d: -f2); ' + 'if [ "$kind" = "wifi" ]; then nmcli -t -f ACTIVE,SSID,SIGNAL,FREQ,RATE dev wifi list ifname "$dev" 2>/dev/null | awk -F: \'/^yes/ { print "WIFI " $0; exit }\'; ' + 'elif [ "$kind" = "ethernet" ]; then echo "ETH $(cat /sys/class/net/$dev/speed 2>/dev/null) $(cat /sys/class/net/$dev/duplex 2>/dev/null)"; fi'
+    readonly property string _stateScript: 'dev=$(ip -oneline route show default 2>/dev/null | awk \'{for (i = 1; i <= NF; i++) if ($i == "dev") { print $(i + 1); exit } }\'); ' + 'if [ -z "$dev" ]; then dev=$(nmcli --terse --fields TYPE,STATE,DEVICE dev status 2>/dev/null | awk --field-separator=: \'$2 ~ /^connected/ && ($1 == "wifi" || $1 == "ethernet") { print $3; exit }\'); fi; ' + 'echo "RADIO $(nmcli radio wifi 2>/dev/null)"; ' + 'echo "CONNECTIVITY $(nmcli networking connectivity check 2>/dev/null)"; ' + 'echo "DEVICE $dev"; ' + '[ -n "$dev" ] || exit 0; ' + 'nmcli --terse --fields GENERAL.TYPE,GENERAL.CONNECTION,GENERAL.CON-UUID,IP4.ADDRESS,IP4.GATEWAY,IP4.DNS dev show "$dev" 2>/dev/null | sed "s/^/INFO /"; ' + 'kind=$(nmcli --terse --fields GENERAL.TYPE dev show "$dev" 2>/dev/null | cut --delimiter=: --fields=2); ' + 'if [ "$kind" = "wifi" ]; then nmcli --terse --fields ACTIVE,SSID,SIGNAL,FREQ,RATE dev wifi list ifname "$dev" 2>/dev/null | awk --field-separator=: \'/^yes/ { print "WIFI " $0; exit }\'; ' + 'elif [ "$kind" = "ethernet" ]; then echo "ETH $(cat /sys/class/net/$dev/speed 2>/dev/null) $(cat /sys/class/net/$dev/duplex 2>/dev/null)"; fi'
 
-    readonly property string _enterpriseScript: 'iface=$(nmcli -t -f TYPE,DEVICE dev status | awk -F: \'$1 == "wifi" { print $2; exit }\'); ' + '[ -n "$4" ] && nmcli connection delete uuid "$4" >/dev/null 2>&1; ' + 'nmcli connection add type wifi ifname "$iface" con-name "$1" ssid "$1" ' + 'wifi-sec.key-mgmt wpa-eap 802-1x.eap peap 802-1x.phase2-auth mschapv2 ' + '802-1x.identity "$2" 802-1x.password "$3" && nmcli connection up id "$1"'
+    readonly property string _enterpriseScript: 'iface=$(nmcli --terse --fields TYPE,DEVICE dev status | awk --field-separator=: \'$1 == "wifi" { print $2; exit }\'); ' + '[ -n "$4" ] && nmcli connection delete uuid "$4" >/dev/null 2>&1; ' + 'nmcli connection add type wifi ifname "$iface" con-name "$1" ssid "$1" ' + 'wifi-sec.key-mgmt wpa-eap 802-1x.eap peap 802-1x.phase2-auth mschapv2 ' + '802-1x.identity "$2" 802-1x.password "$3" && nmcli connection up id "$1"'
 
     readonly property Process _state: Process {
         id: state
@@ -364,7 +360,7 @@ QtObject {
 
     readonly property Process _scanner: Process {
         id: scanner
-        command: ["nmcli", "-t", "-f", "ACTIVE,SSID,SIGNAL,SECURITY,FREQ", "dev", "wifi", "list", "--rescan", "yes"]
+        command: ["nmcli", "--terse", "--fields", "ACTIVE,SSID,SIGNAL,SECURITY,FREQ", "dev", "wifi", "list", "--rescan", "yes"]
         stdout: StdioCollector {
             onStreamFinished: root._ingestScan(this.text)
         }
@@ -372,7 +368,7 @@ QtObject {
 
     readonly property Process _saved: Process {
         id: saved
-        command: ["nmcli", "-t", "-f", "NAME,UUID,TYPE", "con", "show"]
+        command: ["nmcli", "--terse", "--fields", "NAME,UUID,TYPE", "con", "show"]
         stdout: StdioCollector {
             onStreamFinished: {
                 known.clear();

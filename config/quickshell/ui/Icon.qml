@@ -26,8 +26,7 @@ Item {
         visible: false
     }
 
-    // A new glyph pops in rather than cutting. It animates the effect, not the
-    // icon, so a caller's own opacity binding survives.
+    // Animates the effect, not the icon, so a caller's opacity binding survives.
     onNameChanged: swap.restart()
 
     ParallelAnimation {

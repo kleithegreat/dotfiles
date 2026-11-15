@@ -2,9 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import qs
 
-// Left, right and case charge as rings, the way an iPhone's batteries widget
-// shows them. A part that is not reporting — a pod out of reach, a case far
-// away — is absent rather than shown empty.
+// A part not reporting is absent, not empty.
 RowLayout {
     id: root
 

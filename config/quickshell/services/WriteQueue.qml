@@ -1,9 +1,7 @@
 import QtQuick
 import Quickshell.Io
 
-// One serialised queue of `desktopctl` writes. A keyed write is staged
-// optimistically, dropped once the backend's state agrees, and rolled back
-// with a toast when the command fails; see [[quickshell]].
+// The one serialised `desktopctl` write queue ([[quickshell]]).
 QtObject {
     id: root
 

@@ -4,10 +4,7 @@ import Quickshell.Services.SystemTray
 import qs
 import qs.ui as Ui
 
-// Tray icons stay in the tray, behind a disclosure. They belong to applications
-// rather than to the shell, so their number and their artwork are outside our
-// control; giving them a fixed, collapsed home keeps one badly-drawn icon from
-// setting the width of the bar.
+// Collapsed behind a disclosure, so app-owned icons never set the bar's width.
 Row {
     id: root
 

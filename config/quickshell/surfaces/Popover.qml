@@ -2,18 +2,13 @@ import QtQuick
 import qs
 import qs.ui as Ui
 
-// A surface that grows out of the control that summoned it. Scaling from the
-// panel's own centre is the single most common tell that a shell was assembled
-// rather than designed: the panel appears to arrive from nowhere instead of
-// unfolding from the thing you just pressed.
 Item {
     id: root
 
     property bool shown: false
     property real anchor: 0
     property int panelWidth: Metrics.panelWide
-    // Content declares its own height. Deriving it from the holder would make
-    // the holder's height depend on the surface that depends on the holder.
+    // Declared by the content: derived from the holder it is a binding loop ([[quickshell]]).
     property int contentHeight: 0
     property int panelHeight: contentHeight + (padded ? Metrics.panelInset * 2 : 0)
     property bool padded: true
@@ -60,8 +55,7 @@ Item {
             enterCurve: Motion.standard
         }
 
-        // Content re-laying out under an open panel animates; the height the
-        // panel opens at belongs to the entrance, not to a transition of its own.
+        // The opening height belongs to the entrance, not to this transition.
         Behavior on height {
             enabled: !emergeAnim.running && !fadeAnim.running
 

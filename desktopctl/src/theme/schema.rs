@@ -4,7 +4,7 @@ use crate::{
 };
 use serde::{Deserialize, Deserializer, Serialize, de};
 use serde_json::{Map, Value};
-use std::{borrow::Cow, fs, io, path::Path};
+use std::{fs, io, path::Path};
 
 /// Colors a scheme file must author. The dimmed foreground ramp is absent on
 /// purpose: it is derived by [`dim_ramp`], not transcribed.
@@ -122,15 +122,6 @@ pub fn seed_json_map(state: &Map<String, Value>) -> Map<String, Value> {
                 .map(|value| ((*name).to_owned(), value.clone()))
         })
         .collect()
-}
-
-pub fn canonicalize_theme_string_value<'a>(key: &str, value: &'a str) -> Cow<'a, str> {
-    match (key, value) {
-        ("mono_font", "JetBrains Mono Nerd Font") => Cow::Borrowed("JetBrainsMono Nerd Font"),
-        ("mono_font", "Fira Code Nerd Font") => Cow::Borrowed("FiraCode Nerd Font"),
-        ("mono_font", "Commit Mono") => Cow::Borrowed("CommitMono"),
-        _ => Cow::Borrowed(value),
-    }
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]

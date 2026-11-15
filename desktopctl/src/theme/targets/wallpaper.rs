@@ -200,7 +200,7 @@ pub fn on_apply(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
                     "lutgen".to_owned(),
                     "apply".to_owned(),
                     "--cache".to_owned(),
-                    "-o".to_owned(),
+                    "--output".to_owned(),
                     filtered.display().to_string(),
                     source.display().to_string(),
                     "--".to_owned(),

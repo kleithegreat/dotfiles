@@ -211,8 +211,7 @@ pub async fn run(context: ServerContext, mut shutdown: watch::Receiver<bool>) ->
                                 let _ = handle_client(stream, context).await;
                             });
                         }
-                        // Transient accept failures (e.g. ECONNABORTED, EMFILE)
-                        // must not take the whole daemon down.
+                        // A transient accept failure (ECONNABORTED, EMFILE) must not end the daemon.
                         Err(error) => {
                             eprintln!("desktopctl socket accept failed: {error}");
                             tokio::time::sleep(std::time::Duration::from_millis(100)).await;
@@ -291,8 +290,7 @@ async fn handle_client(stream: UnixStream, context: ServerContext) -> io::Result
                 }
             };
             let topics = resolve_topics(params.topics);
-            // Subscribe before confirming so an event published right
-            // after the client sees the reply cannot be lost.
+            // Subscribe before replying, so no event between the two is lost.
             let receiver = context.events.receiver();
             write_ok(&mut writer, serde_json::json!({ "subscribed": topics })).await?;
             return run_subscription(&mut writer, &mut lines, topics, context, receiver).await;
@@ -638,8 +636,7 @@ async fn push_snapshots<W: AsyncWrite + Unpin>(
         }
     }
 
-    // The DDC half enumerates I2C buses (~1s); it follows the cheap topics so
-    // nothing waits on it. Subscribers merge snapshot events by device.
+    // DDC enumeration (~1s) follows the cheap topics so nothing waits on it.
     if topics.iter().any(|topic| topic == "brightness")
         && let Ok(devices) = blocking(crate::brightness::ddc_snapshot).await
     {
@@ -825,9 +822,7 @@ mod tests {
         ]
     }
 
-    // The env guard is deliberately held across awaits: this is a
-    // current-thread test runtime and the guard scopes the process-global
-    // env for the whole scenario.
+    // Held across awaits on purpose: the guard scopes the env for the whole current-thread test.
     #[allow(clippy::await_holding_lock)]
     #[tokio::test]
     async fn subscribe_confirms_topics_and_forwards_matching_events() {
@@ -922,8 +917,7 @@ mod tests {
         server_task.await.expect("server task should finish");
     }
 
-    // Unit-level on purpose: a full subscribe with every topic would run the
-    // brightness snapshot's real DDC enumeration.
+    // Unit-level: a full subscribe would run real DDC enumeration.
     #[test]
     fn resolve_topics_defaults_to_every_topic_and_drops_unknown_ones() {
         assert_eq!(

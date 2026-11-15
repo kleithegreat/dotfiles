@@ -66,8 +66,7 @@ Each of these was isolated by changing it alone; none is redundant.
 - Qt reads the palette once at startup, so verify against a *fresh* process
   (`qml` with a `SystemPalette`). hyprpolkitagent is resident, hence the `qt`
   target restarting it.
-- `KDE_COLOR_SCHEME_PATH` changes no measured role; don't treat it as
-  load-bearing.
+- `KDE_COLOR_SCHEME_PATH` changes no measured role; setting it fixes nothing.
 
 ### Dolphin's alternate row colour is unreachable
 It is a compiled default in `KItemListView`. Every kdeglobals, colour-scheme,

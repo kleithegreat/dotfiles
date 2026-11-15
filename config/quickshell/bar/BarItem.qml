@@ -3,9 +3,7 @@ import qs
 import qs.ui as Ui
 import qs.services as Sys
 
-// Every clickable thing in the bar is this, which is the entire reason the bar
-// reads as one object: identical height, identical corner, identical hover, and
-// grouping expressed by spacing rather than by drawing lines between things.
+// Every clickable bar item is this, so the bar reads as one object.
 Ui.Pressable {
     id: root
 

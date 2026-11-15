@@ -97,7 +97,6 @@ Open issues and pending validations. Delete entries when resolved.
 
 ## Open issues
 
-
 - [ ] Hyprland (low): the Bitwarden popup rule matches
       `chrome-nngceckbapebfimnlniiiahkandclblb-Default`; check with
       `hyprctl clients` that Helium really gives the popup that class.

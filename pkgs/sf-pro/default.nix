@@ -4,8 +4,7 @@ stdenvNoCC.mkDerivation {
   pname = "sf-pro";
   version = "2026-11-04";
 
-  # Apple rotates the bytes behind this URL: refresh version and hash together,
-  # and re-check the unpack against `7z l`, since the inner layout moves too.
+  # Apple rotates these bytes: refresh version and hash together, and re-check the layout with `7z l`.
   src = fetchurl {
     url = "https://devimages-cdn.apple.com/design/resources/download/SF-Pro.dmg";
     hash = "sha256-sn/mYi8fqWpwfHPcpmZtQ5w1sxLVsdR+DimA5hjrSyg=";
@@ -18,8 +17,7 @@ stdenvNoCC.mkDerivation {
 
   setSourceRoot = "sourceRoot=$PWD";
 
-  # 7z walks the whole dmg -> hfs -> pkg -> gzip chain on its own and lands on
-  # the bare cpio payload.
+  # 7z unwraps dmg -> hfs -> pkg -> gzip down to the cpio payload.
   unpackPhase = /* bash */ ''
     runHook preUnpack
 

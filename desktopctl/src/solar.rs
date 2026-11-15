@@ -348,7 +348,16 @@ fn reverse_geocode(location: Coordinates) -> Option<String> {
         location.latitude, location.longitude
     );
     let output = Command::new("curl")
-        .args(["-fsS", "--connect-timeout", "4", "--max-time", "8", &url])
+        .args([
+            "--fail",
+            "--silent",
+            "--show-error",
+            "--connect-timeout",
+            "4",
+            "--max-time",
+            "8",
+            &url,
+        ])
         .output()
         .ok()?;
 
@@ -370,8 +379,7 @@ fn parse_place(body: &str) -> Option<String> {
 
     let town = field("city").or_else(|| field("locality"))?;
 
-    // `principalSubdivisionCode` is ISO 3166-2 — "US-CO" — and only the
-    // subdivision half distinguishes one town of the same name from another.
+    // ISO 3166-2 ("US-CO"): the subdivision half tells same-named towns apart.
     match field("principalSubdivisionCode").and_then(|code| code.split('-').next_back()) {
         Some(region) => Some(format!("{town}, {region}")),
         None => Some(town.to_string()),

@@ -1,10 +1,7 @@
 import QtQuick
 import qs
 
-// Signal strength drawn as the full arc set with the inactive arcs dimmed.
-// The bare progressive glyphs only draw the arcs they mean, and because those
-// paths sit in the lower half of the 24px grid, a weak signal renders as a
-// small mark floating below the optical centre of every icon beside it.
+// Inactive arcs dimmed, not omitted: the bare glyphs sit below the optical centre.
 Item {
     id: root
 

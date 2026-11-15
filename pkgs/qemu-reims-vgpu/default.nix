@@ -27,8 +27,7 @@ let
 in
 (qemu_kvm.override {
   enableDocs = false;
-  # macOS has no qemu-ga, and dropping it drops the one nixpkgs patch that
-  # only it needed.
+  # macOS has no qemu-ga, and dropping it drops the one nixpkgs patch only it needed.
   guestAgentSupport = false;
 }).overrideAttrs
   (old: {
@@ -43,8 +42,7 @@ in
       hash = "sha256-wXy4+i/kwHxrMBkbUij5396DwbrIVzrcxV47YvehQnA=";
     };
 
-    # nixpkgs' patches are cut against the 11.1.2 release; this fork is
-    # upstream master, which already carries some of them.
+    # nixpkgs' patches target the 11.1.2 release; this fork is master, which carries some.
     patches = [ ];
 
     postUnpack = /* bash */ ''
@@ -55,8 +53,7 @@ in
     buildInputs = old.buildInputs ++ [ reims-vgpu ];
 
     configureFlags = old.configureFlags ++ [
-      # `auto` would quietly build a QEMU without the device if pkg-config
-      # missed the library.
+      # `auto` would quietly drop the device if pkg-config missed the library.
       "--enable-pvg"
       # Both keep wraps from reaching for the network; see docs/macos-vm.md.
       "--disable-download"

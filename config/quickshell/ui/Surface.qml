@@ -2,9 +2,6 @@ import QtQuick
 import QtQuick.Effects
 import qs
 
-// A floating panel: an opaque body, a hairline rim and a wide soft shadow.
-// Without them a panel reads as a flat patch rather than an object over the
-// desktop — but overstate either and it reads as a bevel.
 Item {
     id: root
 
@@ -13,8 +10,7 @@ Item {
     property real elevation: 22
     // Room a host window must leave around this surface for its shadow.
     readonly property int shadowPad: Metrics.shadowReach(elevation)
-    // Flattening the content protects NativeRendering text through a scale.
-    // Layering the surface instead clips its shadow ([[quickshell]]).
+    // Keeps NativeRendering text sharp through a scale; layering the surface clips its shadow ([[quickshell]]).
     property bool flatten: false
 
     default property alias content: holder.data
@@ -44,7 +40,6 @@ Item {
             }
         }
     }
-
 
     Item {
         id: holder

@@ -47,9 +47,7 @@ Ui.Scroll {
 
                     required property var modelData
                     readonly property string path: option.modelData.path
-                    // The originals here run to 35 MB; the cached preview is a
-                    // 640x400 PNG. Falling back to the original keeps a
-                    // wallpaper visible even when its preview failed to render.
+                    // The 640x400 preview, or the original (up to 35 MB) when it failed.
                     readonly property string thumbnail: option.modelData.preview_path || option.modelData.path
                     readonly property bool selected: root.current === option.path
 

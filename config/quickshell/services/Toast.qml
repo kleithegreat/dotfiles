@@ -2,9 +2,7 @@ pragma Singleton
 
 import QtQuick
 
-// Backend failures surface here, never on the console. One message at a time,
-// with the rest queued; a failing write that retries in a loop must not be able
-// to flood the screen.
+// One message at a time, the rest queued, so a retry loop cannot flood the screen.
 QtObject {
     id: root
 

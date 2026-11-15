@@ -2,8 +2,7 @@ pragma Singleton
 
 import QtQuick
 
-// The option lists the settings surfaces offer. Data, not state: nothing here
-// is read from the system, and nothing here belongs in a service.
+// The option lists settings surfaces offer: data only, never read from the system.
 QtObject {
     readonly property var systemFonts: ["Geist", "Inter", "Overpass", "IBM Plex Sans", "Rubik", "Noto Sans", "Cantarell", "Source Sans 3", "Outfit"]
 

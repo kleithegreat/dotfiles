@@ -3,10 +3,7 @@ import qs
 import qs.ui as Ui
 import qs.services as Sys
 
-// Network, bluetooth, sound, brightness and battery are one control, not five.
-// They open the same surface, so they get one hover shape and one hit target;
-// five adjacent buttons that all do the same thing is a menu bar pretending to
-// be a dashboard.
+// One control, not five: they all open the same surface.
 BarItem {
     id: root
 

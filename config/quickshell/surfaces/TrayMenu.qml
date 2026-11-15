@@ -4,17 +4,12 @@ import Quickshell
 import qs
 import qs.ui as Ui
 
-// Tray menus are drawn from their DBus model with the shell's own primitives.
-// Quickshell can hand them to the platform instead, but only in QApplication
-// mode, and what comes back is a Qt widget menu — correct behaviour wearing a
-// different design system's clothes.
 Popover {
     id: root
 
     required property ShellState state
 
-    // Rows arrive from DBus a round trip after the handle does; opening on the
-    // state flag alone shows an 8px sliver that then grows into the menu.
+    // Rows arrive a DBus round trip after the handle; opening on the flag alone shows a sliver.
     readonly property bool requested: state.isOpen("menu")
     readonly property int rows: opener.children ? opener.children.values.length : 0
 
@@ -24,9 +19,7 @@ Popover {
     padded: false
     contentHeight: column.implicitHeight + Metrics.s1 * 2
 
-    // Submenus replace the list rather than cascading out sideways. A tray menu
-    // is a handful of rows; a second floating panel to hold three of them is
-    // more machinery than the content justifies.
+    // Submenus replace the list rather than cascading.
     property var trail: []
     readonly property var handle: trail.length > 0 ? trail[trail.length - 1] : root.state.menu
 

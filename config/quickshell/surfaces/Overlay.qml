@@ -36,8 +36,7 @@ PanelWindow {
         height: overlay.state.open_ ? Math.max(0, overlay.height - Metrics.barHeight - Metrics.barMargin) : 0
     }
 
-    // The overlay outlives the close by one exit animation, so the surface it
-    // holds can play one.
+    // Outlives the close by one exit animation.
     Timer {
         id: linger
         interval: Motion.quick
@@ -57,8 +56,7 @@ PanelWindow {
         }
     }
 
-    // The grab covers the bar as well, so pressing a bar button is not treated
-    // as a click outside.
+    // Covers the bar too, so a bar press is not an outside click.
     HyprlandFocusGrab {
         active: overlay.state.open_
         windows: overlay.state.open_ ? [overlay, overlay.barWindow] : []

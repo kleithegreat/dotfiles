@@ -1,12 +1,10 @@
-# Points torch/torchvision at the CUDA 13 `-bin` wheels (docs/nix.md) and adds
-# the wheel-only ComfyUI dependencies nixpkgs lacks.
+# torch on the CUDA 13 `-bin` wheels (docs/nix.md), plus wheel-only dependencies nixpkgs lacks.
 { lib, cudaPackages }:
 
 final: prev:
 
 let
-  # PyPI's legacy path redirects to the hashed one; `tag` is the wheel's
-  # python-abi-platform triple.
+  # PyPI's legacy path redirects to the hashed one; `tag` is python-abi-platform.
   fetchWheel =
     {
       pname,
@@ -128,8 +126,7 @@ in
     };
   };
 
-  # Required unconditionally by ComfyUI's main.py; both shipped .so files
-  # dlopen the CUDA/ROCm driver rather than linking it.
+  # Required by main.py; its .so files dlopen the GPU driver rather than linking it.
   comfy-aimdo = fetchWheel {
     pname = "comfy_aimdo";
     version = "0.6.0";
@@ -172,8 +169,7 @@ in
     };
   };
 
-  # Optional: backs the GLSL nodes in comfy_extras, which ComfyUI skips if the
-  # import fails.
+  # Optional: ComfyUI skips the GLSL nodes if this import fails.
   comfy-angle = fetchWheel {
     pname = "comfy_angle";
     version = "0.1.1";

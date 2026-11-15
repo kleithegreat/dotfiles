@@ -1,5 +1,4 @@
-# Model-support releases reach nixpkgs master before nixos-unstable. Keep it
-# nixpkgs-sourced: a repo-local npm pin broke against the moving builder.
+# Model-support releases reach master first; a repo-local npm pin broke against the moving builder.
 { nixpkgs-claude }:
 
 final: _prev:

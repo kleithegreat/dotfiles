@@ -2,8 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import qs
 
-// [leading icon button or label] slider [caption]. `value` is passed down as a
-// binding and never written: the slider shows its own in-drag value itself.
+// `value` flows down and is never written; the slider shows its own in-drag value.
 RowLayout {
     id: root
 

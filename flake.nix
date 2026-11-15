@@ -1,9 +1,7 @@
 {
   description = "Kevin's NixOS configuration";
 
-  # Honoured only for trusted users; `nix.settings.trusted-users` in
-  # system/configuration.nix is what grants that. See docs/nix.md for what to
-  # pass before the first rebuild that applies either.
+  # Honoured only for trusted users; see docs/nix.md before the first rebuild.
   nixConfig = {
     experimental-features = [
       "flakes"

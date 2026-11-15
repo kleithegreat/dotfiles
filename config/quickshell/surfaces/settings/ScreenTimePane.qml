@@ -102,9 +102,7 @@ Ui.Scroll {
                         required property int index
                         readonly property var entry: Sys.FocusTime.week[day.index]
 
-                        // Equal shares: fillWidth distributes only the surplus,
-                        // so without a common base the columns inherit the
-                        // differing widths of "Wed" and "Fri".
+                        // A common base: fillWidth splits only the surplus, so "Wed" would outgrow "Fri".
                         Layout.preferredWidth: 1
                         Layout.fillWidth: true
                         Layout.fillHeight: true

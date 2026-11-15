@@ -435,8 +435,7 @@ fn run() -> Result<()> {
     }
 }
 
-// Writes are daemon-routed and hard-fail when it is unreachable: the daemon
-// owns the dim/restore state, so a direct write would be a second writer.
+// Daemon-routed and hard-failing: a direct write would be a second writer.
 fn run_brightness(command: BrightnessCommand) -> Result<()> {
     match command {
         BrightnessCommand::Status(args) => run_brightness_status(args.json),

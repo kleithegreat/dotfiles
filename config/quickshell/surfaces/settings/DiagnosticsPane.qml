@@ -4,9 +4,7 @@ import qs
 import qs.ui as Ui
 import qs.services as Sys
 
-// Measurements grouped by the question they answer, each group stating its
-// conclusion before its numbers. The old pane put twenty figures on screen at
-// once and left the reader to work out which of them meant the network was bad.
+// Grouped by the question each answers, conclusion before numbers.
 Ui.Scroll {
     id: root
 

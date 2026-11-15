@@ -404,7 +404,7 @@ fn brightness_value(device: &str, arg: &str) -> Result<u64> {
 
 fn brightnessctl(device: &str, args: &[&str]) -> Result<Output> {
     let mut command_args = Vec::with_capacity(args.len() + 2);
-    command_args.extend(["-d", device]);
+    command_args.extend(["--device", device]);
     command_args.extend(args.iter().copied());
 
     let output = Command::new("brightnessctl").args(&command_args).output()?;

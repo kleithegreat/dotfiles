@@ -35,11 +35,7 @@ QtObject {
 
     property string reported: "unknown"
 
-    // A write takes a second and a half to come back. `profile` is the one the
-    // shell shows: the requested one from the click until the backend confirms
-    // it, so the selection moves under the pointer instead of snapping back.
-    // `switching` says it is not confirmed yet, and controls dim while it holds
-    // — the same contract `Toggle.pending` has.
+    // The requested profile until the backend confirms it (~1.5 s), as `Toggle.pending`.
     property string pendingProfile: ""
     readonly property bool switching: pendingProfile !== "" && pendingProfile !== reported
     readonly property string profile: switching ? pendingProfile : reported
@@ -136,8 +132,7 @@ QtObject {
         onTriggered: root.detect()
     }
 
-    // A backend that accepts the write but never reports the new value would
-    // otherwise leave the control stuck in its pending state forever.
+    // A write the backend never confirms must not stay pending forever.
     readonly property Timer _abandon: Timer {
         id: abandon
         interval: 3000

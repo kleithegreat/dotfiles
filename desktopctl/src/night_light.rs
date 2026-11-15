@@ -191,7 +191,10 @@ fn wait_for_hyprsunset(running: bool) {
 }
 
 pub(crate) fn stop_hyprsunset() -> crate::Result<()> {
-    match Command::new("pkill").args(["-x", "hyprsunset"]).output() {
+    match Command::new("pkill")
+        .args(["--exact", "hyprsunset"])
+        .output()
+    {
         Ok(output) if output.status.success() || output.status.code() == Some(1) => {
             wait_for_hyprsunset(false);
             Ok(())
@@ -314,32 +317,16 @@ fn hyprsunset_ipc_request(request: &str) -> crate::Result<String> {
     Ok(response.trim().to_owned())
 }
 
+/// Started without a signature, hyprsunset binds directly under `hypr/`.
 fn hyprsunset_socket_path() -> crate::Result<PathBuf> {
-    let root = paths::xdg_runtime_dir()?.join("hypr");
-
-    if let Some(signature) = hypr::hyprland_signature() {
-        let runtime_path = root.join(&signature).join(".hyprsunset.sock");
-        if runtime_path.exists() {
-            return Ok(runtime_path);
+    hypr::instance_socket(".hyprsunset.sock").or_else(|error| {
+        let unscoped = paths::xdg_runtime_dir()?.join("hypr/.hyprsunset.sock");
+        if unscoped.exists() {
+            Ok(unscoped)
+        } else {
+            Err(error)
         }
-    }
-
-    let fallback_path = root.join(".hyprsunset.sock");
-    if fallback_path.exists() {
-        return Ok(fallback_path);
-    }
-
-    if let Some(path) =
-        hypr::newest_instance_socket(std::slice::from_ref(&root), ".hyprsunset.sock")?
-    {
-        return Ok(path);
-    }
-
-    if let Some(signature) = hypr::hyprland_signature() {
-        return Ok(root.join(signature).join(".hyprsunset.sock"));
-    }
-
-    Ok(fallback_path)
+    })
 }
 
 fn parse_temperature_reply(reply: &str) -> crate::Result<i32> {

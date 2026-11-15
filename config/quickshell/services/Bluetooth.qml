@@ -3,8 +3,7 @@ pragma Singleton
 import QtQuick
 import Quickshell.Bluetooth as Bluez
 
-// Bluetooth over bluez's own DBus objects: adapter and device state are live
-// objects, so there is nothing to poll and nothing to parse.
+// bluez's live DBus objects: nothing to poll or parse.
 QtObject {
     id: root
 
@@ -41,8 +40,7 @@ QtObject {
         setPowered(!powered);
     }
 
-    // Discovery runs while anyone wants it and the adapter is on. A one-shot
-    // write while the adapter is off is refused and never retried.
+    // A one-shot discovery write while the adapter is off is refused and never retried.
     property var _seekers: []
 
     function seek(who, wanted) {

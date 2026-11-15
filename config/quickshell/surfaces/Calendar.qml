@@ -125,9 +125,7 @@ Popover {
 
         Ui.Divider {}
 
-        // Weather is a second widget stacked under the month, not a tab beside
-        // it: a switch between "the days of this month" and "it is 31 degrees"
-        // makes the reader choose between two things they wanted to see at once.
+        // Stacked under the month, not a tab: both are wanted at once.
         RowLayout {
             Layout.fillWidth: true
             Layout.topMargin: Metrics.s1
@@ -147,8 +145,7 @@ Popover {
                         numeric: true
                     }
 
-                    // Named before the forecast lands, so a reading is never
-                    // shown without the place it was fetched for.
+                    // Named before the forecast lands: a reading never shows without its place.
                     Ui.Label {
                         text: Sys.Weather.place
                         role: "caption"

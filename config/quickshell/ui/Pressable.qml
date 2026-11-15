@@ -1,18 +1,14 @@
 import QtQuick
 import qs
 
-// The one interaction surface in the shell: hit target, hover fill, press
-// response, cursor. Every clickable thing is this or contains this, so hover
-// feels identical everywhere instead of being re-invented per widget.
+// Every clickable thing is or contains this, so hover is identical everywhere.
 Rectangle {
     id: root
 
     property bool interactive: true
     property bool active: false
     property bool showFill: true
-    // Flickable steals the grab from children once a drag passes threshold. A
-    // draggable control inside a scroll view must claim it; a button must not,
-    // since dragging across a button is a legitimate scroll gesture.
+    // Draggable controls in a Scroll claim the grab; buttons must not ([[quickshell]]).
     property bool claimsDrag: false
     property alias hovered: pointer.containsMouse
     property alias pressed: pointer.pressed

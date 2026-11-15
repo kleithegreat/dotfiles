@@ -4,8 +4,6 @@ import QtQuick
 import Quickshell.Io
 import Quickshell.Services.UPower
 
-// What this machine can actually do. Surfaces are hidden rather than shown
-// disabled: a laptop control on a desktop is noise, not information.
 QtObject {
     id: root
 
@@ -18,8 +16,7 @@ QtObject {
 
     readonly property bool battery: UPower.displayDevice.isPresent
 
-    // The desktop host is pinned to performance in NixOS, so profile switching
-    // is only ever offered on laptop-like chassis.
+    // The desktop is pinned to performance in NixOS.
     readonly property bool profileSwitching: laptop && powerProfiles
 
     readonly property Process _chassis: Process {

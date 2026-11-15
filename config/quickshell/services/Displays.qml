@@ -11,9 +11,7 @@ QtObject {
     property var monitors: []
     readonly property bool applying: applyGate.running
 
-    // The daemon's answer to "which output is primary", already resolved: the
-    // stored choice when it is connected, the largest external otherwise. The
-    // shell never re-derives it -- one rule, in one place.
+    // Resolved by the daemon, never re-derived here ([[desktopctl]]).
     property string primaryOutput: ""
     // The stored selector; empty means the choice is automatic.
     property string primary: ""
@@ -23,9 +21,7 @@ QtObject {
             enumerate.running = true;
     }
 
-    // Must agree with `selector_for` in desktopctl's displays module: a
-    // description survives being replugged into a different port, a connector
-    // name does not.
+    // Must agree with `selector_for` in desktopctl's displays.rs.
     function selectorFor(monitor) {
         const description = String(monitor.description || "").trim();
         return description === "" ? monitor.name : "desc:" + description;
@@ -40,9 +36,7 @@ QtObject {
         writer.running = true;
     }
 
-    // The generated Lua is re-read at config-parse time, where a partial spec
-    // is a separate rule rather than a merge: any field left out reverts to its
-    // default on the next reload, and `scale`'s default is `auto`.
+    // Every field of every output: a partial spec resets on reload ([[hyprland]]).
     function saveLayout(states) {
         const payload = {};
         for (let i = 0; i < states.length; i++) {
@@ -84,8 +78,7 @@ QtObject {
         return '"' + String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"';
     }
 
-    // `disabled = false` has to be spelled out: re-declaring mode, position and
-    // scale on a disabled output leaves it disabled.
+    // `disabled = false` must be explicit to re-enable an output ([[hyprland]]).
     function expressionFor(state) {
         const fields = ["output = " + _quote(state.name), "mode = " + _quote(state.width + "x" + state.height + "@" + Number(state.refreshRate).toFixed(2)), "position = " + _quote(state.x + "x" + state.y), "scale = " + state.scale, "disabled = false"];
 
@@ -129,8 +122,6 @@ QtObject {
         topology.running = true;
     }
 
-    // Pushed over the Desktopctl socket; the startup read is the degraded path
-    // for a daemon that is not up yet.
     readonly property Connections _daemonEvents: Connections {
         target: Desktopctl
         function onMonitorsChanged(status) {
@@ -163,8 +154,7 @@ QtObject {
         }
     }
 
-    // A plain flag rather than a Process: the write itself runs on the shared
-    // compositor queue, but only one layout change may be outstanding.
+    // Only one layout change may be outstanding.
     readonly property QtObject _gate: QtObject {
         id: applyGate
         property bool running: false
@@ -172,8 +162,7 @@ QtObject {
 
     readonly property Process _enumerate: Process {
         id: enumerate
-        // `all` so disabled outputs stay visible to the settings pane; the
-        // default listing silently omits them, which reads as a lost monitor.
+        // `all`, or disabled outputs vanish from the settings pane.
         command: ["hyprctl", "monitors", "all", "-j"]
         stdout: StdioCollector {
             onStreamFinished: {

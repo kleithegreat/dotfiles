@@ -76,8 +76,7 @@ impl BrightnessController {
     }
 
     pub fn restore(&self, device: Option<&str>) -> crate::Result<Value> {
-        // Break any in-flight ramp first; it holds the op mutex and checks
-        // the flag between 50ms steps.
+        // Break any in-flight ramp: it holds the op mutex and checks this flag between steps.
         self.inner.abort_dim.store(true, Ordering::Relaxed);
         let key = brightness::resolve_device_key(device)?;
 

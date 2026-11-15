@@ -12,8 +12,7 @@ QtObject {
 
     property var schemes: []
     property var presets: []
-    // { name, path, preview_path } per entry; preview_path may be null when
-    // preview generation failed for that file.
+    // { name, path, preview_path }; preview_path is null when its preview failed.
     property var wallpapers: []
 
     function value(key, fallback) {
@@ -35,10 +34,7 @@ QtObject {
         failureText: "Theme change failed"
     }
 
-    // What each aspect of a preset covers. A preset is a partial patch, so
-    // saving one is choosing which aspects to capture — dumping the whole state
-    // would make every preset overwrite everything the next one meant to leave
-    // alone.
+    // A preset is a partial patch: each aspect is the set of keys it captures.
     readonly property var aspects: [
         { id: "scheme", label: "Colour scheme", keys: ["color_scheme"] },
         { id: "wallpaper", label: "Wallpaper", keys: ["wallpaper", "filter_wallpaper"] },
@@ -99,8 +95,7 @@ QtObject {
         target: Desktopctl
         function onThemeChanged(state, changedKeys) {
             root._ingestState(state);
-            // The scheme and wallpaper catalogs only shift when these keys
-            // move (or the repo changes, which a session restart covers).
+            // The scheme and wallpaper catalogs change only with these keys.
             const catalogKeys = ["wallpaper", "filter_wallpaper", "color_scheme"];
             for (let i = 0; i < changedKeys.length; i++) {
                 if (catalogKeys.indexOf(changedKeys[i]) >= 0) {
@@ -143,8 +138,7 @@ QtObject {
         }
     }
 
-    // The JSON form carries the cached preview; the plain-text form only has names,
-    // which would leave the picker decoding the full-size originals.
+    // JSON carries the cached preview; plain text would make the picker decode originals.
     readonly property Process _wallpaperList: Process {
         id: wallpaperList
         command: ["desktopctl", "theme", "list-wallpapers", "--json"]

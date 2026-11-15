@@ -264,8 +264,7 @@ mod tests {
         for name in repo_schemes() {
             let colors = load_repo_colors(&name);
             let plates = plates(&colors);
-            // The scheme's own bg1 gets as close as 1.07 to bg; the mixed
-            // plates are what buy the trailing segments a visible edge.
+            // bg1 can sit 1.07 from bg; the mixed plates give trailing segments an edge.
             assert!(
                 contrast_ratio(&plates.tool, &colors.bg) > 1.15,
                 "{name}: tool plate is flush with the background"

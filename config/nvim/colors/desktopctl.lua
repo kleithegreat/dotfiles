@@ -1,6 +1,4 @@
--- Palette comes from `desktopctl theme` (see docs/theming.md); this file owns
--- only the role -> colour mapping, kept in step with the gtksourceview target
--- so both editors render the same scheme the same way.
+-- Role -> colour mapping over `desktopctl theme`'s palette, in step with the gtksourceview target.
 local theme = require("theme-colors")
 local c = theme.colors
 

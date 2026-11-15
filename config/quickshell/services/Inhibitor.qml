@@ -1,16 +1,13 @@
 import QtQuick
 import Quickshell.Io
 
-// A held systemd inhibition. The lock exists for exactly as long as the process
-// runs, so `active` is the process state itself rather than a flag that could
-// disagree with it.
+// `active` is the process state itself, so it cannot disagree with the lock.
 Process {
     id: root
 
     property string what: "idle"
     property string why: ""
-    // Distinguishes "we asked it to stop" from "it died", so only the latter is
-    // reported to the user.
+    // Only an unrequested exit is reported.
     property bool _requestedStop: false
     property bool _shuttingDown: false
 

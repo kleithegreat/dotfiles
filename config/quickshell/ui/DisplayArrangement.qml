@@ -1,10 +1,7 @@
 import QtQuick
 import qs
 
-// The outputs, to scale, where they sit. Dragging one reports where it landed;
-// the pane stages that like any other display edit rather than applying it, so
-// an arrangement you cannot see your way out of is still one countdown away
-// from being undone.
+// Drags are staged like any display edit, so a bad arrangement is one countdown from undone.
 Item {
     id: root
 
@@ -35,14 +32,10 @@ Item {
     readonly property real originX: (width - bounds.width * factor) / 2 - bounds.x * factor
     readonly property real originY: (height - bounds.height * factor) / 2 - bounds.y * factor
 
-    // Edges within this many *drawn* pixels of another edge are treated as
-    // meant to touch. Working in drawn pixels rather than compositor ones keeps
-    // the feel identical whatever the outputs' resolutions are.
+    // In drawn pixels, so snapping feels the same at any output resolution.
     readonly property real snapDistance: 10
 
-    // Every alignment a human means by dragging one panel near another: edges
-    // flush, or the two abutting. Snapping per axis independently is what lets
-    // a display sit above another and stay left-aligned with it.
+    // Per axis, so a display can sit above another and stay left-aligned with it.
     function snap(name, candidate, size, axis) {
         const tolerance = snapDistance / factor;
         let best = candidate;
@@ -67,8 +60,7 @@ Item {
     }
 
     Repeater {
-        // Keyed on the count, not the array: rebinding a `var` array resets the
-        // Repeater and destroys the delegate holding the pointer grab mid-drag.
+        // Keyed on the count: an array model kills the drag ([[quickshell]]).
         model: root.layout.length
 
         Item {
@@ -112,11 +104,7 @@ Item {
                 }
             }
 
-            // The tile is moved by an offset the binding adds, never by writing
-            // `x` directly: `drag.target` would overwrite the binding and the
-            // tile would stop following the staged position after the first drop.
-            // Accumulating the delta is self-correcting — moving the item puts
-            // the pointer back where it started relative to it.
+            // Moved by an offset the binding adds: `drag.target` would break the binding.
             MouseArea {
                 id: drag
 

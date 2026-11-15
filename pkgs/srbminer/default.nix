@@ -17,8 +17,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
 
   nativeBuildInputs = [ makeWrapper ];
 
-  # The executable is packed, so patchelf cannot touch it, and it refuses to
-  # start inside buildFHSEnv's sandbox. It runs unpatched through nix-ld.
+  # Packed: patchelf cannot touch it and it refuses buildFHSEnv's sandbox, so it runs through nix-ld.
   dontFixup = true;
 
   installPhase = /* bash */ ''

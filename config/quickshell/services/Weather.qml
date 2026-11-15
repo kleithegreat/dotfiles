@@ -77,12 +77,11 @@ QtObject {
 
         const url = "https://api.open-meteo.com/v1/forecast" + "?latitude=" + _latitude.toFixed(4) + "&longitude=" + _longitude.toFixed(4) + "&current=temperature_2m,is_day,weather_code" + "&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max" + "&forecast_days=1&timezone=auto" + (imperial ? "&temperature_unit=fahrenheit" : "");
 
-        forecast.command = ["curl", "-fsS", "--connect-timeout", "4", "--max-time", "8", url];
+        forecast.command = ["curl", "--fail", "--silent", "--show-error", "--connect-timeout", "4", "--max-time", "8", url];
         forecast.running = true;
     }
 
-    // `desktopctl sun status` can take several seconds on a cold geolocation
-    // lookup, so it is never on a startup path — only on first open.
+    // Slow on a cold geolocation lookup, so first open only, never startup.
     readonly property Process _sun: Process {
         id: sun
         command: ["desktopctl", "sun", "status"]

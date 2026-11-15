@@ -9,8 +9,7 @@ QtObject {
 
     property var enrolled: []
 
-    // An enrolment stays on show until dismissed: `finger` is the one being
-    // added and `phase` is "scanning", "done" or "failed" ("" when idle).
+    // `phase` is "scanning", "done" or "failed" until dismissed, "" when idle.
     property string finger: ""
     property string phase: ""
     property int captured: 0
@@ -88,7 +87,7 @@ QtObject {
 
     readonly property Process _count: Process {
         id: count
-        command: ["sh", "-c", "busctl --system get-property net.reactivated.Fprint \"$(busctl --system call net.reactivated.Fprint /net/reactivated/Fprint/Manager net.reactivated.Fprint.Manager GetDefaultDevice | cut -d'\"' -f2)\" net.reactivated.Fprint.Device num-enroll-stages"]
+        command: ["sh", "-c", "busctl --system get-property net.reactivated.Fprint \"$(busctl --system call net.reactivated.Fprint /net/reactivated/Fprint/Manager net.reactivated.Fprint.Manager GetDefaultDevice | cut --delimiter='\"' --fields=2)\" net.reactivated.Fprint.Device num-enroll-stages"]
         stdout: StdioCollector {
             onStreamFinished: root.stages = Math.max(0, parseInt(this.text.replace(/^i\s+/, "")) || 0)
         }

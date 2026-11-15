@@ -4,8 +4,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 
-// The daemon's focus tracker is the only writer. This reads its JSON heartbeat
-// and nothing else — never the SQLite database behind it, and never a repair.
+// Reads the daemon's JSON heartbeat only ([[focus-time]]).
 QtObject {
     id: root
 
@@ -18,8 +17,7 @@ QtObject {
     readonly property var apps: data.apps || []
     readonly property var week: data.week || []
 
-    // The file is a once-per-second heartbeat, so its age is the only liveness
-    // signal there is.
+    // The file's age is the only liveness signal.
     property real _now: Date.now()
 
     readonly property bool stale: {

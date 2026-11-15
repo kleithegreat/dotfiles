@@ -2,8 +2,6 @@ import QtQuick
 import QtQuick.Effects
 import qs
 
-// A picture with rounded corners, or an icon on a tile when there is none or
-// the file is not one Qt can draw.
 Item {
     id: root
 

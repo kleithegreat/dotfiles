@@ -173,8 +173,6 @@ Item {
                         asynchronous: true
                         source: Qt.resolvedUrl("settings/" + root.state.pane + "Pane.qml")
 
-                        // Panes cross-fade and slide in rather than cutting, so
-                        // switching reads as one surface changing its mind.
                         opacity: status === Loader.Ready ? 1 : 0
                         property real slide: status === Loader.Ready ? 0 : 16
                         transform: Translate {

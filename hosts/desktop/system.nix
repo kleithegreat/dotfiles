@@ -82,8 +82,7 @@
   environment.sessionVariables.DESKTOPCTL_LOCATION = "42.4440,-76.5019";
 
   # ── Heater ────────────────────────────────────────────────────
-  # Wanted by nothing: the shell's Power pane starts and stops it. Both miners
-  # pay this Kryptex account, which holds earnings as BTC.
+  # Wanted by nothing: the shell's Power pane starts and stops it.
   systemd.user.targets.heater.description = "Mine on the GPU and every core as a space heater";
   systemd.user.services = let
     account = "kevvinlei89@gmail.com/%H";
@@ -117,8 +116,7 @@
   };
 
   # ── Remote builders ───────────────────────────────────────────
-  # The homelab nodes build this PC's flake checks as the untrusted `nixremote`; this PC signs what they must accept
-  # (the Homelab role `nix-remote-builder`, the moneymachine audit/erasure deletion list).
+  # Homelab nodes build as the untrusted `nixremote` (Homelab role `nix-remote-builder`); this PC signs what they accept.
   nix.distributedBuilds = true;
   nix.settings.builders-use-substitutes = true;
   # nix key generate-secret --key-name desktop-builds-1

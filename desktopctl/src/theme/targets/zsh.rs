@@ -45,9 +45,7 @@ mod tests {
 
     #[test]
     fn repo_schemes_choose_expected_hint_color() {
-        // Which step wins still varies, because schemes differ in how much
-        // contrast exists between fg and bg at all. The contract is the
-        // property, not the slot: take the dimmest step that clears the floor.
+        // The contract is the property, not the slot: the dimmest step that clears the floor.
         for scheme_name in REPO_SCHEMES {
             let colors = load_repo_colors(scheme_name);
             let selected = autosuggest_color(&colors);

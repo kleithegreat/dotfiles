@@ -274,8 +274,7 @@ fn arrows(palette: &Palette) -> String {
             ("arrow-up", 180),
             ("arrow-left", 90),
             ("arrow-right", -90),
-            // Tree expanders: Kvantum asks for plus/minus and draws its own
-            // boxed glyph when they are missing.
+            // Tree expanders: without plus/minus Kvantum draws its own boxed glyph.
             ("arrow-plus", -90),
             ("arrow-minus", 0),
         ] {

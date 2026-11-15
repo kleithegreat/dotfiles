@@ -23,8 +23,7 @@ hl.gesture({
     end,
 })
 
--- When lid handling is inhibited, logind no longer suspends on close; keep the
--- hidden internal panel out of the Hyprland layout while an external output is active.
+-- With lid handling inhibited, keep the hidden panel out of the layout while an external is active.
 hl.bind("switch:on:Lid Switch",
     hl.dsp.exec_cmd("desktopctl hypr lid-switch closed --internal eDP-1"), { locked = true })
 hl.bind("switch:off:Lid Switch",

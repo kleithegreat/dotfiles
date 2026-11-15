@@ -4,8 +4,7 @@ import QtQuick
 import Quickshell.Io
 import Quickshell.Services.Mpris
 
-// The connected pair and the nearest open case, pushed by the daemon
-// ([[airpods]]). Pairing itself goes through Bluetooth's write path.
+// Pushed by the daemon ([[airpods]]); pairing goes through Bluetooth's write path.
 QtObject {
     id: root
 
@@ -136,8 +135,7 @@ QtObject {
         }
     }
 
-    // The case's own advert carries no BR/EDR address; a discoverable pair
-    // shows up by name once its setup button is held.
+    // A pair is found by name, not by the advert's address ([[airpods]]).
     readonly property Connections _discovery: Connections {
         target: Bluetooth
         enabled: root.card === "hold"

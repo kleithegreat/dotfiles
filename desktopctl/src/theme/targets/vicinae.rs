@@ -36,8 +36,7 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Strin
     );
     font.insert("normal".to_owned(), Value::Object(normal));
 
-    // Both slots name the selected scheme, never the `dark_hint` variant; see
-    // the vicinae quirk in docs/theming.md before "fixing" either.
+    // Both slots name the selected scheme; see the vicinae quirk in docs/theming.md.
     let mut appearance = Map::new();
     appearance.insert(
         "name".to_owned(),
@@ -63,10 +62,7 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Strin
 }
 
 pub fn persist(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
-    // The selected scheme's file plus both same-family counterparts. Only the
-    // first is named by `generate`; the others are what populate the launcher's
-    // own theme picker with the rest of the family, so switching from inside
-    // vicinae finds them already rendered.
+    // Only the first is named; the family's other variants fill vicinae's own picker.
     let mut candidates = vec![(
         colors.app_themes.vicinae.name.clone(),
         Cow::Borrowed(colors),
@@ -134,8 +130,7 @@ pub fn on_apply(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()>
         return Ok(());
     }
 
-    // Detached: this replaces the server with a long-lived one, so waiting on
-    // it would hang the apply for as long as the launcher runs.
+    // Detached: it replaces the server with a long-lived one.
     let _child = Command::new(&vicinae)
         .arg("server")
         .arg("--replace")

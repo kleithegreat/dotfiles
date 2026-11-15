@@ -3,8 +3,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 
-// AirDrop as the daemon runs it over Owly ([[airdrop]]): visibility, offers
-// coming in, and the share going out.
+// AirDrop as the daemon runs it ([[airdrop]]).
 QtObject {
     id: root
 

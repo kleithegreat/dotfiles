@@ -4,9 +4,7 @@ import Quickshell.Hyprland
 import qs
 import qs.ui as Ui
 
-// Width carries occupancy, colour carries focus. Nothing moves on hover: the
-// row is a readout you glance at, and a readout that rearranges itself when the
-// pointer crosses it is harder to read, not easier.
+// Width carries occupancy, colour carries focus; nothing moves on hover.
 RowLayout {
     id: root
 

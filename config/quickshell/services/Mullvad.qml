@@ -95,7 +95,7 @@ QtObject {
 
     readonly property Process _status: Process {
         id: status
-        command: ["mullvad", "status", "-j"]
+        command: ["mullvad", "status", "--json"]
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
@@ -127,8 +127,7 @@ QtObject {
         }
     }
 
-    // Tab depth is the tree level: country, then city, then relay hostnames we
-    // do not enumerate.
+    // Tab depth is the tree level: country, city, then relays.
     readonly property Process _relayList: Process {
         id: relayList
         command: ["mullvad", "relay", "list"]

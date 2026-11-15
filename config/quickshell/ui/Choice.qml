@@ -1,13 +1,7 @@
 import QtQuick
 import qs
 
-// A bounded set of options, laid out as a row that scrolls when it does not
-// fit. It stays a row rather than becoming a dropdown because the options are
-// the answer to the question next to them — hiding four of them behind a click
-// is a menu built for a list that does not exist. When it does overflow it has
-// to *say so*: the edges fade into the card, and the ordinary wheel scrolls it
-// sideways, because a horizontal list that only answers to a horizontal wheel
-// is a list most people cannot reach the end of.
+// Overflow must show: the edges fade, and the ordinary wheel scrolls it sideways.
 Item {
     id: root
 
@@ -33,8 +27,6 @@ Item {
         pixelAligned: true
         clip: true
 
-        // One selection that slides to the chosen option, rather than a fill
-        // that jumps between them.
         Rectangle {
             id: pill
 
@@ -126,8 +118,6 @@ Item {
         active: root.overflowing
     }
 
-    // A rail under the options, sized to the visible fraction. The fades say
-    // "there is more"; this says how much more.
     Rectangle {
         anchors.bottom: parent.bottom
         anchors.left: parent.left

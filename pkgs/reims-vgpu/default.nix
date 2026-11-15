@@ -23,8 +23,7 @@ rustPlatform.buildRustPackage {
     hash = "sha256-g3U/IOTdZcxomBcCEexnnNn/FyD5XsigjTM1SWZdUtk=";
   };
 
-  # Upstream's committed Cargo.lock leaves out the `source` of its git
-  # dependencies and lets cargo add them at build time. See docs/macos-vm.md.
+  # Upstream's Cargo.lock omits its git sources (docs/macos-vm.md).
   cargoPatches = [ ./cargo-lock-git-sources.patch ];
   cargoHash = "sha256-Ifcjh4JN/b3Z1+UFEZxc6AiYZF4I0sX5njeR2LgXrZI=";
 
@@ -32,15 +31,12 @@ rustPlatform.buildRustPackage {
     cmake
     pkg-config
     wayland-scanner
-    # The option ROM: freestanding x86_64-unknown-windows objects, linked with
-    # lld-link, which the cc-wrapper's hardening flags would break.
+    # The option ROM links with lld-link, which the cc-wrapper's hardening flags break.
     llvmPackages.clang-unwrapped
     llvmPackages.lld
   ];
 
-  # SDL3 is built from source into the archive, Wayland-only: its Wayland check
-  # wants wayland, libxkbcommon and libGL (egl.pc included), and with libx11
-  # present it would demand every X11 extension too.
+  # SDL3 builds in Wayland-only; with libx11 present it would demand every X11 extension.
   buildInputs = [
     wayland
     libxkbcommon
@@ -52,9 +48,7 @@ rustPlatform.buildRustPackage {
 
   dontUseCmakeConfigure = true;
 
-  # metal2vulkan's build script hashes its sibling crate through the manifest's
-  # `path = "../metal2vulkan-air"`, the git checkout's name for it; the vendor
-  # directory names it by version.
+  # metal2vulkan's build script finds its sibling by the git checkout's name, not the vendored one.
   preBuild = /* bash */ ''
     git="$NIX_BUILD_TOP/$(stripHash "$cargoDeps")/source-git-0"
     chmod u+w "$git"

@@ -153,9 +153,7 @@ Popover {
             }
         }
 
-        // A sibling of the list, never a child: inside the Flickable it would
-        // centre on a content rect that is zero-high exactly when there is
-        // nothing to show.
+        // A sibling of the list: inside the Flickable it centres on a zero-high rect.
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true

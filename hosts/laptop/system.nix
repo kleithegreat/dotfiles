@@ -2,8 +2,7 @@
 
 let
   inherit (lib.attrsets) genAttrs;
-  # A Kconfig trim: parents off, and the children nixpkgs sets under them unset
-  # so its config check does not fail on them (docs/nix.md).
+  # Parents off, and the children nixpkgs sets under them unset (docs/nix.md).
   trim = { off, orphans ? [ ] }:
     genAttrs off (_: lib.mkForce lib.kernel.no) // genAttrs orphans (_: lib.mkForce lib.kernel.unset);
 in
@@ -11,8 +10,7 @@ in
   boot.initrd.availableKernelModules = [ "xhci_pci" "thunderbolt" "vmd" "nvme" "rtsx_pci_sdmmc" ];
   boot.kernelPatches = [
     {
-      # Other GPUs, and display drivers for servers and VMs. i915 drives the
-      # iGPU; xe only autoloaded for its device ID.
+      # Other GPUs and server/VM display drivers; xe only autoloaded for its device ID.
       name = "laptop-trim-gpus";
       patch = null;
       structuredExtraConfig = trim {
@@ -42,9 +40,7 @@ in
       };
     }
     {
-      # Built-in Ethernet and Wi-Fi chips this laptop lacks. USB Ethernet is not
-      # under ETHERNET; Intel, MediaTek and Realtek stay for the AX211 and the
-      # USB adapters Owly runs a second card on (docs/airdrop.md).
+      # NICs it lacks (USB Ethernet is not under ETHERNET); Intel, MediaTek, Realtek stay for the AX211 and Owly's USB card.
       name = "laptop-trim-network-chips";
       patch = null;
       structuredExtraConfig = trim {
@@ -65,8 +61,7 @@ in
       };
     }
     {
-      # Hardware no laptop carries. SCSI_LOWLEVEL is the HBAs, RAID and Fibre
-      # Channel cards; sd_mod, usb-storage and UAS sit outside it.
+      # SCSI_LOWLEVEL is HBAs, RAID and FC cards; sd_mod, usb-storage and UAS sit outside it.
       name = "laptop-trim-server-hardware";
       patch = null;
       structuredExtraConfig = trim {
@@ -79,8 +74,7 @@ in
       };
     }
     {
-      # Cluster, network and historical filesystems. Btrfs, XFS, F2FS, exFAT,
-      # NTFS, HFS+, SquashFS (AppImages) and 9P stay.
+      # Cluster, network and historical filesystems; Btrfs, XFS, F2FS, exFAT, NTFS, HFS+, SquashFS and 9P stay.
       name = "laptop-trim-filesystems";
       patch = null;
       structuredExtraConfig = trim {
@@ -202,8 +196,7 @@ in
 
   powerManagement.powertop.enable = true;
 
-  # Touchpad runtime-PM pin (docs/nix.md), colon-free GPU names (docs/nvidia.md),
-  # and the Fn-lock mode made readable once the firmware attributes exist (docs/desktopctl.md).
+  # Touchpad PM pin (docs/nix.md), colon-free GPU names (docs/nvidia.md), readable Fn-lock (docs/desktopctl.md).
   services.udev.extraRules = /* udev */ ''
     ACTION=="add|change", SUBSYSTEM=="pci", KERNEL=="0000:00:15.1", ATTR{power/control}="on"
     SUBSYSTEM=="drm", ENV{DEVTYPE}=="drm_minor", KERNEL=="card[0-9]*", SUBSYSTEMS=="pci", DRIVERS=="i915", SYMLINK+="dri/intel-gpu"
@@ -246,8 +239,7 @@ in
     serviceConfig.Restart = "always";
     script = /* bash */ ''
       apply() {
-        # 115 W is the firmware's own PL1. The MSR limit is left alone: the
-        # lower of the two applies, so the MMIO one is enough to cap.
+        # 115 W is the firmware's PL1; the lower of MMIO and MSR applies, so MMIO alone caps.
         case "$(powerprofilesctl get)" in
           power-saver) pl1=15000000 boost=0 ;;
           balanced) pl1=115000000 boost=0 ;;
@@ -298,7 +290,7 @@ in
         howdy.enable = true;
       };
     }
-    (lib.attrsets.genAttrs [ "sudo" "polkit-1" ] (service: {
+    (genAttrs [ "sudo" "polkit-1" ] (service: {
       fprintAuth = true;
       howdy.enable = true;
       # Face gives up in seconds; the reader waits 30.

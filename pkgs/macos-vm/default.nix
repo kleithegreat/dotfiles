@@ -15,8 +15,7 @@ let
     hash = "sha256-BmMWWGkNtZwEH9utoc3Mj5gGCjlgIicGsTEPxAxG7hw=";
   };
 
-  # OpenCore's boot disk and the OVMF pair are prebuilt binaries: OSX-KVM is
-  # where they come from, and only these four files are wanted out of it.
+  # OVMF and OpenCore's boot disk are prebuilt; only these files are wanted from OSX-KVM.
   bootFiles = runCommand "osx-kvm-boot-files" { } /* bash */ ''
     install -D --mode=444 --target-directory="$out" \
       ${osxKvm}/OVMF_CODE_4M.fd \
@@ -37,9 +36,7 @@ writeShellApplication {
   text = /* bash */ ''
     boot=${bootFiles}
 
-    # The guest is not reproducible and none of it lives in the store: the
-    # system disk, OpenCore's boot disk, the OVMF variable store the firmware
-    # writes to, and the recovery image all live here.
+    # Guest state, never in the store (docs/macos-vm.md).
     state="''${MACOS_VM_DIR:-$HOME/vm/macos}"
     ram="''${MACOS_VM_RAM:-8G}"
     cpus="''${MACOS_VM_CPUS:-8}"
@@ -66,8 +63,7 @@ writeShellApplication {
 
     seed() {
       mkdir --parents "$state"
-      # Both are written by the guest, so each gets a writable copy on first
-      # use. OVMF_CODE is read-only and stays in the store.
+      # The guest writes both; OVMF_CODE is read-only and stays in the store.
       [ -e "$state/OpenCore.qcow2" ] \
         || install --mode=644 "$boot/OpenCore.qcow2" "$state/OpenCore.qcow2"
       [ -e "$state/OVMF_VARS.fd" ] \
@@ -78,14 +74,11 @@ writeShellApplication {
       args=(
         -enable-kvm
         -m "$ram"
-        # The device reaches guest pages through this backend, and `share=on`
-        # is what lets the Vulkan side import them as a dma-buf instead of
-        # copying every frame.
+        # `share=on` lets the Vulkan side import guest pages as a dma-buf instead of copying frames.
         -object "memory-backend-memfd,id=reims-ram,size=$ram,share=on"
         -machine "q35,memory-backend=reims-ram"
         -cpu "Skylake-Client,-hle,-rtm,kvm=on,vendor=GenuineIntel,+invtsc,vmware-cpuid-freq=on,+ssse3,+sse4.2,+popcnt,+avx,+avx2,+aes,+xsave,+xsaveopt,check"
-        # 8 is a ceiling, not a preference: the x86 guest's kext wedges in
-        # StorageNode::init above it.
+        # A ceiling: more wedges the guest (docs/macos-vm.md).
         -smp "$cpus,cores=$cpus,sockets=1"
         -device "qemu-xhci,id=xhci"
         -device "usb-kbd,bus=xhci.0"
@@ -102,8 +95,7 @@ writeShellApplication {
         -device "ide-hd,bus=sata.2,drive=OpenCoreBoot"
         -drive "id=MacHDD,if=none,format=qcow2,file=$state/macos.qcow2"
         -device "ide-hd,bus=sata.4,drive=MacHDD"
-        # macOS keys its network profile off the MAC, so a fresh one arrives in
-        # the guest as an unconfigured second interface.
+        # Fixed: macOS keys its network profile off the MAC.
         -netdev "user,id=net0,ipv6=off,hostfwd=tcp::$port-:22"
         -device "virtio-net-pci,netdev=net0,id=net0,mac=52:54:00:c9:18:27"
         -serial mon:stdio
@@ -118,10 +110,7 @@ writeShellApplication {
     }
 
     vgpu_display() {
-      # The device carries the only display: its UEFI GOP lives on the same PCI
-      # function, and a second VGA would give the guest a second screen.
-      # Under `-display none` the library opens a window per display itself, so
-      # QEMU owns no UI.
+      # The only display (docs/macos-vm.md); under `-display none` the library opens its own windows.
       args+=(
         -vga none
         -device "apple-gfx-pci,id=gfx"
@@ -135,8 +124,7 @@ writeShellApplication {
       release="ventura"
       [ "$#" -gt 0 ] && release="$1"
       mkdir --parents "$state"
-      # The script's own menu path ignores --outdir and writes to the working
-      # directory, so the working directory is how the destination is chosen.
+      # The script's menu path ignores --outdir (docs/macos-vm.md).
       cd "$state"
       python3 "$boot/fetch-macOS.py" --shortname "$release"
       dmg=$(find "$state" -maxdepth 1 -name '*.dmg' -printf '%T@ %p\n' \
@@ -157,8 +145,7 @@ writeShellApplication {
       seed
       [ -e "$state/macos.qcow2" ] || qemu-img create --format qcow2 "$state/macos.qcow2" "$size"
       base_args
-      # The installer runs before AppleParavirtGPU exists in the guest, so it
-      # only ever gets the console device.
+      # The installer runs before AppleParavirtGPU exists in the guest.
       console_display
       args+=(
         -drive "id=InstallMedia,if=none,format=raw,file=$state/BaseSystem.img"

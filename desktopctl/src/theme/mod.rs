@@ -799,9 +799,7 @@ fn coerce_theme_value(key: &str, value: Value) -> crate::Result<Value> {
 
     if schema::ThemeState::string_field_names().contains(&key) {
         return match value {
-            Value::String(text) if !text.is_empty() => Ok(Value::String(
-                schema::canonicalize_theme_string_value(key, &text).into_owned(),
-            )),
+            Value::String(text) if !text.is_empty() => Ok(Value::String(text)),
             _ => Err(crate::invalid_input(format!("'{}' must be a non-empty string", key)).into()),
         };
     }
@@ -904,23 +902,6 @@ mod tests {
     }
 
     #[test]
-    fn mono_font_aliases_are_canonicalized() {
-        assert_eq!(
-            coerce_theme_value(
-                "mono_font",
-                Value::String("JetBrains Mono Nerd Font".to_owned())
-            )
-            .expect("valid mono font alias"),
-            Value::String("JetBrainsMono Nerd Font".to_owned())
-        );
-        assert_eq!(
-            coerce_theme_value("mono_font", Value::String("Commit Mono".to_owned()))
-                .expect("valid mono font alias"),
-            Value::String("CommitMono".to_owned())
-        );
-    }
-
-    #[test]
     fn value_rendering_matches_cli_messages() {
         assert_eq!(display_value(&Value::Bool(true)), "true");
         assert_eq!(display_value(&Value::String("Mono".to_owned())), "Mono");
@@ -979,8 +960,7 @@ mod tests {
         let _data = ScopedEnvVar::set("XDG_DATA_HOME", data_home.path().as_os_str());
         let _paths = scoped_repo_paths();
 
-        // State the precondition instead of inheriting it: dark_hint's seeded
-        // value is user data and may legitimately be either.
+        // dark_hint's seeded value is user data, so state the precondition.
         resolve::save_state_keys(&[("dark_hint", &Value::Bool(true))]).expect("seed dark_hint");
 
         let outcome =

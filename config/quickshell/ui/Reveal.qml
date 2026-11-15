@@ -1,10 +1,7 @@
 import QtQuick
 import qs
 
-// A Behavior for a property that tracks a surface being shown. The direction
-// comes from this Behavior's own target: a binding on the surface's shown flag
-// is evaluated after the Behavior starts, which plays every entrance with the
-// exit's timing and every exit with the entrance's.
+// Direction comes from this Behavior's own target ([[quickshell]]).
 Behavior {
     id: root
 

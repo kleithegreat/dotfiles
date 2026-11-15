@@ -90,10 +90,6 @@ QtObject {
 
     Component.onCompleted: refresh()
 
-    // State is pushed over the Desktopctl socket: a snapshot on subscribe and
-    // night_light.changed after every set/toggle/solar reconcile — hotkey
-    // changes included, so no poll is needed. The startup refresh is the
-    // degraded path for a daemon that is not up yet.
     readonly property Connections _events: Connections {
         target: Desktopctl
         function onNightLightChanged(status) {

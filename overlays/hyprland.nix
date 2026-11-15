@@ -1,5 +1,4 @@
-# Plugins must build against this same patched compositor or the plugin ABI
-# check rejects them; namespaced like `pkgs.optimized`.
+# Plugins must build against this same patched compositor, or the ABI check rejects them.
 { inputs }:
 
 final: _prev:
@@ -14,7 +13,7 @@ let
   guiutils =
     inputs.hyprland.inputs.hyprland-guiutils.packages.${system}.hyprland-guiutils.overrideAttrs (old: {
       buildInputs = (old.buildInputs or []) ++ [ final.pango ];
-      preConfigure = (old.preConfigure or "") + ''
+      preConfigure = (old.preConfigure or "") + /* bash */ ''
         export NIX_CFLAGS_COMPILE="$NIX_CFLAGS_COMPILE $(pkg-config --cflags pango)"
       '';
     });

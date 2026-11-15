@@ -1,9 +1,7 @@
 import QtQuick
 import qs
 
-// Continuous value control. `moved` fires throughout the gesture for live
-// preview; `committed` fires once at the end, for backends that should not be
-// driven at pointer rate.
+// `moved` fires throughout the gesture; `committed` once at its end.
 Item {
     id: root
 
@@ -13,9 +11,7 @@ Item {
     property real step: 0.05
     property bool interactive: true
     property bool pending: false
-    // Set on sliders that live inside a scroll view: Flickable steals the grab
-    // once a drag passes threshold, which silently reduces the slider to
-    // click-to-set.
+    // Inside a Scroll, or Flickable steals the grab ([[quickshell]]).
     property bool claimsDrag: true
 
     readonly property alias pressed: pointer.pressed

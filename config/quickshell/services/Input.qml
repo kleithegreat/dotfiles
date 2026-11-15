@@ -3,9 +3,6 @@ pragma Singleton
 import QtQuick
 import Quickshell.Io
 
-// Managed Hyprland input settings. QML never edits the config: every change is
-// a `desktopctl hypr input set`, staged optimistically and rolled back if the
-// backend refuses it.
 QtObject {
     id: root
 
@@ -57,16 +54,12 @@ QtObject {
 
     Component.onCompleted: refresh()
 
-    // State is pushed over the Desktopctl socket (snapshot on subscribe,
-    // hypr_input.changed per write); the startup refresh is the degraded
-    // path for a daemon that is not up yet.
     readonly property Connections _events: Connections {
         target: Desktopctl
         function onInputChanged(state) {
             root._ingest(state);
         }
-        // Fn+Esc flips the laptop's top row ([[desktopctl]]). The subscribe
-        // snapshot carries no `osd`, so a shell restart does not announce it.
+        // Fn+Esc ([[desktopctl]]); the subscribe snapshot carries no `osd`, so a restart is silent.
         function onFnLockChanged(data) {
             root.mediaKeys = data.media_keys;
             if (data.osd)

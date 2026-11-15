@@ -16,7 +16,7 @@ pub fn run() -> crate::Result<()> {
     // The Home Manager-deployed config, not the repo checkout: shell changes go live on rebuild.
     let quickshell_path = paths::xdg_config_home()?.join("quickshell");
     let mut command = Command::new("quickshell");
-    command.arg("-p").arg(quickshell_path);
+    command.arg("--path").arg(quickshell_path);
     command.env_remove("HYPRCURSOR_THEME");
 
     if let Some(value) = env_state.xcursor_theme.as_deref() {

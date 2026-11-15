@@ -5,8 +5,7 @@ import qs
 import qs.ui as Ui
 import qs.services as Sys
 
-// AirDrop's card ([[airdrop]]): an offer coming in, what it delivered, or the
-// share sheet a share goes out from.
+// AirDrop's card ([[airdrop]]).
 Card {
     id: root
 
@@ -143,8 +142,6 @@ Card {
         Repeater {
             model: root.share?.receivers ?? []
 
-            // One nearby device: its initials in a circle that fills as the
-            // share goes to it, its name, and how sending is going.
             Ui.Pressable {
                 id: receiver
 
