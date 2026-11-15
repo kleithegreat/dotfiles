@@ -1,4 +1,4 @@
-{ owly }:
+{ inputs }:
 
 final: prev: {
   bend2-lsp = final.callPackage ../pkgs/bend2-lsp { };
@@ -21,7 +21,10 @@ final: prev: {
     '';
   };
   dd-cli = final.callPackage ../pkgs/dd-cli { };
-  desktopctl = final.callPackage ../desktopctl { inherit owly; };
+  desktopctl = final.callPackage ../desktopctl {
+    inherit (inputs) owly;
+    craneLib = inputs.crane.mkLib final;
+  };
   helium = final.callPackage ../pkgs/helium { };
   kernel-oom-notifier = final.callPackage ../pkgs/kernel-oom-notifier { };
   linux-devmgmt = final.callPackage ../pkgs/linux-devmgmt { };

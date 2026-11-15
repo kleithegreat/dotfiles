@@ -1,19 +1,24 @@
-{ lib, rustPlatform, makeWrapper, pkg-config, sqlite, coreutils, geoclue2-with-demo-agent, owly }:
+{ lib, craneLib, makeWrapper, pkg-config, sqlite, coreutils, geoclue2-with-demo-agent, owly }:
 
-rustPlatform.buildRustPackage {
-  pname = "desktopctl";
-  version = "0.1.0";
-
-  src = ./.;
-  cargoLock.lockFile = ./Cargo.lock;
-
-  nativeBuildInputs = [ makeWrapper pkg-config ];
-  buildInputs = [ sqlite ];
-
+let
   # `.owly` is the flake's owly input, so flake.lock is owly's only pin.
-  postUnpack = /* bash */ ''
+  common = {
+    src = craneLib.cleanCargoSource ./.;
+    strictDeps = true;
+    nativeBuildInputs = [ pkg-config ];
+    buildInputs = [ sqlite ];
+    postUnpack = /* bash */ ''
+      ln --symbolic ${owly} $sourceRoot/.owly
+    '';
+  };
+in
+craneLib.buildPackage (common // {
+  cargoArtifacts = craneLib.buildDepsOnly common;
+
+  nativeBuildInputs = common.nativeBuildInputs ++ [ makeWrapper ];
+
+  postUnpack = common.postUnpack + /* bash */ ''
     cp --recursive ${../styling} $sourceRoot/../styling
-    ln --symbolic ${owly} $sourceRoot/.owly
   '';
 
   postInstall = /* bash */ ''
@@ -22,7 +27,8 @@ rustPlatform.buildRustPackage {
     # authoring against a checkout. Wallpapers are deliberately absent: they
     # are gitignored user assets and resolve through DESKTOPCTL_REPO.
     mkdir --parents "$out/share/desktopctl/styling"
-    cp --recursive \
+    # Writable: crane rewrites every installed file to drop toolchain references.
+    cp --recursive --no-preserve=mode \
       ../styling/colors ../styling/bases ../styling/state.json \
       "$out/share/desktopctl/styling/"
 
@@ -37,4 +43,4 @@ rustPlatform.buildRustPackage {
     mainProgram = "desktopctl";
     platforms = platforms.linux;
   };
-}
+})

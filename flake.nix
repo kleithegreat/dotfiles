@@ -43,6 +43,7 @@
       url = "github:Gerg-L/spicetify-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    crane.url = "github:ipetkov/crane";
     owly = {
       url = "github:t4t5/owly";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -93,7 +94,7 @@
       # Host-independent packages only.
       overlays.default =
         final: prev:
-        import ./overlays/local-packages.nix { inherit (inputs) owly; } final prev
+        import ./overlays/local-packages.nix { inherit inputs; } final prev
         // import ./overlays/claude-code.nix { inherit (inputs) nixpkgs-claude; } final prev;
 
       nixosConfigurations =

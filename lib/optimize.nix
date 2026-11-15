@@ -1,5 +1,6 @@
 { self }:
 let
+  inherit (self.attrsets) optionalAttrs;
   inherit (self.lists) filter unique;
   inherit (self.strings) concatStringsSep;
 in
@@ -28,15 +29,22 @@ in
         if !enabled then
           drv
         else
-          drv.overrideAttrs (old: {
-            requiredSystemFeatures = unique ((old.requiredSystemFeatures or [ ]) ++ [ hostFeature ]);
-            env = (old.env or { }) // {
-              ${name} = joinFlags [
-                (existingFlags old name)
-                (joinFlags flags)
-              ];
-            };
-          });
+          drv.overrideAttrs (
+            old:
+            {
+              requiredSystemFeatures = unique ((old.requiredSystemFeatures or [ ]) ++ [ hostFeature ]);
+              env = (old.env or { }) // {
+                ${name} = joinFlags [
+                  (existingFlags old name)
+                  (joinFlags flags)
+                ];
+              };
+            }
+            # crane's prebuilt dependencies need the same flags, or cargo rebuilds them all.
+            // optionalAttrs (old.cargoArtifacts or null != null) {
+              cargoArtifacts = optimizer name flags old.cargoArtifacts;
+            }
+          );
     in
     {
       inherit enabled hostFeature;
