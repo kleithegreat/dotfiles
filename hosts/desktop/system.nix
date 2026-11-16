@@ -121,6 +121,11 @@
   nix.settings.builders-use-substitutes = true;
   # nix key generate-secret --key-name desktop-builds-1
   nix.settings.secret-key-files = [ "/etc/nix/desktop-builds.sec" ];
+  # The key signs only what this PC builds; an output a builder sends back must be signed too, or the next builder
+  # that needs it as an input rejects it.
+  nix.settings.post-build-hook = pkgs.writeShellScript "sign-outputs" ''
+    exec ${config.nix.package}/bin/nix store sign --key-file /etc/nix/desktop-builds.sec $OUT_PATHS
+  '';
   nix.buildMachines = map (m: m // {
     protocol = "ssh-ng";
     sshUser = "nixremote";
