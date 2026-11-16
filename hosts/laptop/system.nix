@@ -175,11 +175,8 @@ in
     };
   };
   services.xserver.videoDrivers = [ "modesetting" "nvidia" ];
-  # One boot entry per panel overclock until a rate wins (TODO.md).
   hardware.display.edid.packages = [ pkgs.laptop-panel-edid ];
-  specialisation = genAttrs pkgs.laptop-panel-edid.names (name: {
-    configuration.hardware.display.outputs.eDP-1.edid = "${name}.bin";
-  });
+  hardware.display.outputs.eDP-1.edid = "panel.bin";
   # Interim: drops nixpkgs' eager nvidia_uvm, which udev now loads; see docs/nvidia.md.
   environment.etc."modules-load.d/nixos.conf".source = lib.mkForce (
     config.boot.kernelModules

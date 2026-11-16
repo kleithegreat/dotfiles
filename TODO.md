@@ -10,11 +10,6 @@ Open issues and pending validations. Delete entries when resolved.
 
 ## Pending validation (needs real hardware / live session)
 
-- [ ] Laptop panel overclock: boot each `panel-*hz` GRUB entry and check
-      testufo.com/frameskipping with a slow-shutter photo. Make the highest
-      clean rate the only EDID with no specialisation, or delete
-      `pkgs/laptop-panel-edid` and its config if none holds.
-
 - [ ] Fn lock on the laptop: the bar shows a keyboard while media keys are
       on, from login onward, and none in function-keys mode or on the desktop.
 - [ ] Session restore on demand: turn "Restore windows at login" off,

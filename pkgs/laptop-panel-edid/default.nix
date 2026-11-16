@@ -1,11 +1,12 @@
 { lib, runCommand }:
 
 let
-  inherit (lib.lists) drop foldl' take;
-  inherit (lib.strings) concatMapStrings concatMapStringsSep fixedWidthString replaceStrings splitString trim;
+  inherit (lib.lists) concatMap drop foldl' length replicate take;
+  inherit (lib.strings) concatMapStrings fixedWidthString replaceStrings splitString trim;
   inherit (lib.trivial) fromHexString mod toHexString;
 
-  refreshRates = [ 65 70 75 ];
+  # 68 Hz is the panel's limit; past 70 Hz i915 would also drop every mode to 6 bpc.
+  overclocks = [ 68 ];
 
   # The LG LP156WU1's own EDID, checksum byte dropped.
   panel = ''
@@ -23,18 +24,22 @@ let
     |> splitString " "
     |> map fromHexString;
 
-  # Bytes 54–55 hold the preferred timing's pixel clock in 10 kHz units; its frame is 2080 × 1235.
-  edid = hz:
-    let
-      clock = (2080 * 1235 * hz + 5000) / 10000;
-      bytes = take 54 panel ++ [ (mod clock 256) (clock / 256) ] ++ drop 56 panel;
-      checksum = mod (256 - mod (foldl' builtins.add 0 bytes) 256) 256;
-    in
-    bytes ++ [ checksum ] |> concatMapStrings (byte: "\\x" + fixedWidthString 2 "0" (toHexString byte));
+  # i915 offers only rates whose timing matches the preferred one but for the pixel clock.
+  factoryTiming = take 18 (drop 54 panel);
+  timingAt = hz:
+    let clock = (2080 * 1235 * hz + 5000) / 10000;
+    in [ (mod clock 256) (clock / 256) ] ++ drop 2 factoryTiming;
 
-  name = hz: "panel-${toString hz}hz";
+  checksummed = bytes: bytes ++ [ (mod (256 - mod (foldl' builtins.add 0 bytes) 256) 256) ];
+
+  base = take 126 panel ++ [ 1 ] |> checksummed;
+  # CTA-861 revision 3, underscanned, no data blocks: timings start at byte 4.
+  extension = [ 2 3 4 128 ] ++ concatMap timingAt overclocks
+    |> (bytes: bytes ++ replicate (127 - length bytes) 0)
+    |> checksummed;
 in
-runCommand "laptop-panel-edid" { passthru.names = map name refreshRates; } /* bash */ ''
+runCommand "laptop-panel-edid" { } /* bash */ ''
   mkdir --parents "$out/lib/firmware/edid"
-  ${concatMapStringsSep "\n" (hz: "printf '%b' '${edid hz}' > \"$out/lib/firmware/edid/${name hz}.bin\"") refreshRates}
+  printf '%b' '${base ++ extension |> concatMapStrings (byte: "\\x" + fixedWidthString 2 "0" (toHexString byte))}' \
+    > "$out/lib/firmware/edid/panel.bin"
 ''
