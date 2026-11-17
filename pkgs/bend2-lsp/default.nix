@@ -7,13 +7,13 @@
 
 buildNpmPackage {
   pname = "bend2-lsp";
-  version = "0.2.0-unstable-2026-11-09";
+  version = "0.2.0-unstable-2026-11-15";
 
   src = fetchFromGitHub {
     owner = "don2e4";
     repo = "bend2-lsp";
-    rev = "b79e6a5f7c36011205f8a90decc5e64139dfffce";
-    hash = "sha256-Yd1H2auLZ1ocunB9m66yqWZsGwIoo6M5CHjEk+Z71IA=";
+    rev = "382936b01d92576d8c9a64626b5118d7b6643e25";
+    hash = "sha256-G/+j4l8krzar4hN2Hs7i94ylChQyj0alb7zg5uojwwc=";
   };
 
   npmDepsHash = "sha256-dzm7k/L8rCJyZFZcoGV4aMjSzZcGJ22D2j4azit/ybM=";
