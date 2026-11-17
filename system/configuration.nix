@@ -99,6 +99,8 @@ in
 
   networking.hostName = host.name;
   networking.networkmanager.enable = true;
+  # iwlwifi powersave measured 30% loss and up to 1.2s RTT to the first hop on an idle link.
+  networking.networkmanager.wifi.powersave = false;
 
   # ── Hyprland ─────────────────────────────────────────────────
   programs.hyprland = {

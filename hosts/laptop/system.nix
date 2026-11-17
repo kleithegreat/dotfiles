@@ -338,10 +338,6 @@ in
     });
   '';
 
-  # ── Wi-Fi power management ──────────────────────────────────
-  # iwlwifi powersave measured 30% loss and up to 1.2s RTT to the first hop on an idle link.
-  networking.networkmanager.wifi.powersave = false;
-
   # ── Cornell eduroam ─────────────────────────────────────────
   networking.networkmanager.ensureProfiles = {
     environmentFiles = [ "/etc/nm-secrets/eduroam.env" ];
