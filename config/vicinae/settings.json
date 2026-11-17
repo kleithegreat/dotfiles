@@ -13,6 +13,11 @@
           "/etc/profiles/per-user/kevin/share/applications"
         ]
       }
+    },
+    "files": {
+      "preferences": {
+        "autoIndexing": false
+      }
     }
   }
 }
