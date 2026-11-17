@@ -49,9 +49,7 @@ Open issues and pending validations. Delete entries when resolved.
 - [ ] Laptop power-saver on battery (`docs/laptop-power.md`): compare idle
       package power and battery draw against the old `e-core-only` (before
       56c2f99); if lavd loses clearly, that is the case for bringing it back.
-      `intel-rapl:0/energy_uj` is world-readable, so no turbostat or sudo is
-      needed; `BAT0` has no `power_now`, so draw is `current_now` ×
-      `voltage_now`.
+      `power_samples` in `desktopctl.db` records both, tagged by profile.
 
 - [ ] Desktop heater: after a switch, toggle Heater mode from the Power pane
       and confirm Quickshell menus stay responsive while both miners run.

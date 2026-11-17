@@ -5,6 +5,7 @@ pub mod focus;
 pub mod hypr;
 pub mod monitors;
 pub mod night_light;
+pub mod power;
 pub mod server;
 pub mod session;
 pub mod solar;
@@ -58,9 +59,23 @@ async fn run_async() -> crate::Result<()> {
     );
 
     let mut auxiliary = JoinSet::new();
+    let attributed_class = Arc::new(Mutex::new(String::new()));
     {
         let shutdown = Arc::clone(&shutdown);
-        auxiliary.spawn_blocking(move || ("focus tracker", focus::run(shutdown)));
+        let attributed_class = Arc::clone(&attributed_class);
+        auxiliary.spawn_blocking(move || ("focus tracker", focus::run(shutdown, attributed_class)));
+    }
+    let power_history = power::PowerHistory::default();
+    if let Some(sources) = power::Sources::discover() {
+        let history = power_history.clone();
+        let events = events.clone();
+        let shutdown_rx = shutdown_rx.clone();
+        auxiliary.spawn(async move {
+            (
+                "power sampler",
+                power::run(sources, attributed_class, history, events, shutdown_rx).await,
+            )
+        });
     }
     {
         let shutdown = Arc::clone(&shutdown);
@@ -132,6 +147,7 @@ async fn run_async() -> crate::Result<()> {
             hypr: hypr.clone(),
             session,
             brightness: brightness::BrightnessController::new(events.clone()),
+            power: power_history,
             events: events.clone(),
         };
         let shutdown_rx = shutdown_rx.clone();

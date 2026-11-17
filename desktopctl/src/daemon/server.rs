@@ -5,6 +5,7 @@ use crate::{
         brightness::BrightnessController,
         hypr::HyprController,
         night_light::Controller,
+        power::PowerHistory,
         session::SessionController,
         theme::{ThemeController, ThemeJob},
     },
@@ -75,6 +76,7 @@ pub struct ServerContext {
     pub hypr: HyprController,
     pub session: SessionController,
     pub brightness: BrightnessController,
+    pub power: PowerHistory,
     pub events: Events,
 }
 
@@ -613,6 +615,10 @@ async fn push_snapshots<W: AsyncWrite + Unpin>(
             "session" => to_value(context.session.status()),
             "airpods" => to_value(context.airpods.status()),
             "airdrop" => to_value(context.airdrop.status()),
+            "power" => match context.power.latest() {
+                Some(summary) => Ok(summary),
+                None => continue,
+            },
             // Absent on hosts without the firmware attribute, so no indicator there.
             "fn_lock" => to_value(
                 crate::fn_lock::media_keys()
@@ -802,6 +808,7 @@ mod tests {
             hypr: HyprController::new(events.clone()),
             session: SessionController::new(Default::default(), events.clone()),
             brightness: BrightnessController::new(events.clone()),
+            power: Default::default(),
             events,
         }
     }
@@ -920,20 +927,7 @@ mod tests {
     // Unit-level: a full subscribe would run real DDC enumeration.
     #[test]
     fn resolve_topics_defaults_to_every_topic_and_drops_unknown_ones() {
-        assert_eq!(
-            resolve_topics(Vec::new()),
-            vec![
-                "theme",
-                "night_light",
-                "brightness",
-                "hypr_input",
-                "hypr_monitors",
-                "session",
-                "airpods",
-                "airdrop",
-                "fn_lock"
-            ]
-        );
+        assert_eq!(resolve_topics(Vec::new()), ipc::TOPICS);
         assert_eq!(
             resolve_topics(vec!["night_light".to_owned(), "bogus".to_owned()]),
             vec!["night_light"]

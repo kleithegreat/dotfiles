@@ -83,6 +83,10 @@ pub(crate) struct MonitorInfo {
     serial: String,
     #[serde(default)]
     pub(crate) disabled: bool,
+    #[serde(rename = "dpmsStatus", default)]
+    pub(crate) dpms_status: bool,
+    #[serde(rename = "refreshRate", default)]
+    pub(crate) refresh_rate: f64,
     #[serde(default)]
     focused: bool,
     #[serde(default)]

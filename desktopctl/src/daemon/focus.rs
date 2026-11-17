@@ -17,7 +17,8 @@ use std::{
 const LOCKED_CLASS: &str = "__locked__";
 const EXCLUDED_CLASSES: [&str; 3] = ["", "Desktop", "Quickshell"];
 
-pub fn run(shutdown: Arc<AtomicBool>) -> crate::Result<()> {
+/// `attributed_class` receives the class each second is credited to.
+pub fn run(shutdown: Arc<AtomicBool>, attributed_class: Arc<Mutex<String>>) -> crate::Result<()> {
     let current_class = Arc::new(Mutex::new(get_active_class()));
     let listener_class = Arc::clone(&current_class);
     let listener_shutdown = Arc::clone(&shutdown);
@@ -54,11 +55,11 @@ pub fn run(shutdown: Arc<AtomicBool>) -> crate::Result<()> {
             }
         }
 
-        if locked {
-            accumulate(&connection, LOCKED_CLASS, &now)?;
-        } else if !class_name.is_empty() {
-            accumulate(&connection, &class_name, &now)?;
+        let credited = if locked { LOCKED_CLASS } else { &class_name };
+        if !credited.is_empty() {
+            accumulate(&connection, credited, &now)?;
         }
+        set_current_class(&attributed_class, credited.to_owned());
 
         write_summary(&connection, &resolver, &class_name, locked, &now)?;
 
@@ -414,12 +415,12 @@ fn signum(numerator: i64, denominator: i64) -> i64 {
     }
 }
 
-struct DesktopResolver {
+pub(crate) struct DesktopResolver {
     entries: HashMap<String, (String, String)>,
 }
 
 impl DesktopResolver {
-    fn load() -> Self {
+    pub(crate) fn load() -> Self {
         let mut data_dirs = Vec::new();
         if let Ok(path) = paths::xdg_data_home() {
             data_dirs.push(path);
@@ -451,7 +452,7 @@ impl DesktopResolver {
         Self { entries }
     }
 
-    fn resolve(&self, window_class: &str) -> (String, String) {
+    pub(crate) fn resolve(&self, window_class: &str) -> (String, String) {
         self.entries
             .get(&window_class.to_ascii_lowercase())
             .cloned()

@@ -31,6 +31,18 @@ QtObject {
 
     readonly property bool low: present && !charging && percent <= 15
 
+    // ── History ────────────────────────────────────────────────────────────
+
+    // The daemon's last 24 hours ([[laptop-power]]); empty without a battery.
+    property var history: ({})
+
+    readonly property Connections _history: Connections {
+        target: Desktopctl
+        function onPowerChanged(history) {
+            root.history = history;
+        }
+    }
+
     // ── Profile ────────────────────────────────────────────────────────────
 
     property string reported: "unknown"
