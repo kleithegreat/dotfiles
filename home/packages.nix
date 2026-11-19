@@ -96,8 +96,13 @@ in
     chatgpt
     claude-desktop
     comfyui
-    # The AirDrop context-menu entry ([[airdrop]]).
-    (helium.override { commandLineArgs = [ "--load-extension=${../desktopctl/browser}" ]; })
+    (helium.override {
+      commandLineArgs = [
+        # The AirDrop context-menu entry ([[airdrop]]).
+        "--load-extension=${../desktopctl/browser}"
+        "--disk-cache-size=536870912"
+      ];
+    })
     imv
     nautilus
     glib # gsettings and gdk-pixbuf: Nautilus thumbnails fail without them
