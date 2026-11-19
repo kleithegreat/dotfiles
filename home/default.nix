@@ -1,10 +1,15 @@
-{ config, pkgs, lib, ... }:
+{ pkgs, lib, ... }:
 
 let
   heliumExtensionFiles =
-    config.programs.chromium.extensions
-    |> map (extension: {
-      name = ".config/net.imput.helium/External Extensions/${extension.id}.json";
+    [
+      "nngceckbapebfimnlniiiahkandclblb"
+      "nkbihfbeogaeaoehlefnkodbefgpgknn"
+      "bfnaelmomeimhlpmgjnjophhpkkoljpa"
+      "fcoeoabgfenejglbffodgkkbkcdhcgfn"
+    ]
+    |> map (id: {
+      name = ".config/net.imput.helium/External Extensions/${id}.json";
       value.text = builtins.toJSON {
         external_update_url = "https://clients2.google.com/service/update2/crx?prodversion=${pkgs.helium.chromiumVersion}";
       };
@@ -38,16 +43,6 @@ in
 
   programs.git.settings.credential.helper =
     lib.getExe' pkgs.gitFull "git-credential-libsecret";
-
-  programs.chromium = {
-    enable = true;
-    extensions = [
-      "nngceckbapebfimnlniiiahkandclblb"
-      "nkbihfbeogaeaoehlefnkodbefgpgknn"
-      "bfnaelmomeimhlpmgjnjophhpkkoljpa"
-      "fcoeoabgfenejglbffodgkkbkcdhcgfn"
-    ];
-  };
 
   home.file = heliumExtensionFiles // {
     ".config/net.imput.helium/NativeMessagingHosts/com.anthropic.claude_code_browser_extension.json".text =
