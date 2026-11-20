@@ -1,6 +1,5 @@
 //! Same-family appearance-pair resolution shared by targets that need the
-//! light/dark counterpart of the active color scheme (gtk, qt, gtksourceview,
-//! vicinae).
+//! light/dark counterpart of the active color scheme (gtksourceview, vicinae).
 
 use crate::theme::{
     resolve,

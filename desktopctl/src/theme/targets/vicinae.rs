@@ -257,9 +257,8 @@ mod tests {
         );
     }
 
-    /// Vicinae reads the system appearance itself and can disagree with the
-    /// `dark_hint` that qt and gtk follow, so neither slot is allowed to name a
-    /// theme other than the one the desktop is actually presenting.
+    /// Vicinae reads the system appearance itself, which is the browser's
+    /// `dark_hint`, so neither slot may name a theme other than the selected one.
     #[test]
     fn generate_pins_both_slots_to_the_selected_scheme() {
         let _lock = env_lock();
@@ -280,9 +279,7 @@ mod tests {
         );
     }
 
-    /// The launcher shows what was selected. `dark_hint` swaps the system
-    /// chrome to a same-family variant; it does not get to overrule an
-    /// explicit scheme choice here.
+    /// The launcher shows what was selected; `dark_hint` belongs to the browser.
     #[test]
     fn generate_ignores_dark_hint_in_favour_of_the_selected_scheme() {
         let _lock = env_lock();

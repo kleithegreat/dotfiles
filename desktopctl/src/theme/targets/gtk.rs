@@ -1,9 +1,9 @@
-use super::{Target, scheme_pair};
+use super::Target;
 use crate::theme::{
     atomic_write, color,
     command::{GNOME_INTERFACE_DCONF_DIR, dconf_write},
     expand_user_path,
-    schema::{ColorScheme, ColorSchemeAppearance, ThemeState},
+    schema::{ColorScheme, ThemeState},
 };
 use std::fmt::Write as _;
 
@@ -31,14 +31,15 @@ pub const TARGET: Target = Target::hooks(
 .persist(persist)
 .on_apply(on_apply);
 
-fn gtk_theme(state: &ThemeState) -> &'static str {
-    if state.dark_hint {
+fn gtk_theme(colors: &ColorScheme) -> &'static str {
+    if colors.is_dark() {
         DARK_THEME
     } else {
         LIGHT_THEME
     }
 }
 
+/// The portal's `color-scheme`: the browser's `dark_hint`, not the scheme's polarity.
 fn color_preference(state: &ThemeState) -> &'static str {
     if state.dark_hint {
         "prefer-dark"
@@ -70,6 +71,7 @@ fn named_colors(colors: &ColorScheme) -> Vec<(&'static str, String)> {
         ("headerbar_bg_color", chrome()),
         ("headerbar_backdrop_color", chrome()),
         ("headerbar_fg_color", fg()),
+        ("headerbar_border_color", fg()),
         ("sidebar_bg_color", chrome()),
         ("sidebar_backdrop_color", chrome()),
         ("sidebar_fg_color", fg()),
@@ -87,24 +89,107 @@ fn named_colors(colors: &ColorScheme) -> Vec<(&'static str, String)> {
     ]
 }
 
-fn define_colors(colors: &ColorScheme, indent: &str) -> String {
+/// libadwaita clamps a fill colour to this lightness for standalone text.
+fn standalone_lightness(colors: &ColorScheme) -> &'static str {
+    if colors.is_dark() {
+        "max(l, 0.85)"
+    } else {
+        "min(l, 0.5)"
+    }
+}
+
+/// Everything libadwaita's `@media (prefers-color-scheme: dark)` blocks
+/// change, set from the scheme's own appearance. The portal preference those
+/// blocks follow is the browser's, so any value left out here leaks it.
+fn appearance_colors(colors: &ColorScheme) -> Vec<(&'static str, String)> {
+    let dark = colors.is_dark();
+    let pick = |light: &str, dark_value: &str| if dark { dark_value } else { light }.to_owned();
+    let lightness = standalone_lightness(colors);
+    let standalone = |role: &str| format!("oklab(from @{role}_bg_color {lightness} a b)");
+    vec![
+        ("accent_color", standalone("accent")),
+        ("destructive_color", standalone("destructive")),
+        ("success_color", standalone("success")),
+        ("warning_color", standalone("warning")),
+        ("error_color", standalone("error")),
+        (
+            "headerbar_shade_color",
+            pick("RGB(0 0 6 / 12%)", "RGB(0 0 6 / 36%)"),
+        ),
+        (
+            "headerbar_darker_shade_color",
+            pick("RGB(0 0 6 / 12%)", "RGB(0 0 12 / 90%)"),
+        ),
+        (
+            "sidebar_shade_color",
+            pick("RGB(0 0 6 / 7%)", "RGB(0 0 6 / 25%)"),
+        ),
+        (
+            "sidebar_border_color",
+            pick("RGB(0 0 6 / 7%)", "RGB(0 0 6 / 36%)"),
+        ),
+        (
+            "secondary_sidebar_shade_color",
+            pick("RGB(0 0 6 / 7%)", "RGB(0 0 6 / 25%)"),
+        ),
+        (
+            "secondary_sidebar_border_color",
+            pick("RGB(0 0 6 / 7%)", "RGB(0 0 6 / 36%)"),
+        ),
+        (
+            "card_shade_color",
+            pick("RGB(0 0 6 / 7%)", "RGB(0 0 6 / 36%)"),
+        ),
+        (
+            "popover_shade_color",
+            pick("RGB(0 0 6 / 7%)", "RGB(0 0 6 / 25%)"),
+        ),
+        ("shade_color", pick("RGB(0 0 6 / 7%)", "RGB(0 0 6 / 25%)")),
+        (
+            "scrollbar_outline_color",
+            pick("white", "RGB(0 0 12 / 95%)"),
+        ),
+    ]
+}
+
+fn define_colors(defines: &[(&str, String)]) -> String {
     let mut css = String::new();
-    for (name, value) in named_colors(colors) {
-        writeln!(css, "{indent}@define-color {name} {value};").expect("writing to a String");
+    for (name, value) in defines {
+        writeln!(css, "@define-color {name} {value};").expect("writing to a String");
     }
     css
 }
 
-/// Both appearances in one file, so libadwaita follows a polarity flip live.
-fn gtk4_css(light: &ColorScheme, dark: &ColorScheme) -> String {
+/// The user provider outranks libadwaita, so these hold at either portal preference.
+fn gtk4_css(colors: &ColorScheme) -> String {
+    let dark = colors.is_dark();
+    let mut defines = named_colors(colors);
+    defines.extend(appearance_colors(colors));
     format!(
-        "{}\n@media (prefers-color-scheme: dark) {{\n{}}}\n",
-        define_colors(light, ""),
-        define_colors(dark, "  "),
+        concat!(
+            "{}\n",
+            ":root {{\n",
+            "  --standalone-color-oklab: {} a b;\n",
+            "  --active-toggle-bg-color: {};\n",
+            "  --active-toggle-fg-color: {};\n",
+            "  --overview-bg-color: {};\n",
+            "  --overview-fg-color: {};\n",
+            "}}\n",
+        ),
+        define_colors(&defines),
+        standalone_lightness(colors),
+        if dark {
+            "rgb(255 255 255 / 20%)"
+        } else {
+            &colors.bg
+        },
+        colors.fg,
+        colors.bg_dim,
+        colors.fg,
     )
 }
 
-fn settings_ini(state: &ThemeState) -> crate::Result<String> {
+fn settings_ini(colors: &ColorScheme, state: &ThemeState) -> crate::Result<String> {
     Ok(format!(
         concat!(
             "[Settings]\n",
@@ -113,40 +198,35 @@ fn settings_ini(state: &ThemeState) -> crate::Result<String> {
             "gtk-font-name={} {}\n",
             "gtk-application-prefer-dark-theme={}\n",
         ),
-        gtk_theme(state),
+        gtk_theme(colors),
         state.icon_theme,
         state.system_font,
         state.font_size_for(TARGET.name)?,
-        if state.dark_hint { "true" } else { "false" },
+        colors.is_dark(),
     ))
 }
 
 pub fn persist(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
-    let light = scheme_pair::colors_for_appearance(colors, ColorSchemeAppearance::Light)?;
-    let dark = scheme_pair::colors_for_appearance(colors, ColorSchemeAppearance::Dark)?;
-
+    atomic_write(&expand_user_path(GTK4_CSS)?, gtk4_css(colors).as_bytes())?;
     atomic_write(
-        &expand_user_path(GTK4_CSS)?,
-        gtk4_css(&light, &dark).as_bytes(),
+        &expand_user_path(&format!(
+            "~/.local/share/themes/{}/gtk-3.0/colors.css",
+            gtk_theme(colors)
+        ))?,
+        define_colors(&named_colors(colors)).as_bytes(),
     )?;
-    for (theme, colors) in [(LIGHT_THEME, &light), (DARK_THEME, &dark)] {
-        atomic_write(
-            &expand_user_path(&format!("~/.local/share/themes/{theme}/gtk-3.0/colors.css"))?,
-            define_colors(colors, "").as_bytes(),
-        )?;
-    }
 
-    let contents = settings_ini(state)?;
+    let contents = settings_ini(colors, state)?;
     for path in [GTK3_SETTINGS, GTK4_SETTINGS] {
         atomic_write(&expand_user_path(path)?, contents.as_bytes())?;
     }
     Ok(())
 }
 
-pub fn on_apply(_colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
+pub fn on_apply(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
     let font = |family: &str, size: i64| format!("'{family} {size}'");
     for (key, value) in [
-        ("gtk-theme", format!("'{}'", gtk_theme(state))),
+        ("gtk-theme", format!("'{}'", gtk_theme(colors))),
         ("color-scheme", format!("'{}'", color_preference(state))),
         (
             "font-name",
@@ -172,15 +252,13 @@ mod tests {
     };
 
     #[test]
-    fn gtk4_css_puts_dark_colors_under_the_media_query() {
-        let light = load_repo_colors("gruvbox-light");
-        let dark = load_repo_colors("gruvbox-dark");
-        let css = gtk4_css(&light, &dark);
-        let (top, media) = css
-            .split_once("@media (prefers-color-scheme: dark)")
-            .expect("dark block present");
-        assert!(top.contains(&format!("@define-color view_bg_color {};", light.bg)));
-        assert!(media.contains(&format!("@define-color view_bg_color {};", dark.bg)));
+    fn gtk4_css_never_depends_on_the_portal_preference() {
+        let colors = load_repo_colors("gruvbox-dark");
+        let css = gtk4_css(&colors);
+        assert!(!css.contains("prefers-color-scheme"));
+        assert!(css.contains(&format!("@define-color view_bg_color {};", colors.bg)));
+        assert!(css.contains("max(l, 0.85)"));
+        assert!(gtk4_css(&load_repo_colors("gruvbox-light")).contains("min(l, 0.5)"));
     }
 
     #[test]

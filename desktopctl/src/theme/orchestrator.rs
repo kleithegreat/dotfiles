@@ -391,12 +391,12 @@ mod tests {
     }
 
     #[test]
-    fn dark_hint_targets_only_gui_toolkits() {
+    fn dark_hint_targets_only_the_portal_preference() {
         let targets = targets_for_key("dark_hint", None)
             .into_iter()
             .collect::<Vec<_>>();
 
-        assert_eq!(targets, vec!["gtk".to_owned(), "qt".to_owned()]);
+        assert_eq!(targets, vec!["gtk".to_owned()]);
     }
 
     #[test]

@@ -7,8 +7,9 @@
   `hyprsunset`; everything else asks through `desktopctl night-light`.
 - The override mode (`auto`/`on`/`off`) is in-memory on purpose: a restart
   returns to `auto`. Don't persist it.
-- `hyprsunset` runs at 4500K from sunset to sunrise; `dark_hint` turns on at
-  23:00 and off at 06:00 as one-shot edges, never reapplied inside a window.
+- `hyprsunset` runs at 4500K from sunset to sunrise; `dark_hint` (the
+  browser's polarity only, [[theming]]) turns on at 23:00 and off at 06:00 as
+  one-shot edges, never reapplied inside a window.
 - A manual `dark_hint` write wins until the next edge. Edges route through the
   theme queue like any mutation. A once-per-boot catch-up applies the schedule
   only when no manual write is recorded for the current window; it depends on

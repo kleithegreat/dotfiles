@@ -1,9 +1,9 @@
-use super::{Target, scheme_pair};
+use super::Target;
 use crate::theme::{
     atomic_write, color,
     command::run,
     expand_user_path,
-    schema::{ColorScheme, ColorSchemeAppearance, ThemeState},
+    schema::{ColorScheme, ThemeState},
 };
 use std::{fs, path::Path};
 
@@ -11,7 +11,6 @@ pub const TARGET: Target = Target::hooks(
     "qt",
     &[
         "color_scheme",
-        "dark_hint",
         "system_font",
         "mono_font",
         "icon_theme",
@@ -33,16 +32,9 @@ const PALETTE_CHANGED: &str = "0";
 const ICON_CHANGED: &str = "4";
 
 pub fn persist(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
-    let appearance = if state.dark_hint {
-        ColorSchemeAppearance::Dark
-    } else {
-        ColorSchemeAppearance::Light
-    };
-    let colors = scheme_pair::colors_for_appearance(colors, appearance)?;
-
-    update_kdeglobals(&colors, state)?;
-    sync_ktexteditor_config(&expand_user_path(KATERC)?, &colors, true)?;
-    sync_ktexteditor_config(&expand_user_path(KWRITERC)?, &colors, false)?;
+    update_kdeglobals(colors, state)?;
+    sync_ktexteditor_config(&expand_user_path(KATERC)?, colors, true)?;
+    sync_ktexteditor_config(&expand_user_path(KWRITERC)?, colors, false)?;
     Ok(())
 }
 

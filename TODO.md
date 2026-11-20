@@ -52,9 +52,10 @@ Open issues and pending validations. Delete entries when resolved.
       `power_samples` in `desktopctl.db` records both, tagged by profile.
 
 - [ ] Theming after the move to KDE's platform theme (`docs/theming.md`):
-      with Dolphin and Nautilus open, switch scheme and toggle dark; Dolphin
-      recolors in place, Nautilus follows the flip live and the new scheme
-      after a relaunch, and the polkit prompt matches without a restart.
+      with Dolphin and Nautilus open, switch scheme; Dolphin recolors in
+      place, Nautilus after a relaunch, and the polkit prompt matches without
+      a restart. Toggling dark changes Helium only; Dolphin and Nautilus keep
+      the scheme.
 
 - [ ] Desktop heater: after a switch, toggle Heater mode from the Power pane
       and confirm Quickshell menus stay responsive while both miners run.

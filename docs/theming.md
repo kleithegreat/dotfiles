@@ -16,6 +16,10 @@
   fanout when `filter_wallpaper` is false.
 - Presets are partial patches and runtime state, never in `styling/`. A
   mutation that changes `color_scheme` keeps `dark_hint` unless it sets it.
+- `dark_hint` is the browser's polarity and nothing else: a light Helium over
+  gruvbox-dark is a look the owner wants, not a mismatch. It reaches Helium
+  as the portal's `color-scheme`. Every toolkit and app draws `color_scheme`
+  as selected, never its light/dark pair.
 - `appearance` is the canonical polarity; variant strings are never
   pattern-matched. App theme names and extension IDs live in scheme data
   (`app_themes`) and every scheme declares them all (only `ktexteditor` and
@@ -46,10 +50,10 @@
   theme, and a scheme change recolors running apps live. The widget style is
   Breeze because it draws with that palette; a style that substitutes its own
   (Kvantum did) freezes apps at their startup colours.
-- GTK takes the scheme as libadwaita's named colours. `gtk-4.0/gtk.css`
-  carries both appearances, and the GTK3 theme name (`desktopctl` or
-  `desktopctl-dark`) *is* the polarity, so sun-schedule flips stay live in
-  running apps.
+- GTK takes the scheme as libadwaita's named colours, and the GTK3 theme
+  (`desktopctl` or `desktopctl-dark`) follows the scheme's appearance.
+  libadwaita also reads the portal's `color-scheme`, so `gtk-4.0/gtk.css`
+  pins everything libadwaita varies by appearance to the scheme's own.
 - Starship keeps gruvbox's powerline *order* with each role resolved from the
   active scheme. The identity plate picks itself against the path plate's
   yellow, because warm hues collide (rose-pine's orange *is* its yellow).
@@ -67,11 +71,18 @@ upstream". Swapping the platform theme away from `kde` brings it all back.
 Running apps re-read kdeglobals only on the `notifyChange`/`refreshFonts`
 session-bus signals the `qt` target emits.
 
-### GTK colours need an app restart; polarity does not
+### GTK colours need an app restart
 GTK loads user CSS and theme files once, so a scheme change reaches GTK apps
-only on relaunch, while dark/light flips are live. `prefers-color-scheme`
-comes only from the portal, so a headless test on a bare D-Bus session always
-renders the light block (`ADW_DEBUG_COLOR_SCHEME=prefer-dark` forces it).
+only on relaunch.
+
+### libadwaita leaks the browser's polarity through any colour gtk.css omits
+Its stylesheet changes a set of named colours and `:root` variables under
+`@media (prefers-color-scheme: dark)`, and that query follows the portal,
+i.e. `dark_hint`. A user `@define-color` outranks both branches, so
+`appearance_colors` in `gtk.rs` restates every one of them. After a libadwaita
+bump, list the `@media` blocks in its `gtk.css` resource and diff them against
+that list; a headless check renders both polarities with
+`ADW_DEBUG_COLOR_SCHEME=prefer-light` / `prefer-dark`.
 
 ### Neuwaita needs a KDE wrapper theme for symbolic recoloring
 KIconThemes recolors only themes with `FollowsColorScheme=true`, and patching
