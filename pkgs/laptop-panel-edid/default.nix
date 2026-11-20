@@ -5,8 +5,8 @@ let
   inherit (lib.strings) concatMapStrings fixedWidthString replaceStrings splitString trim;
   inherit (lib.trivial) fromHexString mod toHexString;
 
-  # 68 Hz is the panel's limit; past 70 Hz i915 would also drop every mode to 6 bpc.
-  overclocks = [ 68 ];
+  # 67 Hz is the panel's limit; past 70 Hz i915 would also drop every mode to 6 bpc.
+  overclocks = [ 67 ];
 
   # The LG LP156WU1's own EDID, checksum byte dropped.
   panel = ''
