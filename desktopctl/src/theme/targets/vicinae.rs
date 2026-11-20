@@ -75,12 +75,8 @@ pub fn persist(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
     }
 
     for appearance in [ColorSchemeAppearance::Light, ColorSchemeAppearance::Dark] {
-        if let Some(companion) = appearance_companion(colors, appearance)? {
-            candidates.push((
-                companion.app_themes.vicinae.name.clone(),
-                Cow::Owned(companion),
-            ));
-        }
+        let companion = scheme_pair::colors_for_appearance(colors, appearance)?;
+        candidates.push((companion.app_themes.vicinae.name.clone(), companion));
     }
 
     let mut written: Vec<String> = Vec::with_capacity(candidates.len());
@@ -93,23 +89,6 @@ pub fn persist(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
     }
 
     Ok(())
-}
-
-/// Same-family counterpart for `appearance`. `None` when the scheme already has
-/// that appearance or no counterpart exists.
-fn appearance_companion(
-    colors: &ColorScheme,
-    appearance: ColorSchemeAppearance,
-) -> crate::Result<Option<ColorScheme>> {
-    if colors.appearance == appearance {
-        return Ok(None);
-    }
-
-    let catalog = scheme_pair::load_scheme_catalog()?;
-    Ok(
-        scheme_pair::scheme_for_appearance(&catalog, colors, appearance)
-            .map(|entry| entry.colors.clone()),
-    )
 }
 
 /// Restart the launcher so it re-reads the theme just written. Only ever a

@@ -42,10 +42,14 @@
   meter text. Bright black is `comment`, copied from each upstream's own
   style guide, not floored for contrast, so solarized and tokyo-night sit
   near 2.5:1 by design.
-- The Kvantum theme, SVG included, is generated whole: borrowed SVG pins shape
-  and colour to someone else's palette. Its visual language: flat fills,
-  hairline borders, one radius per widget class, accent only for selection,
-  focus and progress.
+- Every Qt app reads one input, `kdeglobals`, through KDE's own platform
+  theme, and a scheme change recolors running apps live. The widget style is
+  Breeze because it draws with that palette; a style that substitutes its own
+  (Kvantum did) freezes apps at their startup colours.
+- GTK takes the scheme as libadwaita's named colours. `gtk-4.0/gtk.css`
+  carries both appearances, and the GTK3 theme name (`desktopctl` or
+  `desktopctl-dark`) *is* the polarity, so sun-schedule flips stay live in
+  running apps.
 - Starship keeps gruvbox's powerline *order* with each role resolved from the
   active scheme. The identity plate picks itself against the path plate's
   yellow, because warm hues collide (rose-pine's orange *is* its yellow).
@@ -54,24 +58,20 @@
 
 ## Quirks
 
-### No single Qt channel themes every app
-Each of these was isolated by changing it alone; none is redundant.
-- `QT_STYLE_OVERRIDE=kvantum` (`qt.style`): without it kcharselect renders
-  unstyled. Breeze is not an installed style plugin, hence also
-  `[KDE] widgetStyle`.
-- Kvantum `[GeneralColors]` supplies `QPalette`; qt6ct's `custom_palette`
-  never reaches these apps.
-- qt6ct supplies fonts to non-KDE Qt apps only. A KDE app's UI font follows
-  the fontconfig `sans-serif` alias and nothing else.
-- Qt reads the palette once at startup, so verify against a *fresh* process
-  (`qml` with a `SystemPalette`). hyprpolkitagent is resident, hence the `qt`
-  target restarting it.
-- `KDE_COLOR_SCHEME_PATH` changes no measured role; setting it fixes nothing.
+### KDE apps paint Breeze over any other platform theme
+Under any platform theme but `kde`, `KColorSchemeManager` (KColorScheme)
+installs its built-in Breeze Light/Dark palette over the app. That is why
+qt6ct + Kvantum left Dolphin's alternate rows Breeze's `247,247,247` and made
+every kdeglobals probe look dead, a search that once concluded "needs
+upstream". Swapping the platform theme away from `kde` brings it all back.
+Running apps re-read kdeglobals only on the `notifyChange`/`refreshFonts`
+session-bus signals the `qt` target emits.
 
-### Dolphin's alternate row colour is unreachable
-It is a compiled default in `KItemListView`. Every kdeglobals, colour-scheme,
-Kvantum, qt6ct and platform-theme channel was probed with magenta and none
-moved it. Needs upstream; do not re-run the search.
+### GTK colours need an app restart; polarity does not
+GTK loads user CSS and theme files once, so a scheme change reaches GTK apps
+only on relaunch, while dark/light flips are live. `prefers-color-scheme`
+comes only from the portal, so a headless test on a bare D-Bus session always
+renders the light block (`ADW_DEBUG_COLOR_SCHEME=prefer-dark` forces it).
 
 ### Neuwaita needs a KDE wrapper theme for symbolic recoloring
 KIconThemes recolors only themes with `FollowsColorScheme=true`, and patching

@@ -9,7 +9,6 @@ mod gtksourceview;
 pub(crate) mod helium;
 mod hypr_appearance;
 mod hyprland;
-mod kvantum;
 mod neovide;
 mod neovim;
 mod opencode;
@@ -437,33 +436,6 @@ mod tests {
             output,
             "{\n  \"theme\": \"Gruvbox Dark\",\n  \"buffer_font_family\": \"JetBrains Mono Nerd Font\",\n  \"buffer_font_size\": 15,\n  \"ui_font_family\": \"Overpass\",\n  \"ui_font_size\": 11\n}"
         );
-    }
-
-    #[test]
-    fn qt_output_is_a_colorscheme_ini_with_three_states() {
-        let mut state = dummy_state();
-        state.dark_hint = true;
-        let output = text(qt::generate(&dummy_colors(), &state));
-
-        let mut lines = output.lines();
-        assert_eq!(lines.next(), Some("[ColorScheme]"));
-        for (line, key) in lines.zip(["active_colors", "disabled_colors", "inactive_colors"]) {
-            let values = line
-                .strip_prefix(&format!("{key}="))
-                .unwrap_or_else(|| panic!("{key} row"));
-            assert_eq!(values.split(", ").count(), 21, "{key} role count");
-
-            // HighlightedText sits on Highlight, so `readable_on` (docs/theming.md); dimmed selected text is the disabled row's point.
-            if key == "disabled_colors" {
-                continue;
-            }
-            let role =
-                |index: usize| format!("#{}", &values.split(", ").nth(index).expect("role")[3..]);
-            assert!(
-                crate::theme::color::contrast_ratio(&role(12), &role(13)) >= 4.5,
-                "{key}: selected text is unreadable on the highlight"
-            );
-        }
     }
 
     #[test]

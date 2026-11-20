@@ -132,7 +132,7 @@ privileged call needs a polkit rule in the host module in the same change —
 `fprintd-delete` needs `setusername` as well as `enroll`.
 
 ### Tray menus are drawn here
-`QsMenuAnchor.open()` needs `UseQApplication` and opens a qt6ct-styled widget
+`QsMenuAnchor.open()` needs `UseQApplication` and opens a Qt widget
 menu; `TrayMenu` renders the model through `QsMenuOpener` instead.
 
 ### `ping` reports its summary on SIGINT, not SIGKILL

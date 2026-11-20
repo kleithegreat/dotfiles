@@ -1,13 +1,13 @@
-use super::{Target, kvantum, scheme_pair};
+use super::{Target, scheme_pair};
 use crate::theme::{
-    atomic_write, color, expand_user_path,
+    atomic_write, color,
+    command::run,
+    expand_user_path,
     schema::{ColorScheme, ColorSchemeAppearance, ThemeState},
 };
-use std::{borrow::Cow, fs, path::Path, process::Command};
+use std::{fs, path::Path};
 
-const OUTPUT_PATH: &str = "~/.config/qt6ct/colors/current.conf";
-
-pub const TARGET: Target = Target::standalone(
+pub const TARGET: Target = Target::hooks(
     "qt",
     &[
         "color_scheme",
@@ -20,132 +20,55 @@ pub const TARGET: Target = Target::standalone(
         "mono_font_size",
         "qt_mono_font_size_offset",
     ],
-    OUTPUT_PATH,
-    generate,
 )
 .persist(persist)
 .on_apply(on_apply);
 
-const QT6CT_CONF: &str = "~/.config/qt6ct/qt6ct.conf";
 const KDEGLOBALS: &str = "~/.config/kdeglobals";
-const KCOLORSCHEME: &str = "~/.local/share/color-schemes/current.colors";
-const FONTCONFIG_CONF: &str = "~/.config/fontconfig/conf.d/50-desktopctl.conf";
-const KVANTUM_THEME_NAME: &str = "GeneratedTheme";
-const KVANTUM_CONFIG: &str = "~/.config/Kvantum/kvantum.kvconfig";
-const KVANTUM_THEME_DIR: &str = "~/.config/Kvantum/GeneratedTheme";
 const KATERC: &str = "~/.config/katerc";
 const KWRITERC: &str = "~/.config/kwriterc";
 
-pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<String> {
-    let colors = ui_colors(colors, state)?;
-    let on_accent = color::readable_on_ends(&colors.accent, &colors.bg, &colors.fg);
-    let active = vec![
-        argb(&colors.fg),
-        argb(&colors.bg1),
-        argb(&colors.bg3),
-        argb(&colors.bg2),
-        argb(&colors.bg_dim),
-        argb(&colors.bg3),
-        argb(&colors.fg),
-        argb(&colors.fg),
-        argb(&colors.fg),
-        argb(&colors.bg),
-        argb(&colors.bg1),
-        argb(&colors.bg_dim),
-        argb(&colors.accent),
-        argb(&on_accent),
-        argb(&colors.blue),
-        argb(&colors.purple),
-        argb(&colors.bg),
-        argb(&colors.bg1),
-        argb(&colors.fg),
-        argb_alpha(&colors.fg4, "80"),
-        argb(&colors.accent),
-    ];
-
-    let mut disabled = active.clone();
-    for index in [0usize, 6, 8, 13] {
-        disabled[index] = argb(&colors.fg4);
-    }
-
-    let inactive = active.clone();
-    let separator = ", ";
-    Ok(format!(
-        concat!(
-            "[ColorScheme]\n",
-            "active_colors={}\n",
-            "disabled_colors={}\n",
-            "inactive_colors={}\n",
-        ),
-        active.join(separator),
-        disabled.join(separator),
-        inactive.join(separator),
-    ))
-}
-
-const POLKIT_AGENT_UNIT: &str = "hyprpolkitagent.service";
+/// `KGlobalSettings::ChangeType` values the KDE platform theme acts on.
+const PALETTE_CHANGED: &str = "0";
+const ICON_CHANGED: &str = "4";
 
 pub fn persist(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
-    let colors = ui_colors(colors, state)?;
-    let colors = colors.as_ref();
-
-    update_qt6ct_config(state)?;
-    update_kdeglobals(colors, state)?;
-    write_kcolorscheme(colors)?;
-    write_fontconfig(state)?;
-    setup_kvantum(colors)?;
-    sync_kde_app_configs(colors)?;
-    Ok(())
-}
-
-/// Restarts hyprpolkitagent, which reads the palette once at startup; see docs/theming.md.
-pub fn on_apply(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
-    let active = Command::new("systemctl")
-        .args(["--user", "--quiet", "is-active", POLKIT_AGENT_UNIT])
-        .status()
-        .is_ok_and(|status| status.success());
-    if !active {
-        return Ok(());
-    }
-
-    Command::new("systemctl")
-        .args(["--user", "restart", POLKIT_AGENT_UNIT])
-        .status()?;
-    Ok(())
-}
-
-fn desired_appearance(state: &ThemeState) -> ColorSchemeAppearance {
-    if state.dark_hint {
+    let appearance = if state.dark_hint {
         ColorSchemeAppearance::Dark
     } else {
         ColorSchemeAppearance::Light
+    };
+    let colors = scheme_pair::colors_for_appearance(colors, appearance)?;
+
+    update_kdeglobals(&colors, state)?;
+    sync_ktexteditor_config(&expand_user_path(KATERC)?, &colors, true)?;
+    sync_ktexteditor_config(&expand_user_path(KWRITERC)?, &colors, false)?;
+    Ok(())
+}
+
+/// Running Qt apps re-read kdeglobals on these session-bus signals.
+pub fn on_apply(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
+    for change in [PALETTE_CHANGED, ICON_CHANGED] {
+        run(&[
+            "busctl",
+            "--user",
+            "emit",
+            "/KGlobalSettings",
+            "org.kde.KGlobalSettings",
+            "notifyChange",
+            "ii",
+            change,
+            "0",
+        ])?;
     }
-}
-
-fn ui_colors<'a>(
-    colors: &'a ColorScheme,
-    state: &ThemeState,
-) -> crate::Result<Cow<'a, ColorScheme>> {
-    let desired = desired_appearance(state);
-    if colors.appearance == desired {
-        return Ok(Cow::Borrowed(colors));
-    }
-
-    let catalog = scheme_pair::load_scheme_catalog()?;
-    Ok(
-        match scheme_pair::scheme_for_appearance(&catalog, colors, desired) {
-            Some(entry) => Cow::Owned(entry.colors.clone()),
-            None => Cow::Borrowed(colors),
-        },
-    )
-}
-
-fn argb(hex_color: &str) -> String {
-    format!("#ff{}", &hex_color[1..])
-}
-
-fn argb_alpha(hex_color: &str, alpha: &str) -> String {
-    format!("#{alpha}{}", &hex_color[1..])
+    run(&[
+        "busctl",
+        "--user",
+        "emit",
+        "/KDEPlatformTheme",
+        "org.kde.KDEPlatformTheme",
+        "refreshFonts",
+    ])
 }
 
 fn rgb(hex_color: &str) -> String {
@@ -157,62 +80,6 @@ fn rgb(hex_color: &str) -> String {
 /// `fromString` fail silently and the default font survive.
 fn qfont(family: &str, size: i64) -> String {
     format!("{family},{size},-1,5,400,0,0,0,0,0,0,0,0,0,0,1")
-}
-
-fn update_qt6ct_config(state: &ThemeState) -> crate::Result<()> {
-    let conf_path = expand_user_path(QT6CT_CONF)?;
-    let scheme_path = expand_user_path(OUTPUT_PATH)?;
-
-    let mut config = IniFile::from_path(&conf_path)?;
-    for (key, value) in [
-        ("style", "kvantum".to_owned()),
-        ("color_scheme_path", scheme_path.display().to_string()),
-        ("custom_palette", "true".to_owned()),
-        ("icon_theme", kde_icon_theme(&state.icon_theme).to_owned()),
-        ("standard_dialogs", "default".to_owned()),
-    ] {
-        config.set("Appearance", key, &value);
-    }
-
-    config.set(
-        "Fonts",
-        "general",
-        &qfont(&state.system_font, state.font_size_for(TARGET.name)?),
-    );
-    config.set(
-        "Fonts",
-        "fixed",
-        &qfont(&state.mono_font, state.mono_font_size_for(TARGET.name)?),
-    );
-
-    atomic_write(&conf_path, config.render().as_bytes())?;
-    Ok(())
-}
-
-/// KDE apps outside Plasma take their UI font from neither `kdeglobals` nor the
-/// Qt platform theme — only the fontconfig generic families reach them.
-fn write_fontconfig(state: &ThemeState) -> crate::Result<()> {
-    let conf_path = expand_user_path(FONTCONFIG_CONF)?;
-    let contents = format!(
-        concat!(
-            "<?xml version=\"1.0\"?>\n",
-            "<!DOCTYPE fontconfig SYSTEM \"urn:fontconfig:fonts.dtd\">\n",
-            "<fontconfig>\n",
-            "  <alias binding=\"strong\">\n",
-            "    <family>sans-serif</family>\n",
-            "    <prefer><family>{}</family></prefer>\n",
-            "  </alias>\n",
-            "  <alias binding=\"strong\">\n",
-            "    <family>monospace</family>\n",
-            "    <prefer><family>{}</family></prefer>\n",
-            "  </alias>\n",
-            "</fontconfig>\n",
-        ),
-        state.system_font, state.mono_font,
-    );
-
-    atomic_write(&conf_path, contents.as_bytes())?;
-    Ok(())
 }
 
 fn clear_managed_kde_sections(config: &mut IniFile) {
@@ -227,22 +94,6 @@ fn clear_managed_kde_sections(config: &mut IniFile) {
         .collect::<Vec<_>>();
     for section in sections {
         config.remove_section(&section);
-    }
-
-    if !config.has_section("General") {
-        return;
-    }
-
-    let managed_keys = ["ColorScheme", "Name", "shadeSortColumn"];
-    let keys = config.option_names("General");
-    for key in keys {
-        if managed_keys.contains(&key.as_str()) || key.starts_with("Name[") {
-            config.remove_option("General", &key);
-        }
-    }
-
-    if !config.section_has_items("General") {
-        config.remove_section("General");
     }
 }
 
@@ -305,17 +156,9 @@ fn apply_kde_colors(config: &mut IniFile, colors: &ColorScheme) {
         kde_color_group(config, &format!("{section}][Inactive"), inactive, colors);
     }
 
-    config.ensure_section("General");
-    config.set("General", "ColorScheme", "Custom");
-    config.set("General", "Name", "Current Theme");
     config.set("General", "shadeSortColumn", "true");
-
-    config.ensure_section("KDE");
     config.set("KDE", "contrast", "4");
-    // Without this KDE apps fall back to an uninstalled Breeze; see docs/theming.md.
-    config.set("KDE", "widgetStyle", "kvantum");
 
-    config.ensure_section("WM");
     config.set("WM", "activeBackground", &rgb(&colors.bg1));
     config.set("WM", "activeForeground", &fg);
     config.set("WM", "inactiveBackground", &rgb(&colors.bg1));
@@ -349,27 +192,37 @@ fn apply_kde_colors(config: &mut IniFile, colors: &ColorScheme) {
             ],
         ),
     ] {
-        config.ensure_section(section);
         for (key, value) in values {
             config.set(section, key, &value);
         }
     }
 }
 
+fn apply_kde_fonts(config: &mut IniFile, state: &ThemeState) -> crate::Result<()> {
+    let size = state.font_size_for(TARGET.name)?;
+    let ui = qfont(&state.system_font, size);
+    for key in ["font", "menuFont", "toolBarFont"] {
+        config.set("General", key, &ui);
+    }
+    config.set(
+        "General",
+        "smallestReadableFont",
+        &qfont(&state.system_font, size - 2),
+    );
+    config.set(
+        "General",
+        "fixed",
+        &qfont(&state.mono_font, state.mono_font_size_for(TARGET.name)?),
+    );
+    Ok(())
+}
+
 fn update_kdeglobals(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
     let conf_path = expand_user_path(KDEGLOBALS)?;
     let mut config = IniFile::from_path(&conf_path)?;
     apply_kde_colors(&mut config, colors);
-    config.ensure_section("Icons");
+    apply_kde_fonts(&mut config, state)?;
     config.set("Icons", "Theme", kde_icon_theme(&state.icon_theme));
-    atomic_write(&conf_path, config.render().as_bytes())?;
-    Ok(())
-}
-
-fn write_kcolorscheme(colors: &ColorScheme) -> crate::Result<()> {
-    let conf_path = expand_user_path(KCOLORSCHEME)?;
-    let mut config = IniFile::default();
-    apply_kde_colors(&mut config, colors);
     atomic_write(&conf_path, config.render().as_bytes())?;
     Ok(())
 }
@@ -387,7 +240,6 @@ fn sync_ktexteditor_config(
     clear_filetree_shading: bool,
 ) -> crate::Result<()> {
     let mut config = IniFile::from_path(conf_path)?;
-    config.ensure_section("KTextEditor Renderer");
     config.set(
         "KTextEditor Renderer",
         "Auto Color Theme Selection",
@@ -406,32 +258,6 @@ fn sync_ktexteditor_config(
     }
 
     atomic_write(conf_path, config.render().as_bytes())?;
-    Ok(())
-}
-
-fn sync_kde_app_configs(colors: &ColorScheme) -> crate::Result<()> {
-    sync_ktexteditor_config(&expand_user_path(KATERC)?, colors, true)?;
-    sync_ktexteditor_config(&expand_user_path(KWRITERC)?, colors, false)?;
-    Ok(())
-}
-
-fn setup_kvantum(colors: &ColorScheme) -> crate::Result<()> {
-    let theme_dir = expand_user_path(KVANTUM_THEME_DIR)?;
-
-    atomic_write(
-        &theme_dir.join(format!("{KVANTUM_THEME_NAME}.kvconfig")),
-        kvantum::kvconfig(colors).as_bytes(),
-    )?;
-    atomic_write(
-        &theme_dir.join(format!("{KVANTUM_THEME_NAME}.svg")),
-        kvantum::svg(colors).as_bytes(),
-    )?;
-
-    let config_path = expand_user_path(KVANTUM_CONFIG)?;
-    atomic_write(
-        &config_path,
-        format!("[General]\ntheme={KVANTUM_THEME_NAME}\n").as_bytes(),
-    )?;
     Ok(())
 }
 
@@ -504,7 +330,7 @@ impl IniFile {
     }
 
     fn has_section(&self, name: &str) -> bool {
-        self.sections.iter().any(|section| section.name == name)
+        self.section(name).is_some()
     }
 
     fn remove_section(&mut self, name: &str) {
@@ -516,18 +342,6 @@ impl IniFile {
             .iter()
             .map(|section| section.name.clone())
             .collect()
-    }
-
-    fn option_names(&self, section: &str) -> Vec<String> {
-        self.section(section)
-            .map(|section| section.items.iter().map(|(key, _)| key.clone()).collect())
-            .unwrap_or_default()
-    }
-
-    fn section_has_items(&self, section: &str) -> bool {
-        self.section(section)
-            .map(|section| !section.items.is_empty())
-            .unwrap_or(false)
     }
 
     fn set(&mut self, section: &str, key: &str, value: &str) {
@@ -586,16 +400,33 @@ impl IniFile {
 
 #[cfg(test)]
 mod tests {
-    use super::{kde_icon_theme, ui_colors};
-    use crate::test_support::repo_root;
+    use super::{IniFile, apply_kde_colors, kde_icon_theme};
     use crate::theme::{
-        resolve,
-        schema::{ColorScheme, ColorSchemeAppearance},
+        color::contrast_ratio,
+        targets::testsupport::{REPO_SCHEMES, load_repo_colors},
     };
 
-    fn load_repo_colors(scheme_name: &str) -> ColorScheme {
-        resolve::load_colors(scheme_name, &repo_root().join("styling/colors"))
-            .expect("repo color scheme should deserialize")
+    #[test]
+    fn selected_text_is_readable_on_the_highlight() {
+        for scheme in REPO_SCHEMES {
+            let mut config = IniFile::default();
+            apply_kde_colors(&mut config, &load_repo_colors(scheme));
+            let role = |key: &str| {
+                let section = config.section("Colors:Selection").expect("selection group");
+                let (_, value) = section
+                    .items
+                    .iter()
+                    .find(|(name, _)| name == key)
+                    .expect("role present");
+                let channels = value
+                    .split(',')
+                    .map(|channel| channel.parse::<u8>().expect("channel"))
+                    .collect::<Vec<_>>();
+                format!("#{:02x}{:02x}{:02x}", channels[0], channels[1], channels[2])
+            };
+            let ratio = contrast_ratio(&role("BackgroundNormal"), &role("ForegroundNormal"));
+            assert!(ratio >= 4.5, "{scheme}: {ratio:.2}");
+        }
     }
 
     #[test]
@@ -624,39 +455,6 @@ mod tests {
             load_repo_colors("rose-pine-dawn").ktexteditor_theme_name(),
             "Breeze Light"
         );
-    }
-
-    // ui_colors reads the catalog via DESKTOPCTL_REPO, so these tests must scope it.
-    #[test]
-    fn ui_colors_follows_dark_hint_with_same_family_pair() {
-        let _lock = crate::test_support::env_lock();
-        let _repo = crate::test_support::ScopedEnvVar::set("DESKTOPCTL_REPO", repo_root());
-
-        let dark = load_repo_colors("gruvbox-dark");
-        let mut state = crate::theme::targets::testsupport::dummy_state();
-        state.color_scheme = "gruvbox-dark".to_owned();
-        state.dark_hint = false;
-
-        let colors = ui_colors(&dark, &state).expect("ui colors resolve");
-
-        assert_eq!(colors.variant, "light");
-        assert_eq!(colors.appearance, ColorSchemeAppearance::Light);
-    }
-
-    #[test]
-    fn ui_colors_uses_declared_dark_pairing_for_light_schemes() {
-        let _lock = crate::test_support::env_lock();
-        let _repo = crate::test_support::ScopedEnvVar::set("DESKTOPCTL_REPO", repo_root());
-
-        let light = load_repo_colors("catppuccin-latte");
-        let mut state = crate::theme::targets::testsupport::dummy_state();
-        state.color_scheme = "catppuccin-latte".to_owned();
-        state.dark_hint = true;
-
-        let colors = ui_colors(&light, &state).expect("ui colors resolve");
-
-        assert_eq!(colors.variant, "mocha");
-        assert_eq!(colors.appearance, ColorSchemeAppearance::Dark);
     }
 
     #[test]

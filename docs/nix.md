@@ -113,7 +113,7 @@ symptom as the `AQ_DRM_DEVICES` quirk in [[nvidia]]. Crash reports in
 native-built, so the public cache can never hit.
 
 ### Haruna must share the session Qt/KDE package set
-`QT_QPA_PLATFORMTHEME=qt6ct` loads a plugin built for the session's Qt ABI;
+The `kde` Qt platform theme is a plugin built for the session's Qt ABI;
 Haruna from another nixpkgs aborts at startup.
 
 ### Helium is not a normal Chromium package

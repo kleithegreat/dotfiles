@@ -1,12 +1,28 @@
 //! Same-family appearance-pair resolution shared by targets that need the
-//! light/dark counterpart of the active color scheme (qt, gtksourceview,
+//! light/dark counterpart of the active color scheme (gtk, qt, gtksourceview,
 //! vicinae).
 
 use crate::theme::{
     resolve,
     schema::{ColorScheme, ColorSchemeAppearance},
 };
-use std::fs;
+use std::{borrow::Cow, fs};
+
+/// The active scheme's colors for `appearance`: its same-family counterpart
+/// when it has the other appearance, else the scheme itself.
+pub(crate) fn colors_for_appearance(
+    colors: &ColorScheme,
+    appearance: ColorSchemeAppearance,
+) -> crate::Result<Cow<'_, ColorScheme>> {
+    if colors.appearance == appearance {
+        return Ok(Cow::Borrowed(colors));
+    }
+    let catalog = load_scheme_catalog()?;
+    Ok(match scheme_for_appearance(&catalog, colors, appearance) {
+        Some(entry) => Cow::Owned(entry.colors.clone()),
+        None => Cow::Borrowed(colors),
+    })
+}
 
 #[derive(Clone)]
 pub(crate) struct SchemeEntry {
@@ -218,5 +234,25 @@ mod tests {
             colors: current.clone(),
         }];
         assert!(scheme_for_appearance(&catalog, &current, ColorSchemeAppearance::Light).is_none());
+    }
+
+    // colors_for_appearance reads the catalog via DESKTOPCTL_REPO, so these tests must scope it.
+    #[test]
+    fn colors_for_appearance_follows_same_family_pair() {
+        let _lock = crate::test_support::env_lock();
+        let _repo = crate::test_support::ScopedEnvVar::set(
+            "DESKTOPCTL_REPO",
+            crate::test_support::repo_root(),
+        );
+
+        let dark = crate::theme::targets::testsupport::load_repo_colors("gruvbox-dark");
+        let colors =
+            colors_for_appearance(&dark, ColorSchemeAppearance::Light).expect("colors resolve");
+        assert_eq!(colors.variant, "light");
+
+        let light = crate::theme::targets::testsupport::load_repo_colors("catppuccin-latte");
+        let colors =
+            colors_for_appearance(&light, ColorSchemeAppearance::Dark).expect("colors resolve");
+        assert_eq!(colors.variant, "mocha");
     }
 }

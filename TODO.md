@@ -51,6 +51,11 @@ Open issues and pending validations. Delete entries when resolved.
       56c2f99); if lavd loses clearly, that is the case for bringing it back.
       `power_samples` in `desktopctl.db` records both, tagged by profile.
 
+- [ ] Theming after the move to KDE's platform theme (`docs/theming.md`):
+      with Dolphin and Nautilus open, switch scheme and toggle dark; Dolphin
+      recolors in place, Nautilus follows the flip live and the new scheme
+      after a relaunch, and the polkit prompt matches without a restart.
+
 - [ ] Desktop heater: after a switch, toggle Heater mode from the Power pane
       and confirm Quickshell menus stay responsive while both miners run.
 
