@@ -31,7 +31,8 @@ Item {
         radius: root.radius
         color: root.tint
         border.width: Metrics.hairline
-        border.color: Theme.rim
+        // The fill stops inside the border, so a bare translucent rim would leave the edge pixel see-through.
+        border.color: Qt.tint(color, Theme.rim)
         antialiasing: true
 
         Behavior on color {
