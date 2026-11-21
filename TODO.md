@@ -43,9 +43,6 @@ Open issues and pending validations. Delete entries when resolved.
       `apple-gfx-pci` and its option ROM (`docs/macos-vm.md`): boot a guest to
       a rendered desktop on the device, then the Tahoe install, then
       `--console`.
-- [ ] Ableton Live on the desktop host (`docs/ableton-live.md`): only tested
-      on the laptop at scale 1 on the iGPU. Run upstream's `setup-prefix`,
-      install Live, and re-test click targeting on the RTX 3080.
 - [ ] Laptop power-saver on battery (`docs/laptop-power.md`): compare idle
       package power and battery draw against the old `e-core-only` (before
       56c2f99); if lavd loses clearly, that is the case for bringing it back.
