@@ -30,6 +30,7 @@ QtObject {
     signal airdropFailed(var data)
     signal fnLockChanged(var data)
     signal powerChanged(var history)
+    signal focusChanged(var summary)
 
     function _dispatch(line) {
         const text = String(line).trim();
@@ -87,6 +88,9 @@ QtObject {
             break;
         case "power.changed":
             powerChanged(data);
+            break;
+        case "focus.changed":
+            focusChanged(data);
             break;
         }
     }

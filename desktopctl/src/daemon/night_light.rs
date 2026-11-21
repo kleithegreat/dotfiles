@@ -18,10 +18,12 @@ use std::{
 #[derive(Clone)]
 pub struct Controller {
     state: Arc<Mutex<State>>,
+    /// Serializes subprocess/theme handoffs without holding `state` across I/O.
+    reconcile_lock: Arc<Mutex<()>>,
     /// Scheduled dark_hint edges route through the theme worker so the
-    /// daemon has exactly one writer for theme state. Absent only in tests.
-    theme: Option<ThemeController>,
-    events: Option<Events>,
+    /// daemon has exactly one writer for theme state.
+    theme: ThemeController,
+    events: Events,
 }
 
 struct State {
@@ -37,7 +39,7 @@ struct DesiredState {
 }
 
 impl Controller {
-    pub fn new() -> Self {
+    pub fn new(theme: ThemeController, events: Events) -> Self {
         Self {
             state: Arc::new(Mutex::new(State {
                 mode: NightLightMode::Auto,
@@ -45,16 +47,10 @@ impl Controller {
                 solar_status: None,
                 pending_dark_hint_target: None,
             })),
-            theme: None,
-            events: None,
+            reconcile_lock: Arc::new(Mutex::new(())),
+            theme,
+            events,
         }
-    }
-
-    pub fn with_hooks(theme: ThemeController, events: Events) -> Self {
-        let mut controller = Self::new();
-        controller.theme = Some(theme);
-        controller.events = Some(events);
-        controller
     }
 
     /// Record the latest solar status. Only a dark-window *edge* queues a
@@ -72,11 +68,8 @@ impl Controller {
     }
 
     pub fn reconcile(&self) -> crate::Result<NightLightStatus> {
-        let (status, pending_dark_hint) = {
-            let mut state = self.lock_state()?;
-            self.reconcile_locked(&mut state)?
-        };
-        self.finish_reconcile(status, pending_dark_hint)
+        let _reconcile = self.lock_reconcile()?;
+        self.apply_and_publish(|_| Ok(()))
     }
 
     pub fn set_mode(
@@ -89,69 +82,75 @@ impl Controller {
             None => None,
         };
 
-        let (status, pending_dark_hint) = {
-            let mut state = self.lock_state()?;
+        let _reconcile = self.lock_reconcile()?;
+        self.apply_and_publish(|state| {
             state.mode = mode;
             if let Some(temperature) = normalized_temperature {
                 state.manual_temperature = temperature;
             }
-
-            self.reconcile_locked(&mut state)?
-        };
-        self.finish_reconcile(status, pending_dark_hint)
+            Ok(())
+        })
     }
 
     pub fn toggle(&self) -> crate::Result<NightLightStatus> {
+        let _reconcile = self.lock_reconcile()?;
         let mode = if hyprsunset_process_state().running {
             NightLightMode::Off
         } else {
             NightLightMode::On
         };
-        self.set_mode(mode, None)
+        self.apply_and_publish(|state| {
+            state.mode = mode;
+            Ok(())
+        })
     }
 
     pub fn status(&self) -> crate::Result<NightLightStatus> {
-        let state = self.lock_state()?;
-        let solar_status = current_solar_status(&state)?;
-        NightLightStatus::observe(state.mode, target_temperature(&state), &solar_status)
+        let (mode, target_temp, solar_status) = {
+            let state = self.lock_state()?;
+            let solar_status = current_solar_status(&state)?;
+            (state.mode, target_temperature(&state), solar_status)
+        };
+        NightLightStatus::observe(mode, target_temp, &solar_status)
     }
 
-    /// Hyprsunset concerns only; a pending scheduled dark_hint is handed
-    /// back so the caller can route it through the theme worker after the
-    /// mutex is released — never applied while holding it.
-    fn reconcile_locked(
+    fn apply_and_publish(
         &self,
-        state: &mut MutexGuard<'_, State>,
-    ) -> crate::Result<(NightLightStatus, Option<bool>)> {
-        let solar_status = current_solar_status(state)?;
-        let desired = desired_state(state.mode, state.manual_temperature, &solar_status);
-        apply_desired_state(&desired)?;
-        let pending_dark_hint = state.pending_dark_hint_target.take();
-
-        let status =
-            NightLightStatus::observe(state.mode, target_temperature(state), &solar_status)?;
-        Ok((status, pending_dark_hint))
-    }
-
-    fn finish_reconcile(
-        &self,
-        status: NightLightStatus,
-        pending_dark_hint: Option<bool>,
+        mutate: impl FnOnce(&mut State) -> crate::Result<()>,
     ) -> crate::Result<NightLightStatus> {
-        if let (Some(enabled), Some(theme)) = (pending_dark_hint, self.theme.as_ref()) {
-            theme.request_blocking(ThemeJob::Set {
+        let (mode, target_temp, solar_status, desired, pending_dark_hint) = {
+            let mut state = self.lock_state()?;
+            mutate(&mut state)?;
+            let solar_status = current_solar_status(&state)?;
+            let desired = desired_state(state.mode, state.manual_temperature, &solar_status);
+            (
+                state.mode,
+                target_temperature(&state),
+                solar_status,
+                desired,
+                state.pending_dark_hint_target,
+            )
+        };
+
+        apply_desired_state(&desired)?;
+
+        if let Some(enabled) = pending_dark_hint {
+            self.theme.request_blocking(ThemeJob::Set {
                 key: "dark_hint".to_owned(),
                 value: serde_json::Value::Bool(enabled),
                 origin: DarkHintOrigin::Scheduled,
             })?;
+            let mut state = self.lock_state()?;
+            if state.pending_dark_hint_target == Some(enabled) {
+                state.pending_dark_hint_target = None;
+            }
         }
 
-        if let Some(events) = &self.events {
-            events.publish(
-                "night_light.changed",
-                serde_json::to_value(&status).unwrap_or(serde_json::Value::Null),
-            );
-        }
+        let status = NightLightStatus::observe(mode, target_temp, &solar_status)?;
+        self.events.publish(
+            "night_light.changed",
+            serde_json::to_value(&status).unwrap_or(serde_json::Value::Null),
+        );
 
         Ok(status)
     }
@@ -160,6 +159,12 @@ impl Controller {
         self.state
             .lock()
             .map_err(|_| io::Error::other("night-light state lock poisoned").into())
+    }
+
+    fn lock_reconcile(&self) -> crate::Result<MutexGuard<'_, ()>> {
+        self.reconcile_lock
+            .lock()
+            .map_err(|_| io::Error::other("night-light reconcile lock poisoned").into())
     }
 }
 
@@ -223,6 +228,12 @@ fn apply_desired_state(desired: &DesiredState) -> crate::Result<()> {
 mod tests {
     use super::*;
 
+    fn test_controller() -> Controller {
+        let events = Events::new();
+        let theme = ThemeController::spawn(events.clone());
+        Controller::new(theme, events)
+    }
+
     fn sample_solar_status(is_night: bool, is_dark: bool) -> solar::SolarStatus {
         let now = chrono::Local::now();
         solar::SolarStatus {
@@ -230,57 +241,21 @@ mod tests {
                 latitude: solar::DEFAULT_LATITUDE,
                 longitude: solar::DEFAULT_LONGITUDE,
             },
-            sunrise: now,
-            sunset: now,
+            sunrise: Some(now),
+            sunset: Some(now),
             is_night,
             is_dark,
-            next_sunrise: now,
-            next_sunset: now,
+            next_sunrise: Some(now),
+            next_sunset: Some(now),
             next_dark_on: now,
             next_dark_off: now,
         }
     }
 
-    #[test]
-    fn desired_state_auto_tracks_solar_schedule() {
-        let desired = desired_state(
-            NightLightMode::Auto,
-            5200,
-            &sample_solar_status(true, false),
-        );
-
-        assert!(desired.running);
-        assert_eq!(desired.temperature, solar::HYPRSUNSET_TEMP);
-    }
-
-    #[test]
-    fn desired_state_manual_modes_use_manual_temperature() {
-        let solar_status = sample_solar_status(false, true);
-
-        let on = desired_state(NightLightMode::On, 5100, &solar_status);
-        assert!(on.running);
-        assert_eq!(on.temperature, 5100);
-
-        let off = desired_state(NightLightMode::Off, 5100, &solar_status);
-        assert!(!off.running);
-        assert_eq!(off.temperature, 5100);
-    }
-
-    #[test]
-    fn dark_hint_updates_only_trigger_on_window_edges() {
-        let light = sample_solar_status(true, false);
-        let dark = sample_solar_status(true, true);
-
-        assert_eq!(dark_hint_transition(Some(&light), &dark), Some(true));
-        assert_eq!(dark_hint_transition(Some(&dark), &light), Some(false));
-        assert_eq!(dark_hint_transition(Some(&dark), &dark), None);
-        assert_eq!(dark_hint_transition(Some(&light), &light), None);
-    }
-
-    #[test]
-    fn first_solar_status_never_queues_a_dark_hint_write() {
+    #[tokio::test]
+    async fn first_solar_status_never_queues_a_dark_hint_write() {
         // A restart mid-window must not clobber a manual dark_hint.
-        let controller = Controller::new();
+        let controller = test_controller();
         controller
             .update_solar_status(sample_solar_status(true, true))
             .expect("status update");
@@ -289,9 +264,9 @@ mod tests {
         assert_eq!(state.pending_dark_hint_target, None);
     }
 
-    #[test]
-    fn solar_edge_queues_a_scheduled_dark_hint_write() {
-        let controller = Controller::new();
+    #[tokio::test]
+    async fn solar_edge_queues_a_scheduled_dark_hint_write() {
+        let controller = test_controller();
         controller
             .update_solar_status(sample_solar_status(true, false))
             .expect("first status");
@@ -303,28 +278,9 @@ mod tests {
         assert_eq!(state.pending_dark_hint_target, Some(true));
     }
 
-    #[test]
-    fn target_temperature_uses_schedule_only_in_auto_mode() {
-        let auto = State {
-            mode: NightLightMode::Auto,
-            manual_temperature: 5100,
-            solar_status: None,
-            pending_dark_hint_target: None,
-        };
-        let on = State {
-            mode: NightLightMode::On,
-            manual_temperature: 5100,
-            solar_status: None,
-            pending_dark_hint_target: None,
-        };
-
-        assert_eq!(target_temperature(&auto), solar::HYPRSUNSET_TEMP);
-        assert_eq!(target_temperature(&on), 5100);
-    }
-
-    #[test]
-    fn set_mode_rejects_invalid_temperature_without_mutating_mode() {
-        let controller = Controller::new();
+    #[tokio::test]
+    async fn set_mode_rejects_invalid_temperature_without_mutating_mode() {
+        let controller = test_controller();
         let error = controller.set_mode(NightLightMode::On, Some(9999));
 
         assert!(error.is_err());

@@ -71,6 +71,44 @@ Ui.Scroll {
                     onChanged: next => Sys.Appearance.set("quickshell_font_size_offset", next)
                 }
             }
+
+            Ui.Divider {
+                inset: Metrics.rowInset
+            }
+
+            Ui.ListRow {
+                Layout.fillWidth: true
+                title: "GTK offset"
+                subtitle: "Applied on top of the base size in GTK applications"
+                interactive: false
+
+                Ui.Stepper {
+                    anchors.verticalCenter: parent.verticalCenter
+                    value: Sys.Appearance.value("gtk_font_size_offset", 0)
+                    minimum: -4
+                    maximum: 8
+                    onChanged: next => Sys.Appearance.set("gtk_font_size_offset", next)
+                }
+            }
+
+            Ui.Divider {
+                inset: Metrics.rowInset
+            }
+
+            Ui.ListRow {
+                Layout.fillWidth: true
+                title: "Qt offset"
+                subtitle: "Applied on top of the base size in Qt applications"
+                interactive: false
+
+                Ui.Stepper {
+                    anchors.verticalCenter: parent.verticalCenter
+                    value: Sys.Appearance.value("qt_font_size_offset", 0)
+                    minimum: -4
+                    maximum: 8
+                    onChanged: next => Sys.Appearance.set("qt_font_size_offset", next)
+                }
+            }
         }
 
         Ui.Group {

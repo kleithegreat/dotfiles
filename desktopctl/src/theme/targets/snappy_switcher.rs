@@ -1,7 +1,10 @@
 use super::Target;
-use crate::theme::{
-    command::find_command,
-    schema::{ColorScheme, ThemeState},
+use crate::{
+    cmd::{find_command, spawn_detached},
+    theme::{
+        color::readable_on_ends,
+        schema::{ColorScheme, ThemeState},
+    },
 };
 use std::{
     env,
@@ -43,6 +46,7 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Strin
             "[icons]\n",
             "theme = {}\n",
             "fallback = Adwaita\n",
+            "show_letter_fallback = true\n",
             "\n",
             "[font]\n",
             "family = {}\n",
@@ -58,7 +62,10 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Strin
         rgba(&colors.accent, "ff"),
         rgba(&colors.bg1, "cc"),
         rgba(&colors.accent, "ff"),
-        rgba(&colors.bg, "ff"),
+        rgba(
+            &readable_on_ends(&colors.accent, &colors.bg, &colors.fg),
+            "ff"
+        ),
         state.icon_theme,
         state.system_font,
         title_size,
@@ -81,11 +88,7 @@ pub fn on_apply(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()>
         .stderr(Stdio::null())
         .status();
 
-    let _child = Command::new(snappy)
-        .arg("--daemon")
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()?;
+    spawn_detached([snappy.as_os_str(), std::ffi::OsStr::new("--daemon")])?;
 
     Ok(())
 }

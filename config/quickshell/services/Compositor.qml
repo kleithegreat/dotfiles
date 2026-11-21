@@ -57,8 +57,9 @@ QtObject {
     readonly property Process _evaluator: Process {
         id: evaluator
         stdout: StdioCollector {
-            onStreamFinished: root._settle(this.text)
+            id: evalOutput
         }
+        onExited: root._settle(evalOutput.text)
     }
 
     readonly property Process _blurProbe: Process {

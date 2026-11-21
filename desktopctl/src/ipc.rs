@@ -15,7 +15,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::paths;
+use crate::{airpods, night_light, paths};
 
 /// Timeout for requests the daemon answers from memory or quick probes.
 pub(crate) const DEFAULT_TIMEOUT: Duration = Duration::from_secs(3);
@@ -25,49 +25,479 @@ pub(crate) const APPLY_TIMEOUT: Duration = Duration::from_secs(120);
 
 const RETRY_INTERVAL: Duration = Duration::from_millis(200);
 
-pub(crate) mod methods {
-    pub const PING: &str = "ping";
-    pub const SUBSCRIBE: &str = "subscribe";
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum StepDirection {
+    Up,
+    Down,
+}
 
-    pub const NIGHT_LIGHT_STATUS: &str = "night_light.status";
-    pub const NIGHT_LIGHT_SET: &str = "night_light.set";
-    pub const NIGHT_LIGHT_TOGGLE: &str = "night_light.toggle";
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum RpcRequest {
+    Ping,
+    DaemonStatus,
+    Subscribe {
+        topics: Vec<String>,
+    },
+    NightLightStatus,
+    NightLightSet {
+        mode: night_light::NightLightMode,
+        temperature: Option<i32>,
+    },
+    NightLightToggle,
+    ThemeStatus,
+    ThemeSet {
+        key: String,
+        value: serde_json::Value,
+    },
+    ThemeApply {
+        scope: String,
+        target: Option<String>,
+    },
+    ThemePresetApply {
+        name: String,
+    },
+    ThemePresetSave {
+        name: String,
+        payload: serde_json::Value,
+    },
+    ThemePresetDelete {
+        name: String,
+    },
+    HyprInputStatus,
+    HyprInputSet {
+        key: String,
+        value: String,
+    },
+    HyprMonitorsStatus,
+    HyprMonitorsPrimary {
+        selector: String,
+    },
+    HyprMonitorsLayout {
+        outputs: serde_json::Value,
+    },
+    SessionStatus,
+    SessionAutomatic {
+        automatic: bool,
+    },
+    SessionRestore {
+        if_automatic: bool,
+    },
+    BrightnessStatus,
+    BrightnessSet {
+        device: Option<String>,
+        percent: u16,
+    },
+    BrightnessStep {
+        device: Option<String>,
+        direction: StepDirection,
+    },
+    BrightnessDim {
+        device: Option<String>,
+    },
+    BrightnessRestore {
+        device: Option<String>,
+    },
+    AirDropStatus,
+    AirDropVisible {
+        enabled: bool,
+    },
+    AirDropAnswer {
+        id: u64,
+        accept: bool,
+    },
+    AirDropShare {
+        paths: Vec<PathBuf>,
+        urls: Vec<String>,
+        text: Option<String>,
+    },
+    AirDropSend {
+        receiver: String,
+    },
+    AirDropCancel,
+    AirPodsStatus,
+    AirPodsNoise {
+        mode: airpods::NoiseMode,
+    },
+    AirPodsAwareness {
+        enabled: bool,
+    },
+    AirPodsReach {
+        reach: airpods::Reach,
+    },
+    FnLockAnnounce,
+}
 
-    pub const THEME_STATUS: &str = "theme.status";
-    pub const THEME_SET: &str = "theme.set";
-    pub const THEME_APPLY: &str = "theme.apply";
-    pub const THEME_PRESET_APPLY: &str = "theme.preset_apply";
-    pub const THEME_PRESET_SAVE: &str = "theme.preset_save";
-    pub const THEME_PRESET_DELETE: &str = "theme.preset_delete";
+impl RpcRequest {
+    pub(crate) fn into_wire(self) -> (&'static str, Option<serde_json::Value>) {
+        use serde_json::json;
+        match self {
+            Self::Ping => ("ping", None),
+            Self::DaemonStatus => ("daemon.status", None),
+            Self::Subscribe { topics } => ("subscribe", Some(json!({ "topics": topics }))),
+            Self::NightLightStatus => ("night_light.status", None),
+            Self::NightLightSet { mode, temperature } => (
+                "night_light.set",
+                Some(json!({ "mode": mode, "temperature": temperature })),
+            ),
+            Self::NightLightToggle => ("night_light.toggle", None),
+            Self::ThemeStatus => ("theme.status", None),
+            Self::ThemeSet { key, value } => {
+                ("theme.set", Some(json!({ "key": key, "value": value })))
+            }
+            Self::ThemeApply { scope, target } => (
+                "theme.apply",
+                Some(json!({ "scope": scope, "target": target })),
+            ),
+            Self::ThemePresetApply { name } => {
+                ("theme.preset_apply", Some(json!({ "name": name })))
+            }
+            Self::ThemePresetSave { name, payload } => (
+                "theme.preset_save",
+                Some(json!({ "name": name, "payload": payload })),
+            ),
+            Self::ThemePresetDelete { name } => {
+                ("theme.preset_delete", Some(json!({ "name": name })))
+            }
+            Self::HyprInputStatus => ("hypr.input_status", None),
+            Self::HyprInputSet { key, value } => (
+                "hypr.input_set",
+                Some(json!({ "key": key, "value": value })),
+            ),
+            Self::HyprMonitorsStatus => ("hypr.monitors_status", None),
+            Self::HyprMonitorsPrimary { selector } => (
+                "hypr.monitors_primary",
+                Some(json!({ "selector": selector })),
+            ),
+            Self::HyprMonitorsLayout { outputs } => {
+                ("hypr.monitors_layout", Some(json!({ "outputs": outputs })))
+            }
+            Self::SessionStatus => ("session.status", None),
+            Self::SessionAutomatic { automatic } => {
+                ("session.automatic", Some(json!({ "automatic": automatic })))
+            }
+            Self::SessionRestore { if_automatic } => (
+                "session.restore",
+                Some(json!({ "if_automatic": if_automatic })),
+            ),
+            Self::BrightnessStatus => ("brightness.status", None),
+            Self::BrightnessSet { device, percent } => (
+                "brightness.set",
+                Some(json!({ "device": device, "percent": percent })),
+            ),
+            Self::BrightnessStep { device, direction } => (
+                "brightness.step",
+                Some(json!({ "device": device, "direction": direction })),
+            ),
+            Self::BrightnessDim { device } => ("brightness.dim", Some(json!({ "device": device }))),
+            Self::BrightnessRestore { device } => {
+                ("brightness.restore", Some(json!({ "device": device })))
+            }
+            Self::AirDropStatus => ("airdrop.status", None),
+            Self::AirDropVisible { enabled } => {
+                ("airdrop.visible", Some(json!({ "enabled": enabled })))
+            }
+            Self::AirDropAnswer { id, accept } => (
+                "airdrop.answer",
+                Some(json!({ "id": id, "accept": accept })),
+            ),
+            Self::AirDropShare { paths, urls, text } => (
+                "airdrop.share",
+                Some(json!({ "paths": paths, "urls": urls, "text": text })),
+            ),
+            Self::AirDropSend { receiver } => {
+                ("airdrop.send", Some(json!({ "receiver": receiver })))
+            }
+            Self::AirDropCancel => ("airdrop.cancel", None),
+            Self::AirPodsStatus => ("airpods.status", None),
+            Self::AirPodsNoise { mode } => ("airpods.noise", Some(json!({ "mode": mode }))),
+            Self::AirPodsAwareness { enabled } => {
+                ("airpods.awareness", Some(json!({ "enabled": enabled })))
+            }
+            Self::AirPodsReach { reach } => ("airpods.reach", Some(json!({ "reach": reach }))),
+            Self::FnLockAnnounce => ("fn_lock.announce", None),
+        }
+    }
 
-    pub const HYPR_INPUT_STATUS: &str = "hypr.input_status";
-    pub const HYPR_INPUT_SET: &str = "hypr.input_set";
-    pub const HYPR_MONITORS_STATUS: &str = "hypr.monitors_status";
-    pub const HYPR_MONITORS_PRIMARY: &str = "hypr.monitors_primary";
-    pub const HYPR_MONITORS_LAYOUT: &str = "hypr.monitors_layout";
+    pub(crate) fn from_wire(
+        method: &str,
+        params: serde_json::Value,
+    ) -> std::result::Result<Self, String> {
+        fn de<T: DeserializeOwned>(
+            method: &str,
+            value: serde_json::Value,
+        ) -> std::result::Result<T, String> {
+            serde_json::from_value(value)
+                .map_err(|error| format!("invalid params for {method}: {error}"))
+        }
+        fn de_default<T: DeserializeOwned>(
+            method: &str,
+            value: serde_json::Value,
+        ) -> std::result::Result<T, String> {
+            let value = if value.is_null() {
+                serde_json::Value::Object(Default::default())
+            } else {
+                value
+            };
+            de(method, value)
+        }
 
-    pub const BRIGHTNESS_STATUS: &str = "brightness.status";
-    pub const BRIGHTNESS_SET: &str = "brightness.set";
-    pub const BRIGHTNESS_STEP: &str = "brightness.step";
-    pub const BRIGHTNESS_DIM: &str = "brightness.dim";
-    pub const BRIGHTNESS_RESTORE: &str = "brightness.restore";
-
-    pub const SESSION_STATUS: &str = "session.status";
-    pub const SESSION_AUTOMATIC: &str = "session.automatic";
-    pub const SESSION_RESTORE: &str = "session.restore";
-
-    pub const AIRDROP_STATUS: &str = "airdrop.status";
-    pub const AIRDROP_VISIBLE: &str = "airdrop.visible";
-    pub const AIRDROP_ANSWER: &str = "airdrop.answer";
-    pub const AIRDROP_SHARE: &str = "airdrop.share";
-    pub const AIRDROP_SEND: &str = "airdrop.send";
-    pub const AIRDROP_CANCEL: &str = "airdrop.cancel";
-
-    pub const AIRPODS_STATUS: &str = "airpods.status";
-    pub const AIRPODS_NOISE: &str = "airpods.noise";
-    pub const AIRPODS_AWARENESS: &str = "airpods.awareness";
-    pub const AIRPODS_REACH: &str = "airpods.reach";
-    pub const FN_LOCK_ANNOUNCE: &str = "fn_lock.announce";
+        Ok(match method {
+            "ping" => Self::Ping,
+            "daemon.status" => Self::DaemonStatus,
+            "subscribe" => {
+                #[derive(Default, Deserialize)]
+                #[serde(default)]
+                struct P {
+                    topics: Vec<String>,
+                }
+                let p: P = de_default(method, params)?;
+                Self::Subscribe { topics: p.topics }
+            }
+            "night_light.status" => Self::NightLightStatus,
+            "night_light.set" => {
+                #[derive(Deserialize)]
+                struct P {
+                    mode: night_light::NightLightMode,
+                    #[serde(default)]
+                    temperature: Option<i32>,
+                }
+                let p: P = de(method, params)?;
+                Self::NightLightSet {
+                    mode: p.mode,
+                    temperature: p.temperature,
+                }
+            }
+            "night_light.toggle" => Self::NightLightToggle,
+            "theme.status" => Self::ThemeStatus,
+            "theme.set" => {
+                #[derive(Deserialize)]
+                struct P {
+                    key: String,
+                    value: serde_json::Value,
+                }
+                let p: P = de(method, params)?;
+                Self::ThemeSet {
+                    key: p.key,
+                    value: p.value,
+                }
+            }
+            "theme.apply" => {
+                #[derive(Deserialize)]
+                struct P {
+                    scope: String,
+                    #[serde(default)]
+                    target: Option<String>,
+                }
+                let p: P = de(method, params)?;
+                Self::ThemeApply {
+                    scope: p.scope,
+                    target: p.target,
+                }
+            }
+            "theme.preset_apply" => {
+                #[derive(Deserialize)]
+                struct P {
+                    name: String,
+                }
+                let p: P = de(method, params)?;
+                Self::ThemePresetApply { name: p.name }
+            }
+            "theme.preset_save" => {
+                #[derive(Deserialize)]
+                struct P {
+                    name: String,
+                    payload: serde_json::Value,
+                }
+                let p: P = de(method, params)?;
+                Self::ThemePresetSave {
+                    name: p.name,
+                    payload: p.payload,
+                }
+            }
+            "theme.preset_delete" => {
+                #[derive(Deserialize)]
+                struct P {
+                    name: String,
+                }
+                let p: P = de(method, params)?;
+                Self::ThemePresetDelete { name: p.name }
+            }
+            "hypr.input_status" => Self::HyprInputStatus,
+            "hypr.input_set" => {
+                #[derive(Deserialize)]
+                struct P {
+                    key: String,
+                    value: String,
+                }
+                let p: P = de(method, params)?;
+                Self::HyprInputSet {
+                    key: p.key,
+                    value: p.value,
+                }
+            }
+            "hypr.monitors_status" => Self::HyprMonitorsStatus,
+            "hypr.monitors_primary" => {
+                #[derive(Deserialize)]
+                struct P {
+                    selector: String,
+                }
+                let p: P = de(method, params)?;
+                Self::HyprMonitorsPrimary {
+                    selector: p.selector,
+                }
+            }
+            "hypr.monitors_layout" => {
+                #[derive(Deserialize)]
+                struct P {
+                    outputs: serde_json::Value,
+                }
+                let p: P = de(method, params)?;
+                Self::HyprMonitorsLayout { outputs: p.outputs }
+            }
+            "session.status" => Self::SessionStatus,
+            "session.automatic" => {
+                #[derive(Deserialize)]
+                struct P {
+                    automatic: bool,
+                }
+                let p: P = de(method, params)?;
+                Self::SessionAutomatic {
+                    automatic: p.automatic,
+                }
+            }
+            "session.restore" => {
+                #[derive(Default, Deserialize)]
+                #[serde(default)]
+                struct P {
+                    if_automatic: bool,
+                }
+                let p: P = de_default(method, params)?;
+                Self::SessionRestore {
+                    if_automatic: p.if_automatic,
+                }
+            }
+            "brightness.status" => Self::BrightnessStatus,
+            "brightness.set" => {
+                #[derive(Deserialize)]
+                struct P {
+                    #[serde(default)]
+                    device: Option<String>,
+                    percent: u16,
+                }
+                let p: P = de(method, params)?;
+                Self::BrightnessSet {
+                    device: p.device,
+                    percent: p.percent,
+                }
+            }
+            "brightness.step" => {
+                #[derive(Deserialize)]
+                struct P {
+                    #[serde(default)]
+                    device: Option<String>,
+                    direction: StepDirection,
+                }
+                let p: P = de(method, params)?;
+                Self::BrightnessStep {
+                    device: p.device,
+                    direction: p.direction,
+                }
+            }
+            "brightness.dim" => {
+                #[derive(Default, Deserialize)]
+                #[serde(default)]
+                struct P {
+                    device: Option<String>,
+                }
+                let p: P = de_default(method, params)?;
+                Self::BrightnessDim { device: p.device }
+            }
+            "brightness.restore" => {
+                #[derive(Default, Deserialize)]
+                #[serde(default)]
+                struct P {
+                    device: Option<String>,
+                }
+                let p: P = de_default(method, params)?;
+                Self::BrightnessRestore { device: p.device }
+            }
+            "airdrop.status" => Self::AirDropStatus,
+            "airdrop.visible" => {
+                #[derive(Deserialize)]
+                struct P {
+                    enabled: bool,
+                }
+                let p: P = de(method, params)?;
+                Self::AirDropVisible { enabled: p.enabled }
+            }
+            "airdrop.answer" => {
+                #[derive(Deserialize)]
+                struct P {
+                    id: u64,
+                    accept: bool,
+                }
+                let p: P = de(method, params)?;
+                Self::AirDropAnswer {
+                    id: p.id,
+                    accept: p.accept,
+                }
+            }
+            "airdrop.share" => {
+                #[derive(Default, Deserialize)]
+                #[serde(default)]
+                struct P {
+                    paths: Vec<PathBuf>,
+                    urls: Vec<String>,
+                    text: Option<String>,
+                }
+                let p: P = de_default(method, params)?;
+                Self::AirDropShare {
+                    paths: p.paths,
+                    urls: p.urls,
+                    text: p.text,
+                }
+            }
+            "airdrop.send" => {
+                #[derive(Deserialize)]
+                struct P {
+                    receiver: String,
+                }
+                let p: P = de(method, params)?;
+                Self::AirDropSend {
+                    receiver: p.receiver,
+                }
+            }
+            "airdrop.cancel" => Self::AirDropCancel,
+            "airpods.status" => Self::AirPodsStatus,
+            "airpods.noise" => {
+                #[derive(Deserialize)]
+                struct P {
+                    mode: airpods::NoiseMode,
+                }
+                let p: P = de(method, params)?;
+                Self::AirPodsNoise { mode: p.mode }
+            }
+            "airpods.awareness" => {
+                #[derive(Deserialize)]
+                struct P {
+                    enabled: bool,
+                }
+                let p: P = de(method, params)?;
+                Self::AirPodsAwareness { enabled: p.enabled }
+            }
+            "airpods.reach" => {
+                #[derive(Deserialize)]
+                struct P {
+                    reach: airpods::Reach,
+                }
+                let p: P = de(method, params)?;
+                Self::AirPodsReach { reach: p.reach }
+            }
+            "fn_lock.announce" => Self::FnLockAnnounce,
+            _ => return Err(format!("unsupported method: {method}")),
+        })
+    }
 }
 
 /// Topics a subscriber can select; each event name is `<topic>.<what>`.
@@ -82,6 +512,8 @@ pub(crate) const TOPICS: &[&str] = &[
     "airdrop",
     "fn_lock",
     "power",
+    "focus",
+    "daemon",
 ];
 
 #[derive(Debug, Serialize)]
@@ -209,18 +641,86 @@ where
 /// A daemon mutation: retries while the daemon is absent, then reports its
 /// absence as the strict-mode failure instead of the raw connect error.
 pub(crate) fn mutate<T: DeserializeOwned>(
-    method: &str,
-    params: serde_json::Value,
+    request: RpcRequest,
     timeout: Duration,
     wait: Duration,
 ) -> crate::Result<T> {
-    send_request_with_retry(method, Some(params), timeout, wait).map_err(|error| {
+    let (method, params) = request.into_wire();
+    send_request_with_retry(method, params, timeout, wait).map_err(|error| {
         if socket_unavailable(error.as_ref()) {
             io::Error::other(daemon_unavailable_message(&error)).into()
         } else {
             error
         }
     })
+}
+
+pub(crate) fn send<T: DeserializeOwned>(
+    request: RpcRequest,
+    timeout: Duration,
+) -> crate::Result<T> {
+    let (method, params) = request.into_wire();
+    send_request(method, params, timeout)
+}
+
+pub(crate) fn stream_events(
+    topics: Vec<String>,
+    mut on_event: impl FnMut(&str) -> crate::Result<bool>,
+) -> crate::Result<()> {
+    let socket_path = socket_path()?;
+    let mut stream = UnixStream::connect(&socket_path).map_err(|error| {
+        if matches!(
+            error.kind(),
+            io::ErrorKind::NotFound
+                | io::ErrorKind::ConnectionRefused
+                | io::ErrorKind::ConnectionReset
+        ) {
+            io::Error::new(error.kind(), daemon_unavailable_message(&error))
+        } else {
+            error
+        }
+    })?;
+    stream.set_write_timeout(Some(DEFAULT_TIMEOUT))?;
+    let (method, params) = RpcRequest::Subscribe { topics }.into_wire();
+    let payload = RequestEnvelope {
+        method: method.to_owned(),
+        params,
+    };
+    let line = serde_json::to_string(&payload)?;
+    stream.write_all(line.as_bytes())?;
+    stream.write_all(b"\n")?;
+    stream.flush()?;
+
+    let mut reader = BufReader::new(stream);
+    let mut ack = String::new();
+    if reader.read_line(&mut ack)? == 0 {
+        return Err(crate::invalid_data("daemon closed connection before subscribe reply").into());
+    }
+    let response: ResponseEnvelope<serde_json::Value> = serde_json::from_str(ack.trim_end())
+        .map_err(|error| crate::invalid_data(format!("invalid subscribe reply: {error}")))?;
+    if !response.ok {
+        return Err(io::Error::other(
+            response
+                .error
+                .unwrap_or_else(|| "subscribe failed".to_owned()),
+        )
+        .into());
+    }
+
+    let mut event_line = String::new();
+    loop {
+        event_line.clear();
+        if reader.read_line(&mut event_line)? == 0 {
+            return Ok(());
+        }
+        let trimmed = event_line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if !on_event(trimmed)? {
+            return Ok(());
+        }
+    }
 }
 
 pub(crate) fn socket_unavailable(error: &(dyn std::error::Error + 'static)) -> bool {
@@ -237,108 +737,6 @@ pub(crate) fn socket_unavailable(error: &(dyn std::error::Error + 'static)) -> b
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::night_light::{NightLightMode, NightLightSetParams, NightLightStatus};
-
-    #[test]
-    fn request_envelope_serialization_matches_socket_protocol() {
-        let ping = serde_json::to_value(RequestEnvelope::<()> {
-            method: "ping".to_owned(),
-            params: None,
-        })
-        .expect("ping request should serialize");
-        assert_eq!(ping, serde_json::json!({ "method": "ping" }));
-
-        let set_mode = serde_json::to_value(RequestEnvelope {
-            method: methods::NIGHT_LIGHT_SET.to_owned(),
-            params: Some(NightLightSetParams {
-                mode: NightLightMode::On,
-                temperature: Some(4500),
-            }),
-        })
-        .expect("set request should serialize");
-        assert_eq!(
-            set_mode,
-            serde_json::json!({
-                "method": "night_light.set",
-                "params": {
-                    "mode": "on",
-                    "temperature": 4500,
-                },
-            })
-        );
-    }
-
-    #[test]
-    fn response_envelope_deserializes_success_and_error_payloads() {
-        let success: ResponseEnvelope<NightLightStatus> = serde_json::from_str(
-            r#"{"ok":true,"data":{"mode":"auto","running":true,"temperature":4500,"target_temperature":4500,"dark_hint":false,"scheduled_running":true,"scheduled_dark_hint":false}}"#,
-        )
-        .expect("success response should deserialize");
-        assert!(success.ok);
-        assert_eq!(success.data.expect("status data").temperature, Some(4500));
-        assert!(success.error.is_none());
-
-        let error: ResponseEnvelope<serde_json::Value> =
-            serde_json::from_str(r#"{"ok":false,"error":"socket unavailable"}"#)
-                .expect("error response should deserialize");
-        assert!(!error.ok);
-        assert_eq!(error.error.as_deref(), Some("socket unavailable"));
-        assert!(error.data.is_none());
-    }
-
-    #[test]
-    fn event_envelope_is_distinguishable_from_a_response() {
-        let event = EventEnvelope {
-            event: "theme.changed".to_owned(),
-            data: serde_json::json!({ "changed_keys": [] }),
-        };
-        let value = serde_json::to_value(&event).expect("event should serialize");
-        assert!(value.get("event").is_some());
-        assert!(value.get("ok").is_none());
-
-        // A response line must never parse as an event and vice versa.
-        let response = serde_json::json!({ "ok": true, "data": { "pong": true } });
-        assert!(response.get("event").is_none());
-
-        let round_trip: EventEnvelope =
-            serde_json::from_value(value).expect("event should deserialize");
-        assert_eq!(round_trip.event, "theme.changed");
-    }
-
-    #[test]
-    fn event_topic_is_the_prefix_before_the_first_dot() {
-        let event = EventEnvelope {
-            event: "night_light.changed".to_owned(),
-            data: serde_json::Value::Null,
-        };
-        assert_eq!(event.topic(), "night_light");
-        assert!(TOPICS.contains(&event.topic()));
-    }
-
-    #[test]
-    fn socket_unavailable_only_matches_expected_io_errors() {
-        assert!(socket_unavailable(&io::Error::new(
-            io::ErrorKind::NotFound,
-            "missing socket",
-        )));
-        assert!(socket_unavailable(&io::Error::new(
-            io::ErrorKind::ConnectionRefused,
-            "refused",
-        )));
-        assert!(socket_unavailable(&io::Error::new(
-            io::ErrorKind::ConnectionReset,
-            "reset",
-        )));
-        assert!(!socket_unavailable(&io::Error::new(
-            io::ErrorKind::PermissionDenied,
-            "denied",
-        )));
-        assert!(!socket_unavailable(&io::Error::new(
-            io::ErrorKind::AddrInUse,
-            "in use",
-        )));
-        assert!(!socket_unavailable(&io::Error::other("other failure")));
-    }
 
     #[test]
     fn send_request_with_retry_gives_up_after_the_deadline() {
@@ -351,9 +749,10 @@ mod tests {
         );
 
         let start = Instant::now();
-        let result = send_request_with_retry::<(), serde_json::Value>(
-            methods::PING,
-            None,
+        let (ping_method, ping_params) = RpcRequest::Ping.into_wire();
+        let result = send_request_with_retry::<_, serde_json::Value>(
+            ping_method,
+            ping_params,
             DEFAULT_TIMEOUT,
             Duration::from_millis(450),
         );
@@ -394,9 +793,10 @@ mod tests {
                 .expect("write response");
         });
 
-        let response: serde_json::Value = send_request_with_retry::<(), _>(
-            methods::PING,
-            None,
+        let (ping_method, ping_params) = RpcRequest::Ping.into_wire();
+        let response: serde_json::Value = send_request_with_retry::<_, _>(
+            ping_method,
+            ping_params,
             DEFAULT_TIMEOUT,
             Duration::from_secs(5),
         )

@@ -36,16 +36,19 @@ pub(super) struct Share {
 }
 
 pub(super) fn snapshot() -> Snapshot {
+    let mut pids: Vec<(u32, std::path::PathBuf)> = fs::read_dir("/proc")
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|entry| Some((entry.file_name().to_str()?.parse().ok()?, entry.path())))
+        .collect();
+    // Deterministic ascending PID order ensures stable DRM client deduplication.
+    pids.sort_unstable_by_key(|(pid, _)| *pid);
+
     let mut gpu_clients = HashSet::new();
     Snapshot(
-        fs::read_dir("/proc")
-            .into_iter()
-            .flatten()
-            .flatten()
-            .filter_map(|entry| {
-                let pid = entry.file_name().to_str()?.parse().ok()?;
-                read_process(pid, &entry.path(), &mut gpu_clients)
-            })
+        pids.into_iter()
+            .filter_map(|(pid, path)| read_process(pid, &path, &mut gpu_clients))
             .collect(),
     )
 }
@@ -64,6 +67,7 @@ pub(super) fn attribute(previous: &Snapshot, current: &Snapshot, sample: &Sample
     }
 
     let [_, _, core_w, uncore_w] = sample.watts;
+    let total_proc_ticks: u64 = groups.values().map(|group| group[0]).sum();
     let gpu_ns: u64 = groups.values().map(|group| group[2]).sum();
     let mut shares: Vec<Share> = groups
         .into_iter()
@@ -72,7 +76,7 @@ pub(super) fn attribute(previous: &Snapshot, current: &Snapshot, sample: &Sample
             name: name.to_owned(),
             cpu_w: core_w
                 .zip(sample.busy_ticks)
-                .map(|(watts, busy)| watts * fraction(cpu_ticks, busy)),
+                .map(|(watts, busy)| watts * fraction(cpu_ticks, busy.max(total_proc_ticks))),
             gpu_w: uncore_w.map(|watts| watts * fraction(group_gpu_ns, gpu_ns)),
             runs_per_s: runs as f64 / sample.seconds,
         })
@@ -114,8 +118,13 @@ fn read_process(pid: u32, dir: &Path, gpu_clients: &mut HashSet<String>) -> Opti
 
 /// `(comm, utime + stime, starttime)`; comm may itself hold spaces and parentheses.
 fn parse_stat(stat: &str) -> Option<(String, u64, u64)> {
-    let comm = &stat[stat.find('(')? + 1..stat.rfind(')')?];
-    let fields: Vec<&str> = stat[stat.rfind(')')? + 1..].split_whitespace().collect();
+    let start = stat.find('(')?;
+    let end = stat.rfind(')')?;
+    if start >= end {
+        return None;
+    }
+    let comm = &stat[start + 1..end];
+    let fields: Vec<&str> = stat[end + 1..].split_whitespace().collect();
     let field = |number: usize| fields.get(number - 3)?.parse::<u64>().ok();
     Some((comm.to_owned(), field(14)? + field(15)?, field(22)?))
 }

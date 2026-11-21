@@ -61,11 +61,12 @@ Popover {
                         required property string appName
                         required property string summary
                         required property string body
+                        required property string image
                         required property string age
                         required property int entryId
 
                         Layout.fillWidth: true
-                        implicitHeight: text.implicitHeight + Metrics.s3 * 2
+                        implicitHeight: row.implicitHeight + Metrics.s3 * 2
 
                         // A notification arriving slides in from the right.
                         opacity: 0
@@ -92,60 +93,84 @@ Popover {
                             }
                         }
 
-                        ColumnLayout {
-                            id: text
+                        RowLayout {
+                            id: row
                             anchors.left: parent.left
                             anchors.right: parent.right
                             anchors.top: parent.top
                             anchors.margins: Metrics.s3
-                            spacing: 2
+                            spacing: Metrics.s3
 
-                            RowLayout {
+                            Ui.Card {
+                                Layout.preferredWidth: 36
+                                Layout.preferredHeight: 36
+                                Layout.alignment: Qt.AlignTop
+                                radius: Metrics.rControl
+                                clip: true
+                                visible: entry.image !== ""
+
+                                Image {
+                                    anchors.fill: parent
+                                    source: entry.image
+                                    fillMode: Image.PreserveAspectCrop
+                                    asynchronous: true
+                                    cache: false
+                                    smooth: true
+                                }
+                            }
+
+                            ColumnLayout {
+                                id: text
                                 Layout.fillWidth: true
-                                spacing: Metrics.s2
+                                spacing: 2
 
-                                Ui.Label {
-                                    text: entry.appName
-                                    role: "section"
-                                    color: Theme.textTertiary
-                                    elide: Text.ElideRight
+                                RowLayout {
                                     Layout.fillWidth: true
+                                    spacing: Metrics.s2
+
+                                    Ui.Label {
+                                        text: entry.appName
+                                        role: "section"
+                                        color: Theme.textTertiary
+                                        elide: Text.ElideRight
+                                        Layout.fillWidth: true
+                                    }
+
+                                    Ui.Label {
+                                        text: entry.age
+                                        role: "caption"
+                                        color: Theme.textQuaternary
+                                    }
+
+                                    Ui.IconButton {
+                                        id: dismiss
+                                        name: "close"
+                                        size: Metrics.s5
+                                        iconColor: dismiss.hovered ? Theme.text : Theme.textQuaternary
+                                        onClicked: Sys.Notifications.forget(entry.entryId)
+                                    }
                                 }
 
                                 Ui.Label {
-                                    text: entry.age
-                                    role: "caption"
-                                    color: Theme.textQuaternary
+                                    Layout.fillWidth: true
+                                    text: entry.summary
+                                    role: "body"
+                                    font.weight: Theme.weightMedium
+                                    wrapMode: Text.WordWrap
+                                    maximumLineCount: 2
+                                    elide: Text.ElideRight
+                                    visible: text !== ""
                                 }
 
-                                Ui.IconButton {
-                                    id: dismiss
-                                    name: "close"
-                                    size: Metrics.s5
-                                    iconColor: dismiss.hovered ? Theme.text : Theme.textQuaternary
-                                    onClicked: Sys.Notifications.forget(entry.entryId)
+                                Ui.Label {
+                                    Layout.fillWidth: true
+                                    text: entry.body
+                                    role: "callout"
+                                    wrapMode: Text.WordWrap
+                                    maximumLineCount: 4
+                                    elide: Text.ElideRight
+                                    visible: text !== ""
                                 }
-                            }
-
-                            Ui.Label {
-                                Layout.fillWidth: true
-                                text: entry.summary
-                                role: "body"
-                                font.weight: Theme.weightMedium
-                                wrapMode: Text.WordWrap
-                                maximumLineCount: 2
-                                elide: Text.ElideRight
-                                visible: text !== ""
-                            }
-
-                            Ui.Label {
-                                Layout.fillWidth: true
-                                text: entry.body
-                                role: "callout"
-                                wrapMode: Text.WordWrap
-                                maximumLineCount: 4
-                                elide: Text.ElideRight
-                                visible: text !== ""
                             }
                         }
                     }

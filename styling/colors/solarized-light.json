@@ -2,15 +2,11 @@
   "family": "solarized",
   "variant": "light",
   "appearance": "light",
-  "dark_scheme": "solarized-dark",
   "app_themes": {
     "bat": "Solarized (light)",
     "ktexteditor": "Solarized Light",
     "snappy_switcher": "catppuccin-latte.ini",
-    "vicinae": {
-      "name": "solarized-light",
-      "light_name": "solarized-light"
-    },
+    "vicinae": "solarized-light",
     "vscode": {
       "name": "Solarized Light+",
       "extension_id": "ryanolsonx.solarized"

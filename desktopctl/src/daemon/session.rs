@@ -95,8 +95,11 @@ pub fn run(shutdown: Arc<AtomicBool>, halted: Arc<Mutex<bool>>) -> crate::Result
     default_service = "org.freedesktop.login1",
     default_path = "/org/freedesktop/login1"
 )]
-trait Login {
+pub(crate) trait Login {
     fn inhibit(&self, what: &str, who: &str, why: &str, mode: &str) -> zbus::Result<zbus::OwnedFd>;
+
+    #[zbus(signal)]
+    fn prepare_for_sleep(&self, start: bool) -> zbus::Result<()>;
 
     #[zbus(signal)]
     fn prepare_for_shutdown(&self, start: bool) -> zbus::Result<()>;
@@ -107,11 +110,17 @@ trait Login {
 /// the same announcement, so a fresh look then would already miss them.
 pub async fn halt_on_shutdown(
     halted: Arc<Mutex<bool>>,
+    system_bus: Option<zbus::Connection>,
     mut shutdown: watch::Receiver<bool>,
+    health: crate::daemon::SubsystemHealth,
 ) -> crate::Result<()> {
-    let connection = zbus::Connection::system().await?;
+    let Some(connection) = system_bus else {
+        health.set_degraded("session shutdown watch", "system D-Bus unavailable");
+        return Ok(());
+    };
     let login = LoginProxy::new(&connection).await?;
     let mut announcements = login.receive_prepare_for_shutdown().await?;
+    health.set_running("session shutdown watch");
     let inhibit = || {
         login.inhibit(
             "shutdown",
@@ -126,9 +135,15 @@ pub async fn halt_on_shutdown(
         let start = tokio::select! {
             announcement = announcements.next() => match announcement {
                 Some(announcement) => announcement.args()?.start,
-                None => return Ok(()),
+                None => {
+                    health.set_stopped("session shutdown watch");
+                    return Ok(());
+                }
             },
-            _ = shutdown.changed() => return Ok(()),
+            _ = shutdown.changed() => {
+                health.set_stopped("session shutdown watch");
+                return Ok(());
+            }
         };
         *lock_halt(&halted)? = start;
         // A cancelled shutdown resumes recording and needs the lock back.

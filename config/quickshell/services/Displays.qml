@@ -32,8 +32,7 @@ QtObject {
     }
 
     function setPrimary(monitor) {
-        writer.command = ["desktopctl", "hypr", "monitors", "primary", monitor === null ? "" : selectorFor(monitor)];
-        writer.running = true;
+        _writes.run(["desktopctl", "hypr", "monitors", "primary", monitor === null ? "" : selectorFor(monitor)]);
     }
 
     // Every field of every output: a partial spec resets on reload ([[hyprland]]).
@@ -53,8 +52,7 @@ QtObject {
                 disabled: state.disabled ? true : false
             };
         }
-        writer.command = ["desktopctl", "hypr", "monitors", "layout", JSON.stringify(payload)];
-        writer.running = true;
+        _writes.run(["desktopctl", "hypr", "monitors", "layout", JSON.stringify(payload)]);
     }
 
     function monitorFor(name) {
@@ -80,12 +78,16 @@ QtObject {
 
     // `disabled = false` must be explicit to re-enable an output ([[hyprland]]).
     function expressionFor(state) {
-        const fields = ["output = " + _quote(state.name), "mode = " + _quote(state.width + "x" + state.height + "@" + Number(state.refreshRate).toFixed(2)), "position = " + _quote(state.x + "x" + state.y), "scale = " + state.scale, "disabled = false"];
-
-        if (state.transform)
-            fields.push("transform = " + state.transform);
-        if (state.vrr !== undefined && state.vrr !== false && state.vrr !== 0)
-            fields.push("vrr = " + (typeof state.vrr === "boolean" ? 1 : state.vrr));
+        const vrrValue = state.vrr ? (typeof state.vrr === "number" ? state.vrr : 1) : 0;
+        const fields = [
+            "output = " + _quote(state.name),
+            "mode = " + _quote(state.width + "x" + state.height + "@" + Number(state.refreshRate).toFixed(2)),
+            "position = " + _quote(state.x + "x" + state.y),
+            "scale = " + state.scale,
+            "transform = " + (state.transform || 0),
+            "vrr = " + vrrValue,
+            "disabled = false"
+        ];
 
         return "hl.monitor({ " + fields.join(", ") + " })";
     }
@@ -143,15 +145,8 @@ QtObject {
         }
     }
 
-    readonly property Process _writer: Process {
-        id: writer
-        stderr: StdioCollector {
-            id: failure
-        }
-        onExited: code => {
-            if (code !== 0)
-                Toast.failure(failure.text, "Display change failed");
-        }
+    readonly property WriteQueue _writes: WriteQueue {
+        failureText: "Display change failed"
     }
 
     // Only one layout change may be outstanding.

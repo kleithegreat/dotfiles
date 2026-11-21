@@ -14,9 +14,14 @@ Ui.Scroll {
     readonly property bool dirty: Object.keys(edits).length > 0
 
     property var snapshot: []
+    property var appliedStates: []
     property int confirmLeft: 0
 
     Component.onCompleted: Sys.Displays.refresh()
+    Component.onDestruction: {
+        if (confirmLeft > 0)
+            revert();
+    }
 
     function edit(name, key, value) {
         const staged = Object.assign({}, edits);
@@ -54,10 +59,24 @@ Ui.Scroll {
             return;
 
         const states = Sys.Displays.monitors.map(monitor => stateFor(monitor));
+        const previous = Sys.Displays.monitors.map(monitor => ({
+            name: monitor.name,
+            width: monitor.width,
+            height: monitor.height,
+            refreshRate: monitor.refreshRate,
+            x: monitor.x,
+            y: monitor.y,
+            scale: monitor.scale,
+            transform: monitor.transform,
+            vrr: monitor.vrr,
+            disabled: monitor.disabled
+        }));
+        if (!Sys.Displays.apply(states))
+            return;
 
         edits = ({});
-        snapshot = Sys.Displays.monitors.map(monitor => stateFor(monitor));
-        Sys.Displays.apply(states);
+        snapshot = previous;
+        appliedStates = states;
         confirmLeft = 15;
         countdown.restart();
         root.scrollTo(0);
@@ -67,8 +86,9 @@ Ui.Scroll {
     function keep() {
         confirmLeft = 0;
         countdown.stop();
-        Sys.Displays.saveLayout(Sys.Displays.monitors.map(monitor => stateFor(monitor)));
+        Sys.Displays.saveLayout(appliedStates.length > 0 ? appliedStates : Sys.Displays.monitors.map(monitor => stateFor(monitor)));
         snapshot = [];
+        appliedStates = [];
     }
 
     function revert() {
@@ -77,6 +97,7 @@ Ui.Scroll {
         if (snapshot.length > 0)
             Sys.Displays.apply(snapshot);
         snapshot = [];
+        appliedStates = [];
     }
 
     Timer {
@@ -158,14 +179,20 @@ Ui.Scroll {
             Ui.DisplayArrangement {
                 Layout.fillWidth: true
                 Layout.margins: Metrics.s2
-                layout: Sys.Displays.monitors.filter(monitor => !monitor.disabled).map(monitor => ({
-                    name: monitor.name,
-                    x: root.pendingFor(monitor, "x"),
-                    y: root.pendingFor(monitor, "y"),
-                    width: root.pendingFor(monitor, "width"),
-                    height: root.pendingFor(monitor, "height"),
-                    primary: Sys.Displays.isPrimary(monitor)
-                }))
+                layout: Sys.Displays.monitors.filter(monitor => !root.pendingFor(monitor, "disabled")).map(monitor => {
+                    const scale = Math.max(0.1, root.pendingFor(monitor, "scale") || 1);
+                    const transform = root.pendingFor(monitor, "transform") || 0;
+                    const logicalW = Math.round(root.pendingFor(monitor, "width") / scale);
+                    const logicalH = Math.round(root.pendingFor(monitor, "height") / scale);
+                    return {
+                        name: monitor.name,
+                        x: root.pendingFor(monitor, "x"),
+                        y: root.pendingFor(monitor, "y"),
+                        width: transform % 2 === 1 ? logicalH : logicalW,
+                        height: transform % 2 === 1 ? logicalW : logicalH,
+                        primary: Sys.Displays.isPrimary(monitor)
+                    };
+                })
                 onMoved: (name, x, y) => {
                     root.edit(name, "x", x);
                     root.edit(name, "y", y);
@@ -205,7 +232,7 @@ Ui.Scroll {
                     Layout.fillWidth: true
                     icon: "layout"
                     title: "Main display"
-                    subtitle: Sys.Displays.primary === "" ? "Chosen automatically" : "Carries the bar and workspaces 1-10"
+                    subtitle: Sys.Displays.primary === "" ? "Chosen automatically" : "Carries the bar and workspaces 1-9"
                     interactive: false
 
                     Ui.Toggle {
@@ -257,6 +284,23 @@ Ui.Scroll {
                         options: [{ label: "100%", value: "1" }, { label: "125%", value: "1.25" }, { label: "150%", value: "1.5" }, { label: "200%", value: "2" }]
                         current: String(root.pendingFor(screen.monitor, "scale"))
                         onPicked: value => root.edit(screen.monitor.name, "scale", parseFloat(value))
+                    }
+                }
+
+                Ui.Divider {
+                    inset: Metrics.rowInset
+                }
+
+                Ui.ListRow {
+                    Layout.fillWidth: true
+                    title: "Rotation"
+                    interactive: false
+
+                    Ui.Choice {
+                        anchors.verticalCenter: parent.verticalCenter
+                        options: [{ label: "0°", value: "0" }, { label: "90°", value: "1" }, { label: "180°", value: "2" }, { label: "270°", value: "3" }]
+                        current: String(root.pendingFor(screen.monitor, "transform") || 0)
+                        onPicked: value => root.edit(screen.monitor.name, "transform", parseInt(value, 10))
                     }
                 }
 

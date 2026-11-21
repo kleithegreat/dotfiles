@@ -138,14 +138,18 @@ Ui.Scroll {
                 model: Sys.Bluetooth.discovered
 
                 Ui.ListRow {
+                    id: nearbyRow
                     required property var modelData
+                    readonly property bool pairing: Sys.Bluetooth.pairingAddress === nearbyRow.modelData.address
 
                     Layout.fillWidth: true
                     icon: "bluetooth-on"
-                    title: modelData.name
-                    subtitle: modelData.address
-                    chevron: true
-                    onClicked: Sys.Bluetooth.pair(modelData)
+                    title: nearbyRow.modelData.name
+                    subtitle: nearbyRow.pairing ? "Pairing…" : nearbyRow.modelData.address
+                    chevron: !nearbyRow.pairing
+                    interactive: Sys.Bluetooth.pairingAddress === ""
+                    opacity: nearbyRow.pairing ? Theme.pendingAlpha : 1.0
+                    onClicked: Sys.Bluetooth.pair(nearbyRow.modelData)
                 }
             }
 

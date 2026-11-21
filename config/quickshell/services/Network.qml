@@ -2,37 +2,57 @@ pragma Singleton
 
 import QtQuick
 import Quickshell.Io
+import Quickshell.Networking
 
-// One command emits the whole picture as tagged lines: one read, one parse, one update.
+// Reactive state from Quickshell.Networking; on-demand nmcli for IP/DNS details and enterprise auth.
 QtObject {
     id: root
 
     // ── State ──────────────────────────────────────────────────────────────
 
-    property bool wifiRadio: false
-    property bool radioKnown: false
+    readonly property bool wifiRadio: Networking.wifiEnabled
+    readonly property bool radioKnown: Networking.backend === NetworkBackendType.NetworkManager
+    readonly property bool wifiHardwareEnabled: Networking.wifiHardwareEnabled
+
+    readonly property var _devices: Networking.devices.values
+    readonly property var wifiDevice: _pickDevice(DeviceType.Wifi)
+    readonly property var wiredDevice: _pickDevice(DeviceType.Wired)
+    readonly property var _activeDevice: wiredDevice && wiredDevice.connected ? wiredDevice : wifiDevice && wifiDevice.connected ? wifiDevice : null
 
     // wifi · ethernet · ""
-    property string linkType: ""
-    property string device: ""
+    readonly property string linkType: wiredDevice && wiredDevice.connected ? "ethernet" : wifiDevice && wifiDevice.connected ? "wifi" : ""
+    readonly property string device: _activeDevice ? _activeDevice.name : ""
+
+    readonly property var _rawWifiNetworks: wifiDevice ? wifiDevice.networks.values : []
+    readonly property var _activeWifi: {
+        for (let i = 0; i < _rawWifiNetworks.length; i++) {
+            if (_rawWifiNetworks[i].connected)
+                return _rawWifiNetworks[i];
+        }
+        return null;
+    }
+
+    readonly property string ssid: linkType === "wifi" && _activeWifi ? _activeWifi.name : ""
+    readonly property int signal: linkType === "wifi" && _activeWifi ? _pct(_activeWifi.signalStrength) : 0
+    readonly property string ethernetSpeed: linkType === "ethernet" && wiredDevice && wiredDevice.linkSpeed > 0 ? String(wiredDevice.linkSpeed) : ""
+
     property string connectionName: ""
     property string connectionUuid: ""
-    property string ssid: ""
-    property int signal: 0
     property string ipAddress: ""
     property string gateway: ""
     property string dns: ""
     property string frequency: ""
-    property string ethernetSpeed: ""
     property string ethernetDuplex: ""
-    property string connectivity: ""
 
     property string busy: ""
+    property bool _radioPending: false
+    property WifiNetwork _activeConnectNet: null
+    property string _enterpriseSecret: ""
 
     readonly property bool online: linkType !== ""
-    readonly property bool captivePortal: connectivity === "portal" || connectivity === "limited"
-    readonly property bool scanning: scanner.running
-    readonly property bool radioBusy: busy === "radio"
+    readonly property bool captivePortal: Networking.connectivity === NetworkConnectivity.Portal || Networking.connectivity === NetworkConnectivity.Limited
+    readonly property bool scanning: wifiDevice ? wifiDevice.scannerEnabled : false
+    readonly property bool radioBusy: _radioPending
 
     readonly property string label: {
         if (linkType === "wifi")
@@ -60,28 +80,62 @@ QtObject {
         id: networks
     }
 
-    readonly property ListModel known: ListModel {
-        id: known
-    }
-
     signal connectSucceeded
 
-    // ── Reads ──────────────────────────────────────────────────────────────
+    // ── Helpers ────────────────────────────────────────────────────────────
 
-    function refresh() {
-        if (!state.running)
-            state.running = true;
+    function _pickDevice(kind) {
+        let fallback = null;
+        for (let i = 0; i < _devices.length; i++) {
+            const dev = _devices[i];
+            if (dev.type !== kind)
+                continue;
+            if (dev.connected)
+                return dev;
+            if (!fallback)
+                fallback = dev;
+        }
+        return fallback;
     }
 
-    function scan() {
-        if (!scanner.running)
-            scanner.running = true;
-        loadKnown();
+    function _pct(strength) {
+        const value = Number(strength || 0);
+        return value <= 1.0 ? Math.round(value * 100) : Math.round(value);
     }
 
-    function loadKnown() {
-        if (!saved.running)
-            saved.running = true;
+    function _securityLabel(sec) {
+        switch (sec) {
+        case WifiSecurityType.Open:
+        case WifiSecurityType.Owe:
+        case WifiSecurityType.Unknown:
+            return "";
+        case WifiSecurityType.Wpa2Eap:
+        case WifiSecurityType.WpaEap:
+        case WifiSecurityType.Wpa3SuiteB192:
+        case WifiSecurityType.DynamicWep:
+        case WifiSecurityType.Leap:
+            return "802.1X";
+        case WifiSecurityType.Sae:
+            return "WPA3";
+        case WifiSecurityType.StaticWep:
+            return "WEP";
+        default:
+            return "WPA2";
+        }
+    }
+
+    function _findNetwork(name) {
+        let best = null;
+        for (let i = 0; i < _rawWifiNetworks.length; i++) {
+            const net = _rawWifiNetworks[i];
+            if (net.name !== name)
+                continue;
+            if (net.connected)
+                return net;
+            if (!best || _pct(net.signalStrength) > _pct(best.signalStrength))
+                best = net;
+        }
+        return best;
     }
 
     // nmcli escapes field separators inside values (an SSID "a:b").
@@ -103,135 +157,112 @@ QtObject {
         return fields;
     }
 
-    function savedFor(name) {
-        for (let i = 0; i < known.count; i++) {
-            if (known.get(i).name === name)
-                return known.get(i);
-        }
-        return null;
-    }
-
     function isKnown(name) {
-        return savedFor(name) !== null;
+        const net = _findNetwork(name);
+        return net ? net.known : false;
     }
 
     function isEnterprise(security) {
         return String(security).indexOf("802.1X") >= 0;
     }
 
-    // ── Writes ─────────────────────────────────────────────────────────────
+    function _syncNetworks() {
+        const seen = {};
+        const found = [];
 
-    function setWifiRadio(enabled) {
-        if (busy !== "")
-            return;
-        if (radioKnown && wifiRadio === enabled)
-            return;
+        for (let i = 0; i < _rawWifiNetworks.length; i++) {
+            const net = _rawWifiNetworks[i];
+            const name = net.name || "";
+            if (name === "")
+                continue;
 
-        busy = "radio";
-        wifiRadio = enabled;
-        radioKnown = true;
-        if (!enabled) {
-            networks.clear();
-            if (linkType === "wifi")
-                _clearLink();
+            const strength = _pct(net.signalStrength);
+            if (seen[name] !== undefined) {
+                const existing = found[seen[name]];
+                if (net.connected)
+                    existing.active = true;
+                if (net.known)
+                    existing.known = true;
+                if (strength > existing.signal)
+                    existing.signal = strength;
+                continue;
+            }
+
+            seen[name] = found.length;
+            found.push({
+                ssid: name,
+                signal: strength,
+                security: _securityLabel(net.security),
+                active: net.connected,
+                known: net.known
+            });
         }
 
-        radio.command = ["nmcli", "radio", "wifi", enabled ? "on" : "off"];
-        radio.running = true;
+        found.sort((a, b) => {
+            if (a.active !== b.active)
+                return a.active ? -1 : 1;
+            if (a.known !== b.known)
+                return a.known ? -1 : 1;
+            return b.signal - a.signal;
+        });
+
+        networks.clear();
+        for (let i = 0; i < found.length; i++)
+            networks.append(found[i]);
     }
 
-    function toggleWifiRadio() {
-        setWifiRadio(!wifiRadio);
+    on_RawWifiNetworksChanged: Qt.callLater(_syncNetworks)
+    onSsidChanged: {
+        Qt.callLater(_syncNetworks);
+        Qt.callLater(refresh);
     }
+    onDeviceChanged: Qt.callLater(refresh)
+    onLinkTypeChanged: Qt.callLater(refresh)
+    onScanningChanged: Qt.callLater(_syncNetworks)
 
-    // Returns what to ask the user for: "", "password" or "enterprise".
-    function connect(name, security) {
-        if (isEnterprise(security))
-            return "enterprise";
+    // ── Reads ──────────────────────────────────────────────────────────────
 
-        const entry = savedFor(name);
-        if (entry) {
-            _run(["nmcli", "con", "up", "uuid", entry.uuid]);
-            return "";
+    function refresh() {
+        if (device === "") {
+            _clearDetails();
+            return;
         }
-
-        if (security !== "")
-            return "password";
-
-        _run(["nmcli", "dev", "wifi", "connect", name]);
-        return "";
-    }
-
-    function connectWithPassword(name, password) {
-        _run(["nmcli", "dev", "wifi", "connect", name, "password", password]);
-    }
-
-    function connectEnterprise(name, identity, password) {
-        const entry = savedFor(name);
-        _run(["bash", "-c", _enterpriseScript, "--", name, identity, password, entry ? entry.uuid : ""]);
-    }
-
-    function disconnect() {
-        if (connectionUuid === "")
+        if (details.running)
             return;
-        busy = "disconnect";
-        _run(["nmcli", "con", "down", "uuid", connectionUuid]);
+        details.command = ["bash", "-c", _detailsScript, "--", device, linkType];
+        details.running = true;
     }
 
-    function forget(name) {
-        const entry = savedFor(name);
-        if (!entry)
-            return;
-        busy = "forget";
-        _run(["nmcli", "con", "delete", "uuid", entry.uuid]);
+    function scan() {
+        if (wifiDevice)
+            wifiDevice.scannerEnabled = true;
+        refresh();
     }
 
-    // "auto" restores DHCP-provided servers.
-    function setDns(server) {
-        if (connectionUuid === "")
-            return;
-        busy = "dns";
-        _run(server === "auto" ? ["nmcli", "con", "mod", "uuid", connectionUuid, "ipv4.dns", "", "ipv4.ignore-auto-dns", "no"] : ["nmcli", "con", "mod", "uuid", connectionUuid, "ipv4.dns", server, "ipv4.ignore-auto-dns", "yes"]);
+    function stopScan() {
+        if (wifiDevice)
+            wifiDevice.scannerEnabled = false;
     }
 
-    function _run(command) {
-        writer.command = command;
-        writer.running = true;
-    }
-
-    function _clearLink() {
-        linkType = "";
-        device = "";
+    function _clearDetails() {
         connectionName = "";
         connectionUuid = "";
-        ssid = "";
-        signal = 0;
         ipAddress = "";
         gateway = "";
         dns = "";
         frequency = "";
-        ethernetSpeed = "";
         ethernetDuplex = "";
     }
 
-    // ── Parsing ────────────────────────────────────────────────────────────
-
-    function _ingest(text) {
+    function _ingestDetails(text) {
         const lines = text.split("\n");
-        let radioState = "";
-        let dev = "";
-        let type = "";
         let name = "";
         let uuid = "";
         let ip = "";
         let gw = "";
-        let resolvers = [];
-        let netSsid = "";
-        let netSignal = 0;
+        const resolvers = [];
         let netFreq = "";
-        let ethSpeed = "";
         let ethDuplex = "";
-        let reachability = "";
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
@@ -241,19 +272,11 @@ QtObject {
             const tag = line.slice(0, space);
             const value = line.slice(space + 1);
 
-            if (tag === "RADIO") {
-                radioState = value.trim();
-            } else if (tag === "DEVICE") {
-                dev = value.trim();
-            } else if (tag === "CONNECTIVITY") {
-                reachability = value.trim();
-            } else if (tag === "INFO") {
+            if (tag === "INFO") {
                 const parts = _split(value);
                 const key = parts[0];
                 const field = parts.slice(1).join(":");
-                if (key === "GENERAL.TYPE")
-                    type = field;
-                else if (key === "GENERAL.CONNECTION")
+                if (key === "GENERAL.CONNECTION")
                     name = field;
                 else if (key === "GENERAL.CON-UUID")
                     uuid = field;
@@ -263,132 +286,189 @@ QtObject {
                     ip = field;
                 else if (key.indexOf("IP4.DNS") === 0 && field !== "")
                     resolvers.push(field);
-            } else if (tag === "WIFI") {
-                const parts = _split(value);
-                netSsid = parts[1] || "";
-                netSignal = parseInt(parts[2] || "0", 10) || 0;
-                netFreq = parts[3] || "";
-            } else if (tag === "ETH") {
-                const parts = value.split(" ");
-                ethSpeed = parts[0] === "" || parts[0] === "-1" ? "" : parts[0];
-                ethDuplex = parts[1] || "";
+            } else if (tag === "FREQ") {
+                netFreq = value.trim();
+            } else if (tag === "DUPLEX") {
+                ethDuplex = value.trim();
             }
         }
 
-        if (busy !== "radio") {
-            wifiRadio = radioState === "enabled";
-            radioKnown = radioState !== "";
-        }
-        connectivity = reachability;
-
-        if (dev === "" || (type !== "wifi" && type !== "ethernet")) {
-            _clearLink();
-            return;
-        }
-
-        device = dev;
-        linkType = type;
         connectionName = name;
         connectionUuid = uuid;
         ipAddress = ip;
         gateway = gw;
         dns = resolvers.join(", ");
-        ssid = type === "wifi" ? netSsid : "";
-        signal = type === "wifi" ? netSignal : 0;
         frequency = netFreq;
-        ethernetSpeed = ethSpeed;
         ethernetDuplex = ethDuplex;
-
-        for (let i = 0; i < networks.count; i++)
-            networks.setProperty(i, "active", ssid !== "" && networks.get(i).ssid === ssid);
     }
 
-    function _ingestScan(text) {
-        const lines = text.split("\n");
-        const seen = {};
-        const found = [];
+    // ── Writes ─────────────────────────────────────────────────────────────
 
-        for (let i = 0; i < lines.length; i++) {
-            if (lines[i].trim() === "")
-                continue;
-            const parts = _split(lines[i]);
-            const name = parts[1] || "";
-            if (name === "")
-                continue;
+    function setWifiRadio(enabled) {
+        if (!radioKnown || _radioPending || wifiRadio === enabled)
+            return;
+        if (enabled && !wifiHardwareEnabled) {
+            Toast.warning("Wi-Fi is disabled by hardware switch");
+            return;
+        }
+        _radioPending = true;
+        Networking.wifiEnabled = enabled;
+        radioAbandon.restart();
+    }
 
-            const strength = parseInt(parts[2] || "0", 10) || 0;
-            // The same network on two bands lists twice; keep the stronger.
-            if (seen[name] !== undefined) {
-                if (found[seen[name]].signal >= strength)
-                    continue;
-                found[seen[name]].signal = strength;
-                continue;
+    function toggleWifiRadio() {
+        setWifiRadio(!wifiRadio);
+    }
+
+    function _connectNative(net, psk) {
+        _activeConnectNet = net;
+        busy = "connect";
+        if (psk !== undefined)
+            net.connectWithPsk(psk);
+        else
+            net.connect();
+    }
+
+    // Returns what to ask the user for: "", "password" or "enterprise".
+    function connect(name, security) {
+        const net = _findNetwork(name);
+        if (!net) {
+            Toast.error("Network not found");
+            return "";
+        }
+        // Saved profiles (including pre-configured NixOS eduroam) connect directly.
+        if (net.known) {
+            _connectNative(net);
+            return "";
+        }
+        if (isEnterprise(security))
+            return "enterprise";
+        if (security !== "")
+            return "password";
+
+        _connectNative(net);
+        return "";
+    }
+
+    function connectWithPassword(name, password) {
+        const net = _findNetwork(name);
+        if (!net) {
+            Toast.error("Network not found");
+            return;
+        }
+        _connectNative(net, password);
+    }
+
+    function connectEnterprise(name, identity, password) {
+        if (busy !== "" || writer.running || enterprise.running)
+            return;
+        busy = "connect";
+        _enterpriseSecret = String(password || "").replace(/[\r\n]/g, "");
+        enterprise.command = ["bash", "-c", _enterpriseScript, "--", name, identity, device];
+        enterprise.running = true;
+    }
+
+    function disconnect() {
+        if (_activeWifi) {
+            _activeWifi.disconnect();
+            return;
+        }
+        if (wiredDevice && wiredDevice.connected) {
+            wiredDevice.disconnect();
+            return;
+        }
+        if (connectionUuid !== "" && busy === "" && !writer.running) {
+            busy = "disconnect";
+            writer.command = ["nmcli", "con", "down", "uuid", connectionUuid];
+            writer.running = true;
+        }
+    }
+
+    function forget(name) {
+        const net = _findNetwork(name);
+        if (!net || !net.known)
+            return;
+        net.forget();
+        Qt.callLater(_syncNetworks);
+    }
+
+    // "auto" restores DHCP-provided servers.
+    function setDns(server) {
+        if (connectionUuid === "" || device === "" || busy !== "" || writer.running)
+            return;
+        busy = "dns";
+        writer.command = ["bash", "-c", _dnsScript, "--", connectionUuid, server, device];
+        writer.running = true;
+    }
+
+    Component.onCompleted: {
+        _syncNetworks();
+        refresh();
+    }
+
+    // ── Reactive & On-Demand Processes ────────────────────────────────────
+
+    readonly property Connections _radioEvents: Connections {
+        target: Networking
+        function onWifiEnabledChanged() {
+            root._radioPending = false;
+            radioAbandon.stop();
+        }
+    }
+
+    readonly property Timer _radioAbandon: Timer {
+        id: radioAbandon
+        interval: 2500
+        onTriggered: root._radioPending = false
+    }
+
+    readonly property Connections _connectEvents: Connections {
+        target: root._activeConnectNet
+        function onConnectedChanged() {
+            if (root._activeConnectNet && root._activeConnectNet.connected) {
+                root.busy = "";
+                root._activeConnectNet = null;
+                root.connectSucceeded();
+                root.refresh();
             }
-
-            seen[name] = found.length;
-            found.push({
-                ssid: name,
-                signal: strength,
-                security: parts[3] || "",
-                frequency: parts[4] || "",
-                active: parts[0] === "yes"
-            });
         }
-
-        found.sort((a, b) => b.signal - a.signal);
-
-        networks.clear();
-        for (let i = 0; i < found.length; i++)
-            networks.append(found[i]);
+        function onConnectionFailed(reason) {
+            root.busy = "";
+            root._activeConnectNet = null;
+            Toast.error(ConnectionFailReason.toString(reason) || "Connection failed");
+        }
     }
 
-    Component.onCompleted: refresh()
+    readonly property string _detailsScript: 'dev="$1"; kind="$2"; ' + 'nmcli --terse --fields GENERAL.CONNECTION,GENERAL.CON-UUID,IP4.ADDRESS,IP4.GATEWAY,IP4.DNS dev show "$dev" 2>/dev/null | sed "s/^/INFO /"; ' + 'if [ "$kind" = "wifi" ]; then freq=$(nmcli --terse --fields ACTIVE,FREQ dev wifi list ifname "$dev" 2>/dev/null | awk --field-separator=: \'/^yes/{print $2; exit}\'); [ -n "$freq" ] && echo "FREQ $freq"; ' + 'elif [ "$kind" = "ethernet" ]; then duplex=$(cat "/sys/class/net/$dev/duplex" 2>/dev/null); [ -n "$duplex" ] && echo "DUPLEX $duplex"; fi'
 
-    // ── Processes ──────────────────────────────────────────────────────────
+    readonly property string _dnsScript: 'if [ "$2" = "auto" ]; then nmcli con mod uuid "$1" ipv4.dns "" ipv4.ignore-auto-dns no; ' + 'else nmcli con mod uuid "$1" ipv4.dns "$2" ipv4.ignore-auto-dns yes; fi && nmcli dev reapply "$3"'
 
-    readonly property string _stateScript: 'dev=$(ip -oneline route show default 2>/dev/null | awk \'{for (i = 1; i <= NF; i++) if ($i == "dev") { print $(i + 1); exit } }\'); ' + 'if [ -z "$dev" ]; then dev=$(nmcli --terse --fields TYPE,STATE,DEVICE dev status 2>/dev/null | awk --field-separator=: \'$2 ~ /^connected/ && ($1 == "wifi" || $1 == "ethernet") { print $3; exit }\'); fi; ' + 'echo "RADIO $(nmcli radio wifi 2>/dev/null)"; ' + 'echo "CONNECTIVITY $(nmcli networking connectivity check 2>/dev/null)"; ' + 'echo "DEVICE $dev"; ' + '[ -n "$dev" ] || exit 0; ' + 'nmcli --terse --fields GENERAL.TYPE,GENERAL.CONNECTION,GENERAL.CON-UUID,IP4.ADDRESS,IP4.GATEWAY,IP4.DNS dev show "$dev" 2>/dev/null | sed "s/^/INFO /"; ' + 'kind=$(nmcli --terse --fields GENERAL.TYPE dev show "$dev" 2>/dev/null | cut --delimiter=: --fields=2); ' + 'if [ "$kind" = "wifi" ]; then nmcli --terse --fields ACTIVE,SSID,SIGNAL,FREQ,RATE dev wifi list ifname "$dev" 2>/dev/null | awk --field-separator=: \'/^yes/ { print "WIFI " $0; exit }\'; ' + 'elif [ "$kind" = "ethernet" ]; then echo "ETH $(cat /sys/class/net/$dev/speed 2>/dev/null) $(cat /sys/class/net/$dev/duplex 2>/dev/null)"; fi'
+    readonly property string _enterpriseScript: 'iface="$3"; ' + 'if [ -z "$iface" ]; then iface=$(nmcli --terse --fields TYPE,DEVICE dev status | awk --field-separator=: \'$1 == "wifi" { print $2; exit }\'); fi; ' + 'pwfile=$(mktemp); chmod 600 "$pwfile"; trap \'rm --force "$pwfile"\' EXIT; ' + 'IFS= read -r pw; printf \'802-1x.password:%s\n\' "$pw" > "$pwfile"; ' + 'nmcli connection add type wifi ifname "$iface" con-name "$1" ssid "$1" ' + 'wifi-sec.key-mgmt wpa-eap 802-1x.eap peap 802-1x.phase2-auth mschapv2 802-1x.identity "$2" && ' + 'nmcli connection up id "$1" passwd-file "$pwfile"'
 
-    readonly property string _enterpriseScript: 'iface=$(nmcli --terse --fields TYPE,DEVICE dev status | awk --field-separator=: \'$1 == "wifi" { print $2; exit }\'); ' + '[ -n "$4" ] && nmcli connection delete uuid "$4" >/dev/null 2>&1; ' + 'nmcli connection add type wifi ifname "$iface" con-name "$1" ssid "$1" ' + 'wifi-sec.key-mgmt wpa-eap 802-1x.eap peap 802-1x.phase2-auth mschapv2 ' + '802-1x.identity "$2" 802-1x.password "$3" && nmcli connection up id "$1"'
-
-    readonly property Process _state: Process {
-        id: state
-        command: ["bash", "-c", root._stateScript]
+    readonly property Process _details: Process {
+        id: details
         stdout: StdioCollector {
-            onStreamFinished: root._ingest(this.text)
+            onStreamFinished: root._ingestDetails(this.text)
         }
     }
 
-    readonly property Process _scanner: Process {
-        id: scanner
-        command: ["nmcli", "--terse", "--fields", "ACTIVE,SSID,SIGNAL,SECURITY,FREQ", "dev", "wifi", "list", "--rescan", "yes"]
-        stdout: StdioCollector {
-            onStreamFinished: root._ingestScan(this.text)
+    readonly property Process _enterprise: Process {
+        id: enterprise
+        stdinEnabled: true
+        stderr: StdioCollector {
+            id: enterpriseErrors
         }
-    }
-
-    readonly property Process _saved: Process {
-        id: saved
-        command: ["nmcli", "--terse", "--fields", "NAME,UUID,TYPE", "con", "show"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                known.clear();
-                const lines = this.text.split("\n");
-                for (let i = 0; i < lines.length; i++) {
-                    if (lines[i].trim() === "")
-                        continue;
-                    const parts = root._split(lines[i]);
-                    known.append({ name: parts[0] || "", uuid: parts[1] || "", type: parts[2] || "" });
-                }
-            }
+        onStarted: {
+            enterprise.write(root._enterpriseSecret + "\n");
+            root._enterpriseSecret = "";
         }
-    }
-
-    readonly property Process _radio: Process {
-        id: radio
         onExited: code => {
+            root._enterpriseSecret = "";
             root.busy = "";
             if (code !== 0)
-                Toast.error("Could not change the Wi-Fi radio");
+                Toast.failure(enterpriseErrors.text, "Enterprise connection failed");
+            else
+                root.connectSucceeded();
             root.refresh();
         }
     }
@@ -399,25 +479,10 @@ QtObject {
             id: writerErrors
         }
         onExited: code => {
-            const was = root.busy;
             root.busy = "";
-
-            if (code !== 0) {
+            if (code !== 0)
                 Toast.failure(writerErrors.text, "Network request failed");
-            } else if (was === "") {
-                root.connectSucceeded();
-            }
-
             root.refresh();
-            if (was === "forget")
-                root.loadKnown();
         }
-    }
-
-    readonly property Timer _poll: Timer {
-        interval: 8000
-        running: true
-        repeat: true
-        onTriggered: root.refresh()
     }
 }

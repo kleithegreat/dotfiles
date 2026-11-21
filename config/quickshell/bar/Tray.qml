@@ -55,7 +55,7 @@ Row {
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
             spacing: 0
-            visible: root.expanded
+            visible: icons.opacity > 0.001
             opacity: root.expanded ? 1 : 0
 
             Behavior on opacity {
@@ -79,7 +79,7 @@ Row {
                     pressScale: 0.9
 
                     function present() {
-                        root.state.openMenu(entry.modelData.menu, entry.mapToItem(null, entry.width / 2, 0).x + Metrics.barMargin);
+                        root.state.openMenu(entry.modelData.menu, entry.mapToItem(null, entry.width / 2, 0).x + (Metrics.barMargin - Metrics.barShadowPad));
                     }
 
                     onClicked: {

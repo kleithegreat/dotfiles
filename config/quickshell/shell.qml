@@ -57,6 +57,7 @@ Scope {
         void Sys.AirPods.connected;
         void Sys.AirDrop.available;
         void Sys.Input.sensitivity;
+        void Sys.FocusTime.today;
         Sys.Idle.applyBootDefault();
     }
 

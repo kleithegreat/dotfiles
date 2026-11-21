@@ -6,10 +6,7 @@
     "bat": "Catppuccin Frappe",
     "ktexteditor": "Catppuccin Frappé",
     "snappy_switcher": "catppuccin-frappe.ini",
-    "vicinae": {
-      "name": "catppuccin-frappe",
-      "light_name": "catppuccin-latte"
-    },
+    "vicinae": "catppuccin-frappe",
     "vscode": {
       "name": "Catppuccin Frappé",
       "extension_id": "catppuccin.catppuccin-vsc",

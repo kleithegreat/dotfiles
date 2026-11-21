@@ -59,7 +59,7 @@ PanelWindow {
     // Covers the bar too, so a bar press is not an outside click.
     HyprlandFocusGrab {
         active: overlay.state.open_
-        windows: overlay.state.open_ ? [overlay, overlay.barWindow] : []
+        windows: overlay.state.open_ ? (overlay.barWindow ? [overlay, overlay.barWindow] : [overlay]) : []
         onCleared: overlay.state.close()
     }
 

@@ -1,7 +1,6 @@
 pragma Singleton
 
 import QtQuick
-import Quickshell.Io
 import Quickshell.Services.Mpris
 
 // Pushed by the daemon ([[airpods]]); pairing goes through Bluetooth's write path.
@@ -61,7 +60,20 @@ QtObject {
             _candidate = null;
             card = "hold";
             Bluetooth.seek("airpods", true);
+            _tryPairDiscovered();
         }
+        deadline.restart();
+    }
+
+    function _tryPairDiscovered() {
+        if (card !== "hold")
+            return;
+        const found = Bluetooth.discovered.find(device => device.name.indexOf("AirPods") >= 0);
+        if (!found)
+            return;
+        _candidate = found;
+        card = "connecting";
+        found.pair();
         deadline.restart();
     }
 
@@ -111,13 +123,14 @@ QtObject {
         }
         const inEar = (next.ears ?? []).filter(pod => pod === "in_ear").length;
         if (inEar < _inEar) {
-            const playing = Mpris.players.values.find(player => player.playbackState === MprisPlaybackState.Playing);
+            const playing = Media.playing ? Media.player : null;
             if (playing) {
                 playing.pause();
                 _paused = playing;
             }
         } else if (inEar > _inEar && _paused) {
-            _paused.play();
+            if (Mpris.players.values.indexOf(_paused) >= 0 && _paused.canPlay)
+                _paused.play();
             _paused = null;
         }
         _inEar = inEar;
@@ -140,13 +153,7 @@ QtObject {
         target: Bluetooth
         enabled: root.card === "hold"
         function onDiscoveredChanged() {
-            const found = Bluetooth.discovered.find(device => device.name.indexOf("AirPods") >= 0);
-            if (!found)
-                return;
-            root._candidate = found;
-            root.card = "connecting";
-            found.pair();
-            deadline.restart();
+            root._tryPairDiscovered();
         }
     }
 

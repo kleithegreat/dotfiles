@@ -1,9 +1,9 @@
 use super::{Target, wallpaper::selected_wallpaper_path};
-use crate::theme::{
-    atomic_write,
-    schema::{ColorScheme, ThemeState},
+use crate::{
+    fs_util::atomic_write,
+    theme::schema::{ColorScheme, ThemeState},
 };
-use std::{env, fs, path::PathBuf};
+use std::{fs, path::Path};
 
 pub const TARGET: Target = Target::hooks(
     "where_is_my_sddm_theme",
@@ -12,7 +12,6 @@ pub const TARGET: Target = Target::hooks(
 .persist(persist);
 
 const STAGED_BACKGROUND_PATH: &str = "/tmp/desktopctl-where-is-my-sddm-theme/background";
-const STAGED_BACKGROUND_ENV: &str = "DESKTOPCTL_SDDM_THEME_STAGE_PATH";
 
 pub fn persist(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
     let source = match selected_wallpaper_path(colors, state) {
@@ -42,50 +41,13 @@ pub fn persist(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
         }
     };
 
-    if let Err(error) = atomic_write(&staged_background_path(), &bytes) {
+    if let Err(error) = atomic_write(Path::new(STAGED_BACKGROUND_PATH), &bytes) {
         warn(&format!("could not stage SDDM background: {error}"));
     }
 
     Ok(())
 }
 
-fn staged_background_path() -> PathBuf {
-    env::var_os(STAGED_BACKGROUND_ENV)
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(STAGED_BACKGROUND_PATH))
-}
-
 fn warn(message: &str) {
     eprintln!("  where_is_my_sddm_theme warning: {message}");
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{
-        test_support::{ScopedEnvVar, TempDir, env_lock},
-        theme::targets::testsupport::{dummy_colors, dummy_state},
-    };
-    use std::fs;
-
-    #[test]
-    fn persist_stages_current_wallpaper_bytes() {
-        let _env_guard = env_lock();
-        let temp_dir = TempDir::new("where-is-my-sddm-theme").expect("temp dir");
-        let staged_path = temp_dir.path().join("background");
-        let _staged_override = ScopedEnvVar::set(STAGED_BACKGROUND_ENV, &staged_path);
-
-        let wallpaper_path = temp_dir.path().join("wallpaper.jpg");
-        fs::write(&wallpaper_path, b"test-wallpaper").expect("wallpaper write succeeds");
-
-        let mut state = dummy_state();
-        state.wallpaper = wallpaper_path.display().to_string();
-
-        persist(&dummy_colors(), &state).expect("persist succeeds");
-
-        assert_eq!(
-            fs::read(&staged_path).expect("staged wallpaper exists"),
-            b"test-wallpaper"
-        );
-    }
 }

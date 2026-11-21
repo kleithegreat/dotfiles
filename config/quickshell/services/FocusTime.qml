@@ -1,10 +1,8 @@
 pragma Singleton
 
 import QtQuick
-import Quickshell
-import Quickshell.Io
 
-// Reads the daemon's JSON heartbeat only ([[focus-time]]).
+// Pushed by the daemon over the focus topic.
 QtObject {
     id: root
 
@@ -17,13 +15,7 @@ QtObject {
     readonly property var apps: data.apps || []
     readonly property var week: data.week || []
 
-    // The file's age is the only liveness signal.
-    property real _now: Date.now()
-
-    readonly property bool stale: {
-        const stamp = data.last_updated || 0;
-        return stamp === 0 || _now / 1000 - stamp > 5;
-    }
+    readonly property bool stale: !Desktopctl.ready || (data.last_updated || 0) === 0
 
     function format(seconds) {
         const hours = Math.floor(seconds / 3600);
@@ -33,24 +25,10 @@ QtObject {
         return hours + "h " + minutes + "m";
     }
 
-    readonly property FileView _file: FileView {
-        path: Quickshell.env("XDG_RUNTIME_DIR") + "/focustime_state.json"
-        watchChanges: true
-        onFileChanged: reload()
-        onLoaded: {
-            try {
-                root.data = JSON.parse(this.text());
-            } catch (e) {
-            }
+    readonly property Connections _events: Connections {
+        target: Desktopctl
+        function onFocusChanged(summary) {
+            root.data = summary;
         }
-    }
-
-    readonly property Timer _tick: Timer {
-        id: tick
-        interval: 2000
-        running: true
-        repeat: true
-        triggeredOnStart: true
-        onTriggered: root._now = Date.now()
     }
 }

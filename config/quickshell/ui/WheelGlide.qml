@@ -11,17 +11,21 @@ Item {
 
     readonly property bool running: glide.running
     readonly property real limit: horizontal ? Math.max(0, flick.contentWidth - flick.width) : Math.max(0, flick.contentHeight - flick.height)
+    property real _target: 0
 
     anchors.fill: parent
 
     function scrollTo(position, curve) {
+        recoil.stop();
+        _target = position;
         glide.to = position;
         glide.easing.bezierCurve = curve || Motion.enter;
         glide.restart();
     }
 
     function scrollBy(delta) {
-        const next = (glide.running ? glide.to : horizontal ? flick.contentX : flick.contentY) + delta;
+        const current = horizontal ? flick.contentX : flick.contentY;
+        const next = (glide.running ? _target : current) + delta;
         const past = next < 0 ? -next : next > limit ? next - limit : 0;
 
         if (past === 0) {
@@ -29,7 +33,11 @@ Item {
             return;
         }
 
-        scrollTo(next < 0 ? -Metrics.resist(past) : limit + Metrics.resist(past));
+        recoil.stop();
+        _target = next;
+        glide.to = next < 0 ? -Metrics.resist(past) : limit + Metrics.resist(past);
+        glide.easing.bezierCurve = Motion.enter;
+        glide.restart();
         recoil.restart();
     }
 
@@ -37,7 +45,7 @@ Item {
     Timer {
         id: recoil
         interval: Motion.instant
-        onTriggered: root.scrollTo(Math.max(0, Math.min(root.limit, glide.to)), Motion.standard)
+        onTriggered: root.scrollTo(Math.max(0, Math.min(root.limit, root._target)), Motion.standard)
     }
 
     NumberAnimation {

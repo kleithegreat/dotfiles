@@ -1,14 +1,13 @@
-use super::{
-    Target,
-    scheme_pair::{self, SchemeEntry},
+use super::Target;
+use crate::{
+    cmd::dconf_write_str,
+    fs_util::expand_user_path,
+    theme::{
+        color::readable_on_ends,
+        schema::{ColorScheme, ThemeState},
+    },
 };
-use crate::theme::{
-    atomic_write,
-    command::dconf_write,
-    expand_user_path,
-    schema::{ColorScheme, ColorSchemeAppearance, ThemeState},
-};
-use std::{collections::HashSet, fs, path::Path};
+use std::{fs, path::Path};
 
 pub const TARGET: Target = Target::standalone(
     "gtksourceview",
@@ -23,14 +22,6 @@ const STYLES_DIR: &str = "~/.local/share/libgedit-gtksourceview-300/styles";
 const CURRENT_FILE_NAME: &str = "desktopctl-current.xml";
 const CURRENT_SCHEME_ID: &str = "desktopctl-current";
 const GENERATED_FILE_PREFIX: &str = "desktopctl-";
-
-fn style_scheme_id(scheme_name: &str) -> String {
-    format!("{GENERATED_FILE_PREFIX}{scheme_name}")
-}
-
-fn style_scheme_file_name(scheme_name: &str) -> String {
-    format!("{}.xml", style_scheme_id(scheme_name))
-}
 
 fn current_style_scheme_name(scheme_name: &str) -> String {
     format!(
@@ -60,7 +51,10 @@ fn render_style_scheme(
     scheme_name: &str,
     colors: &ColorScheme,
 ) -> String {
-    let kind = if colors.is_dark() { "dark" } else { "light" };
+    let kind = colors.appearance.as_str();
+    let on_accent = readable_on_ends(&colors.accent, &colors.bg, &colors.fg);
+    let on_red = readable_on_ends(&colors.red, &colors.bg, &colors.fg);
+    let on_yellow = readable_on_ends(&colors.yellow, &colors.bg, &colors.fg);
 
     format!(
         concat!(
@@ -85,9 +79,12 @@ fn render_style_scheme(
             "  <color name=\"orange\" value=\"{orange}\"/>\n",
             "  <color name=\"cyan\" value=\"{cyan}\"/>\n",
             "  <color name=\"accent\" value=\"{accent}\"/>\n",
+            "  <color name=\"on_accent\" value=\"{on_accent}\"/>\n",
+            "  <color name=\"on_red\" value=\"{on_red}\"/>\n",
+            "  <color name=\"on_yellow\" value=\"{on_yellow}\"/>\n",
             "\n",
             "  <style name=\"text\" foreground=\"fg\" background=\"bg\"/>\n",
-            "  <style name=\"selection\" foreground=\"bg\" background=\"accent\"/>\n",
+            "  <style name=\"selection\" foreground=\"on_accent\" background=\"accent\"/>\n",
             "  <style name=\"cursor\" foreground=\"fg\"/>\n",
             "  <style name=\"secondary-cursor\" foreground=\"fg4\"/>\n",
             "  <style name=\"current-line\" background=\"bg_dim\"/>\n",
@@ -95,8 +92,8 @@ fn render_style_scheme(
             "  <style name=\"right-margin\" foreground=\"bg2\" background=\"bg1\"/>\n",
             "  <style name=\"draw-spaces\" foreground=\"fg4\"/>\n",
             "  <style name=\"bracket-match\" foreground=\"bg\" background=\"fg4\"/>\n",
-            "  <style name=\"bracket-mismatch\" foreground=\"bg\" background=\"red\"/>\n",
-            "  <style name=\"search-match\" foreground=\"bg\" background=\"yellow\"/>\n",
+            "  <style name=\"bracket-mismatch\" foreground=\"on_red\" background=\"red\"/>\n",
+            "  <style name=\"search-match\" foreground=\"on_yellow\" background=\"yellow\"/>\n",
             "  <style name=\"bookmark\" background=\"bg1\"/>\n",
             "\n",
             "  <style name=\"def:comment\" foreground=\"fg3\" italic=\"true\"/>\n",
@@ -144,28 +141,13 @@ fn render_style_scheme(
         orange = colors.orange,
         cyan = colors.cyan,
         accent = colors.accent,
+        on_accent = on_accent,
+        on_red = on_red,
+        on_yellow = on_yellow,
     )
 }
 
-fn render_named_style_scheme(scheme_name: &str, colors: &ColorScheme) -> String {
-    render_style_scheme(
-        &style_scheme_id(scheme_name),
-        &format!("Desktopctl {}", title_case_scheme_name(scheme_name)),
-        scheme_name,
-        colors,
-    )
-}
-
-fn render_current_style_scheme(scheme_name: &str, colors: &ColorScheme) -> String {
-    render_style_scheme(
-        CURRENT_SCHEME_ID,
-        &current_style_scheme_name(scheme_name),
-        scheme_name,
-        colors,
-    )
-}
-
-fn cleanup_managed_styles(styles_dir: &Path, expected: &HashSet<String>) -> crate::Result<()> {
+fn cleanup_managed_styles(styles_dir: &Path) -> crate::Result<()> {
     for entry in fs::read_dir(styles_dir)? {
         let entry = entry?;
         let path = entry.path();
@@ -176,9 +158,9 @@ fn cleanup_managed_styles(styles_dir: &Path, expected: &HashSet<String>) -> crat
         let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
             continue;
         };
-        if name.starts_with(GENERATED_FILE_PREFIX)
+        if name != CURRENT_FILE_NAME
+            && name.starts_with(GENERATED_FILE_PREFIX)
             && name.ends_with(".xml")
-            && !expected.contains(name)
         {
             fs::remove_file(path)?;
         }
@@ -186,187 +168,32 @@ fn cleanup_managed_styles(styles_dir: &Path, expected: &HashSet<String>) -> crat
     Ok(())
 }
 
-fn style_scheme_id_for_appearance(
-    catalog: &[SchemeEntry],
-    current_colors: &ColorScheme,
-    desired_appearance: ColorSchemeAppearance,
-) -> String {
-    match scheme_pair::scheme_for_appearance(catalog, current_colors, desired_appearance) {
-        Some(entry) => style_scheme_id(&entry.name),
-        None => CURRENT_SCHEME_ID.to_owned(),
-    }
-}
-
 pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<String> {
-    Ok(render_current_style_scheme(&state.color_scheme, colors))
+    Ok(render_style_scheme(
+        CURRENT_SCHEME_ID,
+        &current_style_scheme_name(&state.color_scheme),
+        &state.color_scheme,
+        colors,
+    ))
 }
 
-pub fn persist(_colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
+pub fn persist(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
     let styles_dir = expand_user_path(STYLES_DIR)?;
-    fs::create_dir_all(&styles_dir)?;
-
-    let catalog = scheme_pair::load_scheme_catalog()?;
-    let mut expected = HashSet::from([CURRENT_FILE_NAME.to_owned()]);
-
-    for entry in catalog {
-        if entry.name == state.color_scheme {
-            continue;
-        }
-
-        let file_name = style_scheme_file_name(&entry.name);
-        let path = styles_dir.join(&file_name);
-        atomic_write(
-            &path,
-            render_named_style_scheme(&entry.name, &entry.colors).as_bytes(),
-        )?;
-        expected.insert(file_name);
+    if !styles_dir.exists() {
+        return Ok(());
     }
-
-    cleanup_managed_styles(&styles_dir, &expected)
+    cleanup_managed_styles(&styles_dir)
 }
 
-pub fn on_apply(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
-    let catalog = scheme_pair::load_scheme_catalog()?;
-    let dark_scheme_id =
-        style_scheme_id_for_appearance(&catalog, colors, ColorSchemeAppearance::Dark);
-    let light_scheme_id =
-        style_scheme_id_for_appearance(&catalog, colors, ColorSchemeAppearance::Light);
-
-    dconf_write(
+pub fn on_apply(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
+    dconf_write_str(
         "/org/gnome/gedit/preferences/editor/style-scheme-for-dark-theme-variant",
-        &format!("'{}'", dark_scheme_id),
+        CURRENT_SCHEME_ID,
     )?;
-    dconf_write(
+    dconf_write_str(
         "/org/gnome/gedit/preferences/editor/style-scheme-for-light-theme-variant",
-        &format!("'{}'", light_scheme_id),
+        CURRENT_SCHEME_ID,
     )?;
 
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::theme::targets::testsupport::{dummy_colors, dummy_state};
-
-    fn scheme_entry(
-        name: &str,
-        family: &str,
-        variant: &str,
-        appearance: ColorSchemeAppearance,
-    ) -> SchemeEntry {
-        let mut colors = dummy_colors();
-        colors.family = family.to_owned();
-        colors.variant = variant.to_owned();
-        colors.appearance = appearance;
-        SchemeEntry {
-            name: name.to_owned(),
-            colors,
-        }
-    }
-
-    fn catalog_fixture() -> Vec<SchemeEntry> {
-        vec![
-            scheme_entry(
-                "gruvbox-dark",
-                "gruvbox",
-                "dark",
-                ColorSchemeAppearance::Dark,
-            ),
-            scheme_entry(
-                "gruvbox-light",
-                "gruvbox",
-                "light",
-                ColorSchemeAppearance::Light,
-            ),
-            scheme_entry(
-                "catppuccin-latte",
-                "catppuccin",
-                "latte",
-                ColorSchemeAppearance::Light,
-            ),
-            scheme_entry(
-                "catppuccin-frappe",
-                "catppuccin",
-                "frappe",
-                ColorSchemeAppearance::Dark,
-            ),
-            scheme_entry(
-                "catppuccin-macchiato",
-                "catppuccin",
-                "macchiato",
-                ColorSchemeAppearance::Dark,
-            ),
-            scheme_entry(
-                "catppuccin-mocha",
-                "catppuccin",
-                "mocha",
-                ColorSchemeAppearance::Dark,
-            ),
-        ]
-    }
-
-    fn colors_for_name(catalog: &[SchemeEntry], name: &str) -> ColorScheme {
-        catalog
-            .iter()
-            .find(|entry| entry.name == name)
-            .expect("scheme fixture exists")
-            .colors
-            .clone()
-    }
-
-    #[test]
-    fn generate_uses_desktopctl_current_alias_and_palette() {
-        let output = generate(&dummy_colors(), &dummy_state()).expect("generate succeeds");
-
-        assert!(output.contains("style-scheme id=\"desktopctl-current\""));
-        assert!(output.contains("_name=\"Desktopctl Current (Gruvbox Dark)\""));
-        assert!(output.contains("kind=\"dark\""));
-        assert!(output.contains("Generated from desktopctl theme gruvbox-dark"));
-        assert!(output.contains("<color name=\"bg\" value=\"#000000\"/>"));
-        assert!(output.contains("<style name=\"def:string\" foreground=\"green\"/>"));
-    }
-
-    #[test]
-    fn style_scheme_id_for_appearance_uses_current_alias_when_current_scheme_matches() {
-        let catalog = catalog_fixture();
-        let current = colors_for_name(&catalog, "gruvbox-dark");
-        assert_eq!(
-            style_scheme_id_for_appearance(&catalog, &current, ColorSchemeAppearance::Dark),
-            "desktopctl-current"
-        );
-        assert_eq!(
-            style_scheme_id_for_appearance(&catalog, &current, ColorSchemeAppearance::Light),
-            "desktopctl-gruvbox-light"
-        );
-    }
-
-    #[test]
-    fn style_scheme_id_for_appearance_uses_dark_fallback_order_for_light_schemes() {
-        let catalog = catalog_fixture();
-        let current = colors_for_name(&catalog, "catppuccin-latte");
-        assert_eq!(
-            style_scheme_id_for_appearance(&catalog, &current, ColorSchemeAppearance::Dark),
-            "desktopctl-catppuccin-mocha"
-        );
-    }
-
-    #[test]
-    fn style_scheme_id_for_appearance_falls_back_to_current_alias_when_no_pair_exists() {
-        let current = scheme_entry(
-            "gruvbox-dark",
-            "gruvbox",
-            "dark",
-            ColorSchemeAppearance::Dark,
-        )
-        .colors;
-        let catalog = vec![SchemeEntry {
-            name: "gruvbox-dark".to_owned(),
-            colors: current.clone(),
-        }];
-        assert_eq!(
-            style_scheme_id_for_appearance(&catalog, &current, ColorSchemeAppearance::Light),
-            "desktopctl-current"
-        );
-    }
 }

@@ -1,8 +1,5 @@
 use super::Target;
-use crate::theme::{
-    json,
-    schema::{ColorScheme, ThemeState},
-};
+use crate::theme::schema::{ColorScheme, ThemeState};
 
 pub const TARGET: Target = Target::standalone(
     "quickshell",
@@ -39,5 +36,5 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Strin
         },
     });
 
-    Ok(format!("{}\n", json::format_pretty_value(&theme)))
+    Ok(format!("{}\n", serde_json::to_string_pretty(&theme)?))
 }

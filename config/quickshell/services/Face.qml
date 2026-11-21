@@ -75,12 +75,12 @@ QtObject {
 
     readonly property Process _remove: Process {
         id: remove
-        stdout: StdioCollector {
+        stderr: StdioCollector {
             id: removed
         }
         onExited: code => {
             if (code !== 0)
-                Toast.failure(removed.text.trim());
+                Toast.failure(removed.text.trim(), "Could not remove face model");
             root.refresh();
         }
     }

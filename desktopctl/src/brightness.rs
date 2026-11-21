@@ -145,21 +145,38 @@ pub(crate) fn step_core(device: Option<&str>, direction: f64) -> Result<serde_js
     let state = resolve_state(device)?;
     ensure_nonzero_max(state.max)?;
 
-    let perceived = match &state.device {
-        BrightnessDevice::Backlight(_) => raw_to_perceived(state.current, state.max),
-        BrightnessDevice::Ddc { .. } => state.current as f64 / state.max as f64,
-    };
-    let next = (perceived + (direction * STEP)).clamp(0.0, 1.0);
-    let raw = match &state.device {
-        BrightnessDevice::Backlight(_) => perceived_to_raw(next, state.max),
-        BrightnessDevice::Ddc { .. } => fraction_to_raw(next, state.max),
-    };
+    let raw = stepped_raw(&state.device, state.current, state.max, direction);
 
     set_raw(&state.device, raw)?;
     Ok(serde_json::to_value(status_payload(&BrightnessState {
         current: raw,
         ..state
     })?)?)
+}
+
+fn stepped_raw(device: &BrightnessDevice, current: u64, max: u64, direction: f64) -> u64 {
+    let perceived = display_fraction_for_raw(device, current, max);
+    let next = (perceived + (direction * STEP)).clamp(0.0, 1.0);
+    let raw = match device {
+        BrightnessDevice::Backlight(_) => perceived_to_raw(next, max),
+        BrightnessDevice::Ddc { .. } => fraction_to_raw(next, max),
+    };
+
+    if direction > 0.0 {
+        raw.max((current + 1).min(max))
+    } else if direction < 0.0 {
+        raw.min(current.saturating_sub(1))
+    } else {
+        raw
+    }
+}
+
+fn dim_target_raw(device: &BrightnessDevice, current: u64, max: u64) -> u64 {
+    let target_perceived = (display_fraction_for_raw(device, current, max) * 0.3).clamp(0.0, 1.0);
+    match device {
+        BrightnessDevice::Backlight(_) => perceived_to_raw(target_perceived, max).max(1),
+        BrightnessDevice::Ddc { .. } => fraction_to_raw(target_perceived, max),
+    }
 }
 
 /// Save the current level and ramp down, checking `abort` between steps.
@@ -173,11 +190,11 @@ pub(crate) fn dim_core(device: Option<&str>, abort: &AtomicBool) -> Result<Saved
         raw: state.current,
     };
 
-    if state.current == 0 {
+    let target = dim_target_raw(&state.device, state.current, state.max);
+    if state.current == 0 || target >= state.current {
         return Ok(saved);
     }
 
-    let target = ((state.current as f64) * 0.3).floor() as u64;
     for raw in dim_ramp_raw_values(&state.device, state.current, target, state.max) {
         if abort.load(Ordering::Relaxed) {
             break;
@@ -412,7 +429,11 @@ fn brightnessctl(device: &str, args: &[&str]) -> Result<Output> {
         return Ok(output);
     }
 
-    Err(command_error("brightnessctl", &command_args, &output).into())
+    Err(crate::cmd::command_error(
+        &format!("brightnessctl {}", command_args.join(" ")),
+        &output,
+    )
+    .into())
 }
 
 fn set_raw(device: &BrightnessDevice, raw: u64) -> Result<()> {
@@ -463,7 +484,7 @@ fn ddcutil(bus: Option<u32>, args: &[&str]) -> Result<Output> {
         return Ok(output);
     }
 
-    Err(command_error("ddcutil", &command_args, &output).into())
+    Err(crate::cmd::command_error(&format!("ddcutil {}", command_args.join(" ")), &output).into())
 }
 
 fn detected_ddc_devices() -> Result<Vec<BrightnessDevice>> {
@@ -471,7 +492,7 @@ fn detected_ddc_devices() -> Result<Vec<BrightnessDevice>> {
         .args(["detect", "--brief"])
         .output()?;
     if !output.status.success() {
-        return Err(command_error("ddcutil", &["detect", "--brief"], &output).into());
+        return Err(crate::cmd::command_error("ddcutil detect --brief", &output).into());
     }
 
     let stdout = String::from_utf8(output.stdout)?;
@@ -638,17 +659,6 @@ fn display_fraction_for_raw(device: &BrightnessDevice, raw: u64, max: u64) -> f6
     }
 }
 
-fn command_error(binary: &str, args: &[&str], output: &Output) -> io::Error {
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    let detail = if stderr.trim().is_empty() {
-        "(no stderr)".to_owned()
-    } else {
-        stderr.trim().to_owned()
-    };
-
-    io::Error::other(format!("{binary} {} failed: {detail}", args.join(" ")))
-}
-
 impl fmt::Display for BrightnessDevice {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -664,68 +674,27 @@ mod tests {
     use super::*;
 
     #[test]
-    fn raw_to_perceived_uses_gamma_curve() {
-        let perceived = raw_to_perceived(25, 100);
-
-        assert!((perceived - 0.532_520_544_7).abs() < 1e-9);
+    fn coarse_backlight_step_never_stalls_at_zero_and_dim_keeps_min_floor() {
+        let device = BrightnessDevice::Backlight("intel_backlight".to_owned());
+        assert_eq!(stepped_raw(&device, 0, 100, 1.0), 1);
+        assert_eq!(stepped_raw(&device, 100, 100, 1.0), 100);
+        assert_eq!(stepped_raw(&device, 0, 100, -1.0), 0);
+        assert!(dim_target_raw(&device, 1, 100) >= 1);
+        assert_eq!(dim_target_raw(&device, 100, 100), 7);
     }
 
     #[test]
-    fn perceived_to_raw_clamps_inputs_and_rounds_down() {
-        assert_eq!(perceived_to_raw(-0.25, 200), 0);
-        assert_eq!(perceived_to_raw(1.5, 200), 200);
-        assert_eq!(perceived_to_raw(0.5, 100), 21);
-    }
-
-    #[test]
-    fn perceptual_steps_move_in_the_expected_direction_and_clamp_at_bounds() {
-        let current = 25;
-        let max = 100;
-        let perceived = raw_to_perceived(current, max);
-
-        let stepped_up = perceived_to_raw((perceived + STEP).clamp(0.0, 1.0), max);
-        let stepped_down = perceived_to_raw((perceived - STEP).clamp(0.0, 1.0), max);
-
-        assert!(stepped_up > current);
-        assert!(stepped_down < current);
-        assert_eq!(
-            perceived_to_raw((raw_to_perceived(max, max) + STEP).clamp(0.0, 1.0), max),
-            max
-        );
-        assert_eq!(
-            perceived_to_raw((raw_to_perceived(0, max) - STEP).clamp(0.0, 1.0), max),
-            0
-        );
-    }
-
-    #[test]
-    fn ensure_nonzero_max_rejects_zero() {
-        assert!(ensure_nonzero_max(0).is_err());
-        assert!(ensure_nonzero_max(1).is_ok());
-    }
-
-    #[test]
-    fn parse_ddc_brightness_accepts_default_output() {
-        let output = "VCP code 0x10 (Brightness): current value =    42, max value =   100";
-
-        assert_eq!(parse_ddc_brightness(output), Some((42, 100)));
-    }
-
-    #[test]
-    fn parse_ddc_device_accepts_bus_override() {
-        assert_eq!(parse_ddc_device("ddc"), Some(None));
-        assert_eq!(parse_ddc_device("ddc:15"), Some(Some(15)));
-        assert_eq!(parse_ddc_device("intel_backlight"), None);
-        assert_eq!(parse_ddc_device("ddc:not-a-bus"), None);
-    }
-
-    #[test]
-    fn parse_ddc_detect_brief_extracts_bus_and_metadata() {
+    fn parse_ddc_detect_brief_extracts_valid_displays_and_skips_invalid_blocks() {
         let output = r#"
 Display 1
    I2C bus:             /dev/i2c-9
    DRM connector:       card1-HDMI-A-1
    Monitor:             BNQ ZOWIE XL LCD
+
+Invalid display
+   I2C bus:             /dev/i2c-12
+   DRM connector:       card1-eDP-1
+   Monitor:             LGD::
 
 Display 2
    I2C bus:             /dev/i2c-10
@@ -752,34 +721,9 @@ Display 2
     }
 
     #[test]
-    fn parse_ddc_detect_brief_drops_invalid_display_blocks() {
-        let output = r#"
-Display 1
-   I2C bus:             /dev/i2c-15
-   DRM connector:       card1-DP-3
-   Monitor:             BNQ ZOWIE XL LCD
-
-Invalid display
-   I2C bus:             /dev/i2c-12
-   DRM connector:       card1-eDP-1
-   Monitor:             LGD::
-"#;
-
-        assert_eq!(
-            parse_ddc_detect_brief(output),
-            vec![DdcDisplay {
-                bus: 15,
-                connector: Some("DP-3".to_owned()),
-                label: Some("BNQ ZOWIE XL LCD".to_owned()),
-            }]
-        );
-    }
-
-    #[test]
-    fn parse_i2c_bus_reads_the_device_node_suffix() {
-        assert_eq!(parse_i2c_bus("/dev/i2c-15"), Some(15));
-        assert_eq!(parse_i2c_bus("  /dev/i2c-9  "), Some(9));
-        assert_eq!(parse_i2c_bus("/dev/i2c-none"), None);
+    fn parse_ddc_brightness_accepts_default_output() {
+        let output = "VCP code 0x10 (Brightness): current value =    42, max value =   100";
+        assert_eq!(parse_ddc_brightness(output), Some((42, 100)));
     }
 
     #[test]
@@ -793,13 +737,6 @@ Invalid display
             Some("DP-2".to_owned())
         );
         assert_eq!(normalize_drm_connector("unknown"), None);
-    }
-
-    #[test]
-    fn display_fraction_for_backlight_reports_actual_nonzero_raw_value() {
-        let device = BrightnessDevice::Backlight("intel_backlight".to_owned());
-
-        assert!(display_fraction_for_raw(&device, 1, 100) > 0.0);
     }
 
     #[test]

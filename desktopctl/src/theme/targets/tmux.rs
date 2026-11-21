@@ -1,9 +1,13 @@
 use super::Target;
-use crate::theme::{
-    command::run,
-    expand_user_path,
-    schema::{ColorScheme, ThemeState},
+use crate::{
+    cmd::run,
+    fs_util::expand_user_path,
+    theme::{
+        color::readable_on_ends,
+        schema::{ColorScheme, ThemeState},
+    },
 };
+use std::ffi::OsStr;
 
 const OUTPUT_PATH: &str = "~/.config/tmux/colors.conf";
 
@@ -12,6 +16,9 @@ pub const TARGET: Target = Target::standalone("tmux", &["color_scheme"], OUTPUT_
     .on_apply(on_apply);
 
 pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<String> {
+    let on_accent = readable_on_ends(&colors.accent, &colors.bg, &colors.fg);
+    let on_green = readable_on_ends(&colors.green, &colors.bg, &colors.fg);
+
     Ok(format!(
         concat!(
             "set -g status-style \"bg={},fg={}\"\n",
@@ -24,11 +31,11 @@ pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<Stri
         ),
         colors.bg1,
         colors.fg,
-        colors.bg,
+        on_accent,
         colors.accent,
         colors.bg1,
         colors.fg,
-        colors.bg,
+        on_green,
         colors.green,
         colors.bg1,
         colors.accent,
@@ -37,9 +44,9 @@ pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<Stri
 
 pub fn on_apply(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
     let output_path = expand_user_path(OUTPUT_PATH)?;
-    run(&[
-        "tmux".as_ref(),
-        "source-file".as_ref(),
+    run([
+        OsStr::new("tmux"),
+        OsStr::new("source-file"),
         output_path.as_os_str(),
     ])
 }

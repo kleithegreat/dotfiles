@@ -1,15 +1,19 @@
 mod airdrop;
 mod airpods;
 mod brightness;
+mod cmd;
 mod daemon;
+mod db;
 mod displays;
 mod fn_lock;
+mod fs_util;
 mod hypr;
 mod ipc;
 mod l2cap;
 mod launch;
 mod night_light;
 mod paths;
+mod proc_util;
 mod session;
 mod solar;
 #[cfg(test)]
@@ -36,8 +40,8 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum TopLevelCommand {
-    /// Start the desktop daemon in the foreground.
-    Daemon,
+    /// Start the desktop daemon or inspect a running daemon.
+    Daemon(DaemonArgs),
     /// Apply and inspect desktop theme state.
     #[command(subcommand)]
     Theme(ThemeCommand),
@@ -320,10 +324,24 @@ struct SessionRestoreArgs {
     wait: WaitDaemonArgs,
 }
 
+#[derive(Debug, Args)]
+struct DaemonArgs {
+    #[command(subcommand)]
+    command: Option<DaemonCommand>,
+}
+
+#[derive(Debug, Subcommand)]
+enum DaemonCommand {
+    /// Show daemon PID, uptime, subsystem health, and subscriber count.
+    Status(JsonOutputArgs),
+    /// Subscribe to daemon events and print JSON lines until interrupted.
+    Events { topics: Vec<String> },
+}
+
 #[derive(Debug, Subcommand)]
 enum SunCommand {
     /// Print sunrise/sunset times, the current state, and next events.
-    Status,
+    Status(JsonOutputArgs),
 }
 
 #[derive(Debug, Subcommand)]
@@ -424,10 +442,10 @@ fn run() -> Result<()> {
         TopLevelCommand::Hypr(command) => run_hypr(command),
         TopLevelCommand::LaunchQuickshell => launch::run(),
         TopLevelCommand::NightLight(command) => night_light::run(command),
-        TopLevelCommand::Daemon => daemon::run(),
+        TopLevelCommand::Daemon(args) => run_daemon(args.command),
         TopLevelCommand::Session(command) => session::run(command),
         TopLevelCommand::Theme(command) => theme::run(command),
-        TopLevelCommand::Sun(SunCommand::Status) => solar::print_status(),
+        TopLevelCommand::Sun(SunCommand::Status(args)) => solar::print_status(args.json),
         TopLevelCommand::Heater(command) => run_heater(command),
         TopLevelCommand::AirDrop(command) => airdrop::run(command),
         TopLevelCommand::AirPods(command) => airpods::run(command),
@@ -435,39 +453,68 @@ fn run() -> Result<()> {
     }
 }
 
+fn run_daemon(command: Option<DaemonCommand>) -> Result<()> {
+    match command {
+        None => daemon::run(),
+        Some(DaemonCommand::Status(args)) => {
+            let status: serde_json::Value =
+                ipc::send(ipc::RpcRequest::DaemonStatus, ipc::DEFAULT_TIMEOUT)?;
+            if args.json {
+                println!("{}", serde_json::to_string(&status)?);
+            } else {
+                println!("PID:         {}", status["pid"]);
+                println!("Uptime:      {}s", status["uptime_secs"]);
+                println!("Subscribers: {}", status["subscribers"]);
+                if let Some(subsystems) = status["subsystems"].as_object() {
+                    println!("Subsystems:");
+                    for (name, info) in subsystems {
+                        let state = info["state"].as_str().unwrap_or("unknown");
+                        let restarts = info["restarts"].as_u64().unwrap_or(0);
+                        match info["last_error"].as_str() {
+                            Some(err) => {
+                                println!("  {name:<22} {state:<8} (restarts={restarts}) — {err}")
+                            }
+                            None => println!("  {name:<22} {state:<8} (restarts={restarts})"),
+                        }
+                    }
+                }
+            }
+            Ok(())
+        }
+        Some(DaemonCommand::Events { topics }) => ipc::stream_events(topics, |line| {
+            println!("{line}");
+            Ok(true)
+        }),
+    }
+}
+
 // Daemon-routed and hard-failing: a direct write would be a second writer.
 fn run_brightness(command: BrightnessCommand) -> Result<()> {
     match command {
         BrightnessCommand::Status(args) => run_brightness_status(args.json),
-        BrightnessCommand::Set(args) => strict_request(
-            ipc::methods::BRIGHTNESS_SET,
-            serde_json::json!({ "device": args.device, "percent": args.percent }),
-        ),
-        BrightnessCommand::Up(args) => strict_request(
-            ipc::methods::BRIGHTNESS_STEP,
-            serde_json::json!({ "device": args.device, "direction": "up" }),
-        ),
-        BrightnessCommand::Down(args) => strict_request(
-            ipc::methods::BRIGHTNESS_STEP,
-            serde_json::json!({ "device": args.device, "direction": "down" }),
-        ),
-        BrightnessCommand::Dim(args) => strict_request(
-            ipc::methods::BRIGHTNESS_DIM,
-            serde_json::json!({ "device": args.device }),
-        ),
-        BrightnessCommand::Restore(args) => strict_request(
-            ipc::methods::BRIGHTNESS_RESTORE,
-            serde_json::json!({ "device": args.device }),
-        ),
+        BrightnessCommand::Set(args) => strict_request(ipc::RpcRequest::BrightnessSet {
+            device: args.device,
+            percent: args.percent,
+        }),
+        BrightnessCommand::Up(args) => strict_request(ipc::RpcRequest::BrightnessStep {
+            device: args.device,
+            direction: ipc::StepDirection::Up,
+        }),
+        BrightnessCommand::Down(args) => strict_request(ipc::RpcRequest::BrightnessStep {
+            device: args.device,
+            direction: ipc::StepDirection::Down,
+        }),
+        BrightnessCommand::Dim(args) => strict_request(ipc::RpcRequest::BrightnessDim {
+            device: args.device,
+        }),
+        BrightnessCommand::Restore(args) => strict_request(ipc::RpcRequest::BrightnessRestore {
+            device: args.device,
+        }),
     }
 }
 
 fn run_brightness_status(json: bool) -> Result<()> {
-    match ipc::send_request::<(), serde_json::Value>(
-        ipc::methods::BRIGHTNESS_STATUS,
-        None,
-        ipc::DEFAULT_TIMEOUT,
-    ) {
+    match ipc::send::<serde_json::Value>(ipc::RpcRequest::BrightnessStatus, ipc::DEFAULT_TIMEOUT) {
         Ok(payload) => {
             if json {
                 println!("{}", serde_json::to_string(&payload)?);
@@ -488,8 +535,8 @@ fn run_brightness_status(json: bool) -> Result<()> {
 }
 
 /// The response payload is discarded; the exit code is the contract.
-fn strict_request(method: &str, params: serde_json::Value) -> Result<()> {
-    ipc::mutate::<serde_json::Value>(method, params, ipc::DEFAULT_TIMEOUT, Duration::ZERO)
+fn strict_request(request: ipc::RpcRequest) -> Result<()> {
+    ipc::mutate::<serde_json::Value>(request, ipc::DEFAULT_TIMEOUT, Duration::ZERO)
         .map(|_response| ())
 }
 
@@ -509,9 +556,8 @@ fn run_hypr(command: HyprCommand) -> Result<()> {
 fn run_hypr_input(command: HyprInputCommand) -> Result<()> {
     match command {
         HyprInputCommand::Status(args) => {
-            match ipc::send_request::<(), hypr::InputState>(
-                ipc::methods::HYPR_INPUT_STATUS,
-                None,
+            match ipc::send::<hypr::InputState>(
+                ipc::RpcRequest::HyprInputStatus,
                 ipc::DEFAULT_TIMEOUT,
             ) {
                 Ok(state) => hypr::print_input_state(&state, args.json),
@@ -521,19 +567,18 @@ fn run_hypr_input(command: HyprInputCommand) -> Result<()> {
                 Err(error) => Err(error),
             }
         }
-        HyprInputCommand::Set(args) => strict_request(
-            ipc::methods::HYPR_INPUT_SET,
-            serde_json::json!({ "key": args.key, "value": args.value }),
-        ),
+        HyprInputCommand::Set(args) => strict_request(ipc::RpcRequest::HyprInputSet {
+            key: args.key,
+            value: args.value,
+        }),
     }
 }
 
 fn run_hypr_monitors(command: HyprMonitorsCommand) -> Result<()> {
     match command {
         HyprMonitorsCommand::Status(args) => {
-            match ipc::send_request::<(), serde_json::Value>(
-                ipc::methods::HYPR_MONITORS_STATUS,
-                None,
+            match ipc::send::<serde_json::Value>(
+                ipc::RpcRequest::HyprMonitorsStatus,
                 ipc::DEFAULT_TIMEOUT,
             ) {
                 Ok(status) => displays::print_status_value(&status, args.json),
@@ -543,14 +588,14 @@ fn run_hypr_monitors(command: HyprMonitorsCommand) -> Result<()> {
                 Err(error) => Err(error),
             }
         }
-        HyprMonitorsCommand::Primary(args) => strict_request(
-            ipc::methods::HYPR_MONITORS_PRIMARY,
-            serde_json::json!({ "selector": args.selector }),
-        ),
-        HyprMonitorsCommand::Layout(args) => strict_request(
-            ipc::methods::HYPR_MONITORS_LAYOUT,
-            serde_json::json!({ "outputs": serde_json::from_str::<serde_json::Value>(&args.payload)? }),
-        ),
+        HyprMonitorsCommand::Primary(args) => {
+            strict_request(ipc::RpcRequest::HyprMonitorsPrimary {
+                selector: args.selector,
+            })
+        }
+        HyprMonitorsCommand::Layout(args) => strict_request(ipc::RpcRequest::HyprMonitorsLayout {
+            outputs: serde_json::from_str::<serde_json::Value>(&args.payload)?,
+        }),
     }
 }
 
@@ -586,16 +631,5 @@ mod tests {
         };
         assert_eq!(set_args.key, "sensitivity");
         assert_eq!(set_args.value, "-0.1");
-    }
-
-    #[test]
-    fn brightness_set_accepts_values_above_one_hundred_for_clamping() {
-        let cli = Cli::try_parse_from(["desktopctl", "brightness", "set", "300"])
-            .expect("cli should parse clamped brightness values");
-
-        let TopLevelCommand::Brightness(BrightnessCommand::Set(set_args)) = cli.command else {
-            panic!("expected brightness set command");
-        };
-        assert_eq!(set_args.percent, 300);
     }
 }

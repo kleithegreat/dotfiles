@@ -42,6 +42,8 @@ Pressable {
             height: Metrics.toggleKnob
             radius: height / 2
             color: Qt.rgba(1, 1, 1, 0.97)
+            border.width: Metrics.hairline
+            border.color: Theme.separator
             antialiasing: true
 
             Behavior on x {

@@ -19,6 +19,24 @@ Ui.Scroll {
         spacing: Metrics.s4
 
         Ui.Group {
+            title: "Appearance"
+
+            Ui.ListRow {
+                Layout.fillWidth: true
+                icon: "night-light"
+                title: "Browser dark mode"
+                subtitle: "Sets Helium and portal polarity without changing the scheme"
+                interactive: false
+
+                Ui.Toggle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    checked: String(Sys.Appearance.value("dark_hint", true)) === "true"
+                    onToggled: on => Sys.Appearance.set("dark_hint", on)
+                }
+            }
+        }
+
+        Ui.Group {
             title: "Presets"
             footnote: "A preset is a partial patch, not a snapshot: it changes what it names and leaves everything else alone."
 

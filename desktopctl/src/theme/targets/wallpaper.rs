@@ -1,10 +1,12 @@
 use super::Target;
 use crate::{
+    cmd::{self, find_command},
+    fs_util::{expand_user_path, unique_temp_path},
     paths,
     theme::{
-        command::{self, find_command},
-        expand_user_path, fnv1a_fingerprint,
+        fnv1a_fingerprint,
         schema::{ColorScheme, ThemeState},
+        wallpaper_browser::sanitize_stem,
     },
 };
 use std::{
@@ -36,7 +38,7 @@ fn awww_command(path: &str) -> Vec<String> {
 }
 
 fn cache_root() -> crate::Result<PathBuf> {
-    Ok(paths::xdg_cache_home()?.join("apply-theme/wallpaper"))
+    Ok(paths::xdg_cache_home()?.join("desktopctl/wallpaper-filtered"))
 }
 
 fn cache_key(colors: &ColorScheme, wallpaper: &Path) -> crate::Result<String> {
@@ -71,7 +73,7 @@ pub(crate) fn filtered_wallpaper_path(
             .and_then(|stem| stem.to_str())
             .unwrap_or_default(),
     );
-    let scheme = sanitize_component(&state.color_scheme);
+    let scheme = sanitize_stem(&state.color_scheme);
     Ok(cache_root()?.join(format!(
         "{stem}-{scheme}-{}.png",
         cache_key(colors, &wallpaper)?
@@ -93,29 +95,6 @@ pub(crate) fn selected_wallpaper_path(
     }
 }
 
-fn sanitize_component(value: &str) -> String {
-    value
-        .chars()
-        .map(|character| {
-            if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') {
-                character
-            } else {
-                '-'
-            }
-        })
-        .collect()
-}
-
-fn sanitize_stem(value: &str) -> String {
-    let sanitized = sanitize_component(value);
-    let trimmed = sanitized.trim_matches(['-', '_']);
-    if trimmed.is_empty() {
-        "wallpaper".to_owned()
-    } else {
-        trimmed.to_owned()
-    }
-}
-
 fn warn(message: &str) {
     eprintln!("  wallpaper warning: {message}");
 }
@@ -132,7 +111,7 @@ fn wait_for_awww_output() {
 
     let deadline = Instant::now() + TIMEOUT;
     while Instant::now() < deadline {
-        if command::output(&["awww", "query"]).is_ok_and(|outputs| !outputs.trim().is_empty()) {
+        if cmd::output(["awww", "query"]).is_ok_and(|outputs| !outputs.trim().is_empty()) {
             return;
         }
         thread::sleep(POLL_INTERVAL);
@@ -141,7 +120,7 @@ fn wait_for_awww_output() {
 
 fn apply_wallpaper(path: &Path) {
     wait_for_awww_output();
-    if let Err(error) = command::run(&awww_command(&path.display().to_string())) {
+    if let Err(error) = cmd::run(awww_command(&path.display().to_string())) {
         warn(&format!(
             "failed to apply wallpaper {}: {error}",
             path.display()
@@ -196,18 +175,21 @@ pub fn on_apply(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
                     return Ok(());
                 }
 
+                let temp_filtered = unique_temp_path(&filtered, "lutgen")?;
                 let mut lutgen = vec![
                     "lutgen".to_owned(),
                     "apply".to_owned(),
                     "--cache".to_owned(),
                     "--output".to_owned(),
-                    filtered.display().to_string(),
+                    temp_filtered.display().to_string(),
                     source.display().to_string(),
                     "--".to_owned(),
                 ];
                 lutgen.extend(colors.palette.iter().cloned());
-                if let Err(error) = command::run(&lutgen) {
-                    let _ = fs::remove_file(&filtered);
+                if let Err(error) = cmd::run(&lutgen)
+                    .and_then(|()| fs::rename(&temp_filtered, &filtered).map_err(Into::into))
+                {
+                    let _ = fs::remove_file(&temp_filtered);
                     fallback_to_source(
                         &source,
                         &format!("could not generate filtered wallpaper with lutgen: {error}"),

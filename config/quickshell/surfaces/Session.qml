@@ -39,6 +39,13 @@ Popover {
 
     Process {
         id: runner
+        stderr: StdioCollector {
+            id: runnerFailure
+        }
+        onExited: code => {
+            if (code !== 0)
+                Sys.Toast.failure(runnerFailure.text, "Session command failed");
+        }
     }
 
     ColumnLayout {

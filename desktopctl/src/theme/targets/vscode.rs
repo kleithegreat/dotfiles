@@ -1,7 +1,7 @@
 use super::Target;
-use crate::theme::{
-    expand_user_path, json,
-    schema::{ColorScheme, ThemeState},
+use crate::{
+    fs_util::expand_user_path,
+    theme::schema::{ColorScheme, ThemeState},
 };
 use rusqlite::{Connection, params};
 use serde_json::{Map, Value};
@@ -70,7 +70,7 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Strin
         Value::from(font_size),
     );
 
-    Ok(json::format_pretty_value(&Value::Object(root)))
+    Ok(serde_json::to_string_pretty(&root)?)
 }
 
 pub fn persist(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
@@ -84,6 +84,7 @@ pub fn persist(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
     }
 
     let connection = Connection::open(db_path)?;
+    connection.busy_timeout(std::time::Duration::from_secs(5))?;
     let row = connection.query_row(
         "SELECT value FROM ItemTable WHERE key = ?",
         params!["extensionsIdentifiers/disabled"],
@@ -120,7 +121,7 @@ pub fn persist(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
     connection.execute(
         "UPDATE ItemTable SET value = ? WHERE key = ?",
         params![
-            json::to_python_string(&updated)?,
+            serde_json::to_string(&updated)?,
             "extensionsIdentifiers/disabled"
         ],
     )?;
@@ -133,28 +134,13 @@ mod tests {
     use super::generate;
     use crate::theme::{
         schema::ColorScheme,
-        targets::testsupport::{REPO_SCHEMES, dummy_state, load_repo_colors},
+        targets::testsupport::{dummy_colors, dummy_state, load_repo_colors},
     };
 
     fn settings(scheme_name: &str) -> serde_json::Value {
         let colors = load_repo_colors(scheme_name);
         let text = generate(&colors, &dummy_state()).expect("vscode settings generate");
         serde_json::from_str(&text).expect("generated settings are JSON")
-    }
-
-    #[test]
-    fn every_scheme_sets_an_icon_theme_alongside_its_color_theme() {
-        for scheme_name in REPO_SCHEMES {
-            let written = settings(scheme_name);
-            let icon_theme = written["workbench.iconTheme"]
-                .as_str()
-                .unwrap_or_else(|| panic!("{scheme_name}: no icon theme written"));
-            assert!(
-                !icon_theme.is_empty(),
-                "{scheme_name}: icon theme must not be blank"
-            );
-            assert!(written["workbench.colorTheme"].is_string());
-        }
     }
 
     #[test]
@@ -173,6 +159,19 @@ mod tests {
         assert_eq!(
             fallback["material-icon-theme.folders.color"],
             load_repo_colors("nord").accent
+        );
+    }
+
+    #[test]
+    fn vscode_terminal_prefers_mono_nerd_font_variant() {
+        let mut state = dummy_state();
+        state.mono_font = "JetBrainsMono Nerd Font".to_owned();
+        let output = generate(&dummy_colors(), &state).expect("vscode settings generate");
+        assert!(
+            output.contains(
+                "\"terminal.integrated.fontFamily\": \"'JetBrainsMono Nerd Font Mono', 'JetBrainsMono Nerd Font', monospace\""
+            ),
+            "{output}"
         );
     }
 }

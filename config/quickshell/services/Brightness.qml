@@ -170,6 +170,7 @@ QtObject {
         }
         onExited: code => {
             if (code !== 0) {
+                root._queued = ({});
                 Toast.failure(failure.text, "Brightness change failed");
                 root.refresh();
             } else {

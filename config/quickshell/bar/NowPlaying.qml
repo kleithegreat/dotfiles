@@ -2,20 +2,13 @@ import QtQuick
 import Quickshell.Services.Mpris
 import qs
 import qs.ui as Ui
+import qs.services as Sys
 
 BarItem {
     id: root
 
-    readonly property MprisPlayer player: {
-        const players = Mpris.players.values;
-        for (let i = 0; i < players.length; i++) {
-            if (players[i].playbackState === MprisPlaybackState.Playing)
-                return players[i];
-        }
-        return players.length > 0 ? players[0] : null;
-    }
-
-    readonly property bool playing: player?.playbackState === MprisPlaybackState.Playing
+    readonly property MprisPlayer player: Sys.Media.player
+    readonly property bool playing: Sys.Media.playing
 
     visible: player !== null
     contentWidth: line.implicitWidth

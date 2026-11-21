@@ -46,8 +46,10 @@ QtObject {
 
     function showDelivered() {
         const first = delivered?.paths?.[0];
-        if (first)
-            Quickshell.execDetached(["busctl", "--user", "call", "org.freedesktop.FileManager1", "/org/freedesktop/FileManager1", "org.freedesktop.FileManager1", "ShowItems", "ass", "1", "file://" + encodeURI(first), ""]);
+        if (first) {
+            const encoded = first.split("/").map(encodeURIComponent).join("/");
+            Quickshell.execDetached(["busctl", "--user", "call", "org.freedesktop.FileManager1", "/org/freedesktop/FileManager1", "org.freedesktop.FileManager1", "ShowItems", "ass", "1", "file://" + encoded, ""]);
+        }
         delivered = null;
     }
 

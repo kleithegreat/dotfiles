@@ -57,7 +57,7 @@ Item {
 
         // The opening height belongs to the entrance, not to this transition.
         Behavior on height {
-            enabled: !emergeAnim.running && !fadeAnim.running
+            enabled: root.shown && !emergeAnim.running && !fadeAnim.running
 
             Ui.Anim {
                 duration: Motion.settled

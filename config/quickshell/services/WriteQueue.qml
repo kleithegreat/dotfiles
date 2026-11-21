@@ -7,8 +7,11 @@ QtObject {
 
     property string failureText: "Change failed"
     property var staged: ({})
+    readonly property bool busy: writer.running || _queue.length > 0
 
     property var _queue: []
+
+    signal settled(string key, bool ok)
 
     function value(key, current) {
         return staged[key] !== undefined ? staged[key] : current;
@@ -52,15 +55,17 @@ QtObject {
         onExited: code => {
             const job = root._queue[0];
             root._queue = root._queue.slice(1);
+            const hasNewer = job && job.key !== undefined && root._queue.some(item => item.key === job.key);
 
-            if (code !== 0) {
-                if (job.key !== undefined) {
-                    const reverted = Object.assign({}, root.staged);
-                    delete reverted[job.key];
-                    root.staged = reverted;
-                }
-                Toast.failure(failure.text, root.failureText);
+            if (job && job.key !== undefined && !hasNewer) {
+                const next = Object.assign({}, root.staged);
+                delete next[job.key];
+                root.staged = next;
             }
+            if (code !== 0)
+                Toast.failure(failure.text, root.failureText);
+            if (job)
+                root.settled(job.key !== undefined ? String(job.key) : "", code === 0);
 
             Qt.callLater(root._pump);
         }

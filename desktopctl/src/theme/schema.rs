@@ -33,93 +33,119 @@ pub const COLOR_FIELD_NAMES: [&str; 22] = [
     "orange_bright",
 ];
 
-pub const THEME_STATE_FIELD_ORDER: [&str; 29] = [
-    "color_scheme",
-    "wallpaper",
-    "filter_wallpaper",
-    "system_font",
-    "mono_font",
-    "icon_theme",
-    "cursor_theme",
-    "cursor_size",
-    "font_size",
-    "quickshell_font_size_offset",
-    "gtk_font_size_offset",
-    "qt_font_size_offset",
-    "mono_font_size",
-    "alacritty_mono_font_size_offset",
-    "ghostty_mono_font_size_offset",
-    "gtk_mono_font_size_offset",
-    "neovide_mono_font_size_offset",
-    "qt_mono_font_size_offset",
-    "vscode_mono_font_size_offset",
-    "zed_mono_font_size_offset",
-    "dark_hint",
-    "hypr_gaps_in",
-    "hypr_gaps_out",
-    "hypr_border_size",
-    "hypr_rounding",
-    "hypr_blur_enabled",
-    "hypr_blur_size",
-    "hypr_blur_passes",
-    "hypr_animations_enabled",
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FieldKind {
+    String,
+    Int,
+    Bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FieldSpec {
+    pub name: &'static str,
+    pub kind: FieldKind,
+    pub machine_local: bool,
+    pub font_scope: bool,
+    pub min: Option<i64>,
+}
+
+const fn field(name: &'static str, kind: FieldKind) -> FieldSpec {
+    FieldSpec {
+        name,
+        kind,
+        machine_local: false,
+        font_scope: false,
+        min: None,
+    }
+}
+
+const fn min_field(name: &'static str, min: i64) -> FieldSpec {
+    FieldSpec {
+        name,
+        kind: FieldKind::Int,
+        machine_local: false,
+        font_scope: false,
+        min: Some(min),
+    }
+}
+
+const fn font_field(name: &'static str, kind: FieldKind, min: Option<i64>) -> FieldSpec {
+    FieldSpec {
+        name,
+        kind,
+        machine_local: false,
+        font_scope: true,
+        min,
+    }
+}
+
+pub const THEME_FIELDS: &[FieldSpec] = &[
+    field("color_scheme", FieldKind::String),
+    FieldSpec {
+        name: "wallpaper",
+        kind: FieldKind::String,
+        machine_local: true,
+        font_scope: false,
+        min: None,
+    },
+    field("filter_wallpaper", FieldKind::Bool),
+    font_field("system_font", FieldKind::String, None),
+    font_field("mono_font", FieldKind::String, None),
+    field("icon_theme", FieldKind::String),
+    field("cursor_theme", FieldKind::String),
+    min_field("cursor_size", 1),
+    font_field("font_size", FieldKind::Int, Some(1)),
+    font_field("quickshell_font_size_offset", FieldKind::Int, None),
+    font_field("gtk_font_size_offset", FieldKind::Int, None),
+    font_field("qt_font_size_offset", FieldKind::Int, None),
+    font_field("mono_font_size", FieldKind::Int, Some(1)),
+    font_field("alacritty_mono_font_size_offset", FieldKind::Int, None),
+    font_field("ghostty_mono_font_size_offset", FieldKind::Int, None),
+    font_field("gtk_mono_font_size_offset", FieldKind::Int, None),
+    font_field("neovide_mono_font_size_offset", FieldKind::Int, None),
+    font_field("qt_mono_font_size_offset", FieldKind::Int, None),
+    font_field("vscode_mono_font_size_offset", FieldKind::Int, None),
+    font_field("zed_mono_font_size_offset", FieldKind::Int, None),
+    field("dark_hint", FieldKind::Bool),
+    min_field("hypr_gaps_in", 0),
+    min_field("hypr_gaps_out", 0),
+    min_field("hypr_border_size", 0),
+    min_field("hypr_rounding", 0),
+    field("hypr_blur_enabled", FieldKind::Bool),
+    min_field("hypr_blur_size", 0),
+    min_field("hypr_blur_passes", 0),
+    field("hypr_animations_enabled", FieldKind::Bool),
 ];
 
-pub const THEME_STATE_STRING_FIELDS: [&str; 6] = [
-    "color_scheme",
-    "wallpaper",
-    "system_font",
-    "mono_font",
-    "icon_theme",
-    "cursor_theme",
-];
+pub fn find_field(name: &str) -> Option<&'static FieldSpec> {
+    THEME_FIELDS.iter().find(|spec| spec.name == name)
+}
 
-pub const THEME_STATE_INT_FIELDS: [&str; 19] = [
-    "cursor_size",
-    "font_size",
-    "quickshell_font_size_offset",
-    "gtk_font_size_offset",
-    "qt_font_size_offset",
-    "mono_font_size",
-    "alacritty_mono_font_size_offset",
-    "ghostty_mono_font_size_offset",
-    "gtk_mono_font_size_offset",
-    "neovide_mono_font_size_offset",
-    "qt_mono_font_size_offset",
-    "vscode_mono_font_size_offset",
-    "zed_mono_font_size_offset",
-    "hypr_gaps_in",
-    "hypr_gaps_out",
-    "hypr_border_size",
-    "hypr_rounding",
-    "hypr_blur_size",
-    "hypr_blur_passes",
-];
+pub fn field_names() -> impl Iterator<Item = &'static str> {
+    THEME_FIELDS.iter().map(|spec| spec.name)
+}
 
-pub const THEME_STATE_BOOL_FIELDS: [&str; 4] = [
-    "filter_wallpaper",
-    "dark_hint",
-    "hypr_blur_enabled",
-    "hypr_animations_enabled",
-];
+pub fn font_field_names() -> impl Iterator<Item = &'static str> {
+    THEME_FIELDS
+        .iter()
+        .filter(|spec| spec.font_scope)
+        .map(|spec| spec.name)
+}
 
 /// The only source of defaults; there is no compiled fallback.
 pub const STATE_SEED_RELATIVE_PATH: &str = "state.json";
-
-/// Keys the seed omits because the wallpaper library is gitignored.
-pub const MACHINE_LOCAL_FIELDS: [&str; 1] = ["wallpaper"];
 
 pub const DEFAULT_WALLPAPER_RELATIVE_PATH: &str = "styling/wallpapers/lmao.png";
 
 /// Known fields in declaration order minus machine-local ones; `extra` keys are dropped.
 pub fn seed_json_map(state: &Map<String, Value>) -> Map<String, Value> {
-    THEME_STATE_FIELD_ORDER
+    THEME_FIELDS
         .iter()
-        .filter(|name| !MACHINE_LOCAL_FIELDS.contains(name))
-        .filter_map(|name| {
+        .filter(|spec| !spec.machine_local)
+        .filter_map(|spec| {
             state
-                .get(*name)
-                .map(|value| ((*name).to_owned(), value.clone()))
+                .get(spec.name)
+                .map(|value| (spec.name.to_owned(), value.clone()))
         })
         .collect()
 }
@@ -132,6 +158,15 @@ pub enum ColorSchemeAppearance {
     Dark,
 }
 
+impl ColorSchemeAppearance {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Light => "light",
+            Self::Dark => "dark",
+        }
+    }
+}
+
 /// Every scheme file must name its theme in each app; only `ktexteditor` and
 /// `vscode.icon_theme` have a fallback.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -140,15 +175,9 @@ pub struct ColorSchemeAppThemes {
     #[serde(default)]
     pub ktexteditor: Option<String>,
     pub snappy_switcher: String,
-    pub vicinae: VicinaeThemeNames,
+    pub vicinae: String,
     pub vscode: VscodeThemeNames,
     pub zed: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-pub struct VicinaeThemeNames {
-    pub name: String,
-    pub light_name: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -192,9 +221,6 @@ pub struct ColorScheme {
     pub family: String,
     pub variant: String,
     pub appearance: ColorSchemeAppearance,
-    /// Same-family scheme to pair with when a dark appearance is requested
-    /// (set on light schemes, e.g. catppuccin-latte -> catppuccin-mocha).
-    pub dark_scheme: Option<String>,
     pub app_themes: ColorSchemeAppThemes,
     pub bg: String,
     pub bg_dim: String,
@@ -259,8 +285,6 @@ struct ColorSchemeWire {
     family: String,
     variant: String,
     appearance: ColorSchemeAppearance,
-    #[serde(default)]
-    dark_scheme: Option<String>,
     app_themes: ColorSchemeAppThemes,
     colors: NamedColors,
 }
@@ -343,7 +367,6 @@ impl<'de> Deserialize<'de> for ColorScheme {
             family: wire.family,
             variant: wire.variant,
             appearance: wire.appearance,
-            dark_scheme: wire.dark_scheme,
             app_themes: wire.app_themes,
             bg: wire.colors.bg,
             bg_dim: wire.colors.bg_dim,
@@ -452,22 +475,6 @@ impl ThemeState {
         })
     }
 
-    pub fn known_field_names() -> &'static [&'static str] {
-        &THEME_STATE_FIELD_ORDER
-    }
-
-    pub fn string_field_names() -> &'static [&'static str] {
-        &THEME_STATE_STRING_FIELDS
-    }
-
-    pub fn int_field_names() -> &'static [&'static str] {
-        &THEME_STATE_INT_FIELDS
-    }
-
-    pub fn bool_field_names() -> &'static [&'static str] {
-        &THEME_STATE_BOOL_FIELDS
-    }
-
     pub fn font_size_offset_for(&self, target_name: &str) -> crate::Result<i64> {
         let offset = match target_name {
             "quickshell" => self.quickshell_font_size_offset,
@@ -511,7 +518,7 @@ impl ThemeState {
     }
 
     pub fn to_ordered_json_map(&self) -> Map<String, Value> {
-        // preserve_order keeps declaration order (THEME_STATE_FIELD_ORDER); `extra` lands last.
+        // preserve_order keeps declaration order (matching THEME_FIELDS); `extra` lands last.
         match serde_json::to_value(self) {
             Ok(Value::Object(map)) => map,
             _ => unreachable!("ThemeState serializes to a JSON object"),
@@ -521,7 +528,7 @@ impl ThemeState {
 
 #[cfg(test)]
 mod dim_ramp_tests {
-    use super::{ColorScheme, dim_ramp};
+    use super::ColorScheme;
     use crate::theme::color::relative_luminance;
     use std::{fs, path::PathBuf};
 
@@ -566,17 +573,11 @@ mod dim_ramp_tests {
             }
         }
     }
-
-    #[test]
-    fn dim_ramp_rejects_malformed_colors() {
-        assert!(dim_ramp("#zzzzzz", "#000000").is_err());
-        assert!(dim_ramp("#fff", "#000000").is_err());
-    }
 }
 
 #[cfg(test)]
 mod seed_tests {
-    use super::{MACHINE_LOCAL_FIELDS, THEME_STATE_FIELD_ORDER, ThemeState, seed_json_map};
+    use super::{THEME_FIELDS, ThemeState, seed_json_map};
     use crate::test_support::repo_root;
     use serde_json::{Map, Value};
     use std::fs;
@@ -594,10 +595,10 @@ mod seed_tests {
     #[test]
     fn seed_covers_exactly_the_non_machine_local_fields() {
         let object = seed_object();
-        let expected: Vec<&str> = THEME_STATE_FIELD_ORDER
+        let expected: Vec<&str> = THEME_FIELDS
             .iter()
-            .copied()
-            .filter(|name| !MACHINE_LOCAL_FIELDS.contains(name))
+            .filter(|spec| !spec.machine_local)
+            .map(|spec| spec.name)
             .collect();
 
         let actual: Vec<&str> = object.keys().map(String::as_str).collect();

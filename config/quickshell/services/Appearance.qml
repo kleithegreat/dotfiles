@@ -37,10 +37,26 @@ QtObject {
     // A preset is a partial patch: each aspect is the set of keys it captures.
     readonly property var aspects: [
         { id: "scheme", label: "Colour scheme", keys: ["color_scheme"] },
+        { id: "dark_hint", label: "Browser polarity", keys: ["dark_hint"] },
         { id: "wallpaper", label: "Wallpaper", keys: ["wallpaper", "filter_wallpaper"] },
         { id: "icons", label: "Icons", keys: ["icon_theme"] },
         { id: "pointer", label: "Pointer", keys: ["cursor_theme", "cursor_size"] },
-        { id: "fonts", label: "Fonts", keys: ["system_font", "mono_font", "font_size", "mono_font_size"] },
+        { id: "fonts", label: "Fonts", keys: [
+            "system_font",
+            "mono_font",
+            "font_size",
+            "mono_font_size",
+            "quickshell_font_size_offset",
+            "gtk_font_size_offset",
+            "qt_font_size_offset",
+            "alacritty_mono_font_size_offset",
+            "ghostty_mono_font_size_offset",
+            "gtk_mono_font_size_offset",
+            "neovide_mono_font_size_offset",
+            "qt_mono_font_size_offset",
+            "vscode_mono_font_size_offset",
+            "zed_mono_font_size_offset"
+        ] },
         { id: "windows", label: "Window look", keys: ["hypr_gaps_in", "hypr_gaps_out", "hypr_border_size", "hypr_rounding", "hypr_blur_enabled", "hypr_blur_size", "hypr_blur_passes", "hypr_animations_enabled"] }
     ]
 

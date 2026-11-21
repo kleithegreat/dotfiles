@@ -1,7 +1,6 @@
 pragma Singleton
 
 import QtQuick
-import Quickshell.Io
 
 // Pushed by the daemon, which owns this state; no direct read ([[session-restore]]).
 QtObject {
@@ -9,21 +8,19 @@ QtObject {
 
     property bool automatic: true
     property int restorable: 0
-    readonly property bool busy: command.running
+    readonly property bool busy: writes.busy
 
     function setAutomatic(on) {
-        _run(["desktopctl", "session", "automatic", String(on)]);
+        writes.run(["desktopctl", "session", "automatic", String(on)], "automatic");
     }
 
     function restore() {
-        _run(["desktopctl", "session", "restore"]);
+        writes.run(["desktopctl", "session", "restore"], "restore");
     }
 
-    function _run(argv) {
-        if (command.running)
-            return;
-        command.command = argv;
-        command.running = true;
+    readonly property WriteQueue _writes: WriteQueue {
+        id: writes
+        failureText: "Session restore failed"
     }
 
     readonly property Connections _events: Connections {
@@ -31,13 +28,6 @@ QtObject {
         function onSessionChanged(status) {
             root.automatic = status.automatic;
             root.restorable = status.restorable;
-        }
-    }
-
-    readonly property Process _command: Process {
-        id: command
-        stderr: StdioCollector {
-            onStreamFinished: Toast.failure(this.text)
         }
     }
 }

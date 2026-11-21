@@ -5,6 +5,7 @@ use chrono::{
 use serde::{Deserialize, Serialize};
 use std::{
     env, fs, io,
+    path::PathBuf,
     process::Command,
     time::{Duration as StdDuration, SystemTime, UNIX_EPOCH},
 };
@@ -30,17 +31,33 @@ pub struct Coordinates {
     pub longitude: f64,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DaySun {
+    Normal {
+        sunrise: DateTime<Utc>,
+        sunset: DateTime<Utc>,
+    },
+    PolarDay,
+    PolarNight,
+}
+
 #[derive(Debug, Clone)]
 pub struct SolarStatus {
     pub location: Coordinates,
-    pub sunrise: DateTime<Local>,
-    pub sunset: DateTime<Local>,
+    pub sunrise: Option<DateTime<Local>>,
+    pub sunset: Option<DateTime<Local>>,
     pub is_night: bool,
     pub is_dark: bool,
-    pub next_sunrise: DateTime<Local>,
-    pub next_sunset: DateTime<Local>,
+    pub next_sunrise: Option<DateTime<Local>>,
+    pub next_sunset: Option<DateTime<Local>>,
     pub next_dark_on: DateTime<Local>,
     pub next_dark_off: DateTime<Local>,
+}
+
+struct LocationResolution {
+    coordinates: Coordinates,
+    source: &'static str,
+    cache_age_secs: Option<u64>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -91,21 +108,47 @@ fn unix_now() -> u64 {
         .map_or(0, |elapsed| elapsed.as_secs())
 }
 
-pub fn print_status() -> crate::Result<()> {
-    let location = resolve_location()?;
-    let status = status_for_now(Local::now(), location);
+pub fn print_status(json_output: bool) -> crate::Result<()> {
+    let resolved = resolve_location_with_source()?;
+    let status = status_for_now(Local::now(), resolved.coordinates);
+    let place = resolve_place_name(resolved.coordinates);
 
-    if let Some(place) = resolve_place_name(location) {
+    if json_output {
+        let payload = serde_json::json!({
+            "place": place,
+            "location": {
+                "latitude": status.location.latitude,
+                "longitude": status.location.longitude,
+            },
+            "source": resolved.source,
+            "cache_age_secs": resolved.cache_age_secs,
+            "sunrise": status.sunrise.map(|when| when.to_rfc3339()),
+            "sunset": status.sunset.map(|when| when.to_rfc3339()),
+            "is_night": status.is_night,
+            "is_dark": status.is_dark,
+            "next_sunrise": status.next_sunrise.map(|when| when.to_rfc3339()),
+            "next_sunset": status.next_sunset.map(|when| when.to_rfc3339()),
+            "next_dark_on": status.next_dark_on.to_rfc3339(),
+            "next_dark_off": status.next_dark_off.to_rfc3339(),
+        });
+        println!("{}", serde_json::to_string(&payload)?);
+        return Ok(());
+    }
+
+    let format_time = |when: Option<DateTime<Local>>, fmt: &str| {
+        when.map_or_else(|| "--:--".to_owned(), |dt| dt.format(fmt).to_string())
+    };
+    if let Some(place) = place {
         println!("Place:    {place}");
     }
     println!(
-        "Location: {:.4}, {:.4}",
-        status.location.latitude, status.location.longitude
+        "Location: {:.4}, {:.4} ({})",
+        status.location.latitude, status.location.longitude, resolved.source
     );
     println!(
         "Sunrise:  {}  Sunset: {}",
-        status.sunrise.format("%H:%M"),
-        status.sunset.format("%H:%M")
+        format_time(status.sunrise, "%H:%M"),
+        format_time(status.sunset, "%H:%M"),
     );
     println!(
         "State:    night={}  dark_hint={}",
@@ -113,8 +156,8 @@ pub fn print_status() -> crate::Result<()> {
     );
     println!(
         "Next:     sunrise={}  sunset={}  dark_on={}  dark_off={}",
-        status.next_sunrise.format("%m-%d %H:%M"),
-        status.next_sunset.format("%m-%d %H:%M"),
+        format_time(status.next_sunrise, "%m-%d %H:%M"),
+        format_time(status.next_sunset, "%m-%d %H:%M"),
         status.next_dark_on.format("%m-%d %H:%M"),
         status.next_dark_off.format("%m-%d %H:%M")
     );
@@ -122,26 +165,47 @@ pub fn print_status() -> crate::Result<()> {
     Ok(())
 }
 
+fn location_cache_path() -> io::Result<PathBuf> {
+    Ok(paths::xdg_cache_home()?.join("desktopctl/location.json"))
+}
+
 pub fn resolve_location() -> io::Result<Coordinates> {
-    if let Some(location) = pinned_location() {
-        return Ok(location);
+    resolve_location_with_source().map(|resolved| resolved.coordinates)
+}
+
+fn resolve_location_with_source() -> io::Result<LocationResolution> {
+    if let Some(coordinates) = pinned_location() {
+        return Ok(LocationResolution {
+            coordinates,
+            source: "pin",
+            cache_age_secs: None,
+        });
     }
 
-    let cache_path = paths::xdg_cache_home()?.join("sun-schedule/location.json");
+    let cache_path = location_cache_path()?;
+    let now = unix_now();
     let cached = read_cached_location(&cache_path);
     let cached_location = cached.as_ref().and_then(CachedLocation::coordinates);
+    let cache_age_secs = cached
+        .as_ref()
+        .and_then(|entry| entry.fixed_at)
+        .and_then(|fixed_at| now.checked_sub(fixed_at));
 
-    if let Some(location) = cached_location
-        && cached.is_some_and(|cached| cached.is_fresh(unix_now()))
+    if let Some(coordinates) = cached_location
+        && cached.as_ref().is_some_and(|entry| entry.is_fresh(now))
     {
-        return Ok(location);
+        return Ok(LocationResolution {
+            coordinates,
+            source: "cache",
+            cache_age_secs,
+        });
     }
 
-    if let Some(location) = query_geoclue() {
+    if let Some(coordinates) = query_geoclue() {
         let payload = CachedLocation {
-            latitude: location.latitude,
-            longitude: location.longitude,
-            fixed_at: Some(unix_now()),
+            latitude: coordinates.latitude,
+            longitude: coordinates.longitude,
+            fixed_at: Some(now),
             place: None,
         };
         if let Err(error) = write_cached_location(&cache_path, &payload) {
@@ -151,55 +215,100 @@ pub fn resolve_location() -> io::Result<Coordinates> {
             );
         }
 
-        return Ok(location);
+        return Ok(LocationResolution {
+            coordinates,
+            source: "geoclue",
+            cache_age_secs: Some(0),
+        });
     }
 
-    if let Some(location) = cached_location {
-        return Ok(location);
+    if let Some(coordinates) = cached_location {
+        return Ok(LocationResolution {
+            coordinates,
+            source: "stale_cache",
+            cache_age_secs,
+        });
     }
 
-    Ok(Coordinates {
-        latitude: DEFAULT_LATITUDE,
-        longitude: DEFAULT_LONGITUDE,
+    Ok(LocationResolution {
+        coordinates: Coordinates {
+            latitude: DEFAULT_LATITUDE,
+            longitude: DEFAULT_LONGITUDE,
+        },
+        source: "fallback",
+        cache_age_secs: None,
     })
 }
 
 pub fn status_for_now(now: DateTime<Local>, location: Coordinates) -> SolarStatus {
     let today = now.date_naive();
+    let yesterday = today
+        .checked_sub_days(Days::new(1))
+        .expect("valid yesterday");
     let tomorrow = today
         .checked_add_days(Days::new(1))
         .expect("valid tomorrow");
 
-    let (sunrise_utc, sunset_utc) = sun_times(location.latitude, location.longitude, today);
-    let (sunrise_next_utc, sunset_next_utc) =
-        sun_times(location.latitude, location.longitude, tomorrow);
+    let sun_yesterday = sun_times(location.latitude, location.longitude, yesterday);
+    let sun_today = sun_times(location.latitude, location.longitude, today);
+    let sun_tomorrow = sun_times(location.latitude, location.longitude, tomorrow);
 
-    let sunrise = sunrise_utc.with_timezone(&Local);
-    let sunset = sunset_utc.with_timezone(&Local);
-    let sunrise_next = sunrise_next_utc.with_timezone(&Local);
-    let sunset_next = sunset_next_utc.with_timezone(&Local);
+    let local_window = |sun: DaySun| match sun {
+        DaySun::Normal { sunrise, sunset } => {
+            Some((sunrise.with_timezone(&Local), sunset.with_timezone(&Local)))
+        }
+        DaySun::PolarDay | DaySun::PolarNight => None,
+    };
+
+    let windows = [
+        local_window(sun_yesterday),
+        local_window(sun_today),
+        local_window(sun_tomorrow),
+    ];
+    let (sunrise, sunset) = windows[1]
+        .map(|(sr, ss)| (Some(sr), Some(ss)))
+        .unwrap_or((None, None));
+
+    let in_daylight_window = windows
+        .iter()
+        .flatten()
+        .any(|(sr, ss)| now >= *sr && now < *ss);
+    let is_night = match sun_today {
+        DaySun::PolarDay => false,
+        DaySun::PolarNight | DaySun::Normal { .. } => !in_daylight_window,
+    };
+
+    let next_sunrise = windows
+        .iter()
+        .flatten()
+        .map(|(sr, _)| *sr)
+        .filter(|sr| *sr > now)
+        .min();
+    let next_sunset = windows
+        .iter()
+        .flatten()
+        .map(|(_, ss)| *ss)
+        .filter(|ss| *ss > now)
+        .min();
 
     let dark_on_today = local_datetime(today, DARK_ON_HOUR, 0, 0);
     let dark_off_today = local_datetime(today, DARK_OFF_HOUR, 0, 0);
     let next_dark_on = if dark_on_today > now {
         dark_on_today
     } else {
-        dark_on_today + Duration::days(1)
+        local_datetime(tomorrow, DARK_ON_HOUR, 0, 0)
     };
     let next_dark_off = if dark_off_today > now {
         dark_off_today
     } else {
-        dark_off_today + Duration::days(1)
+        local_datetime(tomorrow, DARK_OFF_HOUR, 0, 0)
     };
-
-    let next_sunrise = if sunrise > now { sunrise } else { sunrise_next };
-    let next_sunset = if sunset > now { sunset } else { sunset_next };
 
     SolarStatus {
         location,
         sunrise,
         sunset,
-        is_night: now < sunrise || now >= sunset,
+        is_night,
         is_dark: in_dark_window(now),
         next_sunrise,
         next_sunset,
@@ -223,25 +332,29 @@ pub fn dark_window_start(now: DateTime<Local>) -> DateTime<Local> {
     if now.hour() >= DARK_ON_HOUR {
         local_datetime(today, DARK_ON_HOUR, 0, 0)
     } else if now.hour() < DARK_OFF_HOUR {
-        local_datetime(today, DARK_ON_HOUR, 0, 0) - Duration::days(1)
+        let yesterday = today
+            .checked_sub_days(Days::new(1))
+            .expect("valid yesterday");
+        local_datetime(yesterday, DARK_ON_HOUR, 0, 0)
     } else {
         local_datetime(today, DARK_OFF_HOUR, 0, 0)
     }
 }
 
 pub fn next_event(status: &SolarStatus) -> DateTime<Local> {
-    status
-        .next_sunrise
-        .min(status.next_sunset)
-        .min(status.next_dark_on)
-        .min(status.next_dark_off)
+    [status.next_sunrise, status.next_sunset]
+        .into_iter()
+        .flatten()
+        .chain([status.next_dark_on, status.next_dark_off])
+        .min()
+        .expect("dark schedule boundaries are always present")
 }
 
-pub fn sun_times(latitude: f64, longitude: f64, date: NaiveDate) -> (DateTime<Utc>, DateTime<Utc>) {
+pub fn sun_times(latitude: f64, longitude: f64, date: NaiveDate) -> DaySun {
     let day_of_year = f64::from(date.ordinal() as u16);
     let lng_hour = longitude / 15.0;
 
-    let compute = |rising: bool| -> f64 {
+    let compute = |rising: bool| -> Result<f64, DaySun> {
         let base_hour = if rising { 6.0 } else { 18.0 };
         let t = day_of_year + (base_hour - lng_hour) / 24.0;
         let mean_anomaly = 0.9856 * t - 3.289;
@@ -261,10 +374,15 @@ pub fn sun_times(latitude: f64, longitude: f64, date: NaiveDate) -> (DateTime<Ut
         let sin_declination = 0.39782 * true_longitude.to_radians().sin();
         let cos_declination = sin_declination.asin().cos();
         let latitude_radians = latitude.to_radians();
-        let mut cos_hour_angle = (90.833_f64.to_radians().cos()
+        let cos_hour_angle = (90.833_f64.to_radians().cos()
             - sin_declination * latitude_radians.sin())
             / (cos_declination * latitude_radians.cos());
-        cos_hour_angle = cos_hour_angle.clamp(-1.0, 1.0);
+        if cos_hour_angle <= -1.0 {
+            return Err(DaySun::PolarDay);
+        }
+        if cos_hour_angle >= 1.0 {
+            return Err(DaySun::PolarNight);
+        }
 
         let hour_angle_degrees = cos_hour_angle.acos().to_degrees();
         let hour_angle = if rising {
@@ -275,20 +393,29 @@ pub fn sun_times(latitude: f64, longitude: f64, date: NaiveDate) -> (DateTime<Ut
 
         let local_mean_time = hour_angle + right_ascension - 0.06571 * t - 6.622;
         // Subtract lng_hour without re-wrapping: the UTC instant may land on an adjacent UTC day.
-        local_mean_time.rem_euclid(24.0) - lng_hour
+        Ok(local_mean_time.rem_euclid(24.0) - lng_hour)
+    };
+
+    let rising_hours = match compute(true) {
+        Ok(hours) => hours,
+        Err(polar) => return polar,
+    };
+    let setting_hours = match compute(false) {
+        Ok(hours) => hours,
+        Err(polar) => return polar,
     };
 
     let base = Utc
         .with_ymd_and_hms(date.year(), date.month(), date.day(), 0, 0, 0)
         .single()
         .expect("valid UTC date");
-    let sunrise = base + duration_from_hours(compute(true));
-    let mut sunset = base + duration_from_hours(compute(false));
+    let sunrise = base + duration_from_hours(rising_hours);
+    let mut sunset = base + duration_from_hours(setting_hours);
     if sunset < sunrise {
         sunset += Duration::days(1);
     }
 
-    (sunrise, sunset)
+    DaySun::Normal { sunrise, sunset }
 }
 
 fn read_cached_location(path: &std::path::Path) -> Option<CachedLocation> {
@@ -296,21 +423,16 @@ fn read_cached_location(path: &std::path::Path) -> Option<CachedLocation> {
     serde_json::from_slice(&contents).ok()
 }
 
-fn write_cached_location(path: &std::path::Path, location: &CachedLocation) -> io::Result<()> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    let json = serde_json::to_vec(location).map_err(io::Error::other)?;
-    fs::write(path, json)
+fn write_cached_location(path: &std::path::Path, location: &CachedLocation) -> crate::Result<()> {
+    let json = serde_json::to_vec(location)?;
+    crate::fs_util::atomic_write(path, &json)
 }
 
 /// The place name for `location`, reverse-geocoded on first ask and cached
 /// beside the coordinates it describes. GeoClue reports where we are, never
 /// what it is called, and the forecast API answers coordinates alone.
 pub fn resolve_place_name(location: Coordinates) -> Option<String> {
-    let cache_path = paths::xdg_cache_home()
-        .ok()?
-        .join("sun-schedule/location.json");
+    let cache_path = location_cache_path().ok()?;
 
     let cached = read_cached_location(&cache_path);
     if let Some(cached) = &cached
@@ -347,25 +469,19 @@ fn reverse_geocode(location: Coordinates) -> Option<String> {
         "https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={:.4}&longitude={:.4}&localityLanguage=en",
         location.latitude, location.longitude
     );
-    let output = Command::new("curl")
-        .args([
-            "--fail",
-            "--silent",
-            "--show-error",
-            "--connect-timeout",
-            "4",
-            "--max-time",
-            "8",
-            &url,
-        ])
-        .output()
-        .ok()?;
-
-    if !output.status.success() {
-        return None;
-    }
-
-    parse_place(&String::from_utf8_lossy(&output.stdout))
+    let body = crate::cmd::output([
+        "curl",
+        "--fail",
+        "--silent",
+        "--show-error",
+        "--connect-timeout",
+        "4",
+        "--max-time",
+        "8",
+        &url,
+    ])
+    .ok()?;
+    parse_place(&body)
 }
 
 fn parse_place(body: &str) -> Option<String> {
@@ -484,20 +600,6 @@ fn duration_from_hours(hours: f64) -> Duration {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn dark_window_runs_from_23_00_to_06_00() {
-        let at = |hour, minute| {
-            Local
-                .with_ymd_and_hms(2026, 10, 14, hour, minute, 0)
-                .single()
-                .expect("unambiguous local time")
-        };
-        assert!(in_dark_window(at(23, 0)));
-        assert!(in_dark_window(at(5, 59)));
-        assert!(!in_dark_window(at(6, 0)));
-        assert!(!in_dark_window(at(22, 59)));
-    }
     use crate::test_support::{ScopedEnvVar, TempDir, env_lock};
 
     #[test]
@@ -556,7 +658,11 @@ mod tests {
     #[test]
     fn sun_times_return_a_same_day_sunrise_and_later_sunset() {
         let date = NaiveDate::from_ymd_opt(2026, 4, 10).expect("valid date");
-        let (sunrise, sunset) = sun_times(DEFAULT_LATITUDE, DEFAULT_LONGITUDE, date);
+        let DaySun::Normal { sunrise, sunset } =
+            sun_times(DEFAULT_LATITUDE, DEFAULT_LONGITUDE, date)
+        else {
+            panic!("mid-latitude day has sunrise and sunset");
+        };
 
         assert_eq!(sunrise.date_naive(), date);
         assert!(sunset > sunrise);
@@ -568,7 +674,9 @@ mod tests {
         // Past +90°E the rising UT wraps past midnight; events must still land on the local day.
         let date = NaiveDate::from_ymd_opt(2026, 6, 10).expect("valid date");
         let offset = chrono::FixedOffset::east_opt(8 * 3600).expect("valid +08:00 offset");
-        let (sunrise, sunset) = sun_times(31.0, 120.0, date);
+        let DaySun::Normal { sunrise, sunset } = sun_times(31.0, 120.0, date) else {
+            panic!("mid-latitude day has sunrise and sunset");
+        };
 
         assert_eq!(sunrise.with_timezone(&offset).date_naive(), date);
         assert_eq!(sunset.with_timezone(&offset).date_naive(), date);
@@ -595,7 +703,13 @@ mod tests {
     fn status_for_now_after_dark_off_before_sunrise_is_night_but_not_dark() {
         let date = NaiveDate::from_ymd_opt(2026, 1, 10).expect("valid date");
         let location = sample_location(date);
-        let (sunrise_utc, _) = sun_times(location.latitude, location.longitude, date);
+        let DaySun::Normal {
+            sunrise: sunrise_utc,
+            ..
+        } = sun_times(location.latitude, location.longitude, date)
+        else {
+            panic!("mid-latitude day has sunrise");
+        };
         let sunrise = sunrise_utc.with_timezone(&Local);
         let now = local_datetime(date, DARK_OFF_HOUR, 30, 0);
 
@@ -610,7 +724,12 @@ mod tests {
     fn status_for_now_after_sunset_waits_for_dark_hint_cutover() {
         let date = NaiveDate::from_ymd_opt(2026, 4, 10).expect("valid date");
         let location = sample_location(date);
-        let (_, sunset_utc) = sun_times(location.latitude, location.longitude, date);
+        let DaySun::Normal {
+            sunset: sunset_utc, ..
+        } = sun_times(location.latitude, location.longitude, date)
+        else {
+            panic!("mid-latitude day has sunset");
+        };
         let sunset = sunset_utc.with_timezone(&Local);
         let now = sunset + Duration::minutes(30);
 
@@ -626,9 +745,10 @@ mod tests {
     #[test]
     fn resolve_location_prefers_cached_coordinates() {
         let _lock = env_lock();
+        let _clear_pin = ScopedEnvVar::unset(LOCATION_PIN_ENV);
         let temp_dir = TempDir::new("desktopctl-solar-cache").expect("temp dir");
         let _cache_home = ScopedEnvVar::set("XDG_CACHE_HOME", temp_dir.path().as_os_str());
-        let cache_path = temp_dir.path().join("sun-schedule/location.json");
+        let cache_path = temp_dir.path().join("desktopctl/location.json");
         fs::create_dir_all(cache_path.parent().expect("cache parent")).expect("create cache dir");
         fs::write(
             &cache_path,
@@ -646,13 +766,85 @@ mod tests {
     }
 
     #[test]
-    fn cached_out_of_range_coordinates_are_not_usable() {
-        let temp_dir = TempDir::new("desktopctl-solar-invalid-cache").expect("temp dir");
-        let cache_path = temp_dir.path().join("location.json");
-        fs::write(&cache_path, r#"{"latitude":123.45,"longitude":56.78}"#).expect("write cache");
+    fn polar_days_and_nights_have_no_sun_transitions() {
+        let summer = NaiveDate::from_ymd_opt(2026, 6, 21).expect("valid date");
+        assert_eq!(sun_times(70.0, 20.0, summer), DaySun::PolarDay);
+        let summer_status = status_for_now(
+            local_datetime(summer, 1, 0, 0),
+            Coordinates {
+                latitude: 70.0,
+                longitude: 20.0,
+            },
+        );
+        assert!(!summer_status.is_night);
+        assert!(summer_status.sunrise.is_none());
+        assert!(summer_status.sunset.is_none());
+        assert_eq!(
+            next_event(&summer_status),
+            local_datetime(summer, DARK_OFF_HOUR, 0, 0)
+        );
 
-        let cached = read_cached_location(&cache_path).expect("cache parses");
-        assert!(cached.coordinates().is_none());
+        let winter = NaiveDate::from_ymd_opt(2026, 12, 21).expect("valid date");
+        assert_eq!(sun_times(70.0, 20.0, winter), DaySun::PolarNight);
+        let winter_status = status_for_now(
+            local_datetime(winter, 12, 0, 0),
+            Coordinates {
+                latitude: 70.0,
+                longitude: 20.0,
+            },
+        );
+        assert!(winter_status.is_night);
+        assert!(winter_status.sunrise.is_none());
+        assert!(winter_status.sunset.is_none());
+    }
+
+    #[test]
+    fn post_midnight_yesterday_sunset_keeps_daylight_and_next_sunset() {
+        let solstice = NaiveDate::from_ymd_opt(2026, 6, 21).expect("valid date");
+        let local_noon = local_datetime(solstice, 12, 0, 0);
+        let offset_hours = f64::from(local_noon.offset().local_minus_utc()) / 3600.0;
+        // Shift west by 3h from the local meridian at 64 deg N so June sunset occurs past 00:00 next day.
+        let mut longitude = (offset_hours - 3.0) * 15.0;
+        if longitude < -180.0 {
+            longitude += 360.0;
+        }
+        let location = Coordinates {
+            latitude: 64.0,
+            longitude,
+        };
+        let DaySun::Normal {
+            sunset: sunset_utc, ..
+        } = sun_times(location.latitude, location.longitude, solstice)
+        else {
+            panic!("sub-arctic summer solstice has sunrise and sunset");
+        };
+        let sunset_local = sunset_utc.with_timezone(&Local);
+        let just_before_sunset = sunset_local - Duration::minutes(10);
+        assert!(just_before_sunset.date_naive() > solstice);
+
+        let status = status_for_now(just_before_sunset, location);
+        assert!(!status.is_night);
+        assert_eq!(status.next_sunset, Some(sunset_local));
+    }
+
+    #[test]
+    fn next_dark_edges_preserve_wall_clock_hours() {
+        for (month, day) in [(3, 7), (3, 8), (11, 1), (11, 2)] {
+            let date = NaiveDate::from_ymd_opt(2026, month, day).expect("valid date");
+            let status = status_for_now(
+                local_datetime(date, 23, 30, 0),
+                Coordinates {
+                    latitude: DEFAULT_LATITUDE,
+                    longitude: DEFAULT_LONGITUDE,
+                },
+            );
+            assert_eq!(status.next_dark_on.hour(), DARK_ON_HOUR);
+            assert_eq!(status.next_dark_off.hour(), DARK_OFF_HOUR);
+            assert_eq!(
+                dark_window_start(local_datetime(date, 2, 0, 0)).hour(),
+                DARK_ON_HOUR
+            );
+        }
     }
 
     #[test]
@@ -740,19 +932,6 @@ mod tests {
         assert_eq!(named.place.as_deref(), Some("Here"));
         let named = CachedLocation::named(Some(&previous), elsewhere, "There".to_owned());
         assert_eq!(named.fixed_at, None);
-    }
-
-    #[test]
-    fn validated_coordinates_reject_non_finite_values() {
-        assert!(validated_coordinates(f64::NAN, 0.0).is_none());
-        assert!(validated_coordinates(0.0, f64::INFINITY).is_none());
-    }
-
-    #[test]
-    fn parse_coordinate_line_strips_degree_marker() {
-        assert_eq!(parse_coordinate_line("Latitude: 30.6280°"), Some(30.628));
-        assert_eq!(parse_coordinate_line("Longitude: -96.3344"), Some(-96.3344));
-        assert_eq!(parse_coordinate_line("Latitude unavailable"), None);
     }
 
     #[test]

@@ -1,17 +1,16 @@
-use super::{Target, scheme_pair};
+use super::Target;
 use crate::{
+    cmd::{find_command, spawn_detached},
+    fs_util::atomic_write,
     paths,
     theme::{
-        atomic_write,
-        command::find_command,
-        json, resolve,
-        schema::{ColorScheme, ColorSchemeAppearance, ThemeState},
+        color::readable_on_ends,
+        schema::{ColorScheme, ThemeState},
     },
 };
-use serde_json::{Map, Value};
 use std::{
-    borrow::Cow,
     fmt::Write as _,
+    fs,
     path::PathBuf,
     process::{Command, Stdio},
 };
@@ -28,66 +27,53 @@ pub const TARGET: Target = Target::standalone(
 const THEME_OUTPUT_DIR: &str = "vicinae/themes";
 
 pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<String> {
-    let mut font = Map::new();
-    let mut normal = Map::new();
-    normal.insert(
-        "family".to_owned(),
-        Value::String(state.system_font.clone()),
-    );
-    font.insert("normal".to_owned(), Value::Object(normal));
-
     // Both slots name the selected scheme; see the vicinae quirk in docs/theming.md.
-    let mut appearance = Map::new();
-    appearance.insert(
-        "name".to_owned(),
-        Value::String(colors.app_themes.vicinae.name.clone()),
-    );
-    appearance.insert(
-        "icon_theme".to_owned(),
-        Value::String(state.icon_theme.clone()),
-    );
+    let appearance = serde_json::json!({
+        "name": colors.app_themes.vicinae,
+        "icon_theme": state.icon_theme,
+    });
+    let root = serde_json::json!({
+        "font": {
+            "normal": {
+                "family": state.system_font,
+            },
+        },
+        "theme": {
+            "dark": appearance.clone(),
+            "light": appearance,
+        },
+    });
 
-    let dark = appearance.clone();
-    let light = appearance;
-
-    let mut theme = Map::new();
-    theme.insert("dark".to_owned(), Value::Object(dark));
-    theme.insert("light".to_owned(), Value::Object(light));
-
-    let mut root = Map::new();
-    root.insert("font".to_owned(), Value::Object(font));
-    root.insert("theme".to_owned(), Value::Object(theme));
-
-    Ok(json::format_pretty_value(&Value::Object(root)))
+    Ok(format!("{}\n", serde_json::to_string_pretty(&root)?))
 }
 
 pub fn persist(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
-    // Only the first is named; the family's other variants fill vicinae's own picker.
-    let mut candidates = vec![(
-        colors.app_themes.vicinae.name.clone(),
-        Cow::Borrowed(colors),
-    )];
+    let active = &colors.app_themes.vicinae;
+    write_theme_file(active, colors)?;
+    cleanup_managed_themes(active)?;
+    Ok(())
+}
 
-    let light_theme_name = colors.app_themes.vicinae.light_name.clone();
-    if light_theme_name != candidates[0].0 {
-        let light_colors = resolve::load_colors(&light_theme_name, &paths::data_path("colors")?)?;
-        candidates.push((light_theme_name, Cow::Owned(light_colors)));
-    }
-
-    for appearance in [ColorSchemeAppearance::Light, ColorSchemeAppearance::Dark] {
-        let companion = scheme_pair::colors_for_appearance(colors, appearance)?;
-        candidates.push((companion.app_themes.vicinae.name.clone(), companion));
-    }
-
-    let mut written: Vec<String> = Vec::with_capacity(candidates.len());
-    for (name, scheme) in candidates {
-        if written.contains(&name) {
+fn cleanup_managed_themes(keep_name: &str) -> crate::Result<()> {
+    let dir = paths::xdg_data_home()?.join(THEME_OUTPUT_DIR);
+    let Ok(entries) = fs::read_dir(&dir) else {
+        return Ok(());
+    };
+    let keep_file = format!("{keep_name}.toml");
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|ext| ext.to_str()) != Some("toml") {
             continue;
         }
-        write_theme_file(&name, &scheme)?;
-        written.push(name);
+        if path.file_name().and_then(|n| n.to_str()) == Some(keep_file.as_str()) {
+            continue;
+        }
+        if fs::read_to_string(&path)
+            .is_ok_and(|text| text.contains("Generated from desktopctl theme "))
+        {
+            let _ = fs::remove_file(&path);
+        }
     }
-
     Ok(())
 }
 
@@ -110,13 +96,11 @@ pub fn on_apply(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()>
     }
 
     // Detached: it replaces the server with a long-lived one.
-    let _child = Command::new(&vicinae)
-        .arg("server")
-        .arg("--replace")
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()?;
+    spawn_detached([
+        vicinae.as_os_str(),
+        std::ffi::OsStr::new("server"),
+        std::ffi::OsStr::new("--replace"),
+    ])?;
 
     Ok(())
 }
@@ -136,7 +120,7 @@ fn theme_output_path(theme_name: &str) -> crate::Result<PathBuf> {
 
 fn render_theme(theme_name: &str, colors: &ColorScheme) -> String {
     let mut rendered = String::new();
-    let variant = if colors.is_light() { "light" } else { "dark" };
+    let variant = colors.appearance.as_str();
 
     writeln!(&mut rendered, "[meta]").expect("string write should succeed");
     writeln!(
@@ -167,6 +151,11 @@ fn render_theme(theme_name: &str, colors: &ColorScheme) -> String {
     write_color(&mut rendered, "secondary_background", &colors.bg1);
     write_color(&mut rendered, "border", &colors.bg3);
     write_color(&mut rendered, "accent", &colors.accent);
+    write_color(
+        &mut rendered,
+        "accent_foreground",
+        &readable_on_ends(&colors.accent, &colors.bg, &colors.fg),
+    );
     writeln!(&mut rendered).expect("string write should succeed");
 
     writeln!(&mut rendered, "[colors.accents]").expect("string write should succeed");
@@ -220,173 +209,43 @@ fn title_case_segment(segment: &str) -> String {
 mod tests {
     use super::*;
     use crate::{
-        test_support::{ScopedEnvVar, TempDir, env_lock, repo_root},
-        theme::targets::testsupport::{dummy_colors, dummy_state, load_repo_colors},
+        test_support::{ScopedEnvVar, TempDir, env_lock},
+        theme::targets::testsupport::{dummy_state, load_repo_colors},
     };
+    use serde_json::Value;
     use std::fs;
 
-    fn text(content: crate::Result<String>) -> String {
-        content.expect("target generation succeeds")
-    }
-
     #[test]
-    fn generate_writes_theme_names_and_font() {
-        let _lock = env_lock();
-        let _repo = ScopedEnvVar::set("DESKTOPCTL_REPO", repo_root().as_os_str());
-
-        let mut state = dummy_state();
-        state.dark_hint = true;
-        let rendered = text(generate(&load_repo_colors("gruvbox-dark"), &state));
-        let value: Value = serde_json::from_str(&rendered).expect("valid json");
-
-        assert_eq!(
-            value["font"]["normal"]["family"],
-            Value::String("Overpass".to_owned())
-        );
-        assert_eq!(
-            value["theme"]["dark"]["name"],
-            Value::String("gruvbox-dark".to_owned())
-        );
-        assert_eq!(
-            value["theme"]["dark"]["icon_theme"],
-            Value::String("Neuwaita".to_owned())
-        );
-        assert_eq!(
-            value["theme"]["light"]["icon_theme"],
-            Value::String("Neuwaita".to_owned())
-        );
-    }
-
-    /// Vicinae reads the system appearance itself, which is the browser's
-    /// `dark_hint`, so neither slot may name a theme other than the selected one.
-    #[test]
-    fn generate_pins_both_slots_to_the_selected_scheme() {
-        let _lock = env_lock();
-        let _repo = ScopedEnvVar::set("DESKTOPCTL_REPO", repo_root().as_os_str());
-
-        let mut state = dummy_state();
-        state.dark_hint = false;
-        let rendered = text(generate(&load_repo_colors("solarized-light"), &state));
-        let value: Value = serde_json::from_str(&rendered).expect("valid json");
-
-        assert_eq!(
-            value["theme"]["light"]["name"],
-            Value::String("solarized-light".to_owned())
-        );
-        assert_eq!(
-            value["theme"]["dark"]["name"],
-            Value::String("solarized-light".to_owned())
-        );
-    }
-
-    /// The launcher shows what was selected; `dark_hint` belongs to the browser.
-    #[test]
-    fn generate_ignores_dark_hint_in_favour_of_the_selected_scheme() {
-        let _lock = env_lock();
-        let _repo = ScopedEnvVar::set("DESKTOPCTL_REPO", repo_root().as_os_str());
-
-        for dark_hint in [false, true] {
-            let mut state = dummy_state();
-            state.dark_hint = dark_hint;
-            let rendered = text(generate(&load_repo_colors("catppuccin-latte"), &state));
-            let value: Value = serde_json::from_str(&rendered).expect("valid json");
-
-            for slot in ["dark", "light"] {
-                assert_eq!(
-                    value["theme"][slot]["name"],
-                    Value::String("catppuccin-latte".to_owned()),
-                    "{slot} slot with dark_hint={dark_hint}"
-                );
-            }
-        }
-    }
-
-    #[test]
-    fn render_theme_matches_expected_shape() {
-        let rendered = render_theme("gruvbox-dark", &dummy_colors());
-
-        assert!(rendered.is_ascii(), "{rendered}");
-        assert!(rendered.contains("name = \"Gruvbox Dark\""));
-        assert!(
-            rendered.contains("description = \"Generated from desktopctl theme gruvbox-dark\"")
-        );
-        assert!(rendered.contains("variant = \"dark\""));
-        assert!(rendered.contains("inherits = \"vicinae-dark\""));
-        assert!(rendered.contains("[colors.core]\nbackground = \"#000000\"\nforeground = \"#f0f0f0\"\nsecondary_background = \"#020202\"\nborder = \"#040404\"\naccent = \"#3366ff\""));
-        assert!(rendered.contains("[colors.list.item.selection]\nbackground = \"#030303\"\nsecondary_background = \"#020202\""));
-        assert!(rendered.contains("[colors.grid.item]\nbackground = \"#020202\""));
-    }
-
-    #[test]
-    fn persist_writes_current_and_light_companion_theme_files() {
+    fn persist_writes_active_theme_and_removes_stale_companion_themes() {
         let _lock = env_lock();
         let data_home = TempDir::new("desktopctl-vicinae-data").expect("temp dir");
         let _data = ScopedEnvVar::set("XDG_DATA_HOME", data_home.path().as_os_str());
-        let _repo = ScopedEnvVar::set("DESKTOPCTL_REPO", repo_root().as_os_str());
-        let colors = load_repo_colors("solarized-dark");
-
-        persist(&colors, &dummy_state()).expect("persist succeeds");
-
-        let dark = fs::read_to_string(data_home.path().join("vicinae/themes/solarized-dark.toml"))
-            .expect("dark theme written");
-        let light =
-            fs::read_to_string(data_home.path().join("vicinae/themes/solarized-light.toml"))
-                .expect("light theme written");
-
-        assert!(dark.contains("variant = \"dark\""));
-        assert!(dark.contains("background = \"#002b36\""));
-        assert!(light.contains("variant = \"light\""));
-        assert!(light.contains("background = \"#fdf6e3\""));
-    }
-
-    /// The file `generate` names has to exist, whichever way the hint points.
-    #[test]
-    fn persist_covers_the_theme_generate_names() {
-        for dark_hint in [false, true] {
-            let _lock = env_lock();
-            let data_home = TempDir::new("desktopctl-vicinae-hint").expect("temp dir");
-            let _data = ScopedEnvVar::set("XDG_DATA_HOME", data_home.path().as_os_str());
-            let _repo = ScopedEnvVar::set("DESKTOPCTL_REPO", repo_root().as_os_str());
-
-            let colors = load_repo_colors("solarized-light");
-            let mut state = dummy_state();
-            state.dark_hint = dark_hint;
-
-            persist(&colors, &state).expect("persist succeeds");
-
-            let rendered = text(generate(&colors, &state));
-            let value: Value = serde_json::from_str(&rendered).expect("valid json");
-            let named = value["theme"]["dark"]["name"]
-                .as_str()
-                .expect("dark slot names a theme");
-
-            assert!(
-                data_home
-                    .path()
-                    .join(format!("vicinae/themes/{named}.toml"))
-                    .is_file(),
-                "dark_hint={dark_hint} names {named} but no such theme file was written"
-            );
-        }
-    }
-
-    #[test]
-    fn persist_writes_dark_companion_theme_for_light_schemes() {
-        let _lock = env_lock();
-        let data_home = TempDir::new("desktopctl-vicinae-dark-data").expect("temp dir");
-        let _data = ScopedEnvVar::set("XDG_DATA_HOME", data_home.path().as_os_str());
-        let _repo = ScopedEnvVar::set("DESKTOPCTL_REPO", repo_root().as_os_str());
-        let colors = load_repo_colors("catppuccin-latte");
-
-        persist(&colors, &dummy_state()).expect("persist succeeds");
-
-        let dark = fs::read_to_string(
-            data_home
-                .path()
-                .join("vicinae/themes/catppuccin-mocha.toml"),
+        let themes_dir = data_home.path().join(THEME_OUTPUT_DIR);
+        fs::create_dir_all(&themes_dir).expect("themes dir");
+        fs::write(
+            themes_dir.join("solarized-light.toml"),
+            "description = \"Generated from desktopctl theme solarized-light\"\n",
         )
-        .expect("dark companion written");
-        assert!(dark.contains("variant = \"dark\""));
-        assert!(dark.contains("background = \"#1e1e2e\""));
+        .expect("stale managed theme");
+        fs::write(themes_dir.join("custom.toml"), "description = \"Custom\"\n")
+            .expect("custom theme");
+
+        let colors = load_repo_colors("solarized-dark");
+        persist(&colors, &dummy_state()).expect("persist succeeds");
+
+        let active = fs::read_to_string(themes_dir.join("solarized-dark.toml"))
+            .expect("active theme written");
+        assert!(active.contains("variant = \"dark\""));
+        assert!(active.contains("inherits = \"vicinae-dark\""));
+        assert!(active.contains("background = \"#002b36\""));
+        assert!(active.contains("accent_foreground = "));
+        assert!(!themes_dir.join("solarized-light.toml").exists());
+        assert!(themes_dir.join("custom.toml").exists());
+
+        let rendered = generate(&colors, &dummy_state()).expect("generate succeeds");
+        let value: Value = serde_json::from_str(&rendered).expect("valid json");
+        assert_eq!(value["font"]["normal"]["family"], "Overpass");
+        assert_eq!(value["theme"]["dark"]["name"], "solarized-dark");
+        assert_eq!(value["theme"]["light"]["name"], "solarized-dark");
     }
 }

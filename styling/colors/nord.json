@@ -6,10 +6,7 @@
     "bat": "Nord",
     "ktexteditor": "Nord",
     "snappy_switcher": "nord.ini",
-    "vicinae": {
-      "name": "nord",
-      "light_name": "nord-light"
-    },
+    "vicinae": "nord",
     "vscode": {
       "name": "Nord",
       "extension_id": "arcticicestudio.nord-visual-studio-code"

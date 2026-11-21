@@ -41,20 +41,25 @@ pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<Stri
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::theme::targets::testsupport::{REPO_SCHEMES, load_repo_colors};
+    use crate::theme::targets::testsupport::{load_repo_colors, repo_schemes};
 
     #[test]
     fn repo_schemes_choose_expected_hint_color() {
         // The contract is the property, not the slot: the dimmest step that clears the floor.
-        for scheme_name in REPO_SCHEMES {
-            let colors = load_repo_colors(scheme_name);
+        for scheme_name in repo_schemes() {
+            let colors = load_repo_colors(&scheme_name);
             let selected = autosuggest_color(&colors);
             assert!(
                 contrast_ratio(selected, &colors.bg) >= MIN_HINT_CONTRAST,
                 "{scheme_name}: hint color did not meet minimum contrast"
             );
 
-            let dimmer_steps = [colors.fg_faint.as_str(), colors.fg4.as_str()];
+            let dimmer_steps = [
+                colors.fg_faint.as_str(),
+                colors.fg4.as_str(),
+                colors.fg3.as_str(),
+                colors.fg2.as_str(),
+            ];
             for dimmer in dimmer_steps.iter().take_while(|step| **step != selected) {
                 assert!(
                     contrast_ratio(dimmer, &colors.bg) < MIN_HINT_CONTRAST,

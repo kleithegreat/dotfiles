@@ -1,5 +1,5 @@
 use crate::paths;
-use crate::theme::schema::{ColorScheme, ThemeState};
+use crate::theme::schema::{ColorScheme, FieldKind, THEME_FIELDS, ThemeState, field_names};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde_json::{Map, Value};
 use std::{
@@ -107,34 +107,14 @@ pub fn delete_preset(name: &str) -> crate::Result<bool> {
     Ok(connection.execute("DELETE FROM theme_presets WHERE name = ?", [name])? > 0)
 }
 
-#[cfg(test)]
-fn serialize_state(state: &ThemeState) -> crate::Result<String> {
-    Ok(format!(
-        "{}\n",
-        crate::theme::json::format_pretty_value(&Value::Object(state.to_ordered_json_map()))
-    ))
-}
-
 fn load_state_from_db_path(db_path: &Path) -> crate::Result<ThemeState> {
     let mut connection = open_state_db(db_path)?;
     initialize_state_storage(&mut connection)?;
     load_state_from_connection(&mut connection, db_path)
 }
 
-#[cfg(test)]
-fn save_state_to_db_path(state: &ThemeState, db_path: &Path) -> crate::Result<()> {
-    let mut connection = open_state_db(db_path)?;
-    save_state_to_connection(state, &mut connection)
-}
-
 fn open_state_db(db_path: &Path) -> crate::Result<Connection> {
-    if let Some(parent) = db_path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-
-    let connection = Connection::open(db_path)?;
-    // Several processes share this file; wait out write bursts instead of SQLITE_BUSY.
-    connection.busy_timeout(std::time::Duration::from_secs(5))?;
+    let connection = crate::db::open_state_db_at(db_path)?;
     connection.execute_batch(THEME_TABLES_SCHEMA)?;
     Ok(connection)
 }
@@ -241,9 +221,7 @@ fn normalize_theme_state_value(value: Value, label: &str) -> crate::Result<(Valu
 fn backfill_missing_theme_state_keys(
     object: &mut Map<String, Value>,
 ) -> crate::Result<Vec<String>> {
-    let missing = ThemeState::known_field_names()
-        .iter()
-        .copied()
+    let missing = field_names()
         .filter(|name| !object.contains_key(*name))
         .collect::<Vec<_>>();
 
@@ -329,9 +307,7 @@ fn validate_color_scheme(value: &Value, path: &Path) -> crate::Result<()> {
 fn validate_theme_state(value: &Value, label: &str) -> crate::Result<()> {
     let object = expect_object(value, label.to_owned())?;
 
-    let mut missing = ThemeState::known_field_names()
-        .iter()
-        .copied()
+    let mut missing = field_names()
         .filter(|name| !object.contains_key(*name))
         .collect::<Vec<_>>();
     missing.sort_unstable();
@@ -343,35 +319,45 @@ fn validate_theme_state(value: &Value, label: &str) -> crate::Result<()> {
         .into());
     }
 
-    let mut string_fields = ThemeState::string_field_names().to_vec();
-    string_fields.sort_unstable();
-    for name in string_fields {
-        let value = object.get(name).expect("validated string field exists");
-        if !matches!(value, Value::String(text) if !text.is_empty()) {
-            return Err(crate::invalid_data(format!(
-                "{label}: '{name}' must be a non-empty string"
-            ))
-            .into());
-        }
-    }
-
-    let mut int_fields = ThemeState::int_field_names().to_vec();
-    int_fields.sort_unstable();
-    for name in int_fields {
-        let value = object.get(name).expect("validated int field exists");
-        if !matches!(value, Value::Number(number) if number.as_i64().is_some()) {
-            return Err(
-                crate::invalid_data(format!("{label}: '{name}' must be an integer")).into(),
-            );
-        }
-    }
-
-    let mut bool_fields = ThemeState::bool_field_names().to_vec();
-    bool_fields.sort_unstable();
-    for name in bool_fields {
-        let value = object.get(name).expect("validated bool field exists");
-        if !matches!(value, Value::Bool(_)) {
-            return Err(crate::invalid_data(format!("{label}: '{name}' must be a boolean")).into());
+    for spec in THEME_FIELDS {
+        let value = object.get(spec.name).expect("validated field exists");
+        match spec.kind {
+            FieldKind::String => {
+                if !matches!(value, Value::String(text) if !text.is_empty()) {
+                    return Err(crate::invalid_data(format!(
+                        "{label}: '{}' must be a non-empty string",
+                        spec.name
+                    ))
+                    .into());
+                }
+            }
+            FieldKind::Int => {
+                let Some(number) = value.as_i64() else {
+                    return Err(crate::invalid_data(format!(
+                        "{label}: '{}' must be an integer",
+                        spec.name
+                    ))
+                    .into());
+                };
+                if let Some(min) = spec.min
+                    && number < min
+                {
+                    return Err(crate::invalid_data(format!(
+                        "{label}: '{}' must be at least {min}",
+                        spec.name
+                    ))
+                    .into());
+                }
+            }
+            FieldKind::Bool => {
+                if !value.is_boolean() {
+                    return Err(crate::invalid_data(format!(
+                        "{label}: '{}' must be a boolean",
+                        spec.name
+                    ))
+                    .into());
+                }
+            }
         }
     }
 
@@ -419,29 +405,12 @@ mod tests {
     use super::*;
     use crate::test_support::{ScopedEnvVar, TempDir, env_lock, repo_root, scoped_repo_paths};
     use std::error::Error;
-    use std::time::{SystemTime, UNIX_EPOCH};
 
     type TestResult = std::result::Result<(), Box<dyn Error + Send + Sync>>;
 
     fn seed_state() -> ThemeState {
         ThemeState::load_seed(&repo_root().join("styling"), &repo_root())
             .expect("committed state seed loads")
-    }
-
-    fn temp_path(name: &str, extension: &str) -> PathBuf {
-        let nanos = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("time works")
-            .as_nanos();
-        std::env::temp_dir().join(format!("desktopctl-{name}-{nanos}.{extension}"))
-    }
-
-    fn remove_file_if_exists(path: &Path) -> std::io::Result<()> {
-        match fs::remove_file(path) {
-            Ok(()) => Ok(()),
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
-            Err(error) => Err(error),
-        }
     }
 
     fn write_state_rows_to_db(db_path: &Path, rows: &Map<String, Value>) -> crate::Result<()> {
@@ -477,46 +446,11 @@ mod tests {
     fn empty_theme_state_db_initializes_defaults() -> TestResult {
         let _lock = env_lock();
         let _paths = scoped_repo_paths();
-        let db_path = temp_path("state-defaults", "db");
+        let dir = TempDir::new("state-defaults")?;
+        let db_path = dir.path().join("state.db");
 
         let state = load_state_from_db_path(&db_path)?;
         assert_eq!(state, ThemeState::default_state()?);
-
-        remove_file_if_exists(&db_path)?;
-        Ok(())
-    }
-
-    #[test]
-    fn current_color_scheme_json_deserializes() -> TestResult {
-        let scheme = load_colors("gruvbox-dark", &repo_root().join("styling/colors"))?;
-        assert_eq!(scheme.family, "gruvbox");
-        assert_eq!(scheme.variant, "dark");
-        Ok(())
-    }
-
-    #[test]
-    fn state_serialization_is_ordered_pretty_json() -> TestResult {
-        let state = seed_state();
-        let rendered = serialize_state(&state)?;
-
-        // Pins the rendering, not the values.
-        let keys = rendered
-            .lines()
-            .filter_map(|line| line.trim().strip_prefix('"'))
-            .filter_map(|line| line.split('"').next())
-            .collect::<Vec<_>>();
-        assert_eq!(keys, ThemeState::known_field_names());
-        assert!(rendered.starts_with("{\n  \"color_scheme\": "));
-        assert!(rendered.ends_with("\n}\n"));
-
-        // The two machine-local keys are the only computed values.
-        assert_eq!(
-            state.wallpaper,
-            repo_root()
-                .join("styling/wallpapers/lmao.png")
-                .display()
-                .to_string()
-        );
         Ok(())
     }
 
@@ -524,38 +458,33 @@ mod tests {
     fn state_round_trip_preserves_unknown_fields() -> TestResult {
         let _lock = env_lock();
         let _paths = scoped_repo_paths();
-        let mut value: Value = serde_json::from_str(&serialize_state(&seed_state())?)?;
-        let object = value
-            .as_object_mut()
-            .expect("state fixture should remain a JSON object");
-        object.insert(
+        let mut rows = seed_state().to_ordered_json_map();
+        rows.insert(
             "future_key".to_owned(),
             Value::String("still here".to_owned()),
         );
-        object.insert(
+        rows.insert(
             "future_nested".to_owned(),
             serde_json::json!({ "alpha": 1, "beta": true }),
         );
 
-        let db_path = temp_path("state-saved", "db");
-        let rows = value
-            .as_object()
-            .expect("state fixture should remain a JSON object")
-            .clone();
+        let dir = TempDir::new("state-saved")?;
+        let db_path = dir.path().join("state.db");
         write_state_rows_to_db(&db_path, &rows)?;
 
         let state = load_state_from_db_path(&db_path)?;
-        save_state_to_db_path(&state, &db_path)?;
-        let saved: Value =
-            serde_json::from_str(&serialize_state(&load_state_from_db_path(&db_path)?)?)?;
+        let mut connection = open_state_db(&db_path)?;
+        save_state_to_connection(&state, &mut connection)?;
+        let reloaded = load_state_from_db_path(&db_path)?.to_ordered_json_map();
 
-        assert_eq!(saved["future_key"], Value::String("still here".to_owned()));
         assert_eq!(
-            saved["future_nested"],
-            serde_json::json!({ "alpha": 1, "beta": true })
+            reloaded.get("future_key"),
+            Some(&Value::String("still here".to_owned()))
         );
-
-        remove_file_if_exists(&db_path)?;
+        assert_eq!(
+            reloaded.get("future_nested"),
+            Some(&serde_json::json!({ "alpha": 1, "beta": true }))
+        );
         Ok(())
     }
 
@@ -563,7 +492,8 @@ mod tests {
     fn partial_theme_state_db_backfills_missing_keys_and_persists_upgrade() -> TestResult {
         let _lock = env_lock();
         let _paths = scoped_repo_paths();
-        let db_path = temp_path("state-partial-db", "db");
+        let dir = TempDir::new("state-partial-db")?;
+        let db_path = dir.path().join("state.db");
 
         let mut partial = seed_state().to_ordered_json_map();
         partial.remove("quickshell_font_size_offset");
@@ -596,14 +526,13 @@ mod tests {
         ] {
             assert!(keys.contains(&key.to_owned()));
         }
-
-        remove_file_if_exists(&db_path)?;
         Ok(())
     }
 
     #[test]
     fn save_state_keys_upserts_only_the_given_keys() -> TestResult {
-        let db_path = temp_path("state-key-upsert", "db");
+        let dir = TempDir::new("state-key-upsert")?;
+        let db_path = dir.path().join("state.db");
 
         let mut rows = seed_state().to_ordered_json_map();
         rows.remove("font_size");
@@ -629,8 +558,18 @@ mod tests {
         assert_eq!(stored("font_size")?, "13");
         // Untouched keys keep their previous values.
         assert_eq!(stored("color_scheme")?, seeded_scheme);
+        Ok(())
+    }
 
-        remove_file_if_exists(&db_path)?;
+    #[test]
+    fn validate_theme_state_enforces_field_minimum_bounds() -> TestResult {
+        let mut rows = seed_state().to_ordered_json_map();
+        rows.insert("font_size".to_owned(), Value::from(0));
+        assert!(validate_theme_state(&Value::Object(rows), "test state").is_err());
+
+        let mut negative_offset = seed_state().to_ordered_json_map();
+        negative_offset.insert("quickshell_font_size_offset".to_owned(), Value::from(-2));
+        validate_theme_state(&Value::Object(negative_offset), "test state")?;
         Ok(())
     }
 

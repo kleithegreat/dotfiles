@@ -1,9 +1,8 @@
 mod history;
 mod processes;
 
-use crate::{
-    daemon::{focus::DesktopResolver, server::Events},
-    hypr, paths,
+use crate::daemon::{
+    SubsystemHealth, focus::DesktopResolver, monitors::SharedPanelHz, server::Events,
 };
 use rusqlite::{Connection, params};
 use std::{
@@ -140,44 +139,67 @@ impl PowerHistory {
 /// Records one row per interval spent wholly on battery and awake, attributed
 /// to the same class the focus tracker credits, and publishes the 24-hour
 /// summary each minute.
+pub struct PowerContext {
+    pub attributed_class: Arc<Mutex<String>>,
+    pub resolver: Arc<DesktopResolver>,
+    pub panel_hz: SharedPanelHz,
+    pub history: PowerHistory,
+    pub events: Events,
+    pub system_bus: Option<zbus::Connection>,
+}
+
 pub async fn run(
     sources: Sources,
-    attributed_class: Arc<Mutex<String>>,
-    history: PowerHistory,
-    events: Events,
+    ctx: PowerContext,
     mut shutdown: watch::Receiver<bool>,
+    health: SubsystemHealth,
 ) -> crate::Result<()> {
-    let profiles = match power_profiles().await {
-        Ok(proxy) => Some(proxy),
-        Err(error) => {
-            eprintln!("desktopctl: power samples will carry no profile: {error}");
-            None
-        }
+    let PowerContext {
+        attributed_class,
+        resolver,
+        panel_hz,
+        history,
+        events,
+        system_bus,
+    } = ctx;
+    let profiles = match &system_bus {
+        Some(bus) => match power_profiles(bus).await {
+            Ok(proxy) => Some(proxy),
+            Err(error) => {
+                tracing::warn!(error = %error, "power samples will carry no profile");
+                None
+            }
+        },
+        None => None,
     };
     let battery = sources
         .battery
         .file_name()
         .unwrap_or_default()
         .to_string_lossy();
-    let device = match history::upower_device(&battery).await {
-        Ok(device) => Some(device),
-        Err(error) => {
-            eprintln!("desktopctl: the battery level chart will stay empty: {error}");
-            None
-        }
+    let device = match &system_bus {
+        Some(bus) => match history::upower_device(bus, &battery).await {
+            Ok(device) => Some(device),
+            Err(error) => {
+                tracing::warn!(error = %error, "the battery level chart will stay empty");
+                None
+            }
+        },
+        None => None,
     };
-    let resolver = DesktopResolver::load();
     let mut connection = init_db()?;
     let mut ticks = tokio::time::interval(PERIOD);
     ticks.set_missed_tick_behavior(MissedTickBehavior::Delay);
     let mut summaries = tokio::time::interval(SUMMARY_PERIOD);
     summaries.set_missed_tick_behavior(MissedTickBehavior::Delay);
     let mut previous: Option<Reading> = None;
+    health.set_running("power sampler");
 
     loop {
         tokio::select! {
             changed = shutdown.changed() => {
                 if changed.is_err() || *shutdown.borrow() {
+                    health.set_stopped("power sampler");
                     return Ok(());
                 }
             }
@@ -187,6 +209,9 @@ pub async fn run(
                     None => Vec::new(),
                 };
                 let now = chrono::Utc::now().timestamp();
+                if let Err(error) = tokio::task::block_in_place(|| prune_old_samples(&mut connection, now)) {
+                    tracing::warn!(error = %error, "power retention prune failed");
+                }
                 match tokio::task::block_in_place(|| history::summary(&connection, &resolver, &points, now))
                     .and_then(|summary| Ok(serde_json::to_value(summary)?))
                 {
@@ -195,30 +220,38 @@ pub async fn run(
                             *latest = Some(summary.clone());
                         }
                         events.publish("power.changed", summary);
+                        health.set_running("power sampler");
                     }
-                    Err(error) => eprintln!("desktopctl: power summary failed: {error}"),
+                    Err(error) => {
+                        tracing::warn!(error = %error, "power summary failed");
+                        health.set_degraded("power sampler", error.to_string());
+                    }
                 }
                 continue;
             }
             _ = ticks.tick() => {}
         }
 
-        let profile = match &profiles {
-            Some(proxy) => proxy.active_profile().await.ok(),
-            None => None,
+        let current_result = tokio::task::block_in_place(|| sources.read());
+        let current = match current_result {
+            Ok(reading) => reading,
+            Err(error) => {
+                tracing::warn!(error = %error, "power reading failed");
+                health.set_degraded("power sampler", error.to_string());
+                previous = None;
+                continue;
+            }
         };
+        let sample = previous
+            .as_ref()
+            .and_then(|prev| Sample::between(prev, &current));
+        let profile = match (&sample, &profiles) {
+            (Some(_), Some(proxy)) => proxy.active_profile().await.ok(),
+            _ => None,
+        };
+        let hz = panel_hz.lock().ok().and_then(|value| *value);
         tokio::task::block_in_place(|| -> crate::Result<()> {
-            let current = match sources.read() {
-                Ok(reading) => reading,
-                Err(error) => {
-                    eprintln!("desktopctl: power reading failed: {error}");
-                    previous = None;
-                    return Ok(());
-                }
-            };
-            if let Some(previous) = &previous
-                && let Some(sample) = Sample::between(previous, &current)
-            {
+            if let (Some(previous), Some(sample)) = (&previous, sample) {
                 let shares = processes::attribute(&previous.processes, &current.processes, &sample);
                 let tags = Tags {
                     profile,
@@ -226,23 +259,26 @@ pub async fn run(
                         .lock()
                         .map(|class| class.clone())
                         .unwrap_or_default(),
-                    panel_hz: panel_hz(),
+                    panel_hz: hz,
                     backlight: sources.backlight(),
                 };
                 insert(&mut connection, &sample, &tags, &shares)?;
             }
             previous = Some(current);
+            health.set_running("power sampler");
             Ok(())
         })?;
     }
 }
 
-async fn power_profiles() -> zbus::Result<PowerProfilesProxy<'static>> {
-    PowerProfilesProxy::new(&zbus::Connection::system().await?).await
+async fn power_profiles(
+    connection: &zbus::Connection,
+) -> zbus::Result<PowerProfilesProxy<'static>> {
+    PowerProfilesProxy::new(connection).await
 }
 
 fn init_db() -> crate::Result<Connection> {
-    let connection = Connection::open(paths::db_path()?)?;
+    let connection = crate::db::open_state_db()?;
     connection.execute_batch(
         "
         CREATE TABLE IF NOT EXISTS power_samples (
@@ -273,6 +309,20 @@ fn init_db() -> crate::Result<Connection> {
         ",
     )?;
     Ok(connection)
+}
+
+const RETENTION_SECONDS: i64 = 7 * 24 * 60 * 60;
+
+fn prune_old_samples(connection: &mut Connection, now: i64) -> crate::Result<()> {
+    let cutoff = now - RETENTION_SECONDS;
+    let transaction = connection.transaction()?;
+    transaction.execute(
+        "DELETE FROM power_processes WHERE sample IN (SELECT id FROM power_samples WHERE ts < ?1)",
+        [cutoff],
+    )?;
+    transaction.execute("DELETE FROM power_samples WHERE ts < ?1", [cutoff])?;
+    transaction.commit()?;
+    Ok(())
 }
 
 fn insert(
@@ -314,15 +364,6 @@ fn insert(
     }
     transaction.commit()?;
     Ok(())
-}
-
-/// The built-in panel's refresh rate, `None` while it is off or disabled.
-fn panel_hz() -> Option<f64> {
-    hypr::query_monitors()
-        .ok()?
-        .into_iter()
-        .find(|monitor| monitor.is_internal() && !monitor.disabled && monitor.dpms_status)
-        .map(|monitor| monitor.refresh_rate)
 }
 
 struct Reading {
@@ -416,7 +457,7 @@ fn energy_delta(previous: u64, current: u64, range: u64) -> u64 {
     if current >= previous {
         current - previous
     } else {
-        range - previous + current
+        range.saturating_sub(previous).saturating_add(current)
     }
 }
 
@@ -487,7 +528,7 @@ mod tests {
     }
 
     #[test]
-    fn sample_averages_energy_and_cpu_over_the_interval() {
+    fn sample_between_averages_valid_intervals_and_drops_ac_or_suspend() {
         let sample = Sample::between(
             &reading(100, true, 0, 100, 1_000),
             &reading(105, true, 100_000_000, 150, 1_200),
@@ -496,25 +537,72 @@ mod tests {
         assert_eq!(sample.seconds, 5.0);
         assert_eq!(sample.watts, [Some(20.0), None, None, None]);
         assert_eq!(sample.cpu_busy, Some(0.25));
-    }
 
-    #[test]
-    fn intervals_touching_ac_are_dropped() {
-        assert!(Sample::between(&reading(0, false, 0, 0, 1), &reading(5, true, 1, 1, 2)).is_none());
-        assert!(Sample::between(&reading(0, true, 0, 0, 1), &reading(5, false, 1, 1, 2)).is_none());
-    }
-
-    #[test]
-    fn intervals_spanning_a_suspend_are_dropped() {
-        assert!(
-            Sample::between(&reading(0, true, 0, 0, 1), &reading(600, true, 1, 1, 2)).is_none()
-        );
+        for (prev, curr, label) in [
+            (
+                reading(0, false, 0, 0, 1),
+                reading(5, true, 1, 1, 2),
+                "ac->dc",
+            ),
+            (
+                reading(0, true, 0, 0, 1),
+                reading(5, false, 1, 1, 2),
+                "dc->ac",
+            ),
+            (
+                reading(0, true, 0, 0, 1),
+                reading(600, true, 1, 1, 2),
+                "suspend gap",
+            ),
+        ] {
+            assert!(Sample::between(&prev, &curr).is_none(), "{label}");
+        }
     }
 
     #[test]
     fn energy_counter_wraps_at_its_range() {
         assert_eq!(energy_delta(10, 25, 100), 15);
         assert_eq!(energy_delta(90, 5, 100), 15);
+        assert_eq!(energy_delta(200, 5, 100), 5);
+    }
+
+    #[test]
+    fn prune_old_samples_removes_rows_older_than_seven_days() {
+        let mut conn = Connection::open_in_memory().expect("sqlite");
+        conn.execute_batch(
+            "CREATE TABLE power_samples (id INTEGER PRIMARY KEY, ts INTEGER NOT NULL);
+             CREATE TABLE power_processes (sample INTEGER NOT NULL REFERENCES power_samples(id));",
+        )
+        .expect("schema");
+        let now = 10_000_000;
+        let stale_ts = now - RETENTION_SECONDS - 1;
+        let fresh_ts = now - RETENTION_SECONDS + 1;
+        conn.execute(
+            "INSERT INTO power_samples (id, ts) VALUES (1, ?), (2, ?)",
+            [stale_ts, fresh_ts],
+        )
+        .expect("samples");
+        conn.execute("INSERT INTO power_processes (sample) VALUES (1), (2)", [])
+            .expect("processes");
+
+        prune_old_samples(&mut conn, now).expect("prune succeeds");
+
+        let remaining_samples: Vec<i64> = conn
+            .prepare("SELECT id FROM power_samples")
+            .expect("stmt")
+            .query_map([], |r| r.get(0))
+            .expect("rows")
+            .collect::<Result<_, _>>()
+            .expect("collect");
+        let remaining_procs: Vec<i64> = conn
+            .prepare("SELECT sample FROM power_processes")
+            .expect("stmt")
+            .query_map([], |r| r.get(0))
+            .expect("rows")
+            .collect::<Result<_, _>>()
+            .expect("collect");
+        assert_eq!(remaining_samples, vec![2]);
+        assert_eq!(remaining_procs, vec![2]);
     }
 
     #[test]

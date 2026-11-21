@@ -14,9 +14,10 @@ pub const TARGET: Target = Target::standalone(
 .comment("--");
 
 pub fn generate(_colors: &ColorScheme, state: &ThemeState) -> crate::Result<String> {
-    Ok(format!(
-        "vim.o.guifont = \"{}:h{}\"\n",
+    let guifont = crate::hypr::lua_str(&format!(
+        "{}:h{}",
         state.mono_font,
         state.mono_font_size_for(TARGET.name)?,
-    ))
+    ));
+    Ok(format!("vim.o.guifont = {guifont}\n"))
 }

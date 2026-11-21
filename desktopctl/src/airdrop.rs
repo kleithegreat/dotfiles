@@ -2,15 +2,18 @@
 //! owly-airdrop speaks the protocol on the `awdl0` it brings up. The daemon
 //! half is `daemon/airdrop.rs`; see [[airdrop]].
 
-use crate::{Result, ipc};
-use serde::Serialize;
+use crate::{
+    Result,
+    ipc::{self, RpcRequest},
+};
+use serde::{Deserialize, Serialize};
 use std::{net::Ipv6Addr, path::PathBuf, time::Duration};
 
 /// How long Everyone stays on, as on an iPhone.
 pub const VISIBLE_FOR: Duration = Duration::from_secs(600);
 
 /// What the shell sees.
-#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Status {
     /// How the radio runs here (`shared`, `exclusive`, …); `None` when there
     /// is no radio AirDrop can use.
@@ -24,7 +27,7 @@ pub struct Status {
 }
 
 /// An incoming offer, waiting for an answer or, once accepted, arriving.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Ask {
     pub id: u64,
     pub sender: String,
@@ -36,10 +39,10 @@ pub struct Ask {
 }
 
 /// An outgoing share: what it holds, who can take it, and how sending goes.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Share {
     /// `files` · `links` · `text`
-    pub kind: &'static str,
+    pub kind: String,
     /// File names, the links, or the text itself.
     pub items: Vec<String>,
     /// The first file, for a thumbnail.
@@ -48,17 +51,17 @@ pub struct Share {
     pub sending: Option<Sending>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Receiver {
     pub id: String,
     pub name: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Sending {
     pub to: String,
     /// `asking` · `sending` · `sent` · `declined` · `failed`
-    pub state: &'static str,
+    pub state: String,
     pub sent: u64,
     pub total: u64,
     pub error: Option<String>,
@@ -96,46 +99,84 @@ pub fn downloads() -> Result<PathBuf> {
 
 pub fn run(command: crate::AirDropCommand) -> Result<()> {
     use crate::AirDropCommand::*;
-    let (method, params) = match command {
+    let request = match command {
         Status(args) => {
-            let status: serde_json::Value = ipc::send_request::<(), _>(
-                ipc::methods::AIRDROP_STATUS,
-                None,
-                ipc::DEFAULT_TIMEOUT,
-            )?;
-            match args.json {
-                true => println!("{status}"),
-                false => println!("{}", serde_json::to_string_pretty(&status)?),
+            let status: self::Status = ipc::send(RpcRequest::AirDropStatus, ipc::DEFAULT_TIMEOUT)?;
+            if args.json {
+                println!("{}", serde_json::to_string(&status)?);
+            } else {
+                print_human_status(&status);
             }
             return Ok(());
         }
-        Visible { enabled } => (
-            ipc::methods::AIRDROP_VISIBLE,
-            serde_json::json!({ "enabled": enabled }),
-        ),
-        Answer { id, accept } => (
-            ipc::methods::AIRDROP_ANSWER,
-            serde_json::json!({ "id": id, "accept": accept }),
-        ),
+        Visible { enabled } => RpcRequest::AirDropVisible { enabled },
+        Answer { id, accept } => RpcRequest::AirDropAnswer { id, accept },
         Share { paths, url, text } => {
             let paths = paths
                 .iter()
                 .map(std::path::absolute)
                 .collect::<std::io::Result<Vec<_>>>()?;
-            (
-                ipc::methods::AIRDROP_SHARE,
-                serde_json::json!({ "paths": paths, "urls": url, "text": text }),
-            )
+            RpcRequest::AirDropShare {
+                paths,
+                urls: url,
+                text,
+            }
         }
         NativeHost { .. } => return native_host(),
-        Send { receiver } => (
-            ipc::methods::AIRDROP_SEND,
-            serde_json::json!({ "receiver": receiver }),
-        ),
-        Cancel => (ipc::methods::AIRDROP_CANCEL, serde_json::Value::Null),
+        Send { receiver } => RpcRequest::AirDropSend { receiver },
+        Cancel => RpcRequest::AirDropCancel,
     };
-    ipc::mutate::<serde_json::Value>(method, params, ipc::DEFAULT_TIMEOUT, Duration::ZERO).map(drop)
+    ipc::mutate::<serde_json::Value>(request, ipc::DEFAULT_TIMEOUT, Duration::ZERO).map(drop)
 }
+
+fn print_human_status(status: &Status) {
+    println!(
+        "Mode:    {}",
+        status.mode.as_deref().unwrap_or("unavailable")
+    );
+    println!("Busy:    {}", status.busy);
+    match status.visible_until {
+        Some(until) => println!("Visible: until unix {until}"),
+        None => println!("Visible: off"),
+    }
+    if !status.requests.is_empty() {
+        println!("Incoming requests:");
+        for ask in &status.requests {
+            let state = if ask.accepted { "accepted" } else { "pending" };
+            let count = ask.files.len() + ask.urls.len();
+            println!(
+                "  [{}] from {} ({count} item(s), {state})",
+                ask.id, ask.sender
+            );
+        }
+    }
+    if let Some(share) = &status.share {
+        println!("Sharing ({}): {} item(s)", share.kind, share.items.len());
+        if share.receivers.is_empty() {
+            println!("  Receivers: none discovered");
+        } else {
+            let names: Vec<_> = share
+                .receivers
+                .iter()
+                .map(|r| format!("{} [{}]", r.name, r.id))
+                .collect();
+            println!("  Receivers: {}", names.join(", "));
+        }
+        if let Some(sending) = &share.sending {
+            let err = sending
+                .error
+                .as_deref()
+                .map(|e| format!(" ({e})"))
+                .unwrap_or_default();
+            println!(
+                "  Sending to {}: {} ({}/{}){err}",
+                sending.to, sending.state, sending.sent, sending.total
+            );
+        }
+    }
+}
+
+const MAX_NATIVE_MESSAGE_BYTES: usize = 16 * 1024 * 1024;
 
 /// Chromium's native messaging: a native-endian length, then that much JSON,
 /// each way.
@@ -151,12 +192,22 @@ fn native_host() -> Result<()> {
     let mut stdin = std::io::stdin().lock();
     let mut length = [0u8; 4];
     stdin.read_exact(&mut length)?;
-    let mut body = vec![0u8; u32::from_ne_bytes(length) as usize];
+    let byte_len = u32::from_ne_bytes(length) as usize;
+    if byte_len > MAX_NATIVE_MESSAGE_BYTES {
+        return Err(crate::invalid_input(format!(
+            "native host message too large: {byte_len} bytes"
+        ))
+        .into());
+    }
+    let mut body = vec![0u8; byte_len];
     stdin.read_exact(&mut body)?;
     let message: Message = serde_json::from_slice(&body)?;
     let outcome = ipc::mutate::<serde_json::Value>(
-        ipc::methods::AIRDROP_SHARE,
-        serde_json::json!({ "text": message.text, "urls": Vec::from_iter(message.url) }),
+        RpcRequest::AirDropShare {
+            paths: Vec::new(),
+            urls: Vec::from_iter(message.url),
+            text: message.text,
+        },
         ipc::DEFAULT_TIMEOUT,
         Duration::ZERO,
     );

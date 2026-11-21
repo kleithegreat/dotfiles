@@ -100,20 +100,7 @@ fn parse_lua_field(line: &str) -> Option<(&str, String)> {
     let quoted = rest.strip_prefix('"')?.strip_suffix('"')?;
 
     // Reverse the escaping applied by the generator's lua_str.
-    let mut value = String::with_capacity(quoted.len());
-    let mut chars = quoted.chars();
-    while let Some(c) = chars.next() {
-        if c != '\\' {
-            value.push(c);
-            continue;
-        }
-        match chars.next() {
-            Some('n') => value.push('\n'),
-            Some('r') => value.push('\r'),
-            Some(escaped) => value.push(escaped),
-            None => return None,
-        }
-    }
+    let value = crate::fs_util::unescape_lua_str(quoted)?;
 
     Some((key, value))
 }
@@ -198,5 +185,12 @@ mod tests {
         assert_eq!(resolved.xcursor_theme.as_deref(), Some("FileTheme"));
         assert_eq!(resolved.hyprcursor_theme.as_deref(), Some("FileHyprTheme"));
         assert_eq!(resolved.xcursor_size.as_deref(), Some("32"));
+
+        let cleared = CursorEnv::resolve(CursorEnv {
+            xcursor_theme: Some("FileTheme".to_owned()),
+            hyprcursor_theme: None,
+            xcursor_size: None,
+        });
+        assert_eq!(cleared.hyprcursor_theme, None);
     }
 }

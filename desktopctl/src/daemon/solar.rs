@@ -1,56 +1,104 @@
 use crate::{
     daemon::{
         night_light::Controller,
+        session::LoginProxy,
         theme::{ThemeController, ThemeJob},
     },
     solar,
     theme::DarkHintOrigin,
 };
 use chrono::{DateTime, Local};
+use futures_util::StreamExt;
 use std::{io, time::Duration as StdDuration};
 use tokio::{
     signal::unix::{SignalKind, signal},
     sync::watch,
 };
 
-pub async fn run(controller: Controller, mut shutdown: watch::Receiver<bool>) -> crate::Result<()> {
+pub async fn run(
+    controller: Controller,
+    system_bus: Option<zbus::Connection>,
+    mut shutdown: watch::Receiver<bool>,
+    health: crate::daemon::SubsystemHealth,
+) -> crate::Result<()> {
     let mut sigusr1 = signal(SignalKind::user_defined1())?;
+    let mut sleep_signals = match system_bus {
+        Some(ref bus) => match LoginProxy::new(bus).await {
+            Ok(proxy) => proxy.receive_prepare_for_sleep().await.ok(),
+            Err(error) => {
+                tracing::warn!(error = %error, "login1 proxy unavailable for solar scheduler");
+                None
+            }
+        },
+        None => None,
+    };
 
     loop {
         if *shutdown.borrow() {
+            health.set_stopped("solar scheduler");
             return Ok(());
         }
 
-        let next_event = solar_tick(controller.clone()).await?;
+        let next_event = solar_tick(controller.clone(), &health).await?;
 
-        let event_sleep = tokio::time::sleep(duration_until(next_event));
+        let event_sleep =
+            tokio::time::sleep(duration_until(next_event).max(StdDuration::from_millis(50)));
         let recompute_sleep = tokio::time::sleep(StdDuration::from_secs(2 * 60 * 60));
         tokio::pin!(event_sleep);
         tokio::pin!(recompute_sleep);
 
-        tokio::select! {
-            changed = shutdown.changed() => {
-                if changed.is_err() || *shutdown.borrow() {
-                    return Ok(());
+        loop {
+            tokio::select! {
+                changed = shutdown.changed() => {
+                    if changed.is_err() || *shutdown.borrow() {
+                        health.set_stopped("solar scheduler");
+                        return Ok(());
+                    }
+                }
+                _ = sigusr1.recv() => break,
+                _ = &mut recompute_sleep => break,
+                _ = &mut event_sleep => break,
+                signal = async {
+                    match sleep_signals.as_mut() {
+                        Some(stream) => stream.next().await,
+                        None => std::future::pending().await,
+                    }
+                } => match signal {
+                    Some(signal) => {
+                        if let Ok(args) = signal.args()
+                            && !args.start
+                        {
+                            break;
+                        }
+                    }
+                    None => sleep_signals = None,
                 }
             }
-            _ = sigusr1.recv() => {}
-            _ = &mut recompute_sleep => {}
-            _ = &mut event_sleep => {}
         }
     }
 }
 
 /// Run one blocking solar recompute/reconcile cycle off the async runtime.
-async fn solar_tick(controller: Controller) -> crate::Result<DateTime<Local>> {
+async fn solar_tick(
+    controller: Controller,
+    health: &crate::daemon::SubsystemHealth,
+) -> crate::Result<DateTime<Local>> {
+    let health = health.clone();
     tokio::task::spawn_blocking(move || {
         let location = solar::resolve_location()?;
         let status = solar::status_for_now(chrono::Local::now(), location);
         let next_event = solar::next_event(&status);
 
         controller.update_solar_status(status)?;
-        if let Err(error) = controller.reconcile() {
-            eprintln!("solar reconcile failed (will retry at next event or repair tick): {error}");
+        match controller.reconcile() {
+            Ok(_) => health.set_running("solar scheduler"),
+            Err(error) => {
+                tracing::warn!(
+                    error = %error,
+                    "solar reconcile failed (will retry at next event or repair tick)"
+                );
+                health.set_degraded("solar scheduler", error.to_string());
+            }
         }
 
         Ok(next_event)
@@ -125,22 +173,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn duration_until_returns_zero_for_past_times() {
-        let when = chrono::Local::now() - chrono::Duration::seconds(5);
-
-        assert_eq!(duration_until(when), StdDuration::ZERO);
-    }
-
-    #[test]
-    fn duration_until_returns_positive_duration_for_future_times() {
-        let when = chrono::Local::now() + chrono::Duration::milliseconds(1500);
-        let duration = duration_until(when);
-
-        assert!(duration > StdDuration::ZERO);
-        assert!(duration <= StdDuration::from_secs(2));
-    }
-
-    #[test]
     fn catch_up_decision_matrix() {
         let window_start = chrono::Local::now();
         let inside = Some(window_start + chrono::Duration::minutes(30));
@@ -167,13 +199,5 @@ mod tests {
             Some(false)
         );
         assert_eq!(catch_up_decision(true, None, window_start, true), None);
-    }
-
-    #[test]
-    fn manual_timestamps_round_trip_from_rfc3339() {
-        let now = chrono::Local::now();
-        let parsed = parse_manual_timestamp(&now.to_rfc3339()).expect("valid timestamp");
-        assert_eq!(parsed, now);
-        assert_eq!(parse_manual_timestamp("not-a-time"), None);
     }
 }

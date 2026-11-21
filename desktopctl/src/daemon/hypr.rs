@@ -3,7 +3,13 @@
 //! The operations are sub-second, so a plain mutex held across each one is
 //! fine — unlike theme applies.
 
-use crate::{daemon::server::Events, displays, hypr};
+use crate::{
+    daemon::{
+        monitors::{SharedPanelHz, refresh_panel_hz},
+        server::Events,
+    },
+    displays, hypr,
+};
 use serde_json::Value;
 use std::{
     io,
@@ -13,13 +19,15 @@ use std::{
 #[derive(Clone)]
 pub struct HyprController {
     lock: Arc<Mutex<()>>,
+    panel_hz: SharedPanelHz,
     events: Events,
 }
 
 impl HyprController {
-    pub fn new(events: Events) -> Self {
+    pub fn new(events: Events, panel_hz: SharedPanelHz) -> Self {
         Self {
             lock: Arc::new(Mutex::new(())),
+            panel_hz,
             events,
         }
     }
@@ -56,7 +64,9 @@ impl HyprController {
     pub fn monitors_layout(&self, outputs: &Value) -> crate::Result<Value> {
         let status = {
             let _guard = self.lock_serialized()?;
-            displays::save_layout(serde_json::from_value(outputs.clone())?)?
+            let status = displays::save_layout(serde_json::from_value(outputs.clone())?)?;
+            refresh_panel_hz(&self.panel_hz);
+            status
         };
         self.publish_monitors(status)
     }
@@ -66,7 +76,9 @@ impl HyprController {
     pub fn monitors_reconcile(&self) -> crate::Result<Value> {
         let status = {
             let _guard = self.lock_serialized()?;
-            displays::reconcile()?
+            let status = displays::reconcile()?;
+            refresh_panel_hz(&self.panel_hz);
+            status
         };
         self.publish_monitors(status)
     }

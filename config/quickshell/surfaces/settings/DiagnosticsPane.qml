@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import Quickshell.Io
 import qs
 import qs.ui as Ui
 import qs.services as Sys
@@ -10,11 +11,58 @@ Ui.Scroll {
 
     contentHeight: body.height
 
+    property var daemonSubsystems: []
+    property int daemonPid: 0
+    property int daemonUptime: 0
+    property int daemonSubscribers: 0
+
+    function refreshDaemon() {
+        if (!daemonStatus.running)
+            daemonStatus.running = true;
+    }
+
+    function formatUptime(secs) {
+        const h = Math.floor(secs / 3600);
+        const m = Math.floor((secs % 3600) / 60);
+        return h > 0 ? h + "h " + m + "m" : m + "m";
+    }
+
     Component.onCompleted: {
         Sys.NetworkProbe.active = true;
         Sys.NetworkProbe.surveyChannels();
+        refreshDaemon();
     }
     Component.onDestruction: Sys.NetworkProbe.active = false
+
+    Process {
+        id: daemonStatus
+        command: ["desktopctl", "daemon", "status", "--json"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    const data = JSON.parse(this.text);
+                    root.daemonPid = data.pid || 0;
+                    root.daemonUptime = data.uptime_secs || 0;
+                    root.daemonSubscribers = data.subscribers || 0;
+                    const listed = [];
+                    const map = data.subsystems || {};
+                    for (const name in map) {
+                        const item = map[name];
+                        listed.push({
+                            name: name,
+                            state: item.state || "unknown",
+                            lastError: item.last_error || "",
+                            restarts: item.restarts || 0
+                        });
+                    }
+                    listed.sort((a, b) => a.name.localeCompare(b.name));
+                    root.daemonSubsystems = listed;
+                } catch (e) {
+                    root.daemonSubsystems = [];
+                }
+            }
+        }
+    }
 
     function verdict(value, good, fair) {
         if (value < 0)
@@ -51,6 +99,55 @@ Ui.Scroll {
         id: body
         width: root.width
         spacing: Metrics.s4
+
+        Ui.Group {
+            title: "Desktop daemon"
+
+            Ui.ListRow {
+                Layout.fillWidth: true
+                icon: "stethoscope"
+                iconColor: Sys.Desktopctl.ready ? Theme.positive : Theme.critical
+                title: Sys.Desktopctl.ready ? "Connected" : "Disconnected"
+                subtitle: root.daemonPid > 0 ? "PID " + root.daemonPid + " · up " + root.formatUptime(root.daemonUptime) + " · " + root.daemonSubscribers + " subscribers" : "Socket unavailable"
+                interactive: false
+
+                Ui.Button {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: daemonStatus.running ? "Checking" : "Refresh"
+                    interactive: !daemonStatus.running
+                    onClicked: root.refreshDaemon()
+                }
+            }
+
+            Repeater {
+                model: root.daemonSubsystems
+
+                ColumnLayout {
+                    id: sub
+                    required property var modelData
+                    Layout.fillWidth: true
+                    spacing: 0
+
+                    Ui.Divider {
+                        inset: Metrics.rowInset
+                    }
+
+                    Ui.ListRow {
+                        Layout.fillWidth: true
+                        title: sub.modelData.name
+                        subtitle: sub.modelData.lastError !== "" ? sub.modelData.lastError : (sub.modelData.restarts > 0 ? sub.modelData.restarts + " restarts" : "")
+                        interactive: false
+
+                        Ui.Label {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: sub.modelData.state
+                            role: "callout"
+                            color: sub.modelData.state === "running" ? Theme.positive : sub.modelData.state === "degraded" ? Theme.critical : Theme.textTertiary
+                        }
+                    }
+                }
+            }
+        }
 
         Ui.Group {
             title: "Link"

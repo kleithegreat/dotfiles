@@ -1,86 +1,145 @@
-use crate::{hypr, paths, theme};
+use crate::{
+    daemon::{SubsystemHealth, hypr_events::HyprEvent, server::Events},
+    hypr, paths,
+};
 use chrono::{Datelike, Duration, Local, NaiveDate};
 use rusqlite::{Connection, params, params_from_iter};
 use serde::{Serialize, Serializer};
 use std::{
     collections::HashMap,
-    fs, io,
+    fs,
     path::{Path, PathBuf},
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
-    },
-    thread,
-    time::{Duration as StdDuration, Instant},
+    sync::{Arc, Mutex},
+    time::Duration as StdDuration,
+};
+use tokio::{
+    sync::{broadcast, watch},
+    time::MissedTickBehavior,
 };
 
 const LOCKED_CLASS: &str = "__locked__";
 const EXCLUDED_CLASSES: [&str; 3] = ["", "Desktop", "Quickshell"];
 
+/// Latest focus summary for subscription snapshots.
+#[derive(Clone, Default)]
+pub struct FocusState(Arc<Mutex<Option<serde_json::Value>>>);
+
+impl FocusState {
+    pub fn latest(&self) -> Option<serde_json::Value> {
+        self.0.lock().ok()?.clone()
+    }
+}
+
 /// `attributed_class` receives the class each second is credited to.
-pub fn run(shutdown: Arc<AtomicBool>, attributed_class: Arc<Mutex<String>>) -> crate::Result<()> {
-    let current_class = Arc::new(Mutex::new(get_active_class()));
-    let listener_class = Arc::clone(&current_class);
-    let listener_shutdown = Arc::clone(&shutdown);
-
-    let listener = thread::Builder::new()
-        .name("desktopctl-focus-socket".to_owned())
-        .spawn(move || listen_for_focus(listener_class, listener_shutdown))?;
-
-    let resolver = DesktopResolver::load();
+pub async fn run(
+    mut hypr_rx: broadcast::Receiver<HyprEvent>,
+    attributed_class: Arc<Mutex<String>>,
+    focus_state: FocusState,
+    resolver: Arc<DesktopResolver>,
+    events: Events,
+    mut shutdown: watch::Receiver<bool>,
+    health: SubsystemHealth,
+) -> crate::Result<()> {
     let connection = init_db()?;
-    let mut next_tick = Instant::now() + StdDuration::from_secs(1);
+    let mut month_cache = MonthCache::default();
+    let mut current_class = tokio::task::spawn_blocking(get_active_class)
+        .await
+        .unwrap_or_default();
+    let mut ticks = tokio::time::interval(StdDuration::from_secs(1));
+    ticks.set_missed_tick_behavior(MissedTickBehavior::Delay);
+    health.set_running("focus tracker");
 
-    while !shutdown.load(Ordering::SeqCst) {
-        let sleep_for = next_tick.saturating_duration_since(Instant::now());
-        if !sleep_for.is_zero() {
-            thread::sleep(sleep_for);
-        }
-        if shutdown.load(Ordering::SeqCst) {
-            break;
-        }
-
-        let now = Local::now();
-        let mut class_name = current_class
-            .lock()
-            .map(|class_name| class_name.clone())
-            .unwrap_or_default();
-        let locked = is_screen_locked();
-
-        if !locked {
-            let reseeded_class = refresh_unlocked_class_name(class_name.clone(), get_active_class);
-            if reseeded_class != class_name {
-                set_current_class(&current_class, reseeded_class.clone());
-                class_name = reseeded_class;
+    loop {
+        tokio::select! {
+            changed = shutdown.changed() => {
+                if changed.is_err() || *shutdown.borrow() {
+                    health.set_stopped("focus tracker");
+                    return Ok(());
+                }
+            }
+            event = hypr_rx.recv() => match event {
+                Ok(HyprEvent::Connected) | Err(broadcast::error::RecvError::Lagged(_)) => {
+                    current_class = tokio::task::spawn_blocking(get_active_class)
+                        .await
+                        .unwrap_or_default();
+                }
+                Ok(HyprEvent::Line(line)) => {
+                    if let Some(rest) = line.strip_prefix("activewindow>>") {
+                        let class_name = rest
+                            .split_once(',')
+                            .map(|(class_name, _)| class_name)
+                            .unwrap_or(rest);
+                        current_class = class_name.to_owned();
+                    }
+                }
+                Err(broadcast::error::RecvError::Closed) => {
+                    health.set_stopped("focus tracker");
+                    return Ok(());
+                }
+            },
+            _ = ticks.tick() => {
+                let class_snapshot = current_class.clone();
+                let res = tokio::task::block_in_place(|| {
+                    record_tick(
+                        &connection,
+                        &resolver,
+                        &class_snapshot,
+                        &attributed_class,
+                        &focus_state,
+                        &events,
+                        &mut month_cache,
+                    )
+                });
+                match res {
+                    Ok(()) => health.set_running("focus tracker"),
+                    Err(error) => {
+                        tracing::warn!(error = %error, "focus tracker tick failed");
+                        health.set_degraded("focus tracker", error.to_string());
+                    }
+                }
             }
         }
+    }
+}
 
-        let credited = if locked { LOCKED_CLASS } else { &class_name };
-        if !credited.is_empty() {
-            accumulate(&connection, credited, &now)?;
-        }
-        set_current_class(&attributed_class, credited.to_owned());
+#[derive(Default)]
+struct MonthCache {
+    cached_date: Option<NaiveDate>,
+    past_sums: HashMap<String, i64>,
+}
 
-        write_summary(&connection, &resolver, &class_name, locked, &now)?;
-
-        next_tick += StdDuration::from_secs(1);
-        if next_tick <= Instant::now() {
-            next_tick = Instant::now() + StdDuration::from_secs(1);
-        }
+fn record_tick(
+    connection: &Connection,
+    resolver: &DesktopResolver,
+    class_name: &str,
+    attributed_class: &Arc<Mutex<String>>,
+    focus_state: &FocusState,
+    events: &Events,
+    month_cache: &mut MonthCache,
+) -> crate::Result<()> {
+    let now = Local::now();
+    let locked = is_screen_locked();
+    let credited = if locked { LOCKED_CLASS } else { class_name };
+    if !credited.is_empty() {
+        accumulate(connection, credited, &now)?;
+    }
+    if let Ok(mut shared) = attributed_class.lock() {
+        *shared = credited.to_owned();
     }
 
-    shutdown.store(true, Ordering::SeqCst);
-    let _ = listener.join();
-
+    let summary = build_summary(connection, resolver, class_name, locked, &now, month_cache)?;
+    let payload = serde_json::to_value(&summary)?;
+    if let Ok(mut latest) = focus_state.0.lock() {
+        *latest = Some(payload.clone());
+    }
+    events.publish("focus.changed", payload);
     Ok(())
 }
 
 fn init_db() -> crate::Result<Connection> {
-    let db_path = paths::db_path()?;
-    let connection = Connection::open(&db_path)?;
+    let connection = crate::db::open_state_db()?;
     connection.execute_batch(
         "
-        PRAGMA journal_mode=WAL;
         CREATE TABLE IF NOT EXISTS daily_totals (
             date      TEXT NOT NULL,
             app_class TEXT NOT NULL,
@@ -108,27 +167,13 @@ fn accumulate(
     Ok(())
 }
 
-fn write_summary(
-    connection: &Connection,
-    resolver: &DesktopResolver,
-    current_class: &str,
-    locked: bool,
-    now: &chrono::DateTime<Local>,
-) -> crate::Result<()> {
-    let summary = build_summary(connection, resolver, current_class, locked, now)?;
-    let state_path = state_path()?;
-    let temp_path = tmp_state_path(&state_path);
-    fs::write(&temp_path, theme::json::to_python_string(&summary)?)?;
-    fs::rename(temp_path, state_path)?;
-    Ok(())
-}
-
 fn build_summary(
     connection: &Connection,
     resolver: &DesktopResolver,
     current_class: &str,
     locked: bool,
     now: &chrono::DateTime<Local>,
+    month_cache: &mut MonthCache,
 ) -> crate::Result<Summary> {
     let today = now.date_naive();
     let today_string = today.format("%Y-%m-%d").to_string();
@@ -164,7 +209,7 @@ fn build_summary(
     let average = if nonzero_week_totals.is_empty() {
         0
     } else {
-        round_half_even_i64(
+        round_half_even(
             nonzero_week_totals.iter().sum::<i64>(),
             nonzero_week_totals.len() as i64,
         )
@@ -184,7 +229,7 @@ fn build_summary(
         resolver.resolve(current_class).0
     };
 
-    let month = load_month(connection, today)?;
+    let month = load_month(connection, today, total, month_cache)?;
 
     Ok(Summary {
         last_updated: now.timestamp(),
@@ -263,7 +308,7 @@ fn load_apps(
             icon,
             seconds,
             percent: if total > 0 {
-                Percent::Tenths(round_half_even_i64(seconds * 1000, total))
+                Percent::Tenths(round_half_even(seconds * 1000, total))
             } else {
                 Percent::Integer(0)
             },
@@ -273,28 +318,38 @@ fn load_apps(
     Ok(apps)
 }
 
-fn load_month(connection: &Connection, today: NaiveDate) -> crate::Result<Vec<Option<MonthEntry>>> {
-    let month_prefix = today.format("%Y-%m-").to_string();
-    let mut statement = connection.prepare(
-        "SELECT date, SUM(seconds)
-         FROM daily_totals
-         WHERE date LIKE ? AND app_class NOT IN (?, ?, ?, ?)
-         GROUP BY date",
-    )?;
-    let month_pattern = format!("{month_prefix}%");
-    let rows = statement.query_map(
-        params_from_iter(
-            [month_pattern.as_str(), LOCKED_CLASS]
-                .into_iter()
-                .chain(EXCLUDED_CLASSES),
-        ),
-        |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)),
-    )?;
+fn load_month(
+    connection: &Connection,
+    today: NaiveDate,
+    today_total: i64,
+    cache: &mut MonthCache,
+) -> crate::Result<Vec<Option<MonthEntry>>> {
+    let today_string = today.format("%Y-%m-%d").to_string();
+    if cache.cached_date != Some(today) {
+        let month_prefix = today.format("%Y-%m-").to_string();
+        let mut statement = connection.prepare(
+            "SELECT date, SUM(seconds)
+             FROM daily_totals
+             WHERE date LIKE ? AND date < ? AND app_class NOT IN (?, ?, ?, ?)
+             GROUP BY date",
+        )?;
+        let month_pattern = format!("{month_prefix}%");
+        let rows = statement.query_map(
+            params_from_iter(
+                [month_pattern.as_str(), today_string.as_str(), LOCKED_CLASS]
+                    .into_iter()
+                    .chain(EXCLUDED_CLASSES),
+            ),
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)),
+        )?;
 
-    let mut month_sums = HashMap::new();
-    for row in rows {
-        let (date, total) = row?;
-        month_sums.insert(date, total);
+        let mut past_sums = HashMap::new();
+        for row in rows {
+            let (date, total) = row?;
+            past_sums.insert(date, total);
+        }
+        cache.past_sums = past_sums;
+        cache.cached_date = Some(today);
     }
 
     let first_day = NaiveDate::from_ymd_opt(today.year(), today.month(), 1).expect("valid month");
@@ -310,9 +365,14 @@ fn load_month(connection: &Connection, today: NaiveDate) -> crate::Result<Vec<Op
     for day in 1..=days_in_month {
         let date = NaiveDate::from_ymd_opt(today.year(), today.month(), day).expect("valid day");
         let date_string = date.format("%Y-%m-%d").to_string();
+        let total = if date == today {
+            today_total
+        } else {
+            *cache.past_sums.get(&date_string).unwrap_or(&0)
+        };
         month.push(Some(MonthEntry {
-            date: date_string.clone(),
-            total: *month_sums.get(&date_string).unwrap_or(&0),
+            date: date_string,
+            total,
             is_target: date == today,
         }));
     }
@@ -320,22 +380,8 @@ fn load_month(connection: &Connection, today: NaiveDate) -> crate::Result<Vec<Op
     Ok(month)
 }
 
-fn state_path() -> io::Result<PathBuf> {
-    Ok(paths::xdg_runtime_dir()?.join("focustime_state.json"))
-}
-
-fn tmp_state_path(state_path: &Path) -> PathBuf {
-    let mut path = state_path.to_path_buf();
-    path.set_extension("tmp");
-    path
-}
-
 fn is_screen_locked() -> bool {
-    std::process::Command::new("pgrep")
-        .args(["--exact", "hyprlock"])
-        .output()
-        .map(|output| output.status.success())
-        .unwrap_or(false)
+    crate::proc_util::is_process_running("hyprlock")
 }
 
 fn get_active_class() -> String {
@@ -350,68 +396,11 @@ fn get_active_class() -> String {
         .unwrap_or_default()
 }
 
-fn refresh_unlocked_class_name(current_class: String, seed: impl FnOnce() -> String) -> String {
-    if !current_class.is_empty() {
-        return current_class;
-    }
-
-    let reseeded_class = seed();
-    if reseeded_class.is_empty() {
-        current_class
-    } else {
-        reseeded_class
-    }
-}
-
-fn listen_for_focus(current_class: Arc<Mutex<String>>, shutdown: Arc<AtomicBool>) {
-    hypr::watch_event_socket(
-        &shutdown,
-        || set_current_class(&current_class, get_active_class()),
-        |line| {
-            let Some(rest) = line.strip_prefix("activewindow>>") else {
-                return;
-            };
-            let class_name = rest
-                .split_once(',')
-                .map(|(class_name, _)| class_name)
-                .unwrap_or(rest);
-            set_current_class(&current_class, class_name.to_owned());
-        },
-    );
-}
-
-fn set_current_class(current_class: &Arc<Mutex<String>>, class_name: String) {
-    if let Ok(mut shared) = current_class.lock() {
-        *shared = class_name;
-    }
-}
-
-fn round_half_even_i64(numerator: i64, denominator: i64) -> i64 {
+fn round_half_even(numerator: i64, denominator: i64) -> i64 {
     if denominator == 0 {
-        return 0;
-    }
-
-    let quotient = numerator / denominator;
-    let remainder = numerator % denominator;
-    let doubled = remainder.abs() * 2;
-    let denominator_abs = denominator.abs();
-
-    if doubled < denominator_abs {
-        quotient
-    } else if doubled > denominator_abs {
-        quotient + signum(numerator, denominator)
-    } else if quotient % 2 == 0 {
-        quotient
+        0
     } else {
-        quotient + signum(numerator, denominator)
-    }
-}
-
-fn signum(numerator: i64, denominator: i64) -> i64 {
-    if (numerator >= 0) == (denominator >= 0) {
-        1
-    } else {
-        -1
+        (numerator as f64 / denominator as f64).round_ties_even() as i64
     }
 }
 
@@ -586,11 +575,36 @@ impl Serialize for Percent {
 
 #[cfg(test)]
 mod tests {
-    use super::{AppEntry, MonthEntry, Percent, Summary, WeekEntry, refresh_unlocked_class_name};
+    use super::*;
+    use crate::test_support::{ScopedEnvVar, TempDir, env_lock};
+    use chrono::TimeZone;
+
+    fn test_db() -> Connection {
+        let connection = Connection::open_in_memory().expect("in-memory sqlite db");
+        connection
+            .execute_batch(
+                "CREATE TABLE daily_totals (
+                    date      TEXT NOT NULL,
+                    app_class TEXT NOT NULL,
+                    seconds   INTEGER NOT NULL DEFAULT 0,
+                    PRIMARY KEY (date, app_class)
+                );",
+            )
+            .expect("create daily_totals");
+        connection
+    }
+
+    fn insert_total(connection: &Connection, date: &str, app_class: &str, seconds: i64) {
+        connection
+            .execute(
+                "INSERT INTO daily_totals (date, app_class, seconds) VALUES (?, ?, ?)",
+                params![date, app_class, seconds],
+            )
+            .expect("insert daily total");
+    }
 
     #[test]
-    fn summary_serialization_matches_the_python_style_runtime_contract() {
-        // Byte-level contract with the Quickshell consumer.
+    fn summary_serialization_matches_the_runtime_contract() {
         let summary = Summary {
             last_updated: 1_765_000_000,
             total: 3600,
@@ -605,6 +619,20 @@ mod tests {
                     icon: "kitty-icon".to_owned(),
                     seconds: 3000,
                     percent: Percent::Tenths(833),
+                },
+                AppEntry {
+                    class_name: "single".to_owned(),
+                    name: "Single".to_owned(),
+                    icon: String::new(),
+                    seconds: 3600,
+                    percent: Percent::Tenths(1000),
+                },
+                AppEntry {
+                    class_name: "tiny".to_owned(),
+                    name: "Tiny".to_owned(),
+                    icon: String::new(),
+                    seconds: 1,
+                    percent: Percent::Tenths(0),
                 },
                 AppEntry {
                     class_name: "café".to_owned(),
@@ -630,51 +658,136 @@ mod tests {
             ],
         };
 
-        let rendered =
-            crate::theme::json::to_python_string(&summary).expect("summary should serialize");
+        let rendered = serde_json::to_value(&summary).expect("summary should serialize");
+        assert_eq!(rendered["total"], 3600);
+        assert_eq!(rendered["current"], "Café");
+        assert_eq!(rendered["apps"][0]["percent"], 83.3);
+        assert_eq!(rendered["apps"][1]["percent"], 100.0);
+        assert_eq!(rendered["apps"][2]["percent"], 0.0);
+        assert_eq!(rendered["apps"][3]["percent"], 0);
+        assert_eq!(rendered["month"][0], serde_json::Value::Null);
+    }
 
+    #[test]
+    fn round_half_even_handles_ties_and_zero_denominator() {
+        assert_eq!(round_half_even(5, 2), 2);
+        assert_eq!(round_half_even(7, 2), 4);
+        assert_eq!(round_half_even(99, 0), 0);
+    }
+
+    #[test]
+    fn desktop_resolver_parses_desktop_entry_section_and_startup_wm_class() -> crate::Result<()> {
+        let _lock = env_lock();
+        let data_dir = TempDir::new("desktopctl-desktop-entries")?;
+        let apps_dir = data_dir.path().join("applications/nested");
+        fs::create_dir_all(&apps_dir)?;
+        fs::write(
+            apps_dir.join("org.example.Editor.desktop"),
+            "[Desktop Entry]\nName=Example Editor\nIcon=editor-icon\nStartupWMClass=MyEditor\n[Desktop Action New]\nName=New Window\n",
+        )?;
+        let _xdg_dirs = ScopedEnvVar::set("XDG_DATA_DIRS", data_dir.path());
+        let _xdg_home = ScopedEnvVar::set("XDG_DATA_HOME", data_dir.path().join("empty-home"));
+
+        let resolver = DesktopResolver::load();
         assert_eq!(
-            rendered,
-            "{\"last_updated\": 1765000000, \"total\": 3600, \
-             \"average\": 1800, \"week_range\": \"Jun 8 - Jun 14\", \"yesterday\": 1200, \
-             \"current\": \"Caf\\u00e9\", \"apps\": [{\"class\": \"kitty\", \"name\": \"kitty\", \
-             \"icon\": \"kitty-icon\", \"seconds\": 3000, \"percent\": 83.3}, \
-             {\"class\": \"caf\\u00e9\", \"name\": \"Caf\\u00e9\", \"icon\": \"\", \
-             \"seconds\": 600, \"percent\": 0}], \"week\": [{\"date\": \"2026-06-08\", \
-             \"day\": \"Mon\", \"total\": 0, \"is_target\": false}], \"month\": [null, \
-             {\"date\": \"2026-06-01\", \"total\": 42, \"is_target\": true}]}"
+            resolver.resolve("myeditor"),
+            ("Example Editor".to_owned(), "editor-icon".to_owned())
         );
+        assert_eq!(
+            resolver.resolve("org.example.editor"),
+            ("Example Editor".to_owned(), "editor-icon".to_owned())
+        );
+        assert_eq!(
+            resolver.resolve("unknown"),
+            ("unknown".to_owned(), String::new())
+        );
+        Ok(())
     }
 
     #[test]
-    fn percent_tenths_serialize_with_one_decimal_digit() {
-        let whole = crate::theme::json::to_python_string(&Percent::Tenths(1000))
-            .expect("percent should serialize");
-        let fractional = crate::theme::json::to_python_string(&Percent::Tenths(123))
-            .expect("percent should serialize");
-        let zero = crate::theme::json::to_python_string(&Percent::Tenths(0))
-            .expect("percent should serialize");
+    fn build_summary_excludes_locked_and_excluded_classes_and_computes_week_and_apps()
+    -> crate::Result<()> {
+        let connection = test_db();
+        // Monday 2026-06-08 through Thursday 2026-06-11
+        insert_total(&connection, "2026-06-08", "kitty", 3);
+        insert_total(&connection, "2026-06-10", "kitty", 4);
+        insert_total(&connection, "2026-06-11", "kitty", 3);
+        insert_total(&connection, "2026-06-11", "firefox", 1);
+        insert_total(&connection, "2026-06-11", LOCKED_CLASS, 500);
+        for excluded in EXCLUDED_CLASSES {
+            insert_total(&connection, "2026-06-11", excluded, 250);
+        }
 
-        assert_eq!(whole, "100.0");
-        assert_eq!(fractional, "12.3");
-        assert_eq!(zero, "0.0");
+        let resolver = DesktopResolver {
+            entries: HashMap::from([(
+                "kitty".to_owned(),
+                ("Kitty".to_owned(), "kitty".to_owned()),
+            )]),
+        };
+        let now = Local
+            .with_ymd_and_hms(2026, 6, 11, 14, 0, 0)
+            .single()
+            .expect("valid local timestamp");
+        let mut cache = MonthCache::default();
+
+        let summary = build_summary(
+            &connection,
+            &resolver,
+            "Quickshell",
+            false,
+            &now,
+            &mut cache,
+        )?;
+        assert_eq!(summary.total, 4);
+        assert_eq!(summary.yesterday, 4);
+        assert_eq!(summary.average, 4);
+        assert_eq!(summary.week_range, "Jun 8 - Jun 14");
+        assert_eq!(summary.week.len(), 7);
+        assert!(summary.week[3].is_target);
+        assert_eq!(summary.current, "");
+        assert_eq!(summary.apps.len(), 2);
+        assert_eq!(summary.apps[0].name, "Kitty");
+        assert!(matches!(summary.apps[0].percent, Percent::Tenths(750)));
+        assert_eq!(summary.apps[1].name, "firefox");
+        assert!(matches!(summary.apps[1].percent, Percent::Tenths(250)));
+
+        let locked_summary =
+            build_summary(&connection, &resolver, "kitty", true, &now, &mut cache)?;
+        assert_eq!(locked_summary.current, "Locked");
+        Ok(())
     }
 
     #[test]
-    fn refresh_unlocked_class_name_reseeds_empty_classes() {
-        let class_name = refresh_unlocked_class_name(String::new(), || "firefox".to_owned());
-        assert_eq!(class_name, "firefox");
-    }
+    fn load_month_pads_monday_offset_handles_december_rollover_and_caches_past_days()
+    -> crate::Result<()> {
+        let connection = test_db();
+        insert_total(&connection, "2026-12-01", "kitty", 120);
+        insert_total(&connection, "2026-12-15", "kitty", 60);
 
-    #[test]
-    fn refresh_unlocked_class_name_keeps_existing_classes() {
-        let class_name = refresh_unlocked_class_name("kitty".to_owned(), || "firefox".to_owned());
-        assert_eq!(class_name, "kitty");
-    }
+        let dec15 = NaiveDate::from_ymd_opt(2026, 12, 15).expect("valid date");
+        let mut cache = MonthCache::default();
+        let first = load_month(&connection, dec15, 300, &mut cache)?;
 
-    #[test]
-    fn refresh_unlocked_class_name_keeps_empty_when_reseed_is_empty() {
-        let class_name = refresh_unlocked_class_name(String::new(), String::new);
-        assert!(class_name.is_empty());
+        // 2026-12-01 is Tuesday -> 1 leading padding slot + 31 December days.
+        assert_eq!(first.len(), 32);
+        assert!(first[0].is_none());
+        let day1 = first[1].as_ref().expect("Dec 1 entry");
+        assert_eq!(day1.date, "2026-12-01");
+        assert_eq!(day1.total, 120);
+        assert!(!day1.is_target);
+        let target = first[15].as_ref().expect("Dec 15 entry");
+        assert_eq!(target.total, 300);
+        assert!(target.is_target);
+
+        // Mutating a past day on the same date reads from MonthCache rather than re-querying.
+        insert_total(&connection, "2026-12-02", "kitty", 999);
+        let cached = load_month(&connection, dec15, 450, &mut cache)?;
+        assert_eq!(cached[2].as_ref().expect("Dec 2 entry").total, 0);
+        assert_eq!(cached[15].as_ref().expect("Dec 15 entry").total, 450);
+
+        let dec16 = NaiveDate::from_ymd_opt(2026, 12, 16).expect("valid date");
+        let refreshed = load_month(&connection, dec16, 10, &mut cache)?;
+        assert_eq!(refreshed[2].as_ref().expect("Dec 2 entry").total, 999);
+        Ok(())
     }
 }

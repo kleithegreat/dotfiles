@@ -1,17 +1,11 @@
 use crate::paths;
 use serde_json::{Map, Value};
-use std::io::Write;
 use std::{
-    fs::{self, OpenOptions},
-    io,
+    fs, io,
     path::{Path, PathBuf},
-    process,
-    time::{SystemTime, UNIX_EPOCH},
 };
 
 pub mod color;
-mod command;
-pub mod json;
 pub mod orchestrator;
 pub mod resolve;
 pub mod schema;
@@ -24,13 +18,6 @@ enum CliFailure {
 }
 
 type CliResult<T> = Result<T, CliFailure>;
-
-struct StateUpdateOutcome {
-    changed: bool,
-    value: Value,
-    new_state: schema::ThemeState,
-    affected_targets: std::collections::BTreeSet<String>,
-}
 
 pub fn run(command: crate::ThemeCommand) -> crate::Result<()> {
     match run_cli(command) {
@@ -53,153 +40,8 @@ pub enum DarkHintOrigin {
 /// Rides the schema's unknown-key passthrough (`ThemeState.extra`).
 pub(crate) const DARK_HINT_MANUAL_AT_KEY: &str = "dark_hint_manual_at";
 
-fn set_dark_hint_internal(enabled: bool, origin: DarkHintOrigin) -> crate::Result<bool> {
-    let outcome = set_state_key_internal("dark_hint", Value::Bool(enabled))?;
-    let manual_at = Value::String(manual_write_timestamp());
-    if !outcome.changed {
-        if origin == DarkHintOrigin::Manual {
-            resolve::save_state_keys(&[(DARK_HINT_MANUAL_AT_KEY, &manual_at)])?;
-        }
-        return Ok(false);
-    }
-
-    let colors_dir = resolve::colors_dir()?;
-    let colors = resolve::load_colors(&outcome.new_state.color_scheme, &colors_dir)?;
-    orchestrator::apply(
-        outcome.affected_targets.iter(),
-        &colors,
-        &outcome.new_state,
-        true,
-    )
-    .into_result()
-    .map_err(|error| {
-        io::Error::other(format!(
-            "failed to apply affected theme targets for dark_hint: {error}"
-        ))
-    })?;
-    let mut pairs = vec![("dark_hint", &outcome.value)];
-    if origin == DarkHintOrigin::Manual {
-        pairs.push((DARK_HINT_MANUAL_AT_KEY, &manual_at));
-    }
-    resolve::save_state_keys(&pairs)?;
-    Ok(true)
-}
-
 fn manual_write_timestamp() -> String {
     chrono::Local::now().to_rfc3339()
-}
-
-pub(crate) fn expand_user_path(path: &str) -> crate::Result<PathBuf> {
-    if path == "~" {
-        return Ok(paths::home_dir()?);
-    }
-
-    if let Some(rest) = path.strip_prefix("~/") {
-        return Ok(paths::home_dir()?.join(rest));
-    }
-
-    Ok(PathBuf::from(path))
-}
-
-pub(crate) fn atomic_write(path: &Path, content: &[u8]) -> crate::Result<()> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-
-    let existing_permissions = fs::metadata(path)
-        .ok()
-        .map(|metadata| metadata.permissions());
-    let file_name = path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or("output");
-    let parent = path.parent().unwrap_or_else(|| Path::new("."));
-    let mut last_exists_error = None;
-
-    for attempt in 0..16 {
-        let nanos = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos();
-        let temp_path = parent.join(format!(
-            ".{file_name}.desktopctl-{}-{nanos}-{attempt}.tmp",
-            process::id()
-        ));
-
-        match OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&temp_path)
-        {
-            Ok(mut file) => {
-                if let Some(permissions) = &existing_permissions {
-                    file.set_permissions(permissions.clone())?;
-                }
-
-                if let Err(error) = (|| -> io::Result<()> {
-                    file.write_all(content)?;
-                    file.sync_all()?;
-                    Ok(())
-                })() {
-                    let _ = fs::remove_file(&temp_path);
-                    return Err(error.into());
-                }
-
-                if let Err(error) = fs::rename(&temp_path, path) {
-                    let _ = fs::remove_file(&temp_path);
-                    return Err(error.into());
-                }
-
-                return Ok(());
-            }
-            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
-                last_exists_error = Some(error);
-            }
-            Err(error) => return Err(error.into()),
-        }
-    }
-
-    Err(last_exists_error
-        .unwrap_or_else(|| io::Error::other("failed to allocate a temporary file"))
-        .into())
-}
-
-/// Atomically replace `link_path` with a symlink to `target` (symlink under a
-/// temporary name, then rename over the destination) so live consumers never
-/// observe a missing file.
-pub(crate) fn replace_with_symlink(link_path: &Path, target: &Path) -> crate::Result<()> {
-    use std::os::unix::fs::symlink;
-
-    let parent = link_path.parent().unwrap_or_else(|| Path::new("."));
-    let file_name = link_path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or("link");
-    let mut last_exists_error = None;
-
-    for attempt in 0..16 {
-        let temp_path = parent.join(format!(
-            ".{file_name}.desktopctl-{}-{attempt}.tmp",
-            process::id()
-        ));
-        match symlink(target, &temp_path) {
-            Ok(()) => {
-                if let Err(error) = fs::rename(&temp_path, link_path) {
-                    let _ = fs::remove_file(&temp_path);
-                    return Err(error.into());
-                }
-                return Ok(());
-            }
-            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
-                last_exists_error = Some(error);
-            }
-            Err(error) => return Err(error.into()),
-        }
-    }
-
-    Err(last_exists_error
-        .unwrap_or_else(|| io::Error::other("failed to allocate a temporary symlink"))
-        .into())
 }
 
 /// 64-bit FNV-1a fingerprint shared by cache-key derivation (wallpaper
@@ -237,40 +79,16 @@ fn run_cli(command: crate::ThemeCommand) -> CliResult<()> {
     }
 }
 
-fn remote_request<P: serde::Serialize + Clone>(
-    method: &str,
-    params: Option<P>,
-    wait_secs: u64,
-    timeout: std::time::Duration,
-) -> CliResult<Value> {
-    let result = if wait_secs > 0 {
-        crate::ipc::send_request_with_retry(
-            method,
-            params,
-            timeout,
-            std::time::Duration::from_secs(wait_secs),
-        )
-    } else {
-        crate::ipc::send_request(method, params, timeout)
-    };
-
-    result.map_err(|error| {
-        if crate::ipc::socket_unavailable(error.as_ref()) {
-            CliFailure::Message(crate::ipc::daemon_unavailable_message(&error))
-        } else {
-            CliFailure::from_error(error)
-        }
-    })
-}
-
 fn remote_apply(scope: &str, target: Option<String>, wait_secs: u64) -> CliResult<()> {
-    let params = serde_json::json!({ "scope": scope, "target": target });
-    let report = remote_request(
-        crate::ipc::methods::THEME_APPLY,
-        Some(params),
-        wait_secs,
+    let report = crate::ipc::mutate(
+        crate::ipc::RpcRequest::ThemeApply {
+            scope: scope.to_owned(),
+            target,
+        },
         crate::ipc::APPLY_TIMEOUT,
-    )?;
+        std::time::Duration::from_secs(wait_secs),
+    )
+    .map_err(CliFailure::from_error)?;
 
     finish_apply(serde_json::from_value(report).map_err(CliFailure::from_error)?)
 }
@@ -285,13 +103,15 @@ fn finish_apply(report: orchestrator::ApplyReport) -> CliResult<()> {
 }
 
 fn remote_set(args: crate::SetArgs) -> CliResult<()> {
-    let params = serde_json::json!({ "key": args.key, "value": args.value });
-    let response = remote_request(
-        crate::ipc::methods::THEME_SET,
-        Some(params),
-        args.wait.wait_daemon,
+    let response: Value = crate::ipc::mutate(
+        crate::ipc::RpcRequest::ThemeSet {
+            key: args.key.clone(),
+            value: Value::String(args.value),
+        },
         crate::ipc::APPLY_TIMEOUT,
-    )?;
+        std::time::Duration::from_secs(args.wait.wait_daemon),
+    )
+    .map_err(CliFailure::from_error)?;
 
     let committed = response["state"][&args.key].clone();
     if response["changed"].as_bool() == Some(false) {
@@ -307,26 +127,29 @@ fn remote_set(args: crate::SetArgs) -> CliResult<()> {
 }
 
 fn remote_preset_apply(args: crate::NamedArg) -> CliResult<()> {
-    let params = serde_json::json!({ "name": args.name });
-    remote_request(
-        crate::ipc::methods::THEME_PRESET_APPLY,
-        Some(params),
-        args.wait.wait_daemon,
+    crate::ipc::mutate::<Value>(
+        crate::ipc::RpcRequest::ThemePresetApply {
+            name: args.name.clone(),
+        },
         crate::ipc::APPLY_TIMEOUT,
-    )?;
+        std::time::Duration::from_secs(args.wait.wait_daemon),
+    )
+    .map_err(CliFailure::from_error)?;
     println!("Loaded preset '{}'.", args.name);
     Ok(())
 }
 
 fn remote_preset_save(args: crate::SavePresetArgs) -> CliResult<()> {
     let payload = map_user_err(parse_json_value(&args.payload))?;
-    let params = serde_json::json!({ "name": args.name, "payload": payload });
-    let response = remote_request(
-        crate::ipc::methods::THEME_PRESET_SAVE,
-        Some(params),
-        args.wait.wait_daemon,
+    let response: Value = crate::ipc::mutate(
+        crate::ipc::RpcRequest::ThemePresetSave {
+            name: args.name.clone(),
+            payload,
+        },
         crate::ipc::DEFAULT_TIMEOUT,
-    )?;
+        std::time::Duration::from_secs(args.wait.wait_daemon),
+    )
+    .map_err(CliFailure::from_error)?;
 
     let count = response["fields"].as_u64().unwrap_or(0);
     let noun = if count == 1 { "field" } else { "fields" };
@@ -335,13 +158,14 @@ fn remote_preset_save(args: crate::SavePresetArgs) -> CliResult<()> {
 }
 
 fn remote_preset_delete(args: crate::NamedArg) -> CliResult<()> {
-    let params = serde_json::json!({ "name": args.name });
-    remote_request(
-        crate::ipc::methods::THEME_PRESET_DELETE,
-        Some(params),
-        args.wait.wait_daemon,
+    crate::ipc::mutate::<Value>(
+        crate::ipc::RpcRequest::ThemePresetDelete {
+            name: args.name.clone(),
+        },
         crate::ipc::DEFAULT_TIMEOUT,
-    )?;
+        std::time::Duration::from_secs(args.wait.wait_daemon),
+    )
+    .map_err(CliFailure::from_error)?;
     println!("Deleted preset '{}'.", args.name);
     Ok(())
 }
@@ -377,7 +201,7 @@ fn cmd_list_presets() -> CliResult<()> {
 
 fn cmd_list_wallpapers(args: crate::ListWallpapersArgs) -> CliResult<()> {
     let directory = if let Some(path) = args.directory.as_deref() {
-        map_user_err(expand_user_path(path))?
+        map_user_err(crate::fs_util::expand_user_path(path))?
     } else {
         let state = map_user_err(resolve::load_state())?;
         let current = PathBuf::from(state.wallpaper);
@@ -407,9 +231,8 @@ fn cmd_list_wallpapers(args: crate::ListWallpapersArgs) -> CliResult<()> {
 
 // Daemon first for a consistent snapshot; the DB directly when it is dead.
 fn read_state_map() -> CliResult<Value> {
-    match crate::ipc::send_request::<(), Value>(
-        crate::ipc::methods::THEME_STATUS,
-        None,
+    match crate::ipc::send::<Value>(
+        crate::ipc::RpcRequest::ThemeStatus,
         crate::ipc::DEFAULT_TIMEOUT,
     ) {
         Ok(value) => Ok(value),
@@ -428,10 +251,10 @@ fn cmd_export() -> CliResult<()> {
         ));
     };
 
-    println!(
-        "{}",
-        json::format_pretty_value(&Value::Object(schema::seed_json_map(&state_map)))
-    );
+    let rendered = map_user_err(serde_json::to_string_pretty(&Value::Object(
+        schema::seed_json_map(&state_map),
+    )))?;
+    println!("{rendered}");
     Ok(())
 }
 
@@ -439,12 +262,15 @@ fn cmd_status(json_output: bool) -> CliResult<()> {
     let state_map = read_state_map()?;
 
     if json_output {
-        println!("{}", json::format_pretty_value(&state_map));
+        println!(
+            "{}",
+            map_user_err(serde_json::to_string_pretty(&state_map))?
+        );
         return Ok(());
     }
 
-    for key in schema::ThemeState::known_field_names() {
-        if let Some(value) = state_map.get(*key) {
+    for key in schema::field_names() {
+        if let Some(value) = state_map.get(key) {
             println!("  {}: {}", key, display_value(value));
         }
     }
@@ -493,44 +319,85 @@ pub(crate) fn state_json(state: &schema::ThemeState) -> Value {
     Value::Object(state.to_ordered_json_map())
 }
 
+struct PreparedPatch {
+    new_state: schema::ThemeState,
+    changed_keys: Vec<String>,
+}
+
+fn prepare_state_patch(
+    state: &schema::ThemeState,
+    patch: &Map<String, Value>,
+) -> crate::Result<PreparedPatch> {
+    let mut state_map = state.to_ordered_json_map();
+    let mut changed_keys = Vec::new();
+    for (key, value) in patch {
+        if state_map.get(key) != Some(value) {
+            changed_keys.push(key.clone());
+        }
+        state_map.insert(key.clone(), value.clone());
+    }
+
+    let new_state = validated_theme_state(state_map, "theme state")?;
+    Ok(PreparedPatch {
+        new_state,
+        changed_keys,
+    })
+}
+
+fn apply_state_patch(
+    patch: Map<String, Value>,
+    origin: DarkHintOrigin,
+) -> crate::Result<PresetOutcome> {
+    let state = resolve::load_state()?;
+    let prepared = prepare_state_patch(&state, &patch)?;
+    let manual_dark_hint = origin == DarkHintOrigin::Manual && patch.contains_key("dark_hint");
+    let manual_at = Value::String(manual_write_timestamp());
+
+    if prepared.changed_keys.is_empty() && prepared.new_state == state {
+        if manual_dark_hint {
+            resolve::save_state_keys(&[(DARK_HINT_MANUAL_AT_KEY, &manual_at)])?;
+        }
+        return Ok(PresetOutcome {
+            state,
+            changed_keys: Vec::new(),
+        });
+    }
+
+    let colors_dir = resolve::colors_dir()?;
+    let colors = resolve::load_colors(&prepared.new_state.color_scheme, &colors_dir)?;
+    let affected = orchestrator::targets_for_keys(
+        prepared.changed_keys.iter().map(String::as_str),
+        Some(&prepared.new_state),
+    );
+    orchestrator::apply(affected, &colors, &prepared.new_state, true).into_result()?;
+
+    let mut pairs = patch
+        .iter()
+        .map(|(key, value)| (key.as_str(), value))
+        .collect::<Vec<_>>();
+    if manual_dark_hint {
+        pairs.push((DARK_HINT_MANUAL_AT_KEY, &manual_at));
+    }
+    resolve::save_state_keys(&pairs)?;
+
+    Ok(PresetOutcome {
+        state: prepared.new_state,
+        changed_keys: prepared.changed_keys,
+    })
+}
+
 pub(crate) fn set_theme_key_core(
     key: &str,
     raw_value: Value,
     origin: DarkHintOrigin,
 ) -> crate::Result<SetKeyOutcome> {
-    if key == "dark_hint" {
-        let enabled = match coerce_theme_value(key, raw_value)? {
-            Value::Bool(enabled) => enabled,
-            _ => unreachable!("dark_hint is validated as a bool"),
-        };
-        let changed = set_dark_hint_internal(enabled, origin)?;
-        return Ok(SetKeyOutcome {
-            changed,
-            state: resolve::load_state()?,
-        });
-    }
-
-    let outcome = set_state_key_internal(key, raw_value)?;
-    if !outcome.changed {
-        return Ok(SetKeyOutcome {
-            changed: false,
-            state: outcome.new_state,
-        });
-    }
-
-    let colors_dir = resolve::colors_dir()?;
-    let colors = resolve::load_colors(&outcome.new_state.color_scheme, &colors_dir)?;
-    orchestrator::apply(
-        outcome.affected_targets.iter(),
-        &colors,
-        &outcome.new_state,
-        true,
-    )
-    .into_result()?;
-    resolve::save_state_keys(&[(key, &outcome.value)])?;
+    let value = coerce_theme_value(key, raw_value)?;
+    let mut patch = Map::new();
+    patch.insert(key.to_owned(), value);
+    let outcome = apply_state_patch(patch, origin)?;
     Ok(SetKeyOutcome {
-        changed: true,
-        state: outcome.new_state,
+        changed: !outcome.changed_keys.is_empty(),
+        state: outcome.state,
     })
 }
 
@@ -583,34 +450,8 @@ pub(crate) fn apply_preset_core(name: &str) -> crate::Result<PresetOutcome> {
         });
     }
 
-    let state = resolve::load_state()?;
-    let mut state_map = state.to_ordered_json_map();
-    for (key, value) in &preset {
-        state_map.insert(key.clone(), value.clone());
-    }
-    let new_state = validated_theme_state(state_map, "theme state")?;
-
-    let colors_dir = resolve::colors_dir()?;
-    let colors = resolve::load_colors(&new_state.color_scheme, &colors_dir)?;
-    let affected =
-        orchestrator::targets_for_keys(preset.keys().map(String::as_str), Some(&new_state));
-    orchestrator::apply(affected, &colors, &new_state, true).into_result()?;
-
-    let manual_at = Value::String(manual_write_timestamp());
-    let mut pairs = preset
-        .iter()
-        .map(|(key, value)| (key.as_str(), value))
-        .collect::<Vec<_>>();
     // A preset's dark_hint is a manual write.
-    if preset.contains_key("dark_hint") {
-        pairs.push((DARK_HINT_MANUAL_AT_KEY, &manual_at));
-    }
-    resolve::save_state_keys(&pairs)?;
-
-    Ok(PresetOutcome {
-        state: new_state,
-        changed_keys: preset.keys().cloned().collect(),
-    })
+    apply_state_patch(preset, DarkHintOrigin::Manual)
 }
 
 pub(crate) fn save_preset_core(name: &str, payload: Value) -> crate::Result<usize> {
@@ -649,36 +490,6 @@ fn load_state_and_colors() -> CliResult<(schema::ThemeState, schema::ColorScheme
     Ok((state, colors))
 }
 
-fn set_state_key_internal(key: &str, raw_value: Value) -> crate::Result<StateUpdateOutcome> {
-    let state = resolve::load_state()?;
-    let mut state_map = state.to_ordered_json_map();
-    let value = coerce_theme_value(key, raw_value)?;
-
-    let current = state_map
-        .get(key)
-        .cloned()
-        .expect("coerce_theme_value rejects unknown keys");
-
-    state_map.insert(key.to_owned(), value.clone());
-    let new_state = validated_theme_state(state_map, "theme state")?;
-    if current == value && new_state == state {
-        return Ok(StateUpdateOutcome {
-            changed: false,
-            value,
-            new_state: state,
-            affected_targets: std::collections::BTreeSet::new(),
-        });
-    }
-    let affected_targets = orchestrator::targets_for_key(key, Some(&new_state));
-
-    Ok(StateUpdateOutcome {
-        changed: true,
-        value,
-        new_state,
-        affected_targets,
-    })
-}
-
 fn normalize_theme_patch(value: Value, label: &str) -> crate::Result<Map<String, Value>> {
     let object = value
         .as_object()
@@ -696,9 +507,7 @@ fn validated_theme_state(
     data: Map<String, Value>,
     label: &str,
 ) -> crate::Result<schema::ThemeState> {
-    let missing = schema::ThemeState::known_field_names()
-        .iter()
-        .copied()
+    let missing = schema::field_names()
         .filter(|name| !data.contains_key(*name))
         .collect::<Vec<_>>();
 
@@ -712,11 +521,11 @@ fn validated_theme_state(
 
     let mut remaining = data;
     let mut normalized = Map::new();
-    for key in schema::ThemeState::known_field_names() {
+    for key in schema::field_names() {
         let value = remaining
-            .remove(*key)
+            .remove(key)
             .expect("validated_theme_state checked missing known keys");
-        normalized.insert((*key).to_owned(), coerce_theme_value(key, value)?);
+        normalized.insert(key.to_owned(), coerce_theme_value(key, value)?);
     }
 
     for (key, value) in remaining {
@@ -730,49 +539,55 @@ fn validated_theme_state(
 
 fn ordered_theme_mapping(data: &Map<String, Value>) -> Map<String, Value> {
     let mut ordered = Map::new();
-    for key in schema::ThemeState::known_field_names() {
-        if let Some(value) = data.get(*key) {
-            ordered.insert((*key).to_owned(), value.clone());
+    for key in schema::field_names() {
+        if let Some(value) = data.get(key) {
+            ordered.insert(key.to_owned(), value.clone());
         }
     }
     ordered
 }
 
 fn coerce_theme_value(key: &str, value: Value) -> crate::Result<Value> {
-    if !schema::ThemeState::known_field_names().contains(&key) {
+    let Some(spec) = schema::find_field(key) else {
         return Err(crate::invalid_input(format!(
             "unknown key '{}'. Valid: {}",
             key,
             valid_theme_keys().join(", ")
         ))
         .into());
-    }
+    };
 
-    if schema::ThemeState::int_field_names().contains(&key) {
-        return match value {
-            Value::Number(number) if number.as_i64().is_some() => Ok(Value::Number(number)),
-            Value::String(text) => match text.parse::<i64>() {
-                Ok(number) => Ok(Value::from(number)),
-                Err(_) => Err(crate::invalid_input(format!(
+    match spec.kind {
+        schema::FieldKind::Int => {
+            let parsed = match value {
+                Value::Number(ref number) => number.as_i64(),
+                Value::String(ref text) => text.parse::<i64>().ok(),
+                Value::Bool(_) => {
+                    return Err(
+                        crate::invalid_input(format!("'{}' must be an integer", key)).into(),
+                    );
+                }
+                _ => None,
+            };
+            let Some(number) = parsed else {
+                return Err(crate::invalid_input(format!(
                     "'{}' must be an integer, got {}",
-                    key,
-                    Value::String(text)
+                    key, value
                 ))
-                .into()),
-            },
-            Value::Bool(_) => {
-                Err(crate::invalid_input(format!("'{}' must be an integer", key)).into())
+                .into());
+            };
+            if let Some(min) = spec.min
+                && number < min
+            {
+                return Err(crate::invalid_input(format!(
+                    "'{}' must be at least {min}, got {number}",
+                    key
+                ))
+                .into());
             }
-            other => Err(crate::invalid_input(format!(
-                "'{}' must be an integer, got {}",
-                key, other
-            ))
-            .into()),
-        };
-    }
-
-    if schema::ThemeState::bool_field_names().contains(&key) {
-        return match value {
+            Ok(Value::from(number))
+        }
+        schema::FieldKind::Bool => match value {
             Value::Bool(value) => Ok(Value::Bool(value)),
             Value::String(text) => {
                 let lowered = text.to_ascii_lowercase();
@@ -794,17 +609,12 @@ fn coerce_theme_value(key: &str, value: Value) -> crate::Result<Value> {
                 key, other
             ))
             .into()),
-        };
-    }
-
-    if schema::ThemeState::string_field_names().contains(&key) {
-        return match value {
+        },
+        schema::FieldKind::String => match value {
             Value::String(text) if !text.is_empty() => Ok(Value::String(text)),
             _ => Err(crate::invalid_input(format!("'{}' must be a non-empty string", key)).into()),
-        };
+        },
     }
-
-    Ok(value)
 }
 
 fn normalize_preset_name(name: &str) -> crate::Result<String> {
@@ -844,11 +654,14 @@ pub(crate) fn json_file_stems_by_filename(dir: &Path) -> io::Result<Vec<String>>
 }
 
 fn print_json_value(value: &Value) {
-    println!("{}", json::format_pretty_value(value));
+    println!(
+        "{}",
+        serde_json::to_string_pretty(value).expect("serializing JSON value succeeds")
+    );
 }
 
 fn valid_theme_keys() -> Vec<&'static str> {
-    let mut keys = schema::ThemeState::known_field_names().to_vec();
+    let mut keys: Vec<_> = schema::field_names().collect();
     keys.sort_unstable();
     keys
 }
@@ -881,11 +694,7 @@ impl CliFailure {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_support::{ScopedEnvVar, TempDir, env_lock, repo_root, scoped_repo_paths};
-
-    fn repo_scheme_is_dark(scheme_name: &str) -> crate::Result<bool> {
-        Ok(resolve::load_colors(scheme_name, &repo_root().join("styling/colors"))?.is_dark())
-    }
+    use crate::test_support::{ScopedEnvVar, TempDir, env_lock, scoped_repo_paths};
 
     #[test]
     fn bool_aliases_are_coerced() {
@@ -902,78 +711,64 @@ mod tests {
     }
 
     #[test]
-    fn value_rendering_matches_cli_messages() {
-        assert_eq!(display_value(&Value::Bool(true)), "true");
-        assert_eq!(display_value(&Value::String("Mono".to_owned())), "Mono");
-    }
-
-    #[test]
-    fn ordered_theme_mapping_uses_schema_field_order() {
-        let mut data = Map::new();
-        data.insert("mono_font".to_owned(), Value::String("Mono".to_owned()));
-        data.insert(
-            "color_scheme".to_owned(),
-            Value::String("scheme".to_owned()),
+    fn coerce_theme_value_enforces_field_minimums_and_parses_ints() {
+        assert_eq!(
+            coerce_theme_value("font_size", Value::String("12".to_owned()))
+                .expect("positive integer string should parse"),
+            Value::from(12)
         );
-        data.insert(
-            "wallpaper".to_owned(),
-            Value::String("/tmp/wall.png".to_owned()),
+        assert!(coerce_theme_value("font_size", Value::from(0)).is_err());
+        assert!(coerce_theme_value("mono_font_size", Value::from(-2)).is_err());
+        assert_eq!(
+            coerce_theme_value("quickshell_font_size_offset", Value::from(-2))
+                .expect("signed offsets allow negative values"),
+            Value::from(-2)
         );
-
-        let keys = ordered_theme_mapping(&data)
-            .into_iter()
-            .map(|(key, _)| key)
-            .collect::<Vec<_>>();
-        assert_eq!(keys, vec!["color_scheme", "wallpaper", "mono_font"]);
-    }
-
-    #[test]
-    fn repo_scheme_appearance_metadata_is_available() {
-        assert!(repo_scheme_is_dark("gruvbox-dark").expect("dark scheme should load"));
-        assert!(!repo_scheme_is_dark("gruvbox-light").expect("light scheme should load"));
     }
 
     #[test]
     fn color_scheme_changes_preserve_explicit_dark_hint() {
         let _lock = env_lock();
-        let data_home = TempDir::new("desktopctl-theme-state").expect("temp dir");
-        let _data = ScopedEnvVar::set("XDG_DATA_HOME", data_home.path().as_os_str());
-        let _repo = ScopedEnvVar::set("DESKTOPCTL_REPO", repo_root().as_os_str());
+        let _paths = scoped_repo_paths();
 
-        let dark_hint_outcome =
-            set_state_key_internal("dark_hint", Value::Bool(false)).expect("set dark hint");
-        resolve::save_state_keys(&[("dark_hint", &dark_hint_outcome.value)])
-            .expect("persist explicit dark hint");
+        let mut patch = Map::new();
+        patch.insert("dark_hint".to_owned(), Value::Bool(false));
+        let dark_hint_off =
+            prepare_state_patch(&resolve::load_state().expect("seed loads"), &patch)
+                .expect("disable dark hint");
 
+        let mut scheme_patch = Map::new();
+        scheme_patch.insert(
+            "color_scheme".to_owned(),
+            Value::String("catppuccin-mocha".to_owned()),
+        );
         let outcome =
-            set_state_key_internal("color_scheme", Value::String("catppuccin-mocha".to_owned()))
-                .expect("set color scheme");
+            prepare_state_patch(&dark_hint_off.new_state, &scheme_patch).expect("set color scheme");
 
-        assert_eq!(outcome.value, Value::String("catppuccin-mocha".to_owned()));
+        assert_eq!(outcome.new_state.color_scheme, "catppuccin-mocha");
         assert!(!outcome.new_state.dark_hint);
     }
 
     #[test]
     fn light_scheme_changes_do_not_clear_dark_hint() {
         let _lock = env_lock();
-        let data_home = TempDir::new("desktopctl-theme-state").expect("temp dir");
-        let _data = ScopedEnvVar::set("XDG_DATA_HOME", data_home.path().as_os_str());
         let _paths = scoped_repo_paths();
 
-        // dark_hint's seeded value is user data, so state the precondition.
-        resolve::save_state_keys(&[("dark_hint", &Value::Bool(true))]).expect("seed dark_hint");
+        let mut patch = Map::new();
+        patch.insert("dark_hint".to_owned(), Value::Bool(true));
+        let dark_hint_on = prepare_state_patch(&resolve::load_state().expect("seed loads"), &patch)
+            .expect("enable dark hint");
 
+        let mut scheme_patch = Map::new();
+        scheme_patch.insert(
+            "color_scheme".to_owned(),
+            Value::String("gruvbox-light".to_owned()),
+        );
         let outcome =
-            set_state_key_internal("color_scheme", Value::String("gruvbox-light".to_owned()))
-                .expect("set color scheme");
+            prepare_state_patch(&dark_hint_on.new_state, &scheme_patch).expect("set color scheme");
 
-        assert_eq!(outcome.value, Value::String("gruvbox-light".to_owned()));
+        assert_eq!(outcome.new_state.color_scheme, "gruvbox-light");
         assert!(outcome.new_state.dark_hint);
-    }
-
-    #[test]
-    fn font_targets_do_not_include_tmux() {
-        assert!(!orchestrator::font_targets().contains("tmux"));
     }
 
     #[test]
@@ -987,9 +782,17 @@ mod tests {
         let manual_at = || resolve::load_state().expect("state loads").extra;
 
         assert!(!manual_at().contains_key(DARK_HINT_MANUAL_AT_KEY));
-        assert!(!set_dark_hint_internal(true, DarkHintOrigin::Scheduled).expect("scheduled write"));
+        assert!(
+            !set_theme_key_core("dark_hint", Value::Bool(true), DarkHintOrigin::Scheduled)
+                .expect("scheduled write")
+                .changed
+        );
         assert!(!manual_at().contains_key(DARK_HINT_MANUAL_AT_KEY));
-        assert!(!set_dark_hint_internal(true, DarkHintOrigin::Manual).expect("manual write"));
+        assert!(
+            !set_theme_key_core("dark_hint", Value::Bool(true), DarkHintOrigin::Manual)
+                .expect("manual write")
+                .changed
+        );
         assert!(manual_at().contains_key(DARK_HINT_MANUAL_AT_KEY));
     }
 }

@@ -4,14 +4,15 @@ import QtQuick
 
 // The option lists settings surfaces offer: data only, never read from the system.
 QtObject {
-    readonly property var systemFonts: ["Geist", "Inter", "Overpass", "IBM Plex Sans", "Rubik", "Noto Sans", "Cantarell", "Source Sans 3", "Outfit"]
+    readonly property var systemFonts: ["SF Pro", "Geist", "Inter", "Overpass", "IBM Plex Sans", "Rubik", "Noto Sans", "Cantarell", "Source Sans 3"]
 
     // The value the backend wants differs from the name a person recognises.
     readonly property var monoFonts: [
         { label: "JetBrains Mono", value: "JetBrainsMono Nerd Font" },
         { label: "Berkeley Mono", value: "Berkeley Mono" },
         { label: "Commit Mono", value: "CommitMono" },
-        { label: "Recursive Mono", value: "Recursive Mono" },
+        { label: "Recursive Mono", value: "RecMonoLinear Nerd Font" },
+        { label: "Cozette", value: "Cozette" },
         { label: "Fira Code", value: "FiraCode Nerd Font" },
         { label: "Iosevka", value: "Iosevka Nerd Font" }
     ]

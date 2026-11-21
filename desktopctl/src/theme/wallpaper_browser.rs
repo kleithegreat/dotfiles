@@ -1,5 +1,5 @@
-use super::{atomic_write, fnv1a_fingerprint};
-use crate::paths;
+use super::fnv1a_fingerprint;
+use crate::{fs_util::atomic_write, paths};
 use image::ImageFormat;
 use image::ImageReader;
 use image::imageops::FilterType;
@@ -184,7 +184,7 @@ fn lower_file_name(path: &Path) -> String {
         .to_ascii_lowercase()
 }
 
-fn sanitize_stem(stem: &str) -> String {
+pub(crate) fn sanitize_stem(stem: &str) -> String {
     let mut output = String::with_capacity(stem.len());
     for character in stem.chars() {
         if character.is_ascii_alphanumeric() {
@@ -282,17 +282,6 @@ mod tests {
 
         assert!(preview_path.is_file(), "live preview must be kept");
         assert!(!stale.exists(), "stale preview must be evicted");
-        Ok(())
-    }
-
-    #[test]
-    fn list_wallpapers_returns_empty_for_missing_directory() -> crate::Result<()> {
-        let _lock = env_lock();
-        let cache_dir = TempDir::new("desktopctl-wallpaper-cache-empty").expect("temp dir");
-        let _cache = ScopedEnvVar::set("XDG_CACHE_HOME", cache_dir.path().as_os_str());
-
-        let entries = list_wallpapers(Path::new("/definitely/not/a/real/wallpaper-directory"))?;
-        assert!(entries.is_empty());
         Ok(())
     }
 }

@@ -26,8 +26,11 @@ pub(super) trait UPowerDevice {
     ) -> zbus::Result<Vec<(u32, f64, u32)>>;
 }
 
-pub(super) async fn upower_device(battery: &str) -> zbus::Result<UPowerDeviceProxy<'static>> {
-    UPowerDeviceProxy::builder(&zbus::Connection::system().await?)
+pub(super) async fn upower_device(
+    connection: &zbus::Connection,
+    battery: &str,
+) -> zbus::Result<UPowerDeviceProxy<'static>> {
+    UPowerDeviceProxy::builder(connection)
         .path(format!("/org/freedesktop/UPower/devices/battery_{battery}"))
         .build()
         .await
@@ -101,6 +104,7 @@ pub(super) fn summary(
         if let Some(slot) = usize::try_from(hour)
             .ok()
             .and_then(|hour| hours.get_mut(hour))
+            && hour_seconds > 0.0
         {
             *slot = Hour {
                 watts: Some(hour_joules / hour_seconds),
@@ -150,6 +154,9 @@ fn levels(points: &[(u32, f64, u32)], start: i64, now: i64) -> Vec<Option<Level>
     let mut points = points.to_vec();
     points.sort_by_key(|(time, _, _)| *time);
     let width = DAY / LEVEL_BARS;
+    let mut idx = 0;
+    let mut last: Option<(f64, u32)> = None;
+
     (0..LEVEL_BARS)
         .map(|bar| {
             let opens = start + bar * width;
@@ -157,14 +164,18 @@ fn levels(points: &[(u32, f64, u32)], start: i64, now: i64) -> Vec<Option<Level>
                 return None;
             }
             let closes = (opens + width).min(now + 1);
-            let (_, percent, state) = points
-                .iter()
-                .take_while(|(time, _, _)| i64::from(*time) < closes)
-                .last()?;
-            (*percent > 0.0).then(|| Level {
-                percent: *percent,
-                plugged: PLUGGED_STATES.contains(state),
-            })
+            while let Some(&(time, percent, state)) = points.get(idx) {
+                if i64::from(time) >= closes {
+                    break;
+                }
+                last = Some((percent, state));
+                idx += 1;
+            }
+            last.filter(|(percent, _)| *percent > 0.0)
+                .map(|(percent, state)| Level {
+                    percent,
+                    plugged: PLUGGED_STATES.contains(&state),
+                })
         })
         .collect()
 }

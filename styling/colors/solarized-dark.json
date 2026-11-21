@@ -6,10 +6,7 @@
     "bat": "Solarized (dark)",
     "ktexteditor": "Solarized Dark",
     "snappy_switcher": "snappy-slate.ini",
-    "vicinae": {
-      "name": "solarized-dark",
-      "light_name": "solarized-light"
-    },
+    "vicinae": "solarized-dark",
     "vscode": {
       "name": "Solarized Dark+",
       "extension_id": "ryanolsonx.solarized"

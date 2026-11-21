@@ -55,8 +55,12 @@ QtObject {
         return { country: countryCode, city: "" };
     }
 
+    property bool _refreshQueued: false
+
     function refresh() {
-        if (!status.running)
+        if (status.running)
+            _refreshQueued = true;
+        else
             status.running = true;
         if (!selection.running)
             selection.running = true;
@@ -84,10 +88,17 @@ QtObject {
     function setLocation(countryCode, cityCode) {
         if (command.running)
             return;
-        selectedCountry = countryCode;
-        selectedCity = cityCode || "";
-        selectedHostname = "";
-        command.command = cityCode ? ["mullvad", "relay", "set", "location", countryCode, cityCode] : ["mullvad", "relay", "set", "location", countryCode];
+        if (!countryCode || countryCode === "any") {
+            selectedCountry = "";
+            selectedCity = "";
+            selectedHostname = "";
+            command.command = ["mullvad", "relay", "set", "location", "any"];
+        } else {
+            selectedCountry = countryCode;
+            selectedCity = cityCode || "";
+            selectedHostname = "";
+            command.command = cityCode ? ["mullvad", "relay", "set", "location", countryCode, cityCode] : ["mullvad", "relay", "set", "location", countryCode];
+        }
         command.running = true;
     }
 
@@ -109,6 +120,12 @@ QtObject {
                 } catch (e) {
                     root.state = "error";
                 }
+            }
+        }
+        onExited: {
+            if (root._refreshQueued) {
+                root._refreshQueued = false;
+                root.refresh();
             }
         }
     }
@@ -169,10 +186,19 @@ QtObject {
         }
     }
 
-    readonly property Timer _poll: Timer {
-        interval: root.busy ? 2000 : 15000
+    readonly property Process _listener: Process {
+        id: listener
         running: true
-        repeat: true
-        onTriggered: root.refresh()
+        command: ["mullvad", "status", "listen"]
+        stdout: SplitParser {
+            onRead: root.refresh()
+        }
+        onExited: listenRetry.restart()
+    }
+
+    readonly property Timer _listenRetry: Timer {
+        id: listenRetry
+        interval: 5000
+        onTriggered: listener.running = true
     }
 }

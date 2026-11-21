@@ -16,6 +16,7 @@ Ui.Scroll {
         Sys.Network.scan();
         Sys.Mullvad.loadRelays();
     }
+    Component.onDestruction: Sys.Network.stopScan()
 
     Connections {
         target: Sys.Network
@@ -263,22 +264,73 @@ Ui.Scroll {
             ColumnLayout {
                 id: relays
                 property bool open: false
+                property string expandedCountry: ""
 
                 Layout.fillWidth: true
                 Layout.leftMargin: Metrics.rowInset
                 spacing: 0
                 visible: open
 
+                Ui.ListRow {
+                    Layout.fillWidth: true
+                    title: "Automatic"
+                    subtitle: "Let Mullvad pick the fastest server"
+                    selected: Sys.Mullvad.selectedCountry === ""
+                    onClicked: Sys.Mullvad.setLocation("any", "")
+                }
+
                 Repeater {
                     model: relays.open ? Sys.Mullvad.relays : []
 
-                    Ui.ListRow {
+                    ColumnLayout {
+                        id: country
+
                         required property var modelData
+                        readonly property bool expanded: relays.expandedCountry === modelData.code
+                        readonly property bool hasCities: modelData.cities.length > 0
+
                         Layout.fillWidth: true
-                        title: modelData.name
-                        subtitle: modelData.cities.length + " cities"
-                        selected: Sys.Mullvad.selectedCountry === modelData.code
-                        onClicked: Sys.Mullvad.setLocation(modelData.code)
+                        spacing: 0
+
+                        Ui.ListRow {
+                            Layout.fillWidth: true
+                            title: country.modelData.name
+                            subtitle: country.hasCities ? country.modelData.cities.length + " cities" : ""
+                            selected: Sys.Mullvad.selectedCountry === country.modelData.code
+                            chevron: country.hasCities
+                            onClicked: {
+                                if (country.hasCities)
+                                    relays.expandedCountry = country.expanded ? "" : country.modelData.code;
+                                else
+                                    Sys.Mullvad.setLocation(country.modelData.code, "");
+                            }
+                        }
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            Layout.leftMargin: Metrics.rowInset
+                            spacing: 0
+                            visible: country.expanded && country.hasCities
+
+                            Ui.ListRow {
+                                Layout.fillWidth: true
+                                title: "Any city"
+                                selected: Sys.Mullvad.selectedCountry === country.modelData.code && Sys.Mullvad.selectedCity === ""
+                                onClicked: Sys.Mullvad.setLocation(country.modelData.code, "")
+                            }
+
+                            Repeater {
+                                model: country.expanded ? country.modelData.cities : []
+
+                                Ui.ListRow {
+                                    required property var modelData
+                                    Layout.fillWidth: true
+                                    title: modelData.name
+                                    selected: Sys.Mullvad.selectedCountry === country.modelData.code && Sys.Mullvad.selectedCity === modelData.code
+                                    onClicked: Sys.Mullvad.setLocation(country.modelData.code, modelData.code)
+                                }
+                            }
+                        }
                     }
                 }
             }

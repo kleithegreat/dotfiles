@@ -4,7 +4,10 @@
 //! Pairing Message.md` and its `blemanager.cpp`, which wins where the two
 //! disagree). The daemon half is `daemon/airpods.rs`; see [[airpods]].
 
-use crate::{Result, ipc};
+use crate::{
+    Result,
+    ipc::{self, RpcRequest},
+};
 use serde::{Deserialize, Serialize};
 
 pub const PSM: u16 = 0x1001;
@@ -80,7 +83,7 @@ impl NoiseMode {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Pod {
     InEar,
@@ -88,13 +91,13 @@ pub enum Pod {
     InCase,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Cell {
     pub level: u8,
     pub charging: bool,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Batteries {
     pub left: Option<Cell>,
     pub right: Option<Cell>,
@@ -102,7 +105,7 @@ pub struct Batteries {
 }
 
 /// A pair holding an AAP channel. Fields stay `None` until the pair reports them.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Link {
     pub address: String,
     pub name: String,
@@ -188,11 +191,11 @@ pub fn set_awareness(on: bool) -> [u8; 11] {
 }
 
 /// A case seen through its proximity advert.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Nearby {
     /// The BR/EDR product ID, as BlueZ's `Modalias` spells it once paired.
     pub product: u16,
-    pub model: &'static str,
+    pub model: String,
     pub lid_open: bool,
     pub battery: Batteries,
     /// The address of a pair with this product ID already paired here; the
@@ -219,7 +222,7 @@ pub fn proximity(data: &[u8], rssi: i16) -> Option<Nearby> {
     };
     Some(Nearby {
         product,
-        model: model(product)?,
+        model: model(product)?.to_owned(),
         lid_open: lid & 0x08 == 0,
         battery: Batteries {
             left: cell(left, left_charging),
@@ -256,40 +259,74 @@ pub fn modalias_product(modalias: &str) -> Option<u16> {
 }
 
 pub fn run(command: crate::AirPodsCommand) -> Result<()> {
-    let (method, params) = match command {
+    let request = match command {
         crate::AirPodsCommand::Status(args) => {
-            let status: serde_json::Value = ipc::send_request::<(), _>(
-                ipc::methods::AIRPODS_STATUS,
-                None,
-                ipc::DEFAULT_TIMEOUT,
-            )?;
+            let status: serde_json::Value =
+                ipc::send(RpcRequest::AirPodsStatus, ipc::DEFAULT_TIMEOUT)?;
             if args.json {
                 println!("{status}");
             } else {
-                println!("{}", serde_json::to_string_pretty(&status)?);
+                print_human_status(&status);
             }
             return Ok(());
         }
-        crate::AirPodsCommand::Noise { mode } => (
-            ipc::methods::AIRPODS_NOISE,
-            serde_json::json!({ "mode": mode }),
-        ),
-        crate::AirPodsCommand::Awareness { enabled } => (
-            ipc::methods::AIRPODS_AWARENESS,
-            serde_json::json!({ "enabled": enabled }),
-        ),
-        crate::AirPodsCommand::Reach { reach } => (
-            ipc::methods::AIRPODS_REACH,
-            serde_json::json!({ "reach": reach }),
-        ),
+        crate::AirPodsCommand::Noise { mode } => RpcRequest::AirPodsNoise { mode },
+        crate::AirPodsCommand::Awareness { enabled } => RpcRequest::AirPodsAwareness { enabled },
+        crate::AirPodsCommand::Reach { reach } => RpcRequest::AirPodsReach { reach },
     };
-    ipc::mutate::<serde_json::Value>(
-        method,
-        params,
-        ipc::DEFAULT_TIMEOUT,
-        std::time::Duration::ZERO,
+    ipc::mutate::<serde_json::Value>(request, ipc::DEFAULT_TIMEOUT, std::time::Duration::ZERO)
+        .map(drop)
+}
+
+fn print_human_status(value: &serde_json::Value) {
+    #[derive(Deserialize)]
+    struct WireStatus {
+        link: Option<Link>,
+        nearby: Option<Nearby>,
+        reach: Reach,
+    }
+    let Ok(status) = serde_json::from_value::<WireStatus>(value.clone()) else {
+        println!("{value}");
+        return;
+    };
+    println!("Reach:     {:?}", status.reach);
+    match &status.link {
+        Some(link) => {
+            println!("Connected: {} ({})", link.name, link.address);
+            println!("Battery:   {}", format_batteries(&link.battery));
+            if let Some(noise) = link.noise {
+                println!("Noise:     {noise:?}");
+            }
+            if let Some(awareness) = link.awareness {
+                println!("Awareness: {awareness}");
+            }
+        }
+        None => println!("Connected: none"),
+    }
+    if let Some(nearby) = &status.nearby {
+        println!(
+            "Nearby:    {} (lid_open={}, rssi={} dBm, paired={})",
+            nearby.model,
+            nearby.lid_open,
+            nearby.rssi,
+            nearby.paired.as_deref().unwrap_or("no")
+        );
+        println!("           {}", format_batteries(&nearby.battery));
+    }
+}
+
+fn format_batteries(battery: &Batteries) -> String {
+    let fmt = |label: &str, cell: Option<Cell>| match cell {
+        Some(c) if c.charging => format!("{label} {}%+", c.level),
+        Some(c) => format!("{label} {}%", c.level),
+        None => format!("{label} --"),
+    };
+    format!(
+        "{}  {}  {}",
+        fmt("L", battery.left),
+        fmt("R", battery.right),
+        fmt("Case", battery.case)
     )
-    .map(drop)
 }
 
 #[cfg(test)]
@@ -324,17 +361,35 @@ mod tests {
     }
 
     #[test]
-    fn control_packets_round_trip_through_the_encoders() {
-        for mode in [
-            NoiseMode::Off,
-            NoiseMode::Anc,
-            NoiseMode::Transparency,
-            NoiseMode::Adaptive,
-        ] {
-            assert_eq!(parse(&set_noise(mode)), Some(Update::Noise(mode)));
-        }
-        assert_eq!(parse(&set_awareness(true)), Some(Update::Awareness(true)));
-        assert_eq!(parse(&set_awareness(false)), Some(Update::Awareness(false)));
+    fn control_packets_match_librepods_aap_wire_bytes() {
+        assert_eq!(
+            set_noise(NoiseMode::Off).as_slice(),
+            packet("04 00 04 00 09 00 0d 01 00 00 00")
+        );
+        assert_eq!(
+            set_noise(NoiseMode::Anc).as_slice(),
+            packet("04 00 04 00 09 00 0d 02 00 00 00")
+        );
+        assert_eq!(
+            set_noise(NoiseMode::Transparency).as_slice(),
+            packet("04 00 04 00 09 00 0d 03 00 00 00")
+        );
+        assert_eq!(
+            set_noise(NoiseMode::Adaptive).as_slice(),
+            packet("04 00 04 00 09 00 0d 04 00 00 00")
+        );
+        assert_eq!(
+            parse(&packet("04 00 04 00 09 00 0d 04 00 00 00")),
+            Some(Update::Noise(NoiseMode::Adaptive))
+        );
+        assert_eq!(
+            set_awareness(true).as_slice(),
+            packet("04 00 04 00 09 00 28 01 00 00 00")
+        );
+        assert_eq!(
+            parse(&packet("04 00 04 00 09 00 28 02 00 00 00")),
+            Some(Update::Awareness(false))
+        );
     }
 
     #[test]

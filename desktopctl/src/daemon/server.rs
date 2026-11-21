@@ -1,38 +1,35 @@
 use crate::{
     daemon::{
+        SubsystemHealth,
         airdrop::AirDropController,
         airpods::AirPodsController,
         brightness::BrightnessController,
+        focus::FocusState,
         hypr::HyprController,
         night_light::Controller,
         power::PowerHistory,
         session::SessionController,
         theme::{ThemeController, ThemeJob},
     },
-    ipc::{self, EventEnvelope, methods},
-    night_light::NightLightSetParams,
+    ipc::{self, EventEnvelope, RpcRequest, StepDirection},
     theme::{ApplyScope, DarkHintOrigin},
 };
 use serde::Deserialize;
-use std::{io, os::unix::fs::FileTypeExt, path::Path, sync::Arc};
+use std::{io, os::unix::fs::FileTypeExt, path::Path, sync::Arc, time::Instant};
 use tokio::{
     fs,
-    io::{AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader},
+    io::{AsyncBufRead, AsyncBufReadExt, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader},
     net::{UnixListener, UnixStream},
     sync::{broadcast, watch},
 };
+
+const MAX_IPC_LINE_BYTES: usize = 256 * 1024;
 
 #[derive(Debug, Deserialize)]
 struct Request {
     method: String,
     #[serde(default)]
     params: serde_json::Value,
-}
-
-#[derive(Debug, Default, Deserialize)]
-struct SubscribeParams {
-    #[serde(default)]
-    topics: Vec<String>,
 }
 
 /// Fan-out handle for daemon-side change events. Controllers publish after a
@@ -61,7 +58,11 @@ impl Events {
         }));
     }
 
-    fn receiver(&self) -> broadcast::Receiver<Arc<EventEnvelope>> {
+    pub fn subscriber_count(&self) -> usize {
+        self.sender.receiver_count()
+    }
+
+    pub(super) fn receiver(&self) -> broadcast::Receiver<Arc<EventEnvelope>> {
         self.sender.subscribe()
     }
 }
@@ -77,119 +78,10 @@ pub struct ServerContext {
     pub session: SessionController,
     pub brightness: BrightnessController,
     pub power: PowerHistory,
+    pub focus: FocusState,
+    pub health: SubsystemHealth,
+    pub started_at: Instant,
     pub events: Events,
-}
-
-#[derive(Debug, Default, Deserialize)]
-struct BrightnessDeviceParams {
-    #[serde(default)]
-    device: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct BrightnessSetParams {
-    #[serde(default)]
-    device: Option<String>,
-    percent: u16,
-}
-
-#[derive(Debug, Deserialize)]
-struct BrightnessStepParams {
-    #[serde(default)]
-    device: Option<String>,
-    direction: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct KeyValueParams {
-    key: String,
-    value: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct MonitorsPrimaryParams {
-    selector: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct SessionAutomaticParams {
-    automatic: bool,
-}
-
-#[derive(Debug, Default, Deserialize)]
-struct SessionRestoreParams {
-    #[serde(default)]
-    if_automatic: bool,
-}
-
-#[derive(Debug, Deserialize)]
-struct AirDropVisibleParams {
-    enabled: bool,
-}
-
-#[derive(Debug, Deserialize)]
-struct AirDropAnswerParams {
-    id: u64,
-    accept: bool,
-}
-
-#[derive(Debug, Deserialize)]
-struct AirDropShareParams {
-    #[serde(default)]
-    paths: Vec<std::path::PathBuf>,
-    #[serde(default)]
-    urls: Vec<String>,
-    #[serde(default)]
-    text: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct AirDropSendParams {
-    receiver: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct AirPodsNoiseParams {
-    mode: crate::airpods::NoiseMode,
-}
-
-#[derive(Debug, Deserialize)]
-struct AirPodsAwarenessParams {
-    enabled: bool,
-}
-
-#[derive(Debug, Deserialize)]
-struct AirPodsReachParams {
-    reach: crate::airpods::Reach,
-}
-
-#[derive(Debug, Deserialize)]
-struct MonitorsLayoutParams {
-    outputs: serde_json::Value,
-}
-
-#[derive(Debug, Deserialize)]
-struct ThemeSetParams {
-    key: String,
-    value: serde_json::Value,
-}
-
-#[derive(Debug, Deserialize)]
-struct ThemeApplyParams {
-    scope: String,
-    #[serde(default)]
-    target: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct NamedParams {
-    name: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct PresetSaveParams {
-    name: String,
-    payload: serde_json::Value,
 }
 
 pub async fn run(context: ServerContext, mut shutdown: watch::Receiver<bool>) -> crate::Result<()> {
@@ -263,16 +155,47 @@ async fn prepare_socket_path(path: &Path) -> io::Result<()> {
     }
 }
 
+async fn read_bounded_line<R: AsyncBufRead + Unpin>(
+    reader: &mut R,
+    max_bytes: usize,
+) -> io::Result<Option<String>> {
+    let mut buffer = Vec::new();
+    let bytes_read = reader
+        .take((max_bytes + 1) as u64)
+        .read_until(b'\n', &mut buffer)
+        .await?;
+    if bytes_read == 0 {
+        return Ok(None);
+    }
+    if buffer.len() > max_bytes {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("IPC line exceeds {max_bytes} bytes"),
+        ));
+    }
+    String::from_utf8(buffer)
+        .map(Some)
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
+}
+
 async fn handle_client(stream: UnixStream, context: ServerContext) -> io::Result<()> {
     let (reader, mut writer) = stream.into_split();
-    let mut lines = BufReader::new(reader).lines();
+    let mut reader = BufReader::new(reader);
 
-    while let Some(line) = lines.next_line().await? {
+    loop {
+        let line = match read_bounded_line(&mut reader, MAX_IPC_LINE_BYTES).await {
+            Ok(Some(line)) => line,
+            Ok(None) => break,
+            Err(error) => {
+                let _ = write_error(&mut writer, error.to_string()).await;
+                return Ok(());
+            }
+        };
         if line.trim().is_empty() {
             continue;
         }
 
-        let request = match serde_json::from_str::<Request>(&line) {
+        let wire = match serde_json::from_str::<Request>(&line) {
             Ok(request) => request,
             Err(error) => {
                 write_error(&mut writer, format!("invalid request: {error}")).await?;
@@ -280,25 +203,29 @@ async fn handle_client(stream: UnixStream, context: ServerContext) -> io::Result
             }
         };
 
-        if request.method == methods::SUBSCRIBE {
-            let params = match parse_params_or_default::<SubscribeParams>(
-                request.params,
-                methods::SUBSCRIBE,
-            ) {
-                Ok(params) => params,
+        let rpc = match RpcRequest::from_wire(&wire.method, wire.params) {
+            Ok(rpc) => rpc,
+            Err(message) => {
+                write_error(&mut writer, message).await?;
+                continue;
+            }
+        };
+
+        if let RpcRequest::Subscribe { topics } = rpc {
+            let topics = match resolve_topics(topics) {
+                Ok(topics) => topics,
                 Err(message) => {
                     write_error(&mut writer, message).await?;
                     continue;
                 }
             };
-            let topics = resolve_topics(params.topics);
             // Subscribe before replying, so no event between the two is lost.
             let receiver = context.events.receiver();
             write_ok(&mut writer, serde_json::json!({ "subscribed": topics })).await?;
-            return run_subscription(&mut writer, &mut lines, topics, context, receiver).await;
+            return run_subscription(&mut writer, &mut reader, topics, context, receiver).await;
         }
 
-        match respond(&request.method, request.params, &context).await {
+        match respond(rpc, &context).await {
             Ok(data) => write_ok(&mut writer, data).await?,
             Err(message) => write_error(&mut writer, message).await?,
         }
@@ -307,169 +234,120 @@ async fn handle_client(stream: UnixStream, context: ServerContext) -> io::Result
     Ok(())
 }
 
-async fn respond(
-    method: &str,
-    params: serde_json::Value,
-    context: &ServerContext,
-) -> Result<serde_json::Value, String> {
-    match method {
-        methods::PING => Ok(serde_json::json!({ "pong": true })),
-        methods::NIGHT_LIGHT_STATUS => {
+async fn respond(rpc: RpcRequest, context: &ServerContext) -> Result<serde_json::Value, String> {
+    match rpc {
+        RpcRequest::Ping => Ok(serde_json::json!({ "pong": true })),
+        RpcRequest::DaemonStatus => Ok(daemon_status_value(context)),
+        RpcRequest::Subscribe { .. } => Err("subscribe already handled".to_owned()),
+        RpcRequest::NightLightStatus => {
             let controller = context.night_light.clone();
             blocking(move || controller.status()).await
         }
-        methods::NIGHT_LIGHT_SET => {
-            let params: NightLightSetParams = parse_params(params, method)?;
+        RpcRequest::NightLightSet { mode, temperature } => {
             let controller = context.night_light.clone();
-            blocking(move || controller.set_mode(params.mode, params.temperature)).await
+            blocking(move || controller.set_mode(mode, temperature)).await
         }
-        methods::NIGHT_LIGHT_TOGGLE => {
+        RpcRequest::NightLightToggle => {
             let controller = context.night_light.clone();
             blocking(move || controller.toggle()).await
         }
-        methods::THEME_STATUS => {
+        RpcRequest::ThemeStatus => {
             blocking(|| {
                 crate::theme::resolve::load_state().map(|state| crate::theme::state_json(&state))
             })
             .await
         }
-        methods::THEME_SET => {
-            let params: ThemeSetParams = parse_params(params, method)?;
+        RpcRequest::ThemeSet { key, value } => {
             let job = ThemeJob::Set {
-                key: params.key,
-                value: params.value,
+                key,
+                value,
                 // User-initiated; the schedule bypasses this method.
                 origin: DarkHintOrigin::Manual,
             };
             to_value(context.theme.request(job).await)
         }
-        methods::THEME_APPLY => {
-            let params: ThemeApplyParams = parse_params(params, method)?;
-            let scope = ApplyScope::parse(&params.scope, params.target)
-                .map_err(|error| error.to_string())?;
+        RpcRequest::ThemeApply { scope, target } => {
+            let scope = ApplyScope::parse(&scope, target).map_err(|error| error.to_string())?;
             to_value(context.theme.request(ThemeJob::Apply { scope }).await)
         }
-        methods::THEME_PRESET_APPLY => {
-            let params: NamedParams = parse_params(params, method)?;
-            to_value(
-                context
-                    .theme
-                    .request(ThemeJob::PresetApply { name: params.name })
-                    .await,
-            )
+        RpcRequest::ThemePresetApply { name } => {
+            to_value(context.theme.request(ThemeJob::PresetApply { name }).await)
         }
-        methods::THEME_PRESET_SAVE => {
-            let params: PresetSaveParams = parse_params(params, method)?;
-            let job = ThemeJob::PresetSave {
-                name: params.name,
-                payload: params.payload,
-            };
+        RpcRequest::ThemePresetSave { name, payload } => {
+            let job = ThemeJob::PresetSave { name, payload };
             to_value(context.theme.request(job).await)
         }
-        methods::THEME_PRESET_DELETE => {
-            let params: NamedParams = parse_params(params, method)?;
-            to_value(
-                context
-                    .theme
-                    .request(ThemeJob::PresetDelete { name: params.name })
-                    .await,
-            )
+        RpcRequest::ThemePresetDelete { name } => {
+            to_value(context.theme.request(ThemeJob::PresetDelete { name }).await)
         }
-        methods::HYPR_INPUT_STATUS => {
+        RpcRequest::HyprInputStatus => {
             let hypr = context.hypr.clone();
             blocking(move || hypr.input_status()).await
         }
-        methods::HYPR_INPUT_SET => {
-            let params: KeyValueParams = parse_params(params, method)?;
+        RpcRequest::HyprInputSet { key, value } => {
             let hypr = context.hypr.clone();
-            blocking(move || hypr.input_set(&params.key, &params.value)).await
+            blocking(move || hypr.input_set(&key, &value)).await
         }
-        methods::HYPR_MONITORS_STATUS => {
+        RpcRequest::HyprMonitorsStatus => {
             let hypr = context.hypr.clone();
             blocking(move || hypr.monitors_status()).await
         }
-        methods::HYPR_MONITORS_PRIMARY => {
-            let params: MonitorsPrimaryParams = parse_params(params, method)?;
+        RpcRequest::HyprMonitorsPrimary { selector } => {
             let hypr = context.hypr.clone();
-            blocking(move || hypr.monitors_primary(&params.selector)).await
+            blocking(move || hypr.monitors_primary(&selector)).await
         }
-        methods::HYPR_MONITORS_LAYOUT => {
-            let params: MonitorsLayoutParams = parse_params(params, method)?;
+        RpcRequest::HyprMonitorsLayout { outputs } => {
             let hypr = context.hypr.clone();
-            blocking(move || hypr.monitors_layout(&params.outputs)).await
+            blocking(move || hypr.monitors_layout(&outputs)).await
         }
-        methods::SESSION_STATUS => to_value(context.session.status()),
-        methods::SESSION_AUTOMATIC => {
-            let params: SessionAutomaticParams = parse_params(params, method)?;
-            to_value(context.session.set_automatic(params.automatic))
+        RpcRequest::SessionStatus => to_value(context.session.status()),
+        RpcRequest::SessionAutomatic { automatic } => {
+            to_value(context.session.set_automatic(automatic))
         }
-        methods::SESSION_RESTORE => {
-            let params: SessionRestoreParams = parse_params_or_default(params, method)?;
+        RpcRequest::SessionRestore { if_automatic } => {
             let session = context.session.clone();
-            blocking(move || session.restore(params.if_automatic)).await
+            blocking(move || session.restore(if_automatic)).await
         }
-        methods::BRIGHTNESS_STATUS => {
+        RpcRequest::BrightnessStatus => {
             let brightness = context.brightness.clone();
             blocking(move || brightness.status()).await
         }
-        methods::BRIGHTNESS_SET => {
-            let params: BrightnessSetParams = parse_params(params, method)?;
+        RpcRequest::BrightnessSet { device, percent } => {
             let brightness = context.brightness.clone();
-            blocking(move || brightness.set(params.device.as_deref(), params.percent)).await
+            blocking(move || brightness.set(device.as_deref(), percent)).await
         }
-        methods::BRIGHTNESS_STEP => {
-            let params: BrightnessStepParams = parse_params(params, method)?;
-            let direction = match params.direction.as_str() {
-                "up" => 1.0,
-                "down" => -1.0,
-                other => return Err(format!("invalid step direction '{other}'")),
+        RpcRequest::BrightnessStep { device, direction } => {
+            let step = match direction {
+                StepDirection::Up => 1.0,
+                StepDirection::Down => -1.0,
             };
             let brightness = context.brightness.clone();
-            blocking(move || brightness.step(params.device.as_deref(), direction)).await
+            blocking(move || brightness.step(device.as_deref(), step)).await
         }
-        methods::BRIGHTNESS_DIM => {
-            let params: BrightnessDeviceParams = parse_params_or_default(params, method)?;
+        RpcRequest::BrightnessDim { device } => {
             let brightness = context.brightness.clone();
-            blocking(move || brightness.dim(params.device.as_deref())).await
+            blocking(move || brightness.dim(device.as_deref())).await
         }
-        methods::BRIGHTNESS_RESTORE => {
-            let params: BrightnessDeviceParams = parse_params_or_default(params, method)?;
+        RpcRequest::BrightnessRestore { device } => {
             let brightness = context.brightness.clone();
-            blocking(move || brightness.restore(params.device.as_deref())).await
+            blocking(move || brightness.restore(device.as_deref())).await
         }
-        methods::AIRDROP_STATUS => to_value(context.airdrop.status()),
-        methods::AIRDROP_VISIBLE => {
-            let params: AirDropVisibleParams = parse_params(params, method)?;
-            to_value(context.airdrop.visible(params.enabled).await)
+        RpcRequest::AirDropStatus => to_value(context.airdrop.status()),
+        RpcRequest::AirDropVisible { enabled } => to_value(context.airdrop.visible(enabled).await),
+        RpcRequest::AirDropAnswer { id, accept } => {
+            to_value(context.airdrop.answer(id, accept).await)
         }
-        methods::AIRDROP_ANSWER => {
-            let params: AirDropAnswerParams = parse_params(params, method)?;
-            to_value(context.airdrop.answer(params.id, params.accept).await)
+        RpcRequest::AirDropShare { paths, urls, text } => {
+            to_value(context.airdrop.share(paths, urls, text).await)
         }
-        methods::AIRDROP_SHARE => {
-            let params: AirDropShareParams = parse_params(params, method)?;
-            to_value(
-                context
-                    .airdrop
-                    .share(params.paths, params.urls, params.text)
-                    .await,
-            )
+        RpcRequest::AirDropSend { receiver } => to_value(context.airdrop.send(receiver).await),
+        RpcRequest::AirDropCancel => to_value(context.airdrop.cancel().await),
+        RpcRequest::AirPodsStatus => to_value(context.airpods.status()),
+        RpcRequest::AirPodsNoise { mode } => to_value(context.airpods.set_noise(mode).await),
+        RpcRequest::AirPodsAwareness { enabled } => {
+            to_value(context.airpods.set_awareness(enabled).await)
         }
-        methods::AIRDROP_SEND => {
-            let params: AirDropSendParams = parse_params(params, method)?;
-            to_value(context.airdrop.send(params.receiver).await)
-        }
-        methods::AIRDROP_CANCEL => to_value(context.airdrop.cancel().await),
-        methods::AIRPODS_STATUS => to_value(context.airpods.status()),
-        methods::AIRPODS_NOISE => {
-            let params: AirPodsNoiseParams = parse_params(params, method)?;
-            to_value(context.airpods.set_noise(params.mode).await)
-        }
-        methods::AIRPODS_AWARENESS => {
-            let params: AirPodsAwarenessParams = parse_params(params, method)?;
-            to_value(context.airpods.set_awareness(params.enabled).await)
-        }
-        methods::FN_LOCK_ANNOUNCE => to_value(
+        RpcRequest::FnLockAnnounce => to_value(
             crate::fn_lock::media_keys()
                 .map(|media_keys| {
                     context.events.publish(
@@ -480,12 +358,17 @@ async fn respond(
                 })
                 .map_err(Into::into),
         ),
-        methods::AIRPODS_REACH => {
-            let params: AirPodsReachParams = parse_params(params, method)?;
-            to_value(context.airpods.set_reach(params.reach))
-        }
-        _ => Err(format!("unsupported method: {method}")),
+        RpcRequest::AirPodsReach { reach } => to_value(context.airpods.set_reach(reach)),
     }
+}
+
+fn daemon_status_value(context: &ServerContext) -> serde_json::Value {
+    serde_json::json!({
+        "pid": std::process::id(),
+        "uptime_secs": context.started_at.elapsed().as_secs(),
+        "subsystems": context.health.snapshot(),
+        "subscribers": context.events.subscriber_count(),
+    })
 }
 
 async fn blocking<T, F>(task: F) -> Result<serde_json::Value, String>
@@ -505,36 +388,30 @@ fn to_value<T: serde::Serialize>(result: crate::Result<T>) -> Result<serde_json:
         .and_then(|data| serde_json::to_value(data).map_err(|error| error.to_string()))
 }
 
-/// Like [`parse_params`], but a missing/null params object means defaults.
-fn parse_params_or_default<T>(params: serde_json::Value, method: &str) -> Result<T, String>
-where
-    T: serde::de::DeserializeOwned + Default,
-{
-    if params.is_null() {
-        return Ok(T::default());
-    }
-    parse_params(params, method)
-}
-
-fn parse_params<T: serde::de::DeserializeOwned>(
-    params: serde_json::Value,
-    method: &str,
-) -> Result<T, String> {
-    serde_json::from_value(params).map_err(|error| format!("invalid params for {method}: {error}"))
-}
-
-fn resolve_topics(requested: Vec<String>) -> Vec<String> {
+fn resolve_topics(requested: Vec<String>) -> Result<Vec<String>, String> {
     if requested.is_empty() {
-        return ipc::TOPICS
+        return Ok(ipc::TOPICS
             .iter()
             .map(|topic| (*topic).to_owned())
-            .collect();
+            .collect());
     }
 
-    requested
-        .into_iter()
-        .filter(|topic| ipc::TOPICS.contains(&topic.as_str()))
-        .collect()
+    let mut invalid = Vec::new();
+    let mut resolved = Vec::new();
+    for topic in requested {
+        if !ipc::TOPICS.contains(&topic.as_str()) {
+            invalid.push(topic);
+        } else if !resolved.contains(&topic) {
+            resolved.push(topic);
+        }
+    }
+    if !invalid.is_empty() {
+        return Err(format!(
+            "unknown subscription topics: {}",
+            invalid.join(", ")
+        ));
+    }
+    Ok(resolved)
 }
 
 /// After a `subscribe` reply the connection becomes push-only: snapshots for
@@ -542,7 +419,7 @@ fn resolve_topics(requested: Vec<String>) -> Vec<String> {
 /// read half is drained only to notice EOF; further requests are refused.
 async fn run_subscription<W, R>(
     writer: &mut W,
-    lines: &mut tokio::io::Lines<BufReader<R>>,
+    reader: &mut BufReader<R>,
     topics: Vec<String>,
     context: ServerContext,
     mut receiver: broadcast::Receiver<Arc<EventEnvelope>>,
@@ -567,7 +444,7 @@ where
                 }
                 Err(broadcast::error::RecvError::Closed) => return Ok(()),
             },
-            line = lines.next_line() => match line? {
+            line = read_bounded_line(reader, MAX_IPC_LINE_BYTES) => match line? {
                 None => return Ok(()),
                 Some(line) if line.trim().is_empty() => {}
                 Some(_) => {
@@ -594,7 +471,7 @@ async fn push_snapshots<W: AsyncWrite + Unpin>(
                 blocking(move || controller.status()).await
             }
             "theme" => {
-                blocking(|| {
+                if let Ok(state) = blocking(|| {
                     crate::theme::resolve::load_state().map(|state| {
                         serde_json::json!({
                             "state": crate::theme::state_json(&state),
@@ -603,6 +480,27 @@ async fn push_snapshots<W: AsyncWrite + Unpin>(
                     })
                 })
                 .await
+                {
+                    write_event(
+                        writer,
+                        &EventEnvelope {
+                            event: "theme.changed".to_owned(),
+                            data: state,
+                        },
+                    )
+                    .await?;
+                }
+                if let Ok(presets) = blocking(crate::theme::preset_names).await {
+                    write_event(
+                        writer,
+                        &EventEnvelope {
+                            event: "theme.presets_changed".to_owned(),
+                            data: serde_json::json!({ "presets": presets }),
+                        },
+                    )
+                    .await?;
+                }
+                continue;
             }
             "hypr_input" => {
                 let hypr = context.hypr.clone();
@@ -619,6 +517,11 @@ async fn push_snapshots<W: AsyncWrite + Unpin>(
                 Some(summary) => Ok(summary),
                 None => continue,
             },
+            "focus" => match context.focus.latest() {
+                Some(summary) => Ok(summary),
+                None => continue,
+            },
+            "daemon" => Ok(daemon_status_value(context)),
             // Absent on hosts without the firmware attribute, so no indicator there.
             "fn_lock" => to_value(
                 crate::fn_lock::media_keys()
@@ -705,68 +608,48 @@ mod tests {
         net::UnixStream,
     };
 
-    #[test]
-    fn request_deserialization_defaults_missing_params_to_null() {
-        let request: Request =
-            serde_json::from_str(r#"{"method":"ping"}"#).expect("request should deserialize");
-
-        assert_eq!(request.method, "ping");
-        assert_eq!(request.params, serde_json::Value::Null);
-    }
-
     #[tokio::test]
-    async fn handle_client_replies_to_ping_and_skips_blank_lines() {
-        let responses = send_requests(&["", r#"{"method":"ping"}"#]).await;
-
-        assert_eq!(responses.len(), 1);
-        assert_eq!(
-            responses[0],
-            serde_json::json!({
-                "ok": true,
-                "data": {
-                    "pong": true,
-                },
-            })
+    async fn handle_client_handles_valid_and_malformed_requests() {
+        let oversized = format!(
+            "{{\"method\":\"ping\",\"pad\":\"{}\"}}",
+            "x".repeat(MAX_IPC_LINE_BYTES)
         );
-    }
-
-    #[tokio::test]
-    async fn handle_client_reports_invalid_requests_and_invalid_params() {
         let responses = send_requests(&[
+            "",
+            r#"{"method":"ping"}"#,
             "{not valid json",
             r#"{"method":"night_light.set","params":{"mode":"invalid"}}"#,
+            r#"{"method":"unknown.method"}"#,
+            r#"{"method":"subscribe","params":{"topics":["bogus"]}}"#,
         ])
         .await;
 
-        assert_eq!(responses.len(), 2);
-        assert_eq!(responses[0]["ok"], serde_json::json!(false));
-        assert!(
-            responses[0]["error"]
-                .as_str()
-                .expect("error string")
-                .starts_with("invalid request:")
+        assert_eq!(responses.len(), 5);
+        assert_eq!(
+            responses[0],
+            serde_json::json!({ "ok": true, "data": { "pong": true } })
         );
-        assert_eq!(responses[1]["ok"], serde_json::json!(false));
         assert!(
             responses[1]["error"]
                 .as_str()
-                .expect("error string")
+                .expect("error")
+                .starts_with("invalid request:")
+        );
+        assert!(
+            responses[2]["error"]
+                .as_str()
+                .expect("error")
                 .starts_with("invalid params for night_light.set:")
         );
-    }
-
-    #[tokio::test]
-    async fn handle_client_reports_unsupported_methods() {
-        let responses = send_requests(&[r#"{"method":"unknown.method"}"#]).await;
-
-        assert_eq!(responses.len(), 1);
         assert_eq!(
-            responses[0],
-            serde_json::json!({
-                "ok": false,
-                "error": "unsupported method: unknown.method",
-            })
+            responses[3],
+            serde_json::json!({ "ok": false, "error": "unsupported method: unknown.method" })
         );
+        assert_eq!(responses[4]["ok"], serde_json::json!(false));
+
+        let capped = send_requests(&[&oversized]).await;
+        assert_eq!(capped.len(), 1);
+        assert_eq!(capped[0]["ok"], serde_json::json!(false));
     }
 
     async fn send_requests(requests: &[&str]) -> Vec<serde_json::Value> {
@@ -800,15 +683,19 @@ mod tests {
 
     fn test_context() -> ServerContext {
         let events = Events::new();
+        let theme = ThemeController::spawn(events.clone());
         ServerContext {
             airdrop: AirDropController::new(events.clone()),
             airpods: AirPodsController::new(events.clone()),
-            night_light: Controller::new(),
-            theme: ThemeController::spawn(events.clone()),
-            hypr: HyprController::new(events.clone()),
+            night_light: Controller::new(theme.clone(), events.clone()),
+            theme,
+            hypr: HyprController::new(events.clone(), Arc::default()),
             session: SessionController::new(Default::default(), events.clone()),
             brightness: BrightnessController::new(events.clone()),
             power: Default::default(),
+            focus: Default::default(),
+            health: SubsystemHealth::new(events.clone()),
+            started_at: Instant::now(),
             events,
         }
     }
@@ -846,9 +733,7 @@ mod tests {
 
         let (reader, mut writer) = client.into_split();
         writer
-            .write_all(
-                b"{\"method\":\"subscribe\",\"params\":{\"topics\":[\"theme\",\"bogus\"]}}\n",
-            )
+            .write_all(b"{\"method\":\"subscribe\",\"params\":{\"topics\":[\"theme\"]}}\n")
             .await
             .expect("write subscribe");
 
@@ -866,7 +751,7 @@ mod tests {
             serde_json::json!({ "ok": true, "data": { "subscribed": ["theme"] } })
         );
 
-        // First pushed line is the theme snapshot (freshly seeded defaults).
+        // First pushed line is the theme snapshot, then presets snapshot.
         let snapshot: serde_json::Value = serde_json::from_str(
             &lines
                 .next_line()
@@ -878,6 +763,20 @@ mod tests {
         assert_eq!(snapshot["event"], serde_json::json!("theme.changed"));
         assert_eq!(snapshot["data"]["changed_keys"], serde_json::json!([]));
         assert!(snapshot["data"]["state"].is_object());
+
+        let presets_snapshot: serde_json::Value = serde_json::from_str(
+            &lines
+                .next_line()
+                .await
+                .expect("read presets snapshot")
+                .expect("presets snapshot line"),
+        )
+        .expect("valid presets json");
+        assert_eq!(
+            presets_snapshot["event"],
+            serde_json::json!("theme.presets_changed")
+        );
+        assert!(presets_snapshot["data"]["presets"].is_array());
 
         events.publish(
             "night_light.changed",
@@ -922,15 +821,5 @@ mod tests {
 
         writer.shutdown().await.expect("shutdown writer");
         server_task.await.expect("server task should finish");
-    }
-
-    // Unit-level: a full subscribe would run real DDC enumeration.
-    #[test]
-    fn resolve_topics_defaults_to_every_topic_and_drops_unknown_ones() {
-        assert_eq!(resolve_topics(Vec::new()), ipc::TOPICS);
-        assert_eq!(
-            resolve_topics(vec!["night_light".to_owned(), "bogus".to_owned()]),
-            vec!["night_light"]
-        );
     }
 }

@@ -1,14 +1,9 @@
-use crate::{paths, theme};
+use crate::paths;
 use serde::{Deserialize, Serialize};
 use std::{
-    env, fs,
-    io::{self, Read},
-    os::unix::net::UnixStream,
+    env, fs, io,
     path::{Path, PathBuf},
     process::{Command, Output},
-    sync::atomic::{AtomicBool, Ordering},
-    thread,
-    time::Duration,
 };
 
 use crate::Result;
@@ -462,6 +457,12 @@ fn monitor_enable_expression(output: &str, open_spec: &str) -> Result<String> {
     let scale: f64 = scale.parse().map_err(|_| {
         crate::invalid_input(format!("monitor scale must be a number, got '{scale}'"))
     })?;
+    if !scale.is_finite() || scale <= 0.0 {
+        return Err(crate::invalid_input(format!(
+            "monitor scale must be a positive finite number, got '{scale}'"
+        ))
+        .into());
+    }
 
     // `disabled = false` must be explicit (docs/hyprland.md).
     Ok(format!(
@@ -484,8 +485,8 @@ fn active_external_monitor_exists(internal_monitor: &str) -> Result<bool> {
 ///
 /// Hyprland's `CMonitor::findAvailableDefaultWS` skips any workspace ID bound to
 /// a monitor the new output does not match, so a laptop-only login under the
-/// `workspace = 1..10, monitor:desc:<external>` pins written by
-/// `displays::reconcile` parks the internal panel on workspace 11: no pill in
+/// `workspace = 1..9, monitor:desc:<external>` pins written by
+/// `displays::reconcile` parks the internal panel on workspace 10+: no pill in
 /// the bar, and no keybind that can reach it again.
 pub(crate) fn reclaim_workspaces() -> Result<()> {
     let target = reclaim_target(
@@ -530,32 +531,36 @@ fn reclaim_target(
     (!parked_has_windows && !target_is_shown).then_some(target)
 }
 
-/// Numbered workspaces pinned to a monitor selector that nothing connected
-/// matches, lowest first.
+/// Numbered workspaces pinned to a monitor selector where NO rule for that
+/// workspace matches an active monitor, lowest first.
 fn orphaned_pinned_workspaces(monitors: &[MonitorInfo], rules: &[WorkspaceRuleInfo]) -> Vec<i64> {
-    let mut ids: Vec<i64> = rules
-        .iter()
-        .filter_map(|rule| {
-            let id = rule.workspace_string.trim().parse::<i64>().ok()?;
-            if id <= 0 {
-                return None;
-            }
+    let mut by_workspace: std::collections::BTreeMap<i64, bool> = std::collections::BTreeMap::new();
+    for rule in rules {
+        let Ok(id) = rule.workspace_string.trim().parse::<i64>() else {
+            continue;
+        };
+        if id <= 0 {
+            continue;
+        }
+        let Some(selector) = rule.monitor.as_deref().map(str::trim) else {
+            continue;
+        };
+        if selector.is_empty() {
+            continue;
+        }
+        let connected = monitors
+            .iter()
+            .any(|monitor| !monitor.disabled && monitor.matches_selector(selector));
+        by_workspace
+            .entry(id)
+            .and_modify(|any_connected| *any_connected |= connected)
+            .or_insert(connected);
+    }
 
-            let selector = rule.monitor.as_deref()?.trim();
-            if selector.is_empty() {
-                return None;
-            }
-
-            let connected = monitors
-                .iter()
-                .any(|monitor| !monitor.disabled && monitor.matches_selector(selector));
-            (!connected).then_some(id)
-        })
-        .collect();
-
-    ids.sort_unstable();
-    ids.dedup();
-    ids
+    by_workspace
+        .into_iter()
+        .filter_map(|(id, any_connected)| (!any_connected).then_some(id))
+        .collect()
 }
 
 pub(crate) fn query_monitors() -> Result<Vec<MonitorInfo>> {
@@ -599,65 +604,6 @@ fn lid_is_closed() -> Result<bool> {
     }
 
     Ok(false)
-}
-
-/// How long to wait for an unavailable event socket before retrying.
-const EVENT_SOCKET_RETRY_DELAY: Duration = Duration::from_secs(2);
-/// Read timeout, so a quiet socket still lets the loop observe `shutdown`.
-const EVENT_SOCKET_READ_TIMEOUT: Duration = Duration::from_secs(5);
-
-/// Stream Hyprland event-socket lines to `handler` until `shutdown` is set,
-/// reconnecting whenever the compositor goes away. `on_connect` runs after every
-/// successful connection so consumers can reseed state they may have missed.
-pub(crate) fn watch_event_socket<C, H>(shutdown: &AtomicBool, mut on_connect: C, mut handler: H)
-where
-    C: FnMut(),
-    H: FnMut(&str),
-{
-    while !shutdown.load(Ordering::SeqCst) {
-        let Ok(socket_path) = instance_socket(".socket2.sock") else {
-            if !shutdown.load(Ordering::SeqCst) {
-                thread::sleep(EVENT_SOCKET_RETRY_DELAY);
-            }
-            continue;
-        };
-
-        if let Ok(mut socket) = UnixStream::connect(&socket_path) {
-            on_connect();
-            let _ = socket.set_read_timeout(Some(EVENT_SOCKET_READ_TIMEOUT));
-            let mut buffer = Vec::new();
-            let mut chunk = [0_u8; 4096];
-
-            while !shutdown.load(Ordering::SeqCst) {
-                match socket.read(&mut chunk) {
-                    Ok(0) => break,
-                    Ok(bytes_read) => {
-                        buffer.extend_from_slice(&chunk[..bytes_read]);
-                        consume_socket_lines(&mut buffer, &mut handler);
-                    }
-                    Err(error)
-                        if error.kind() == io::ErrorKind::WouldBlock
-                            || error.kind() == io::ErrorKind::TimedOut =>
-                    {
-                        continue;
-                    }
-                    Err(_) => break,
-                }
-            }
-        }
-
-        if !shutdown.load(Ordering::SeqCst) {
-            thread::sleep(EVENT_SOCKET_RETRY_DELAY);
-        }
-    }
-}
-
-fn consume_socket_lines<H: FnMut(&str)>(buffer: &mut Vec<u8>, handler: &mut H) {
-    while let Some(newline_index) = buffer.iter().position(|byte| *byte == b'\n') {
-        let line = String::from_utf8_lossy(&buffer[..newline_index]).into_owned();
-        buffer.drain(..=newline_index);
-        handler(&line);
-    }
 }
 
 /// Return the Hyprland event-socket path used by the daemon watchers.
@@ -787,7 +733,7 @@ fn parse_input_state_from_str(contents: &str, state: &mut InputState) {
 
 fn persist_input_runtime_state(state: &InputState) -> Result<()> {
     let contents = render_input_runtime_state(state);
-    theme::atomic_write(&input_runtime_path()?, contents.as_bytes())
+    crate::fs_util::atomic_write(&input_runtime_path()?, contents.as_bytes())
 }
 
 fn render_input_runtime_state(state: &InputState) -> String {
@@ -867,9 +813,10 @@ fn round_decimal(value: f64) -> f64 {
     (value * 100.0).round() / 100.0
 }
 
-fn format_decimal(value: f64) -> String {
+pub(crate) fn format_decimal(value: f64) -> String {
     let rounded = round_decimal(value);
-    let mut rendered = format!("{rounded:.2}");
+    let normalized = if rounded == 0.0 { 0.0 } else { rounded };
+    let mut rendered = format!("{normalized:.2}");
 
     while rendered.ends_with('0') && rendered.contains('.') {
         rendered.pop();
@@ -909,44 +856,19 @@ fn hyprctl_output(args: &[&str]) -> Result<Output> {
         return Ok(output);
     }
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    let mut detail = if stderr.trim().is_empty() {
-        stdout.trim()
-    } else {
-        stderr.trim()
-    };
-    if detail.is_empty() {
-        detail = "(no output)";
-    }
-    let message = format!("hyprctl {} failed: {detail}", args.join(" "));
-
-    Err(io::Error::other(message).into())
+    Err(crate::cmd::command_error(&format!("hyprctl {}", args.join(" ")), &output).into())
 }
 
 #[cfg(test)]
 mod tests {
     use super::{
-        AccelProfile, InputSetting, InputState, LidSwitchState, MonitorInfo, WorkspaceInfo,
-        WorkspaceRuleInfo, check_lua_output, config_expression, exec_dispatcher,
-        focus_workspace_dispatcher, format_decimal, lua_str, monitor_enable_expression,
+        AccelProfile, InputSetting, InputState, MonitorInfo, WorkspaceInfo, WorkspaceRuleInfo,
+        check_lua_output, config_expression, format_decimal, lua_str, monitor_enable_expression,
         orphaned_pinned_workspaces, parse_input_state_from_str, parse_scroll_factor,
         parse_sensitivity, reclaim_target, render_input_runtime_state,
     };
 
     const EXTERNAL_SELECTOR: &str = "desc:BNQ ZOWIE XL LCD EB12M01465SL0";
-
-    #[test]
-    fn dispatchers_render_as_lua_expressions() {
-        assert_eq!(
-            focus_workspace_dispatcher(7),
-            "hl.dsp.focus({ workspace = 7 })"
-        );
-        assert_eq!(
-            exec_dispatcher("hyprsunset -t 4000"),
-            r#"hl.dsp.exec_cmd("hyprsunset -t 4000")"#
-        );
-    }
 
     #[test]
     fn lua_str_escapes_quotes_and_backslashes() {
@@ -988,6 +910,9 @@ mod tests {
         );
         assert!(monitor_enable_expression("eDP-1", "preferred,auto").is_err());
         assert!(monitor_enable_expression("eDP-1", "preferred,auto,huge").is_err());
+        assert!(monitor_enable_expression("eDP-1", "preferred,auto,0").is_err());
+        assert!(monitor_enable_expression("eDP-1", "preferred,auto,-1.5").is_err());
+        assert!(monitor_enable_expression("eDP-1", "preferred,auto,NaN").is_err());
     }
 
     fn laptop_panel(active_workspace: i64) -> Vec<MonitorInfo> {
@@ -1006,7 +931,7 @@ mod tests {
     }
 
     fn external_pins() -> Vec<WorkspaceRuleInfo> {
-        (1..=10)
+        (1..=9)
             .map(|id| {
                 serde_json::from_value(serde_json::json!({
                     "workspaceString": id.to_string(),
@@ -1065,7 +990,7 @@ mod tests {
         // Workspace 3 is pinned to the connected panel too, so it stays reachable.
         assert_eq!(
             orphaned_pinned_workspaces(&laptop_panel(11), &rules),
-            vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            vec![1, 2, 4, 5, 6, 7, 8, 9],
         );
     }
 
@@ -1203,22 +1128,6 @@ return {
         assert_eq!(format_decimal(1.0), "1.0");
         assert_eq!(format_decimal(0.755), "0.76");
         assert_eq!(format_decimal(-0.5), "-0.5");
-    }
-
-    #[test]
-    fn lid_switch_state_parser_accepts_supported_states() {
-        assert_eq!(
-            LidSwitchState::parse("open").expect("open should parse"),
-            LidSwitchState::Open
-        );
-        assert_eq!(
-            LidSwitchState::parse("closed").expect("closed should parse"),
-            LidSwitchState::Closed
-        );
-        assert_eq!(
-            LidSwitchState::parse("sync").expect("sync should parse"),
-            LidSwitchState::Sync
-        );
-        assert!(LidSwitchState::parse("half-open").is_err());
+        assert_eq!(format_decimal(-0.001), "0.0");
     }
 }

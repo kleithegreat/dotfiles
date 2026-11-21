@@ -17,9 +17,9 @@ pub const TARGET: Target = Target::concat(
 /// non-text contrast bar rather than the reading one.
 const WCAG_AA_NON_TEXT: f64 = 3.0;
 
-/// CIE76 separation two adjacent plates need before the chevron between them
+/// Oklab separation two adjacent plates need before the chevron between them
 /// reads as a seam rather than as one continuous bar.
-const MIN_PLATE_SEPARATION: f64 = 20.0;
+const MIN_PLATE_SEPARATION: f64 = 0.09;
 
 /// Neutral plates mix `bg` toward `fg` instead of reusing `bg1`/`bg3`, which are too close to `bg`.
 const TOOL_PLATE_MIX: f64 = 0.18;
@@ -183,32 +183,10 @@ pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<Stri
 mod tests {
     use super::*;
     use crate::theme::color::WCAG_AA_NORMAL_TEXT;
-    use crate::{
-        test_support::{ScopedEnvVar, env_lock, repo_root},
-        theme::targets::testsupport::load_repo_colors,
-    };
-    use std::fs;
-
-    fn repo_schemes() -> Vec<String> {
-        let mut names = fs::read_dir(repo_root().join("styling/colors"))
-            .expect("colors dir")
-            .filter_map(|entry| {
-                let path = entry.ok()?.path();
-                if path.extension()? != "json" {
-                    return None;
-                }
-                Some(path.file_stem()?.to_str()?.to_owned())
-            })
-            .collect::<Vec<_>>();
-        names.sort();
-        names
-    }
+    use crate::theme::targets::testsupport::{load_repo_colors, repo_schemes};
 
     #[test]
     fn every_scheme_keeps_plate_text_above_aa() {
-        let _lock = env_lock();
-        let _repo = ScopedEnvVar::set("DESKTOPCTL_REPO", repo_root().as_os_str());
-
         for name in repo_schemes() {
             let colors = load_repo_colors(&name);
             let plates = plates(&colors);
@@ -231,9 +209,6 @@ mod tests {
 
     #[test]
     fn every_scheme_keeps_the_coloured_plates_apart() {
-        let _lock = env_lock();
-        let _repo = ScopedEnvVar::set("DESKTOPCTL_REPO", repo_root().as_os_str());
-
         for name in repo_schemes() {
             let colors = load_repo_colors(&name);
             let plates = plates(&colors);
@@ -249,7 +224,7 @@ mod tests {
                     assert!(
                         distance >= MIN_PLATE_SEPARATION,
                         "{name}: {left_label} {left} and {right_label} {right} \
-                         are only {distance:.1} apart"
+                         are only {distance:.3} apart"
                     );
                 }
             }
@@ -258,9 +233,6 @@ mod tests {
 
     #[test]
     fn every_scheme_keeps_the_neutral_plates_stepping_away_from_the_background() {
-        let _lock = env_lock();
-        let _repo = ScopedEnvVar::set("DESKTOPCTL_REPO", repo_root().as_os_str());
-
         for name in repo_schemes() {
             let colors = load_repo_colors(&name);
             let plates = plates(&colors);
@@ -282,9 +254,6 @@ mod tests {
 
     #[test]
     fn gruvbox_reproduces_the_powerline_preset_the_order_came_from() {
-        let _lock = env_lock();
-        let _repo = ScopedEnvVar::set("DESKTOPCTL_REPO", repo_root().as_os_str());
-
         let colors = load_repo_colors("gruvbox-dark");
         let plates = plates(&colors);
         assert_eq!(plates.identity, colors.orange);
@@ -297,9 +266,6 @@ mod tests {
     /// identity plate has to leave the pair rather than repeat the path plate.
     #[test]
     fn a_scheme_whose_orange_is_its_yellow_moves_the_identity_plate() {
-        let _lock = env_lock();
-        let _repo = ScopedEnvVar::set("DESKTOPCTL_REPO", repo_root().as_os_str());
-
         let colors = load_repo_colors("rose-pine");
         assert_eq!(colors.orange, colors.yellow, "fixture assumption");
 

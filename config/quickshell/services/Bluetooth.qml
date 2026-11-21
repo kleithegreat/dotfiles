@@ -42,6 +42,8 @@ QtObject {
 
     // A one-shot discovery write while the adapter is off is refused and never retried.
     property var _seekers: []
+    property var _pairingDevice: null
+    readonly property string pairingAddress: _pairingDevice ? _pairingDevice.address : ""
 
     function seek(who, wanted) {
         const others = _seekers.filter(name => name !== who);
@@ -65,9 +67,52 @@ QtObject {
             device.disconnect();
     }
 
+    function _finishPairing() {
+        seek("pairing", false);
+        _pairingDevice = null;
+        pairTimeout.stop();
+    }
+
     function pair(device) {
-        if (device)
-            device.pair();
+        if (!device || _pairingDevice)
+            return;
+        _pairingDevice = device;
+        seek("pairing", true);
+        pairTimeout.restart();
+        device.pair();
+    }
+
+    readonly property Connections _pairingEvents: Connections {
+        target: root._pairingDevice
+        function onPairedChanged() {
+            const dev = root._pairingDevice;
+            if (!dev || !dev.paired)
+                return;
+            dev.trusted = true;
+            dev.connect();
+            root._finishPairing();
+        }
+        function onPairingChanged() {
+            const dev = root._pairingDevice;
+            if (!dev || dev.pairing || dev.paired)
+                return;
+            Toast.error("Could not pair with " + (dev.name || dev.address));
+            root._finishPairing();
+        }
+    }
+
+    readonly property Timer _pairTimeout: Timer {
+        id: pairTimeout
+        interval: 30000
+        onTriggered: {
+            const dev = root._pairingDevice;
+            if (!dev)
+                return;
+            if (dev.pairing)
+                dev.cancelPair();
+            Toast.error("Pairing timed out");
+            root._finishPairing();
+        }
     }
 
     function forget(device) {

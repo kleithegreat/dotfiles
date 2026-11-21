@@ -23,6 +23,7 @@ QtObject {
     property real _latitude: 0
     property real _longitude: 0
     property bool _located: false
+    property string _sunDay: ""
 
     readonly property bool imperial: Qt.locale().measurementSystem !== Locale.MetricSystem
     readonly property string unit: imperial ? "°F" : "°C"
@@ -55,15 +56,17 @@ QtObject {
     function refresh(force) {
         if (loading)
             return;
-        if (ready && !force && Date.now() - _fetchedAt < 900000)
+        const today = Qt.formatDate(new Date(), "yyyy-MM-dd");
+        const dayChanged = _sunDay !== today;
+        if (ready && !force && !dayChanged && Date.now() - _fetchedAt < 900000)
             return;
 
         loading = true;
         error = "";
-        if (_located)
-            _fetch();
-        else
+        if (!_located || force || dayChanged)
             sun.running = true;
+        else
+            _fetch();
     }
 
     property real _fetchedAt: 0
@@ -84,28 +87,38 @@ QtObject {
     // Slow on a cold geolocation lookup, so first open only, never startup.
     readonly property Process _sun: Process {
         id: sun
-        command: ["desktopctl", "sun", "status"]
+        command: ["desktopctl", "sun", "status", "--json"]
         stdout: StdioCollector {
             onStreamFinished: {
-                const coords = this.text.match(/Location:\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)/);
-                const named = this.text.match(/Place:\s*(.+)/);
-                const solar = this.text.match(/Sunrise:\s+([\d:]+)\s+Sunset:\s+([\d:]+)/);
-                if (named)
-                    root.place = named[1].trim();
-                if (coords) {
-                    root._latitude = parseFloat(coords[1]);
-                    root._longitude = parseFloat(coords[2]);
-                    root._located = true;
+                try {
+                    const data = JSON.parse(this.text);
+                    if (data.place)
+                        root.place = String(data.place);
+                    if (data.location && typeof data.location.latitude === "number" && typeof data.location.longitude === "number") {
+                        root._latitude = data.location.latitude;
+                        root._longitude = data.location.longitude;
+                        root._located = true;
+                    }
+                    if (data.sunset) {
+                        const when = new Date(data.sunset);
+                        root.sunset = isNaN(when.getTime()) ? "--:--" : Qt.formatDateTime(when, "HH:mm");
+                    } else {
+                        root.sunset = "--:--";
+                    }
+                    root._sunDay = Qt.formatDate(new Date(), "yyyy-MM-dd");
+                } catch (e) {
                 }
-                if (solar)
-                    root.sunset = solar[2];
                 root._fetch();
             }
         }
         onExited: code => {
-            if (code !== 0 && !root._located) {
-                root.loading = false;
-                root.error = "Location unavailable";
+            if (code !== 0) {
+                if (root._located) {
+                    root._fetch();
+                } else {
+                    root.loading = false;
+                    root.error = "Location unavailable";
+                }
             }
         }
     }

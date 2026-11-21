@@ -15,6 +15,7 @@ pub const TARGET: Target = Target::standalone(
 .comment("#");
 
 pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<String> {
+    let font_family = state.mono_font.replace('\\', "\\\\").replace('"', "\\\"");
     let mut out = format!(
         concat!(
             "[font]\n",
@@ -25,7 +26,7 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Strin
             "background = \"{}\"\n",
             "foreground = \"{}\"\n",
         ),
-        state.mono_font,
+        font_family,
         state.mono_font_size_for(TARGET.name)?,
         colors.bg,
         colors.fg,

@@ -45,26 +45,38 @@ QtObject {
 
     // ── Profile ────────────────────────────────────────────────────────────
 
-    property string reported: "unknown"
+    readonly property string reported: {
+        switch (PowerProfiles.profile) {
+        case PowerProfile.Performance:
+            return "performance";
+        case PowerProfile.PowerSaver:
+            return "power-saver";
+        default:
+            return "balanced";
+        }
+    }
 
-    // The requested profile until the backend confirms it (~1.5 s), as `Toggle.pending`.
     property string pendingProfile: ""
     readonly property bool switching: pendingProfile !== "" && pendingProfile !== reported
     readonly property string profile: switching ? pendingProfile : reported
 
-    readonly property var profiles: [{ id: "performance", label: "Performance", icon: "flame" }, { id: "balanced", label: "Balanced", icon: "speed" }, { id: "power-saver", label: "Power Saver", icon: "leaf" }]
+    readonly property var profiles: [
+        { id: "performance", label: "Performance", icon: "flame" },
+        { id: "balanced", label: "Balanced", icon: "speed" },
+        { id: "power-saver", label: "Power Saver", icon: "leaf" }
+    ]
 
     onReportedChanged: pendingProfile = ""
 
-    function detect() {
-        ppctl.running = true;
-    }
-
     function setProfile(id) {
+        if (id === "performance" && !PowerProfiles.hasPerformanceProfile)
+            return;
         pendingProfile = id;
-        profileWriter.command = ["powerprofilesctl", "set", id];
-        profileWriter.running = true;
-        settle.restart();
+        PowerProfiles.profile = id === "performance"
+            ? PowerProfile.Performance
+            : id === "power-saver"
+                ? PowerProfile.PowerSaver
+                : PowerProfile.Balanced;
         abandon.restart();
     }
 
@@ -113,41 +125,10 @@ QtObject {
         chargeWriter.running = true;
     }
 
-    Component.onCompleted: detect()
-
-    // ── Processes ──────────────────────────────────────────────────────────
-
-    readonly property Process _ppctl: Process {
-        id: ppctl
-        command: ["powerprofilesctl", "get"]
-        stdout: StdioCollector {
-            onStreamFinished: root.reported = this.text.trim() || "unknown"
-        }
-    }
-
-    readonly property Process _profileWriter: Process {
-        id: profileWriter
-        stderr: StdioCollector {
-            id: profileFailure
-        }
-        onExited: code => {
-            if (code !== 0) {
-                root.pendingProfile = "";
-                Toast.failure(profileFailure.text, "Could not change the power profile");
-            }
-        }
-    }
-
-    readonly property Timer _settle: Timer {
-        id: settle
-        interval: 1500
-        onTriggered: root.detect()
-    }
-
     // A write the backend never confirms must not stay pending forever.
     readonly property Timer _abandon: Timer {
         id: abandon
-        interval: 3000
+        interval: 2000
         onTriggered: root.pendingProfile = ""
     }
 

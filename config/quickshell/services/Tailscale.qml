@@ -40,6 +40,8 @@ QtObject {
         command: ["tailscale", "status", "--json"]
         stdout: StdioCollector {
             onStreamFinished: {
+                if (command.running || root.pending !== "")
+                    return;
                 try {
                     const data = JSON.parse(this.text);
                     root.state = data.BackendState || "NoState";

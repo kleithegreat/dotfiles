@@ -28,7 +28,7 @@ Item {
         return { x: minX, y: minY, width: Math.max(1, maxX - minX), height: Math.max(1, maxY - minY) };
     }
 
-    readonly property real factor: Math.min((width - pad * 2) / bounds.width, (height - pad * 2) / bounds.height)
+    readonly property real factor: Math.max(0.001, Math.min((width - pad * 2) / bounds.width, (height - pad * 2) / bounds.height))
     readonly property real originX: (width - bounds.width * factor) / 2 - bounds.x * factor
     readonly property real originY: (height - bounds.height * factor) / 2 - bounds.y * factor
 
@@ -109,7 +109,8 @@ Item {
                 id: drag
 
                 anchors.fill: parent
-                cursorShape: pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor
+                enabled: root.layout.length > 1
+                cursorShape: enabled ? (pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor) : Qt.ArrowCursor
                 // See "claimsDrag" in docs/quickshell.md.
                 preventStealing: true
 
@@ -126,6 +127,11 @@ Item {
                         return;
                     tile.slipX += mouse.x - grabX;
                     tile.slipY += mouse.y - grabY;
+                }
+
+                onCanceled: {
+                    tile.slipX = 0;
+                    tile.slipY = 0;
                 }
 
                 onReleased: {

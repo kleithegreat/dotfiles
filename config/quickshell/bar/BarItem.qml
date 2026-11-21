@@ -24,7 +24,7 @@ Ui.Pressable {
 
     // Screen x of this item's centre. Asked for, never bound: mapping functions do not re-evaluate.
     function anchorPoint() {
-        return mapToItem(null, width / 2, 0).x + Metrics.barMargin;
+        return mapToItem(null, width / 2, 0).x + (Metrics.barMargin - Metrics.barShadowPad);
     }
 
     signal activated(real anchor)

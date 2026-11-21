@@ -44,8 +44,11 @@ impl BrightnessController {
     }
 
     pub fn set(&self, device: Option<&str>, percent: u16) -> crate::Result<Value> {
+        self.inner.abort_dim.store(true, Ordering::Relaxed);
+        let key = brightness::resolve_device_key(device)?;
         let device_status = {
-            let _guard = self.lock_op()?;
+            let mut saved = self.lock_op()?;
+            saved.remove(&key);
             brightness::set_core(device, percent)?
         };
         self.publish(&device_status, false);
@@ -53,8 +56,11 @@ impl BrightnessController {
     }
 
     pub fn step(&self, device: Option<&str>, direction: f64) -> crate::Result<Value> {
+        self.inner.abort_dim.store(true, Ordering::Relaxed);
+        let key = brightness::resolve_device_key(device)?;
         let device_status = {
-            let _guard = self.lock_op()?;
+            let mut saved = self.lock_op()?;
+            saved.remove(&key);
             brightness::step_core(device, direction)?
         };
         self.publish(&device_status, true);

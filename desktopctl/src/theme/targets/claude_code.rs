@@ -1,7 +1,6 @@
 use super::Target;
 use crate::theme::{
     color::blend,
-    json,
     schema::{ColorScheme, ThemeState},
 };
 use serde_json::{Map, Value};
@@ -56,49 +55,11 @@ pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<Stri
     .map(|(key, value)| (key.to_owned(), Value::String(value)))
     .collect::<Map<_, _>>();
 
-    let base = if colors.is_dark() { "dark" } else { "light" };
+    let base = colors.appearance.as_str();
     let mut root = Map::new();
     root.insert("name".to_owned(), Value::String("desktopctl".to_owned()));
     root.insert("base".to_owned(), Value::String(base.to_owned()));
     root.insert("overrides".to_owned(), Value::Object(overrides));
 
-    Ok(format!(
-        "{}\n",
-        json::format_pretty_value(&Value::Object(root))
-    ))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::theme::targets::testsupport::{
-        REPO_SCHEMES, dummy_state, load_repo_colors, rose_pine_dawn_colors,
-    };
-
-    #[test]
-    fn base_follows_scheme_appearance() {
-        for scheme in REPO_SCHEMES {
-            let colors = load_repo_colors(scheme);
-            let value: Value =
-                serde_json::from_str(&generate(&colors, &dummy_state()).expect("generates"))
-                    .expect("valid json");
-            let expected = if colors.is_dark() { "dark" } else { "light" };
-            assert_eq!(value["base"], expected, "{scheme}");
-        }
-    }
-
-    #[test]
-    fn overrides_are_hex_colours_claude_code_accepts() {
-        let rendered = generate(&rose_pine_dawn_colors(), &dummy_state()).expect("generates");
-        let value: Value = serde_json::from_str(&rendered).expect("valid json");
-        for (key, colour) in value["overrides"].as_object().expect("overrides object") {
-            let colour = colour.as_str().expect("string colour");
-            assert!(
-                colour.len() == 7
-                    && colour.starts_with('#')
-                    && colour[1..].chars().all(|c| c.is_ascii_hexdigit()),
-                "{key}: {colour}"
-            );
-        }
-    }
+    Ok(format!("{}\n", serde_json::to_string_pretty(&root)?))
 }

@@ -26,7 +26,7 @@ use owly_airdrop::{
 };
 use serde_json::Value;
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     io,
     net::{Ipv6Addr, SocketAddrV6},
     path::PathBuf,
@@ -233,8 +233,7 @@ struct Scratch(PathBuf);
 
 impl Scratch {
     fn new() -> io::Result<Self> {
-        let mut bytes = [0u8; 8];
-        getrandom::fill(&mut bytes).map_err(|error| io::Error::other(error.to_string()))?;
+        let bytes: [u8; 8] = random()?;
         let dir = crate::paths::xdg_runtime_dir()?
             .join("desktopctl/airdrop")
             .join(format!("{:016x}", u64::from_ne_bytes(bytes)));
@@ -249,10 +248,7 @@ impl Scratch {
             Ok(image::ImageFormat::Png) => "png",
             _ => {
                 let head: Vec<String> = bytes.iter().take(12).map(|b| format!("{b:02x}")).collect();
-                eprintln!(
-                    "desktopctl: airdrop: offer thumbnail not drawable: {}",
-                    head.join(" ")
-                );
+                tracing::warn!(head = %head.join(" "), "airdrop: offer thumbnail not drawable");
                 return None;
             }
         };
@@ -316,30 +312,60 @@ struct Sharing {
     payload: Payload,
     found: HashMap<String, (SocketAddrV6, u32)>,
     advert: Option<Advertising>,
-    tasks: Tasks,
+    send_task: Option<JoinHandle<()>>,
+    _tasks: Tasks,
+}
+
+impl Drop for Sharing {
+    fn drop(&mut self) {
+        if let Some(task) = self.send_task.take() {
+            task.abort();
+        }
+    }
+}
+
+enum RadioState {
+    Idle,
+    Acquiring,
+    Leased(Lease),
+    /// The lease being given back, until owlyd says it is idle.
+    Releasing(u64),
+}
+
+#[derive(Clone, Copy)]
+struct VisibleDeadline {
+    until: Instant,
+    unix_secs: u64,
+}
+
+struct ActorState {
+    internal: mpsc::UnboundedSender<Internal>,
+    controller: AirDropController,
+    status: Status,
+    name: String,
+    want_visible: Option<VisibleDeadline>,
+    want_share: Option<Outgoing>,
+    radio_state: RadioState,
+    receiving: Option<Receiving>,
+    sharing: Option<Sharing>,
 }
 
 struct Actor {
     conn: zbus::Connection,
     radio: RadioProxy<'static>,
-    internal: mpsc::UnboundedSender<Internal>,
-    controller: AirDropController,
-    status: Status,
-    name: String,
-    want_visible: Option<Instant>,
-    want_share: Option<Outgoing>,
-    lease: Option<Lease>,
-    acquiring: bool,
-    /// The lease being given back, until owlyd says it is idle.
-    releasing: Option<u64>,
-    receiving: Option<Receiving>,
-    sharing: Option<Sharing>,
+    state: ActorState,
 }
 
 pub async fn run(
     controller: AirDropController,
+    system_bus: Option<zbus::Connection>,
     mut shutdown: watch::Receiver<bool>,
+    health: crate::daemon::SubsystemHealth,
 ) -> crate::Result<()> {
+    let Some(conn) = system_bus else {
+        health.set_degraded("airdrop", "system D-Bus unavailable");
+        return Ok(());
+    };
     let mut inbox = controller
         .inbox
         .lock()
@@ -348,53 +374,49 @@ pub async fn run(
         .ok_or_else(|| io::Error::other("airdrop already running"))?;
     // owly-airdrop leaves rustls's provider to its caller.
     let _ = rustls::crypto::ring::default_provider().install_default();
-    let conn = zbus::Connection::system().await?;
     let radio = RadioProxy::builder(&conn)
         .cache_properties(zbus::proxy::CacheProperties::No)
         .build()
         .await?;
     let mut states = radio.receive_state_changed().await?;
     let (internal, mut internals) = mpsc::unbounded_channel();
+    let mode = probe(&radio).await;
+    if mode.is_some() {
+        health.set_running("airdrop");
+    } else {
+        health.set_degraded("airdrop", "owlyd unavailable or no usable AirDrop radio");
+    }
     let mut actor = Actor {
-        status: Status {
-            mode: probe(&radio).await,
-            ..Status::default()
-        },
         conn,
         radio,
-        internal,
-        controller,
-        name: hostname(),
-        want_visible: None,
-        want_share: None,
-        lease: None,
-        acquiring: false,
-        releasing: None,
-        receiving: None,
-        sharing: None,
+        state: ActorState::new(internal, controller, hostname(), mode),
     };
-    actor.publish();
+    actor.state.publish();
 
     loop {
-        let deadline = actor.want_visible;
+        let deadline = actor.state.want_visible.map(|visible| visible.until);
         tokio::select! {
             Some((command, reply)) = inbox.recv() => {
-                let _ = reply.send(actor.command(command));
+                let _ = reply.send(actor.state.command(command));
             }
-            Some(event) = internals.recv() => actor.internal(event),
+            Some(event) = internals.recv() => actor.state.internal(event),
             Some(signal) = states.next() => {
                 if let Ok(args) = signal.args() {
-                    actor.radio_state(args.lease, &args.state, &args.reason);
+                    actor.state.radio_state(args.lease, &args.state, &args.reason);
                 }
             }
             () = tokio::time::sleep_until(deadline.unwrap_or_else(Instant::now)), if deadline.is_some() => {
-                actor.want_visible = None;
+                actor.state.want_visible = None;
             }
             // owlyd ends a lease whose owner leaves the bus, so exiting gives the radio back.
-            _ = shutdown.changed() => return Ok(()),
+            _ = shutdown.changed() => {
+                actor.shutdown().await;
+                health.set_stopped("airdrop");
+                return Ok(());
+            }
         }
         actor.reconcile().await;
-        actor.publish();
+        actor.state.publish();
     }
 }
 
@@ -403,7 +425,7 @@ async fn probe(radio: &RadioProxy<'_>) -> Option<String> {
     let report: Value = match radio.probe().await {
         Ok(report) => serde_json::from_str(&report).ok()?,
         Err(error) => {
-            eprintln!("desktopctl: airdrop: owlyd unreachable: {error}");
+            tracing::warn!(error = %error, "airdrop: owlyd unreachable");
             return None;
         }
     };
@@ -431,7 +453,29 @@ fn hostname() -> String {
     }
 }
 
-impl Actor {
+impl ActorState {
+    fn new(
+        internal: mpsc::UnboundedSender<Internal>,
+        controller: AirDropController,
+        name: String,
+        mode: Option<String>,
+    ) -> Self {
+        Self {
+            internal,
+            controller,
+            status: Status {
+                mode,
+                ..Status::default()
+            },
+            name,
+            want_visible: None,
+            want_share: None,
+            radio_state: RadioState::Idle,
+            receiving: None,
+            sharing: None,
+        }
+    }
+
     fn command(&mut self, command: Command) -> Result<(), String> {
         match command {
             Command::Visible(true) => {
@@ -439,7 +483,11 @@ impl Actor {
                     .mode
                     .as_ref()
                     .ok_or("AirDrop has no radio it can use here")?;
-                self.want_visible = Some(Instant::now() + airdrop::VISIBLE_FOR);
+                let until = Instant::now() + airdrop::VISIBLE_FOR;
+                let unix_secs = (SystemTime::now() + airdrop::VISIBLE_FOR)
+                    .duration_since(UNIX_EPOCH)
+                    .map_or(0, |since| since.as_secs());
+                self.want_visible = Some(VisibleDeadline { until, unix_secs });
             }
             Command::Visible(false) => self.want_visible = None,
             Command::Answer { id, accept } => {
@@ -468,9 +516,9 @@ impl Actor {
                     .mode
                     .as_ref()
                     .ok_or("AirDrop has no radio it can use here")?;
-                self.sharing = None;
+                self.stop_sharing();
                 self.status.share = Some(Share {
-                    kind: outgoing.kind,
+                    kind: outgoing.kind.to_owned(),
                     items: outgoing.items.clone(),
                     preview: outgoing.preview.clone(),
                     receivers: Vec::new(),
@@ -485,6 +533,14 @@ impl Actor {
                     .share
                     .as_mut()
                     .ok_or("nothing is being shared")?;
+                if sharing.send_task.is_some()
+                    || share
+                        .sending
+                        .as_ref()
+                        .is_some_and(|s| matches!(s.state.as_str(), "asking" | "sending"))
+                {
+                    return Err("a send is already in progress".to_owned());
+                }
                 let &(addr, flags) = sharing.found.get(&id).ok_or("that receiver is gone")?;
                 let to = share
                     .receivers
@@ -494,12 +550,12 @@ impl Actor {
                     .unwrap_or_default();
                 share.sending = Some(Sending {
                     to,
-                    state: "asking",
+                    state: "asking".to_owned(),
                     sent: 0,
                     total: 0,
                     error: None,
                 });
-                sharing.tasks.0.push(send_to(
+                sharing.send_task = Some(send_to(
                     sharing.sender.clone(),
                     sharing.payload.clone(),
                     addr,
@@ -518,13 +574,21 @@ impl Actor {
     fn internal(&mut self, event: Internal) {
         match event {
             Internal::Leased(result) => {
-                self.acquiring = false;
-                match result {
-                    Ok(lease) => self.lease = Some(lease),
-                    Err(error) => self.give_up(&error),
+                if matches!(self.radio_state, RadioState::Acquiring) {
+                    match result {
+                        Ok(lease) => self.radio_state = RadioState::Leased(lease),
+                        Err(error) => {
+                            self.radio_state = RadioState::Idle;
+                            self.give_up(&error);
+                        }
+                    }
                 }
             }
-            Internal::Released => self.releasing = None,
+            Internal::Released => {
+                if matches!(self.radio_state, RadioState::Releasing(_)) {
+                    self.radio_state = RadioState::Idle;
+                }
+            }
             Internal::Receiver(event) => self.received(*event),
             Internal::Listed(found) => {
                 let (Some(sharing), Some(share)) = (&mut self.sharing, &mut self.status.share)
@@ -555,13 +619,16 @@ impl Actor {
                 else {
                     return;
                 };
-                sending.state = "sending";
+                sending.state = "sending".to_owned();
                 if let send::Event::Progress(progress) = progress {
                     sending.sent = progress.sent;
                     sending.total = progress.total;
                 }
             }
             Internal::Sent(outcome) => {
+                if let Some(sharing) = &mut self.sharing {
+                    sharing.send_task = None;
+                }
                 let Some(sending) = self
                     .status
                     .share
@@ -570,11 +637,13 @@ impl Actor {
                 else {
                     return;
                 };
-                (sending.state, sending.error) = match outcome {
+                let (state_str, err) = match outcome {
                     Ok(Outcome::Delivered) => ("sent", None),
                     Ok(Outcome::Declined) => ("declined", None),
                     Ok(Outcome::Failed(reason)) | Err(reason) => ("failed", Some(reason)),
                 };
+                sending.state = state_str.to_owned();
+                sending.error = err;
             }
         }
     }
@@ -648,11 +717,13 @@ impl Actor {
         if state != "idle" {
             return;
         }
-        if self.releasing == Some(lease) {
-            self.releasing = None;
-        } else if self.lease.as_ref().is_some_and(|ours| ours.id == lease) {
-            self.lease = None;
-            self.give_up(reason);
+        match &self.radio_state {
+            RadioState::Releasing(id) if *id == lease => self.radio_state = RadioState::Idle,
+            RadioState::Leased(ours) if ours.id == lease => {
+                self.radio_state = RadioState::Idle;
+                self.give_up(reason);
+            }
+            _ => {}
         }
     }
 
@@ -666,54 +737,88 @@ impl Actor {
             .publish("airdrop.failed", serde_json::json!({ "reason": reason }));
     }
 
-    async fn reconcile(&mut self) {
-        let wanted = self.want_visible.is_some() || self.want_share.is_some();
-        if wanted && self.lease.is_none() && !self.acquiring {
-            self.acquiring = true;
-            tokio::spawn(acquire(self.radio.clone(), self.internal.clone()));
+    fn stop_sharing(&mut self) {
+        if let Some(mut sharing) = self.sharing.take()
+            && let Some(advert) = sharing.advert.take()
+        {
+            tokio::spawn(advert.stop());
         }
-        if self.want_visible.is_none() {
-            self.receiving = None;
-            self.status.requests.clear();
-        }
-        if self.want_share.is_none() {
-            self.stop_sharing();
-        }
-        if !wanted {
-            if let Some(lease) = self.lease.take() {
-                self.releasing = Some(lease.id);
-                tokio::spawn(release(self.radio.clone(), lease.id, self.internal.clone()));
-            }
-            return;
-        }
-        let Some(lease) = self.lease.clone() else {
+    }
+
+    fn publish(&self) {
+        let mut status = self.status.clone();
+        status.busy = matches!(
+            self.radio_state,
+            RadioState::Acquiring | RadioState::Releasing(_)
+        );
+        status.visible_until = self.want_visible.map(|visible| visible.unix_secs);
+        let Ok(mut shared) = self.controller.status.lock() else {
             return;
         };
+        if *shared != status {
+            let value = serde_json::to_value(&status).unwrap_or_default();
+            *shared = status;
+            self.controller.events.publish("airdrop.changed", value);
+        }
+    }
+}
 
-        if self.want_visible.is_some() && self.receiving.is_none() {
+impl Actor {
+    async fn reconcile(&mut self) {
+        let wanted = self.state.want_visible.is_some() || self.state.want_share.is_some();
+        if self.state.want_visible.is_none() {
+            self.state.receiving = None;
+            self.state.status.requests.clear();
+        }
+        if self.state.want_share.is_none() {
+            self.state.stop_sharing();
+        }
+
+        let lease = match &self.state.radio_state {
+            RadioState::Idle if wanted => {
+                self.state.radio_state = RadioState::Acquiring;
+                tokio::spawn(acquire(self.radio.clone(), self.state.internal.clone()));
+                return;
+            }
+            RadioState::Leased(lease) if !wanted => {
+                let id = lease.id;
+                self.state.radio_state = RadioState::Releasing(id);
+                tokio::spawn(release(self.radio.clone(), id, self.state.internal.clone()));
+                return;
+            }
+            RadioState::Leased(lease) => lease.clone(),
+            RadioState::Idle | RadioState::Acquiring | RadioState::Releasing(_) => return,
+        };
+
+        if self.state.want_visible.is_some() && self.state.receiving.is_none() {
             match self.start_receiving(&lease).await {
-                Ok(receiving) => self.receiving = Some(receiving),
+                Ok(receiving) => self.state.receiving = Some(receiving),
                 Err(error) => {
-                    self.want_visible = None;
-                    self.give_up(&format!("Receiving failed: {error}"));
+                    self.state.want_visible = None;
+                    self.state.give_up(&format!("Receiving failed: {error}"));
                 }
             }
         }
-        if let Some(outgoing) = &self.want_share
-            && self.sharing.is_none()
+        if self.state.sharing.is_none()
+            && let Some(payload) = self
+                .state
+                .want_share
+                .as_ref()
+                .map(|outgoing| outgoing.payload.clone())
         {
-            match self.start_sharing(&lease, outgoing.payload.clone()).await {
-                Ok(sharing) => self.sharing = Some(sharing),
-                Err(error) => self.give_up(&format!("Sharing failed: {error}")),
+            match self.start_sharing(&lease, payload).await {
+                Ok(sharing) => self.state.sharing = Some(sharing),
+                Err(error) => self.state.give_up(&format!("Sharing failed: {error}")),
             }
         }
     }
 
-    fn stop_sharing(&mut self) {
-        if let Some(sharing) = self.sharing.take()
-            && let Some(advert) = sharing.advert
+    async fn shutdown(&mut self) {
+        self.state.receiving = None;
+        if let Some(mut sharing) = self.state.sharing.take()
+            && let Some(advert) = sharing.advert.take()
         {
-            tokio::spawn(advert.stop());
+            advert.stop().await;
         }
     }
 
@@ -721,7 +826,7 @@ impl Actor {
         let identity = Identity::load_or_generate(&identity_dir()?)?;
         let destination = airdrop::downloads().map_err(io::Error::other)?;
         let addr = SocketAddrV6::new(lease.address, RECEIVE_PORT, 0, lease.index);
-        let options = Options::new(ReceiverConfig::new(self.name.clone()), destination);
+        let options = Options::new(ReceiverConfig::new(self.state.name.clone()), destination);
         let (receiver, mut events) = Receiver::bind(addr, &identity, options).await?;
         let instance = service_id()?;
         let service = Service {
@@ -735,7 +840,7 @@ impl Actor {
             .with_burst(lease.burst)
             .register(service)
             .await?;
-        let internal = self.internal.clone();
+        let internal = self.state.internal.clone();
         let forward = tokio::spawn(async move {
             while let Some(event) = events.recv().await {
                 if internal.send(Internal::Receiver(Box::new(event))).is_err() {
@@ -755,14 +860,15 @@ impl Actor {
     /// since an iPhone's mDNS does not reach `awdl0`.
     async fn start_sharing(&self, lease: &Lease, payload: Payload) -> io::Result<Sharing> {
         let sender = Arc::new(Sender::new(SenderConfig::new(
-            self.name.clone(),
+            self.state.name.clone(),
             service_id()?,
         ))?);
         let advert = Advertising::start(&self.conn)
             .await
             .inspect_err(|error| {
-                eprintln!(
-                    "desktopctl: airdrop: no BLE advert, so asleep iPhones stay asleep: {error}"
+                tracing::warn!(
+                    error = %error,
+                    "airdrop: no BLE advert, so asleep iPhones stay asleep"
                 )
             })
             .ok();
@@ -770,7 +876,7 @@ impl Actor {
         let index = lease.index;
 
         let by_mdns = tokio::spawn({
-            let (sender, internal) = (sender.clone(), self.internal.clone());
+            let (sender, internal) = (sender.clone(), self.state.internal.clone());
             async move {
                 while let Some(event) = browse.events.recv().await {
                     let event = match event {
@@ -795,11 +901,23 @@ impl Actor {
             }
         });
         let by_peers = tokio::spawn({
-            let (sender, internal, radio) =
-                (sender.clone(), self.internal.clone(), self.radio.clone());
+            let (sender, internal, radio) = (
+                sender.clone(),
+                self.state.internal.clone(),
+                self.radio.clone(),
+            );
             async move {
+                let mut seen: HashSet<String> = HashSet::new();
                 loop {
-                    for mac in peers(&radio).await {
+                    let current: HashSet<String> = peers(&radio).await.into_iter().collect();
+                    let lost: Vec<String> = seen.difference(&current).cloned().collect();
+                    for gone in lost {
+                        seen.remove(&gone);
+                        if internal.send(Internal::Lost(gone)).is_err() {
+                            return;
+                        }
+                    }
+                    for mac in current {
                         let Some(address) = airdrop::link_local(&mac) else {
                             continue;
                         };
@@ -809,6 +927,7 @@ impl Actor {
                         else {
                             continue;
                         };
+                        seen.insert(mac.clone());
                         let found = Found {
                             id: mac,
                             name: receiver.computer_name,
@@ -829,27 +948,9 @@ impl Actor {
             payload,
             found: HashMap::new(),
             advert,
-            tasks: Tasks(vec![by_mdns, by_peers]),
+            send_task: None,
+            _tasks: Tasks(vec![by_mdns, by_peers]),
         })
-    }
-
-    fn publish(&self) {
-        let mut status = self.status.clone();
-        status.busy = self.acquiring || self.releasing.is_some();
-        status.visible_until = self.want_visible.map(|deadline| {
-            let left = deadline.saturating_duration_since(Instant::now());
-            (SystemTime::now() + left)
-                .duration_since(UNIX_EPOCH)
-                .map_or(0, |since| since.as_secs())
-        });
-        let Ok(mut shared) = self.controller.status.lock() else {
-            return;
-        };
-        if *shared != status {
-            let value = serde_json::to_value(&status).unwrap_or_default();
-            *shared = status;
-            self.controller.events.publish("airdrop.changed", value);
-        }
     }
 }
 
@@ -866,7 +967,7 @@ async fn acquire(radio: RadioProxy<'static>, internal: mpsc::UnboundedSender<Int
 
 async fn release(radio: RadioProxy<'static>, id: u64, internal: mpsc::UnboundedSender<Internal>) {
     if let Err(error) = radio.release(id).await {
-        eprintln!("desktopctl: airdrop: releasing the radio: {error}");
+        tracing::warn!(error = %error, "airdrop: releasing the radio failed");
     }
     let _ = internal.send(Internal::Released);
 }
@@ -1091,6 +1192,38 @@ impl Advertising {
 mod tests {
     use super::*;
 
+    fn state_with_events(
+        mode: Option<&str>,
+    ) -> (
+        ActorState,
+        mpsc::UnboundedReceiver<Internal>,
+        tokio::sync::broadcast::Receiver<Arc<crate::ipc::EventEnvelope>>,
+    ) {
+        let events = Events::new();
+        let rx = events.receiver();
+        let controller = AirDropController::new(events);
+        let (internal_tx, internal_rx) = mpsc::unbounded_channel();
+        (
+            ActorState::new(
+                internal_tx,
+                controller,
+                "test-host".to_owned(),
+                mode.map(str::to_owned),
+            ),
+            internal_rx,
+            rx,
+        )
+    }
+
+    fn dummy_lease(id: u64) -> Lease {
+        Lease {
+            id,
+            index: 1,
+            address: Ipv6Addr::LOCALHOST,
+            burst: None,
+        }
+    }
+
     #[test]
     fn text_that_is_one_link_goes_as_that_link() {
         let outgoing = Outgoing::text("  https://example.com/a?b=c \n").expect("link");
@@ -1103,5 +1236,149 @@ mod tests {
         assert_eq!(note_title("\n  Groceries / list\nmilk"), "Groceries  list");
         assert_eq!(note_title(&"x".repeat(60)), "x".repeat(40));
         assert_eq!(note_title(" \u{7}"), "Text");
+    }
+
+    #[test]
+    fn radio_state_transitions_and_unexpected_idle_publish_failure() {
+        let (mut state, _rx, _events) = state_with_events(None);
+        assert!(state.command(Command::Visible(true)).is_err());
+
+        let (mut state, _rx, mut events2) = state_with_events(Some("awdl0"));
+        state
+            .command(Command::Visible(true))
+            .expect("visible enabled");
+        assert!(state.want_visible.is_some());
+        state.publish();
+        assert!(state.controller.status().expect("status")["visible_until"].is_u64());
+
+        state.radio_state = RadioState::Acquiring;
+        state.publish();
+        assert_eq!(state.controller.status().expect("status")["busy"], true);
+        state.internal(Internal::Leased(Ok(dummy_lease(7))));
+        assert!(matches!(state.radio_state, RadioState::Leased(ref l) if l.id == 7));
+        state.publish();
+        assert_eq!(state.controller.status().expect("status")["busy"], false);
+
+        // Unrelated lease or non-idle signal does not abort the active lease.
+        state.radio_state(7, "active", "");
+        state.radio_state(99, "idle", "stale");
+        assert!(state.want_visible.is_some());
+
+        // Unexpected idle on the active lease stops everything and emits airdrop.failed.
+        state.want_share = Some(Outgoing::links(vec!["https://example.com".to_owned()]));
+        state
+            .command(Command::Share(Outgoing::links(vec![
+                "https://example.com".to_owned(),
+            ])))
+            .expect("share");
+        state.radio_state(7, "idle", "wifi off");
+        assert!(matches!(state.radio_state, RadioState::Idle));
+        assert!(state.want_visible.is_none());
+        assert!(state.want_share.is_none());
+        assert!(state.status.share.is_none());
+
+        let mut saw_failed = false;
+        while let Ok(event) = events2.try_recv() {
+            if event.event == "airdrop.failed" {
+                saw_failed = event.data["reason"] == "wifi off";
+            }
+        }
+        assert!(saw_failed);
+
+        // Voluntary release does not emit airdrop.failed.
+        state.radio_state = RadioState::Releasing(8);
+        state.radio_state(8, "idle", "released");
+        assert!(matches!(state.radio_state, RadioState::Idle));
+        while let Ok(event) = events2.try_recv() {
+            assert_ne!(event.event, "airdrop.failed");
+        }
+    }
+
+    #[tokio::test]
+    async fn sharing_tracks_peers_rejects_concurrent_send_and_resets_on_new_share() {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+        let (mut state, _rx, _events) = state_with_events(Some("awdl0"));
+        let outgoing = Outgoing::links(vec!["https://example.com".to_owned()]);
+        state.command(Command::Share(outgoing)).expect("share");
+
+        let sender = Arc::new(
+            Sender::new(SenderConfig::new(
+                "test".to_owned(),
+                "0123456789abcdef".to_owned(),
+            ))
+            .expect("sender"),
+        );
+        state.sharing = Some(Sharing {
+            sender,
+            payload: Payload::Urls(vec!["https://example.com".to_owned()]),
+            found: HashMap::new(),
+            advert: None,
+            send_task: None,
+            _tasks: Tasks::default(),
+        });
+
+        let addr = SocketAddrV6::new(Ipv6Addr::LOCALHOST, AIRDROP_PORT, 0, 1);
+        state.internal(Internal::Listed(Found {
+            id: "peer1".to_owned(),
+            name: "iPhone".to_owned(),
+            addr,
+            flags: 0,
+        }));
+        assert_eq!(
+            state.status.share.as_ref().expect("share").receivers.len(),
+            1
+        );
+
+        state
+            .command(Command::Send("peer1".to_owned()))
+            .expect("send starts");
+        assert_eq!(
+            state
+                .status
+                .share
+                .as_ref()
+                .and_then(|s| s.sending.as_ref())
+                .map(|s| s.state.as_str()),
+            Some("asking")
+        );
+        assert!(state.command(Command::Send("peer1".to_owned())).is_err());
+
+        state.internal(Internal::Sent(Ok(Outcome::Declined)));
+        assert_eq!(
+            state
+                .status
+                .share
+                .as_ref()
+                .and_then(|s| s.sending.as_ref())
+                .map(|s| s.state.as_str()),
+            Some("declined")
+        );
+
+        state.internal(Internal::Lost("peer1".to_owned()));
+        assert!(
+            state
+                .status
+                .share
+                .as_ref()
+                .expect("share")
+                .receivers
+                .is_empty()
+        );
+
+        // Starting a new share drops prior active sharing and clears receivers/sending state.
+        state
+            .command(Command::Share(Outgoing::links(vec![
+                "https://example.org".to_owned(),
+            ])))
+            .expect("replace share");
+        assert!(state.sharing.is_none());
+        assert_eq!(
+            state.status.share.as_ref().expect("new share").items,
+            vec!["https://example.org".to_owned()]
+        );
+
+        state.command(Command::Cancel).expect("cancel share");
+        assert!(state.want_share.is_none());
+        assert!(state.status.share.is_none());
     }
 }

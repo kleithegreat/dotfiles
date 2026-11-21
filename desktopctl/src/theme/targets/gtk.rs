@@ -1,9 +1,11 @@
 use super::Target;
-use crate::theme::{
-    atomic_write, color,
-    command::{GNOME_INTERFACE_DCONF_DIR, dconf_write},
-    expand_user_path,
-    schema::{ColorScheme, ThemeState},
+use crate::{
+    cmd::{GNOME_INTERFACE_DCONF_DIR, dconf_write_str},
+    fs_util::{atomic_write, expand_user_path},
+    theme::{
+        color,
+        schema::{ColorScheme, ThemeState},
+    },
 };
 use std::fmt::Write as _;
 
@@ -224,10 +226,10 @@ pub fn persist(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
 }
 
 pub fn on_apply(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
-    let font = |family: &str, size: i64| format!("'{family} {size}'");
+    let font = |family: &str, size: i64| format!("{family} {size}");
     for (key, value) in [
-        ("gtk-theme", format!("'{}'", gtk_theme(colors))),
-        ("color-scheme", format!("'{}'", color_preference(state))),
+        ("gtk-theme", gtk_theme(colors).to_owned()),
+        ("color-scheme", color_preference(state).to_owned()),
         (
             "font-name",
             font(&state.system_font, state.font_size_for(TARGET.name)?),
@@ -236,35 +238,25 @@ pub fn on_apply(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
             "monospace-font-name",
             font(&state.mono_font, state.mono_font_size_for(TARGET.name)?),
         ),
-        ("icon-theme", format!("'{}'", state.icon_theme)),
+        ("icon-theme", state.icon_theme.clone()),
     ] {
-        dconf_write(&format!("{GNOME_INTERFACE_DCONF_DIR}/{key}"), &value)?;
+        dconf_write_str(&format!("{GNOME_INTERFACE_DCONF_DIR}/{key}"), &value)?;
     }
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{gtk4_css, named_colors};
+    use super::named_colors;
     use crate::theme::{
         color::contrast_ratio,
-        targets::testsupport::{REPO_SCHEMES, load_repo_colors},
+        targets::testsupport::{load_repo_colors, repo_schemes},
     };
 
     #[test]
-    fn gtk4_css_never_depends_on_the_portal_preference() {
-        let colors = load_repo_colors("gruvbox-dark");
-        let css = gtk4_css(&colors);
-        assert!(!css.contains("prefers-color-scheme"));
-        assert!(css.contains(&format!("@define-color view_bg_color {};", colors.bg)));
-        assert!(css.contains("max(l, 0.85)"));
-        assert!(gtk4_css(&load_repo_colors("gruvbox-light")).contains("min(l, 0.5)"));
-    }
-
-    #[test]
     fn text_on_status_fills_is_readable() {
-        for scheme in REPO_SCHEMES {
-            let colors = named_colors(&load_repo_colors(scheme));
+        for scheme in repo_schemes() {
+            let colors = named_colors(&load_repo_colors(&scheme));
             let get = |name: &str| {
                 colors
                     .iter()

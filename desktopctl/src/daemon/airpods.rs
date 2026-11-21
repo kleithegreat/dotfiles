@@ -32,6 +32,7 @@ const MONITOR: &str = "/desktopctl/airpods/proximity";
 /// Signals arrive one property at a time; one look covers the burst.
 const SETTLE: Duration = Duration::from_millis(150);
 const RETRY: Duration = Duration::from_secs(30);
+const ADMIT_SAMPLES: u8 = 2;
 
 #[derive(Clone)]
 pub struct AirPodsController {
@@ -47,8 +48,9 @@ struct Shared {
     /// Devices the monitor last reported in reach.
     near: HashSet<OwnedObjectPath>,
     nearby: Option<Nearby>,
-    /// Cases that came inside the reach floor, held until the monitor loses them.
-    admitted: HashSet<OwnedObjectPath>,
+    /// Consecutive near adverts above `floor`; stays at `ADMIT_SAMPLES` while in range.
+    admitted: HashMap<OwnedObjectPath, u8>,
+    monitor_released: bool,
     reach: Reach,
     published: Value,
 }
@@ -90,7 +92,7 @@ impl AirPodsController {
 
     pub fn set_reach(&self, reach: Reach) -> crate::Result<Value> {
         let saved = serde_json::to_vec(&serde_json::json!({ "reach": reach }))?;
-        crate::theme::atomic_write(&reach_path()?, &saved)?;
+        crate::fs_util::atomic_write(&reach_path()?, &saved)?;
         self.update(|shared| shared.reach = reach);
         self.wake.notify_one();
         Ok(Value::Object(Default::default()))
@@ -113,6 +115,12 @@ impl AirPodsController {
         }
     }
 
+    fn take_monitor_released(&self) -> bool {
+        self.lock()
+            .map(|mut shared| std::mem::take(&mut shared.monitor_released))
+            .unwrap_or(false)
+    }
+
     fn lock(&self) -> crate::Result<MutexGuard<'_, Shared>> {
         self.shared
             .lock()
@@ -125,7 +133,14 @@ struct Monitor(AirPodsController);
 
 #[zbus::interface(name = "org.bluez.AdvertisementMonitor1")]
 impl Monitor {
-    fn release(&self) {}
+    fn release(&self) {
+        if let Ok(mut shared) = self.0.lock() {
+            shared.monitor_released = true;
+            shared.near.clear();
+            shared.admitted.clear();
+        }
+        self.0.wake.notify_one();
+    }
 
     fn activate(&self) {}
 
@@ -198,9 +213,14 @@ trait MonitorManager {
 
 pub async fn run(
     controller: AirPodsController,
+    system_bus: Option<zbus::Connection>,
     mut shutdown: watch::Receiver<bool>,
+    health: crate::daemon::SubsystemHealth,
 ) -> crate::Result<()> {
-    let connection = zbus::Connection::system().await?;
+    let Some(connection) = system_bus else {
+        health.set_degraded("airpods watcher", "system D-Bus unavailable");
+        return Ok(());
+    };
     let server = connection.object_server();
     server.at(MONITORS, ObjectManager).await?;
     server.at(MONITOR, Monitor(controller.clone())).await?;
@@ -224,25 +244,36 @@ pub async fn run(
                 watcher
                     .reconcile(&connection, owner.as_str(), &objects, &controller)
                     .await;
+                health.set_running("airpods watcher");
                 true
             }
             (Err(error), _) | (_, Err(error)) => {
-                eprintln!("desktopctl: airpods: BlueZ unreadable: {error}");
+                tracing::warn!(error = %error, "airpods: BlueZ unreadable");
+                health.set_degraded("airpods watcher", format!("BlueZ unreadable: {error}"));
                 false
             }
         };
         tokio::select! {
             signal = signals.next() => if signal.is_none() {
+                health.set_stopped("airpods watcher");
                 return Ok(());
             },
             () = controller.wake.notified() => {}
             () = tokio::time::sleep(RETRY), if !healthy => {}
             _ = shutdown.changed() => {
                 watcher.drop_link(&controller);
+                health.set_stopped("airpods watcher");
                 return Ok(());
             }
         }
-        tokio::time::sleep(SETTLE).await;
+        tokio::select! {
+            () = tokio::time::sleep(SETTLE) => {}
+            _ = shutdown.changed() => {
+                watcher.drop_link(&controller);
+                health.set_stopped("airpods watcher");
+                return Ok(());
+            }
+        }
         while let Some(Some(_)) = signals.next().now_or_never() {}
     }
 }
@@ -279,24 +310,29 @@ impl Watcher {
                 has(interfaces, MONITOR_MANAGER),
             ))
         });
+        if controller.take_monitor_released() {
+            self.registered = None;
+        }
         let key = adapter.map(|(path, ..)| (owner.to_owned(), path.clone()));
         // bluetoothd drops a monitor added while the adapter is off ([[airpods]]).
         let ready = adapter.is_none_or(|(_, powered, _)| powered);
         if key != self.registered && ready {
-            self.registered = key;
-            let failure = match adapter {
-                Some((path, _, true)) => register(connection, path)
-                    .await
-                    .err()
-                    .map(|e| (path, e.to_string())),
-                Some((path, _, false)) => Some((
-                    path,
-                    "bluetoothd is not running with Experimental = true".to_owned(),
-                )),
-                None => None,
-            };
-            if let Some((adapter, error)) = failure {
-                eprintln!("desktopctl: airpods: no proximity monitor on {adapter}: {error}");
+            match adapter {
+                Some((path, _, true)) => match register(connection, path).await {
+                    Ok(()) => self.registered = key,
+                    Err(error) => {
+                        tracing::warn!(%path, error = %error, "airpods: no proximity monitor");
+                        self.registered = None;
+                    }
+                },
+                Some((path, _, false)) => {
+                    tracing::warn!(
+                        %path,
+                        "airpods: bluetoothd is not running with Experimental = true"
+                    );
+                    self.registered = None;
+                }
+                None => self.registered = None,
             }
         }
 
@@ -339,28 +375,35 @@ impl Watcher {
             .collect();
         controller.update(|shared| {
             let floor = shared.reach.floor();
-            let cases: Vec<(OwnedObjectPath, Nearby)> = shared
-                .near
-                .iter()
-                .filter_map(|path| {
-                    let device = devices.get(path)?;
-                    let rssi = device.get("RSSI")?.downcast_ref::<i16>().ok()?;
-                    Some((
-                        path.clone(),
-                        airpods::proximity(&manufacturer(device)?, rssi)?,
-                    ))
-                })
-                .filter(|(path, nearby)| admit(shared.admitted.contains(path), nearby.rssi, floor))
-                .collect();
-            shared.admitted = cases.iter().map(|(path, _)| path.clone()).collect();
-            shared.nearby = cases
-                .into_iter()
-                .map(|(_, nearby)| nearby)
-                .map(|nearby| Nearby {
-                    paired: paired.get(&nearby.product).cloned(),
-                    ..nearby
-                })
-                .max_by_key(|nearby| nearby.rssi);
+            let mut next_admitted = HashMap::new();
+            let mut admitted_nearby = Vec::new();
+            for path in &shared.near {
+                let Some(device) = devices.get(path) else {
+                    continue;
+                };
+                let Some(rssi) = device
+                    .get("RSSI")
+                    .and_then(|v| v.downcast_ref::<i16>().ok())
+                else {
+                    continue;
+                };
+                let Some(mut nearby) =
+                    manufacturer(device).and_then(|m| airpods::proximity(&m, rssi))
+                else {
+                    continue;
+                };
+                let prior = shared.admitted.get(path).copied().unwrap_or(0);
+                let count = next_admit_samples(prior, rssi, floor);
+                if count > 0 {
+                    next_admitted.insert(path.clone(), count);
+                }
+                if count >= ADMIT_SAMPLES {
+                    nearby.paired = paired.get(&nearby.product).cloned();
+                    admitted_nearby.push(nearby);
+                }
+            }
+            shared.admitted = next_admitted;
+            shared.nearby = admitted_nearby.into_iter().max_by_key(|nearby| nearby.rssi);
         });
     }
 
@@ -390,8 +433,12 @@ async fn register(connection: &zbus::Connection, adapter: &OwnedObjectPath) -> z
 async fn hold(controller: AirPodsController, address: String, name: String) {
     let mut backoff = Duration::from_secs(1);
     loop {
-        if let Err(error) = session(&controller, &address, &name).await {
-            eprintln!("desktopctl: airpods: channel to {address}: {error}");
+        let mut established = false;
+        if let Err(error) = session(&controller, &address, &name, &mut established).await {
+            tracing::warn!(%address, error = %error, "airpods: channel error");
+        }
+        if established {
+            backoff = Duration::from_secs(1);
         }
         controller.update(|shared| {
             shared.link = None;
@@ -402,7 +449,12 @@ async fn hold(controller: AirPodsController, address: String, name: String) {
     }
 }
 
-async fn session(controller: &AirPodsController, address: &str, name: &str) -> io::Result<()> {
+async fn session(
+    controller: &AirPodsController,
+    address: &str,
+    name: &str,
+    established: &mut bool,
+) -> io::Result<()> {
     let channel = Arc::new(Channel::connect(address, airpods::PSM).await?);
     for packet in [
         &airpods::HANDSHAKE[..],
@@ -411,6 +463,7 @@ async fn session(controller: &AirPodsController, address: &str, name: &str) -> i
     ] {
         channel.send(packet).await?;
     }
+    *established = true;
     controller.update(|shared| {
         shared.link = Some(Link {
             address: address.to_owned(),
@@ -476,25 +529,34 @@ fn load_reach() -> crate::Result<Reach> {
     }
 }
 
-/// A case shows once it comes inside the floor, and stays while the monitor
-/// holds it: adverts jitter by several dB, and a card must not flicker.
-fn admit(admitted: bool, rssi: i16, floor: Option<i16>) -> bool {
-    floor.is_some_and(|floor| admitted || rssi >= floor)
+/// A case shows once two consecutive adverts fall inside the floor, and stays
+/// while the monitor holds it: adverts jitter by several dB, and a card must not flicker.
+fn next_admit_samples(samples: u8, rssi: i16, floor: Option<i16>) -> u8 {
+    let Some(floor) = floor else {
+        return 0;
+    };
+    if samples >= ADMIT_SAMPLES {
+        ADMIT_SAMPLES
+    } else if rssi >= floor {
+        samples + 1
+    } else {
+        0
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::admit;
+    use super::{ADMIT_SAMPLES, next_admit_samples};
 
     #[test]
-    fn a_case_must_come_close_once_and_then_stays() {
-        assert!(!admit(false, -55, Some(-48)));
-        assert!(admit(false, -45, Some(-48)));
-        assert!(admit(true, -70, Some(-48)));
-    }
-
-    #[test]
-    fn off_admits_nothing() {
-        assert!(!admit(true, -30, None));
+    fn a_case_must_come_close_twice_and_then_stays() {
+        assert_eq!(next_admit_samples(0, -55, Some(-48)), 0);
+        let first = next_admit_samples(0, -45, Some(-48));
+        assert!(first < ADMIT_SAMPLES);
+        let second = next_admit_samples(first, -45, Some(-48));
+        assert_eq!(second, ADMIT_SAMPLES);
+        assert_eq!(next_admit_samples(second, -70, Some(-48)), ADMIT_SAMPLES);
+        assert_eq!(next_admit_samples(first, -70, Some(-48)), 0);
+        assert_eq!(next_admit_samples(ADMIT_SAMPLES, -30, None), 0);
     }
 }

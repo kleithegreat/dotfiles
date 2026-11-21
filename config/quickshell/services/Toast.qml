@@ -85,7 +85,7 @@ QtObject {
 
     // Let the outgoing toast finish leaving before the next one arrives.
     readonly property Timer _gapTimer: Timer {
-        interval: 220
+        interval: Motion.quick + 20
         onTriggered: {
             if (root._queue.length === 0)
                 return;

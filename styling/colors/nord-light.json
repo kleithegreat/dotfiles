@@ -2,14 +2,10 @@
   "family": "nord",
   "variant": "light",
   "appearance": "light",
-  "dark_scheme": "nord",
   "app_themes": {
     "bat": "base16",
     "snappy_switcher": "catppuccin-latte.ini",
-    "vicinae": {
-      "name": "nord-light",
-      "light_name": "nord-light"
-    },
+    "vicinae": "nord-light",
     "vscode": {
       "name": "Nord Light",
       "extension_id": "huytd.nord-light"

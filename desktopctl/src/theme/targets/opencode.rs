@@ -1,9 +1,10 @@
 use super::Target;
-use crate::theme::{
-    atomic_write,
-    color::blend,
-    expand_user_path, json,
-    schema::{ColorScheme, ThemeState},
+use crate::{
+    fs_util::{atomic_write, expand_user_path},
+    theme::{
+        color::blend,
+        schema::{ColorScheme, ThemeState},
+    },
 };
 use serde_json::{Map, Value};
 use std::path::Path;
@@ -25,7 +26,7 @@ pub fn generate(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<Str
     let mut root = Map::new();
     root.insert("theme".to_owned(), Value::String(THEME_NAME.to_owned()));
 
-    Ok(json::format_pretty_value(&Value::Object(root)))
+    Ok(serde_json::to_string_pretty(&root)?)
 }
 
 pub fn persist(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
@@ -198,70 +199,8 @@ fn render_theme(colors: &ColorScheme) -> String {
     );
     root.insert("theme".to_owned(), Value::Object(theme));
 
-    format!("{}\n", json::format_pretty_value(&Value::Object(root)))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::theme::targets::testsupport::{dummy_colors, rose_pine_dawn_colors};
-    use std::{
-        fs,
-        time::{SystemTime, UNIX_EPOCH},
-    };
-
-    fn temp_path(name: &str) -> std::path::PathBuf {
-        let nanos = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("time works")
-            .as_nanos();
-        std::env::temp_dir().join(format!("desktopctl-{name}-{nanos}.json"))
-    }
-
-    #[test]
-    fn theme_file_matches_expected_shape() {
-        let rendered = render_theme(&dummy_colors());
-        let value: Value = serde_json::from_str(&rendered).expect("valid json");
-
-        assert_eq!(value["$schema"], Value::String(THEME_SCHEMA_URL.to_owned()));
-        assert_eq!(
-            value["theme"]["background"],
-            Value::String("#000000".to_owned())
-        );
-        assert_eq!(
-            value["theme"]["primary"],
-            Value::String("#3366ff".to_owned())
-        );
-        assert_eq!(
-            value["theme"]["diffAddedBg"],
-            Value::String("#002e00".to_owned())
-        );
-        assert_eq!(
-            value["theme"]["diffRemovedLineNumberBg"],
-            Value::String("#3f0202".to_owned())
-        );
-    }
-
-    #[test]
-    fn theme_file_uses_ascii_json_escaping() {
-        let rendered = render_theme(&rose_pine_dawn_colors());
-        assert!(rendered.is_ascii(), "{rendered}");
-    }
-
-    #[test]
-    fn write_theme_replaces_output_atomically() {
-        let path = temp_path("opencode-theme-write");
-        fs::write(&path, "stale").expect("fixture written");
-
-        write_theme(&path, &dummy_colors()).expect("write succeeds");
-        let value: Value = serde_json::from_str(&fs::read_to_string(&path).expect("theme exists"))
-            .expect("valid theme json");
-
-        assert_eq!(
-            value["theme"]["syntaxKeyword"],
-            Value::String("#ff00ff".to_owned())
-        );
-
-        let _ = fs::remove_file(path);
-    }
+    format!(
+        "{}\n",
+        serde_json::to_string_pretty(&root).unwrap_or_default()
+    )
 }

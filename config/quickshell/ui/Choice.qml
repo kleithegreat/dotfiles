@@ -8,8 +8,14 @@ Item {
     property var options: []
     property string current: ""
     property bool showsMissing: false
+    property color fadeColor: Theme.raised
 
     signal picked(string value)
+
+    onOptionsChanged: {
+        pill.placed = false;
+        pill.target = null;
+    }
 
     implicitHeight: Metrics.controlHeight
     implicitWidth: row.implicitWidth
@@ -137,7 +143,7 @@ Item {
             radius: parent.radius
             color: Theme.textQuaternary
             width: Math.max(24, parent.width * (strip.width / Math.max(1, strip.contentWidth)))
-            x: (parent.width - width) * (strip.contentX / Math.max(1, strip.contentWidth - strip.width))
+            x: (parent.width - width) * Math.max(0, Math.min(1, strip.contentX / Math.max(1, strip.contentWidth - strip.width)))
         }
     }
 
@@ -149,8 +155,8 @@ Item {
         visible: strip.contentX > 1
         gradient: Gradient {
             orientation: Gradient.Horizontal
-            GradientStop { position: 0.0; color: Theme.raised }
-            GradientStop { position: 1.0; color: Theme.withAlpha(Theme.raised, 0) }
+            GradientStop { position: 0.0; color: root.fadeColor }
+            GradientStop { position: 1.0; color: Theme.withAlpha(root.fadeColor, 0) }
         }
     }
 
@@ -162,8 +168,8 @@ Item {
         visible: strip.contentX < strip.contentWidth - strip.width - 1
         gradient: Gradient {
             orientation: Gradient.Horizontal
-            GradientStop { position: 0.0; color: Theme.withAlpha(Theme.raised, 0) }
-            GradientStop { position: 1.0; color: Theme.raised }
+            GradientStop { position: 0.0; color: Theme.withAlpha(root.fadeColor, 0) }
+            GradientStop { position: 1.0; color: root.fadeColor }
         }
     }
 }

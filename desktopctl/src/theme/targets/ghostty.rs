@@ -1,5 +1,8 @@
 use super::Target;
-use crate::theme::schema::{ColorScheme, ThemeState};
+use crate::{
+    proc_util::signal_processes,
+    theme::schema::{ColorScheme, ThemeState},
+};
 
 pub const TARGET: Target = Target::standalone(
     "ghostty",
@@ -12,7 +15,8 @@ pub const TARGET: Target = Target::standalone(
     "~/.config/ghostty/theme.conf",
     generate,
 )
-.comment("#");
+.comment("#")
+.on_apply(on_apply);
 
 pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<String> {
     let mut lines = vec![
@@ -29,4 +33,9 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Strin
         lines.push(format!("palette = {index}={color}"));
     }
     Ok(format!("{}\n", lines.join("\n")))
+}
+
+pub fn on_apply(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
+    signal_processes("ghostty", libc::SIGUSR2)?;
+    Ok(())
 }

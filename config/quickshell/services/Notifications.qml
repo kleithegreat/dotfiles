@@ -32,11 +32,16 @@ QtObject {
     }
 
     function dismiss(notification) {
-        if (notification)
-            notification.dismiss();
+        if (!notification)
+            return;
+        const next = Object.assign({}, _deadlines);
+        delete next[notification.id];
+        _deadlines = next;
+        notification.dismiss();
     }
 
     function dismissAll() {
+        _deadlines = ({});
         const live = server.trackedNotifications.values.slice();
         for (let i = 0; i < live.length; i++)
             live[i].dismiss();
@@ -87,6 +92,8 @@ QtObject {
             return;
 
         notification.tracked = true;
+        if (notification.expireTimeout === 0)
+            return;
         const dwell = notification.expireTimeout > 0 ? Math.round(notification.expireTimeout * 1000) : defaultDwell;
         const next = Object.assign({}, _deadlines);
         next[notification.id] = Date.now() + dwell;
@@ -97,11 +104,19 @@ QtObject {
     function _arm() {
         let soonest = -1;
         const live = server.trackedNotifications.values;
+        const activeIds = {};
         for (let i = 0; i < live.length; i++) {
+            activeIds[live[i].id] = true;
             const due = _deadlines[live[i].id];
             if (due !== undefined && (soonest < 0 || due < soonest))
                 soonest = due;
         }
+        const pruned = {};
+        for (const id in _deadlines) {
+            if (activeIds[id])
+                pruned[id] = _deadlines[id];
+        }
+        _deadlines = pruned;
 
         if (soonest < 0) {
             expiry.stop();

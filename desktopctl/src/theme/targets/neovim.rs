@@ -1,5 +1,5 @@
 use super::Target;
-use crate::theme::schema::{ColorScheme, ColorSchemeAppearance, ThemeState};
+use crate::theme::schema::{ColorScheme, ThemeState};
 use std::fmt::Write;
 
 pub const TARGET: Target = Target::standalone(
@@ -11,10 +11,7 @@ pub const TARGET: Target = Target::standalone(
 .comment("--");
 
 pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<String> {
-    let background = match colors.appearance {
-        ColorSchemeAppearance::Dark => "dark",
-        ColorSchemeAppearance::Light => "light",
-    };
+    let background = colors.appearance.as_str();
 
     let named = [
         ("bg", &colors.bg),

@@ -42,14 +42,28 @@ PanelWindow {
         width: 380
         spacing: Metrics.s2
 
+        property var _animatedIds: ({})
+
+        function hasAnimated(id) {
+            return _animatedIds[id] === true;
+        }
+
+        function markAnimated(id) {
+            const next = Object.assign({}, _animatedIds);
+            next[id] = true;
+            _animatedIds = next;
+        }
+
         Repeater {
-            model: Sys.Notifications.banners
+            // Keyed on count so adding/dismissing one banner doesn't replay arrivals on siblings.
+            model: Sys.Notifications.banners.length
 
             Ui.Surface {
                 id: card
 
-                required property Notification modelData
                 required property int index
+                readonly property Notification item: Sys.Notifications.banners[card.index] ?? null
+                readonly property int notifId: item ? item.id : -1
 
                 Layout.fillWidth: true
                 Layout.preferredHeight: content.implicitHeight + Metrics.s4 * 2
@@ -63,7 +77,23 @@ PanelWindow {
                     x: card.slide
                 }
 
-                Component.onCompleted: arrival.start()
+                function _syncArrival() {
+                    if (notifId < 0)
+                        return;
+                    if (!stack.hasAnimated(notifId)) {
+                        stack.markAnimated(notifId);
+                        slide = 60;
+                        opacity = 0;
+                        arrival.restart();
+                    } else {
+                        arrival.stop();
+                        slide = 0;
+                        opacity = 1;
+                    }
+                }
+
+                Component.onCompleted: _syncArrival()
+                onNotifIdChanged: _syncArrival()
 
                 SequentialAnimation {
                     id: arrival
@@ -92,7 +122,7 @@ PanelWindow {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
                     acceptedButtons: Qt.LeftButton | Qt.RightButton
-                    onClicked: Sys.Notifications.dismiss(card.modelData)
+                    onClicked: Sys.Notifications.dismiss(card.item)
                 }
 
                 ColumnLayout {
@@ -101,45 +131,89 @@ PanelWindow {
                     anchors.right: parent.right
                     anchors.top: parent.top
                     anchors.margins: Metrics.s4
-                    spacing: 3
+                    spacing: Metrics.s2
 
                     RowLayout {
                         Layout.fillWidth: true
-                        spacing: Metrics.s2
+                        spacing: Metrics.s3
 
-                        Ui.Label {
+                        Ui.Card {
+                            Layout.preferredWidth: 40
+                            Layout.preferredHeight: 40
+                            Layout.alignment: Qt.AlignTop
+                            radius: Metrics.rControl
+                            clip: true
+                            visible: (card.item?.image ?? "") !== ""
+
+                            Image {
+                                anchors.fill: parent
+                                source: card.item?.image ?? ""
+                                fillMode: Image.PreserveAspectCrop
+                                asynchronous: true
+                                cache: false
+                                smooth: true
+                            }
+                        }
+
+                        ColumnLayout {
                             Layout.fillWidth: true
-                            text: card.modelData.appName || "Notification"
-                            role: "section"
-                            elide: Text.ElideRight
-                        }
+                            spacing: 3
 
-                        Ui.Icon {
-                            name: "close"
-                            size: Metrics.iconSm
-                            color: Theme.textQuaternary
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: Metrics.s2
+
+                                Ui.Label {
+                                    Layout.fillWidth: true
+                                    text: card.item?.appName || "Notification"
+                                    role: "section"
+                                    elide: Text.ElideRight
+                                }
+
+                                Ui.Icon {
+                                    name: "close"
+                                    size: Metrics.iconSm
+                                    color: Theme.textQuaternary
+                                }
+                            }
+
+                            Ui.Label {
+                                Layout.fillWidth: true
+                                text: card.item?.summary ?? ""
+                                role: "body"
+                                font.weight: Theme.weightMedium
+                                wrapMode: Text.WordWrap
+                                maximumLineCount: 2
+                                elide: Text.ElideRight
+                                visible: text !== ""
+                            }
+
+                            Ui.Label {
+                                Layout.fillWidth: true
+                                text: card.item?.body ?? ""
+                                role: "callout"
+                                wrapMode: Text.WordWrap
+                                maximumLineCount: 3
+                                elide: Text.ElideRight
+                                visible: text !== ""
+                            }
                         }
                     }
 
-                    Ui.Label {
+                    Flow {
                         Layout.fillWidth: true
-                        text: card.modelData.summary
-                        role: "body"
-                        font.weight: Theme.weightMedium
-                        wrapMode: Text.WordWrap
-                        maximumLineCount: 2
-                        elide: Text.ElideRight
-                        visible: text !== ""
-                    }
+                        spacing: Metrics.s1
+                        visible: (card.item?.actions?.length ?? 0) > 0
 
-                    Ui.Label {
-                        Layout.fillWidth: true
-                        text: card.modelData.body
-                        role: "callout"
-                        wrapMode: Text.WordWrap
-                        maximumLineCount: 3
-                        elide: Text.ElideRight
-                        visible: text !== ""
+                        Repeater {
+                            model: card.item?.actions ?? []
+
+                            Ui.Button {
+                                required property var modelData
+                                text: modelData.text
+                                onClicked: modelData.invoke()
+                            }
+                        }
                     }
                 }
             }

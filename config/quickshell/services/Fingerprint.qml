@@ -118,8 +118,12 @@ QtObject {
     readonly property Process _remove: Process {
         id: remove
         stderr: StdioCollector {
-            onStreamFinished: Toast.failure(this.text)
+            id: removed
         }
-        onExited: root.refresh()
+        onExited: code => {
+            if (code !== 0)
+                Toast.failure(removed.text, "Could not remove fingerprint");
+            root.refresh();
+        }
     }
 }

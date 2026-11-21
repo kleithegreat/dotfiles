@@ -56,10 +56,20 @@ QtObject {
 
     // The default sink's first bind emits a change, which must not flash the OSD at login.
     property bool _bound: false
-    onSinkChanged: _bound = false
+    onSinkChanged: {
+        _bound = false;
+        bindSettle.restart();
+    }
+
+    readonly property Timer _bindSettle: Timer {
+        id: bindSettle
+        interval: 150
+        running: root.sink !== null && !root._bound
+        onTriggered: root._bound = true
+    }
 
     readonly property PwObjectTracker _tracker: PwObjectTracker {
-        objects: [root.sink, root.source]
+        objects: [root.source].concat(root.sinks)
     }
 
     readonly property Connections _sinkEvents: Connections {
@@ -74,8 +84,11 @@ QtObject {
         }
 
         function onMutedChanged() {
-            if (root._bound)
-                root.announce();
+            if (!root._bound) {
+                root._bound = true;
+                return;
+            }
+            root.announce();
         }
     }
 }

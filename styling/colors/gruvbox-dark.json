@@ -6,10 +6,7 @@
     "bat": "gruvbox-dark",
     "ktexteditor": "gruvbox Dark",
     "snappy_switcher": "gruvbox-dark.ini",
-    "vicinae": {
-      "name": "gruvbox-dark",
-      "light_name": "gruvbox-light"
-    },
+    "vicinae": "gruvbox-dark",
     "vscode": {
       "name": "Gruvbox Dark Medium",
       "extension_id": "jdinhlife.gruvbox",

@@ -182,6 +182,16 @@ Popover {
                     Layout.fillWidth: true
                 }
             }
+
+            Ui.IconButton {
+                Layout.alignment: Qt.AlignTop
+                name: "refresh"
+                iconSize: Metrics.iconSm
+                size: Metrics.s6
+                iconColor: Theme.textTertiary
+                interactive: !Sys.Weather.loading
+                onClicked: Sys.Weather.refresh(true)
+            }
         }
     }
 }

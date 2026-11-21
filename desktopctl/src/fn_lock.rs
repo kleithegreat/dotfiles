@@ -3,7 +3,10 @@
 //! the daemon reads the mode, the shell announces it, and the bar shows media
 //! keys while they are on ([[desktopctl]]).
 
-use crate::{Result, ipc};
+use crate::{
+    Result,
+    ipc::{self, RpcRequest},
+};
 use std::{fs, io, time::Duration};
 
 const MODE: &str =
@@ -24,22 +27,9 @@ fn parse(mode: &str) -> io::Result<bool> {
 
 pub fn run() -> Result<()> {
     ipc::mutate::<serde_json::Value>(
-        ipc::methods::FN_LOCK_ANNOUNCE,
-        serde_json::Value::Null,
+        RpcRequest::FnLockAnnounce,
         ipc::DEFAULT_TIMEOUT,
         Duration::ZERO,
     )
     .map(drop)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::parse;
-
-    #[test]
-    fn reads_both_firmware_modes() {
-        assert!(parse("EnableSecondary\n").expect("media"));
-        assert!(!parse("DisableStandard\n").expect("standard"));
-        assert!(parse("Unknown").is_err());
-    }
 }

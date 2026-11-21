@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import Quickshell.Services.Mpris
 import qs
 import qs.ui as Ui
+import qs.services as Sys
 
 Popover {
     id: root
@@ -13,16 +14,15 @@ Popover {
     anchor: state.anchor
     contentHeight: player_.implicitHeight
 
-    readonly property MprisPlayer player: {
-        const players = Mpris.players.values;
-        for (let i = 0; i < players.length; i++) {
-            if (players[i].playbackState === MprisPlaybackState.Playing)
-                return players[i];
-        }
-        return players.length > 0 ? players[0] : null;
-    }
+    readonly property MprisPlayer player: Sys.Media.player
+    readonly property bool playing: Sys.Media.playing
 
-    readonly property bool playing: player?.playbackState === MprisPlaybackState.Playing
+    readonly property Timer _positionTick: Timer {
+        interval: 1000
+        running: root.shown && root.playing
+        repeat: true
+        onTriggered: root.player?.positionChanged()
+    }
 
     readonly property int art: 84
 

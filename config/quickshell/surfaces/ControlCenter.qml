@@ -141,6 +141,7 @@ Popover {
                 Layout.fillWidth: true
                 // The modes the stems cycle through; Off lives in Settings, where the row has room.
                 visible: Sys.AirPods.hasNoise
+                fadeColor: Theme.base
                 options: Sys.AirPods.noiseModes.filter(mode => mode.value !== "off")
                 current: Sys.AirPods.noise
                 onPicked: mode => Sys.AirPods.setNoise(mode)

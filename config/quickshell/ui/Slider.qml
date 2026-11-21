@@ -72,6 +72,8 @@ Item {
         height: Metrics.knob
         radius: height / 2
         color: Qt.rgba(1, 1, 1, 0.98)
+        border.width: Metrics.hairline
+        border.color: Theme.separator
         scale: pointer.pressed ? 1.12 : pointer.containsMouse ? 1.06 : 1.0
         antialiasing: true
 
@@ -100,7 +102,7 @@ Item {
         cursorShape: Qt.PointingHandCursor
 
         function apply(px) {
-            root._local = root._valueAt(px);
+            root._local = root._valueAt(px - Metrics.s1);
             root._dragging = true;
             root.moved(root._local);
         }
@@ -117,6 +119,10 @@ Item {
         onCanceled: root._dragging = false
 
         onWheel: event => {
+            if (root.claimsDrag) {
+                event.accepted = false;
+                return;
+            }
             const delta = event.angleDelta.y > 0 ? root.step : -root.step;
             const next = Math.max(root.minimum, Math.min(root.maximum, root.shown + delta * root._span));
             root.moved(next);

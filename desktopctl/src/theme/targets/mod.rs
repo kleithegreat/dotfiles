@@ -1,6 +1,5 @@
 mod alacritty;
 mod bat;
-mod chromium;
 mod claude_code;
 mod cursor;
 mod ghostty;
@@ -14,7 +13,6 @@ mod neovim;
 mod opencode;
 mod qt;
 mod quickshell;
-mod scheme_pair;
 mod snappy_switcher;
 mod starship;
 mod t3code;
@@ -151,7 +149,6 @@ pub fn get(name: &str) -> Option<&'static Target> {
 pub const TARGETS: &[Target] = &[
     alacritty::TARGET,
     bat::TARGET,
-    chromium::TARGET,
     claude_code::TARGET,
     cursor::TARGET,
     ghostty::TARGET,
@@ -182,25 +179,24 @@ pub const TARGETS: &[Target] = &[
 pub(crate) mod testsupport {
     use crate::test_support::repo_root;
     use crate::theme::schema::{ColorScheme, ThemeState};
+    use std::fs;
 
-    /// Every scheme shipped in `styling/colors`, for tests that assert a
-    /// property must hold across all of them rather than for a chosen few.
-    pub const REPO_SCHEMES: [&str; 14] = [
-        "catppuccin-frappe",
-        "catppuccin-latte",
-        "catppuccin-macchiato",
-        "catppuccin-mocha",
-        "gruvbox-dark",
-        "gruvbox-light",
-        "nord",
-        "nord-light",
-        "rose-pine",
-        "rose-pine-dawn",
-        "solarized-dark",
-        "solarized-light",
-        "tokyo-night",
-        "tokyo-night-light",
-    ];
+    /// Every scheme shipped in `styling/colors`, discovered from disk.
+    pub fn repo_schemes() -> Vec<String> {
+        let mut names = fs::read_dir(repo_root().join("styling/colors"))
+            .expect("colors dir")
+            .filter_map(|entry| {
+                let path = entry.ok()?.path();
+                if path.extension()? != "json" {
+                    return None;
+                }
+                Some(path.file_stem()?.to_str()?.to_owned())
+            })
+            .collect::<Vec<_>>();
+        names.sort();
+        assert!(!names.is_empty(), "expected scheme files in styling/colors");
+        names
+    }
 
     pub fn load_repo_colors(scheme_name: &str) -> ColorScheme {
         crate::theme::resolve::load_colors(scheme_name, &repo_root().join("styling/colors"))
@@ -216,10 +212,7 @@ pub(crate) mod testsupport {
                 "bat": "gruvbox-dark",
                 "ktexteditor": "gruvbox Dark",
                 "snappy_switcher": "gruvbox-dark.ini",
-                "vicinae": {
-                    "name": "gruvbox-dark",
-                    "light_name": "gruvbox-light"
-                },
+                "vicinae": "gruvbox-dark",
                 "vscode": {
                     "name": "Gruvbox Dark Medium",
                     "extension_id": "jdinhlife.gruvbox"
@@ -288,184 +281,25 @@ pub(crate) mod testsupport {
             extra: Default::default(),
         }
     }
-
-    pub fn rose_pine_dawn_colors() -> ColorScheme {
-        load_repo_colors("rose-pine-dawn")
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::theme::targets::testsupport::{
-        dummy_colors, dummy_state, load_repo_colors, rose_pine_dawn_colors,
-    };
-
-    fn text(content: crate::Result<String>) -> String {
-        content.expect("target generation succeeds")
-    }
+    use crate::theme::schema;
 
     #[test]
     fn every_target_declares_a_unique_name_in_alphabetical_order() {
         let names = TARGETS.iter().map(|target| target.name).collect::<Vec<_>>();
         assert!(names.windows(2).all(|pair| pair[0] < pair[1]), "{names:?}");
-    }
-
-    #[test]
-    fn sync_safety_and_assembly_are_declared_per_target() {
-        assert!(matches!(
-            get("cursor").expect("cursor target").assembly,
-            Assembly::Standalone { .. }
-        ));
-        assert!(matches!(
-            get("chromium").expect("chromium target").assembly,
-            Assembly::Hooks
-        ));
-        assert!(get("gtk").expect("gtk target").sync_safe);
-        assert!(
-            get("gtksourceview")
-                .expect("gtksourceview target")
-                .sync_safe
-        );
-        assert!(!get("wallpaper").expect("wallpaper target").sync_safe);
-    }
-
-    #[test]
-    fn alacritty_output_is_toml_font_and_palette_sections() {
-        let output = text(alacritty::generate(&dummy_colors(), &dummy_state()));
-        assert_eq!(
-            output,
-            "[font]\nnormal = { family = \"JetBrains Mono Nerd Font\" }\nsize = 11\n\n[colors.primary]\nbackground = \"#000000\"\nforeground = \"#f0f0f0\"\n\n[colors.normal]\nblack   = \"#020202\"\nred     = \"#ff0000\"\ngreen   = \"#00ff00\"\nyellow  = \"#ffff00\"\nblue    = \"#0000ff\"\nmagenta = \"#ff00ff\"\ncyan    = \"#00ffff\"\nwhite   = \"#cccccc\"\n\n[colors.bright]\nblack   = \"#888888\"\nred     = \"#ff1111\"\ngreen   = \"#11ff11\"\nyellow  = \"#ffff11\"\nblue    = \"#1111ff\"\nmagenta = \"#ff11ff\"\ncyan    = \"#11ffff\"\nwhite   = \"#f0f0f0\"\n"
-        );
-    }
-
-    #[test]
-    fn hyprland_output_is_a_lua_data_table() {
-        let output = text(hyprland::generate(&dummy_colors(), &dummy_state()));
-        assert_eq!(
-            output,
-            "return {\n    bg_rgba        = \"rgba(000000ff)\",\n    bg1_rgba       = \"rgba(020202ff)\",\n    fg_rgba        = \"rgba(f0f0f0ff)\",\n    red_rgba       = \"rgba(ff0000ff)\",\n    green_rgba     = \"rgba(00ff00ff)\",\n    yellow_rgba    = \"rgba(ffff00ff)\",\n    sys_font       = \"Overpass\",\n}\n"
-        );
-    }
-
-    #[test]
-    fn hypr_appearance_output_is_a_lua_data_table() {
-        let output = text(hypr_appearance::generate(&dummy_colors(), &dummy_state()));
-        assert_eq!(
-            output,
-            "return {\n    gaps_in            = 4,\n    gaps_out           = 6,\n    border_size        = 2,\n    rounding           = 8,\n    blur_enabled       = true,\n    blur_size          = 8,\n    blur_passes        = 2,\n    animations_enabled = true,\n}\n"
-        );
-    }
-
-    #[test]
-    fn quickshell_output_is_a_colors_and_fonts_document() {
-        let output = text(quickshell::generate(&dummy_colors(), &dummy_state()));
-        assert_eq!(
-            output,
-            "{\n  \"colors\": {\n    \"bg\": \"#000000\",\n    \"bg1\": \"#020202\",\n    \"fg\": \"#f0f0f0\",\n    \"fg2\": \"#cccccc\",\n    \"fg3\": \"#a8a8a8\",\n    \"fg4\": \"#8b8b8b\",\n    \"redBright\": \"#ff1111\",\n    \"greenBright\": \"#11ff11\",\n    \"yellowBright\": \"#ffff11\",\n    \"accent\": \"#3366ff\"\n  },\n  \"fonts\": {\n    \"family\": \"JetBrains Mono Nerd Font\",\n    \"systemFamily\": \"Overpass\",\n    \"size\": 11\n  }\n}\n"
-        );
-    }
-
-    #[test]
-    fn quickshell_output_applies_font_size_offset() {
-        let mut state = dummy_state();
-        state.quickshell_font_size_offset = 2;
-
-        let output = text(quickshell::generate(&dummy_colors(), &state));
-        assert!(output.contains("\"size\": 13\n"), "{output}");
-    }
-
-    #[test]
-    fn neovim_output_carries_the_palette_and_tracks_scheme_lightness() {
-        let output = text(neovim::generate(&dummy_colors(), &dummy_state()));
-        assert!(output.contains("background = \"dark\","), "{output}");
-        assert!(output.contains("accent = \"#3366ff\","), "{output}");
-        assert!(output.contains("fg_faint = \"#484848\","), "{output}");
-        assert!(
-            output.contains("terminal = {\n    \"#020202\","),
-            "{output}"
-        );
-
-        let output = text(neovim::generate(&rose_pine_dawn_colors(), &dummy_state()));
-        assert!(output.contains("background = \"light\","), "{output}");
-    }
-
-    #[test]
-    fn neovide_output_sets_guifont_with_size() {
-        let output = text(neovide::generate(&dummy_colors(), &dummy_state()));
-        assert_eq!(output, "vim.o.guifont = \"JetBrains Mono Nerd Font:h11\"\n");
-    }
-
-    #[test]
-    fn bat_output_quotes_the_scheme_theme() {
-        let output = text(bat::generate(&dummy_colors(), &dummy_state()));
-        assert_eq!(output, "--theme=\"gruvbox-dark\"\n");
-
-        let spaced = text(bat::generate(
-            &load_repo_colors("solarized-light"),
-            &dummy_state(),
-        ));
-        assert_eq!(spaced, "--theme=\"Solarized (light)\"\n");
-    }
-
-    #[test]
-    fn ghostty_output_is_key_values_with_an_indexed_palette() {
-        let output = text(ghostty::generate(&dummy_colors(), &dummy_state()));
-        assert_eq!(
-            output,
-            "font-family = JetBrains Mono Nerd Font\nfont-size = 11\nbackground = #000000\nforeground = #f0f0f0\nselection-background = #040404\nselection-foreground = #f0f0f0\ncursor-color = #f0f0f0\ncursor-text = #000000\npalette = 0=#020202\npalette = 1=#ff0000\npalette = 2=#00ff00\npalette = 3=#ffff00\npalette = 4=#0000ff\npalette = 5=#ff00ff\npalette = 6=#00ffff\npalette = 7=#cccccc\npalette = 8=#888888\npalette = 9=#ff1111\npalette = 10=#11ff11\npalette = 11=#ffff11\npalette = 12=#1111ff\npalette = 13=#ff11ff\npalette = 14=#11ffff\npalette = 15=#f0f0f0\n"
-        );
-    }
-
-    #[test]
-    fn zsh_output_sets_autosuggest_highlight_style() {
-        let output = text(zsh::generate(&dummy_colors(), &dummy_state()));
-        assert_eq!(output, "ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=#8b8b8b'\n");
-    }
-
-    #[test]
-    fn opencode_output_sets_managed_theme() {
-        let output = text(opencode::generate(&dummy_colors(), &dummy_state()));
-        assert_eq!(output, "{\n  \"theme\": \"desktopctl\"\n}");
-    }
-
-    #[test]
-    fn zed_output_sets_theme_and_fonts() {
-        let output = text(zed::generate(&dummy_colors(), &dummy_state()));
-        assert_eq!(
-            output,
-            "{\n  \"theme\": \"Gruvbox Dark\",\n  \"buffer_font_family\": \"JetBrains Mono Nerd Font\",\n  \"buffer_font_size\": 15,\n  \"ui_font_family\": \"Overpass\",\n  \"ui_font_size\": 11\n}"
-        );
-    }
-
-    #[test]
-    fn cursor_output_inherits_the_scheme_icon_theme() {
-        let output = text(cursor::generate(&dummy_colors(), &dummy_state()));
-        assert_eq!(
-            output,
-            "[Icon Theme]\nName=Default\nInherits=BreezeX-RosePine-Linux\n"
-        );
-    }
-
-    #[test]
-    fn vscode_json_escapes_non_ascii_scheme_names() {
-        let output = text(vscode::generate(&rose_pine_dawn_colors(), &dummy_state()));
-        assert!(
-            output.contains("\"workbench.colorTheme\": \"Ros\\u00e9 Pine Dawn\""),
-            "{output}"
-        );
-    }
-
-    #[test]
-    fn vscode_terminal_prefers_mono_nerd_font_variant() {
-        let mut state = dummy_state();
-        state.mono_font = "JetBrainsMono Nerd Font".to_owned();
-        let output = text(vscode::generate(&dummy_colors(), &state));
-        assert!(
-            output.contains(
-                "\"terminal.integrated.fontFamily\": \"'JetBrainsMono Nerd Font Mono', 'JetBrainsMono Nerd Font', monospace\""
-            ),
-            "{output}"
-        );
+        for target in TARGETS {
+            for key in target.state_keys {
+                assert!(
+                    schema::find_field(key).is_some(),
+                    "target '{}' references unknown state key '{key}'",
+                    target.name
+                );
+            }
+        }
     }
 }

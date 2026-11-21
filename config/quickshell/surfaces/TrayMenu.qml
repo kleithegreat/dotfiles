@@ -13,7 +13,7 @@ Popover {
     readonly property bool requested: state.isOpen("menu")
     readonly property int rows: opener.children ? opener.children.values.length : 0
 
-    shown: requested && rows > 0
+    shown: requested && (rows > 0 || trail.length > 0)
     anchor: state.anchor
     panelWidth: 300
     padded: false

@@ -41,7 +41,7 @@ QtObject {
     // ── Colour arithmetic ──────────────────────────────────────────────────
 
     function _channel(value) {
-        return value <= 0.03928 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4);
+        return value <= 0.04045 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4);
     }
 
     function luminance(c) {
@@ -100,7 +100,7 @@ QtObject {
     readonly property color accentSoft: withAlpha(accent, dark ? 0.22 : 0.18)
     // Cards are never translucent, so this composites to a flat colour.
     readonly property color accentSurface: mix(raised, accent, dark ? 0.28 : 0.20)
-    readonly property color onAccent: luminance(accent) > 0.45 ? Qt.rgba(0, 0, 0, 0.92) : Qt.rgba(1, 1, 1, 0.96)
+    readonly property color onAccent: luminance(accent) > 0.1791 ? Qt.rgba(0, 0, 0, 0.92) : Qt.rgba(1, 1, 1, 0.96)
 
     readonly property color positive: _read("greenBright", "#b8bb26")
     readonly property color caution: _read("yellowBright", "#fabd2f")
@@ -114,16 +114,14 @@ QtObject {
     // A hairline rim and a shadow wide enough to be felt rather than seen.
     readonly property color rim: dark ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(0, 0, 0, 0.10)
     readonly property color shadow: Qt.rgba(0, 0, 0, dark ? 0.34 : 0.16)
-    readonly property color scrim: Qt.rgba(0, 0, 0, dark ? 0.42 : 0.30)
+    readonly property color scrim: Qt.rgba(0, 0, 0, dark ? 0.42 : 0.38)
 
     // ── Type ───────────────────────────────────────────────────────────────
 
     readonly property string family: _typeface.systemFamily || "Geist"
-    readonly property string familyMono: _typeface.family || "JetBrainsMono Nerd Font"
 
     readonly property int _base: _typeface.size || 13
 
-    readonly property int sizeDisplay: _base + 11
     readonly property int sizeTitle: _base + 4
     readonly property int sizeHeadline: _base + 1
     readonly property int sizeBody: _base

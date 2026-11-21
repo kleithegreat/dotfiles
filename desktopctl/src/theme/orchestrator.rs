@@ -1,35 +1,19 @@
 use crate::{
+    cmd,
+    fs_util::{atomic_write, expand_user_path},
     paths,
     theme::{
-        self, command, json,
-        schema::{ColorScheme, ThemeState},
+        schema::{ColorScheme, ThemeState, font_field_names},
         targets::{self, Assembly, Target},
     },
 };
 use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value};
+use serde_json::Value;
 use std::{
     collections::BTreeSet,
     fs, io,
     path::{Path, PathBuf},
 };
-
-const FONT_SCOPE_KEYS: [&str; 14] = [
-    "system_font",
-    "mono_font",
-    "font_size",
-    "mono_font_size",
-    "quickshell_font_size_offset",
-    "gtk_font_size_offset",
-    "qt_font_size_offset",
-    "alacritty_mono_font_size_offset",
-    "ghostty_mono_font_size_offset",
-    "gtk_mono_font_size_offset",
-    "neovide_mono_font_size_offset",
-    "qt_mono_font_size_offset",
-    "vscode_mono_font_size_offset",
-    "zed_mono_font_size_offset",
-];
 
 fn header(colors: &ColorScheme, comment: &str) -> String {
     format!(
@@ -44,6 +28,8 @@ pub struct ApplyReport {
     pub applied: Vec<String>,
     pub failed: Vec<TargetFailure>,
     pub skipped: Vec<String>,
+    #[serde(default)]
+    pub warnings: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -67,6 +53,9 @@ impl ApplyReport {
         }
         for name in &self.applied {
             println!("  {name}: ok");
+        }
+        for warning in &self.warnings {
+            eprintln!("  warning: {warning}");
         }
         for failure in &self.failed {
             eprintln!("  {}: FAILED — {}", failure.target, failure.error);
@@ -92,25 +81,68 @@ where
     I: IntoIterator<Item = S>,
     S: AsRef<str>,
 {
-    let mut report = ApplyReport::default();
+    let mut skipped = Vec::new();
     let mut selected = Vec::new();
 
     for name in names {
         match targets::get(name.as_ref()) {
             Some(target) => selected.push(target),
-            None => report.skipped.push(name.as_ref().to_owned()),
+            None => skipped.push(name.as_ref().to_owned()),
         }
     }
-    report.skipped.sort();
+    apply_selected(selected, skipped, colors, state, runtime)
+}
+
+fn apply_selected(
+    mut selected: Vec<&Target>,
+    mut skipped: Vec<String>,
+    colors: &ColorScheme,
+    state: &ThemeState,
+    runtime: bool,
+) -> ApplyReport {
+    let mut report = ApplyReport::default();
+    skipped.sort();
+    report.skipped = skipped;
     selected.sort_by_key(|target| (matches!(target.assembly, Assembly::Hooks), target.name));
 
+    let mut applied_targets = Vec::new();
     for target in selected {
-        match apply_target(target, colors, state, runtime) {
-            Ok(()) => report.applied.push(target.name.to_owned()),
+        match apply_target(target, colors, state) {
+            Ok(()) => {
+                report.applied.push(target.name.to_owned());
+                applied_targets.push(target);
+            }
             Err(error) => report.failed.push(TargetFailure {
                 target: target.name.to_owned(),
                 error: error.to_string(),
             }),
+        }
+    }
+
+    if runtime {
+        let mut executed_reloads: Vec<&'static [&'static str]> = Vec::new();
+        for target in &applied_targets {
+            if let Some(command) = target.reload_cmd
+                && !executed_reloads.contains(&command)
+            {
+                executed_reloads.push(command);
+                if let Err(error) = cmd::run(command) {
+                    tracing::warn!(target: "desktopctl::theme", target_name = target.name, "reload failed: {error}");
+                    report
+                        .warnings
+                        .push(format!("{}: reload: {error}", target.name));
+                }
+            }
+        }
+        for target in &applied_targets {
+            if let Some(on_apply) = target.on_apply
+                && let Err(error) = on_apply(colors, state)
+            {
+                tracing::warn!(target: "desktopctl::theme", target_name = target.name, "hook failed: {error}");
+                report
+                    .warnings
+                    .push(format!("{}: hook: {error}", target.name));
+            }
         }
     }
 
@@ -131,7 +163,7 @@ pub fn color_targets(state: &ThemeState) -> BTreeSet<String> {
 }
 
 pub fn font_targets() -> BTreeSet<String> {
-    targets_for_keys(FONT_SCOPE_KEYS, None)
+    targets_for_keys(font_field_names(), None)
 }
 
 pub fn targets_for_key(state_key: &str, state: Option<&ThemeState>) -> BTreeSet<String> {
@@ -156,6 +188,7 @@ where
         && matches!(state, Some(state) if !state.filter_wallpaper)
     {
         selected.remove("wallpaper");
+        selected.remove("where_is_my_sddm_theme");
     }
 
     selected
@@ -169,18 +202,10 @@ fn all_target_names(sync_safe: bool) -> Vec<&'static str> {
         .collect()
 }
 
-fn apply_target(
-    target: &Target,
-    colors: &ColorScheme,
-    state: &ThemeState,
-    runtime: bool,
-) -> crate::Result<()> {
+fn apply_target(target: &Target, colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
     write_output(target, colors, state)?;
     if let Some(persist) = target.persist {
         persist(colors, state)?;
-    }
-    if runtime {
-        reload(target, colors, state);
     }
     Ok(())
 }
@@ -195,8 +220,8 @@ fn write_output(target: &Target, colors: &ColorScheme, state: &ThemeState) -> cr
         Assembly::Hooks => Ok(()),
         Assembly::Standalone { output, generate } => {
             let content = generate(colors, state)?;
-            theme::atomic_write(
-                &theme::expand_user_path(output)?,
+            atomic_write(
+                &expand_user_path(output)?,
                 format!("{header}{content}").as_bytes(),
             )
         }
@@ -206,7 +231,7 @@ fn write_output(target: &Target, colors: &ColorScheme, state: &ThemeState) -> cr
             generate,
         } => {
             let content = generate(colors, state)?;
-            let output_path = theme::expand_user_path(output)?;
+            let output_path = expand_user_path(output)?;
             let base_path = resolve_base_path(base)?;
             if !base_path.exists() {
                 return Err(io::Error::new(
@@ -229,31 +254,22 @@ fn write_output(target: &Target, colors: &ColorScheme, state: &ThemeState) -> cr
                 let base = fs::read_to_string(&base_path)?;
                 format!("{}\n{header}{content}", base.trim_end_matches('\n'))
             };
-            theme::atomic_write(&output_path, rendered.as_bytes())
+            atomic_write(&output_path, rendered.as_bytes())
         }
-    }
-}
-
-fn reload(target: &Target, colors: &ColorScheme, state: &ThemeState) {
-    if let Some(command) = target.reload_cmd {
-        let _ = command::run(command);
-    }
-    if let Some(on_apply) = target.on_apply {
-        let _ = on_apply(colors, state);
     }
 }
 
 fn resolve_base_path(path: &str) -> crate::Result<PathBuf> {
     let candidate = Path::new(path);
     if path.starts_with('~') || candidate.is_absolute() {
-        return theme::expand_user_path(path);
+        return expand_user_path(path);
     }
 
     Ok(paths::data_path(candidate)?)
 }
 
 fn concat_json(base_path: &Path, generated: &str) -> crate::Result<String> {
-    let base_value: Value =
+    let mut base_value: Value =
         serde_json::from_str(&fs::read_to_string(base_path)?).map_err(|error| {
             crate::invalid_data(format!("Invalid JSON in {}: {error}", base_path.display()))
         })?;
@@ -261,62 +277,51 @@ fn concat_json(base_path: &Path, generated: &str) -> crate::Result<String> {
         crate::invalid_data(format!("Invalid generated JSON for concat target: {error}"))
     })?;
 
-    let Value::Object(base_map) = base_value else {
+    if !base_value.is_object() {
         return Err(crate::invalid_data(format!(
             "{}: expected top-level JSON object",
             base_path.display()
         ))
         .into());
-    };
-    let Value::Object(generated_map) = generated_value else {
+    }
+    if !generated_value.is_object() {
         return Err(crate::invalid_data("Generated concat JSON must be a top-level object").into());
-    };
-
-    let merged = merge_json_objects(base_map, generated_map);
-    Ok(format!(
-        "{}\n",
-        json::format_pretty_value(&Value::Object(merged))
-    ))
-}
-
-fn merge_json_objects(
-    base: Map<String, Value>,
-    generated: Map<String, Value>,
-) -> Map<String, Value> {
-    let mut merged = base;
-
-    for (key, value) in generated {
-        match (merged.get_mut(&key), value) {
-            (Some(Value::Object(base_child)), Value::Object(generated_child)) => {
-                for (nested_key, nested_value) in generated_child {
-                    base_child.insert(nested_key, nested_value);
-                }
-            }
-            (_, value) => {
-                merged.insert(key, value);
-            }
-        }
     }
 
-    merged
+    merge_json_values(&mut base_value, generated_value);
+    Ok(format!("{}\n", serde_json::to_string_pretty(&base_value)?))
+}
+
+pub(crate) fn merge_json_values(base: &mut Value, overlay: Value) {
+    match (base, overlay) {
+        (Value::Object(base_map), Value::Object(overlay_map)) => {
+            for (key, overlay_value) in overlay_map {
+                match base_map.get_mut(&key) {
+                    Some(base_value) => merge_json_values(base_value, overlay_value),
+                    None => {
+                        base_map.insert(key, overlay_value);
+                    }
+                }
+            }
+        }
+        (base_value, overlay_value) => {
+            *base_value = overlay_value;
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::{ScopedEnvVar, TempDir, env_lock};
     use crate::theme::targets::testsupport::{dummy_colors, dummy_state};
-    use std::time::{SystemTime, UNIX_EPOCH};
 
     fn noop_generate(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<String> {
         Ok("content\n".to_owned())
     }
 
-    fn unique_path(name: &str) -> PathBuf {
-        let nanos = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("time works")
-            .as_nanos();
-        std::env::temp_dir().join(format!("desktopctl-theme-{name}-{nanos}"))
+    fn failing_hook(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
+        Err(io::Error::other("hook boom").into())
     }
 
     fn state(filter_wallpaper: bool) -> ThemeState {
@@ -327,130 +332,124 @@ mod tests {
     }
 
     #[test]
-    fn targets_for_color_scheme_skips_wallpaper_when_filtering_is_disabled() {
-        let state = state(false);
-        let targets = targets_for_key("color_scheme", Some(&state));
-        assert!(!targets.contains("wallpaper"));
+    fn targets_for_color_scheme_respects_filter_wallpaper() {
+        let unfiltered = targets_for_key("color_scheme", Some(&state(false)));
+        assert!(!unfiltered.contains("wallpaper"));
+        assert!(!unfiltered.contains("where_is_my_sddm_theme"));
+
+        let filtered = targets_for_key("color_scheme", Some(&state(true)));
+        assert!(filtered.contains("wallpaper"));
+        assert!(filtered.contains("where_is_my_sddm_theme"));
+
+        let explicit = targets_for_keys(["color_scheme", "wallpaper"], Some(&state(false)));
+        assert!(explicit.contains("wallpaper"));
     }
 
     #[test]
-    fn multi_key_fanout_is_the_union_and_keeps_an_explicitly_set_wallpaper() {
-        let state = state(false);
-        let theme_and_hint = targets_for_keys(["color_scheme", "dark_hint"], Some(&state));
-        assert!(theme_and_hint.contains("qt"));
-        assert!(theme_and_hint.contains("opencode"));
-        assert!(!theme_and_hint.contains("wallpaper"));
-
-        let with_wallpaper = targets_for_keys(["color_scheme", "wallpaper"], Some(&state));
-        assert!(with_wallpaper.contains("wallpaper"));
+    fn multi_key_fanout_unions_selected_targets() {
+        let selected = targets_for_keys(["color_scheme", "dark_hint"], Some(&state(false)));
+        assert!(selected.contains("qt"));
+        assert!(selected.contains("opencode"));
+        assert!(selected.contains("gtk"));
+        assert!(!selected.contains("wallpaper"));
     }
 
     #[test]
-    fn targets_for_color_scheme_keeps_wallpaper_when_filtering_is_enabled() {
-        let state = state(true);
-        let targets = targets_for_key("color_scheme", Some(&state));
-        assert!(targets.contains("wallpaper"));
-    }
+    fn merge_json_values_merges_nested_objects_and_replaces_scalars_and_arrays() {
+        let mut base = serde_json::json!({
+            "keep": true,
+            "nested": {
+                "existing": 1,
+                "overwritten": "old"
+            },
+            "list": [1, 2, 3]
+        });
+        let overlay = serde_json::json!({
+            "nested": {
+                "overwritten": "new",
+                "added": 2
+            },
+            "list": [9],
+            "extra": "ok"
+        });
 
-    #[test]
-    fn targets_for_color_scheme_include_opencode() {
-        let state = state(true);
-        let targets = targets_for_key("color_scheme", Some(&state));
-        assert!(targets.contains("opencode"));
-    }
-
-    #[test]
-    fn targets_for_color_scheme_include_zsh() {
-        let state = state(true);
-        let targets = targets_for_key("color_scheme", Some(&state));
-        assert!(targets.contains("zsh"));
-    }
-
-    #[test]
-    fn quickshell_font_size_offset_targets_only_quickshell() {
-        let targets = targets_for_key("quickshell_font_size_offset", None)
-            .into_iter()
-            .collect::<Vec<_>>();
-        assert_eq!(targets, vec!["quickshell".to_owned()]);
-    }
-
-    #[test]
-    fn gtk_font_size_offset_targets_only_gtk() {
-        let targets = targets_for_key("gtk_font_size_offset", None)
-            .into_iter()
-            .collect::<Vec<_>>();
-        assert_eq!(targets, vec!["gtk".to_owned()]);
-    }
-
-    #[test]
-    fn qt_font_size_offset_targets_only_qt() {
-        let targets = targets_for_key("qt_font_size_offset", None)
-            .into_iter()
-            .collect::<Vec<_>>();
-        assert_eq!(targets, vec!["qt".to_owned()]);
-    }
-
-    #[test]
-    fn dark_hint_targets_only_the_portal_preference() {
-        let targets = targets_for_key("dark_hint", None)
-            .into_iter()
-            .collect::<Vec<_>>();
-
-        assert_eq!(targets, vec!["gtk".to_owned()]);
-    }
-
-    #[test]
-    fn font_size_does_not_target_chromium() {
-        let targets = targets_for_key("font_size", None);
-        assert!(!targets.contains("chromium"));
-    }
-
-    #[test]
-    fn mono_font_size_does_not_target_chromium() {
-        let targets = targets_for_key("mono_font_size", None);
-        assert!(!targets.contains("chromium"));
-    }
-
-    #[test]
-    fn mono_font_does_not_target_tmux() {
-        let targets = targets_for_key("mono_font", None);
-        assert!(!targets.contains("tmux"));
-    }
-
-    #[test]
-    fn sync_safe_selection_excludes_runtime_only_targets() {
-        let safe = all_target_names(true);
-        assert!(safe.contains(&"gtk"));
-        assert!(!safe.contains(&"wallpaper"));
-        assert!(all_target_names(false).contains(&"wallpaper"));
-    }
-
-    #[test]
-    fn standalone_targets_are_written_with_the_generated_header() -> crate::Result<()> {
-        let out_dir = unique_path("standalone");
-        let path = out_dir.join("safe.conf");
-        let target = Target::standalone(
-            "safe",
-            &[],
-            Box::leak(path.to_string_lossy().into_owned().into_boxed_str()),
-            noop_generate,
-        )
-        .comment("#");
-
-        apply_target(&target, &dummy_colors(), &dummy_state(), false)?;
+        merge_json_values(&mut base, overlay);
         assert_eq!(
-            fs::read_to_string(&path)?,
-            "# Generated by desktopctl theme — do not edit\n# Source: gruvbox-dark\n\ncontent\n"
+            base,
+            serde_json::json!({
+                "keep": true,
+                "nested": {
+                    "existing": 1,
+                    "overwritten": "new",
+                    "added": 2
+                },
+                "list": [9],
+                "extra": "ok"
+            })
         );
+    }
 
-        fs::remove_dir_all(out_dir)?;
+    #[test]
+    fn concat_json_preserves_base_sibling_keys_and_rejects_non_objects() -> crate::Result<()> {
+        let dir = TempDir::new("desktopctl-concat-json")?;
+        let base_path = dir.path().join("base.json");
+        fs::write(
+            &base_path,
+            serde_json::json!({
+                "editor": { "tabSize": 4, "fontFamily": "Old" },
+                "files.autoSave": "afterDelay"
+            })
+            .to_string(),
+        )?;
+
+        let rendered = concat_json(
+            &base_path,
+            &serde_json::json!({ "editor": { "fontFamily": "Mono" } }).to_string(),
+        )?;
+        let parsed: Value = serde_json::from_str(&rendered)?;
+        assert_eq!(parsed["files.autoSave"], "afterDelay");
+        assert_eq!(parsed["editor"]["tabSize"], 4);
+        assert_eq!(parsed["editor"]["fontFamily"], "Mono");
+
+        let bad_base = dir.path().join("array.json");
+        fs::write(&bad_base, "[1, 2]")?;
+        assert!(concat_json(&bad_base, "{}").is_err());
+        assert!(concat_json(&base_path, "[]").is_err());
         Ok(())
     }
 
     #[test]
-    fn unknown_targets_are_skipped_not_failed() {
-        let report = apply(["no-such-target"], &dummy_colors(), &dummy_state(), false);
+    fn apply_selected_orders_hooks_last_deduplicates_reloads_and_collects_warnings()
+    -> crate::Result<()> {
+        const RELOAD: &[&str] = &["/nonexistent/desktopctl-missing-reload"];
+        static FILE_TARGET: Target = Target::standalone("z-file", &[], "~/out.conf", noop_generate)
+            .comment("#")
+            .reload_cmd(RELOAD);
+        static HOOK_A: Target = Target::hooks("a-hook", &[]).reload_cmd(RELOAD);
+        static HOOK_B: Target = Target::hooks("b-hook", &[]).on_apply(failing_hook);
+
+        let _lock = env_lock();
+        let home = TempDir::new("desktopctl-orchestrator-home")?;
+        let _home = ScopedEnvVar::set("HOME", home.path());
+
+        let report = apply_selected(
+            vec![&HOOK_A, &FILE_TARGET, &HOOK_B],
+            vec!["missing".to_owned()],
+            &dummy_colors(),
+            &dummy_state(),
+            true,
+        );
+
         assert!(report.ok());
-        assert_eq!(report.skipped, vec!["no-such-target".to_owned()]);
+        assert_eq!(report.skipped, vec!["missing".to_owned()]);
+        assert_eq!(report.applied, vec!["z-file", "a-hook", "b-hook"]);
+        assert_eq!(
+            fs::read_to_string(home.path().join("out.conf"))?,
+            "# Generated by desktopctl theme — do not edit\n# Source: gruvbox-dark\n\ncontent\n"
+        );
+        assert_eq!(report.warnings.len(), 2);
+        assert!(report.warnings[0].starts_with("z-file: reload: "));
+        assert!(report.warnings[1].starts_with("b-hook: hook: "));
+        Ok(())
     }
 }

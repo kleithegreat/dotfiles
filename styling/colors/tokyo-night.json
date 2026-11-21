@@ -6,10 +6,7 @@
     "bat": "base16",
     "ktexteditor": "Tokyo Night",
     "snappy_switcher": "tokyo-night.ini",
-    "vicinae": {
-      "name": "tokyo-night",
-      "light_name": "tokyo-night-light"
-    },
+    "vicinae": "tokyo-night",
     "vscode": {
       "name": "Tokyo Night",
       "extension_id": "enkia.tokyo-night"

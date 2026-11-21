@@ -1,11 +1,12 @@
 use super::Target;
-use crate::theme::{
-    atomic_write, color,
-    command::run,
-    expand_user_path,
-    schema::{ColorScheme, ThemeState},
+use crate::{
+    fs_util::{atomic_write, expand_user_path},
+    theme::{
+        color,
+        schema::{ColorScheme, ThemeState},
+    },
 };
-use std::{fs, path::Path};
+use std::{fs, io, path::Path};
 
 pub const TARGET: Target = Target::hooks(
     "qt",
@@ -28,8 +29,8 @@ const KATERC: &str = "~/.config/katerc";
 const KWRITERC: &str = "~/.config/kwriterc";
 
 /// `KGlobalSettings::ChangeType` values the KDE platform theme acts on.
-const PALETTE_CHANGED: &str = "0";
-const ICON_CHANGED: &str = "4";
+const PALETTE_CHANGED: i32 = 0;
+const ICON_CHANGED: i32 = 4;
 
 pub fn persist(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
     update_kdeglobals(colors, state)?;
@@ -40,27 +41,59 @@ pub fn persist(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
 
 /// Running Qt apps re-read kdeglobals on these session-bus signals.
 pub fn on_apply(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
+    run_async_signal(emit_qt_signals())
+}
+
+async fn emit_qt_signals() -> crate::Result<()> {
+    let connection = zbus::Connection::session().await?;
     for change in [PALETTE_CHANGED, ICON_CHANGED] {
-        run(&[
-            "busctl",
-            "--user",
-            "emit",
-            "/KGlobalSettings",
-            "org.kde.KGlobalSettings",
-            "notifyChange",
-            "ii",
-            change,
-            "0",
-        ])?;
+        connection
+            .emit_signal(
+                None::<&str>,
+                "/KGlobalSettings",
+                "org.kde.KGlobalSettings",
+                "notifyChange",
+                &(change, 0_i32),
+            )
+            .await?;
     }
-    run(&[
-        "busctl",
-        "--user",
-        "emit",
-        "/KDEPlatformTheme",
-        "org.kde.KDEPlatformTheme",
-        "refreshFonts",
-    ])
+    connection
+        .emit_signal(
+            None::<&str>,
+            "/KDEPlatformTheme",
+            "org.kde.KDEPlatformTheme",
+            "refreshFonts",
+            &(),
+        )
+        .await?;
+    Ok(())
+}
+
+fn run_async_signal(
+    future: impl std::future::Future<Output = crate::Result<()>> + Send + 'static,
+) -> crate::Result<()> {
+    match tokio::runtime::Handle::try_current() {
+        Ok(handle)
+            if matches!(
+                handle.runtime_flavor(),
+                tokio::runtime::RuntimeFlavor::MultiThread
+            ) =>
+        {
+            tokio::task::block_in_place(|| handle.block_on(future))
+        }
+        Ok(_) => std::thread::spawn(move || {
+            tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()?
+                .block_on(future)
+        })
+        .join()
+        .map_err(|_| io::Error::other("qt session signal thread panicked"))?,
+        Err(_) => tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()?
+            .block_on(future),
+    }
 }
 
 fn rgb(hex_color: &str) -> String {
@@ -199,7 +232,7 @@ fn apply_kde_fonts(config: &mut IniFile, state: &ThemeState) -> crate::Result<()
     config.set(
         "General",
         "smallestReadableFont",
-        &qfont(&state.system_font, size - 2),
+        &qfont(&state.system_font, (size - 2).max(6)),
     );
     config.set(
         "General",
@@ -392,17 +425,19 @@ impl IniFile {
 
 #[cfg(test)]
 mod tests {
-    use super::{IniFile, apply_kde_colors, kde_icon_theme};
+    use super::{IniFile, apply_kde_colors, apply_kde_fonts, sync_ktexteditor_config};
+    use crate::test_support::TempDir;
     use crate::theme::{
         color::contrast_ratio,
-        targets::testsupport::{REPO_SCHEMES, load_repo_colors},
+        targets::testsupport::{dummy_state, load_repo_colors, repo_schemes},
     };
+    use std::fs;
 
     #[test]
     fn selected_text_is_readable_on_the_highlight() {
-        for scheme in REPO_SCHEMES {
+        for scheme in repo_schemes() {
             let mut config = IniFile::default();
-            apply_kde_colors(&mut config, &load_repo_colors(scheme));
+            apply_kde_colors(&mut config, &load_repo_colors(&scheme));
             let role = |key: &str| {
                 let section = config.section("Colors:Selection").expect("selection group");
                 let (_, value) = section
@@ -422,36 +457,101 @@ mod tests {
     }
 
     #[test]
-    fn ktexteditor_theme_uses_declared_theme_metadata_or_appearance() {
+    fn ini_file_preserves_compound_sections_unmanaged_keys_and_colon_delimiters() {
+        let raw = "\
+# comment
+[Colors:Window][Inactive]
+BackgroundNormal:10,20,30
+
+[CustomSection]
+UserSetting=keep-me
+DropMe=gone
+";
+        let mut ini = IniFile::parse(raw);
+        assert!(ini.has_section("Colors:Window][Inactive"));
+        ini.set("Colors:Window][Inactive", "ForegroundNormal", "40,50,60");
+        ini.remove_option("CustomSection", "DropMe");
+        ini.set("Ephemeral", "Temp", "1");
+        ini.remove_section("Ephemeral");
+
+        let rendered = ini.render();
+        let reparsed = IniFile::parse(&rendered);
         assert_eq!(
-            load_repo_colors("gruvbox-dark").ktexteditor_theme_name(),
-            "gruvbox Dark"
+            reparsed.section_names(),
+            vec!["Colors:Window][Inactive", "CustomSection"]
         );
         assert_eq!(
-            load_repo_colors("gruvbox-light").ktexteditor_theme_name(),
-            "gruvbox Light"
+            reparsed
+                .section("Colors:Window][Inactive")
+                .expect("compound section")
+                .items,
+            vec![
+                ("BackgroundNormal".to_owned(), "10,20,30".to_owned()),
+                ("ForegroundNormal".to_owned(), "40,50,60".to_owned()),
+            ]
         );
         assert_eq!(
-            load_repo_colors("tokyo-night").ktexteditor_theme_name(),
-            "Tokyo Night"
-        );
-        assert_eq!(
-            load_repo_colors("tokyo-night-light").ktexteditor_theme_name(),
-            "Tokyo Night Light"
-        );
-        assert_eq!(
-            load_repo_colors("rose-pine").ktexteditor_theme_name(),
-            "Breeze Dark"
-        );
-        assert_eq!(
-            load_repo_colors("rose-pine-dawn").ktexteditor_theme_name(),
-            "Breeze Light"
+            reparsed
+                .section("CustomSection")
+                .expect("custom section")
+                .items,
+            vec![("UserSetting".to_owned(), "keep-me".to_owned())]
         );
     }
 
     #[test]
-    fn kde_icon_theme_uses_kde_specific_neuwaita_wrapper() {
-        assert_eq!(kde_icon_theme("Neuwaita"), "Neuwaita-KDE");
-        assert_eq!(kde_icon_theme("Papirus-Dark"), "Papirus-Dark");
+    fn sync_ktexteditor_config_clears_filetree_shading_and_preserves_siblings() -> crate::Result<()>
+    {
+        let dir = TempDir::new("desktopctl-ktexteditor")?;
+        let conf_path = dir.path().join("katerc");
+        fs::write(
+            &conf_path,
+            "[General]\nShow Full Path=true\n\n[filetree]\nshadingEnabled=true\neditShade=1,2,3\nviewShade=4,5,6\nsortRole=0\n",
+        )?;
+
+        sync_ktexteditor_config(&conf_path, &load_repo_colors("tokyo-night"), true)?;
+        let synced = IniFile::parse(&fs::read_to_string(&conf_path)?);
+
+        assert_eq!(
+            synced.section("General").expect("General").items,
+            vec![("Show Full Path".to_owned(), "true".to_owned())]
+        );
+        assert_eq!(
+            synced
+                .section("KTextEditor Renderer")
+                .expect("Renderer")
+                .items,
+            vec![
+                ("Auto Color Theme Selection".to_owned(), "false".to_owned()),
+                ("Color Theme".to_owned(), "Tokyo Night".to_owned()),
+            ]
+        );
+        assert_eq!(
+            synced.section("filetree").expect("filetree").items,
+            vec![
+                ("shadingEnabled".to_owned(), "false".to_owned()),
+                ("sortRole".to_owned(), "0".to_owned()),
+            ]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn apply_kde_fonts_clamps_smallest_readable_font_to_six() -> crate::Result<()> {
+        let mut config = IniFile::default();
+        let mut state = dummy_state();
+        state.font_size = 6;
+        state.qt_font_size_offset = 0;
+
+        apply_kde_fonts(&mut config, &state)?;
+        let general = &config.section("General").expect("General section").items;
+        assert!(
+            general.contains(&(
+                "smallestReadableFont".to_owned(),
+                "Overpass,6,-1,5,400,0,0,0,0,0,0,0,0,0,0,1".to_owned()
+            )),
+            "{general:?}"
+        );
+        Ok(())
     }
 }

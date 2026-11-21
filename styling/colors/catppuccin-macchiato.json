@@ -6,10 +6,7 @@
     "bat": "Catppuccin Macchiato",
     "ktexteditor": "Catppuccin Macchiato",
     "snappy_switcher": "catppuccin-mocha.ini",
-    "vicinae": {
-      "name": "catppuccin-macchiato",
-      "light_name": "catppuccin-latte"
-    },
+    "vicinae": "catppuccin-macchiato",
     "vscode": {
       "name": "Catppuccin Macchiato",
       "extension_id": "catppuccin.catppuccin-vsc",

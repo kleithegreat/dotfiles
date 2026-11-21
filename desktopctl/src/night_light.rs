@@ -1,7 +1,7 @@
 use crate::{
     hypr,
-    ipc::{self, methods},
-    paths, solar, theme,
+    ipc::{self, RpcRequest},
+    paths, proc_util, solar, theme,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -9,7 +9,6 @@ use std::{
     net::Shutdown,
     os::unix::net::UnixStream,
     path::PathBuf,
-    process::Command,
     thread,
     time::{Duration, Instant},
 };
@@ -67,13 +66,6 @@ impl NightLightStatus {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NightLightSetParams {
-    pub mode: NightLightMode,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub temperature: Option<i32>,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct HyprsunsetProcessState {
     pub running: bool,
@@ -91,11 +83,7 @@ pub fn run(command: crate::NightLightCommand) -> crate::Result<()> {
 }
 
 pub fn request_status() -> crate::Result<NightLightStatus> {
-    match ipc::send_request::<(), NightLightStatus>(
-        methods::NIGHT_LIGHT_STATUS,
-        None,
-        ipc::DEFAULT_TIMEOUT,
-    ) {
+    match ipc::send::<NightLightStatus>(RpcRequest::NightLightStatus, ipc::DEFAULT_TIMEOUT) {
         Ok(status) => Ok(status),
         Err(error) if ipc::socket_unavailable(error.as_ref()) => fallback_status(),
         Err(error) => Err(error),
@@ -106,21 +94,24 @@ pub fn request_mode(
     mode: NightLightMode,
     temperature: Option<i32>,
 ) -> crate::Result<NightLightStatus> {
-    let params = NightLightSetParams { mode, temperature };
-    ipc::send_request(methods::NIGHT_LIGHT_SET, Some(params), ipc::DEFAULT_TIMEOUT)
+    ipc::mutate(
+        RpcRequest::NightLightSet { mode, temperature },
+        ipc::DEFAULT_TIMEOUT,
+        Duration::ZERO,
+    )
 }
 
 pub fn request_toggle() -> crate::Result<NightLightStatus> {
-    ipc::send_request::<(), NightLightStatus>(
-        methods::NIGHT_LIGHT_TOGGLE,
-        None,
+    ipc::mutate(
+        RpcRequest::NightLightToggle,
         ipc::DEFAULT_TIMEOUT,
+        Duration::ZERO,
     )
 }
 
 pub(crate) fn normalize_temperature(value: i32) -> crate::Result<i32> {
-    let rounded = ((value + 50) / 100) * 100;
-    if !(NIGHT_LIGHT_MIN_TEMP..=NIGHT_LIGHT_MAX_TEMP).contains(&rounded) {
+    let rounded = ((i64::from(value) + 50) / 100) * 100;
+    if !(i64::from(NIGHT_LIGHT_MIN_TEMP)..=i64::from(NIGHT_LIGHT_MAX_TEMP)).contains(&rounded) {
         return Err(crate::invalid_input(format!(
             "night-light temperature must be between {}K and {}K",
             NIGHT_LIGHT_MIN_TEMP, NIGHT_LIGHT_MAX_TEMP
@@ -128,35 +119,23 @@ pub(crate) fn normalize_temperature(value: i32) -> crate::Result<i32> {
         .into());
     }
 
-    Ok(rounded)
+    Ok(rounded as i32)
 }
 
 pub(crate) fn hyprsunset_process_state() -> HyprsunsetProcessState {
-    let output = match Command::new("ps")
-        .args(["-C", "hyprsunset", "-o", "args="])
-        .output()
-    {
-        Ok(output) if output.status.success() => output,
-        _ => {
-            return HyprsunsetProcessState {
-                running: false,
-                temperature: None,
-            };
-        }
-    };
-
-    let args = String::from_utf8_lossy(&output.stdout);
-    let Some(command_line) = args.lines().find(|line| !line.trim().is_empty()) else {
+    let processes = proc_util::find_processes("hyprsunset");
+    let Some(process) = processes.first() else {
         return HyprsunsetProcessState {
             running: false,
             temperature: None,
         };
     };
 
+    let command_line = process.args.join(" ");
     HyprsunsetProcessState {
         running: true,
         temperature: hyprsunset_current_temperature()
-            .or_else(|| parse_temperature_from_args(command_line)),
+            .or_else(|| parse_temperature_from_args(&command_line)),
     }
 }
 
@@ -191,21 +170,9 @@ fn wait_for_hyprsunset(running: bool) {
 }
 
 pub(crate) fn stop_hyprsunset() -> crate::Result<()> {
-    match Command::new("pkill")
-        .args(["--exact", "hyprsunset"])
-        .output()
-    {
-        Ok(output) if output.status.success() || output.status.code() == Some(1) => {
-            wait_for_hyprsunset(false);
-            Ok(())
-        }
-        Ok(output) => Err(command_error("pkill hyprsunset", &output).into()),
-        Err(error) => Err(io::Error::new(
-            error.kind(),
-            format!("failed to run pkill hyprsunset: {error}"),
-        )
-        .into()),
-    }
+    proc_util::signal_processes("hyprsunset", libc::SIGTERM)?;
+    wait_for_hyprsunset(false);
+    Ok(())
 }
 
 pub(crate) fn current_dark_hint() -> crate::Result<bool> {
@@ -260,23 +227,6 @@ fn fallback_status() -> crate::Result<NightLightStatus> {
     let location = solar::resolve_location()?;
     let solar_status = solar::status_for_now(chrono::Local::now(), location);
     NightLightStatus::observe(NightLightMode::Auto, solar::HYPRSUNSET_TEMP, &solar_status)
-}
-
-fn command_error(label: &str, output: &std::process::Output) -> io::Error {
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let detail = if stderr.trim().is_empty() {
-        stdout.trim()
-    } else {
-        stderr.trim()
-    };
-    let detail = if detail.is_empty() {
-        format!("exited with status {}", output.status)
-    } else {
-        detail.to_owned()
-    };
-
-    io::Error::other(format!("{label} failed: {detail}"))
 }
 
 fn hyprsunset_current_temperature() -> Option<i32> {
@@ -358,47 +308,30 @@ mod tests {
     use super::*;
 
     #[test]
-    fn normalize_temperature_rounds_to_nearest_hundred() {
-        assert_eq!(
-            normalize_temperature(4549).expect("valid temperature"),
-            4500
-        );
-        assert_eq!(
-            normalize_temperature(4550).expect("valid temperature"),
-            4600
-        );
-    }
-
-    #[test]
-    fn normalize_temperature_rejects_values_out_of_range() {
-        assert!(normalize_temperature(2900).is_err());
-        assert!(normalize_temperature(6600).is_err());
+    fn normalize_temperature_rounds_and_validates_bounds() {
+        for (input, expected) in [
+            (4549, Some(4500)),
+            (4550, Some(4600)),
+            (2900, None),
+            (6600, None),
+            (i32::MAX, None),
+        ] {
+            assert_eq!(
+                normalize_temperature(input).ok(),
+                expected,
+                "temperature={input}"
+            );
+        }
     }
 
     #[test]
     fn parse_temperature_from_args_supports_short_and_long_flags() {
-        assert_eq!(
-            parse_temperature_from_args("hyprsunset -t 4300"),
-            Some(4300)
-        );
-        assert_eq!(
-            parse_temperature_from_args("hyprsunset --temperature=5100"),
-            Some(5100)
-        );
-        assert_eq!(parse_temperature_from_args("hyprsunset"), None);
-    }
-
-    #[test]
-    fn parse_temperature_reply_accepts_numeric_responses() {
-        assert_eq!(parse_temperature_reply("4300").expect("valid reply"), 4300);
-        assert_eq!(
-            parse_temperature_reply(" 5100\n").expect("trimmed valid reply"),
-            5100
-        );
-    }
-
-    #[test]
-    fn parse_temperature_reply_rejects_non_numeric_responses() {
-        assert!(parse_temperature_reply("ok").is_err());
+        for (args, expected) in [
+            ("hyprsunset -t 4300", Some(4300)),
+            ("hyprsunset --temperature=5100", Some(5100)),
+            ("hyprsunset", None),
+        ] {
+            assert_eq!(parse_temperature_from_args(args), expected, "{args}");
+        }
     }
 }

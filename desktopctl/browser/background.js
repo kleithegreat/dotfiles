@@ -4,18 +4,22 @@
 const HOST = "desktopctl.airdrop";
 
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({
-    id: "airdrop",
-    title: "AirDrop",
-    contexts: ["selection", "link", "page"],
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: "airdrop",
+      title: "AirDrop",
+      contexts: ["selection", "link", "page"],
+    });
   });
 });
 
 // selectionText collapses line breaks; the page's own selection keeps them.
-async function selection(tab, fallback) {
+async function selection(tab, frameId, fallback) {
   try {
+    const target =
+      frameId !== undefined ? { tabId: tab.id, frameIds: [frameId] } : { tabId: tab.id, allFrames: false };
     const [result] = await chrome.scripting.executeScript({
-      target: { tabId: tab.id, allFrames: false },
+      target,
       func: () => getSelection().toString(),
     });
     return result?.result || fallback;
@@ -25,8 +29,15 @@ async function selection(tab, fallback) {
 }
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  const message = info.selectionText
-    ? { text: await selection(tab, info.selectionText) }
-    : { url: info.linkUrl || info.pageUrl };
-  chrome.runtime.sendNativeMessage(HOST, message);
+  let message;
+  if (info.selectionText) {
+    const text = await selection(tab, info.frameId, info.selectionText);
+    if (!text || !text.trim()) return;
+    message = { text };
+  } else {
+    const url = info.linkUrl || info.pageUrl;
+    if (!url) return;
+    message = { url };
+  }
+  chrome.runtime.sendNativeMessage(HOST, message).catch(console.error);
 });

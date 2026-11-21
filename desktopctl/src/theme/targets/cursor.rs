@@ -1,10 +1,9 @@
 use super::Target;
-use crate::hypr::lua_str;
-use crate::theme::{
-    atomic_write,
-    command::{GNOME_INTERFACE_DCONF_DIR, dconf_write, run, run_with_env},
-    expand_user_path,
-    schema::{ColorScheme, ThemeState},
+use crate::{
+    cmd::{GNOME_INTERFACE_DCONF_DIR, dconf_write, dconf_write_str, run, run_with_env},
+    fs_util::{atomic_write, expand_user_path},
+    hypr::lua_str,
+    theme::schema::{ColorScheme, ThemeState},
 };
 use std::{collections::BTreeMap, fs, io, path::Path};
 
@@ -37,11 +36,11 @@ fn hyprcursor_theme_for(cursor_theme: &str) -> Option<&'static str> {
 }
 
 fn hyprctl_env(variable: &str, value: &str) -> crate::Result<()> {
-    run(&[
-        "hyprctl",
-        "eval",
-        &format!("hl.env({}, {})", lua_str(variable), lua_str(value)),
-    ])
+    crate::hypr::eval(&format!(
+        "hl.env({}, {})",
+        lua_str(variable),
+        lua_str(value)
+    ))
 }
 
 fn import_user_env(values: &BTreeMap<String, String>) {
@@ -84,7 +83,7 @@ fn replace_with_symlink(
     target: &Path,
     fallback_contents: &str,
 ) -> crate::Result<()> {
-    if crate::theme::replace_with_symlink(link_path, target).is_ok() {
+    if crate::fs_util::replace_with_symlink(link_path, target).is_ok() {
         return Ok(());
     }
 
@@ -142,9 +141,9 @@ pub fn on_apply(_colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> 
         }
     };
 
-    attempt(dconf_write(
+    attempt(dconf_write_str(
         &format!("{GNOME_INTERFACE_DCONF_DIR}/cursor-theme"),
-        &format!("'{}'", state.cursor_theme),
+        &state.cursor_theme,
     ));
     attempt(dconf_write(
         &format!("{GNOME_INTERFACE_DCONF_DIR}/cursor-size"),
@@ -167,7 +166,7 @@ pub fn on_apply(_colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> 
         attempt(hyprctl_env("HYPRCURSOR_THEME", ""));
     }
 
-    attempt(run(&[
+    attempt(run([
         "hyprctl",
         "setcursor",
         hyprcursor_theme.unwrap_or(&state.cursor_theme),

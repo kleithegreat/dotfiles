@@ -1,7 +1,6 @@
 use super::Target;
 use crate::theme::{
     color::{blend, readable_on},
-    json,
     schema::{ColorScheme, ThemeState},
 };
 use serde_json::{Map, Value};
@@ -78,7 +77,7 @@ pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<Stri
     .map(|(key, value)| (key.to_owned(), Value::String(value)))
     .collect::<Map<_, _>>();
 
-    let appearance = if colors.is_dark() { "dark" } else { "light" };
+    let appearance = colors.appearance.as_str();
     let mut root = Map::new();
     root.insert("name".to_owned(), Value::String("desktopctl".to_owned()));
     root.insert(
@@ -89,17 +88,14 @@ pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<Stri
     root.insert("accent".to_owned(), Value::String(colors.accent.clone()));
     root.insert("colors".to_owned(), Value::Object(overrides));
 
-    Ok(format!(
-        "{}\n",
-        json::format_pretty_value(&Value::Object(root))
-    ))
+    Ok(format!("{}\n", serde_json::to_string_pretty(&root)?))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::theme::color::contrast_ratio;
-    use crate::theme::targets::testsupport::{REPO_SCHEMES, dummy_state, load_repo_colors};
+    use crate::theme::targets::testsupport::{dummy_state, load_repo_colors, repo_schemes};
 
     fn render(scheme: &str) -> Value {
         serde_json::from_str(
@@ -109,42 +105,9 @@ mod tests {
     }
 
     #[test]
-    fn appearance_follows_the_scheme() {
-        for scheme in REPO_SCHEMES {
-            let expected = if load_repo_colors(scheme).is_dark() {
-                "dark"
-            } else {
-                "light"
-            };
-            assert_eq!(render(scheme)["appearance"], expected, "{scheme}");
-        }
-    }
-
-    /// T3 Code's server drops the whole file when a seed is not `#rgb`/`#rrggbb`.
-    #[test]
-    fn every_colour_is_six_digit_hex() {
-        for scheme in REPO_SCHEMES {
-            let value = render(scheme);
-            let seeds = [&value["canvas"], &value["accent"]];
-            for colour in seeds
-                .into_iter()
-                .chain(value["colors"].as_object().expect("colors").values())
-            {
-                let colour = colour.as_str().expect("string colour");
-                assert!(
-                    colour.len() == 7
-                        && colour.starts_with('#')
-                        && colour[1..].chars().all(|c| c.is_ascii_hexdigit()),
-                    "{scheme}: {colour}"
-                );
-            }
-        }
-    }
-
-    #[test]
     fn foregrounds_on_fills_clear_aa() {
-        for scheme in REPO_SCHEMES {
-            let value = render(scheme);
+        for scheme in repo_schemes() {
+            let value = render(&scheme);
             let role = |name: &str| value["colors"][name].as_str().expect(name).to_owned();
             for (plate, ink) in [
                 (

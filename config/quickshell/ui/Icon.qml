@@ -9,6 +9,7 @@ Item {
     property string name
     property color color: Theme.text
     property int size: Metrics.icon
+    property bool _mounted: false
 
     implicitWidth: size
     implicitHeight: size
@@ -27,7 +28,11 @@ Item {
     }
 
     // Animates the effect, not the icon, so a caller's opacity binding survives.
-    onNameChanged: swap.restart()
+    Component.onCompleted: _mounted = true
+    onNameChanged: {
+        if (_mounted && name !== "")
+            swap.restart();
+    }
 
     ParallelAnimation {
         id: swap

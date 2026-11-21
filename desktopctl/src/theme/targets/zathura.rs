@@ -1,5 +1,8 @@
 use super::Target;
-use crate::theme::schema::{ColorScheme, ThemeState};
+use crate::theme::{
+    color::readable_on_ends,
+    schema::{ColorScheme, ThemeState},
+};
 
 pub const TARGET: Target = Target::standalone(
     "zathura",
@@ -10,6 +13,10 @@ pub const TARGET: Target = Target::standalone(
 .comment("#");
 
 pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<String> {
+    let on_red = readable_on_ends(&colors.red, &colors.bg, &colors.fg);
+    let on_yellow = readable_on_ends(&colors.yellow, &colors.bg, &colors.fg);
+    let on_accent = readable_on_ends(&colors.accent, &colors.bg, &colors.fg);
+
     Ok(format!(
         concat!(
             "set default-bg \"{}\"\n",
@@ -44,15 +51,15 @@ pub fn generate(colors: &ColorScheme, _state: &ThemeState) -> crate::Result<Stri
         colors.bg1,
         colors.fg,
         colors.red,
-        colors.fg,
+        on_red,
         colors.yellow,
-        colors.bg,
+        on_yellow,
         colors.yellow,
         colors.accent,
         colors.bg1,
         colors.fg,
         colors.accent,
-        colors.bg,
+        on_accent,
         colors.bg,
         colors.fg,
     ))

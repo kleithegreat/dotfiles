@@ -22,7 +22,7 @@ Ui.Scroll {
             Ui.ListRow {
                 Layout.fillWidth: true
                 icon: "palette"
-                title: "Tint the scheme from the wallpaper"
+                title: "Tint the wallpaper to match the scheme"
                 interactive: false
 
                 Ui.Toggle {

@@ -1,8 +1,5 @@
 use super::Target;
-use crate::theme::{
-    json,
-    schema::{ColorScheme, ThemeState},
-};
+use crate::theme::schema::{ColorScheme, ThemeState};
 use serde_json::{Map, Value};
 
 pub const TARGET: Target = Target::concat(
@@ -39,5 +36,5 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Strin
     );
     root.insert("ui_font_size".to_owned(), Value::from(state.font_size));
 
-    Ok(json::format_pretty_value(&Value::Object(root)))
+    Ok(serde_json::to_string_pretty(&root)?)
 }

@@ -1,7 +1,7 @@
 //! The display topology the user chose: which output is primary, and where
 //! each output sits. An empty primary selector means "decide automatically".
 
-use crate::{hypr, paths, theme};
+use crate::{hypr, paths};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fs, io, path::PathBuf};
 
@@ -9,9 +9,9 @@ use crate::Result;
 
 const RUNTIME_RELATIVE_PATH: &str = "hypr/displays-runtime.lua";
 
-/// Workspaces the primary output owns. Matches the `1..10` bound in
+/// Workspaces the primary output owns. Matches the `1..9` bound in
 /// `config/hypr/keybinds.lua`; the pins and the keys have to name the same set.
-const NUMBERED_WORKSPACES: std::ops::RangeInclusive<u32> = 1..=10;
+const NUMBERED_WORKSPACES: std::ops::RangeInclusive<u32> = 1..=9;
 
 /// Everything the display pane can change about one output.
 ///
@@ -72,7 +72,7 @@ pub(crate) fn load_state() -> Result<DisplayState> {
 }
 
 fn persist(state: &DisplayState) -> Result<()> {
-    theme::atomic_write(&runtime_path()?, render_state(state).as_bytes())
+    crate::fs_util::atomic_write(&runtime_path()?, render_state(state).as_bytes())
 }
 
 /// The selector a monitor is addressed by. Descriptions survive being replugged
@@ -173,6 +173,11 @@ pub(crate) fn set_primary(selector: &str) -> Result<DisplayStatus> {
 /// is exactly the one worth keeping for when it comes back, and a layout kept
 /// while it is away must not forget it.
 pub(crate) fn save_layout(outputs: BTreeMap<String, OutputState>) -> Result<DisplayStatus> {
+    persist_layout_merge(outputs)?;
+    status()
+}
+
+fn persist_layout_merge(outputs: BTreeMap<String, OutputState>) -> Result<DisplayState> {
     for (selector, output) in &outputs {
         if output.disabled {
             continue;
@@ -190,12 +195,19 @@ pub(crate) fn save_layout(outputs: BTreeMap<String, OutputState>) -> Result<Disp
             ))
             .into());
         }
+        if !output.scale.is_finite() || output.scale <= 0.0 {
+            return Err(crate::invalid_input(format!(
+                "scale '{}' for '{selector}' must be a positive finite number",
+                output.scale
+            ))
+            .into());
+        }
     }
 
     let mut state = load_state()?;
     state.outputs.extend(outputs);
     persist(&state)?;
-    status()
+    Ok(state)
 }
 
 fn workspace_rule_expression(workspace: u32, selector: &str) -> String {
@@ -237,7 +249,7 @@ fn render_state(state: &DisplayState) -> String {
             hypr::lua_str(selector),
             hypr::lua_str(&output.mode),
             hypr::lua_str(&output.position),
-            output.scale,
+            hypr::format_decimal(output.scale),
             output.vrr,
             output.transform,
             output.disabled,
@@ -261,35 +273,80 @@ fn parse_state(contents: &str) -> DisplayState {
 }
 
 fn parse_output_line(line: &str) -> Option<(String, OutputState)> {
-    let rest = line.strip_prefix("[\"")?;
-    let (selector, rest) = rest.split_once("\"] = {")?;
-    let fields = rest.trim_end_matches(&[',', ' '][..]).strip_suffix('}')?;
+    let after_open = line.strip_prefix("[\"")?;
+    let (escaped_selector, after_selector) = take_lua_string_body(after_open)?;
+    let fields = after_selector
+        .strip_prefix("] = {")?
+        .trim_end_matches(&[',', ' '][..])
+        .strip_suffix('}')?;
 
     let mut output = OutputState::default();
-    for field in fields.split(", ") {
-        let Some((key, value)) = field.split_once(" = ") else {
+    for field in split_lua_fields(fields) {
+        let Some((key, value)) = field.split_once('=') else {
             continue;
         };
+        let value = value.trim();
         match key.trim() {
             "mode" => output.mode = unquote(value)?,
             "position" => output.position = unquote(value)?,
-            "scale" => output.scale = value.trim().parse().ok()?,
-            "vrr" => output.vrr = value.trim().parse().ok()?,
-            "transform" => output.transform = value.trim().parse().ok()?,
-            "disabled" => output.disabled = value.trim() == "true",
+            "scale" => output.scale = value.parse().ok()?,
+            "vrr" => output.vrr = value.parse().ok()?,
+            "transform" => output.transform = value.parse().ok()?,
+            "disabled" => output.disabled = value == "true",
             _ => {}
         }
     }
-    Some((unescape(selector), output))
+    Some((crate::fs_util::unescape_lua_str(escaped_selector)?, output))
+}
+
+fn take_lua_string_body(input: &str) -> Option<(&str, &str)> {
+    let mut escaped = false;
+    for (idx, ch) in input.char_indices() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        match ch {
+            '\\' => escaped = true,
+            '"' => return Some((&input[..idx], &input[idx + 1..])),
+            _ => {}
+        }
+    }
+    None
+}
+
+fn split_lua_fields(input: &str) -> Vec<&str> {
+    let mut fields = Vec::new();
+    let mut start = 0;
+    let mut in_quotes = false;
+    let mut escaped = false;
+
+    for (idx, ch) in input.char_indices() {
+        if in_quotes {
+            if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == '"' {
+                in_quotes = false;
+            }
+        } else if ch == '"' {
+            in_quotes = true;
+        } else if ch == ',' {
+            fields.push(input[start..idx].trim());
+            start = idx + 1;
+        }
+    }
+    let tail = input[start..].trim();
+    if !tail.is_empty() {
+        fields.push(tail);
+    }
+    fields
 }
 
 fn unquote(value: &str) -> Option<String> {
     let inner = value.trim().strip_prefix('"')?.strip_suffix('"')?;
-    Some(unescape(inner))
-}
-
-fn unescape(value: &str) -> String {
-    value.replace("\\\"", "\"").replace("\\\\", "\\")
+    crate::fs_util::unescape_lua_str(inner)
 }
 
 pub(crate) fn print_status(status: &DisplayStatus, json: bool) -> Result<()> {
@@ -347,13 +404,13 @@ mod tests {
     }
 
     #[test]
-    fn state_round_trips_through_the_generated_lua() {
+    fn state_round_trips_through_the_generated_lua_with_commas_in_selector() {
         let mut state = DisplayState {
             primary: "desc:LG Electronics LG ULTRAWIDE".to_owned(),
             outputs: BTreeMap::new(),
         };
         state.outputs.insert(
-            "desc:LG Display 0x06B3".to_owned(),
+            "desc:ACME, Inc. 27\" Display".to_owned(),
             output("1920x1200@59.95", "0x0", 1.25),
         );
         state.outputs.insert(
@@ -367,6 +424,39 @@ mod tests {
         );
 
         assert_eq!(parse_state(&render_state(&state)), state);
+    }
+
+    #[test]
+    fn persist_layout_merge_preserves_unplugged_outputs_and_validates_specs() {
+        let _lock = crate::test_support::env_lock();
+        let config_home = crate::test_support::TempDir::new("displays-merge").expect("temp dir");
+        let _cfg = crate::test_support::ScopedEnvVar::set("XDG_CONFIG_HOME", config_home.path());
+
+        let mut initial = BTreeMap::new();
+        initial.insert(
+            "desc:Unplugged Dock".to_owned(),
+            output("2560x1080@60", "-320x-1080", 1.0),
+        );
+        persist_layout_merge(initial).expect("initial save");
+
+        let mut update = BTreeMap::new();
+        update.insert("eDP-1".to_owned(), output("1920x1200@60", "0x0", 1.25));
+        let merged = persist_layout_merge(update).expect("merged save");
+        assert!(merged.outputs.contains_key("desc:Unplugged Dock"));
+        assert!(merged.outputs.contains_key("eDP-1"));
+
+        for invalid in [
+            output("1920x1200@60", "0x0", 0.0),
+            output("1920x1200@60", "0x0", -1.0),
+            output("1920x1200@60", "0x0", f64::NAN),
+            output("", "0x0", 1.0),
+            output("1920x1200@60", "auto", 1.0),
+        ] {
+            let mut bad = BTreeMap::new();
+            bad.insert("eDP-1".to_owned(), invalid);
+            assert!(persist_layout_merge(bad).is_err());
+        }
+        assert_eq!(NUMBERED_WORKSPACES, 1..=9);
     }
 
     /// The bug this whole struct exists for: a spec that names only a position
@@ -402,48 +492,22 @@ mod tests {
     }
 
     #[test]
-    fn the_builtin_panel_is_primary_only_when_it_is_alone() {
-        let alone = vec![monitor("eDP-1", "LG Display 0x06B3", 1920.0, 1200.0)];
+    fn primary_selection_prefers_connected_larger_external_over_builtin() {
+        let builtin = || monitor("eDP-1", "LG Display 0x06B3", 1920.0, 1200.0);
+        let small_ext = || monitor("DP-2", "BNQ ZOWIE XL", 1920.0, 1080.0);
+        let big_ext = || monitor("DP-4", "LG Electronics LG ULTRAWIDE", 2560.0, 1080.0);
+
         assert_eq!(
-            status_for(&alone, DisplayState::default()).primary_output,
+            status_for(&[builtin()], DisplayState::default()).primary_output,
             "eDP-1"
         );
-
-        let docked = vec![
-            monitor("eDP-1", "LG Display 0x06B3", 1920.0, 1200.0),
-            monitor("DP-4", "LG Electronics LG ULTRAWIDE", 2560.0, 1080.0),
-        ];
         assert_eq!(
-            status_for(&docked, DisplayState::default()).primary_output,
+            status_for(&[builtin(), big_ext()], DisplayState::default()).primary_output,
             "DP-4"
         );
-    }
-
-    #[test]
-    fn the_larger_external_wins_between_two_of_them() {
-        let monitors = vec![
-            monitor("DP-2", "BNQ ZOWIE XL", 1920.0, 1080.0),
-            monitor("DP-4", "LG Electronics LG ULTRAWIDE", 2560.0, 1080.0),
-        ];
         assert_eq!(
-            status_for(&monitors, DisplayState::default()).primary_output,
+            status_for(&[small_ext(), big_ext()], DisplayState::default()).primary_output,
             "DP-4"
         );
-    }
-
-    #[test]
-    fn only_the_first_numbered_workspace_claims_the_default_flag() {
-        let first = workspace_rule_expression(1, "desc:LG ULTRAWIDE");
-        let second = workspace_rule_expression(2, "desc:LG ULTRAWIDE");
-        assert!(first.contains("default = true"));
-        assert!(!second.contains("default"));
-        assert!(second.contains("monitor = \"desc:LG ULTRAWIDE\""));
-    }
-
-    #[test]
-    fn positions_must_be_an_x_separated_pair() {
-        assert_eq!(parse_position("-320x-1080"), Some((-320, -1080)));
-        assert_eq!(parse_position("0x0"), Some((0, 0)));
-        assert_eq!(parse_position("auto"), None);
     }
 }

@@ -168,6 +168,7 @@ Item {
                     Loader {
                         id: pane
 
+                        active: root.visible
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         asynchronous: true

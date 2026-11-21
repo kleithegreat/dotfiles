@@ -19,7 +19,7 @@ QtObject {
         if (busy)
             return;
         active = enabled;
-        command.command = ["systemctl", "--user", enabled ? "start" : "stop", "heater.target"];
+        command.command = ["desktopctl", "heater", enabled ? "on" : "off"];
         command.running = true;
     }
 

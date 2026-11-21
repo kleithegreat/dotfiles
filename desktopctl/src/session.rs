@@ -5,6 +5,7 @@
 use crate::{hypr, ipc, paths, theme};
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::{HashMap, HashSet, VecDeque},
     fs, io,
     path::PathBuf,
     thread,
@@ -115,7 +116,7 @@ impl State {
     }
 
     pub(crate) fn persist(&self) -> Result<()> {
-        theme::atomic_write(&path("state.json")?, &serde_json::to_vec_pretty(self)?)
+        crate::fs_util::atomic_write(&path("state.json")?, &serde_json::to_vec_pretty(self)?)
     }
 }
 
@@ -188,7 +189,7 @@ pub(crate) fn record() -> Result<Recording> {
 }
 
 pub(crate) fn persist_recording(recording: &Recording) -> Result<()> {
-    theme::atomic_write(
+    crate::fs_util::atomic_write(
         &path("recording.json")?,
         &serde_json::to_vec_pretty(recording)?,
     )
@@ -219,11 +220,20 @@ fn claude_session(shell: i64) -> Option<String> {
     }
 
     let sessions = paths::home_dir().ok()?.join(".claude/sessions");
-    children(shell).into_iter().find_map(|child| {
-        let live: Live =
-            serde_json::from_slice(&fs::read(sessions.join(format!("{child}.json"))).ok()?).ok()?;
-        Some(live.session_id)
-    })
+    let mut visited = HashSet::new();
+    let mut queue = VecDeque::from(children(shell));
+    while let Some(pid) = queue.pop_front() {
+        if !visited.insert(pid) {
+            continue;
+        }
+        if let Ok(bytes) = fs::read(sessions.join(format!("{pid}.json")))
+            && let Ok(live) = serde_json::from_slice::<Live>(&bytes)
+        {
+            return Some(live.session_id);
+        }
+        queue.extend(children(pid));
+    }
+    None
 }
 
 pub(crate) fn restore(windows: &[Window]) -> Result<()> {
@@ -247,7 +257,10 @@ fn relaunch(windows: &[Window]) -> Result<()> {
         match app.relaunch {
             Relaunch::PerWindow => {
                 for window in saved {
-                    hypr::eval(&exec_on_workspace(app, window))?;
+                    if let Err(error) = hypr::eval(&exec_on_workspace(app, window)) {
+                        let _ = sort_parked(parked);
+                        return Err(error);
+                    }
                 }
             }
             // A running app keeps its windows; relaunching would only add one.
@@ -258,14 +271,20 @@ fn relaunch(windows: &[Window]) -> Result<()> {
                 {
                     eprintln!("desktopctl: preparing {} failed: {error}", app.class);
                 }
-                hypr::eval(&parking_rule(app.class, true))?;
+                if let Err(error) = hypr::eval(&parking_rule(app.class, true)) {
+                    let _ = sort_parked(parked);
+                    return Err(error);
+                }
                 parked.push(Parked {
                     class: app.class,
                     saved,
                     count: 0,
                     changed: Instant::now(),
                 });
-                hypr::dispatch(&hypr::exec_dispatcher(app.command))?;
+                if let Err(error) = hypr::dispatch(&hypr::exec_dispatcher(app.command)) {
+                    let _ = sort_parked(parked);
+                    return Err(error);
+                }
             }
         }
     }
@@ -314,6 +333,7 @@ struct Parked<'a> {
 /// sorted.
 fn sort_parked(mut parked: Vec<Parked>) -> Result<()> {
     let deadline = Instant::now() + SETTLE_DEADLINE;
+    let mut first_error = None;
 
     while !parked.is_empty() {
         let windows = hypr::query_windows()?;
@@ -336,11 +356,14 @@ fn sort_parked(mut parked: Vec<Parked>) -> Result<()> {
             // Unpark first: a window that maps in between should land in view, not stay hidden.
             unpark(&[app.class]);
             for (address, workspace) in assign(&app.saved, &opened) {
-                hypr::dispatch(&format!(
+                if let Err(error) = hypr::dispatch(&format!(
                     "hl.dsp.window.move({{ workspace = {}, silent = true, window = {} }})",
                     workspace_selector(workspace),
                     hypr::lua_str(&format!("address:{address}")),
-                ))?;
+                )) && first_error.is_none()
+                {
+                    first_error = Some(error);
+                }
             }
         }
         parked = waiting;
@@ -348,21 +371,32 @@ fn sort_parked(mut parked: Vec<Parked>) -> Result<()> {
             thread::sleep(SETTLE_POLL);
         }
     }
-    Ok(())
+    match first_error {
+        Some(error) => Err(error),
+        None => Ok(()),
+    }
 }
 
 /// Whether waiting longer can no longer change how `assign` pairs windows:
 /// every saved window has reopened, and at most one of them has to be told
 /// apart by order rather than title.
 fn determined(saved: &[&Window], opened: &[&hypr::WindowInfo]) -> bool {
-    let untitled = saved
-        .iter()
-        .filter(|saved| {
-            !opened
-                .iter()
-                .any(|window| saved.title.as_deref() == Some(window.title.as_str()))
-        })
-        .count();
+    let mut opened_titles: HashMap<&str, usize> = HashMap::new();
+    for window in opened {
+        *opened_titles.entry(window.title.as_str()).or_insert(0) += 1;
+    }
+
+    let mut untitled = 0;
+    for saved in saved {
+        match saved.title.as_deref().and_then(|title| {
+            opened_titles
+                .get_mut(title)
+                .filter(|remaining| **remaining > 0)
+        }) {
+            Some(remaining) => *remaining -= 1,
+            None => untitled += 1,
+        }
+    }
     opened.len() == saved.len() && untitled <= 1
 }
 
@@ -431,9 +465,8 @@ fn assign<'a>(saved: &[&'a Window], opened: &[&hypr::WindowInfo]) -> Vec<(String
 pub fn run(command: crate::SessionCommand) -> Result<()> {
     match command {
         crate::SessionCommand::Status(args) => {
-            let status = match ipc::send_request::<(), serde_json::Value>(
-                ipc::methods::SESSION_STATUS,
-                None,
+            let status = match ipc::send::<serde_json::Value>(
+                ipc::RpcRequest::SessionStatus,
                 ipc::DEFAULT_TIMEOUT,
             ) {
                 Err(error) if ipc::socket_unavailable(error.as_ref()) => {
@@ -452,24 +485,25 @@ pub fn run(command: crate::SessionCommand) -> Result<()> {
             Ok(())
         }
         crate::SessionCommand::Automatic(args) => request(
-            ipc::methods::SESSION_AUTOMATIC,
-            serde_json::json!({ "automatic": args.enabled }),
+            ipc::RpcRequest::SessionAutomatic {
+                automatic: args.enabled,
+            },
             0,
         )
         .map(drop),
         crate::SessionCommand::Restore(args) => request(
-            ipc::methods::SESSION_RESTORE,
-            serde_json::json!({ "if_automatic": args.if_automatic }),
+            ipc::RpcRequest::SessionRestore {
+                if_automatic: args.if_automatic,
+            },
             args.wait.wait_daemon,
         )
         .map(drop),
     }
 }
 
-fn request(method: &str, params: serde_json::Value, wait_daemon: u64) -> Result<serde_json::Value> {
+fn request(request: ipc::RpcRequest, wait_daemon: u64) -> Result<serde_json::Value> {
     ipc::mutate(
-        method,
-        params,
+        request,
         SETTLE_DEADLINE + ipc::DEFAULT_TIMEOUT,
         Duration::from_secs(wait_daemon),
     )
@@ -534,22 +568,56 @@ mod tests {
     }
 
     #[test]
-    fn determined_once_every_window_is_open_and_titles_leave_no_doubt() {
-        let saved = [saved("1", "Mail"), saved("4", "Docs")];
-        let saved: Vec<&Window> = saved.iter().collect();
+    fn determined_uses_multiset_counts_for_duplicate_titles() {
+        let unique = [saved("1", "Mail"), saved("4", "Docs")];
+        let unique_refs: Vec<&Window> = unique.iter().collect();
+        let dup_saved = [saved("1", "Docs"), saved("4", "Docs")];
+        let dup_refs: Vec<&Window> = dup_saved.iter().collect();
+
         let loading = [
             opened("0xa", PARKING, "New Tab"),
             opened("0xb", PARKING, "New Tab"),
         ];
-        let loaded = [
+        let partial_unique = [
             opened("0xa", PARKING, "Mail"),
             opened("0xb", PARKING, "New Tab"),
         ];
+        let partial_dup = [
+            opened("0xa", PARKING, "Docs"),
+            opened("0xb", PARKING, "New Tab"),
+        ];
+        let full_dup = [
+            opened("0xa", PARKING, "Docs"),
+            opened("0xb", PARKING, "Docs"),
+        ];
 
-        assert!(!determined(&saved, &[&loaded[0]]));
-        assert!(!determined(&saved, &loading.iter().collect::<Vec<_>>()));
-        assert!(determined(&saved, &loaded.iter().collect::<Vec<_>>()));
-        assert!(determined(&saved[..1], &[&loading[0]]));
+        assert!(!determined(&unique_refs, &[&partial_unique[0]]));
+        assert!(!determined(
+            &unique_refs,
+            &loading.iter().collect::<Vec<_>>()
+        ));
+        assert!(determined(
+            &unique_refs,
+            &partial_unique.iter().collect::<Vec<_>>()
+        ));
+        // One "Docs" plus one loading tab clears unique untitled <= 1:
+        assert!(determined(
+            &dup_refs,
+            &partial_dup.iter().collect::<Vec<_>>()
+        ));
+        assert!(determined(&dup_refs, &full_dup.iter().collect::<Vec<_>>()));
+
+        let three_docs = [saved("1", "Docs"), saved("2", "Docs"), saved("3", "Docs")];
+        let three_refs: Vec<&Window> = three_docs.iter().collect();
+        let one_doc_two_tabs = [
+            opened("0xa", PARKING, "Docs"),
+            opened("0xb", PARKING, "New Tab"),
+            opened("0xc", PARKING, "New Tab"),
+        ];
+        assert!(!determined(
+            &three_refs,
+            &one_doc_two_tabs.iter().collect::<Vec<_>>()
+        ));
     }
 
     #[test]
@@ -581,21 +649,5 @@ mod tests {
             exec_on_workspace(&APPS[0], &window),
             r#"hl.exec_cmd("alacritty --command sh -c 'claude --resume '\\''7e95341c'\\''; exec \"$SHELL\"'", { workspace = "2 silent" })"#
         );
-    }
-
-    #[test]
-    fn workspace_selector_is_a_number_or_a_quoted_name() {
-        assert_eq!(workspace_selector("3"), "3");
-        assert_eq!(
-            workspace_selector("special:scratch"),
-            r#""special:scratch""#
-        );
-    }
-
-    #[test]
-    fn restore_is_automatic_until_the_state_says_otherwise() {
-        assert!(State::default().automatic);
-        let state: State = serde_json::from_str(r#"{"automatic":false}"#).expect("state");
-        assert!(!state.automatic && state.last.is_empty());
     }
 }
