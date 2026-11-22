@@ -21,7 +21,7 @@ let
       // {
         format = "wheel";
         src = prev.pkgs.fetchurl {
-          url = "https://files.pythonhosted.org/packages/${lib.lists.head (lib.strings.splitString "-" tag)}/${lib.strings.substring 0 1 pname}/${pname}/${pname}-${version}-${tag}.whl";
+          url = "https://files.pythonhosted.org/packages/${tag |> lib.strings.splitString "-" |> lib.lists.head}/${lib.strings.substring 0 1 pname}/${pname}/${pname}-${version}-${tag}.whl";
           inherit hash;
         };
       }

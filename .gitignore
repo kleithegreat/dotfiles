@@ -23,4 +23,7 @@ id_*
 styling/wallpapers/*
 !styling/wallpapers/lmao.png
 
+# Rust
+**/target/
+
 .codex

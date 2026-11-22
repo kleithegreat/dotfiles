@@ -35,9 +35,9 @@ craneLib.buildPackage (common // {
       --prefix PATH : ${geoclue2-with-demo-agent}/libexec/geoclue-2.0/demos
   '';
 
-  meta = with lib; {
+  meta = {
     description = "Unified desktop daemon and CLI for the dotfiles desktop stack";
     mainProgram = "desktopctl";
-    platforms = platforms.linux;
+    platforms = lib.platforms.linux;
   };
 })

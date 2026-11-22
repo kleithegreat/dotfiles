@@ -25,7 +25,7 @@ let
     |> map fromHexString;
 
   # i915 offers only rates whose timing matches the preferred one but for the pixel clock.
-  factoryTiming = take 18 (drop 54 panel);
+  factoryTiming = panel |> drop 54 |> take 18;
   timingAt = hz:
     let clock = (2080 * 1235 * hz + 5000) / 10000;
     in [ (mod clock 256) (clock / 256) ] ++ drop 2 factoryTiming;

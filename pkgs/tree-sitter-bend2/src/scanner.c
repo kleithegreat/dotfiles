@@ -35,16 +35,21 @@ unsigned tree_sitter_bend_external_scanner_serialize(void *payload, char *buffer
   if (size > TREE_SITTER_SERIALIZATION_BUFFER_SIZE) {
     size = TREE_SITTER_SERIALIZATION_BUFFER_SIZE / sizeof(uint16_t) * sizeof(uint16_t);
   }
-  memcpy(buffer, blocks->contents, size);
+  if (size > 0) {
+    memcpy(buffer, blocks->contents, size);
+  }
   return size;
 }
 
 void tree_sitter_bend_external_scanner_deserialize(void *payload, const char *buffer, unsigned length) {
   Blocks *blocks = payload;
   array_clear(blocks);
-  array_reserve(blocks, length / sizeof(uint16_t));
-  memcpy(blocks->contents, buffer, length);
-  blocks->size = length / sizeof(uint16_t);
+  unsigned count = length / sizeof(uint16_t);
+  if (count > 0) {
+    array_reserve(blocks, count);
+    memcpy(blocks->contents, buffer, count * sizeof(uint16_t));
+    blocks->size = count;
+  }
 }
 
 static bool emit(TSLexer *lexer, enum TokenType type) {

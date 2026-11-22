@@ -1,5 +1,16 @@
 { config, inputs, lib, pkgs, ... }:
 
+let
+  inherit (lib.strings) concatMapStringsSep concatStringsSep;
+
+  homelabNodes = [
+    { hostName = "192.168.8.229"; maxJobs = 2; speedFactor = 1; publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILiiPONFXceOnj/Beb2hlGsk6PUrr2fk0qy9ZD0z9DpM"; } # prodesk5, 6 cores
+    { hostName = "192.168.8.153"; maxJobs = 2; speedFactor = 2; publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOob/yYh9OcZp82JqHi2p36lAzFZZad8EHL0gwKut4Sz"; } # gmktec, 8 cores, also runs game servers
+    { hostName = "192.168.8.222"; maxJobs = 1; speedFactor = 1; publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAnCkztjTq/OoQg/oxm0W7wyx73rHtaJIVuzRnHu2+dh"; } # prodesk7, inside mmtest.slice
+  ];
+  homelabIps = map (n: n.hostName) homelabNodes;
+  homelabIpSet = concatStringsSep ", " homelabIps;
+in
 {
   boot.initrd.availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usbhid" "usb_storage" "sd_mod" ];
   boot.kernel.sysctl = {
@@ -123,26 +134,27 @@
   nix.settings.secret-key-files = [ "/etc/nix/desktop-builds.sec" ];
   # The key signs only what this PC builds; an output a builder sends back must be signed too, or the next builder
   # that needs it as an input rejects it.
-  nix.settings.post-build-hook = pkgs.writeShellScript "sign-outputs" ''
-    exec ${config.nix.package}/bin/nix store sign --key-file /etc/nix/desktop-builds.sec $OUT_PATHS
+  nix.settings.post-build-hook = pkgs.writeShellScript "sign-outputs" /* bash */ ''
+    exec ${lib.getExe config.nix.package} store sign --key-file /etc/nix/desktop-builds.sec $OUT_PATHS
   '';
-  nix.buildMachines = map (m: m // {
-    protocol = "ssh-ng";
-    sshUser = "nixremote";
-    sshKey = "/etc/nix/remote-builder_ed25519";
-    systems = [ "x86_64-linux" ];
-    supportedFeatures = [ "big-parallel" ];
-  }) [
-    { hostName = "192.168.8.229"; maxJobs = 2; speedFactor = 1; } # prodesk5, 6 cores
-    { hostName = "192.168.8.153"; maxJobs = 2; speedFactor = 2; } # gmktec, 8 cores, also runs game servers
-    { hostName = "192.168.8.222"; maxJobs = 1; speedFactor = 1; } # prodesk7, inside mmtest.slice
-  ];
-  programs.ssh.knownHosts = {
-    # Each node's /etc/ssh/ssh_host_ed25519_key.pub, filled in by the human.
-    "192.168.8.229".publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILiiPONFXceOnj/Beb2hlGsk6PUrr2fk0qy9ZD0z9DpM";
-    "192.168.8.153".publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOob/yYh9OcZp82JqHi2p36lAzFZZad8EHL0gwKut4Sz";
-    "192.168.8.222".publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAnCkztjTq/OoQg/oxm0W7wyx73rHtaJIVuzRnHu2+dh";
-  };
+  nix.buildMachines =
+    homelabNodes
+    |> map (n: {
+      inherit (n) hostName maxJobs speedFactor;
+      protocol = "ssh-ng";
+      sshUser = "nixremote";
+      sshKey = "/etc/nix/remote-builder_ed25519";
+      systems = [ "x86_64-linux" ];
+      supportedFeatures = [ "big-parallel" ];
+    });
+  # Each node's /etc/ssh/ssh_host_ed25519_key.pub, filled in by the human.
+  programs.ssh.knownHosts =
+    homelabNodes
+    |> map (n: {
+      name = n.hostName;
+      value.publicKey = n.publicKey;
+    })
+    |> builtins.listToAttrs;
 
   # ── The moneymachine user timers (diskguard, OCI pull) ────────
   home-manager.users.kevin.imports = [ inputs.moneymachine.homeManagerModules.default ];
@@ -164,7 +176,7 @@
     path = [ pkgs.nfs-utils ];
     # Stopping k3s alone leaves every container running, and the Node object NotReady.
     serviceConfig.ExecStopPost = [
-      "${config.services.k3s.package}/bin/k3s-killall.sh"
+      (lib.getExe' config.services.k3s.package "k3s-killall.sh")
       "-${lib.getExe pkgs.kubectl} --kubeconfig=${config.users.users.kevin.home}/.kube/moneymachine.yaml --request-timeout=10s delete node ${config.networking.hostName} --ignore-not-found --wait=false"
     ];
   };
@@ -172,8 +184,8 @@
   services.nfs.server = {
     enable = true;
     exports = let
-      nodes = [ "192.168.8.131" "192.168.8.153" "192.168.8.222" "192.168.8.229" ];
-      opts = mode: lib.concatMapStringsSep " " (n: "${n}(${mode},all_squash,anonuid=1000,anongid=100,no_subtree_check)") nodes;
+      nodes = [ config.services.k3s.nodeIP ] ++ homelabIps;
+      opts = mode: concatMapStringsSep " " (n: "${n}(${mode},all_squash,anonuid=${toString config.users.users.kevin.uid},anongid=100,no_subtree_check)") nodes;
     in ''
       /srv/moneymachine/inputs ${opts "ro"}
       /srv/moneymachine/results ${opts "rw"}
@@ -196,9 +208,9 @@
     });
   '';
   networking.firewall.extraInputRules = ''
-    ip saddr { 192.168.8.153, 192.168.8.222, 192.168.8.229 } udp dport 8472 accept
-    ip saddr { 192.168.8.153, 192.168.8.222, 192.168.8.229, 10.42.0.0/16 } tcp dport { 9100, 10250 } accept
-    ip saddr { 192.168.8.153, 192.168.8.222, 192.168.8.229 } tcp dport 2049 accept
+    ip saddr { ${homelabIpSet} } udp dport 8472 accept
+    ip saddr { ${homelabIpSet}, 10.42.0.0/16 } tcp dport { 9100, 10250 } accept
+    ip saddr { ${homelabIpSet} } tcp dport 2049 accept
   '';
   # Its 192.168.8.0/24 subnet route would carry the wired LAN through the Brume.
   services.tailscale.extraSetFlags = [ "--accept-routes=false" ];

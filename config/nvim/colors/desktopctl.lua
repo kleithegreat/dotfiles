@@ -1,5 +1,9 @@
 -- Role -> colour mapping over `desktopctl theme`'s palette, in step with the gtksourceview target.
-local theme = require("theme-colors")
+package.loaded["theme-colors"] = nil
+local ok, theme = pcall(require, "theme-colors")
+if not ok or type(theme) ~= "table" or type(theme.colors) ~= "table" then
+  return
+end
 local c = theme.colors
 
 vim.o.background = theme.background

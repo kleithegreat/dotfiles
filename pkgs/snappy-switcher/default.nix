@@ -37,11 +37,11 @@ stdenv.mkDerivation {
     runHook postInstall
   '';
 
-  meta = with lib; {
+  meta = {
     description = "A fast, keyboard-driven window switcher for Wayland compositors";
     homepage = "https://github.com/OpalAayan/snappy-switcher";
-    license = licenses.gpl3Only;
-    platforms = platforms.linux;
+    license = lib.licenses.gpl3Only;
+    platforms = lib.platforms.linux;
     mainProgram = "snappy-switcher";
   };
 }

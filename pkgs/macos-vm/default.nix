@@ -143,7 +143,8 @@ writeShellApplication {
         exit 1
       fi
       seed
-      [ -e "$state/macos.qcow2" ] || qemu-img create --format qcow2 "$state/macos.qcow2" "$size"
+      # qemu-img accepts only -f, not --format.
+      [ -e "$state/macos.qcow2" ] || qemu-img create -f qcow2 "$state/macos.qcow2" "$size"
       base_args
       # The installer runs before AppleParavirtGPU exists in the guest.
       console_display

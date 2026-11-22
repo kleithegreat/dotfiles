@@ -3,11 +3,10 @@
 ## Intent
 
 - The daemon's focus tracker is the only writer: per-second aggregates into
-  `desktopctl.db` and an atomically replaced summary at
-  `$XDG_RUNTIME_DIR/focustime_state.json`. Quickshell reads the JSON only.
+  `desktopctl.db` and a summary published over the `"focus"` IPC subscription
+  topic (`focus.changed`). Quickshell reads the daemon stream only.
 - Totals exclude `__locked__`, `Desktop`, `Quickshell` and empty classes so
   percentages sum to 100; locked time stays in SQLite.
-- The JSON is a once-per-second snapshot; `last_updated` older than 5s is stale.
 
 ## Quirks
 

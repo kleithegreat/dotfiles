@@ -1,6 +1,8 @@
-local colors = require("./colors")
-
+local ok, colors = pcall(require, "./colors")
 local pluginDir = os.getenv("HYPR_PLUGIN_DIR")
+if not ok or type(colors) ~= "table" or not pluginDir or pluginDir == "" then
+    return
+end
 
 hl.plugin.load(pluginDir .. "/lib/libhyprbars.so")
 hl.plugin.load(pluginDir .. "/lib/libhyprexpo.so")

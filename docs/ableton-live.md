@@ -17,15 +17,20 @@
 
 ## Quirks
 
-- There is no binary cache and the input follows our `nixpkgs`, so any nixpkgs
-  bump rebuilds Wine from source (~10 minutes on the laptop). A rebuild sitting
-  in `wine-d2d1-nspa` is compiling, not hung.
-- `setup-prefix` copies some runtime DLLs (`comdlg32.so`, the PipeASIO halves)
-  into the prefix. After bumping the input, rerun
-  `$(dirname $(readlink -f $(which ableton-live)))/../share/ableton-wine/scripts/setup-prefix.sh --refresh`,
-  or the prefix keeps the old copies and the new runtime looks broken.
-- The `.desktop` files in `~/.local/share/applications` named `ableton-live`
-  and `io.github.shibco.ableton-linux.*` are written by `setup-prefix` and
-  shadow the package's same-named entries. They launch through
-  `~/.local/share/ableton-wine/runtime`, a link the launcher re-points at each
-  start and which doubles as a GC root. Neither is stray state.
+### No binary cache
+The input follows our `nixpkgs`, so any nixpkgs bump rebuilds Wine from
+source (~10 minutes on the laptop). A rebuild sitting in `wine-d2d1-nspa` is
+compiling, not hung.
+
+### Refresh prefix DLLs after runtime bumps
+`setup-prefix` copies some runtime DLLs (`comdlg32.so`, the PipeASIO halves)
+into the prefix. After bumping the input, rerun
+`$(dirname $(readlink -f $(which ableton-live)))/../share/ableton-wine/scripts/setup-prefix.sh --refresh`,
+or the prefix keeps the old copies and the new runtime looks broken.
+
+### Prefix-owned desktop files and runtime link
+The `.desktop` files in `~/.local/share/applications` named `ableton-live`
+and `io.github.shibco.ableton-linux.*` are written by `setup-prefix` and shadow
+the package's same-named entries. They launch through
+`~/.local/share/ableton-wine/runtime`, a link the launcher re-points at each
+start and which doubles as a GC root. Neither is stray state.

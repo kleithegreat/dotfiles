@@ -1,9 +1,12 @@
 require("mini.icons").setup()
 require("mini.statusline").setup()
 require("mini.pairs").setup()
-require("mini.diff").setup()
-require("mini.files").setup()
-require("mini.extra").setup()
+local diff = require("mini.diff")
+diff.setup()
+local files = require("mini.files")
+files.setup()
+local extra = require("mini.extra")
+extra.setup()
 
 local pick = require("mini.pick")
 pick.setup()
@@ -48,7 +51,7 @@ local function map(lhs, rhs, desc)
   vim.keymap.set("n", lhs, rhs, { desc = desc })
 end
 
-local pickers = MiniExtra.pickers
+local pickers = extra.pickers
 
 map("<leader>f", pick.builtin.files, "Find file")
 map("<leader>/", pick.builtin.grep_live, "Grep")
@@ -68,8 +71,8 @@ map("<leader>S", function()
   pickers.lsp({ scope = "workspace_symbol" })
 end, "Symbols in workspace")
 map("<leader>g", pickers.git_hunks, "Git hunks")
-map("<leader>o", MiniDiff.toggle_overlay, "Toggle diff overlay")
+map("<leader>o", diff.toggle_overlay, "Toggle diff overlay")
 map("<leader>e", function()
   local path = vim.api.nvim_buf_get_name(0)
-  MiniFiles.open(vim.uv.fs_stat(path) and path or nil)
+  files.open(vim.uv.fs_stat(path) and path or nil)
 end, "File explorer")

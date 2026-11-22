@@ -27,4 +27,9 @@ buildNpmPackage {
     cp --recursive dist "$out"
     runHook postInstall
   '';
+
+  meta = {
+    description = "Vicinae extension for unearth semantic document search";
+    platforms = lib.platforms.linux;
+  };
 }

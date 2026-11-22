@@ -20,10 +20,10 @@
 ## Quirks
 
 ### A model or prompt change needs a fresh index
-The index records no model identity. New query vectors score against old
-document vectors without any error, and results just get worse. After changing
-the GGUF or either prompt prefix, delete `~/.local/state/unearth/index.db` and
-let the indexer rebuild it.
+Vectors from different models or prompt formats share one table and cannot be
+compared in place: `meta` records the model path and `PROMPT_VERSION` only to
+warn on mismatch. After changing the GGUF or either prompt prefix, delete
+`~/.local/state/unearth/index.db` and let the indexer rebuild it.
 
 ### Indexing speed is the model, not the build
 EmbeddingGemma 2 embeds roughly 300–600 tokens/s on the laptop's CPU, so a

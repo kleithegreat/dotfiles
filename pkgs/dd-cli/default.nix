@@ -35,12 +35,12 @@ stdenv.mkDerivation {
     runHook postInstall
   '';
 
-  meta = with lib; {
+  meta = {
     description = "DoorDash's command-line client for searching stores and placing orders";
     homepage = "https://github.com/doordash-oss/doordash-cli";
-    license = licenses.unfree;
+    license = lib.licenses.unfree;
     mainProgram = "dd-cli";
     platforms = [ "x86_64-linux" ];
-    sourceProvenance = with sourceTypes; [ binaryNativeCode ];
+    sourceProvenance = [ lib.sourceTypes.binaryNativeCode ];
   };
 }

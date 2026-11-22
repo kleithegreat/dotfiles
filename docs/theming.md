@@ -12,8 +12,8 @@
   Older persisted rows are backfilled from it before validation.
 - Each target declares one assembly strategy (`standalone`, `concat`, `hooks`)
   and the `ThemeState` keys it consumes; fanout derives from those keys, never
-  from hand-kept lists. Only exception: `wallpaper` leaves `color_scheme`
-  fanout when `filter_wallpaper` is false.
+  from hand-kept lists. Only exception: `wallpaper` and `where_is_my_sddm_theme`
+  leave `color_scheme` fanout when `filter_wallpaper` is false.
 - Presets are partial patches and runtime state, never in `styling/`. A
   mutation that changes `color_scheme` keeps `dark_hint` unless it sets it.
 - `dark_hint` is the browser's polarity and nothing else: a light Helium over
@@ -23,9 +23,7 @@
 - `appearance` is the canonical polarity; variant strings are never
   pattern-matched. App theme names and extension IDs live in scheme data
   (`app_themes`) and every scheme declares them all (only `ktexteditor` and
-  `vscode.icon_theme` fall back), so a missing one fails at load. Same-family
-  light/dark pairing goes through `scheme_pair.rs`: explicit `dark_scheme`
-  first, then variant ranking.
+  `vscode.icon_theme` fall back), so a missing one fails at load.
 - All mutations go through the daemon's theme queue ([[desktopctl]]): atomic
   file replacement, persistence only after the required applies succeed,
   upserts of only the changed keys in one transaction.

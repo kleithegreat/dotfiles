@@ -14,12 +14,7 @@ let
         external_update_url = "https://clients2.google.com/service/update2/crx?prodversion=${pkgs.helium.chromiumVersion}";
       };
     })
-    |> lib.listToAttrs;
-
-  # Claude Code registers this host only for browsers it knows, which excludes Helium.
-  claudeChromeNativeHost = pkgs.writeShellScript "claude-chrome-native-host" /* bash */ ''
-    exec ${lib.getExe pkgs.claude-code} --chrome-native-host
-  '';
+    |> builtins.listToAttrs;
 in
 {
   imports = [
@@ -45,11 +40,14 @@ in
     lib.getExe' pkgs.gitFull "git-credential-libsecret";
 
   home.file = heliumExtensionFiles // {
+    # Claude Code registers this host only for browsers it knows, which excludes Helium.
     ".config/net.imput.helium/NativeMessagingHosts/com.anthropic.claude_code_browser_extension.json".text =
       builtins.toJSON {
         name = "com.anthropic.claude_code_browser_extension";
         description = "Claude Code Browser Extension Native Host";
-        path = claudeChromeNativeHost;
+        path = pkgs.writeShellScript "claude-chrome-native-host" /* bash */ ''
+          exec ${lib.getExe pkgs.claude-code} --chrome-native-host
+        '';
         type = "stdio";
         allowed_origins = [ "chrome-extension://fcoeoabgfenejglbffodgkkbkcdhcgfn/" ];
       };

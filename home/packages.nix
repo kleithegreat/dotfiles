@@ -1,44 +1,5 @@
 { pkgs, ... }:
 
-let
-  texlive = pkgs.texlive.withPackages (ps: with ps; [
-    scheme-small
-    latexmk
-    tikz-cd
-    titlesec
-    tocloft
-    enumitem
-    mdframed
-    needspace
-    zref
-    algorithm2e
-    # algorithm2e loads these; its tlpdb entry never declares them
-    ifoddpage
-    relsize
-    algorithms
-    bbold
-    bbold-type1
-    cleveref
-    eepic
-    libertine
-    paralist
-    stmaryrd
-    wrapfig
-    acmart
-    # acmart loads these; its tlpdb entry never declares them
-    comment
-    draftwatermark
-    environ
-    hyperxmp
-    ifmtarg
-    inconsolata # zi4
-    ncctools # manyfoot
-    newtx # newtxmath
-    preprint # balance
-    totpages
-    xstring
-  ]);
-in
 {
   programs.spicetify.enable = true;
 
@@ -48,7 +9,43 @@ in
     optimized.ripgrep
     optimized.desktopctl
     optimized.p7zip
-    texlive
+    (texlive.withPackages (ps: with ps; [
+      scheme-small
+      latexmk
+      tikz-cd
+      titlesec
+      tocloft
+      enumitem
+      mdframed
+      needspace
+      zref
+      algorithm2e
+      # algorithm2e loads these; its tlpdb entry never declares them
+      ifoddpage
+      relsize
+      algorithms
+      bbold
+      bbold-type1
+      cleveref
+      eepic
+      libertine
+      paralist
+      stmaryrd
+      wrapfig
+      acmart
+      # acmart loads these; its tlpdb entry never declares them
+      comment
+      draftwatermark
+      environ
+      hyperxmp
+      ifmtarg
+      inconsolata # zi4
+      ncctools # manyfoot
+      newtx # newtxmath
+      preprint # balance
+      totpages
+      xstring
+    ]))
     optimized.lsp-plugins
     optimized.easyeffects
     optimized.quickshell
@@ -128,7 +125,6 @@ in
     pandoc
     hyprpolkitagent
     hyprsunset
-    geoclue2-with-demo-agent
     awww
     lutgen
     brightnessctl
@@ -137,8 +133,6 @@ in
     slurp
     wl-clipboard
     playerctl
-    nwg-look
-    papirus-icon-theme
     rose-pine-cursor
     rose-pine-hyprcursor
     bibata-cursors

@@ -31,17 +31,23 @@ in
         else
           drv.overrideAttrs (
             old:
+            let
+              merged = joinFlags [
+                (existingFlags old name)
+                (joinFlags flags)
+              ];
+              flagOverride =
+                if old ? ${name} && !((old.env or { }) ? ${name}) then
+                  { ${name} = merged; }
+                else
+                  { env = (old.env or { }) // { ${name} = merged; }; };
+            in
             {
               requiredSystemFeatures = unique ((old.requiredSystemFeatures or [ ]) ++ [ hostFeature ]);
-              env = (old.env or { }) // {
-                ${name} = joinFlags [
-                  (existingFlags old name)
-                  (joinFlags flags)
-                ];
-              };
             }
-            # crane's prebuilt dependencies need the same flags, or cargo rebuilds them all.
+            // flagOverride
             // optionalAttrs (old.cargoArtifacts or null != null) {
+              # crane's prebuilt dependencies need the same flags, or cargo rebuilds them all.
               cargoArtifacts = optimizer name flags old.cargoArtifacts;
             }
           );

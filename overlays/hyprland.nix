@@ -39,7 +39,11 @@ in
   hypr = {
     inherit hyprland;
 
-    portal = final.optimize.cc inputs.hyprland.packages.${system}.xdg-desktop-portal-hyprland;
+    portal = final.optimize.cc (
+      inputs.hyprland.packages.${system}.xdg-desktop-portal-hyprland.override {
+        pipewire = final.optimized.pipewire;
+      }
+    );
 
     pluginDir = final.symlinkJoin {
       name = "hyprland-plugins";

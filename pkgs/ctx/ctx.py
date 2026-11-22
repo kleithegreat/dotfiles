@@ -3,6 +3,7 @@
 
 import argparse
 import concurrent.futures
+import contextlib
 import fcntl
 import json
 import os
@@ -67,12 +68,17 @@ class Project:
         return self.dir.is_dir()
 
     def load(self):
-        self.chunks = [json.loads(l) for l in open(self.chunks_path)] if self.chunks_path.exists() else []
+        if self.chunks_path.exists():
+            with open(self.chunks_path) as f:
+                self.chunks = [json.loads(l) for l in f]
+        else:
+            self.chunks = []
         self.nodes = {}
         if self.nodes_path.exists():
-            for line in open(self.nodes_path):
-                n = json.loads(line)
-                self.nodes[(n["l"], n["i"])] = n["text"]
+            with open(self.nodes_path) as f:
+                for line in f:
+                    n = json.loads(line)
+                    self.nodes[(n["l"], n["i"])] = n["text"]
         self.state = json.loads(self.state_path.read_text()) if self.state_path.exists() else {}
 
     def save_state(self):
@@ -218,40 +224,40 @@ def is_v2(con):
 
 def opencode_events(db, sid, start, full=False):
     """A GPT session in either of opencode's schemas: a row per step with its content (v2), or per message with parts."""
-    con = connect(db)
-    if is_v2(con):
-        for row, ms, kind, data in con.execute("select rowid, time_created, type, data from session_message "
-                                               "where session_id = ? and rowid > ? order by rowid", (sid, start)):
-            ts, d = iso(ms), json.loads(data)
-            if kind == "assistant" and not d.get("time", {}).get("completed"):
-                return
-            out = []
-            if kind == "user":
-                out.append(f"## PROMPT {stamp(ts)}\n" + (d.get("text", "") if full else clip(d.get("text", ""), EVENT_CAP)))
-            for b in d.get("content") or [] if kind == "assistant" else []:
+    with contextlib.closing(connect(db)) as con:
+        if is_v2(con):
+            for row, ms, kind, data in con.execute("select rowid, time_created, type, data from session_message "
+                                                   "where session_id = ? and rowid > ? order by rowid", (sid, start)):
+                ts, d = iso(ms), json.loads(data)
+                if kind == "assistant" and not d.get("time", {}).get("completed"):
+                    return
+                out = []
+                if kind == "user":
+                    out.append(f"## PROMPT {stamp(ts)}\n" + (d.get("text", "") if full else clip(d.get("text", ""), EVENT_CAP)))
+                for b in d.get("content") or [] if kind == "assistant" else []:
+                    st = b.get("state") or {}
+                    if b.get("type") == "tool":
+                        body = "\n".join(x.get("text", "") for x in st.get("content") or [] if isinstance(x, dict))
+                        out.append(gpt_block("tool", ts, name=b.get("name"), inp=st.get("input"), output=body or str(st.get("error", "")),
+                                             error=st.get("status") == "error", full=full))
+                    elif b.get("type") == "text":
+                        out.append(gpt_block("text", ts, text=b.get("text"), full=full))
+                yield row, ts, "\n".join(filter(None, out)) or None
+            return
+        for row, mid, ms, data in con.execute("select rowid, id, time_created, data from message "
+                                              "where session_id = ? and rowid > ? order by rowid", (sid, start)):
+            ts, role, out = iso(ms), json.loads(data).get("role"), []
+            for (part,) in con.execute("select data from part where message_id = ? order by id", (mid,)):
+                b = json.loads(part)
                 st = b.get("state") or {}
                 if b.get("type") == "tool":
-                    body = "\n".join(x.get("text", "") for x in st.get("content") or [] if isinstance(x, dict))
-                    out.append(gpt_block("tool", ts, name=b.get("name"), inp=st.get("input"), output=body or str(st.get("error", "")),
+                    out.append(gpt_block("tool", ts, name=b.get("tool"), inp=st.get("input"), output=str(st.get("output") or st.get("error") or ""),
                                          error=st.get("status") == "error", full=full))
-                elif b.get("type") == "text":
+                elif b.get("type") == "text" and role == "assistant":
                     out.append(gpt_block("text", ts, text=b.get("text"), full=full))
+                elif b.get("type") == "text":
+                    out.append(f"## PROMPT {stamp(ts)}\n" + (b.get("text", "") if full else clip(b.get("text", ""), EVENT_CAP)))
             yield row, ts, "\n".join(filter(None, out)) or None
-        return
-    for row, mid, ms, data in con.execute("select rowid, id, time_created, data from message "
-                                          "where session_id = ? and rowid > ? order by rowid", (sid, start)):
-        ts, role, out = iso(ms), json.loads(data).get("role"), []
-        for (part,) in con.execute("select data from part where message_id = ? order by id", (mid,)):
-            b = json.loads(part)
-            st = b.get("state") or {}
-            if b.get("type") == "tool":
-                out.append(gpt_block("tool", ts, name=b.get("tool"), inp=st.get("input"), output=str(st.get("output") or st.get("error") or ""),
-                                     error=st.get("status") == "error", full=full))
-            elif b.get("type") == "text" and role == "assistant":
-                out.append(gpt_block("text", ts, text=b.get("text"), full=full))
-            elif b.get("type") == "text":
-                out.append(f"## PROMPT {stamp(ts)}\n" + (b.get("text", "") if full else clip(b.get("text", ""), EVENT_CAP)))
-        yield row, ts, "\n".join(filter(None, out)) or None
 
 
 def varint(buf, i):
@@ -299,45 +305,69 @@ def text_of(b):
     return b.decode("utf-8", "replace") if isinstance(b, bytes) else ""
 
 
+def parse_dir_map(path):
+    if not path.exists():
+        return []
+    out = []
+    for raw in path.read_text().splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.rsplit(None, 1)
+        if len(parts) == 2:
+            out.append(parts)
+    return out
+
+
 def agy_events(db, start, full=False):
     """A Gemini session run through the Antigravity CLI: a row per step whose payload is a protobuf message with the step type
     at field 1. Decoded: 14 (the user's prompt), 15 (the model's reply), 132 (a tool call: name and JSON arguments at 5.4,
     result at 140.2.1, failure at 31.2), 17 (an error), 101 (a parent agent's message). Skipped: checkpoint summaries (23),
     the model's thinking, tool results beyond text, and unknown types."""
     cap = (lambda t: t) if full else (lambda t: clip(t, EVENT_CAP))
-    for idx, status, payload in connect(db).execute("select idx, status, step_payload from steps where idx >= ? order by idx", (start,)):
-        if status < 3:
-            return
-        ts = iso(pb(payload, 5, 1, 1, default=0) * 1000 + pb(payload, 5, 1, 2, default=0) // 1_000_000)
-        kind, out = pb(payload, 1, default=0), None
-        if kind == 14:
-            out = f"## PROMPT {stamp(ts)}\n" + cap(text_of(pb(payload, 19, 2)))
-        elif kind == 15:
-            reply = text_of(pb(payload, 20, 1) or pb(payload, 20, 8))
-            out = f"## GEMINI {stamp(ts)}\n" + cap(reply) if reply.strip() else None
-        elif kind == 101:
-            out = f"## PEER {stamp(ts)}\n" + cap(text_of(pb(payload, 114, 2, 10, 1) or pb(payload, 114, 1)))
-        elif kind == 17:
-            out = f"## GEMINI {stamp(ts)}\n" + result_line(text_of(pb(payload, 24, 3, 2)), True, full)
-        elif kind == 132:
-            call = pb(payload, 5, 4)
-            try:
-                args = json.loads(text_of(pb(call, 3)))
-            except ValueError:
-                args = {}
-            err = text_of(pb(payload, 31, 2))
-            out = (tool_line(text_of(pb(call, 2)), args if isinstance(args, dict) else {}) + "\n"
-                   + result_line(err or text_of(pb(payload, 140, 2, 1)), bool(err), full))
-        yield idx + 1, ts, out
+    with contextlib.closing(connect(db)) as con:
+        for idx, status, payload in con.execute("select idx, status, step_payload from steps where idx >= ? order by idx", (start,)):
+            if status < 3:
+                return
+            sec = pb(payload, 5, 1, 1, default=None)
+            if isinstance(sec, int) and sec > 0:
+                ns = pb(payload, 5, 1, 2, default=0)
+                ts = iso(sec * 1000 + (ns if isinstance(ns, int) else 0) // 1_000_000)
+            else:
+                ts = None
+            kind, out = pb(payload, 1, default=0), None
+            if kind == 14:
+                out = f"## PROMPT {stamp(ts)}\n" + cap(text_of(pb(payload, 19, 2)))
+            elif kind == 15:
+                reply = text_of(pb(payload, 20, 1) or pb(payload, 20, 8))
+                out = f"## GEMINI {stamp(ts)}\n" + cap(reply) if reply.strip() else None
+            elif kind == 101:
+                out = f"## PEER {stamp(ts)}\n" + cap(text_of(pb(payload, 114, 2, 10, 1) or pb(payload, 114, 1)))
+            elif kind == 17:
+                out = f"## GEMINI {stamp(ts)}\n" + result_line(text_of(pb(payload, 24, 3, 2)), True, full)
+            elif kind == 132:
+                call = pb(payload, 5, 4)
+                try:
+                    args = json.loads(text_of(pb(call, 3)))
+                except ValueError:
+                    args = {}
+                err = text_of(pb(payload, 31, 2))
+                out = (tool_line(text_of(pb(call, 2)), args if isinstance(args, dict) else {}) + "\n"
+                       + result_line(err or text_of(pb(payload, 140, 2, 1)), bool(err), full))
+            yield idx + 1, ts, out
 
 
 def agy_sessions(p):
     """(src, role, session, done) of each Antigravity conversation whose workspace matches a glob of `agy-dirs` (lines of
     `<directory glob> <role>`), subdirectories included. A conversation is done once its files have idled."""
-    listed = p.dir / "agy-dirs"
-    dirs = [line.split() for line in listed.read_text().splitlines() if line.strip()] if listed.exists() else []
+    dirs = parse_dir_map(p.dir / "agy-dirs")
     for db in sorted(AGY.glob("*.db")) if dirs else []:
-        meta = connect(db).execute("select data from trajectory_metadata_blob").fetchone()
+        try:
+            with contextlib.closing(connect(db)) as con:
+                meta = con.execute("select data from trajectory_metadata_blob").fetchone()
+        except (sqlite3.Error, OSError) as e:
+            print(f"ctx: skipping {db}: {e}", file=sys.stderr)
+            continue
         directory = text_of(pb(meta[0], 1, 1)).removeprefix("file://") if meta else ""
         role = next((r for d, r in dirs if fnmatch(directory, d) or fnmatch(directory, d + "/*")), None)
         if role:
@@ -356,17 +386,22 @@ def events_of(src, start, full=False):
 
 def opencode_sessions(p):
     """(src, role, done) of each session in a directory that `opencode-dirs` (lines of `<directory> <role>`) assigns."""
-    listed = p.dir / "opencode-dirs"
-    dirs = [line.split() for line in listed.read_text().splitlines() if line.strip()] if listed.exists() else []
+    dirs = parse_dir_map(p.dir / "opencode-dirs")
     for db in sorted(OPENCODE.glob("opencode*.db")) if dirs else []:
-        con = connect(db)
-        v2 = is_v2(con)
-        rows = con.execute(f"select id, directory, time_updated from {'session_v2' if v2 else 'session'}").fetchall()
-        for sid, directory, updated in rows:
-            role = next((r for d, r in dirs if directory == d or directory.startswith(d + "/")), None)
-            if role:
-                last = v2 and con.execute("select type from session_message where session_id = ? order by rowid desc limit 1", (sid,)).fetchone()
-                yield f"opencode:{db}:{sid}", role, sid, (last and last[0] == "idle") or time.time() - updated / 1000 > IDLE
+        matches = []
+        try:
+            with contextlib.closing(connect(db)) as con:
+                v2 = is_v2(con)
+                rows = con.execute(f"select id, directory, time_updated from {'session_v2' if v2 else 'session'}").fetchall()
+                for sid, directory, updated in rows:
+                    role = next((r for d, r in dirs if directory == d or directory.startswith(d + "/")), None)
+                    if role:
+                        last = v2 and con.execute("select type from session_message where session_id = ? order by rowid desc limit 1", (sid,)).fetchone()
+                        matches.append((f"opencode:{db}:{sid}", role, sid, (last and last[0] == "idle") or time.time() - updated / 1000 > IDLE))
+        except (sqlite3.Error, OSError) as e:
+            print(f"ctx: skipping {db}: {e}", file=sys.stderr)
+            continue
+        yield from matches
 
 
 def chunk(events, start, ended):
@@ -411,8 +446,13 @@ def index(p, ended):
         src, st = str(path), path.stat()
         if st.st_size > p.state.get(src, 0):
             take(src, path.stem, lambda: role_of(path), src in ended or time.time() - st.st_mtime > IDLE)
+    done_imports = p.state.setdefault("imports_done", {})
     for path in sorted((p.dir / "imports").glob("*.json")):
-        take(str(path), path.stem, "webchat", True)
+        src, st = str(path), path.stat()
+        sig = [st.st_mtime_ns, st.st_size]
+        if done_imports.get(src) != sig:
+            take(src, path.stem, "webchat", True)
+            done_imports[src] = sig
     for src, role, sid, done in opencode_sessions(p):
         take(src, sid, role, done)
     for src, role, sid, done in agy_sessions(p):
@@ -426,6 +466,20 @@ def index(p, ended):
 # ── Summaries ──────────────────────────────────────────────────
 
 
+def extract_json_object(reply):
+    decoder = json.JSONDecoder()
+    pos = reply.find("{")
+    while pos != -1:
+        try:
+            obj, _ = decoder.raw_decode(reply, pos)
+            if isinstance(obj, dict):
+                return obj
+        except ValueError:
+            pass
+        pos = reply.find("{", pos + 1)
+    raise ValueError("no JSON object found in model reply")
+
+
 def ask(model, system, body, tries=2):
     env = dict(os.environ, CTX_SUMMARIZER="1")
     r = subprocess.run(
@@ -436,7 +490,7 @@ def ask(model, system, body, tries=2):
         raise RuntimeError(f"claude exited {r.returncode}: {r.stderr.strip()[:300]}")
     reply = json.loads(r.stdout)["result"]
     try:
-        return json.loads(reply[reply.index("{") : reply.rindex("}") + 1])
+        return extract_json_object(reply)
     except ValueError:
         if tries == 1:
             raise
@@ -462,14 +516,14 @@ def header(c):
 def leaf_job(model, group):
     body = "\n".join(f'<chunk id="{c["i"]}" session="{header(c)}">\n{c["text"]}\n</chunk>' for c in group)
     got = ask(model, LEAF_PROMPT, body)
-    return {(0, c["i"]): capped(got[str(c["i"])]) for c in group if str(c["i"]) in got}
+    return {(0, c["i"]): capped(str(got[k])) for c in group if (k := str(c["i"])) in got and got[k] is not None}
 
 
 def merge_job(model, level, group, nodes):
     body = "\n".join(
         f'<pair id="{i}">\n<a>{nodes[(level - 1, 2 * i)]}</a>\n<b>{nodes[(level - 1, 2 * i + 1)]}</b>\n</pair>' for i in group)
     got = ask(model, MERGE_PROMPT, body)
-    return {(level, i): capped(got[str(i)]) for i in group if str(i) in got}
+    return {(level, i): capped(str(got[k])) for i in group if (k := str(i)) in got and got[k] is not None}
 
 
 def capped(s):
@@ -484,10 +538,11 @@ def summarize(p, model, jobs):
         run(pool, [lambda g=g: leaf_job(model, g) for g in batches(todo, lambda c: len(c["text"]))], p)
         level = 1
         while (len(p.chunks) >> level) > 0:
+            snapshot = dict(p.nodes)
             ready = [i for i in range(len(p.chunks) >> level)
-                     if (level, i) not in p.nodes and (level - 1, 2 * i) in p.nodes and (level - 1, 2 * i + 1) in p.nodes]
-            size = lambda i: len(p.nodes[(level - 1, 2 * i)]) + len(p.nodes[(level - 1, 2 * i + 1)])
-            run(pool, [lambda g=g, lv=level: merge_job(model, lv, g, p.nodes) for g in batches(ready, size)], p)
+                     if (level, i) not in snapshot and (level - 1, 2 * i) in snapshot and (level - 1, 2 * i + 1) in snapshot]
+            size = lambda i, sn=snapshot: len(sn[(level - 1, 2 * i)]) + len(sn[(level - 1, 2 * i + 1)])
+            run(pool, [lambda g=g, lv=level, sn=snapshot: merge_job(model, lv, g, sn) for g in batches(ready, size)], p)
             level += 1
 
 
@@ -635,13 +690,24 @@ def cmd_hook(_, args):
     """SessionEnd: sync the session's project in the background if ctx tracks it."""
     if os.environ.get("CTX_SUMMARIZER"):
         return
-    event = json.load(sys.stdin)
-    path = Path(event.get("transcript_path", ""))
+    raw = sys.stdin.read().strip()
+    if not raw:
+        return
+    try:
+        event = json.loads(raw)
+    except ValueError:
+        return
+    if not isinstance(event, dict):
+        return
+    raw_path = event.get("transcript_path")
+    if not raw_path or not isinstance(raw_path, str):
+        return
+    path = Path(raw_path)
     p = Project(path.parent.name)
     if p.exists():
-        log = open(p.dir / "sync.log", "a")
-        subprocess.Popen([sys.argv[0], f"--project={p.slug}", "sync", "--ended", str(path)],
-                         stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True)
+        with open(p.dir / "sync.log", "a") as log:
+            subprocess.Popen([sys.argv[0], f"--project={p.slug}", "sync", "--ended", str(path)],
+                             stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True)
 
 
 def main():

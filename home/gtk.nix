@@ -13,6 +13,7 @@ in
     pkgs.adwaita-icon-theme
     pkgs.colloid-icon-theme
     pkgs.neuwaita
+    pkgs.papirus-icon-theme
   ];
 
   # adw-gtk3 recoloured by the colors.css desktopctl's gtk target writes beside each theme.

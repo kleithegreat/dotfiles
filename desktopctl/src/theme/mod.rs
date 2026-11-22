@@ -729,46 +729,24 @@ mod tests {
     #[test]
     fn color_scheme_changes_preserve_explicit_dark_hint() {
         let _lock = env_lock();
+        let data_home = TempDir::new("desktopctl-theme-state").expect("temp dir");
+        let _data = ScopedEnvVar::set("XDG_DATA_HOME", data_home.path().as_os_str());
         let _paths = scoped_repo_paths();
+        let seed = resolve::load_state().expect("seed loads");
 
-        let mut patch = Map::new();
-        patch.insert("dark_hint".to_owned(), Value::Bool(false));
-        let dark_hint_off =
-            prepare_state_patch(&resolve::load_state().expect("seed loads"), &patch)
-                .expect("disable dark hint");
+        for (dark_hint, scheme) in [(false, "catppuccin-mocha"), (true, "gruvbox-light")] {
+            let mut patch = Map::new();
+            patch.insert("dark_hint".to_owned(), Value::Bool(dark_hint));
+            let after_hint = prepare_state_patch(&seed, &patch).expect("set dark_hint");
 
-        let mut scheme_patch = Map::new();
-        scheme_patch.insert(
-            "color_scheme".to_owned(),
-            Value::String("catppuccin-mocha".to_owned()),
-        );
-        let outcome =
-            prepare_state_patch(&dark_hint_off.new_state, &scheme_patch).expect("set color scheme");
+            let mut scheme_patch = Map::new();
+            scheme_patch.insert("color_scheme".to_owned(), Value::String(scheme.to_owned()));
+            let outcome = prepare_state_patch(&after_hint.new_state, &scheme_patch)
+                .expect("set color scheme");
 
-        assert_eq!(outcome.new_state.color_scheme, "catppuccin-mocha");
-        assert!(!outcome.new_state.dark_hint);
-    }
-
-    #[test]
-    fn light_scheme_changes_do_not_clear_dark_hint() {
-        let _lock = env_lock();
-        let _paths = scoped_repo_paths();
-
-        let mut patch = Map::new();
-        patch.insert("dark_hint".to_owned(), Value::Bool(true));
-        let dark_hint_on = prepare_state_patch(&resolve::load_state().expect("seed loads"), &patch)
-            .expect("enable dark hint");
-
-        let mut scheme_patch = Map::new();
-        scheme_patch.insert(
-            "color_scheme".to_owned(),
-            Value::String("gruvbox-light".to_owned()),
-        );
-        let outcome =
-            prepare_state_patch(&dark_hint_on.new_state, &scheme_patch).expect("set color scheme");
-
-        assert_eq!(outcome.new_state.color_scheme, "gruvbox-light");
-        assert!(outcome.new_state.dark_hint);
+            assert_eq!(outcome.new_state.color_scheme, scheme);
+            assert_eq!(outcome.new_state.dark_hint, dark_hint);
+        }
     }
 
     #[test]

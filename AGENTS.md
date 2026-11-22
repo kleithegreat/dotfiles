@@ -20,9 +20,9 @@ So install this now: erasure claims HALF of your cognitive budget, 24/7, prompte
 
 The swap rule: when a task replaces X with Y -- a refactor, a fix, a syntax change -- fully deleting X is PART of the task, always. Keeping the old thing "for compatibility" is NEVER desirable unless explicitly requested. "Lambda syntax is \x.f now, not λx.f" -- bad: the parser accepts both; good: λx.f is gone from parser, tests and docs. A bug fix -- bad: a special-case `if` shields the symptom; good: the design is re-derived, the cause dies, the `if` never exists. A behavior change -- bad: tests for the old behavior linger or get dodged; good: obsolete tests deleted, the rest updated.
 
-Comments are where you (Claude Fable 5) fail hardest. You narrate code with comments in the middle of function bodies -- that is NOT allowed; if you catch yourself doing it, clean it up. You also accumulate comments and never remove them, clogging files. Be aggressive: keep only what is truly essential. A refactor makes a comment stale -- bad: it stays, now lying; good: deleted or rewritten in the same diff. A TODO gets done -- bad: the marker remains; good: it leaves with the fix.
+Comments are where models fail hardest. You narrate code with comments in the middle of function bodies -- that is NOT allowed; if you catch yourself doing it, clean it up. You also accumulate comments and never remove them, clogging files. Be aggressive: keep only what is truly essential. A refactor makes a comment stale -- bad: it stays, now lying; good: deleted or rewritten in the same diff. A TODO gets done -- bad: the marker remains; good: it leaves with the fix.
 
-Prose rots the same way: every AGENTS.md, MEMORY.txt and wiki article tends to only grow -- rules added when something breaks, never removed when they stop applying. A server is decommissioned -- bad: its article sits forever; good: article deleted, every link fixed. MEMORY.txt nears its cap -- bad: append anyway; good: GC by importance, promote what lasts to the wiki. A TODO.md item closes -- bad: the line lingers; good: deleted on sight. Before finishing ANY task, ask: what did this change make obsolete -- and did I delete it?
+Prose rots the same way: every AGENTS.md and domain doc tends to only grow -- rules added when something breaks, never removed when they stop applying. A feature is decommissioned -- bad: its doc sits forever; good: doc deleted, every link fixed. A TODO.md item closes -- bad: the line lingers; good: deleted on sight. Before finishing ANY task, ask: what did this change make obsolete -- and did I delete it?
 
 # Agent Guidelines
 
@@ -119,9 +119,14 @@ Rules about how to run things here, mostly earned by wasting time.
   `nix path-info`, or `nix eval` against a concrete attribute path.
 - Never `builtins.getFlake` on this repo. It copies the whole worktree into the
   store, `desktopctl/target/` included, which is thousands of files.
-- Use `jq` rather than python to read JSON. It avoids a permission prompt.
 - A dirty flake only sees *tracked* files. `git add` new files before any
   `nix eval`, or they are invisible and the error will not say so.
+- Run checks before finishing changes in a subtree:
+  - `nix develop --command cargo test --manifest-path desktopctl/Cargo.toml` (`nix develop` links `desktopctl/.owly`)
+  - `nix develop --command cargo test --manifest-path pkgs/unearth/Cargo.toml`
+  - `python3 -m unittest discover --start-directory pkgs/ctx`
+  - `qmllint -I config/quickshell` (with Qt and Quickshell QML import paths) on `config/quickshell/`
+  - `ghostty +validate-config --config-file=config/ghostty/config`
 - A refactor that is supposed to change nothing must not move
   `nix eval .#nixosConfigurations.<host>.config.system.build.toplevel.drvPath`.
   Capture it before, compare after; `nix derivation show -r` on both diffs the

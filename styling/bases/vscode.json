@@ -6,8 +6,8 @@
     "workbench.startupEditor": "none",
     "catppuccin.accentColor": "blue",
     "editor.accessibilitySupport": "off",
-    "editor.codeLensFontFamily": "JetBrainsMonoNL NF",
-    "editor.inlayHints.fontFamily": "JetBrainsMonoNL NF",
+    "editor.codeLensFontFamily": "JetBrainsMono Nerd Font",
+    "editor.inlayHints.fontFamily": "JetBrainsMono Nerd Font",
     "[python]": {
         "editor.formatOnType": true
     },
@@ -47,7 +47,7 @@
     "window.commandCenter": false,
     "workbench.layoutControl.enabled": false,
     "makefile.configureOnOpen": true,
-    "editor.experimentalInlineEdit.fontFamily": "JetBrainsMono NF",
+    "editor.experimentalInlineEdit.fontFamily": "JetBrainsMono Nerd Font",
     "editor.minimap.autohide": "mouseover",
     "editor.inlineSuggest.suppressSuggestions": true,
     "typescript.updateImportsOnFileMove.enabled": "always",
@@ -99,7 +99,6 @@
     },
     "github.copilot.nextEditSuggestions.enabled": true,
     "haskell.manageHLS": "PATH",
-    "[haskell]": {},
     "docker.extension.dockerEngineAvailabilityPrompt": false,
     "workbench.editorAssociations": {
         "*.copilotmd": "vscode.markdown.preview.editor",

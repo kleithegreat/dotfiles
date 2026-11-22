@@ -149,12 +149,12 @@ stdenv.mkDerivation {
 
   passthru = { inherit (source) chromiumVersion; };
 
-  meta = with lib; {
+  meta = {
     description = "Private, fast, and honest web browser";
     homepage = "https://github.com/imputnet/helium-linux";
-    license = licenses.gpl3Only;
+    license = lib.licenses.gpl3Only;
     mainProgram = "helium";
     platforms = [ "x86_64-linux" ];
-    sourceProvenance = with sourceTypes; [ binaryNativeCode ];
+    sourceProvenance = [ lib.sourceTypes.binaryNativeCode ];
   };
 }

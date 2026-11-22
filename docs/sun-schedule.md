@@ -35,7 +35,7 @@ bound longer. This once pinned the desktop to the fallback with GeoClue fine.
 A new pin needs a session (or `desktopctl.service`) restart to reach the
 daemon. Otherwise check `desktopctl sun status`, `where-am-i` under the user
 session, `journalctl -u geoclue`, and
-`$XDG_CACHE_HOME/sun-schedule/location.json`. The parser wants colon-delimited
+`$XDG_CACHE_HOME/desktopctl/location.json`. The parser wants colon-delimited
 `latitude`/`longitude` lines; GeoClue working by hand doesn't mean it parsed.
 
 ### Reconcile failures are non-fatal by design

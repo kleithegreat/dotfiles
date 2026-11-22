@@ -6,9 +6,17 @@ local function toggle()
     return
   end
 
-  local fresh = not (buf and vim.api.nvim_buf_is_valid(buf))
+  local alive = buf and vim.api.nvim_buf_is_valid(buf)
+  if alive then
+    local chan = vim.bo[buf].channel
+    alive = chan > 0 and vim.fn.jobwait({ chan }, 0)[1] == -1
+  end
+  local fresh = not alive
   local dir = vim.fn.expand("%:p:h")
   if fresh then
+    if buf and vim.api.nvim_buf_is_valid(buf) then
+      pcall(vim.api.nvim_buf_delete, buf, { force = true })
+    end
     buf = vim.api.nvim_create_buf(false, true)
   end
 
@@ -28,4 +36,4 @@ local function toggle()
   vim.cmd.startinsert()
 end
 
-vim.keymap.set("n", "<leader>t", toggle, { desc = "Terminal" })
+vim.keymap.set({ "n", "t" }, "<leader>t", toggle, { desc = "Terminal" })

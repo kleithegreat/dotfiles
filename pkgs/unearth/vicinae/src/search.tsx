@@ -8,9 +8,17 @@ type Hit = { path: string; page: number | null; snippet: string };
 
 function unearth(args: string[], signal: AbortSignal): Promise<Hit[]> {
   return new Promise((resolve, reject) =>
-    execFile("unearth", ["search", ...args], { signal }, (error, stdout) =>
-      error ? reject(error) : resolve(JSON.parse(stdout)),
-    ),
+    execFile("unearth", ["search", ...args], { signal }, (error, stdout) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      try {
+        resolve(JSON.parse(stdout));
+      } catch (parseError) {
+        reject(parseError);
+      }
+    }),
   );
 }
 
@@ -20,14 +28,21 @@ export default function Search() {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
+    const trimmed = query.trim();
+    if (trimmed === "") {
+      setHits([]);
+      setIsLoading(false);
+      return;
+    }
+
     const controller = new AbortController();
     let ranked = false;
-    setIsLoading(query.trim() !== "");
-    unearth(["--keyword-only", "--", query], controller.signal).then(
+    setIsLoading(true);
+    unearth(["--keyword-only", "--", trimmed], controller.signal).then(
       (keyword) => ranked || setHits(keyword),
       () => {},
     );
-    unearth(["--", query], controller.signal)
+    unearth(["--", trimmed], controller.signal)
       .then((hybrid) => {
         ranked = true;
         setHits(hybrid);
@@ -41,6 +56,8 @@ export default function Search() {
     return () => controller.abort();
   }, [query]);
 
+  const home = homedir();
+
   return (
     <List
       filtering={false}
@@ -49,16 +66,20 @@ export default function Search() {
       onSearchTextChange={setQuery}
       searchBarPlaceholder="Search documents by meaning"
     >
-      {hits.map((hit) => (
-        <List.Item
-          key={hit.path}
-          title={basename(hit.path)}
-          subtitle={hit.snippet}
-          icon={{ fileIcon: hit.path }}
-          accessories={[
-            hit.page === null ? {} : { tag: `p. ${hit.page}` },
-            { text: dirname(hit.path).replace(homedir(), "~") },
-          ]}
+      {hits.map((hit) => {
+        const dir = dirname(hit.path);
+        const displayDir =
+          dir === home ? "~" : dir.startsWith(`${home}/`) ? `~${dir.slice(home.length)}` : dir;
+        return (
+          <List.Item
+            key={hit.path}
+            title={basename(hit.path)}
+            subtitle={hit.snippet}
+            icon={{ fileIcon: hit.path }}
+            accessories={[
+              ...(hit.page === null ? [] : [{ tag: `p. ${hit.page}` }]),
+              { text: displayDir },
+            ]}
           actions={
             <ActionPanel>
               <Action.Open title="Open" target={hit.path} />
@@ -67,7 +88,8 @@ export default function Search() {
             </ActionPanel>
           }
         />
-      ))}
+        );
+      })}
     </List>
   );
 }

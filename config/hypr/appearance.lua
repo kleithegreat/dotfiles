@@ -1,24 +1,47 @@
-local theme = require("./appearance-theme")
+local okTheme, theme = pcall(require, "./appearance-theme")
+if not okTheme or type(theme) ~= "table" then
+    theme = {}
+end
+
+local okColors, colors = pcall(require, "./colors")
+
+local function boolOr(value, fallback)
+    if value == nil then
+        return fallback
+    end
+    return value
+end
+
+local general = {
+    gaps_in = theme.gaps_in or 4,
+    gaps_out = theme.gaps_out or 6,
+    border_size = theme.border_size or 2,
+}
+
+if okColors and type(colors) == "table" then
+    if colors.accent_rgba then
+        general["col.active_border"] = colors.accent_rgba
+    end
+    if colors.bg2_rgba then
+        general["col.inactive_border"] = colors.bg2_rgba
+    end
+end
 
 hl.config({
-    general = {
-        gaps_in = theme.gaps_in,
-        gaps_out = theme.gaps_out,
-        border_size = theme.border_size,
-    },
+    general = general,
 
     decoration = {
-        rounding = theme.rounding,
+        rounding = theme.rounding or 8,
 
         blur = {
-            enabled = theme.blur_enabled,
-            size = theme.blur_size,
-            passes = theme.blur_passes,
+            enabled = boolOr(theme.blur_enabled, true),
+            size = theme.blur_size or 8,
+            passes = theme.blur_passes or 2,
         },
     },
 
     animations = {
-        enabled = theme.animations_enabled,
+        enabled = boolOr(theme.animations_enabled, true),
     },
 
     dwindle = {

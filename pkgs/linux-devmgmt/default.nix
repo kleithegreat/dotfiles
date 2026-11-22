@@ -37,11 +37,11 @@ stdenv.mkDerivation {
     "--set" "LIBDRM_DIR" "${libdrm}/share/libdrm"
   ];
 
-  meta = with lib; {
+  meta = {
     description = "Recreation of the Windows Device Manager on sysfs";
     homepage = "https://github.com/actuallyaridan/linux-devmgmt";
-    license = licenses.gpl3Only;
+    license = lib.licenses.gpl3Only;
     mainProgram = "devmgmt";
-    platforms = platforms.linux;
+    platforms = lib.platforms.linux;
   };
 }

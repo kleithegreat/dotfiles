@@ -58,14 +58,14 @@ vim.api.nvim_create_autocmd("FileType", {
   end,
 })
 
-vim.api.nvim_create_autocmd({ "InsertLeave", "TextChanged", "FocusLost" }, {
+vim.api.nvim_create_autocmd({ "InsertLeave", "FocusLost" }, {
   group = group,
   desc = "Auto-save",
   callback = function(args)
     local bo = vim.bo[args.buf]
     if bo.buftype == "" and bo.modified and not bo.readonly and vim.api.nvim_buf_get_name(args.buf) ~= "" then
       vim.api.nvim_buf_call(args.buf, function()
-        vim.cmd("silent update")
+        pcall(vim.cmd, "silent update")
       end)
     end
   end,

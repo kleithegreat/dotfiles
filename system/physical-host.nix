@@ -127,7 +127,7 @@
     };
 
     # Re-opens energy_uj, which the kernel closed against PLATYPUS.
-    services.udev.extraRules = ''
+    services.udev.extraRules = /* udev */ ''
       SUBSYSTEM=="powercap", KERNEL=="intel-rapl*", RUN+="${lib.getExe' pkgs.coreutils "chmod"} a+r /sys%p/energy_uj"
     '';
 

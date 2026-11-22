@@ -115,7 +115,7 @@ in
       patch = ../../patches/linux/drm-max-bpc-change-is-a-mode-change.patch;
     }
     {
-      # Experiment against intermittent touchpad lag; see docs/nix.md.
+      # Experiment against intermittent touchpad lag; see docs/laptop-hardware.md.
       name = "i2c-force-100khz-elan-04f3-311c";
       patch = ../../patches/linux/i2c-force-100khz-elan-04f3-311c.patch;
     }
@@ -194,11 +194,11 @@ in
   # Pinned: IP geolocation places Spectrum's IPv4 addresses in Colorado.
   time.timeZone = "America/New_York";
 
-  services.openssh.enable = lib.mkForce false;
+  services.openssh.enable = false;
 
   powerManagement.powertop.enable = true;
 
-  # Touchpad PM pin (docs/nix.md), colon-free GPU names (docs/nvidia.md), readable Fn-lock (docs/desktopctl.md).
+  # Touchpad PM pin (docs/laptop-hardware.md), colon-free GPU names (docs/nvidia.md), readable Fn-lock (docs/desktopctl.md).
   services.udev.extraRules = /* udev */ ''
     ACTION=="add|change", SUBSYSTEM=="pci", KERNEL=="0000:00:15.1", ATTR{power/control}="on"
     SUBSYSTEM=="drm", ENV{DEVTYPE}=="drm_minor", KERNEL=="card[0-9]*", SUBSYSTEMS=="pci", DRIVERS=="i915", SYMLINK+="dri/intel-gpu"
@@ -217,7 +217,7 @@ in
     };
   };
 
-  # Must hang off powertop.service itself; see docs/nix.md.
+  # Must hang off powertop.service itself; see docs/laptop-hardware.md.
   powerManagement.powertop.postStart = /* bash */ ''
     echo on > /sys/bus/pci/devices/0000:00:15.1/power/control
   '';
@@ -259,7 +259,7 @@ in
     '';
   };
 
-  # Will not enumerate the ELAN touchpad, by design; see docs/nix.md.
+  # Will not enumerate the ELAN touchpad, by design; see docs/laptop-hardware.md.
   services.fwupd.enable = true;
 
   # ── Fingerprint auth ────────────────────────────────────────

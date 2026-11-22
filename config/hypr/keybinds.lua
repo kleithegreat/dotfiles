@@ -54,7 +54,7 @@ bind("code:473", hl.dsp.exec_cmd("desktopctl fn-lock"), { description = "Announc
 -- Volume
 bind(mainMod .. " + F2", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"),
     { description = "Decrease volume", repeating = true })
-bind(mainMod .. " + F3", hl.dsp.exec_cmd("wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+"),
+bind(mainMod .. " + F3", hl.dsp.exec_cmd("wpctl set-volume --limit 1.0 @DEFAULT_AUDIO_SINK@ 5%+"),
     { description = "Increase volume", repeating = true })
 bind(mainMod .. " + F1", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"),
     { description = "Toggle mute" })

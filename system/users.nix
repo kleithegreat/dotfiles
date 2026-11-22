@@ -24,7 +24,7 @@
     lib.mkForce [ "user@${toString config.users.users.kevin.uid}.service" ];
 
   services.openssh = {
-    enable = true;
+    enable = lib.mkDefault true;
     settings = {
       PasswordAuthentication = false;
       KbdInteractiveAuthentication = false;

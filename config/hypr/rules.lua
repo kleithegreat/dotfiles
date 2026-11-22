@@ -1,33 +1,32 @@
 -- Float utility windows
 for _, class in ipairs({
-    "org.pulseaudio.pavucontrol",
-    "com.github.wwmm.easyeffects",
-    "imv",
-    "org.kde.ark",
-    "org.kde.filelight",
-    "io.missioncenter.MissionCenter",
-    "org.kde.kompare",
-    "org.kde.partitionmanager",
-    "zoom",
+    "^org\\.pulseaudio\\.pavucontrol$",
+    "^com\\.github\\.wwmm\\.easyeffects$",
+    "^imv$",
+    "^org\\.kde\\.ark$",
+    "^org\\.kde\\.filelight$",
+    "^io\\.missioncenter\\.MissionCenter$",
+    "^org\\.kde\\.kompare$",
+    "^org\\.kde\\.partitionmanager$",
+    "^zoom$",
 }) do
     hl.window_rule({ match = { class = class }, float = true })
 end
 
 -- Float and center dialogs
 -- hyprpolkitagent sets no app_id (empty class); match its Qt application name.
-hl.window_rule({ match = { title = "Hyprland Polkit Agent" }, float = true, center = true })
+hl.window_rule({ match = { title = "^Hyprland Polkit Agent$" }, float = true, center = true })
 for _, class in ipairs({
-    "org.gnome.World.Secrets",
-    "org.kde.kcharselect",
-    "org.kde.isoimagewriter",
-    "Bitwarden",
+    "^org\\.kde\\.kcharselect$",
+    "^org\\.kde\\.isoimagewriter$",
+    "^Bitwarden$",
 }) do
     hl.window_rule({ match = { class = class }, float = true, center = true })
 end
 
 -- Bitwarden browser extension popup
 hl.window_rule({
-    match = { class = "chrome-nngceckbapebfimnlniiiahkandclblb-Default" },
+    match = { class = "^chrome-nngceckbapebfimnlniiiahkandclblb-Default$" },
     float = true,
     size = "440 720",
     center = true,
@@ -35,7 +34,7 @@ hl.window_rule({
 
 -- Incognito shares Helium's class; only a fresh window's title tells them apart.
 hl.window_rule({
-    match = { class = "helium", title = "New Incognito Tab - Helium" },
+    match = { class = "^helium$", title = "^New Incognito Tab - Helium$" },
     float = true,
     size = "monitor_w*0.6 monitor_h*0.7",
     center = true,
@@ -43,7 +42,7 @@ hl.window_rule({
 
 -- Zoom
 hl.window_rule({
-    match = { class = "zoom", title = "Zoom Meeting" },
+    match = { class = "^zoom$", title = "^Zoom Meeting$" },
     size = "1200 800",
     center = true,
 })
@@ -55,8 +54,8 @@ hl.window_rule({
 })
 
 -- Disable hyprbars on apps with client-side decorations
-hl.window_rule({ match = { title = "Discord Updater" }, ["hyprbars:no_bar"] = true })
-for _, class in ipairs({ "code", "obsidian", "org.gnome.Nautilus", "zoom" }) do
+hl.window_rule({ match = { title = "^Discord Updater$" }, ["hyprbars:no_bar"] = true })
+for _, class in ipairs({ "^code$", "^obsidian$", "^org\\.gnome\\.Nautilus$", "^zoom$" }) do
     hl.window_rule({ match = { class = class }, ["hyprbars:no_bar"] = true })
 end
 
@@ -79,14 +78,9 @@ hl.layer_rule({
 })
 
 hl.layer_rule({
-    name = "vicinae-blur",
-    match = { namespace = "vicinae" },
+    name = "vicinae",
+    match = { namespace = "^vicinae$" },
     blur = true,
     ignore_alpha = 0,
-})
-
-hl.layer_rule({
-    name = "vicinae-no-animation",
-    match = { namespace = "vicinae" },
     no_anim = true,
 })

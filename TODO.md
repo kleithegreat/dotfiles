@@ -2,12 +2,6 @@
 
 Open issues and pending validations. Delete entries when resolved.
 
-## Later
-
-- [ ] Audit `config/quickshell/` and `config/hypr/` against current upstream
-      Quickshell and Hyprland practice; both move fast and this config may
-      lag them.
-
 ## Pending validation (needs real hardware / live session)
 
 - [ ] Fn lock on the laptop: the bar shows a keyboard while media keys are
@@ -32,7 +26,7 @@ Open issues and pending validations. Delete entries when resolved.
       sleep-freeze workaround.
 - [ ] Displays subsystem, multi-monitor half (needs an external display
       attached): plug and unplug one and confirm the wallpaper lands on it,
-      the bar and every surface move to it, and workspaces 1-10 follow — then
+      the bar and every surface move to it, and workspaces 1-9 follow — then
       that unplugging hands all three back to the built-in panel. Toggle
       "Main display" onto the internal panel with an external attached and
       confirm that choice survives a relogin, and that a *different* unknown

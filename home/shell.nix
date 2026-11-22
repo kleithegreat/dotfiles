@@ -1,9 +1,11 @@
 { config, osConfig, pkgs, lib, host, ... }:
 
 let
+  inherit (lib.strings) concatStringsSep escapeShellArg optionalString;
+
   rebuildFlags =
-    lib.optionalString pkgs.optimize.enabled
-      "--option system-features ${lib.escapeShellArg (lib.concatStringsSep " " osConfig.nix.settings.system-features)} "
+    optionalString pkgs.optimize.enabled
+      "--option system-features ${osConfig.nix.settings.system-features |> concatStringsSep " " |> escapeShellArg} "
     + "--flake ~/repos/dotfiles#${host.name}";
 in
 
@@ -52,14 +54,6 @@ in
       grep = "grep --color=auto";
     };
 
-    plugins = [
-      {
-        name = "zsh-history-substring-search";
-        src = pkgs.zsh-history-substring-search;
-        file = "share/zsh-history-substring-search/zsh-history-substring-search.zsh";
-      }
-    ];
-
     initContent = /* bash */ ''
       setopt INTERACTIVE_COMMENTS
       setopt NO_BEEP
@@ -78,6 +72,7 @@ in
       [[ -f "$ZDOTDIR/theme-colors" ]] && source "$ZDOTDIR/theme-colors"
       ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
 
+      source ${pkgs.zsh-history-substring-search}/share/zsh-history-substring-search/zsh-history-substring-search.zsh
       bindkey '^[[A' history-substring-search-up
       bindkey '^[[B' history-substring-search-down
 
@@ -115,9 +110,11 @@ in
               switch|boot|test|build|dry-build|dry-activate) action=$1; shift ;;
           esac
 
-          local config="''${XDG_CONFIG_HOME:-$HOME/.config}" watcher shell_before hypr_before
-          shell_before=$(readlink "$config/quickshell/shell.qml" 2>/dev/null)
+          local config="''${XDG_CONFIG_HOME:-$HOME/.config}" watcher shell_before hypr_before desktopctl_before unearth_before
+          shell_before=$(find -L "$config/quickshell" -type f -print0 2>/dev/null | sort --zero-terminated | xargs --null --no-run-if-empty sha256sum | sha256sum)
           hypr_before=$(cat "$config"/hypr/*.lua 2>/dev/null | sha256sum)
+          desktopctl_before=$(readlink --canonicalize "$(command -v desktopctl)" 2>/dev/null)
+          unearth_before=$(readlink --canonicalize "$(command -v unearth)" 2>/dev/null)
           if [[ $action == switch || $action == test ]]; then
               # Reported as `bool:`, not `int:`; the wrong prefix leaves it empty.
               watcher=$(hyprctl getoption misc:disable_autoreload 2>/dev/null | awk '/^bool:/ { print $2 }')
@@ -128,8 +125,10 @@ in
               trap "hyprctl eval 'hl.config({ misc = { disable_autoreload = $watcher } })' >/dev/null 2>&1" EXIT INT TERM
           fi
 
-          # desktopctl's dev-only cargo cache, which Cargo never prunes.
-          rm --recursive --force ~/repos/dotfiles/desktopctl/target
+          if [[ $action == switch || $action == boot ]]; then
+              # desktopctl's dev-only cargo cache, which Cargo never prunes.
+              rm --recursive --force ~/repos/dotfiles/desktopctl/target
+          fi
 
           sudo nixos-rebuild "$action" ${rebuildFlags} "$@"
           local rc=$?
@@ -143,9 +142,18 @@ in
                   if [[ $(cat "$config"/hypr/*.lua 2>/dev/null | sha256sum) != "$hypr_before" ]]; then
                       hyprctl reload >/dev/null
                   fi
-                  if [[ $(readlink "$config/quickshell/shell.qml" 2>/dev/null) != "$shell_before" ]]; then
+                  if [[ $(find -L "$config/quickshell" -type f -print0 2>/dev/null | sort --zero-terminated | xargs --null --no-run-if-empty sha256sum | sha256sum) != "$shell_before" ]]; then
                       hyprctl dispatch 'hl.dsp.exec_cmd("pkill quickshell || true; sleep 0.3; desktopctl launch-quickshell")' >/dev/null
                   fi
+              fi
+          fi
+
+          if (( rc == 0 )) && [[ $action == switch || $action == test ]]; then
+              if [[ $(readlink --canonicalize "$(command -v desktopctl)" 2>/dev/null) != "$desktopctl_before" ]] && systemctl --user is-active --quiet desktopctl.service; then
+                  systemctl --user restart desktopctl.service
+              fi
+              if [[ $(readlink --canonicalize "$(command -v unearth)" 2>/dev/null) != "$unearth_before" ]] && systemctl --user is-active --quiet unearth-embed.service; then
+                  systemctl --user restart unearth-embed.service
               fi
           fi
 

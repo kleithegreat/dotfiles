@@ -28,12 +28,12 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     runHook postInstall
   '';
 
-  meta = with lib; {
+  meta = {
     description = "CPU and GPU miner for Pearl, RandomX and other algorithms";
     homepage = "https://github.com/doktor83/SRBMiner-Multi";
-    license = licenses.unfree;
+    license = lib.licenses.unfree;
     mainProgram = "srbminer";
     platforms = [ "x86_64-linux" ];
-    sourceProvenance = with sourceTypes; [ binaryNativeCode ];
+    sourceProvenance = [ lib.sourceTypes.binaryNativeCode ];
   };
 })
