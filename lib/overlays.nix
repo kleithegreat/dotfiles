@@ -1,10 +1,9 @@
 { self }:
 {
-  # Order matters: local-packages overrides claude-desktop, and native-optimized reads its desktopctl.
+  # Order matters: native-optimized reads desktopctl from local-packages.
   overlays.forHost =
     { inputs, host }:
     [
-      inputs.claude-desktop.overlays.default
       (import ../overlays/local-packages.nix { inherit inputs; })
       (import ../overlays/claude-code.nix { inherit (inputs) nixpkgs-claude; })
       (final: _prev: {

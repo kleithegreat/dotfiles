@@ -7,7 +7,6 @@ let
     "antigravity-cli"
     "bambu-studio"
     "chatgpt"
-    "claude-desktop"
     "copilot-language-server"
     "dd-cli"
     "discord"

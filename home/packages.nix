@@ -91,7 +91,6 @@
     zed-editor
     lmstudio
     chatgpt
-    claude-desktop
     comfyui
     (helium.override {
       commandLineArgs = [
