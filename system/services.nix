@@ -1,14 +1,16 @@
 { config, lib, pkgs, ... }:
 
 let
-  sddmThemeBackgroundDir = pkgs.sddm-theme.backgroundDir;
+  sddmThemeDir = pkgs.sddm-theme.themeDir;
   sddmThemeBackgroundPath = pkgs.sddm-theme.backgroundPath;
-  sddmThemeStagingDir = "/tmp/desktopctl-where-is-my-sddm-theme";
-  sddmThemeStagingPath = "${sddmThemeStagingDir}/background";
+  sddmThemeConfigPath = pkgs.sddm-theme.configPath;
+  sddmThemeStagingDir = "/tmp/desktopctl-sddm";
+  sddmThemeStagingBackground = "${sddmThemeStagingDir}/background";
+  sddmThemeStagingConfig = "${sddmThemeStagingDir}/theme.conf";
 in
 {
   systemd.tmpfiles.rules = [
-    "d ${sddmThemeBackgroundDir} 0755 root root - -"
+    "d ${sddmThemeDir} 0755 root root - -"
     # kevin-owned 0700 so no other user can plant a symlink for the root-run sync.
     "d ${sddmThemeStagingDir} 0700 kevin kevin - -"
   ];
@@ -22,20 +24,22 @@ in
   };
 
   systemd.services.desktopctl-sddm-theme-sync = {
-    description = "Sync desktopctl wallpaper into SDDM background";
+    description = "Sync desktopctl theme and wallpaper into SDDM";
     serviceConfig = {
       Type = "oneshot";
       ExecStart = pkgs.writeShellScript "desktopctl-sddm-theme-sync" /* bash */ ''
         set -eu
 
-        if [ ! -f "${sddmThemeStagingPath}" ]; then
-          exit 0
+        # Consume on every exit: PathExists would respawn this until both units fail.
+        trap 'rm --force "${sddmThemeStagingConfig}" "${sddmThemeStagingBackground}"' EXIT
+
+        if [ -f "${sddmThemeStagingBackground}" ] && [ ! -L "${sddmThemeStagingBackground}" ]; then
+          install -D --mode=0644 "${sddmThemeStagingBackground}" "${sddmThemeBackgroundPath}"
         fi
 
-        # Consume on every exit: PathExists would respawn this until both units fail.
-        trap 'rm --force "${sddmThemeStagingPath}"' EXIT
-
-        install -D --mode=0644 "${sddmThemeStagingPath}" "${sddmThemeBackgroundPath}"
+        if [ -f "${sddmThemeStagingConfig}" ] && [ ! -L "${sddmThemeStagingConfig}" ]; then
+          install -D --mode=0644 "${sddmThemeStagingConfig}" "${sddmThemeConfigPath}"
+        fi
       '';
     };
   };
@@ -43,8 +47,8 @@ in
   systemd.paths.desktopctl-sddm-theme-sync = {
     wantedBy = [ "multi-user.target" ];
     pathConfig = {
-      PathExists = sddmThemeStagingPath;
-      PathChanged = sddmThemeStagingPath;
+      PathExists = sddmThemeStagingConfig;
+      PathChanged = sddmThemeStagingConfig;
       Unit = "desktopctl-sddm-theme-sync.service";
     };
   };
@@ -79,11 +83,7 @@ in
     wayland.compositor = "kwin";
     # Hyprland's max bpc, so switching to and from the greeter never modesets (docs/hyprland.md).
     settings.General.GreeterEnvironment = "KWIN_DRM_PREFER_COLOR_DEPTH=24";
-    theme = "where_is_my_sddm_theme";
-    extraPackages = [
-      pkgs.sddm-theme
-      pkgs.kdePackages.qt5compat
-    ];
+    theme = "desktopctl";
   };
 
   services.upower.enable = true;
@@ -165,6 +165,8 @@ in
   programs.partition-manager.enable = true;
 
   environment.systemPackages = [
+    # SDDM discovers themes under /run/current-system/sw/share/sddm/themes (systemPackages), not extraPackages.
+    pkgs.sddm-theme
     pkgs.bitwarden-desktop
   ];
 }

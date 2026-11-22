@@ -188,7 +188,6 @@ where
         && matches!(state, Some(state) if !state.filter_wallpaper)
     {
         selected.remove("wallpaper");
-        selected.remove("where_is_my_sddm_theme");
     }
 
     selected
@@ -335,11 +334,11 @@ mod tests {
     fn targets_for_color_scheme_respects_filter_wallpaper() {
         let unfiltered = targets_for_key("color_scheme", Some(&state(false)));
         assert!(!unfiltered.contains("wallpaper"));
-        assert!(!unfiltered.contains("where_is_my_sddm_theme"));
+        assert!(unfiltered.contains("sddm"));
 
         let filtered = targets_for_key("color_scheme", Some(&state(true)));
         assert!(filtered.contains("wallpaper"));
-        assert!(filtered.contains("where_is_my_sddm_theme"));
+        assert!(filtered.contains("sddm"));
 
         let explicit = targets_for_keys(["color_scheme", "wallpaper"], Some(&state(false)));
         assert!(explicit.contains("wallpaper"));

@@ -1,0 +1,10 @@
+[SddmGreeterTheme]
+Name=desktopctl
+Description=Minimal Qt6 greeter matching hyprlock and Quickshell, synced by desktopctl
+Type=sddm-theme
+Version=1.0
+MainScript=Main.qml
+ConfigFile=theme.conf
+Theme-Id=desktopctl
+Theme-API=2.0
+QtVersion=6

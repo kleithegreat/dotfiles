@@ -12,8 +12,8 @@
   Older persisted rows are backfilled from it before validation.
 - Each target declares one assembly strategy (`standalone`, `concat`, `hooks`)
   and the `ThemeState` keys it consumes; fanout derives from those keys, never
-  from hand-kept lists. Only exception: `wallpaper` and `where_is_my_sddm_theme`
-  leave `color_scheme` fanout when `filter_wallpaper` is false.
+  from hand-kept lists. Only exception: `wallpaper` leaves `color_scheme`
+  fanout when `filter_wallpaper` is false.
 - Presets are partial patches and runtime state, never in `styling/`. A
   mutation that changes `color_scheme` keeps `dark_hint` unless it sets it.
 - `dark_hint` is the browser's polarity and nothing else: a light Helium over
@@ -112,10 +112,18 @@ pinned to "Device" (0) and polarity reaches the browser live via the portal's
 `color-scheme`, i.e. the gtk target's dconf write. Fonts still need a restart;
 only active profiles are patched.
 
-### The SDDM wallpaper handoff is a hardened two-stage bridge
-SDDM can't read the 0700 home, so the target stages into a tmpfiles-created
-`0700 kevin` dir under `/tmp` and a root unit moves it to `/var/lib`. Keep the
-tmpfiles rule in sync with the staging path and never relax its mode.
+### The SDDM handoff is a hardened two-stage bridge
+SDDM can't read the 0700 home, so `sddm.rs` stages both the wallpaper and
+generated `theme.conf` (symlinked as `theme.conf.user`) into a tmpfiles-created
+`0700 kevin` dir under `/tmp/desktopctl-sddm` and a root unit moves them to
+`/var/lib/desktopctl/sddm`. Keep the tmpfiles rule in sync with the staging
+path and never relax its mode.
+
+### SDDM themes must be in `environment.systemPackages`, not `sddm.extraPackages`
+`services.displayManager.sddm.extraPackages` extends only the greeter's Qt/QML
+plugin search paths, while SDDM resolves themes from
+`/run/current-system/sw/share/sddm/themes`. Dropping the theme package from
+`systemPackages` leaves the greeter falling back to stock SDDM themes.
 
 ### Claude Code's `auto` theme does not follow a scheme switch
 It re-checks only on a terminal colour notification Alacritty never sends. The

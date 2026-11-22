@@ -1,29 +1,22 @@
-{ where-is-my-sddm-theme }:
+{ lib, runCommandLocal }:
 
 let
-  backgroundDir = "/var/lib/desktopctl/where-is-my-sddm-theme";
-  backgroundPath = "${backgroundDir}/background";
+  themeDir = "/var/lib/desktopctl/sddm";
+  backgroundPath = "${themeDir}/background";
+  configPath = "${themeDir}/theme.conf";
 in
-(where-is-my-sddm-theme.override {
-  themeConfig.General = {
-    background = backgroundPath;
-    backgroundMode = "fill";
-    blurRadius = 32;
-    basicTextColor = "#ebdbb2";
-    passwordCharacter = "*";
-    passwordFontSize = 36;
-    passwordInputBackground = "#3c3836";
-    passwordInputRadius = 8;
-    passwordInputWidth = 0.25;
-    passwordCursorColor = "#ebdbb2";
-    passwordMask = true;
-    passwordInputCursorVisible = true;
-    showUsersByDefault = true;
-    showUserRealNameByDefault = true;
-    usersFontSize = 24;
-    showSessionsByDefault = false;
-    sessionsFontSize = 16;
+runCommandLocal "sddm-theme" {
+  passthru = {
+    inherit themeDir backgroundPath configPath;
   };
-}).overrideAttrs (old: {
-  passthru = (old.passthru or { }) // { inherit backgroundDir backgroundPath; };
-})
+  meta = {
+    description = "Minimal Qt6 SDDM theme synced with desktopctl";
+    platforms = lib.platforms.linux;
+  };
+} /* bash */ ''
+  dir="$out/share/sddm/themes/desktopctl"
+  install -D --mode=0644 ${./metadata.desktop} "$dir/metadata.desktop"
+  install -D --mode=0644 ${./Main.qml} "$dir/Main.qml"
+  install -D --mode=0644 ${./theme.conf} "$dir/theme.conf"
+  ln --symbolic ${configPath} "$dir/theme.conf.user"
+''

@@ -13,6 +13,7 @@ mod neovim;
 mod opencode;
 mod qt;
 mod quickshell;
+mod sddm;
 mod snappy_switcher;
 mod starship;
 mod t3code;
@@ -20,7 +21,6 @@ mod tmux;
 mod vicinae;
 mod vscode;
 mod wallpaper;
-mod where_is_my_sddm_theme;
 mod zathura;
 mod zed;
 mod zsh;
@@ -162,6 +162,7 @@ pub const TARGETS: &[Target] = &[
     opencode::TARGET,
     qt::TARGET,
     quickshell::TARGET,
+    sddm::TARGET,
     snappy_switcher::TARGET,
     starship::TARGET,
     t3code::TARGET,
@@ -169,7 +170,6 @@ pub const TARGETS: &[Target] = &[
     vicinae::TARGET,
     vscode::TARGET,
     wallpaper::TARGET,
-    where_is_my_sddm_theme::TARGET,
     zathura::TARGET,
     zed::TARGET,
     zsh::TARGET,
