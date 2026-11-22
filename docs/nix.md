@@ -25,8 +25,9 @@
   entry, so a bad boot bisects by dropping entries; they cost it every
   substitution.
 - An override for one consumer is scoped to that consumer, never top-level:
-  top-level `llama-cpp` 0.7.0 for unearth silently made whisper-cpp,
-  ffmpeg-full and kdenlive local builds.
+  shadowing a shared dependency in an overlay silently turns unrelated
+  nixpkgs consumers (such as whisper-cpp, ffmpeg-full, and kdenlive) into
+  local builds.
 - `pkgs.optimized.<name>` namespaces native builds and never shadows
   `pkgs.<name>`, so nothing that was not opted in loses cache hits. `zstd`,
   `lz4` and texlive stay out: the first two cascade rebuilds through

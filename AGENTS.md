@@ -123,7 +123,6 @@ Rules about how to run things here, mostly earned by wasting time.
   `nix eval`, or they are invisible and the error will not say so.
 - Run checks before finishing changes in a subtree:
   - `nix develop --command cargo test --manifest-path desktopctl/Cargo.toml` (`nix develop` links `desktopctl/.owly`)
-  - `nix develop --command cargo test --manifest-path pkgs/unearth/Cargo.toml`
   - `python3 -m unittest discover --start-directory pkgs/ctx`
   - `qmllint -I config/quickshell` (with Qt and Quickshell QML import paths) on `config/quickshell/`
   - `ghostty +validate-config --config-file=config/ghostty/config`

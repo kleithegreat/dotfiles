@@ -110,11 +110,10 @@ in
               switch|boot|test|build|dry-build|dry-activate) action=$1; shift ;;
           esac
 
-          local config="''${XDG_CONFIG_HOME:-$HOME/.config}" watcher shell_before hypr_before desktopctl_before unearth_before
+          local config="''${XDG_CONFIG_HOME:-$HOME/.config}" watcher shell_before hypr_before desktopctl_before
           shell_before=$(find -L "$config/quickshell" -type f -print0 2>/dev/null | sort --zero-terminated | xargs --null --no-run-if-empty sha256sum | sha256sum)
           hypr_before=$(cat "$config"/hypr/*.lua 2>/dev/null | sha256sum)
           desktopctl_before=$(readlink --canonicalize "$(command -v desktopctl)" 2>/dev/null)
-          unearth_before=$(readlink --canonicalize "$(command -v unearth)" 2>/dev/null)
           if [[ $action == switch || $action == test ]]; then
               # Reported as `bool:`, not `int:`; the wrong prefix leaves it empty.
               watcher=$(hyprctl getoption misc:disable_autoreload 2>/dev/null | awk '/^bool:/ { print $2 }')
@@ -151,9 +150,6 @@ in
           if (( rc == 0 )) && [[ $action == switch || $action == test ]]; then
               if [[ $(readlink --canonicalize "$(command -v desktopctl)" 2>/dev/null) != "$desktopctl_before" ]] && systemctl --user is-active --quiet desktopctl.service; then
                   systemctl --user restart desktopctl.service
-              fi
-              if [[ $(readlink --canonicalize "$(command -v unearth)" 2>/dev/null) != "$unearth_before" ]] && systemctl --user is-active --quiet unearth-embed.service; then
-                  systemctl --user restart unearth-embed.service
               fi
           fi
 

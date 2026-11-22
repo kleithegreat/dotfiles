@@ -109,9 +109,6 @@
     ffmpeg
     zoom-us
     tor-browser
-    winboat
-    freerdp
-    podman-compose
     fstl
     anki
     gimp

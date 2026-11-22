@@ -47,8 +47,6 @@ final: prev: {
   sf-pro = final.callPackage ../pkgs/sf-pro { };
   snappy-switcher = final.callPackage ../pkgs/snappy-switcher { };
   tree-sitter-bend2 = final.callPackage ../pkgs/tree-sitter-bend2 { };
-  unearth = final.callPackage ../pkgs/unearth { };
-  unearth-vicinae = final.callPackage ../pkgs/unearth/vicinae { };
   zsh-share-only = final.runCommand "zsh-share-only" { } /* bash */ ''
     mkdir --parents "$out/share"
     ln --symbolic ${final.zsh}/share/zsh "$out/share/zsh"
