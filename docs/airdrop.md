@@ -14,7 +14,7 @@
   shown, never opened, until you open it. Files land in Downloads.
 - The radio is held only while visible or sharing. Where Owly runs exclusive,
   Wi-Fi is down for exactly that long, and the shell says so before you turn
-  it on.
+  it on. The XPS's AX211 uses concurrent mode to keep Wi-Fi connected.
 - Sharing starts from a context menu, as on a Mac: Nautilus's and Helium's
   (the extension in `desktopctl/browser/`), or Super+Shift+A for the selection
   anywhere. Text that is one link goes as that link, anything else as a note
@@ -22,6 +22,13 @@
   advert that wakes iPhones, and back off if it was off.
 
 ## Quirks
+
+### The XPS's AirDrop needs a reachable IPv4 gateway
+Concurrent mode needs an active Wi-Fi connection, and Owly ends the session
+if the station changes channel or its gateway stops answering pings. The
+temporary Owly pin is [PR #135](https://github.com/t4t5/owly/pull/135).
+Once upstream ships AX211 concurrent mode, point `inputs.owly` back to
+`github:t4t5/owly` and update the lock.
 
 ### An empty receiver list for the first seconds is normal
 An iPhone's mDNS does not reach `awdl0`, so receivers are also found by

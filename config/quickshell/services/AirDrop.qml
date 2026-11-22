@@ -18,8 +18,7 @@ QtObject {
 
     readonly property bool available: mode !== ""
     readonly property bool visible_: visibleUntil > 0
-    // Exclusive radios take the station off its network while AirDrop holds them.
-    readonly property bool pausesWifi: mode !== "" && mode !== "shared"
+    readonly property bool pausesWifi: mode === "exclusive" || mode === "active-monitor"
     readonly property var request: requests.length > 0 ? requests[0] : null
     property real _now: Date.now() / 1000
     readonly property int minutesLeft: Math.max(1, Math.ceil((visibleUntil - _now) / 60))

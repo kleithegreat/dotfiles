@@ -43,7 +43,8 @@
     };
     crane.url = "github:ipetkov/crane";
     owly = {
-      url = "github:t4t5/owly";
+      # Interim: AX211 concurrent mode ([[airdrop]]).
+      url = "github:vale981/owly/83b7c2f6fc0b3c5ad83d72dc48e365e3eb699c62";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     moneymachine = {

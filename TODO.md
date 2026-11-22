@@ -68,13 +68,11 @@ Open issues and pending validations. Delete entries when resolved.
       Control Center and Settings and follow the stem, the three batteries
       match iOS, and taking a pod out pauses playback while putting it back
       resumes it.
-- [ ] AirDrop (`docs/airdrop.md`) with an iPhone; receiving a file and
-      sharing from Helium work. Still to see: Everyone turns off after 10
-      minutes and Wi-Fi comes back; "Show in Files" opens the file; a photo's
-      offer shows its thumbnail (if not, desktopctl's journal logs the
-      format's first bytes); Nautilus's entry and Super+Shift+A raise the
-      share sheet; how the iPhone takes a sentence (a .txt), and a lone link
-      arrives as a link.
+- [ ] AirDrop (`docs/airdrop.md`) with an iPhone. Repeat a file transfer
+      each way on the XPS in concurrent mode and check that Wi-Fi stays up
+      until Everyone turns off after 10 minutes. Also check "Show in Files",
+      photo thumbnails (desktopctl logs unrecognized formats), the Nautilus
+      and Super+Shift+A share entry points, and sending text and links.
 - [ ] Under nftables: Tailscale, a podman container's network, and libvirt's
       default network all work.
 - [ ] Laptop panel power cycles (`docs/hyprland.md`): the boot greeter's

@@ -429,10 +429,11 @@ async fn probe(radio: &RadioProxy<'_>) -> Option<String> {
             return None;
         }
     };
-    let missing = report["missing"]
+    // Owly checks transient radio conditions again when acquiring a lease.
+    let unavailable = report["missing"]
         .as_array()
-        .is_some_and(|missing| !missing.is_empty());
-    match missing {
+        .is_some_and(|missing| missing.iter().any(|entry| entry["id"] != "radio"));
+    match unavailable {
         true => None,
         false => report["mode"].as_str().map(str::to_owned),
     }
