@@ -156,60 +156,21 @@ in
     })
     |> builtins.listToAttrs;
 
-  # ── The moneymachine user timers (diskguard, OCI pull) ────────
+  # ── The moneymachine user timer (diskguard) ──────────────────
   home-manager.users.kevin.imports = [ inputs.moneymachine.homeManagerModules.default ];
 
-  # ── Homelab compute ───────────────────────────────────────────
-  # An agent of the homelab cluster only while sweeps run (docs/homelab-agent.md).
-  services.k3s = {
-    enable = true;
-    role = "agent";
-    serverAddr = "https://k8s-api.home.lab:6443";
-    tokenFile = "/etc/k3s/join-token";
-    nodeIP = "192.168.8.131";
-    nodeTaint = [ "moneymachine/batch=true:NoSchedule" ];
-    extraFlags = [ "--flannel-iface=enp4s0" ];
-  };
-  systemd.services.k3s = {
-    wantedBy = lib.mkForce [ ];
-    # kubelet mounts the NFS volumes below for pods scheduled here.
-    path = [ pkgs.nfs-utils ];
-    # Stopping k3s alone leaves every container running, and the Node object NotReady.
-    serviceConfig.ExecStopPost = [
-      (lib.getExe' config.services.k3s.package "k3s-killall.sh")
-      "-${lib.getExe pkgs.kubectl} --kubeconfig=${config.users.users.kevin.home}/.kube/moneymachine.yaml --request-timeout=10s delete node ${config.networking.hostName} --ignore-not-found --wait=false"
-    ];
-  };
-  # The Jobs' data path (inputs read-only, results read-write) and the live workloads' mirror, every client squashed to kevin.
+  # ── Homelab mirror ─────────────────────────────────────────────
+  # The cluster's live recordings are copied here, every client squashed to kevin (docs/homelab.md).
   services.nfs.server = {
     enable = true;
     exports = let
-      nodes = [ config.services.k3s.nodeIP ] ++ homelabIps;
-      opts = mode: concatMapStringsSep " " (n: "${n}(${mode},all_squash,anonuid=${toString config.users.users.kevin.uid},anongid=100,no_subtree_check)") nodes;
+      opts = concatMapStringsSep " " (n: "${n}(rw,all_squash,anonuid=${toString config.users.users.kevin.uid},anongid=100,no_subtree_check)") homelabIps;
     in ''
-      /srv/moneymachine/inputs ${opts "ro"}
-      /srv/moneymachine/results ${opts "rw"}
-      /srv/moneymachine/mirror ${opts "rw"}
+      /srv/moneymachine/mirror ${opts}
     '';
   };
-  systemd.tmpfiles.rules = [
-    "d /srv/moneymachine/inputs 0755 kevin users -"
-    "d /srv/moneymachine/results 0755 kevin users -"
-    "d /srv/moneymachine/mirror 0755 kevin users -"
-  ];
-  security.polkit.extraConfig = /* javascript */ ''
-    polkit.addRule(function(action, subject) {
-      if (action.id === "org.freedesktop.systemd1.manage-units" &&
-          action.lookup("unit") === "k3s.service" &&
-          ["start", "stop"].indexOf(action.lookup("verb")) >= 0 &&
-          subject.user === "kevin") {
-        return polkit.Result.YES;
-      }
-    });
-  '';
+  systemd.tmpfiles.rules = [ "d /srv/moneymachine/mirror 0755 kevin users -" ];
   networking.firewall.extraInputRules = ''
-    ip saddr { ${homelabIpSet} } udp dport 8472 accept
-    ip saddr { ${homelabIpSet}, 10.42.0.0/16 } tcp dport { 9100, 10250 } accept
     ip saddr { ${homelabIpSet} } tcp dport 2049 accept
   '';
   # Its 192.168.8.0/24 subnet route would carry the wired LAN through the Brume.
