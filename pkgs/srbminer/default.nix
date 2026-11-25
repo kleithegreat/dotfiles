@@ -1,7 +1,7 @@
 {
   lib,
   stdenvNoCC,
-  fetchzip,
+  fetchurl,
   makeWrapper,
   addDriverRunpath,
 }:
@@ -10,7 +10,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "srbminer";
   version = "3.9.0";
 
-  src = fetchzip {
+  src = fetchurl {
     url = "https://github.com/doktor83/SRBMiner-Multi/releases/download/${finalAttrs.version}/SRBMiner-Multi-${lib.strings.replaceStrings [ "." ] [ "-" ] finalAttrs.version}-Linux.tar.gz";
     hash = "sha256-l94VJROrJWv1fZZrrDUmhAP7VanxhLVThGITNQeQqno=";
   };
