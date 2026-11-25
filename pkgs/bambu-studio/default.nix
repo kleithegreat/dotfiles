@@ -11,12 +11,12 @@
 
 let
   pname = "bambu-studio";
-  version = "02.09.01.70";
+  version = "02.09.02.62";
   caBundle = "${cacert}/etc/ssl/certs/ca-bundle.crt";
   fontsConf = makeFontsConf { fontDirectories = [ nanum ]; };
   bambuStudioAppImage = fetchurl {
-    url = "https://github.com/bambulab/BambuStudio/releases/download/v${version}/BambuStudio_ubu24-v${version}-20261103183404.AppImage";
-    hash = "sha256-Zo2rsb5Tx1gYnta8iZNShd6l4K9GIWVGsbr9aILpr/A=";
+    url = "https://github.com/bambulab/BambuStudio/releases/download/v${version}/BambuStudio_ubu24-v${version}-20261124164959.AppImage";
+    hash = "sha256-AanSUXnfZJXss9QCYoIysxoQz/H4mR8FKYg4Ot9oDuo=";
   };
   appimageContents = appimageTools.extract {
     inherit pname version;

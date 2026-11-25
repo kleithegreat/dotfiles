@@ -34,7 +34,7 @@ placeholders; `Theme.qml` has fallbacks for the window before it.
 `zg`/`zw` write `config/nvim/spell/` in `~/repos/dotfiles`; commit both files.
 Without the checkout there it dangles.
 
-### About 90 of Bend's own `.bend` files fail the Bend grammar by design
+### About 100 of Bend's own `.bend` files fail the Bend grammar by design
 They are tests whose expected output (`#|` lines) is an `Error:`. The grammar
 is right when every `.bend` file in the release without one parses cleanly.
 
