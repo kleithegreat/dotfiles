@@ -50,11 +50,13 @@
   every paint; a style that substitutes or caches its own colours freezes apps
   at their startup ones (Kvantum did, and Breeze and its forks keep stale
   toolbars in plain Qt apps).
-- `pkgs/union-style/controls.css` is the Qt look, over Breeze's rules: fills
-  carry shape, the accent carries meaning (default button, selection, checks,
-  focus), outlines only where text is typed. It names no scheme colour, only
-  roles and alphas over them. Radii scale from `hypr_rounding`, so one knob
-  rounds windows and controls.
+- `pkgs/union-style/controls.css` is the Qt look, over Breeze's rules: one
+  surface, with windows, toolbars, content and the floating title bar in `bg`
+  and only popups raised to `bg1`; fills carry shape, hairlines separate, and
+  the accent carries meaning (default button, selection, checks, focus). A
+  second chrome tone is what made it read as Breeze. It names no scheme colour,
+  only roles and alphas over them. Radii scale from `hypr_rounding`, so one
+  knob rounds windows and controls.
 - GTK takes the scheme as libadwaita's named colours, and the GTK3 theme
   (`desktopctl` or `desktopctl-dark`) follows the scheme's appearance.
   libadwaita also reads the portal's `color-scheme`, so `gtk-4.0/gtk.css`
@@ -87,6 +89,12 @@ missing properties. The `qt` target therefore writes `tokens.css` before the
 A later `--x:` is parsed as a property and ignored, so an override placed after
 Breeze's rules silently does nothing. Overrides of Breeze's variables belong
 in `tokens.css`; `controls.css` can only add new ones or restate rules.
+
+### A Union element's ancestors are the ones it had when polished
+KDE widgets moved into a toolbar or painted without a widget do not match
+ancestor selectors: Dolphin's path bar is `frame textfield` and its sidebar
+rows are a bare `itemviewitem.inside-list`. `QT_LOGGING_RULES=union.query.info=true`
+prints what each element matches as.
 
 ### Union needs three things a Plasma session gives it
 `UNION_FORCE_PLATFORM=plasma`, or it ignores `unionStyle` and KDE icons;

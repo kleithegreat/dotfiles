@@ -19,7 +19,7 @@ hl.config({
     plugin = {
         hyprbars = {
             bar_height = 24,
-            bar_color = colors.bg1_rgba,
+            bar_color = colors.bg_rgba,
             ["col.text"] = colors.fg_rgba,
             bar_text_font = colors.sys_font,
             bar_text_size = 10,

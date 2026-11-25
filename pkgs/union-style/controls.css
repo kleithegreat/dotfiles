@@ -1,4 +1,5 @@
-/* Fills carry the shape, accent carries meaning; outlines only where text is typed. */
+/* One surface: windows, toolbars and content share a colour and only popups rise off it.
+ * Fills carry the shape, accent carries meaning; hairlines separate. */
 :root {
     --ink: var(--window-text-color);
     --fill: modify-color(var(--ink) set-alpha 0.08);
@@ -7,6 +8,7 @@
     --fill-disabled: modify-color(var(--ink) set-alpha 0.04);
     --hairline: modify-color(var(--ink) set-alpha 0.12);
     --clear: modify-color(var(--ink) set-alpha 0.0);
+    --raised: var(--window-background-alternate-color);
     --secondary-text: mix(var(--window-background-color), var(--ink), 0.65);
 
     --accent: var(--highlight-color);
@@ -127,54 +129,32 @@ roundbutton.flat {
     }
 }
 
-combobox.editable,
-combobox.flat.editable {
-    border: var(--edge);
-
-    &:hovered,
-    &:pressed {
-        border: var(--edge);
-        background-color: var(--view-background-color);
-    }
-
-    &:visual-focus {
-        border: var(--accent-border);
-        outline: var(--focus-ring);
-    }
-}
-
 /* ── Text input ────────────────────────────────────────────────────────── */
 
 textfield,
 textarea,
 spinbox,
-searchfield {
-    border: var(--edge);
-
-    &:hovered {
-        border: var(--edge);
-    }
-
-    &:active-focus,
-    &:visual-focus {
-        border: var(--accent-border);
-        outline: var(--focus-ring);
-    }
-
-    &:disabled {
-        border: var(--edge);
-    }
-}
-
-toolbar textfield,
-toolbar searchfield,
-toolbar frame {
+searchfield,
+combobox.editable,
+combobox.flat.editable {
     border: var(--control-border);
     background-color: var(--fill);
 
     &:hovered {
         border: var(--control-border);
         background-color: var(--fill-hover);
+    }
+
+    &:active-focus,
+    &:visual-focus {
+        border: var(--accent-border);
+        background-color: var(--fill);
+        outline: var(--focus-ring);
+    }
+
+    &:disabled {
+        border: var(--control-border);
+        background-color: var(--fill-disabled);
     }
 }
 
@@ -451,7 +431,8 @@ graphicsview itemviewitem.inactive:highlighted {
 }
 
 itemviewitem {
-    height: 30px;
+    height: 34px;
+    inset: 1px 4px;
 }
 
 graphicsview focusframe {
@@ -479,7 +460,7 @@ popup,
 popup.combobox {
     border: var(--edge);
     border-radius: var(--radius-surface);
-    background-color: var(--window-background-color);
+    background-color: var(--raised);
     box-shadow: var(--popup-shadow);
 }
 
@@ -553,6 +534,15 @@ toolbar.footer,
 toolbar.header[colorset="window"],
 statusbar {
     border: none;
+}
+
+toolbar.header {
+    height: 52px;
+    padding: var(--large-spacing);
+}
+
+toolbutton {
+    padding: var(--large-spacing);
 }
 
 toolbar > handle {

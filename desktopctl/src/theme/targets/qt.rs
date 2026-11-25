@@ -195,13 +195,13 @@ fn apply_kde_colors(config: &mut IniFile, colors: &ColorScheme) {
         ],
     );
     for (section, (active, inactive)) in [
-        ("Colors:Window", normal(&colors.bg1, &colors.bg2)),
+        ("Colors:Window", normal(&colors.bg, &colors.bg1)),
         ("Colors:View", normal(&colors.bg, &colors.bg)),
         ("Colors:Button", normal(&colors.bg1, &colors.bg2)),
         ("Colors:Selection", selection),
         ("Colors:Tooltip", normal(&colors.bg1, &colors.bg)),
         ("Colors:Complementary", normal(&colors.bg_dim, &colors.bg)),
-        ("Colors:Header", normal(&colors.bg1, &colors.bg2)),
+        ("Colors:Header", normal(&colors.bg, &colors.bg1)),
     ] {
         kde_color_group(config, section, active, colors);
         kde_color_group(config, &format!("{section}][Inactive"), inactive, colors);
@@ -212,9 +212,9 @@ fn apply_kde_colors(config: &mut IniFile, colors: &ColorScheme) {
     config.set("KDE", "widgetStyle", "Union");
     config.set("KDE", "unionStyle", "desktopctl");
 
-    config.set("WM", "activeBackground", &rgb(&colors.bg1));
+    config.set("WM", "activeBackground", &rgb(&colors.bg));
     config.set("WM", "activeForeground", &fg);
-    config.set("WM", "inactiveBackground", &rgb(&colors.bg1));
+    config.set("WM", "inactiveBackground", &rgb(&colors.bg));
     config.set("WM", "inactiveForeground", &rgb(&colors.fg2));
 
     for (section, values) in [

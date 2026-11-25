@@ -48,7 +48,6 @@ fn palette(colors: &ColorScheme, state: &ThemeState) -> Vec<Entry> {
     vec![
         entry("bg_rgba", rgba(&colors.bg, "ff"), true, true),
         entry("bg1", rgb(&colors.bg1), false, true),
-        entry("bg1_rgba", rgba(&colors.bg1, "ff"), true, false),
         entry("bg2", rgb(&colors.bg2), false, true),
         entry("bg2_rgba", rgba(&colors.bg2, "ff"), true, false),
         entry("fg", rgb(&colors.fg), false, true),
