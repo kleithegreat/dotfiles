@@ -5,6 +5,7 @@ let
   allowedUnfreePackageNames = [
     # Applications — home.packages
     "antigravity-cli"
+    "antigravity-ide"
     "bambu-studio"
     "chatgpt"
     "chatgpt-primary-runtime"

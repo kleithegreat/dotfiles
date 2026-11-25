@@ -7,23 +7,20 @@ final: prev: {
   };
   comfyui = final.callPackage ../pkgs/comfyui { };
   ctx = final.callPackage ../pkgs/ctx { };
-  # A field code cannot survive the dispatch string; see docs/hyprland.md.
-  code-hypr = final.writeShellApplication {
-    name = "code-hypr";
-    text = /* bash */ ''
-      cmd=code
-      for arg in "$@"; do
-        cmd="$cmd $(printf '%q' "$arg")"
-      done
-      hyprctl dispatch "hl.dsp.exec_cmd([==[$cmd]==])"
-    '';
-  };
   dd-cli = final.callPackage ../pkgs/dd-cli { };
   desktopctl = final.callPackage ../desktopctl {
     inherit (inputs) owly;
     craneLib = inputs.crane.mkLib final;
   };
   helium = final.callPackage ../pkgs/helium { };
+  # A field code cannot survive the dispatch string; see docs/hyprland.md.
+  hypr-exec = final.writeShellApplication {
+    name = "hypr-exec";
+    text = /* bash */ ''
+      cmd=$(printf '%q ' "$@")
+      hyprctl dispatch "hl.dsp.exec_cmd([==[$cmd]==])"
+    '';
+  };
   kernel-oom-notifier = final.callPackage ../pkgs/kernel-oom-notifier { };
   laptop-panel-edid = final.callPackage ../pkgs/laptop-panel-edid { };
   linux-devmgmt = final.callPackage ../pkgs/linux-devmgmt { };

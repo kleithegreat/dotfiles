@@ -52,6 +52,12 @@ const APPS: &[App] = &[
         prepare: None,
     },
     App {
+        class: "antigravity-ide",
+        command: "antigravity-ide",
+        relaunch: Relaunch::Whole,
+        prepare: None,
+    },
+    App {
         class: "spotify",
         command: "spotify",
         relaunch: Relaunch::Whole,

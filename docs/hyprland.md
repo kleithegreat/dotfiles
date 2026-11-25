@@ -106,7 +106,7 @@ A mouse ignoring the Mouse settings page is hitting an `hl.device` block.
 
 ### A desktop-entry field code cannot survive `exec_cmd`
 `%F` inside the quoted dispatch string is not expanded and reached `code`
-literally, hence the `code-hypr` wrapper that quotes real argv.
+literally, hence the `hypr-exec` wrapper that quotes real argv.
 
 ### Window-rule matches drift
 Polkit agent (title, no class), `Zoom Meeting`, Discord's updater, Helium's

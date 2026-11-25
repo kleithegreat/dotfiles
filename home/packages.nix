@@ -88,6 +88,7 @@
     zathura
     libreoffice
     vscode
+    antigravity-ide
     zed-editor
     lmstudio
     chatgpt

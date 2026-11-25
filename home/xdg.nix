@@ -17,6 +17,25 @@ let
         recursive = true;
       }
     );
+  # VS Code and its forks spawn through Hyprland so the window lands on the active workspace.
+  vscodeEntry = { name, command, icon, wmClass }: {
+    inherit name icon;
+    comment = "Code Editing. Redefined.";
+    genericName = "Text Editor";
+    exec = "${lib.getExe pkgs.hypr-exec} ${command} %F";
+    categories = [ "Utility" "TextEditor" "Development" "IDE" ];
+    startupNotify = true;
+    settings = {
+      Keywords = "vscode";
+      StartupWMClass = wmClass;
+      Version = "1.5";
+    };
+    actions.new-empty-window = {
+      name = "New Empty Window";
+      inherit icon;
+      exec = "${lib.getExe pkgs.hypr-exec} ${command} --new-window %F";
+    };
+  };
   mkHostConfigFile = key: fallback:
     let
       relativePath = host.hyprland.${key};
@@ -104,26 +123,17 @@ in
       config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/repos/dotfiles/config/nvim/spell";
   };
 
-  xdg.desktopEntries.code = {
+  xdg.desktopEntries.code = vscodeEntry {
     name = "Visual Studio Code";
-    comment = "Code Editing. Redefined.";
-    genericName = "Text Editor";
+    command = "code";
     icon = "vscode";
-    exec = "${lib.getExe pkgs.code-hypr} %F";
-    categories = [ "Utility" "TextEditor" "Development" "IDE" ];
-    startupNotify = true;
-    settings = {
-      Keywords = "vscode";
-      StartupWMClass = "Code";
-      Version = "1.5";
-    };
-    actions = {
-      new-empty-window = {
-        name = "New Empty Window";
-        icon = "vscode";
-        exec = "${lib.getExe pkgs.code-hypr} --new-window %F";
-      };
-    };
+    wmClass = "Code";
+  };
+  xdg.desktopEntries.antigravity-ide = vscodeEntry {
+    name = "Antigravity IDE";
+    command = "antigravity-ide";
+    icon = "antigravity-ide";
+    wmClass = "Antigravity IDE";
   };
 
   xdg.mimeApps = {
