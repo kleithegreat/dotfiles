@@ -1,0 +1,16 @@
+diff --git a/src/output/qtwidgets/elements/ItemViewElement.cpp b/src/output/qtwidgets/elements/ItemViewElement.cpp
+index 6193923..0f1855e 100644
+--- a/src/output/qtwidgets/elements/ItemViewElement.cpp
++++ b/src/output/qtwidgets/elements/ItemViewElement.cpp
+@@ -299,6 +299,11 @@ QStringList ItemViewElement::elementHints() const
+         hints.append(u"expanded"_s);
+     }
+ 
++    // Delegates draw their own text in the plain colour here, so the selection has to be styleable for it.
++    if (!m_viewItemOption->state.testFlag(QStyle::State_Active)) {
++        hints.append(u"inactive"_s);
++    }
++
+     // For combobox popups, we want similar selector as QtQuick has,
+     // (popup.combobox) so we need to insert the combobox hint here.
+     if (m_widget && m_widget->inherits("QComboBoxListView")) {

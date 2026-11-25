@@ -19,6 +19,7 @@ pub const TARGET: Target = Target::hooks(
         "qt_font_size_offset",
         "mono_font_size",
         "qt_mono_font_size_offset",
+        "hypr_rounding",
     ],
 )
 .persist(persist)
@@ -27,16 +28,41 @@ pub const TARGET: Target = Target::hooks(
 const KDEGLOBALS: &str = "~/.config/kdeglobals";
 const KATERC: &str = "~/.config/katerc";
 const KWRITERC: &str = "~/.config/kwriterc";
+/// Imported by the stylesheet `pkgs/union-style` builds.
+const UNION_TOKENS: &str = "~/.local/share/union/styles/desktopctl/contents/css/tokens.css";
 
 /// `KGlobalSettings::ChangeType` values the KDE platform theme acts on.
 const PALETTE_CHANGED: i32 = 0;
 const ICON_CHANGED: i32 = 4;
 
 pub fn persist(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
+    // kdeglobals selects the style, and a style missing an import crashes every Qt app.
+    atomic_write(
+        &expand_user_path(UNION_TOKENS)?,
+        union_tokens(state).as_bytes(),
+    )?;
     update_kdeglobals(colors, state)?;
-    sync_ktexteditor_config(&expand_user_path(KATERC)?, colors, true)?;
-    sync_ktexteditor_config(&expand_user_path(KWRITERC)?, colors, false)?;
+    sync_ktexteditor_config(&expand_user_path(KATERC)?, colors, state, true)?;
+    sync_ktexteditor_config(&expand_user_path(KWRITERC)?, colors, state, false)?;
     Ok(())
+}
+
+/// Controls nest inside windows, so their radii scale from the window's. A checkbox stays square
+/// enough to tell from a radio.
+fn union_tokens(state: &ThemeState) -> String {
+    let window = state.hypr_rounding;
+    format!(
+        concat!(
+            ":root {{\n",
+            "    --corner-radius: {}px;\n",
+            "    --radius-indicator: {}px;\n",
+            "    --radius-surface: {}px;\n",
+            "}}\n",
+        ),
+        window * 3 / 4,
+        (window / 2).min(5),
+        window * 5 / 4,
+    )
 }
 
 /// Running Qt apps re-read kdeglobals on these session-bus signals.
@@ -183,6 +209,8 @@ fn apply_kde_colors(config: &mut IniFile, colors: &ColorScheme) {
 
     config.set("General", "shadeSortColumn", "true");
     config.set("KDE", "contrast", "4");
+    config.set("KDE", "widgetStyle", "Union");
+    config.set("KDE", "unionStyle", "desktopctl");
 
     config.set("WM", "activeBackground", &rgb(&colors.bg1));
     config.set("WM", "activeForeground", &fg);
@@ -262,6 +290,7 @@ fn kde_icon_theme(theme: &str) -> &str {
 fn sync_ktexteditor_config(
     conf_path: &Path,
     colors: &ColorScheme,
+    state: &ThemeState,
     clear_filetree_shading: bool,
 ) -> crate::Result<()> {
     let mut config = IniFile::from_path(conf_path)?;
@@ -274,6 +303,11 @@ fn sync_ktexteditor_config(
         "KTextEditor Renderer",
         "Color Theme",
         colors.ktexteditor_theme_name(),
+    );
+    config.set(
+        "KTextEditor Renderer",
+        "Text Font",
+        &qfont(&state.mono_font, state.mono_font_size_for(TARGET.name)?),
     );
 
     if clear_filetree_shading && config.has_section("filetree") {
@@ -425,7 +459,9 @@ impl IniFile {
 
 #[cfg(test)]
 mod tests {
-    use super::{IniFile, apply_kde_colors, apply_kde_fonts, sync_ktexteditor_config};
+    use super::{
+        IniFile, apply_kde_colors, apply_kde_fonts, sync_ktexteditor_config, union_tokens,
+    };
     use crate::test_support::TempDir;
     use crate::theme::{
         color::contrast_ratio,
@@ -509,7 +545,12 @@ DropMe=gone
             "[General]\nShow Full Path=true\n\n[filetree]\nshadingEnabled=true\neditShade=1,2,3\nviewShade=4,5,6\nsortRole=0\n",
         )?;
 
-        sync_ktexteditor_config(&conf_path, &load_repo_colors("tokyo-night"), true)?;
+        sync_ktexteditor_config(
+            &conf_path,
+            &load_repo_colors("tokyo-night"),
+            &dummy_state(),
+            true,
+        )?;
         let synced = IniFile::parse(&fs::read_to_string(&conf_path)?);
 
         assert_eq!(
@@ -524,6 +565,10 @@ DropMe=gone
             vec![
                 ("Auto Color Theme Selection".to_owned(), "false".to_owned()),
                 ("Color Theme".to_owned(), "Tokyo Night".to_owned()),
+                (
+                    "Text Font".to_owned(),
+                    "JetBrains Mono Nerd Font,11,-1,5,400,0,0,0,0,0,0,0,0,0,0,1".to_owned()
+                ),
             ]
         );
         assert_eq!(
@@ -553,5 +598,17 @@ DropMe=gone
             "{general:?}"
         );
         Ok(())
+    }
+
+    #[test]
+    fn union_tokens_scale_with_the_window_and_keep_checkboxes_square() {
+        let mut state = dummy_state();
+        state.hypr_rounding = 8;
+        assert_eq!(
+            union_tokens(&state),
+            ":root {\n    --corner-radius: 6px;\n    --radius-indicator: 4px;\n    --radius-surface: 10px;\n}\n"
+        );
+        state.hypr_rounding = 20;
+        assert!(union_tokens(&state).contains("--radius-indicator: 5px;"));
     }
 }

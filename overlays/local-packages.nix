@@ -24,6 +24,16 @@ final: prev: {
   kernel-oom-notifier = final.callPackage ../pkgs/kernel-oom-notifier { };
   laptop-panel-edid = final.callPackage ../pkgs/laptop-panel-edid { };
   linux-devmgmt = final.callPackage ../pkgs/linux-devmgmt { };
+  kdePackages = prev.kdePackages.overrideScope (kfinal: kprev: {
+    union = kprev.union.overrideAttrs (old: {
+      patches = (old.patches or [ ]) ++ [
+        ../patches/union/class-palettes-keep-styled-text.patch
+        ../patches/union/highlight-only-the-default-button.patch
+        ../patches/union/item-views-hint-inactive.patch
+        ../patches/union/progress-groove-leaves-room-for-label.patch
+      ];
+    });
+  });
   lmstudio = final.callPackage ../pkgs/lmstudio {
     upstreamLmstudio = prev.lmstudio;
   };
@@ -42,6 +52,7 @@ final: prev: {
   sf-pro = final.callPackage ../pkgs/sf-pro { };
   snappy-switcher = final.callPackage ../pkgs/snappy-switcher { };
   tree-sitter-bend2 = final.callPackage ../pkgs/tree-sitter-bend2 { };
+  union-style = final.callPackage ../pkgs/union-style { };
   zsh-share-only = final.runCommand "zsh-share-only" { } /* bash */ ''
     mkdir --parents "$out/share"
     ln --symbolic ${final.zsh}/share/zsh "$out/share/zsh"

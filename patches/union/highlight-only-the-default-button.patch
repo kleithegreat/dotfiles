@@ -1,0 +1,14 @@
+diff --git a/src/output/qtwidgets/elements/ButtonElement.cpp b/src/output/qtwidgets/elements/ButtonElement.cpp
+index 533636a..e732329 100644
+--- a/src/output/qtwidgets/elements/ButtonElement.cpp
++++ b/src/output/qtwidgets/elements/ButtonElement.cpp
+@@ -124,8 +124,7 @@ Union::Element::States ButtonElement::elementStates() const
+ {
+     auto states = AbstractElement::elementStates();
+     if (m_buttonOption) {
+-        if (m_buttonOption->features.testFlag(QStyleOptionButton::ButtonFeature::DefaultButton)
+-            || m_buttonOption->features.testFlag(QStyleOptionButton::ButtonFeature::AutoDefaultButton)) {
++        if (m_buttonOption->features.testFlag(QStyleOptionButton::ButtonFeature::DefaultButton)) {
+             states.setFlag(Union::Element::State::Highlighted, true);
+         }
+     }

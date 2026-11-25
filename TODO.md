@@ -47,6 +47,11 @@ Open issues and pending validations. Delete entries when resolved.
       place, Nautilus after a relaunch, and the polkit prompt matches without
       a restart. Toggling dark changes Helium only; Dolphin and Nautilus keep
       the scheme.
+- [ ] Union as the Qt style (`docs/theming.md`), after a relogin: popup menus
+      and combo boxes get their shadow and rounded corners on Hyprland, the
+      polkit prompt and file chooser match, and changing rounding in Settings
+      reaches Dolphin on relaunch. The patches in `patches/union` are
+      upstreamable; drop each as its fix lands.
 
 - [ ] Desktop heater: after a switch, toggle Heater mode from the Power pane
       and confirm Quickshell menus stay responsive while both miners run.

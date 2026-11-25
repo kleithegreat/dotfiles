@@ -1,0 +1,15 @@
+diff --git a/src/output/qtwidgets/elements/AbstractElement.cpp b/src/output/qtwidgets/elements/AbstractElement.cpp
+index 18356a1..1b985ea 100644
+--- a/src/output/qtwidgets/elements/AbstractElement.cpp
++++ b/src/output/qtwidgets/elements/AbstractElement.cpp
+@@ -322,7 +322,9 @@ void AbstractElement::drawTextAtRect(QPainter *painter, const QString &text, con
+         const bool enabled = m_styleOption->state.testFlag(QStyle::State_Enabled);
+         auto font = safePropertyLookup(properties, painter->font(), &StylePropertyGroup::text, &TextPropertyGroup::font);
+         auto textColor = m_styleOption->palette.text().color();
+-        if (m_styleOption->palette.resolveMask() <= 0) {
++        // A platform theme's class palettes (QMenu) have a resolve mask too; only a differing colour is the application's.
++        const auto &palette = m_styleOption->palette;
++        if (palette.text() == QApplication::palette(m_widget).brush(palette.currentColorGroup(), QPalette::Text)) {
+             auto unionColor = safePropertyLookup(properties, Union::Color{}, &StylePropertyGroup::text, &TextPropertyGroup::color);
+             if (unionColor.isValid()) {
+                 textColor = unionColor.toQColor();

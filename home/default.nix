@@ -23,6 +23,7 @@ in
     ./gtk.nix
     ./neovim.nix
     ./packages.nix
+    ./qt.nix
     ./xdg.nix
   ];
 

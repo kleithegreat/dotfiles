@@ -45,9 +45,16 @@
   style guide, not floored for contrast, so solarized and tokyo-night sit
   near 2.5:1 by design.
 - Every Qt app reads one input, `kdeglobals`, through KDE's own platform
-  theme, and a scheme change recolors running apps live. The widget style is
-  Breeze because it draws with that palette; a style that substitutes its own
-  (Kvantum did) freezes apps at their startup colours.
+  theme, and a scheme change recolors running apps live. It also names the
+  widget style, Union, which resolves its stylesheet against that palette on
+  every paint; a style that substitutes or caches its own colours freezes apps
+  at their startup ones (Kvantum did, and Breeze and its forks keep stale
+  toolbars in plain Qt apps).
+- `pkgs/union-style/controls.css` is the Qt look, over Breeze's rules: fills
+  carry shape, the accent carries meaning (default button, selection, checks,
+  focus), outlines only where text is typed. It names no scheme colour, only
+  roles and alphas over them. Radii scale from `hypr_rounding`, so one knob
+  rounds windows and controls.
 - GTK takes the scheme as libadwaita's named colours, and the GTK3 theme
   (`desktopctl` or `desktopctl-dark`) follows the scheme's appearance.
   libadwaita also reads the portal's `color-scheme`, so `gtk-4.0/gtk.css`
@@ -67,7 +74,25 @@ qt6ct + Kvantum left Dolphin's alternate rows Breeze's `247,247,247` and made
 every kdeglobals probe look dead, a search that once concluded "needs
 upstream". Swapping the platform theme away from `kde` brings it all back.
 Running apps re-read kdeglobals only on the `notifyChange`/`refreshFonts`
-session-bus signals the `qt` target emits.
+session-bus signals the `qt` target emits. `QT_STYLE_OVERRIDE` would outrank
+the style kdeglobals names.
+
+### A Union stylesheet that fails to load crashes every Qt app
+One unresolvable `@import` drops all rules and the widgets dereference the
+missing properties. The `qt` target therefore writes `tokens.css` before the
+`kdeglobals` key that selects the style; recover by setting
+`unionStyle=breeze` there. Radii need an app restart; colours do not.
+
+### In Union CSS the first definition of a variable wins
+A later `--x:` is parsed as a property and ignored, so an override placed after
+Breeze's rules silently does nothing. Overrides of Breeze's variables belong
+in `tokens.css`; `controls.css` can only add new ones or restate rules.
+
+### Union needs three things a Plasma session gives it
+`UNION_FORCE_PLATFORM=plasma`, or it ignores `unionStyle` and KDE icons;
+`/share/union` in `pathsToLink`, or its property definitions are missing; and
+no style cache, which compares mtimes that never change in the store, so a
+rebuild would keep serving the old stylesheet.
 
 ### GTK colours need an app restart
 GTK loads user CSS and theme files once, so a scheme change reaches GTK apps
@@ -85,7 +110,10 @@ that list; a headless check renders both polarities with
 ### Neuwaita needs a KDE wrapper theme for symbolic recoloring
 KIconThemes recolors only themes with `FollowsColorScheme=true`, and patching
 Neuwaita itself would leak Breeze icons into GTK. `pkgs/neuwaita` ships both,
-and the `qt` target maps `Neuwaita` to `Neuwaita-KDE` for KDE only.
+and the `qt` target maps `Neuwaita` to `Neuwaita-KDE` for KDE only. The wrapper
+carries Breeze's actions itself: KIconThemes tries a name's generic parts in
+the current theme before any inherited one, so an inherited `application-menu`
+came out as the `application-x-generic` document.
 
 ### App theme names exist only where the app bundles them
 bat names are exact bundled names (`base16` otherwise); `ktexteditor` names

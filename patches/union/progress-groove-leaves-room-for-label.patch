@@ -1,0 +1,14 @@
+diff --git a/src/output/qtwidgets/elements/ProgressBarElement.cpp b/src/output/qtwidgets/elements/ProgressBarElement.cpp
+index d008fc1..74ea18a 100644
+--- a/src/output/qtwidgets/elements/ProgressBarElement.cpp
++++ b/src/output/qtwidgets/elements/ProgressBarElement.cpp
+@@ -176,6 +176,9 @@ QRectF ProgressBarElement::subElementRect(QStyle::SubElement element) const
+         auto rect = m_progressBarOption->rect;
+         if (m_isHorizontal) {
+             rect = centerRect(m_progressBarOption->rect, width, styleHeight).toRect();
++            if (const auto label = subElementRect(QStyle::SE_ProgressBarLabel); label.isValid()) {
++                rect.setWidth(rect.width() - label.width() - spacing());
++            }
+         } else {
+             rect = centerRect(m_progressBarOption->rect, styleWidth, height).toRect();
+         }

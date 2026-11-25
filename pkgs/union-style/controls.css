@@ -1,0 +1,598 @@
+/* Fills carry the shape, accent carries meaning; outlines only where text is typed. */
+:root {
+    --ink: var(--window-text-color);
+    --fill: modify-color(var(--ink) set-alpha 0.08);
+    --fill-hover: modify-color(var(--ink) set-alpha 0.12);
+    --fill-pressed: modify-color(var(--ink) set-alpha 0.18);
+    --fill-disabled: modify-color(var(--ink) set-alpha 0.04);
+    --hairline: modify-color(var(--ink) set-alpha 0.12);
+    --clear: modify-color(var(--ink) set-alpha 0.0);
+    --secondary-text: mix(var(--window-background-color), var(--ink), 0.65);
+
+    --accent: var(--highlight-color);
+    --on-accent: var(--highlight-text-color);
+    --accent-hover: mix(var(--accent), var(--on-accent), 0.08);
+    --accent-pressed: mix(var(--accent), var(--on-accent), 0.16);
+    --focus-ring: 3px solid modify-color(var(--accent) set-alpha 0.35);
+
+    --control-border: 1px solid var(--clear);
+    --accent-border: 1px solid var(--accent);
+    --edge: 1px solid var(--hairline);
+    --popup-shadow: 0px 6px 20px 0px rgba(0, 0, 0, 0.22);
+}
+
+/* ── Buttons ───────────────────────────────────────────────────────────── */
+
+button,
+combobox,
+roundbutton,
+delaybutton,
+toolbutton.raised {
+    border: var(--control-border);
+    background-color: var(--fill);
+    box-shadow: none;
+
+    &:checked {
+        border: var(--control-border);
+        background-color: var(--fill-pressed);
+    }
+
+    &:hovered {
+        border-color: var(--clear);
+        background-color: var(--fill-hover);
+    }
+
+    &:visual-focus {
+        border-color: var(--clear);
+        outline: var(--focus-ring);
+    }
+
+    &:pressed {
+        border-color: var(--clear);
+        background-color: var(--fill-pressed);
+    }
+
+    &:disabled {
+        border-color: var(--clear);
+        background-color: var(--fill-disabled);
+    }
+
+    &.menu-open {
+        border: var(--control-border);
+        background-color: var(--fill-pressed);
+    }
+}
+
+button:highlighted {
+    color: var(--on-accent);
+    background-color: var(--accent);
+
+    &:hovered {
+        background-color: var(--accent-hover);
+    }
+
+    &:pressed {
+        background-color: var(--accent-pressed);
+    }
+
+    &:disabled {
+        color: var(--button-disabled-text-color);
+        background-color: var(--fill-disabled);
+    }
+}
+
+toolbutton,
+button.flat,
+combobox.flat,
+roundbutton.flat {
+    border: var(--control-border);
+    background-color: var(--clear);
+
+    &:hovered {
+        border: var(--control-border);
+        background-color: var(--fill);
+    }
+
+    &:visual-focus {
+        border: var(--control-border);
+        outline: var(--focus-ring);
+    }
+
+    &:checked,
+    toolbar.header &:checked,
+    applicationheader &:checked {
+        border: var(--control-border);
+        background-color: var(--fill-hover);
+    }
+
+    &:pressed,
+    toolbar.header &:pressed,
+    applicationheader &:pressed {
+        border: var(--control-border);
+        background-color: var(--fill-pressed);
+    }
+
+    &.menu-open {
+        border: var(--control-border);
+        background-color: var(--fill-hover);
+
+        & > indicator {
+            border: none;
+            background-color: var(--clear);
+        }
+    }
+
+    &:disabled {
+        background-color: var(--clear);
+    }
+}
+
+combobox.editable,
+combobox.flat.editable {
+    border: var(--edge);
+
+    &:hovered,
+    &:pressed {
+        border: var(--edge);
+        background-color: var(--view-background-color);
+    }
+
+    &:visual-focus {
+        border: var(--accent-border);
+        outline: var(--focus-ring);
+    }
+}
+
+/* ── Text input ────────────────────────────────────────────────────────── */
+
+textfield,
+textarea,
+spinbox,
+searchfield {
+    border: var(--edge);
+
+    &:hovered {
+        border: var(--edge);
+    }
+
+    &:active-focus,
+    &:visual-focus {
+        border: var(--accent-border);
+        outline: var(--focus-ring);
+    }
+
+    &:disabled {
+        border: var(--edge);
+    }
+}
+
+toolbar textfield,
+toolbar searchfield,
+toolbar frame {
+    border: var(--control-border);
+    background-color: var(--fill);
+
+    &:hovered {
+        border: var(--control-border);
+        background-color: var(--fill-hover);
+    }
+}
+
+/* ── Checks, radios, switches ──────────────────────────────────────────── */
+
+checkbox,
+checkdelegate,
+menuitem,
+radiobutton,
+radiodelegate {
+    & > indicator {
+        background-color: var(--fill);
+        border: var(--edge);
+    }
+
+    &:hovered > indicator {
+        border-color: var(--hairline);
+        background-color: var(--fill-hover);
+    }
+
+    &:checked > indicator,
+    &.indeterminate > indicator {
+        color: var(--on-accent);
+        background-color: var(--accent);
+        border-color: var(--accent);
+    }
+
+    &:visual-focus > indicator {
+        border-color: var(--accent);
+        outline: var(--focus-ring);
+    }
+
+    &:disabled > indicator {
+        background-color: var(--fill-disabled);
+        border: var(--edge);
+    }
+}
+
+checkbox,
+checkdelegate {
+    & > indicator {
+        border-radius: var(--radius-indicator);
+    }
+}
+
+checkbox,
+checkdelegate,
+menuitem {
+    &:checked > indicator {
+        background-image: url("../images/checkmark.svg") mask var(--on-accent);
+    }
+
+    &.indeterminate > indicator {
+        background-image: url("../images/indeterminate.svg") mask var(--on-accent);
+    }
+}
+
+radiobutton,
+radiodelegate,
+menuitem.exclusive {
+    &:checked > indicator {
+        background-image: url("../images/radio.svg") mask var(--on-accent);
+    }
+}
+
+switch,
+switchdelegate {
+    & > indicator {
+        width: 34px;
+        height: 20px;
+        border: none;
+        border-radius: 10px;
+        background-color: var(--fill-pressed);
+
+        & > handle {
+            border: none;
+            box-shadow: 0px 1px 2px 0px rgba(0, 0, 0, 0.25);
+        }
+    }
+
+    &:checked > indicator {
+        background-color: var(--accent);
+    }
+}
+
+/* ── Sliders, progress, scrollbars ─────────────────────────────────────── */
+
+slider,
+rangeslider,
+progressbar {
+    border: none;
+    background-color: var(--fill-hover);
+
+    & > fill,
+    & > track,
+    & > chunk {
+        border: none;
+        background-color: var(--accent);
+    }
+}
+
+progressbar {
+    padding: 0px;
+    inset: 0px;
+    spacing: var(--large-spacing);
+    border-radius: 3px;
+    text-alignment: item end center 0;
+    color: var(--secondary-text);
+
+    & > track,
+    & > chunk {
+        border-radius: 3px;
+    }
+}
+
+slider,
+rangeslider {
+    border-radius: 2px;
+
+    & > fill {
+        border-radius: 2px;
+    }
+
+    &.horizontal {
+        height: 4px;
+    }
+
+    &.vertical {
+        width: 4px;
+    }
+
+    & > handle {
+        width: 18px;
+        height: 18px;
+        border: var(--edge);
+        border-radius: 9px;
+        background-color: mix(var(--window-background-color), rgba(255, 255, 255, 1.0), 0.75);
+        box-shadow: 0px 1px 3px 0px rgba(0, 0, 0, 0.3);
+
+        &:hovered {
+            border-color: var(--hairline);
+        }
+    }
+}
+
+slider:pressed > handle,
+rangeslider > handle:pressed {
+    border-color: var(--hairline);
+    background-color: rgba(255, 255, 255, 1.0);
+}
+
+scrollbar {
+    width: 12px;
+    height: 12px;
+    padding: 3px;
+
+    &.horizontal,
+    &.vertical {
+        border: none;
+    }
+
+    & > handle {
+        border: none;
+        background-color: var(--fill-pressed);
+
+        &:hovered,
+        &:pressed {
+            background-color: modify-color(var(--ink) set-alpha 0.4);
+        }
+    }
+}
+
+/* ── Tabs ──────────────────────────────────────────────────────────────── */
+
+tabbar,
+tabbar.immutable {
+    background-color: var(--clear);
+
+    &[direction="top"],
+    &[direction="bottom"],
+    &[direction="left"],
+    &[direction="right"] {
+        border: none;
+    }
+}
+
+tabbutton,
+tabbutton.immutable {
+    inset: 2px;
+    border: none;
+    border-radius: var(--corner-radius);
+    color: var(--secondary-text);
+    background-color: var(--clear);
+
+    &[direction="top"],
+    &[direction="bottom"],
+    &[direction="left"],
+    &[direction="right"] {
+        border: none;
+        border-radius: var(--corner-radius);
+    }
+
+    &:hovered {
+        color: var(--ink);
+        background-color: var(--fill-disabled);
+    }
+
+    &:checked,
+    &:highlighted {
+        color: var(--ink);
+        border: none;
+        background-color: var(--fill-hover);
+
+        &[direction="top"],
+        &[direction="bottom"],
+        &[direction="left"],
+        &[direction="right"] {
+            border: none;
+            border-radius: var(--corner-radius);
+        }
+    }
+
+    & > closebutton:hovered,
+    & > closebutton:pressed {
+        color: var(--ink);
+        background-color: var(--fill-pressed);
+    }
+}
+
+tabwidget {
+    border: var(--edge);
+    border-radius: var(--radius-surface);
+}
+
+/* ── Items and headers ─────────────────────────────────────────────────── */
+
+itemdelegate,
+checkdelegate,
+radiodelegate,
+switchdelegate,
+swipedelegate,
+itemviewitem {
+    &:hovered {
+        border: none;
+        background-color: var(--fill);
+    }
+
+    &:active-focus {
+        border: none;
+        background-color: var(--fill);
+        outline: none;
+    }
+
+    &.alternating-colors {
+        background-color: var(--fill-disabled);
+    }
+
+    &:pressed,
+    &:highlighted {
+        border: none;
+        background-color: var(--accent);
+        color: var(--on-accent);
+    }
+}
+
+graphicsview itemviewitem:highlighted {
+    background-color: var(--accent);
+}
+
+itemviewitem.inactive:highlighted,
+graphicsview itemviewitem.inactive:highlighted {
+    color: custom-color("kcolorscheme", "inactive", "selection", "foreground", "text");
+    background-color: custom-color("kcolorscheme", "inactive", "selection", "background", "normal");
+}
+
+itemviewitem {
+    height: 30px;
+}
+
+graphicsview focusframe {
+    border: none;
+
+    &:highlighted {
+        border: none;
+    }
+}
+
+headerviewdelegate {
+    height: 26px;
+    border-right: none;
+    border-bottom: var(--edge);
+    background-color: var(--view-background-color);
+    color: var(--secondary-text);
+    text-alignment: content start center 1;
+    padding: var(--small-spacing) var(--large-spacing);
+}
+
+/* ── Menus, popups, tooltips ───────────────────────────────────────────── */
+
+menu,
+popup,
+popup.combobox {
+    border: var(--edge);
+    border-radius: var(--radius-surface);
+    background-color: var(--window-background-color);
+    box-shadow: var(--popup-shadow);
+}
+
+menu {
+    padding: 5px;
+}
+
+menuitem {
+    height: 28px;
+    padding: var(--small-spacing) var(--large-spacing);
+
+    &:hovered,
+    &:pressed {
+        border: none;
+        color: var(--on-accent);
+        background-color: var(--accent);
+    }
+
+    &:hovered shortcuttext,
+    &:hovered arrow {
+        color: var(--on-accent);
+    }
+
+    &:disabled {
+        color: var(--window-disabled-text-color);
+        background-color: var(--clear);
+    }
+}
+
+menuseparator {
+    background-color: var(--hairline);
+    inset: var(--small-spacing) var(--large-spacing);
+}
+
+menubaritem {
+    &:hovered,
+    &:highlighted {
+        border: none;
+        background-color: var(--fill);
+    }
+
+    &:pressed {
+        border: none;
+        color: var(--ink);
+        background-color: var(--fill-hover);
+    }
+}
+
+popup.combobox {
+    itemviewitem:highlighted,
+    itemdelegate:highlighted {
+        color: var(--on-accent);
+        background-color: var(--accent);
+    }
+}
+
+tooltip {
+    border: var(--edge);
+    box-shadow: 0px 3px 12px 0px rgba(0, 0, 0, 0.2);
+}
+
+dialog {
+    border-radius: var(--radius-surface);
+    border: var(--edge);
+}
+
+/* ── Window structure ──────────────────────────────────────────────────── */
+
+toolbar.header,
+toolbar.footer,
+toolbar.header[colorset="window"],
+statusbar {
+    border: none;
+}
+
+toolbar > handle {
+    border: none;
+}
+
+frame,
+groupbox,
+framemenu,
+framewindow {
+    border: var(--edge);
+    border-radius: var(--radius-surface);
+}
+
+groupbox {
+    background-color: modify-color(var(--ink) set-alpha 0.03);
+    border: none;
+    padding: var(--large-spacing);
+    text-alignment: content start start 1;
+}
+
+frame,
+listview,
+treeview,
+tableview,
+columnview,
+scrollview,
+textfield,
+textarea {
+    &:visual-focus {
+        border: var(--edge);
+    }
+
+    &[shape="panel"],
+    &[shape="box"] {
+        border: var(--edge);
+        border-radius: var(--radius-surface);
+    }
+}
+
+splitter {
+    background-color: var(--hairline);
+}
