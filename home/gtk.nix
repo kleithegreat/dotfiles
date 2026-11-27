@@ -6,7 +6,11 @@
 }:
 
 let
-  inherit (lib.attrsets) concatMapAttrs;
+  inherit (lib.attrsets) mergeAttrsList;
+  inherit (lib.lists) map;
+  cssImport = path: /* css */ ''
+    @import url("file://${path}");
+  '';
 in
 {
   home.packages = [
@@ -16,23 +20,28 @@ in
     pkgs.papirus-icon-theme
   ];
 
-  # adw-gtk3 recoloured by the colors.css desktopctl's gtk target writes beside each theme.
+  # Both variants load the scheme.css desktopctl's gtk target writes, which picks
+  # light.css or dark.css; libhandy picks the variant by the browser's polarity.
   xdg.dataFile =
-    {
-      desktopctl = "adw-gtk3";
-      desktopctl-dark = "adw-gtk3-dark";
-    }
-    |> concatMapAttrs (
-      name: base: {
-        "themes/${name}/gtk-3.0/gtk.css".text = /* css */ ''
-          @import url("file://${pkgs.adw-gtk3}/share/themes/${base}/gtk-3.0/gtk.css");
-          @import url("file://${config.xdg.dataHome}/themes/${name}/gtk-3.0/colors.css");
-        '';
-        "themes/${name}/gtk-4.0/gtk.css".text = /* css */ ''
-          @import url("file://${pkgs.adw-gtk3}/share/themes/${base}/gtk-4.0/gtk.css");
-        '';
+    [
+      "gtk-3.0"
+      "gtk-4.0"
+    ]
+    |> map (
+      toolkit:
+      let
+        file = name: "themes/desktopctl/${toolkit}/${name}";
+        scheme = cssImport "${config.xdg.dataHome}/${file "scheme.css"}";
+        base = theme: cssImport "${pkgs.adw-gtk3}/share/themes/${theme}/${toolkit}/gtk.css";
+      in
+      {
+        ${file "gtk.css"}.text = scheme;
+        ${file "gtk-dark.css"}.text = scheme;
+        ${file "light.css"}.text = base "adw-gtk3";
+        ${file "dark.css"}.text = base "adw-gtk3-dark";
       }
-    );
+    )
+    |> mergeAttrsList;
 
   dconf.settings = {
     "org/gnome/desktop/interface" = {

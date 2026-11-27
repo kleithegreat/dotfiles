@@ -12,9 +12,8 @@ use std::fmt::Write as _;
 const GTK3_SETTINGS: &str = "~/.config/gtk-3.0/settings.ini";
 const GTK4_SETTINGS: &str = "~/.config/gtk-4.0/settings.ini";
 const GTK4_CSS: &str = "~/.config/gtk-4.0/gtk.css";
-/// The GTK3 themes `home/gtk.nix` installs; each imports its `colors.css`.
-const LIGHT_THEME: &str = "desktopctl";
-const DARK_THEME: &str = "desktopctl-dark";
+/// The theme `home/gtk.nix` installs; both its variants load `scheme.css`.
+const THEME: &str = "desktopctl";
 
 pub const TARGET: Target = Target::hooks(
     "gtk",
@@ -32,14 +31,6 @@ pub const TARGET: Target = Target::hooks(
 )
 .persist(persist)
 .on_apply(on_apply);
-
-fn gtk_theme(colors: &ColorScheme) -> &'static str {
-    if colors.is_dark() {
-        DARK_THEME
-    } else {
-        LIGHT_THEME
-    }
-}
 
 /// The portal's `color-scheme`: the browser's `dark_hint`, not the scheme's polarity.
 fn color_preference(state: &ThemeState) -> &'static str {
@@ -162,6 +153,13 @@ fn define_colors(defines: &[(&str, String)]) -> String {
     css
 }
 
+/// Selects the theme's adw-gtk3 base by the scheme's appearance, never by
+/// GTK's dark variant: libhandy sets that from the portal.
+fn base_import(colors: &ColorScheme) -> String {
+    let base = if colors.is_dark() { "dark" } else { "light" };
+    format!("@import url(\"{base}.css\");\n")
+}
+
 /// The user provider outranks libadwaita, so these hold at either portal preference.
 fn gtk4_css(colors: &ColorScheme) -> String {
     let dark = colors.is_dark();
@@ -200,7 +198,7 @@ fn settings_ini(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Strin
             "gtk-font-name={} {}\n",
             "gtk-application-prefer-dark-theme={}\n",
         ),
-        gtk_theme(colors),
+        THEME,
         state.icon_theme,
         state.system_font,
         state.font_size_for(TARGET.name)?,
@@ -210,13 +208,17 @@ fn settings_ini(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Strin
 
 pub fn persist(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
     atomic_write(&expand_user_path(GTK4_CSS)?, gtk4_css(colors).as_bytes())?;
+    let scheme_css = |toolkit: &str| {
+        expand_user_path(&format!(
+            "~/.local/share/themes/{THEME}/{toolkit}/scheme.css"
+        ))
+    };
+    let base = base_import(colors);
     atomic_write(
-        &expand_user_path(&format!(
-            "~/.local/share/themes/{}/gtk-3.0/colors.css",
-            gtk_theme(colors)
-        ))?,
-        define_colors(&named_colors(colors)).as_bytes(),
+        &scheme_css("gtk-3.0")?,
+        format!("{base}{}", define_colors(&named_colors(colors))).as_bytes(),
     )?;
+    atomic_write(&scheme_css("gtk-4.0")?, base.as_bytes())?;
 
     let contents = settings_ini(colors, state)?;
     for path in [GTK3_SETTINGS, GTK4_SETTINGS] {
@@ -225,10 +227,10 @@ pub fn persist(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
     Ok(())
 }
 
-pub fn on_apply(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
+pub fn on_apply(_colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
     let font = |family: &str, size: i64| format!("{family} {size}");
     for (key, value) in [
-        ("gtk-theme", gtk_theme(colors).to_owned()),
+        ("gtk-theme", THEME.to_owned()),
         ("color-scheme", color_preference(state).to_owned()),
         (
             "font-name",

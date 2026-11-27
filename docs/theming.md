@@ -57,10 +57,12 @@
   second chrome tone is what made it read as Breeze. It names no scheme colour,
   only roles and alphas over them. Radii scale from `hypr_rounding`, so one
   knob rounds windows and controls.
-- GTK takes the scheme as libadwaita's named colours, and the GTK3 theme
-  (`desktopctl` or `desktopctl-dark`) follows the scheme's appearance.
-  libadwaita also reads the portal's `color-scheme`, so `gtk-4.0/gtk.css`
-  pins everything libadwaita varies by appearance to the scheme's own.
+- GTK takes the scheme as libadwaita's named colours, and the one GTK theme,
+  `desktopctl`, takes its adw-gtk3 base from the scheme's appearance. Its
+  normal and dark variants are identical, because toolkits pick the variant
+  from the portal's `color-scheme`. libadwaita reads that too, so
+  `gtk-4.0/gtk.css` pins everything libadwaita varies by appearance to the
+  scheme's own.
 - Starship keeps gruvbox's powerline *order* with each role resolved from the
   active scheme. The identity plate picks itself against the path plate's
   yellow, because warm hues collide (rose-pine's orange *is* its yellow).
@@ -105,6 +107,13 @@ rebuild would keep serving the old stylesheet.
 ### GTK colours need an app restart
 GTK loads user CSS and theme files once, so a scheme change reaches GTK apps
 only on relaunch.
+
+### libhandy renames a `-dark` theme and follows the portal
+A GTK3 app on libhandy (gedit, through tepl) strips `-dark` from
+`gtk-theme-name` and sets the dark variant from the portal, i.e. `dark_hint`.
+A `desktopctl-dark` theme beside a light `desktopctl` therefore drew gedit
+with the light theme's chrome around a dark source view. The theme name must
+carry no polarity.
 
 ### libadwaita leaks the browser's polarity through any colour gtk.css omits
 Its stylesheet changes a set of named colours and `:root` variables under
