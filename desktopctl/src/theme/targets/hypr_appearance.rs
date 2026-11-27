@@ -1,8 +1,6 @@
 use super::Target;
 use crate::theme::schema::{ColorScheme, ThemeState};
 
-const RELOAD_CMD: &[&str] = &["hyprctl", "reload"];
-
 pub const TARGET: Target = Target::standalone(
     "hypr_appearance",
     &[
@@ -18,7 +16,6 @@ pub const TARGET: Target = Target::standalone(
     "~/.config/hypr/appearance-theme.lua",
     generate,
 )
-.reload_cmd(RELOAD_CMD)
 .comment("--");
 
 fn bool_word(value: bool) -> &'static str {

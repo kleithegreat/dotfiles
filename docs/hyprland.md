@@ -97,6 +97,12 @@ then start the session target and portals.
 ### Files required before `plugins.lua` cannot name `hl.plugin.*` at parse time
 The laptop overview gestures reach hyprexpo from inside their callbacks.
 
+### Replacing a required Lua file already reloads
+The config watcher follows `require`d files, so a generated file needs no
+`hyprctl reload`; one sent anyway queues behind the watcher's own reload, up
+to 0.9 s per theme apply. `nrs` mutes the watcher during activation ([[nix]])
+and reloads once itself.
+
 ### Host-selected fragments must be git-tracked before rebuilding
 An untracked `hosts/*/` file becomes a dangling Home Manager link that
 `hyprctl configerrors` reports as inaccessible.

@@ -19,8 +19,8 @@ use crate::{airpods, night_light, paths};
 
 /// Timeout for requests the daemon answers from memory or quick probes.
 pub(crate) const DEFAULT_TIMEOUT: Duration = Duration::from_secs(3);
-/// Timeout for requests that block on a full theme apply (hyprctl reloads,
-/// dconf, possibly a lutgen pass over the wallpaper).
+/// Timeout for requests that block on a full theme apply (possibly a lutgen
+/// pass over the wallpaper).
 pub(crate) const APPLY_TIMEOUT: Duration = Duration::from_secs(120);
 
 const RETRY_INTERVAL: Duration = Duration::from_millis(200);

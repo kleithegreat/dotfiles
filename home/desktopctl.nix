@@ -51,11 +51,21 @@
   '';
 
   home.activation.applyTheme = lib.hm.dag.entryAfter [ "writeBoundary" ] /* bash */ ''
-    PATH="${lib.makeBinPath [ pkgs.optimized.desktopctl ]}:$PATH"
+    PATH="${
+      lib.makeBinPath [
+        pkgs.optimized.desktopctl
+        pkgs.dconf
+      ]
+    }:$PATH"
     mkdir --parents "$HOME/.config/hypr"
     # Empty is the "no overrides" state the Lua appliers expect.
     touch "$HOME/.config/hypr/input-runtime.lua"
     touch "$HOME/.config/hypr/displays-runtime.lua"
-    desktopctl theme sync
+    # Sync writes dconf. A private bus only before login: beside a live dconf-service its writes are lost.
+    if [[ -v DBUS_SESSION_BUS_ADDRESS ]]; then
+      desktopctl theme sync
+    else
+      ${lib.getExe' pkgs.dbus "dbus-run-session"} --dbus-daemon=${lib.getExe' pkgs.dbus "dbus-daemon"} desktopctl theme sync
+    fi
   '';
 }

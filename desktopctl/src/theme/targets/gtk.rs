@@ -1,6 +1,6 @@
 use super::Target;
 use crate::{
-    cmd::{GNOME_INTERFACE_DCONF_DIR, dconf_write_str},
+    cmd::{GNOME_INTERFACE_DCONF_DIR, dconf_load, dconf_string},
     fs_util::{atomic_write, expand_user_path},
     theme::{
         color,
@@ -29,8 +29,7 @@ pub const TARGET: Target = Target::hooks(
         "gtk_mono_font_size_offset",
     ],
 )
-.persist(persist)
-.on_apply(on_apply);
+.persist(persist);
 
 /// The portal's `color-scheme`: the browser's `dark_hint`, not the scheme's polarity.
 fn color_preference(state: &ThemeState) -> &'static str {
@@ -224,27 +223,24 @@ pub fn persist(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
     for path in [GTK3_SETTINGS, GTK4_SETTINGS] {
         atomic_write(&expand_user_path(path)?, contents.as_bytes())?;
     }
-    Ok(())
-}
 
-pub fn on_apply(_colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
-    let font = |family: &str, size: i64| format!("{family} {size}");
-    for (key, value) in [
-        ("gtk-theme", THEME.to_owned()),
-        ("color-scheme", color_preference(state).to_owned()),
-        (
-            "font-name",
-            font(&state.system_font, state.font_size_for(TARGET.name)?),
-        ),
-        (
-            "monospace-font-name",
-            font(&state.mono_font, state.mono_font_size_for(TARGET.name)?),
-        ),
-        ("icon-theme", state.icon_theme.clone()),
-    ] {
-        dconf_write_str(&format!("{GNOME_INTERFACE_DCONF_DIR}/{key}"), &value)?;
-    }
-    Ok(())
+    let font = |family: &str, size: i64| dconf_string(&format!("{family} {size}"));
+    dconf_load(
+        GNOME_INTERFACE_DCONF_DIR,
+        &[
+            ("gtk-theme", dconf_string(THEME)),
+            ("color-scheme", dconf_string(color_preference(state))),
+            (
+                "font-name",
+                font(&state.system_font, state.font_size_for(TARGET.name)?),
+            ),
+            (
+                "monospace-font-name",
+                font(&state.mono_font, state.mono_font_size_for(TARGET.name)?),
+            ),
+            ("icon-theme", dconf_string(&state.icon_theme)),
+        ],
+    )
 }
 
 #[cfg(test)]

@@ -101,25 +101,29 @@ fn warn(message: &str) {
 
 /// awww accepts connections before it has registered an output, and `img` fails with "none of the
 /// requested outputs are valid" until it has; `awww query` prints one line per registered output.
-fn wait_for_awww_output() {
+fn awww_outputs() -> Option<String> {
     const TIMEOUT: Duration = Duration::from_secs(5);
     const POLL_INTERVAL: Duration = Duration::from_millis(50);
 
-    if find_command("awww").is_none() {
-        return;
-    }
-
+    find_command("awww")?;
     let deadline = Instant::now() + TIMEOUT;
     while Instant::now() < deadline {
-        if cmd::output(["awww", "query"]).is_ok_and(|outputs| !outputs.trim().is_empty()) {
-            return;
+        if let Ok(outputs) = cmd::output(["awww", "query"])
+            && !outputs.trim().is_empty()
+        {
+            return Some(outputs);
         }
         thread::sleep(POLL_INTERVAL);
     }
+    None
 }
 
 fn apply_wallpaper(path: &Path) {
-    wait_for_awww_output();
+    // Re-sending the image awww already shows costs a full decode of the source.
+    let shown = format!("image: {}", path.display());
+    if awww_outputs().is_some_and(|outputs| outputs.lines().all(|line| line.ends_with(&shown))) {
+        return;
+    }
     if let Err(error) = cmd::run(awww_command(&path.display().to_string())) {
         warn(&format!(
             "failed to apply wallpaper {}: {error}",

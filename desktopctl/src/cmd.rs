@@ -1,7 +1,8 @@
 use std::{
     env,
     ffi::OsStr,
-    fs, io,
+    fs,
+    io::{self, Write as _},
     os::unix::fs::PermissionsExt,
     path::PathBuf,
     process::{Command, Output, Stdio},
@@ -99,12 +100,28 @@ pub(crate) fn dconf_string(value: &str) -> String {
     format!("'{escaped}'")
 }
 
-pub(crate) fn dconf_write(path: &str, gvariant_value: &str) -> crate::Result<()> {
-    run(["dconf", "write", path, gvariant_value])
-}
-
-pub(crate) fn dconf_write_str(path: &str, value: &str) -> crate::Result<()> {
-    dconf_write(path, &dconf_string(value))
+/// Writes `(key, GVariant text)` pairs under `dir` in one `dconf load`.
+pub(crate) fn dconf_load(dir: &str, entries: &[(&str, String)]) -> crate::Result<()> {
+    let mut keyfile = String::from("[/]\n");
+    for (key, value) in entries {
+        keyfile.push_str(&format!("{key}={value}\n"));
+    }
+    let mut child = Command::new("dconf")
+        .args(["load", &format!("{dir}/")])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+    child
+        .stdin
+        .take()
+        .expect("piped stdin")
+        .write_all(keyfile.as_bytes())?;
+    let output = child.wait_with_output()?;
+    if !output.status.success() {
+        return Err(command_error("dconf load", &output).into());
+    }
+    Ok(())
 }
 
 /// Spawn a detached background process with null stdio and reap its exit status

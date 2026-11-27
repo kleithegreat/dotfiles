@@ -34,7 +34,16 @@ pub(crate) fn unique_temp_path(path: &Path, tag: &str) -> io::Result<PathBuf> {
     Ok(parent.join(format!(".{tag}.{}.{seq}.{name}", process::id())))
 }
 
+/// Unchanged content is left in place: watchers such as Hyprland's config
+/// reload fire on every replace.
 pub(crate) fn atomic_write(path: &Path, content: &[u8]) -> crate::Result<()> {
+    let existing = fs::symlink_metadata(path)
+        .ok()
+        .filter(|meta| meta.is_file());
+    if existing.is_some() && fs::read(path).is_ok_and(|bytes| bytes == content) {
+        return Ok(());
+    }
+
     let temp_path = unique_temp_path(path, "tmp")?;
     if let Some(parent) = temp_path
         .parent()
@@ -43,10 +52,7 @@ pub(crate) fn atomic_write(path: &Path, content: &[u8]) -> crate::Result<()> {
         fs::create_dir_all(parent)?;
     }
 
-    let existing_perms = fs::symlink_metadata(path)
-        .ok()
-        .filter(|meta| !meta.file_type().is_symlink())
-        .map(|meta| meta.permissions());
+    let existing_perms = existing.map(|meta| meta.permissions());
 
     let write_result = (|| -> io::Result<()> {
         let mut file = OpenOptions::new()
@@ -108,4 +114,27 @@ pub(crate) fn unescape_lua_str(quoted: &str) -> Option<String> {
         }
     }
     Some(value)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::atomic_write;
+    use crate::test_support::TempDir;
+    use std::{fs, os::unix::fs::MetadataExt};
+
+    #[test]
+    fn atomic_write_leaves_unchanged_content_in_place() -> crate::Result<()> {
+        let dir = TempDir::new("desktopctl-atomic-write")?;
+        let path = dir.path().join("out");
+        atomic_write(&path, b"same")?;
+        let inode = fs::metadata(&path)?.ino();
+
+        atomic_write(&path, b"same")?;
+        assert_eq!(fs::metadata(&path)?.ino(), inode);
+
+        atomic_write(&path, b"changed")?;
+        assert_ne!(fs::metadata(&path)?.ino(), inode);
+        assert_eq!(fs::read(&path)?, b"changed");
+        Ok(())
+    }
 }

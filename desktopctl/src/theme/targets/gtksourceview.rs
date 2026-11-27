@@ -1,6 +1,6 @@
 use super::Target;
 use crate::{
-    cmd::dconf_write_str,
+    cmd::{dconf_load, dconf_string},
     fs_util::expand_user_path,
     theme::{
         color::readable_on_ends,
@@ -15,8 +15,7 @@ pub const TARGET: Target = Target::standalone(
     "~/.local/share/libgedit-gtksourceview-300/styles/desktopctl-current.xml",
     generate,
 )
-.persist(persist)
-.on_apply(on_apply);
+.persist(persist);
 
 const STYLES_DIR: &str = "~/.local/share/libgedit-gtksourceview-300/styles";
 const CURRENT_FILE_NAME: &str = "desktopctl-current.xml";
@@ -179,21 +178,20 @@ pub fn generate(colors: &ColorScheme, state: &ThemeState) -> crate::Result<Strin
 
 pub fn persist(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
     let styles_dir = expand_user_path(STYLES_DIR)?;
-    if !styles_dir.exists() {
-        return Ok(());
+    if styles_dir.exists() {
+        cleanup_managed_styles(&styles_dir)?;
     }
-    cleanup_managed_styles(&styles_dir)
-}
-
-pub fn on_apply(_colors: &ColorScheme, _state: &ThemeState) -> crate::Result<()> {
-    dconf_write_str(
-        "/org/gnome/gedit/preferences/editor/style-scheme-for-dark-theme-variant",
-        CURRENT_SCHEME_ID,
-    )?;
-    dconf_write_str(
-        "/org/gnome/gedit/preferences/editor/style-scheme-for-light-theme-variant",
-        CURRENT_SCHEME_ID,
-    )?;
-
-    Ok(())
+    dconf_load(
+        "/org/gnome/gedit/preferences/editor",
+        &[
+            (
+                "style-scheme-for-dark-theme-variant",
+                dconf_string(CURRENT_SCHEME_ID),
+            ),
+            (
+                "style-scheme-for-light-theme-variant",
+                dconf_string(CURRENT_SCHEME_ID),
+            ),
+        ],
+    )
 }

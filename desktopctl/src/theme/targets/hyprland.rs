@@ -5,15 +5,12 @@ use crate::{
     theme::schema::{ColorScheme, ThemeState},
 };
 
-const RELOAD_CMD: &[&str] = &["hyprctl", "reload"];
-
 pub const TARGET: Target = Target::standalone(
     "hyprland",
     &["color_scheme", "mono_font", "system_font"],
     "~/.config/hypr/colors.lua",
     generate,
 )
-.reload_cmd(RELOAD_CMD)
 .comment("--")
 .persist(persist);
 

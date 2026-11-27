@@ -6,7 +6,7 @@ use crate::{
         schema::{ColorScheme, ThemeState},
     },
 };
-use std::{fs, path::Path};
+use std::{fs, io, path::Path, time::UNIX_EPOCH};
 
 pub const TARGET: Target = Target::hooks(
     "sddm",
@@ -24,13 +24,15 @@ pub const TARGET: Target = Target::hooks(
 const STAGED_BACKGROUND_PATH: &str = "/tmp/desktopctl-sddm/background";
 const STAGED_CONFIG_PATH: &str = "/tmp/desktopctl-sddm/theme.conf";
 const INSTALLED_BACKGROUND_PATH: &str = "/var/lib/desktopctl/sddm/background";
+const INSTALLED_CONFIG_PATH: &str = "/var/lib/desktopctl/sddm/theme.conf";
 
-pub fn render_theme_conf(colors: &ColorScheme, state: &ThemeState) -> String {
+pub fn render_theme_conf(colors: &ColorScheme, state: &ThemeState, wallpaper: &str) -> String {
     let on_accent = color::readable_on_ends(&colors.accent, &colors.bg, &colors.fg);
     let font_size = state.font_size.max(1);
     format!(
         "[General]\n\
          background={INSTALLED_BACKGROUND_PATH}\n\
+         wallpaper={wallpaper}\n\
          bg={bg}\n\
          bg1={bg1}\n\
          bg2={bg2}\n\
@@ -58,28 +60,43 @@ pub fn render_theme_conf(colors: &ColorScheme, state: &ThemeState) -> String {
     )
 }
 
+/// Names the wallpaper in `theme.conf`, so an installed config equal to the
+/// rendered one means SDDM already has both and nothing is staged.
+fn wallpaper_identity(source: &Path) -> io::Result<String> {
+    let meta = source.metadata()?;
+    let modified = meta
+        .modified()?
+        .duration_since(UNIX_EPOCH)
+        .map_err(io::Error::other)?
+        .as_nanos();
+    Ok(format!("{} {} {modified}", source.display(), meta.len()))
+}
+
 pub fn persist(colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
-    match selected_wallpaper_path(colors, state) {
-        Ok(source) if source.is_file() => match fs::read(&source) {
-            Ok(bytes) => {
-                if let Err(error) = atomic_write(Path::new(STAGED_BACKGROUND_PATH), &bytes) {
-                    warn(&format!("could not stage SDDM background: {error}"));
-                }
+    let source = selected_wallpaper_path(colors, state)?;
+    let identity = wallpaper_identity(&source);
+    let conf = render_theme_conf(colors, state, identity.as_deref().unwrap_or_default());
+    if fs::read(INSTALLED_CONFIG_PATH).is_ok_and(|installed| installed == conf.as_bytes()) {
+        return Ok(());
+    }
+
+    match identity {
+        Ok(_) => {
+            let staged: crate::Result<()> = fs::read(&source)
+                .map_err(Into::into)
+                .and_then(|bytes| atomic_write(Path::new(STAGED_BACKGROUND_PATH), &bytes));
+            if let Err(error) = staged {
+                warn(&format!(
+                    "could not stage SDDM background from {}: {error}",
+                    source.display()
+                ));
+                return Ok(());
             }
-            Err(error) => warn(&format!(
-                "could not read staged wallpaper source {}: {error}",
-                source.display()
-            )),
-        },
-        Ok(source) => warn(&format!(
-            "source wallpaper does not exist: {}",
-            source.display()
-        )),
-        Err(error) => warn(&format!("could not resolve current wallpaper: {error}")),
+        }
+        Err(error) => warn(&format!("wallpaper {}: {error}", source.display())),
     }
 
     // Written last so the path unit copies the updated wallpaper and config together.
-    let conf = render_theme_conf(colors, state);
     if let Err(error) = atomic_write(Path::new(STAGED_CONFIG_PATH), conf.as_bytes()) {
         warn(&format!("could not stage SDDM config: {error}"));
     }
@@ -102,7 +119,7 @@ mod tests {
     fn render_theme_conf_emits_general_section_and_fonts() {
         let colors = dummy_colors();
         let state = dummy_state();
-        let rendered = render_theme_conf(&colors, &state);
+        let rendered = render_theme_conf(&colors, &state, "");
         assert!(rendered.starts_with("[General]\n"));
         assert!(rendered.contains(&format!("background={INSTALLED_BACKGROUND_PATH}\n")));
         assert!(rendered.contains(&format!("bg={}\n", colors.bg)));
@@ -117,7 +134,7 @@ mod tests {
         let state = dummy_state();
         for name in repo_schemes() {
             let colors = load_repo_colors(&name);
-            let rendered = render_theme_conf(&colors, &state);
+            let rendered = render_theme_conf(&colors, &state, "");
             let on_accent = rendered
                 .lines()
                 .find_map(|line| line.strip_prefix("onAccent="))

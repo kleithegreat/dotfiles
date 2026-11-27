@@ -52,7 +52,6 @@ pub struct Target {
     pub name: &'static str,
     pub assembly: Assembly,
     pub state_keys: &'static [&'static str],
-    pub reload_cmd: Option<&'static [&'static str]>,
     pub comment: Option<&'static str>,
     pub sync_safe: bool,
     pub persist: Option<HookFn>,
@@ -69,7 +68,6 @@ impl Target {
             name,
             assembly,
             state_keys,
-            reload_cmd: None,
             comment: None,
             sync_safe: true,
             persist: None,
@@ -106,13 +104,6 @@ impl Target {
 
     pub const fn hooks(name: &'static str, state_keys: &'static [&'static str]) -> Self {
         Self::new(name, Assembly::Hooks, state_keys)
-    }
-
-    pub const fn reload_cmd(self, reload_cmd: &'static [&'static str]) -> Self {
-        Self {
-            reload_cmd: Some(reload_cmd),
-            ..self
-        }
     }
 
     pub const fn comment(self, comment: &'static str) -> Self {

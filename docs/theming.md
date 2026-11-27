@@ -30,7 +30,10 @@
 - A manual `dark_hint` write also upserts `dark_hint_manual_at` in the same
   transaction; it gates the scheduler's catch-up ([[sun-schedule]]). A preset
   carrying `dark_hint` counts as manual.
-- `theme sync` is the activation-safe subset (no reload hooks).
+- A target's `persist` leaves its whole lasting result in place, dconf
+  included; `on_apply` only tells running programs. `theme sync`, the
+  activation-safe subset, skips `on_apply` and the wallpaper, so state that
+  lives only in a hook stays stale after a switch.
 - A palette target for one consumer (`quickshell`, `hyprland`, `neovim`)
   emits only the keys that consumer reads; reading a new key means adding it
   to the target in the same change.
@@ -162,7 +165,10 @@ SDDM can't read the 0700 home, so `sddm.rs` stages both the wallpaper and
 generated `theme.conf` (symlinked as `theme.conf.user`) into a tmpfiles-created
 `0700 kevin` dir under `/tmp/desktopctl-sddm` and a root unit moves them to
 `/var/lib/desktopctl/sddm`. Keep the tmpfiles rule in sync with the staging
-path and never relax its mode.
+path and never relax its mode. Every stage starts that unit, and a few applies
+in quick succession hit its start limit: the path unit then sits failed and
+SDDM silently stops updating until `systemctl reset-failed`. Staging is
+skipped when the installed `theme.conf`, which names the wallpaper, matches.
 
 ### SDDM themes must be in `environment.systemPackages`, not `sddm.extraPackages`
 `services.displayManager.sddm.extraPackages` extends only the greeter's Qt/QML

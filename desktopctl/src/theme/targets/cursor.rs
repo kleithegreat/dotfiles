@@ -1,11 +1,11 @@
 use super::Target;
 use crate::{
-    cmd::{GNOME_INTERFACE_DCONF_DIR, dconf_write, dconf_write_str, run, run_with_env},
+    cmd::{GNOME_INTERFACE_DCONF_DIR, dconf_load, dconf_string, run},
     fs_util::{atomic_write, expand_user_path},
     hypr::lua_str,
     theme::schema::{ColorScheme, ThemeState},
 };
-use std::{collections::BTreeMap, fs, io, path::Path};
+use std::{fs, io, path::Path};
 
 const OUTPUT_PATH: &str = "~/.local/share/icons/default/index.theme.generated";
 
@@ -33,49 +33,6 @@ fn hyprcursor_theme_for(cursor_theme: &str) -> Option<&'static str> {
         "BreezeX-RosePine-Linux" => Some("rose-pine-hyprcursor"),
         _ => None,
     }
-}
-
-fn hyprctl_env(variable: &str, value: &str) -> crate::Result<()> {
-    crate::hypr::eval(&format!(
-        "hl.env({}, {})",
-        lua_str(variable),
-        lua_str(value)
-    ))
-}
-
-fn import_user_env(values: &BTreeMap<String, String>) {
-    let keys = values.keys().cloned().collect::<Vec<_>>();
-    let args = std::iter::once("systemctl".to_owned())
-        .chain(std::iter::once("--user".to_owned()))
-        .chain(std::iter::once("import-environment".to_owned()))
-        .chain(keys.clone())
-        .collect::<Vec<_>>();
-    let _ = run_with_env(&args, values);
-
-    let dbus_args = std::iter::once("dbus-update-activation-environment".to_owned())
-        .chain(std::iter::once("--systemd".to_owned()))
-        .chain(values.iter().map(|(key, value)| format!("{key}={value}")))
-        .collect::<Vec<_>>();
-    let _ = run(&dbus_args);
-}
-
-fn unset_user_env(keys: &[&str]) {
-    if keys.is_empty() {
-        return;
-    }
-
-    let systemctl_args = std::iter::once("systemctl".to_owned())
-        .chain(std::iter::once("--user".to_owned()))
-        .chain(std::iter::once("unset-environment".to_owned()))
-        .chain(keys.iter().map(|key| (*key).to_owned()))
-        .collect::<Vec<_>>();
-    let _ = run(&systemctl_args);
-
-    let dbus_args = std::iter::once("dbus-update-activation-environment".to_owned())
-        .chain(std::iter::once("--systemd".to_owned()))
-        .chain(keys.iter().map(|key| format!("{key}=")))
-        .collect::<Vec<_>>();
-    let _ = run(&dbus_args);
 }
 
 fn replace_with_symlink(
@@ -129,7 +86,13 @@ pub fn persist(_colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
         )?;
     }
 
-    Ok(())
+    dconf_load(
+        GNOME_INTERFACE_DCONF_DIR,
+        &[
+            ("cursor-theme", dconf_string(&state.cursor_theme)),
+            ("cursor-size", state.cursor_size.to_string()),
+        ],
+    )
 }
 
 pub fn on_apply(_colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> {
@@ -141,42 +104,30 @@ pub fn on_apply(_colors: &ColorScheme, state: &ThemeState) -> crate::Result<()> 
         }
     };
 
-    attempt(dconf_write_str(
-        &format!("{GNOME_INTERFACE_DCONF_DIR}/cursor-theme"),
-        &state.cursor_theme,
-    ));
-    attempt(dconf_write(
-        &format!("{GNOME_INTERFACE_DCONF_DIR}/cursor-size"),
-        &state.cursor_size.to_string(),
-    ));
-
+    let size = state.cursor_size.to_string();
     let hyprcursor_theme = hyprcursor_theme_for(&state.cursor_theme);
-    let mut session_env = BTreeMap::from([
-        ("XCURSOR_THEME".to_owned(), state.cursor_theme.clone()),
-        ("XCURSOR_SIZE".to_owned(), state.cursor_size.to_string()),
-    ]);
-
-    attempt(hyprctl_env("XCURSOR_THEME", &state.cursor_theme));
-    attempt(hyprctl_env("XCURSOR_SIZE", &state.cursor_size.to_string()));
-
-    if let Some(hyprcursor_theme) = hyprcursor_theme {
-        attempt(hyprctl_env("HYPRCURSOR_THEME", hyprcursor_theme));
-        session_env.insert("HYPRCURSOR_THEME".to_owned(), hyprcursor_theme.to_owned());
-    } else {
-        attempt(hyprctl_env("HYPRCURSOR_THEME", ""));
-    }
-
+    let env = [
+        ("XCURSOR_THEME", state.cursor_theme.as_str()),
+        ("XCURSOR_SIZE", size.as_str()),
+        ("HYPRCURSOR_THEME", hyprcursor_theme.unwrap_or_default()),
+    ];
+    let hypr_env = env
+        .map(|(variable, value)| format!("hl.env({}, {})", lua_str(variable), lua_str(value)))
+        .join("\n");
+    attempt(crate::hypr::eval(&hypr_env));
     attempt(run([
         "hyprctl",
         "setcursor",
         hyprcursor_theme.unwrap_or(&state.cursor_theme),
-        &state.cursor_size.to_string(),
+        &size,
     ]));
-
-    import_user_env(&session_env);
-    if hyprcursor_theme.is_none() {
-        unset_user_env(&["HYPRCURSOR_THEME"]);
-    }
+    // `--systemd` also updates the systemd user manager's environment.
+    attempt(run([
+        "dbus-update-activation-environment".to_owned(),
+        "--systemd".to_owned(),
+    ]
+    .into_iter()
+    .chain(env.map(|(variable, value)| format!("{variable}={value}")))));
 
     if failures.is_empty() {
         Ok(())
